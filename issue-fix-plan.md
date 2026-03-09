@@ -129,6 +129,13 @@ The local machine has a GeForce 2080 Super, not H100 or H200. That means:
 - Added regression coverage in:
   - `test/unit/test_scheduler_import_regression.py` (8 tests total: 4 existing + 4 new)
 
+### 4.1 Post-formatting regression fix
+
+- After running `pre-commit run --all-files`, `ruff --select=F401 --fix` silently removed the `initialize_fp8_gemm_config` re-export from `fp8_utils.py` because it appeared unused within that file.
+- This broke the backward-compatible import path: `from sglang.srt.layers.quantization.fp8_utils import initialize_fp8_gemm_config`.
+- Fix: restored the re-export with a `# noqa: F401` annotation to prevent future auto-removal.
+- Lesson: intentional re-exports must carry `noqa: F401` to survive ruff's unused-import auto-fix.
+
 ### 5. Finalize
 
 - Update progress records in `issue-fix-progress.md`.

@@ -558,3 +558,18 @@ Status values:
     - `Commit A`: code fix + regression coverage
     - `Commit B`: plan, progress, test record, and submission checklist
     - `Commit C`: promoted reproducibility artifacts only
+
+### 5.3 Post-formatting regression fix: `initialize_fp8_gemm_config` re-export
+
+- Status: `completed`
+- Cause:
+  - Running `pre-commit run --all-files` invoked `ruff --select=F401 --fix`, which silently removed the `initialize_fp8_gemm_config` import from `fp8_utils.py` because ruff treated it as an unused import within that file.
+  - The import was an intentional re-export for backward compatibility: `from sglang.srt.layers.quantization.fp8_utils import initialize_fp8_gemm_config`.
+- Impact:
+  - `test_compatibility_imports_still_work` failed with `ImportError: cannot import name 'initialize_fp8_gemm_config'`.
+- Fix:
+  - Restored the re-export in `fp8_utils.py` with `# noqa: F401` to prevent ruff from removing it again.
+- Verification:
+  - All 8 import-regression tests pass in the DevContainer (`venv-min2`, `Ran 8 tests in 18.573s`, `OK`).
+- Lesson:
+  - Intentional re-exports must carry `noqa: F401` annotations to survive ruff's auto-fix pass. This applies to all `__init__.py` lazy exports and cross-module re-export patterns in this branch.

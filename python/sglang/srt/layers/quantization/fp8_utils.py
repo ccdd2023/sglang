@@ -10,6 +10,7 @@ from sglang.srt.layers import deep_gemm_wrapper
 from sglang.srt.layers.quantization.fp8_config import (
     Fp8GemmRunnerBackend,
     get_fp8_gemm_runner_backend,
+    initialize_fp8_gemm_config,  # noqa: F401 — re-exported for backward compatibility
 )
 from sglang.srt.layers.quantization.fp8_kernel import (
     fp8_dtype,
