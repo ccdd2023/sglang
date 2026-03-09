@@ -364,6 +364,32 @@ Status values:
     - `flashinfer`: `False`
     - `sglang.srt.utils.hf_transformers_utils`: `False`
 
+### 3.8 Add regression tests for remaining high-impact import paths
+
+- Status: `completed`
+- Atomic operation:
+  - Add four new test methods to `test/unit/test_scheduler_import_regression.py`:
+    - `test_model_config_import_does_not_load_transformers`
+    - `test_reasoning_parser_import_does_not_load_openai`
+    - `test_server_args_import_does_not_load_heavy_deps`
+    - `test_configs_package_does_not_eagerly_import_model_configs`
+- Expected effect:
+  - Each high-impact lazy import path has a dedicated guard preventing silent regression.
+- Verification:
+  - Run:
+    ```bash
+    PYTHONPATH=python python3 -m unittest discover -s test/unit -p "test_scheduler_import_regression.py" -v
+    ```
+  - Confirm 8 tests pass.
+- User confirmation gate:
+  - User confirms the expanded regression suite is correct.
+- Result:
+  - Added four new test methods to `test/unit/test_scheduler_import_regression.py`.
+  - Initial run revealed `from sglang.srt.configs import ModelConfig` fails because `ModelConfig` is not in the configs package lazy exports (it lives in `sglang.srt.configs.model_config`). Fixed the test to use `DeepseekVL2Config` instead, which is a proper lazy export, and asserts that importing one config does not eagerly load others (`exaone`, `chatglm`, `dbrx`).
+  - Verification result:
+    - `Ran 8 tests in 19.072s`
+    - `OK`
+
 ## 4. Re-Measure and Validate
 
 ### 4.1 Re-run the baseline import timing command

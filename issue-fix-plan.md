@@ -96,6 +96,11 @@ The local machine has a GeForce 2080 Super, not H100 or H200. That means:
   - LoRA type-only helpers
   - server-args parser helpers
 - Ensure DeepGEMM loading remains runtime-only, not import-time.
+- Add regression tests for the remaining high-impact import paths:
+  - `ModelConfig` must not load `transformers`, `compressed_tensors`, or `hf_transformers_utils`
+  - `ReasoningParser` must not load `openai` or `sglang.srt.entrypoints.openai.protocol`
+  - `ServerArgs` must not load `openai`, `transformers`, or `hf_transformers_utils`
+  - `configs` package must not eagerly load model-specific config modules like `deepseekvl2` or `exaone`
 
 ### 4. Re-Measure and Validate
 
@@ -122,7 +127,7 @@ The local machine has a GeForce 2080 Super, not H100 or H200. That means:
   - `sglang.srt.layers.deep_gemm_wrapper.entrypoint`
   - `torch.utils.cpp_extension`
 - Added regression coverage in:
-  - `test/unit/test_scheduler_import_regression.py`
+  - `test/unit/test_scheduler_import_regression.py` (8 tests total: 4 existing + 4 new)
 
 ### 5. Finalize
 

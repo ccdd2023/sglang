@@ -106,6 +106,94 @@ class TestSchedulerImportRegression(unittest.TestCase):
         self.assertFalse(result["moe_runner.deep_gemm"])
         self.assertFalse(result["torch.utils.cpp_extension"])
 
+    def test_model_config_import_does_not_load_transformers(self):
+        result = _run_probe(
+            """
+            import json
+            import sys
+
+            from sglang.srt.configs.model_config import ModelConfig
+
+            print(json.dumps({
+                "ModelConfig": ModelConfig.__name__,
+                "transformers": any(m == "transformers" or m.startswith("transformers.") for m in sys.modules),
+                "compressed_tensors": any(m == "compressed_tensors" or m.startswith("compressed_tensors.") for m in sys.modules),
+                "hf_transformers_utils": "sglang.srt.utils.hf_transformers_utils" in sys.modules,
+                "deepseekvl2": "sglang.srt.configs.deepseekvl2" in sys.modules,
+            }))
+            """
+        )
+
+        self.assertEqual(result["ModelConfig"], "ModelConfig")
+        self.assertFalse(result["transformers"])
+        self.assertFalse(result["compressed_tensors"])
+        self.assertFalse(result["hf_transformers_utils"])
+        self.assertFalse(result["deepseekvl2"])
+
+    def test_reasoning_parser_import_does_not_load_openai(self):
+        result = _run_probe(
+            """
+            import json
+            import sys
+
+            from sglang.srt.parser.reasoning_parser import ReasoningParser
+
+            print(json.dumps({
+                "ReasoningParser": ReasoningParser.__name__,
+                "openai": any(m == "openai" or m.startswith("openai.") for m in sys.modules),
+                "openai_protocol": "sglang.srt.entrypoints.openai.protocol" in sys.modules,
+            }))
+            """
+        )
+
+        self.assertEqual(result["ReasoningParser"], "ReasoningParser")
+        self.assertFalse(result["openai"])
+        self.assertFalse(result["openai_protocol"])
+
+    def test_server_args_import_does_not_load_heavy_deps(self):
+        result = _run_probe(
+            """
+            import json
+            import sys
+
+            from sglang.srt.server_args import ServerArgs
+
+            print(json.dumps({
+                "ServerArgs": ServerArgs.__name__,
+                "openai": any(m == "openai" or m.startswith("openai.") for m in sys.modules),
+                "transformers": any(m == "transformers" or m.startswith("transformers.") for m in sys.modules),
+                "hf_transformers_utils": "sglang.srt.utils.hf_transformers_utils" in sys.modules,
+            }))
+            """
+        )
+
+        self.assertEqual(result["ServerArgs"], "ServerArgs")
+        self.assertFalse(result["openai"])
+        self.assertFalse(result["transformers"])
+        self.assertFalse(result["hf_transformers_utils"])
+
+    def test_configs_package_does_not_eagerly_import_model_configs(self):
+        result = _run_probe(
+            """
+            import json
+            import sys
+
+            from sglang.srt.configs import DeepseekVL2Config
+
+            print(json.dumps({
+                "DeepseekVL2Config": DeepseekVL2Config.__name__,
+                "exaone": "sglang.srt.configs.exaone" in sys.modules,
+                "chatglm": "sglang.srt.configs.chatglm" in sys.modules,
+                "dbrx": "sglang.srt.configs.dbrx" in sys.modules,
+            }))
+            """
+        )
+
+        self.assertEqual(result["DeepseekVL2Config"], "DeepseekVL2Config")
+        self.assertFalse(result["exaone"])
+        self.assertFalse(result["chatglm"])
+        self.assertFalse(result["dbrx"])
+
     def test_compatibility_imports_still_work(self):
         result = _run_probe(
             """
