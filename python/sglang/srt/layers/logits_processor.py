@@ -22,6 +22,7 @@ import triton
 import triton.language as tl
 from torch import nn
 
+from sglang.srt.layers.logits_processor_output import LogitsProcessorOutput
 from sglang.srt.distributed import (
     get_tensor_model_parallel_world_size,
     tensor_model_parallel_all_gather,
@@ -60,51 +61,6 @@ from sglang.srt.utils.common import is_npu, use_intel_amx_backend
 logger = logging.getLogger(__name__)
 
 _is_npu = is_npu()
-
-
-@dataclasses.dataclass
-class LogitsProcessorOutput:
-    ## Part 1: This part will be assigned in python/sglang/srt/layers/logits_processor.py::LogitsProcessor
-    # The logits of the next tokens.       shape: [#seq, vocab_size]
-    # Can be None for certain prefill-only requests (e.g., multi-item scoring) that don't need next token generation
-    next_token_logits: Optional[torch.Tensor]
-    # Used by speculative decoding (EAGLE)
-    # The last hidden layers
-    hidden_states: Optional[torch.Tensor] = None
-
-    ## Part 2: This part will be assigned in python/sglang/srt/layers/sampler.py::Sampler
-    # he log probs of output tokens, if SGLANG_RETURN_ORIGINAL_LOGPROB = True, will get the log probs before applying temperature. If False, will get the log probs before applying temperature.
-    next_token_logprobs: Optional[torch.Tensor] = None
-    # The logprobs and ids of the top-k tokens in output positions. shape: [#seq, k]
-    next_token_top_logprobs_val: Optional[List] = None
-    next_token_top_logprobs_idx: Optional[List] = None
-    # The logprobs and ids of the requested token ids in output positions. shape: [#seq, n] (n is the number of requested token ids)
-    # Can contain either lists or GPU tensors (for delayed copy optimization in prefill-only requests)
-    next_token_token_ids_logprobs_val: Optional[
-        List[Union[List[float], torch.Tensor]]
-    ] = None
-    next_token_token_ids_logprobs_idx: Optional[List] = None
-
-    ## Part 3: Prefill-only. This part will be assigned in python/sglang/srt/layers/logits_processor.py::LogitsProcessor
-    # The logprobs of input tokens.        shape: [#token]
-    input_token_logprobs: Optional[torch.Tensor] = None
-    # The logprobs and ids of the top-k tokens in input positions.  shape: [#seq, #token, k]
-    input_top_logprobs_val: Optional[List] = None
-    input_top_logprobs_idx: Optional[List] = None
-    # The logprobs and ids of the requested token ids in input positions. shape: [#seq, n] (n is the number of requested token ids)
-    # Can contain either lists or GPU tensors (for delayed GPU-to-CPU transfer optimization)
-    input_token_ids_logprobs_val: Optional[List[Union[List[float], torch.Tensor]]] = (
-        None
-    )
-    input_token_ids_logprobs_idx: Optional[List] = None
-
-    ## Part 4: Diffusion LLM only.
-    full_logits: Optional[torch.Tensor] = None
-
-    ## Part 5: Customized Info
-    customized_info: Optional[Dict[str, List[Any]]] = None
-
-    mm_input_embeds: Optional[torch.Tensor] = None
 
 
 @dataclasses.dataclass

@@ -7,7 +7,6 @@ import torch
 
 from sglang.srt.disaggregation.utils import DisaggregationMode
 from sglang.srt.environ import envs
-from sglang.srt.layers.logits_processor import LogitsProcessorOutput
 from sglang.srt.layers.moe.routed_experts_capturer import get_global_experts_capturer
 from sglang.srt.managers.io_struct import (
     AbortReq,
@@ -23,6 +22,7 @@ from sglang.srt.mem_cache.common import release_kv_cache
 from sglang.srt.server_args import get_global_server_args
 
 if TYPE_CHECKING:
+    from sglang.srt.layers.logits_processor import LogitsProcessorOutput
     from sglang.srt.managers.scheduler import (
         EmbeddingBatchResult,
         GenerationBatchResult,

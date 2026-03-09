@@ -28,10 +28,8 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 from sglang.srt.connector import ConnectorType
 from sglang.srt.environ import envs
-from sglang.srt.function_call.function_call_parser import FunctionCallParser
 from sglang.srt.layers.attention.fla.chunk_delta_h import CHUNK_SIZE as FLA_CHUNK_SIZE
 from sglang.srt.lora.lora_registry import LoRARef
-from sglang.srt.parser.reasoning_parser import ReasoningParser
 from sglang.srt.utils.common import (
     LORA_TARGET_ALL_MODULES,
     SUPPORTED_LORA_TARGET_MODULES,
@@ -66,10 +64,27 @@ from sglang.srt.utils.common import (
     wait_port_available,
     xpu_has_xmx_support,
 )
-from sglang.srt.utils.hf_transformers_utils import check_gguf_file
 from sglang.utils import is_in_ci
 
 logger = logging.getLogger(__name__)
+
+
+def _get_function_call_parser():
+    from sglang.srt.function_call.function_call_parser import FunctionCallParser
+
+    return FunctionCallParser
+
+
+def _get_reasoning_parser():
+    from sglang.srt.parser.reasoning_parser import ReasoningParser
+
+    return ReasoningParser
+
+
+def _check_gguf_file(model_path: str) -> bool:
+    from sglang.srt.utils.hf_transformers_utils import check_gguf_file
+
+    return check_gguf_file(model_path)
 
 # Define constants
 DEFAULT_UVICORN_ACCESS_LOG_EXCLUDE_PREFIXES = ()
@@ -1061,7 +1076,7 @@ class ServerArgs:
         if (
             self.load_format == "gguf"
             or self.quantization == "gguf"
-            or check_gguf_file(self.model_path)
+            or _check_gguf_file(self.model_path)
         ):
             self.disable_piecewise_cuda_graph = True
         # 11. DLLM (diffusion LLM) models (context manager in forward breaks dynamo)
@@ -2829,7 +2844,7 @@ class ServerArgs:
     def _handle_load_format(self):
         if (
             self.load_format == "auto" or self.load_format == "gguf"
-        ) and check_gguf_file(self.model_path):
+        ) and _check_gguf_file(self.model_path):
             self.quantization = self.load_format = "gguf"
 
         if is_remote_url(self.model_path):
@@ -4058,11 +4073,16 @@ class ServerArgs:
         parser.add_argument(
             "--reasoning-parser",
             type=str,
-            choices=list(ReasoningParser.DetectorMap.keys()),
+            choices=list(_get_reasoning_parser().DetectorMap.keys()),
             default=ServerArgs.reasoning_parser,
-            help=f"Specify the parser for reasoning models, supported parsers are: {list(ReasoningParser.DetectorMap.keys())}.",
+            help=(
+                "Specify the parser for reasoning models, supported parsers are: "
+                f"{list(_get_reasoning_parser().DetectorMap.keys())}."
+            ),
         )
-        tool_call_parser_choices = list(FunctionCallParser.ToolCallParserEnum.keys())
+        tool_call_parser_choices = list(
+            _get_function_call_parser().ToolCallParserEnum.keys()
+        )
         parser.add_argument(
             "--tool-call-parser",
             type=str,

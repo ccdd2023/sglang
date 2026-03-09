@@ -1,64 +1,104 @@
-from sglang.srt.configs.afmoe import AfmoeConfig
-from sglang.srt.configs.bailing_hybrid import BailingHybridConfig
-from sglang.srt.configs.chatglm import ChatGLMConfig
-from sglang.srt.configs.dbrx import DbrxConfig
-from sglang.srt.configs.deepseekvl2 import DeepseekVL2Config
-from sglang.srt.configs.dots_ocr import DotsOCRConfig
-from sglang.srt.configs.dots_vlm import DotsVLMConfig
-from sglang.srt.configs.exaone import ExaoneConfig
-from sglang.srt.configs.falcon_h1 import FalconH1Config
-from sglang.srt.configs.granitemoehybrid import GraniteMoeHybridConfig
-from sglang.srt.configs.janus_pro import MultiModalityConfig
-from sglang.srt.configs.jet_nemotron import JetNemotronConfig
-from sglang.srt.configs.jet_vlm import JetVLMConfig
-from sglang.srt.configs.kimi_k25 import KimiK25Config
-from sglang.srt.configs.kimi_linear import KimiLinearConfig
-from sglang.srt.configs.kimi_vl import KimiVLConfig
-from sglang.srt.configs.kimi_vl_moonvit import MoonViTConfig
-from sglang.srt.configs.lfm2 import Lfm2Config
-from sglang.srt.configs.lfm2_moe import Lfm2MoeConfig
-from sglang.srt.configs.longcat_flash import LongcatFlashConfig
-from sglang.srt.configs.nano_nemotron_vl import NemotronH_Nano_VL_V2_Config
-from sglang.srt.configs.nemotron_h import NemotronHConfig
-from sglang.srt.configs.olmo3 import Olmo3Config
-from sglang.srt.configs.qwen3_5 import Qwen3_5Config, Qwen3_5MoeConfig
-from sglang.srt.configs.qwen3_next import Qwen3NextConfig
-from sglang.srt.configs.step3_vl import (
-    Step3TextConfig,
-    Step3VisionEncoderConfig,
-    Step3VLConfig,
-)
-from sglang.srt.configs.step3p5 import Step3p5Config
+from importlib import import_module
+
+_EXPORTS = {
+    "AfmoeConfig": ("sglang.srt.configs.afmoe", "AfmoeConfig"),
+    "BailingHybridConfig": (
+        "sglang.srt.configs.bailing_hybrid",
+        "BailingHybridConfig",
+    ),
+    "ChatGLMConfig": ("sglang.srt.configs.chatglm", "ChatGLMConfig"),
+    "DbrxConfig": ("sglang.srt.configs.dbrx", "DbrxConfig"),
+    "DeepseekVL2Config": ("sglang.srt.configs.deepseekvl2", "DeepseekVL2Config"),
+    "DotsOCRConfig": ("sglang.srt.configs.dots_ocr", "DotsOCRConfig"),
+    "DotsVLMConfig": ("sglang.srt.configs.dots_vlm", "DotsVLMConfig"),
+    "ExaoneConfig": ("sglang.srt.configs.exaone", "ExaoneConfig"),
+    "FalconH1Config": ("sglang.srt.configs.falcon_h1", "FalconH1Config"),
+    "GraniteMoeHybridConfig": (
+        "sglang.srt.configs.granitemoehybrid",
+        "GraniteMoeHybridConfig",
+    ),
+    "JetNemotronConfig": (
+        "sglang.srt.configs.jet_nemotron",
+        "JetNemotronConfig",
+    ),
+    "JetVLMConfig": ("sglang.srt.configs.jet_vlm", "JetVLMConfig"),
+    "KimiK25Config": ("sglang.srt.configs.kimi_k25", "KimiK25Config"),
+    "KimiLinearConfig": ("sglang.srt.configs.kimi_linear", "KimiLinearConfig"),
+    "KimiVLConfig": ("sglang.srt.configs.kimi_vl", "KimiVLConfig"),
+    "Lfm2Config": ("sglang.srt.configs.lfm2", "Lfm2Config"),
+    "Lfm2MoeConfig": ("sglang.srt.configs.lfm2_moe", "Lfm2MoeConfig"),
+    "LongcatFlashConfig": (
+        "sglang.srt.configs.longcat_flash",
+        "LongcatFlashConfig",
+    ),
+    "MoonViTConfig": ("sglang.srt.configs.kimi_vl_moonvit", "MoonViTConfig"),
+    "MultiModalityConfig": (
+        "sglang.srt.configs.janus_pro",
+        "MultiModalityConfig",
+    ),
+    "NemotronHConfig": ("sglang.srt.configs.nemotron_h", "NemotronHConfig"),
+    "NemotronH_Nano_VL_V2_Config": (
+        "sglang.srt.configs.nano_nemotron_vl",
+        "NemotronH_Nano_VL_V2_Config",
+    ),
+    "Olmo3Config": ("sglang.srt.configs.olmo3", "Olmo3Config"),
+    "Qwen3NextConfig": ("sglang.srt.configs.qwen3_next", "Qwen3NextConfig"),
+    "Qwen3_5Config": ("sglang.srt.configs.qwen3_5", "Qwen3_5Config"),
+    "Qwen3_5MoeConfig": ("sglang.srt.configs.qwen3_5", "Qwen3_5MoeConfig"),
+    "Step3TextConfig": ("sglang.srt.configs.step3_vl", "Step3TextConfig"),
+    "Step3VLConfig": ("sglang.srt.configs.step3_vl", "Step3VLConfig"),
+    "Step3VisionEncoderConfig": (
+        "sglang.srt.configs.step3_vl",
+        "Step3VisionEncoderConfig",
+    ),
+    "Step3p5Config": ("sglang.srt.configs.step3p5", "Step3p5Config"),
+}
+
+
+def __getattr__(name: str):
+    try:
+        module_name, attr_name = _EXPORTS[name]
+    except KeyError as exc:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+
+    value = getattr(import_module(module_name), attr_name)
+    globals()[name] = value
+    return value
+
+
+def __dir__():
+    return sorted(set(globals()) | set(__all__))
+
 
 __all__ = [
     "AfmoeConfig",
     "BailingHybridConfig",
-    "ExaoneConfig",
     "ChatGLMConfig",
     "DbrxConfig",
     "DeepseekVL2Config",
-    "LongcatFlashConfig",
-    "MultiModalityConfig",
-    "KimiVLConfig",
-    "MoonViTConfig",
-    "Step3VLConfig",
-    "Step3TextConfig",
-    "Step3VisionEncoderConfig",
-    "Olmo3Config",
-    "KimiLinearConfig",
+    "DotsOCRConfig",
+    "DotsVLMConfig",
+    "ExaoneConfig",
+    "FalconH1Config",
+    "GraniteMoeHybridConfig",
+    "JetNemotronConfig",
+    "JetVLMConfig",
     "KimiK25Config",
+    "KimiLinearConfig",
+    "KimiVLConfig",
+    "Lfm2Config",
+    "Lfm2MoeConfig",
+    "LongcatFlashConfig",
+    "MoonViTConfig",
+    "MultiModalityConfig",
+    "NemotronHConfig",
+    "NemotronH_Nano_VL_V2_Config",
+    "Olmo3Config",
     "Qwen3NextConfig",
     "Qwen3_5Config",
     "Qwen3_5MoeConfig",
-    "DotsVLMConfig",
-    "DotsOCRConfig",
-    "FalconH1Config",
-    "GraniteMoeHybridConfig",
-    "Lfm2Config",
-    "Lfm2MoeConfig",
-    "NemotronHConfig",
-    "NemotronH_Nano_VL_V2_Config",
-    "JetNemotronConfig",
-    "JetVLMConfig",
+    "Step3TextConfig",
+    "Step3VLConfig",
+    "Step3VisionEncoderConfig",
     "Step3p5Config",
 ]

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # Copyright 2023-2024 SGLang Team
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,25 +20,31 @@ import math
 import os
 from enum import Enum, IntEnum, auto
 from pathlib import Path
-from typing import Any, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Set, Union
 
 import torch
-from transformers import PretrainedConfig
 
 from sglang.srt.environ import envs
 from sglang.srt.layers.quantization import QUANTIZATION_METHODS
-from sglang.srt.server_args import ServerArgs
 from sglang.srt.utils import is_hip, is_sm100_supported, retry
-from sglang.srt.utils.hf_transformers_utils import (
-    get_config,
-    get_context_length,
-    get_generation_config,
-    get_hf_text_config,
-    get_sparse_attention_config,
-)
-from sglang.utils import is_in_ci
+
+if TYPE_CHECKING:
+    from sglang.srt.server_args import ServerArgs
+    from transformers import PretrainedConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _get_hf_transformers_utils():
+    from sglang.srt.utils import hf_transformers_utils
+
+    return hf_transformers_utils
+
+
+def _is_in_ci() -> bool:
+    from sglang.utils import is_in_ci
+
+    return is_in_ci()
 
 
 class AttentionArch(IntEnum):
@@ -124,15 +132,16 @@ class ModelConfig:
         kwargs = {}
         if override_config_file and override_config_file.strip():
             kwargs["_configuration_file"] = override_config_file.strip()
-        self.hf_config = get_config(
+        hf_utils = _get_hf_transformers_utils()
+        self.hf_config = hf_utils.get_config(
             self.model_path,
             trust_remote_code=trust_remote_code,
             revision=revision,
             model_override_args=self.model_override_args,
             **kwargs,
         )
-        self.hf_text_config = get_hf_text_config(self.hf_config)
-        self.hf_generation_config = get_generation_config(
+        self.hf_text_config = hf_utils.get_hf_text_config(self.hf_config)
+        self.hf_generation_config = hf_utils.get_generation_config(
             self.model_path,
             trust_remote_code=trust_remote_code,
             revision=revision,
@@ -362,7 +371,9 @@ class ModelConfig:
 
     def _derive_context_length(self, context_length: int):
         is_draft_model = self.is_draft_model
-        derived_context_len = get_context_length(self.hf_text_config)
+        derived_context_len = _get_hf_transformers_utils().get_context_length(
+            self.hf_text_config
+        )
 
         if context_length is not None:
             if context_length > derived_context_len:
@@ -373,7 +384,7 @@ class ModelConfig:
                 )
                 if (
                     envs.SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN.get()
-                    or is_in_ci()  # FIXME: fix this special case
+                    or _is_in_ci()  # FIXME: fix this special case
                 ):
                     logger.warning(msg)
                     self.context_len = context_length
@@ -1037,7 +1048,9 @@ class ModelConfig:
     def _verify_dual_chunk_attention_config(self) -> None:
         if hasattr(self.hf_config, "dual_chunk_attention_config"):
             # Try loading the sparse attention config
-            sparse_attn_config = get_sparse_attention_config(self.model_path)
+            sparse_attn_config = _get_hf_transformers_utils().get_sparse_attention_config(
+                self.model_path
+            )
             if not sparse_attn_config:
                 return
             self.hf_config.dual_chunk_attention_config["sparse_attention_config"] = (

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, List, Optional, Union
 import torch
 
 from sglang.srt.eplb.expert_distribution import ExpertDistributionMetrics
-from sglang.srt.layers.logits_processor import LogitsProcessorOutput
+from sglang.srt.layers.logits_processor_output import LogitsProcessorOutput
 from sglang.srt.managers.overlap_utils import FutureIndices
 from sglang.srt.managers.schedule_batch import Req
 from sglang.srt.model_executor.forward_batch_info import PPProxyTensors

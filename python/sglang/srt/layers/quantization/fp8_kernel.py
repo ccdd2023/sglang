@@ -28,7 +28,6 @@ try:
 except:
     pass
 
-from sglang.srt.layers import deep_gemm_wrapper
 from sglang.srt.utils import (
     ceil_align,
     get_bool_env_var,
@@ -92,6 +91,12 @@ if _is_hip:
 logger = logging.getLogger(__name__)
 
 
+def _get_deep_gemm_wrapper():
+    from sglang.srt.layers import deep_gemm_wrapper
+
+    return deep_gemm_wrapper
+
+
 @lru_cache()
 def is_fp8_fnuz() -> bool:
     if _is_hip:
@@ -117,7 +122,7 @@ def deep_gemm_fp8_fp8_bf16_nt(
     Bs: torch.Tensor,
     C: torch.Tensor,
 ) -> None:
-    deep_gemm_wrapper.gemm_nt_f8f8bf16((A, As), (B, Bs), C)
+    _get_deep_gemm_wrapper().gemm_nt_f8f8bf16((A, As), (B, Bs), C)
 
 
 @triton.jit
@@ -1098,6 +1103,7 @@ def w8a8_block_fp8_matmul_deepgemm(
     M, N, K, C = prepare_block_fp8_matmul_inputs(A, B, As, Bs, block_size, output_dtype)
 
     # Deepgemm only supports output tensor type as bfloat16
+    deep_gemm_wrapper = _get_deep_gemm_wrapper()
     assert C.dtype == torch.bfloat16 and deep_gemm_wrapper.ENABLE_JIT_DEEPGEMM
 
     deep_gemm_fp8_fp8_bf16_nt(A, As, B, Bs, C)
@@ -1197,6 +1203,7 @@ def w8a8_block_fp8_matmul(
     block_size: List[int],
     output_dtype: torch.dtype = torch.float16,
 ) -> torch.Tensor:
+    deep_gemm_wrapper = _get_deep_gemm_wrapper()
     if output_dtype == torch.bfloat16 and deep_gemm_wrapper.ENABLE_JIT_DEEPGEMM:
         return w8a8_block_fp8_matmul_deepgemm(
             A, B, As, Bs, block_size, output_dtype=output_dtype

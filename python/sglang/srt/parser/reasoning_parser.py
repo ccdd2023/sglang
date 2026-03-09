@@ -1,7 +1,11 @@
-from typing import Dict, Optional, Tuple, Type
+from __future__ import annotations
 
-from sglang.srt.entrypoints.openai.protocol import ChatCompletionRequest
+from typing import TYPE_CHECKING, Dict, Optional, Tuple, Type
+
 from sglang.srt.parser.harmony_parser import HarmonyParser
+
+if TYPE_CHECKING:
+    from sglang.srt.entrypoints.openai.protocol import ChatCompletionRequest
 
 
 class StreamingParseResult:
@@ -493,12 +497,7 @@ class ReasoningParser:
         if force_reasoning is not None:
             kwargs["force_reasoning"] = force_reasoning
 
-        if (
-            request is not None
-            and isinstance(request, ChatCompletionRequest)
-            and request.continue_final_message
-            and request.messages[-1].role == "assistant"
-        ):
+        if _has_continue_final_assistant_message(request):
             kwargs["continue_final_message"] = True
             kwargs["previous_content"] = request.messages[-1].content
 
@@ -515,3 +514,15 @@ class ReasoningParser:
         """Streaming call: incremental parsing"""
         ret = self.detector.parse_streaming_increment(chunk_text)
         return ret.reasoning_text, ret.normal_text
+
+
+def _has_continue_final_assistant_message(request: object) -> bool:
+    if request is None or not getattr(request, "continue_final_message", False):
+        return False
+
+    messages = getattr(request, "messages", None)
+    if not messages:
+        return False
+
+    last_message = messages[-1]
+    return getattr(last_message, "role", None) == "assistant"

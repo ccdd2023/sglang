@@ -1,13 +1,16 @@
+from __future__ import annotations
+
 import logging
 from enum import Enum, auto
-from typing import Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional
 
 import torch
 from torch.cuda import Event as CudaEvent
 from torch.cuda import Stream as CudaStream
 from torch.cuda import StreamContext as CudaStreamContext
 
-from sglang.srt.lora.lora_manager import LoRAManager
+if TYPE_CHECKING:
+    from sglang.srt.lora.lora_manager import LoRAManager
 
 logger = logging.getLogger(__name__)
 

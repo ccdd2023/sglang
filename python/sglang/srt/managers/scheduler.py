@@ -43,7 +43,6 @@ from sglang.srt.disaggregation.decode import (
 from sglang.srt.disaggregation.decode_kvcache_offload_manager import (
     DecodeKVCacheOffloadManager,
 )
-from sglang.srt.disaggregation.encode_receiver import create_mm_receiver
 from sglang.srt.disaggregation.prefill import (
     PrefillBootstrapQueue,
     SchedulerDisaggregationPrefillMixin,
@@ -69,9 +68,9 @@ from sglang.srt.layers.dp_attention import (
     get_attention_cp_group,
     get_attention_tp_group,
 )
-from sglang.srt.layers.moe import initialize_moe_config
+from sglang.srt.layers.moe.utils import initialize_moe_config
 from sglang.srt.layers.quantization.fp4_utils import initialize_fp4_gemm_config
-from sglang.srt.layers.quantization.fp8_utils import initialize_fp8_gemm_config
+from sglang.srt.layers.quantization.fp8_config import initialize_fp8_gemm_config
 from sglang.srt.lora.lora_overlap_loader import LoRAOverlapLoader
 from sglang.srt.managers.io_struct import (
     AbortReq,
@@ -135,7 +134,6 @@ from sglang.srt.managers.io_struct import (
     UpdateWeightsFromIPCReqInput,
     UpdateWeightsFromTensorReqInput,
 )
-from sglang.srt.managers.mm_utils import init_mm_embedding_cache, unwrap_shm_features
 from sglang.srt.managers.overlap_utils import FutureMap
 from sglang.srt.managers.prefill_delayer import (
     PrefillDelayer,
@@ -207,11 +205,6 @@ from sglang.srt.utils import (
     set_gpu_proc_affinity,
     set_random_seed,
     suppress_other_loggers,
-)
-from sglang.srt.utils.hf_transformers_utils import (
-    get_processor,
-    get_tokenizer,
-    get_tokenizer_from_processor,
 )
 from sglang.srt.utils.torch_memory_saver_adapter import TorchMemorySaverAdapter
 from sglang.utils import TypeBasedDispatcher, get_exception_traceback
@@ -465,6 +458,11 @@ class Scheduler(
             self.tokenizer = self.processor = None
         else:
             if self.model_config.is_multimodal:
+                from sglang.srt.utils.hf_transformers_utils import (
+                    get_processor,
+                    get_tokenizer_from_processor,
+                )
+
                 self.processor = get_processor(
                     server_args.tokenizer_path,
                     tokenizer_mode=server_args.tokenizer_mode,
@@ -474,6 +472,8 @@ class Scheduler(
                 )
                 self.tokenizer = get_tokenizer_from_processor(self.processor)
             else:
+                from sglang.srt.utils.hf_transformers_utils import get_tokenizer
+
                 self.tokenizer = get_tokenizer(
                     server_args.tokenizer_path,
                     tokenizer_mode=server_args.tokenizer_mode,
@@ -749,6 +749,8 @@ class Scheduler(
             self.decode_offload_manager = None
 
         embedding_cache_size = envs.SGLANG_VLM_CACHE_SIZE_MB.get()
+        from sglang.srt.managers.mm_utils import init_mm_embedding_cache
+
         init_mm_embedding_cache(embedding_cache_size * 1024 * 1024)
 
     def init_running_status(self):
@@ -994,6 +996,8 @@ class Scheduler(
             self.server_args.language_only
             and self.server_args.encoder_transfer_backend == "zmq_to_scheduler"
         ):
+            from sglang.srt.disaggregation.encode_receiver import create_mm_receiver
+
             self.mm_receiver = create_mm_receiver(
                 self.server_args,
                 hf_config=self.model_config.hf_config,
@@ -1290,6 +1294,8 @@ class Scheduler(
                         if self.recv_limit_reached(len(recv_reqs)):
                             break
                         recv_req = self.recv_from_tokenizer.recv_pyobj(zmq.NOBLOCK)
+                        from sglang.srt.managers.mm_utils import unwrap_shm_features
+
                         recv_req = unwrap_shm_features(recv_req)
                     except zmq.ZMQError:
                         break
