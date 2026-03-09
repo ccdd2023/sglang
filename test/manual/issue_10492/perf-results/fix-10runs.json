@@ -1,0 +1,591 @@
+{
+  "label": "fix-10runs",
+  "repo_root": "/sgl-workspace/sglang",
+  "python_executable": "/tmp/sglang-issue10492-venv-min2/bin/python",
+  "warmups": 1,
+  "runs": 10,
+  "benchmarks": [
+    {
+      "name": "import_sglang",
+      "statement": "import sglang",
+      "samples": [
+        {
+          "real": 0.023927077185362577,
+          "user": 0.021741,
+          "sys": 0.001976,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_sglang/run-1.importtime"
+        },
+        {
+          "real": 0.02338792523369193,
+          "user": 0.017117999999999998,
+          "sys": 0.0060409999999999995,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_sglang/run-2.importtime"
+        },
+        {
+          "real": 0.02408103784546256,
+          "user": 0.018904,
+          "sys": 0.004974,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_sglang/run-3.importtime"
+        },
+        {
+          "real": 0.02368069114163518,
+          "user": 0.01754,
+          "sys": 0.005846,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_sglang/run-4.importtime"
+        },
+        {
+          "real": 0.023789245169609785,
+          "user": 0.015705999999999998,
+          "sys": 0.007852999999999999,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_sglang/run-5.importtime"
+        },
+        {
+          "real": 0.02413721615448594,
+          "user": 0.013937999999999999,
+          "sys": 0.009955,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_sglang/run-6.importtime"
+        },
+        {
+          "real": 0.023810136131942272,
+          "user": 0.013297999999999999,
+          "sys": 0.010229,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_sglang/run-7.importtime"
+        },
+        {
+          "real": 0.023273468017578125,
+          "user": 0.018255999999999998,
+          "sys": 0.004804,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_sglang/run-8.importtime"
+        },
+        {
+          "real": 0.023790488950908184,
+          "user": 0.014702,
+          "sys": 0.008820999999999999,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_sglang/run-9.importtime"
+        },
+        {
+          "real": 0.0233654729090631,
+          "user": 0.015071,
+          "sys": 0.008038,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_sglang/run-10.importtime"
+        }
+      ],
+      "stats": {
+        "real": {
+          "min": 0.023273468017578125,
+          "max": 0.02413721615448594,
+          "mean": 0.023724275873973966,
+          "median": 0.023789867060258985
+        },
+        "user": {
+          "min": 0.013297999999999999,
+          "max": 0.021741,
+          "mean": 0.0166274,
+          "median": 0.016411999999999996
+        },
+        "sys": {
+          "min": 0.001976,
+          "max": 0.010229,
+          "mean": 0.0068537,
+          "median": 0.006946999999999999
+        }
+      },
+      "importtime_sample": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_sglang/run-1.importtime"
+    },
+    {
+      "name": "import_model_config",
+      "statement": "from sglang.srt.configs.model_config import ModelConfig",
+      "samples": [
+        {
+          "real": 1.7531656031496823,
+          "user": 2.847935,
+          "sys": 0.37785799999999997,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_model_config/run-1.importtime"
+        },
+        {
+          "real": 1.7453487948514521,
+          "user": 2.867975,
+          "sys": 0.358496,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_model_config/run-2.importtime"
+        },
+        {
+          "real": 1.7626674701459706,
+          "user": 2.874721,
+          "sys": 0.370479,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_model_config/run-3.importtime"
+        },
+        {
+          "real": 1.7265750421211123,
+          "user": 2.834257,
+          "sys": 0.370641,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_model_config/run-4.importtime"
+        },
+        {
+          "real": 1.75661211181432,
+          "user": 2.856986,
+          "sys": 0.378528,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_model_config/run-5.importtime"
+        },
+        {
+          "real": 1.7178621008060873,
+          "user": 2.852904,
+          "sys": 0.344746,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_model_config/run-6.importtime"
+        },
+        {
+          "real": 1.7640327652916312,
+          "user": 2.858405,
+          "sys": 0.386189,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_model_config/run-7.importtime"
+        },
+        {
+          "real": 1.7639465150423348,
+          "user": 2.8488059999999997,
+          "sys": 0.39611199999999996,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_model_config/run-8.importtime"
+        },
+        {
+          "real": 1.773726460058242,
+          "user": 2.890645,
+          "sys": 0.364081,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_model_config/run-9.importtime"
+        },
+        {
+          "real": 1.746927549596876,
+          "user": 2.871911,
+          "sys": 0.356128,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_model_config/run-10.importtime"
+        }
+      ],
+      "stats": {
+        "real": {
+          "min": 1.7178621008060873,
+          "max": 1.773726460058242,
+          "mean": 1.751086441287771,
+          "median": 1.7548888574820012
+        },
+        "user": {
+          "min": 2.834257,
+          "max": 2.890645,
+          "mean": 2.8604545,
+          "median": 2.8576955
+        },
+        "sys": {
+          "min": 0.344746,
+          "max": 0.39611199999999996,
+          "mean": 0.3703258,
+          "median": 0.37056
+        }
+      },
+      "importtime_sample": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_model_config/run-1.importtime"
+    },
+    {
+      "name": "import_reasoning_parser",
+      "statement": "from sglang.srt.parser.reasoning_parser import ReasoningParser",
+      "samples": [
+        {
+          "real": 0.03646589023992419,
+          "user": 0.024138,
+          "sys": 0.012069,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_reasoning_parser/run-1.importtime"
+        },
+        {
+          "real": 0.03512051794677973,
+          "user": 0.026957,
+          "sys": 0.007987,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_reasoning_parser/run-2.importtime"
+        },
+        {
+          "real": 0.03550630994141102,
+          "user": 0.025203999999999997,
+          "sys": 0.010081,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_reasoning_parser/run-3.importtime"
+        },
+        {
+          "real": 0.038390661124140024,
+          "user": 0.026133999999999998,
+          "sys": 0.012060999999999999,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_reasoning_parser/run-4.importtime"
+        },
+        {
+          "real": 0.0362183996476233,
+          "user": 0.027013,
+          "sys": 0.009004,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_reasoning_parser/run-5.importtime"
+        },
+        {
+          "real": 0.03553407220169902,
+          "user": 0.026208,
+          "sys": 0.009072,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_reasoning_parser/run-6.importtime"
+        },
+        {
+          "real": 0.036348466761410236,
+          "user": 0.026116999999999998,
+          "sys": 0.010045,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_reasoning_parser/run-7.importtime"
+        },
+        {
+          "real": 0.034222896210849285,
+          "user": 0.026975,
+          "sys": 0.006993,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_reasoning_parser/run-8.importtime"
+        },
+        {
+          "real": 0.03596469992771745,
+          "user": 0.027753,
+          "sys": 0.007929,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_reasoning_parser/run-9.importtime"
+        },
+        {
+          "real": 0.036301758605986834,
+          "user": 0.031032999999999998,
+          "sys": 0.005005,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_reasoning_parser/run-10.importtime"
+        }
+      ],
+      "stats": {
+        "real": {
+          "min": 0.034222896210849285,
+          "max": 0.038390661124140024,
+          "mean": 0.03600736726075411,
+          "median": 0.036091549787670374
+        },
+        "user": {
+          "min": 0.024138,
+          "max": 0.031032999999999998,
+          "mean": 0.026753199999999998,
+          "median": 0.0265825
+        },
+        "sys": {
+          "min": 0.005005,
+          "max": 0.012069,
+          "mean": 0.0090246,
+          "median": 0.009038000000000001
+        }
+      },
+      "importtime_sample": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_reasoning_parser/run-1.importtime"
+    },
+    {
+      "name": "import_moe_utils",
+      "statement": "from sglang.srt.layers.moe.utils import initialize_moe_config",
+      "samples": [
+        {
+          "real": 2.124098066240549,
+          "user": 3.137796,
+          "sys": 0.46172399999999997,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_moe_utils/run-1.importtime"
+        },
+        {
+          "real": 2.15087425801903,
+          "user": 3.144711,
+          "sys": 0.48327,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_moe_utils/run-2.importtime"
+        },
+        {
+          "real": 2.1497272020205855,
+          "user": 3.184826,
+          "sys": 0.440596,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_moe_utils/run-3.importtime"
+        },
+        {
+          "real": 2.14995431387797,
+          "user": 3.168431,
+          "sys": 0.461509,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_moe_utils/run-4.importtime"
+        },
+        {
+          "real": 2.1294214981608093,
+          "user": 3.152221,
+          "sys": 0.45847299999999996,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_moe_utils/run-5.importtime"
+        },
+        {
+          "real": 2.185255094897002,
+          "user": 3.195899,
+          "sys": 0.46801,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_moe_utils/run-6.importtime"
+        },
+        {
+          "real": 2.137492948677391,
+          "user": 3.123979,
+          "sys": 0.49518999999999996,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_moe_utils/run-7.importtime"
+        },
+        {
+          "real": 2.1196609172038734,
+          "user": 3.09811,
+          "sys": 0.49788499999999997,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_moe_utils/run-8.importtime"
+        },
+        {
+          "real": 2.1438036118634045,
+          "user": 3.140143,
+          "sys": 0.48274399999999995,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_moe_utils/run-9.importtime"
+        },
+        {
+          "real": 2.1744814831763506,
+          "user": 3.173216,
+          "sys": 0.475581,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_moe_utils/run-10.importtime"
+        }
+      ],
+      "stats": {
+        "real": {
+          "min": 2.1196609172038734,
+          "max": 2.185255094897002,
+          "mean": 2.1464769394136964,
+          "median": 2.146765406941995
+        },
+        "user": {
+          "min": 3.09811,
+          "max": 3.195899,
+          "mean": 3.1519332,
+          "median": 3.148466
+        },
+        "sys": {
+          "min": 0.440596,
+          "max": 0.49788499999999997,
+          "mean": 0.4724982,
+          "median": 0.4717955
+        }
+      },
+      "importtime_sample": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_moe_utils/run-1.importtime"
+    },
+    {
+      "name": "import_engine",
+      "statement": "from sglang.srt.entrypoints.engine import Engine",
+      "samples": [
+        {
+          "real": 7.0874034515582025,
+          "user": 7.4196349999999995,
+          "sys": 1.13453,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_engine/run-1.importtime"
+        },
+        {
+          "real": 7.10962351411581,
+          "user": 7.405315,
+          "sys": 1.166714,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_engine/run-2.importtime"
+        },
+        {
+          "real": 7.026327609084547,
+          "user": 7.364645,
+          "sys": 1.133758,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_engine/run-3.importtime"
+        },
+        {
+          "real": 7.050252257846296,
+          "user": 7.364027,
+          "sys": 1.145621,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_engine/run-4.importtime"
+        },
+        {
+          "real": 7.0198892881162465,
+          "user": 7.342786,
+          "sys": 1.136832,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_engine/run-5.importtime"
+        },
+        {
+          "real": 6.981877204030752,
+          "user": 7.295298,
+          "sys": 1.151721,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_engine/run-6.importtime"
+        },
+        {
+          "real": 7.027779018972069,
+          "user": 7.34261,
+          "sys": 1.15011,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_engine/run-7.importtime"
+        },
+        {
+          "real": 7.014731597155333,
+          "user": 7.356034,
+          "sys": 1.120856,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_engine/run-8.importtime"
+        },
+        {
+          "real": 7.041904551908374,
+          "user": 7.365569,
+          "sys": 1.148424,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_engine/run-9.importtime"
+        },
+        {
+          "real": 7.028724379837513,
+          "user": 7.330124,
+          "sys": 1.159246,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_engine/run-10.importtime"
+        }
+      ],
+      "stats": {
+        "real": {
+          "min": 6.981877204030752,
+          "max": 7.10962351411581,
+          "mean": 7.038851287262514,
+          "median": 7.028251699404791
+        },
+        "user": {
+          "min": 7.295298,
+          "max": 7.4196349999999995,
+          "mean": 7.3586043,
+          "median": 7.360030500000001
+        },
+        "sys": {
+          "min": 1.120856,
+          "max": 1.166714,
+          "mean": 1.1447812,
+          "median": 1.1470224999999998
+        }
+      },
+      "importtime_sample": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_engine/run-1.importtime"
+    },
+    {
+      "name": "import_scheduler",
+      "statement": "from sglang.srt.managers.scheduler import Scheduler",
+      "samples": [
+        {
+          "real": 4.724479399621487,
+          "user": 5.430148,
+          "sys": 0.768397,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_scheduler/run-1.importtime"
+        },
+        {
+          "real": 4.704348482191563,
+          "user": 5.4365,
+          "sys": 0.7376619999999999,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_scheduler/run-2.importtime"
+        },
+        {
+          "real": 4.728698148857802,
+          "user": 5.448752,
+          "sys": 0.748711,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_scheduler/run-3.importtime"
+        },
+        {
+          "real": 4.744015694130212,
+          "user": 5.491722,
+          "sys": 0.721479,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_scheduler/run-4.importtime"
+        },
+        {
+          "real": 4.655375411733985,
+          "user": 5.373584,
+          "sys": 0.751778,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_scheduler/run-5.importtime"
+        },
+        {
+          "real": 4.676247784867883,
+          "user": 5.434691,
+          "sys": 0.713415,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_scheduler/run-6.importtime"
+        },
+        {
+          "real": 4.743441751226783,
+          "user": 5.460499,
+          "sys": 0.75125,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_scheduler/run-7.importtime"
+        },
+        {
+          "real": 4.649707279633731,
+          "user": 5.371833,
+          "sys": 0.7497159999999999,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_scheduler/run-8.importtime"
+        },
+        {
+          "real": 4.670995011925697,
+          "user": 5.382394,
+          "sys": 0.7614989999999999,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_scheduler/run-9.importtime"
+        },
+        {
+          "real": 4.640067121013999,
+          "user": 5.390327,
+          "sys": 0.725518,
+          "returncode": 0,
+          "importtime_file": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_scheduler/run-10.importtime"
+        }
+      ],
+      "stats": {
+        "real": {
+          "min": 4.640067121013999,
+          "max": 4.744015694130212,
+          "mean": 4.693737608520314,
+          "median": 4.690298133529723
+        },
+        "user": {
+          "min": 5.371833,
+          "max": 5.491722,
+          "mean": 5.422045,
+          "median": 5.4324195
+        },
+        "sys": {
+          "min": 0.713415,
+          "max": 0.768397,
+          "mean": 0.7429425,
+          "median": 0.7492135
+        }
+      },
+      "importtime_sample": "/sgl-workspace/sglang/.codex-tmp/perf-results/fix-10runs-samples/import_scheduler/run-1.importtime"
+    }
+  ]
+}
