@@ -65,4 +65,4 @@ These artifacts are worth keeping on the branch or workstation, but they should 
 | `.codex-tmp/issue10492_qwen15b_shim.py` | Local fallback helper used during manual integration testing. | Investigation-only. |
 | `.codex-tmp/issue10492_smolllm_shim.py` | Local fallback helper used during manual integration testing. | Investigation-only. |
 | `.codex-tmp/issue10492_srt_engine_opt_fallback.py` | Local fallback helper used during manual integration testing. | Investigation-only. |
-| `AGENTS.md` | Repository guide created earlier, but unrelated to issue `#10492`. | Keep separate from this branch. |
+| `AGENTS.md` | Repository guide created earlier, but unrelated to issue `#10492`. | Keep it in a separate docs-only commit and cherry-pick only if you want the contributor guide in the target branch. |

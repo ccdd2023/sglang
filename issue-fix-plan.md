@@ -134,7 +134,7 @@ The local machine has a GeForce 2080 Super, not H100 or H200. That means:
   - keep the issue notes and execution record in a separate documentation commit for optional cherry-picking
   - promote only the reusable benchmark harness and compact raw timing JSON into a permanent repo location if reproducibility artifacts should be preserved
   - exclude temporary harnesses, baseline snapshots, perf sample directories, and other `.codex-tmp/` artifacts unless they are deliberately promoted into a permanent repo location
-  - exclude unrelated branch-local files such as `AGENTS.md` if the branch is intended to stay focused on issue `#10492`
+  - keep unrelated documentation such as `AGENTS.md` in a separate docs-only commit if the branch is intended to stay focused on issue `#10492`
 
 ## Deliverables
 

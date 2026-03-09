@@ -523,7 +523,7 @@ Status values:
       - `.codex-tmp/perf-results/`
       - `.codex-tmp/main-baseline-20260308-173917/`
       - `.codex-tmp/__pycache__/`
-    - unrelated branch-local artifact:
+    - unrelated documentation for a separate optional docs-only commit:
       - `AGENTS.md`
   - Rationale:
     - the include set is the issue fix itself plus its reproducibility record
