@@ -10,12 +10,7 @@ from sglang.srt.layers import deep_gemm_wrapper
 from sglang.srt.layers.quantization.fp8_config import (
     Fp8GemmRunnerBackend,
     get_fp8_gemm_runner_backend,
-    initialize_fp8_gemm_config,
 )
-from sglang.srt.layers.quantization.fp8_kernel import sglang_per_token_group_quant_fp8
-from sglang.srt.layers.quantization.mxfp4_tensor import MXFP4QuantizeUtil
-from sglang.srt.utils.common import torch_release
-
 from sglang.srt.layers.quantization.fp8_kernel import (
     fp8_dtype,
     fp8_max,
@@ -23,12 +18,14 @@ from sglang.srt.layers.quantization.fp8_kernel import (
     mxfp8_block_scaled_matmul_triton,
     per_token_group_quant_fp8,
     scaled_fp8_quant,
+    sglang_per_token_group_quant_fp8,
     sglang_per_token_quant_fp8,
     static_quant_fp8,
     triton_scaled_mm,
     w8a8_block_fp8_matmul_deepgemm,
     w8a8_block_fp8_matmul_triton,
 )
+from sglang.srt.layers.quantization.mxfp4_tensor import MXFP4QuantizeUtil
 from sglang.srt.utils import (
     ceil_align,
     ceil_div,
@@ -44,6 +41,7 @@ from sglang.srt.utils import (
     is_sm120_supported,
     offloader,
 )
+from sglang.srt.utils.common import torch_release
 
 logger = logging.getLogger(__name__)
 
@@ -308,6 +306,8 @@ def _dispatch_auto_backend() -> Callable:
         return aiter_w8a8_block_fp8_linear
     else:
         return triton_w8a8_block_fp8_linear
+
+
 def flashinfer_gemm_w8a8_block_fp8_linear_with_fallback(
     input: torch.Tensor,
     weight: torch.Tensor,

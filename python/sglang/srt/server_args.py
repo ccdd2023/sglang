@@ -86,6 +86,7 @@ def _check_gguf_file(model_path: str) -> bool:
 
     return check_gguf_file(model_path)
 
+
 # Define constants
 DEFAULT_UVICORN_ACCESS_LOG_EXCLUDE_PREFIXES = ()
 SAMPLING_BACKEND_CHOICES = {"flashinfer", "pytorch", "ascend"}

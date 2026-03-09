@@ -9,7 +9,6 @@ import subprocess
 import time
 from pathlib import Path
 
-
 BENCHMARKS = [
     ("import_sglang", "import sglang"),
     (
@@ -54,7 +53,9 @@ def summarize(values: list[float]) -> dict[str, float]:
     }
 
 
-def run_one(python_exe: str, repo_root: Path, stmt: str, sample_dir: Path, sample_name: str) -> dict[str, object]:
+def run_one(
+    python_exe: str, repo_root: Path, stmt: str, sample_dir: Path, sample_name: str
+) -> dict[str, object]:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(repo_root / "python")
     env["PYTHONDONTWRITEBYTECODE"] = "1"

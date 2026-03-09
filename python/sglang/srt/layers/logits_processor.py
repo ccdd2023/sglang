@@ -15,14 +15,13 @@
 
 import dataclasses
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import torch
 import triton
 import triton.language as tl
 from torch import nn
 
-from sglang.srt.layers.logits_processor_output import LogitsProcessorOutput
 from sglang.srt.distributed import (
     get_tensor_model_parallel_world_size,
     tensor_model_parallel_all_gather,
@@ -41,6 +40,7 @@ from sglang.srt.layers.dp_attention import (
     get_dp_dtype,
     get_dp_hidden_size,
 )
+from sglang.srt.layers.logits_processor_output import LogitsProcessorOutput
 from sglang.srt.layers.utils.logprob import (
     InputLogprobsResult,
     compute_temp_top_p_normalized_logprobs,
