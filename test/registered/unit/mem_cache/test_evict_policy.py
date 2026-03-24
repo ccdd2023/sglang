@@ -121,21 +121,25 @@ class TestPriorityStrategy(unittest.TestCase):
         self.strategy = PriorityStrategy()
 
     def test_priority_is_tuple(self):
+        """Tuple is (-priority, -last_access_time) for positive absolute step encoding."""
         node = _make_node(priority=2, last_access_time=4.0)
-        self.assertEqual(self.strategy.get_priority(node), (2, 4.0))
+        self.assertEqual(self.strategy.get_priority(node), (-2, -4.0))
 
-    def test_lower_priority_evicted_first(self):
-        low = _make_node(priority=1, last_access_time=10.0)
-        high = _make_node(priority=5, last_access_time=1.0)
+    def test_higher_priority_value_evicted_first(self):
+        """Higher priority value = further from next use = evicted first."""
+        near = _make_node(priority=1, last_access_time=10.0)  # needed sooner
+        far = _make_node(priority=5, last_access_time=1.0)  # needed later
+        # far (priority=5) should be evicted first => lower heap key
         self.assertLess(
-            self.strategy.get_priority(low), self.strategy.get_priority(high)
+            self.strategy.get_priority(far), self.strategy.get_priority(near)
         )
 
-    def test_same_priority_older_access_evicted_first(self):
+    def test_same_priority_newer_access_evicted_first(self):
+        """MRU tiebreaker: within same priority, most recently used is evicted first."""
         old = _make_node(priority=3, last_access_time=1.0)
         new = _make_node(priority=3, last_access_time=10.0)
         self.assertLess(
-            self.strategy.get_priority(old), self.strategy.get_priority(new)
+            self.strategy.get_priority(new), self.strategy.get_priority(old)
         )
 
 

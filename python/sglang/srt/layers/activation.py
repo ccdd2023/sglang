@@ -33,6 +33,7 @@ from sglang.srt.layers.utils import MultiPlatformOp
 from sglang.srt.server_args import get_global_server_args
 from sglang.srt.utils import (
     cpu_has_amx_support,
+    get_device_capability,
     is_cpu,
     is_cuda,
     is_hip,
@@ -48,6 +49,8 @@ _is_cpu_amx_available = cpu_has_amx_support()
 _is_cpu = is_cpu()
 _is_hip = is_hip()
 _is_xpu = is_xpu()
+_cuda_capability = get_device_capability() if _is_cuda else (None, None)
+_use_native_cuda_fallback = _is_cuda and (_cuda_capability[0] or 0) < 8
 
 if _is_cuda or _is_xpu:
     from sgl_kernel import gelu_and_mul, gelu_tanh_and_mul, silu_and_mul
@@ -71,6 +74,8 @@ class SiluAndMul(MultiPlatformOp):
         return F.silu(x[..., :d]) * x[..., d:]
 
     def forward_cuda(self, x: torch.Tensor) -> torch.Tensor:
+        if _use_native_cuda_fallback:
+            return self.forward_native(x)
         d = x.shape[-1] // 2
         output_shape = x.shape[:-1] + (d,)
         out = torch.empty(output_shape, dtype=x.dtype, device=x.device)
@@ -102,6 +107,8 @@ class GeluAndMul(MultiPlatformOp):
         self.approximate = approximate
 
     def _forward_impl(self, x: torch.Tensor) -> torch.Tensor:
+        if _use_native_cuda_fallback:
+            return self.forward_native(x)
         d = x.shape[-1] // 2
         output_shape = x.shape[:-1] + (d,)
         out = torch.empty(output_shape, dtype=x.dtype, device=x.device)

@@ -172,7 +172,7 @@ NSA_CHOICES = [
     "trtllm",
 ]
 
-RADIX_EVICTION_POLICY_CHOICES = ["lru", "lfu", "slru"]
+RADIX_EVICTION_POLICY_CHOICES = ["lru", "lfu", "slru", "priority"]
 
 RL_ON_POLICY_TARGET_CHOICES = ["fsdp"]
 
@@ -558,6 +558,8 @@ class ServerArgs:
     hicache_storage_backend: Optional[str] = None
     hicache_storage_prefetch_policy: str = "best_effort"
     hicache_storage_backend_extra_config: Optional[str] = None
+    enable_hicache_prefetch: bool = False
+    enable_hicache_prefetch_log: bool = False
 
     # Hierarchical sparse attention
     hierarchical_sparse_attention_extra_config: Optional[str] = None
@@ -5053,6 +5055,21 @@ class ServerArgs:
             type=str,
             default=ServerArgs.hicache_storage_backend_extra_config,
             help="A dictionary in JSON string format, or a string starting with a leading '@' and a config file in JSON/YAML/TOML format, containing extra configuration for the storage backend.",
+        )
+
+        parser.add_argument(
+            "--enable-hicache-prefetch",
+            action="store_true",
+            default=ServerArgs.enable_hicache_prefetch,
+            help="Enable workflow-aware async prefetch for HiCache CPU→GPU restore. "
+            "After forward dispatch, proactively loads the evicted node with the "
+            "lowest priority (soonest-needed) from CPU to GPU.",
+        )
+        parser.add_argument(
+            "--enable-hicache-prefetch-log",
+            action="store_true",
+            default=ServerArgs.enable_hicache_prefetch_log,
+            help="Enable info-level logging for prefetch decisions (skipped/triggered/evicted). Off by default.",
         )
 
         # Hierarchical sparse attention

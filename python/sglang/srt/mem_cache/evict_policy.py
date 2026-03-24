@@ -39,11 +39,22 @@ class FILOStrategy(EvictionStrategy):
 
 
 class PriorityStrategy(EvictionStrategy):
-    """Priority-aware eviction: lower priority values evicted first, then LRU within same priority."""
+    """Priority-aware eviction using positive absolute step encoding.
+
+    Priority values represent the absolute step number at which a prefix will
+    next be needed (higher value = further in the future = less urgent).
+
+    Eviction order: nodes with the HIGHEST priority value are evicted first
+    (they are furthest from their next use).  Within the same priority, MRU
+    tiebreaker evicts the most recently accessed node first (optimal for
+    cyclic workflows where the just-used prefix is furthest from reuse).
+
+    The min-heap sees (-priority, -last_access_time), so the node with the
+    largest priority value ends up at the front of the eviction queue.
+    """
 
     def get_priority(self, node: "TreeNode") -> Tuple[int, float]:
-        # Return (priority, last_access_time) so lower priority nodes are evicted first
-        return (node.priority, node.last_access_time)
+        return (-node.priority, -node.last_access_time)
 
 
 class SLRUStrategy(EvictionStrategy):

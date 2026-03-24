@@ -1,0 +1,15 @@
+Fix sm75 compatibility by falling back to native ops
+
+Some fused CUDA kernels used by sgl_kernel can fail on pre-Ampere GPUs
+with errors such as "no kernel image is available for execution on the
+device".
+
+Add a capability guard for CUDA devices with compute capability < 8.0
+and fall back to the existing PyTorch-native implementations for:
+- SiluAndMul
+- GeluAndMul
+- RMSNorm
+- GemmaRMSNorm
+
+This keeps the optimized fused path on Ampere and newer GPUs while
+restoring correctness and startup stability on sm75 devices.

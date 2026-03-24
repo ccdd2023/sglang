@@ -1058,6 +1058,145 @@ class HiRadixCache(RadixCache):
 
         return device_indices
 
+    def _find_eviction_victim(self) -> Optional[TreeNode]:
+        """Find the GPU-resident leaf node that would be evicted next.
+
+        Scans ``evictable_leaves`` (GPU side) for the node with the
+        **highest** ``node.priority`` value — i.e. the node whose next use
+        is furthest in the future and therefore the best candidate for
+        eviction under the positive-absolute-step encoding.
+
+        Locked nodes (``lock_ref > 0``) are skipped.
+
+        Returns ``None`` if no evictable victim exists.
+        """
+        worst_node = None
+        worst_priority = None
+        for node in self.evictable_leaves:
+            if node.lock_ref > 0:
+                continue
+            if worst_priority is None or node.priority > worst_priority:
+                worst_node = node
+                worst_priority = node.priority
+        return worst_node
+
+    def prefetch_next_agent(self, log_enabled: bool = False) -> bool:
+        """Proactively prefetch the evicted node with lowest priority (= needed soonest).
+
+        Scans evictable host leaves for nodes that are evicted to CPU (backed up)
+        but not currently loading back. Picks the one with smallest priority value
+        (positive absolute step encoding: smallest = soonest needed). Triggers
+        async CPU->GPU load via the existing load_back() infrastructure.
+
+        If free GPU memory is available, the prefetch is zero-cost. Otherwise,
+        conditional eviction is attempted: a GPU-resident victim is evicted only
+        if its next use is strictly further away than the prefetch target's
+        (i.e. victim.priority > target.priority). This ensures prefetch never
+        degrades the working set.
+
+        Called after forward dispatch to overlap transfer with computation.
+        Returns True if a prefetch was initiated.
+        """
+        if not hasattr(self, "cache_controller") or self.cache_controller is None:
+            return False
+
+        # Find best candidate: evicted + backed up + not already loading + lowest priority
+        best_node = None
+        best_priority = None
+
+        for node in self.evictable_host_leaves:
+            if node.id in self.ongoing_load_back:
+                continue
+            if node.lock_ref > 0:
+                continue
+            priority = self.eviction_strategy.get_priority(node)
+            if best_priority is None or priority > best_priority:
+                # get_priority returns (-node.priority, -last_access_time).
+                # In eviction (min-heap), smallest = evict first (furthest from use).
+                # For prefetch, we want the LARGEST get_priority = lowest node.priority
+                # = soonest needed agent.
+                best_node = node
+                best_priority = priority
+
+        if best_node is None:
+            if log_enabled:
+                logger.info("[prefetch] no candidates in evictable_host_leaves (empty or all locked)")
+            return False
+
+        # Collect evicted ancestor chain to calculate total tokens needed
+        nodes_to_load = []
+        walk = best_node
+        while walk.evicted:
+            if not walk.backuped:
+                return False  # broken chain
+            nodes_to_load.insert(0, walk)
+            walk = walk.parent
+
+        host_indices = torch.cat([n.host_value for n in nodes_to_load])
+        needed = len(host_indices)
+
+        # Try to load into free GPU memory first (zero-cost prefetch).
+        device_indices = self.cache_controller.load(
+            host_indices=host_indices, node_id=best_node.id
+        )
+        if device_indices is None:
+            # No free GPU memory. Check if eviction is an upgrade:
+            eviction_victim = self._find_eviction_victim()
+            if eviction_victim is None:
+                if log_enabled:
+                    logger.info("[prefetch] no free memory, no evictable GPU leaves → SKIP")
+                return False
+
+            if eviction_victim.priority <= best_node.priority:
+                if log_enabled:
+                    logger.info(
+                        "[prefetch] SKIP downgrade: victim priority=%d <= target priority=%d",
+                        eviction_victim.priority, best_node.priority,
+                    )
+                return False
+
+            # Victim is less urgent → evict and prefetch.
+            if log_enabled:
+                logger.info(
+                    "[prefetch] EVICT upgrade: victim priority=%d > target priority=%d, evicting %d tokens",
+                    eviction_victim.priority, best_node.priority, needed,
+                )
+            self.evict(EvictParams(num_tokens=needed))
+            device_indices = self.cache_controller.load(
+                host_indices=host_indices, node_id=best_node.id
+            )
+            if device_indices is None:
+                # Still no memory after evict (edge case) — give up
+                logger.debug(
+                    "prefetch_next_agent: evict freed insufficient memory "
+                    "for %d tokens (node %d)",
+                    needed,
+                    best_node.id,
+                )
+                return False
+
+        # Success: mark nodes as loading, track for completion
+        self.ongoing_load_back[best_node.id] = best_node
+        offset = 0
+        for node in nodes_to_load:
+            node.value = device_indices[offset : offset + len(node.host_value)].clone()
+            offset += len(node.host_value)
+        self.evictable_size_ += len(device_indices)
+        self.inc_lock_ref(best_node)
+
+        if log_enabled:
+            logger.info(
+                "[prefetch] SUCCESS: queued %d tokens for node %d (priority=%d)",
+                needed, best_node.id, best_node.priority,
+            )
+        logger.debug(
+            "prefetch_next_agent: queued %d tokens for node %d (priority=%s)",
+            needed,
+            best_node.id,
+            best_node.priority,
+        )
+        return True
+
     def init_load_back(
         self,
         params: InitLoadBackParams,

@@ -333,6 +333,10 @@ class Scheduler(
         self.page_size = server_args.page_size
         self.enable_hierarchical_cache = server_args.enable_hierarchical_cache
         self.enable_hicache_storage = server_args.hicache_storage_backend is not None
+        self.enable_hicache_prefetch = (
+            server_args.enable_hicache_prefetch
+            and server_args.enable_hierarchical_cache
+        )
         self.max_recv_per_poll = envs.SGLANG_SCHEDULER_MAX_RECV_PER_POLL.get()
 
         # Distributed rank info
@@ -2352,6 +2356,16 @@ class Scheduler(
             new_batch.hicache_consumer_index = (
                 self.tree_cache.ready_to_load_host_cache()
             )
+
+            # Workflow-aware proactive prefetch: after reactive loads are flushed,
+            # scan evicted host leaves for the soonest-needed node (lowest priority)
+            # and queue an async CPU->GPU load. Flush immediately so the transfer
+            # overlaps with the upcoming forward pass on the compute stream.
+            if self.enable_hicache_prefetch:
+                if self.tree_cache.prefetch_next_agent(
+                    log_enabled=self.server_args.enable_hicache_prefetch_log
+                ):
+                    self.tree_cache.ready_to_load_host_cache()
 
         new_batch.prepare_for_extend()
 
