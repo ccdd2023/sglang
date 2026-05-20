@@ -176,6 +176,8 @@ benchmark/mmlu/data
 benchmark/mmlu/data.tar
 benchmark/llava_bench/images
 benchmark/llava_bench/mme_pack
+benchmark/multi_workflow/Qwen/
+benchmark/multi_workflow/logs/
 *.jsonl
 tmp*.txt
 
