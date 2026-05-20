@@ -24,6 +24,7 @@ The radix tree data structure for managing the KV cache.
 
 import heapq
 import logging
+import re
 import sys
 import time
 from collections import defaultdict
@@ -61,6 +62,7 @@ from sglang.srt.mem_cache.evict_policy import (
     MRUStrategy,
     PriorityStrategy,
     SLRUStrategy,
+    TieredPriorityStrategy,
 )
 from sglang.srt.mem_cache.hicache_storage import get_hash_str, hash_str_to_int64
 
@@ -96,6 +98,40 @@ class RadixKey:
     def __repr__(self) -> str:
         preview = self.token_ids[:10]
         return f"RadixKey(extra_key={self.extra_key!r}, token_ids={preview}{'...' if len(self.token_ids) > 10 else ''})"
+
+
+# ---------------------------------------------------------------------------
+# Role type constants for token-type-aware PriorityStrategy
+# These are set on TreeNode.role_type during insertion to identify which
+# tier of the multi-agent prefix the node belongs to.
+# ---------------------------------------------------------------------------
+ROLE_TYPE_SYSTEM = 1   # Tier-0: universal system prompt (shared by ALL agents)
+ROLE_TYPE_ROLE   = 2   # Tier-1: role-specific imports/signatures (shared by role)
+ROLE_TYPE_TASK   = 3   # Tier-2: workflow-specific task context (unique to workflow)
+# 0 = Tier-3 / dynamic suffix or unknown
+
+
+def infer_role_type_from_key(key: RadixKey) -> int:
+    """Infer the role type from the first few tokens of a key.
+
+    Uses simple heuristic based on common token sequences:
+      - System prompts often start with "You are" or "You have"
+      - Python import lines start with "import " or "from "
+    This is best-effort; for precise marking, pass role_type explicitly during insert.
+    """
+    if not key or len(key) < 3:
+        return 0
+    try:
+        ids = key.token_ids[:8]
+        # These are approximate first-token IDs for common English words.
+        # In practice, explicit role_type via insert params is more reliable.
+        # We use a conservative heuristic: look for patterns that indicate
+        # the beginning of a new section.
+        # Since exact token IDs are tokenizer-dependent, we return 0 (unknown)
+        # and rely on the explicit role_type in insert params.
+        return 0
+    except Exception:
+        return 0
 
 
 def maybe_bigram_convert(
@@ -145,6 +181,23 @@ class TreeNode:
         self.hash_value: Optional[List[str]] = None
         # priority for priority-aware eviction
         self.priority = priority
+        # Cross-workflow prefix sharing: set of workflow IDs that have accessed
+        # this node (including both direct insert and prefix match). Nodes used
+        # by multiple workflows are more valuable to keep cached.
+        self.workflow_refs: set = set()
+        # Token type awareness: "system" for Tier-0 universal prefixes,
+        # "role" for Tier-1 role-based prefixes (imports/signatures), 0 for others.
+        # PriorityStrategy uses this to give system and role prefixes extra retention boost.
+        self.role_type: int = 0
+        # DAG-aware convergence protection: number of downstream nodes that depend on
+        # this prefix. Higher value = more nodes depend on it = should be evicted later.
+        # PriorityStrategy uses this to protect convergence nodes in DAG workflows.
+        self.convergence_factor: int = 0
+        # DAG-aware critical path distance: distance from this node to the leaf node.
+        # Higher distance = further from leaf = needed later = protect.
+        # PLANNER: distance=3, ARCHITECT/REVIEWER: distance=2, IMPLEMENTER/TESTER: distance=1.
+        # PriorityStrategy uses this to protect the critical path in DAG workflows.
+        self.critical_path_distance: int = 1
 
         self.id = TreeNode.counter if id is None else id
         TreeNode.counter += 1
@@ -328,10 +381,12 @@ class RadixCache(BasePrefixCache):
             self.eviction_strategy: EvictionStrategy = PriorityStrategy()
         elif self.eviction_policy == "slru":
             self.eviction_strategy: EvictionStrategy = SLRUStrategy()
+        elif self.eviction_policy == "tiered":
+            self.eviction_strategy: EvictionStrategy = TieredPriorityStrategy()
 
         else:
             raise ValueError(
-                f"Unknown eviction policy: {self.eviction_policy}. Supported policies: 'lru', 'lfu', 'fifo', 'mru', 'filo', 'priority', 'slru'."
+                f"Unknown eviction policy: {self.eviction_policy}. Supported policies: 'lru', 'lfu', 'fifo', 'mru', 'filo', 'priority', 'slru', 'tiered'."
             )
 
         self.evictable_leaves = set()
@@ -447,7 +502,12 @@ class RadixCache(BasePrefixCache):
             last_host_node=last_node,
         )
 
-    def insert(self, params: InsertParams) -> InsertResult:
+    def insert(
+        self,
+        params: InsertParams,
+        workflow_id: Optional[int] = None,
+        role_type: int = 0,
+    ) -> InsertResult:
         if self.disable:
             return InsertResult(prefix_len=0)
 
@@ -456,12 +516,27 @@ class RadixCache(BasePrefixCache):
         priority = params.priority
         chunked = params.chunked
 
+        # workflow_id can come from either the call site or params
+        effective_wid = workflow_id if workflow_id is not None else params.workflow_id
+        # role_type: which tier of the multi-agent prefix this belongs to
+        effective_role_type = role_type or getattr(params, "role_type", 0)
+        # convergence_factor: DAG-aware protection for convergence nodes
+        effective_convergence_factor = getattr(params, "convergence_factor", 0) or 0
+        # critical_path_distance: DAG-aware critical path distance
+        effective_crit_distance = getattr(params, "critical_path_distance", 1) or 1
+
         if value is None:
             value = torch.tensor(key.token_ids, dtype=torch.int64)
 
         key, value = self.maybe_bigram_convert(key, value)
 
-        prefix_len = self._insert_helper(self.root_node, key, value, priority, chunked)
+        prefix_len = self._insert_helper(
+            self.root_node, key, value, priority, chunked,
+            workflow_id=effective_wid,
+            role_type=effective_role_type,
+            convergence_factor=effective_convergence_factor,
+            critical_path_distance=effective_crit_distance,
+        )
         return InsertResult(prefix_len=prefix_len)
 
     def cache_finished_req(self, req: Req, is_insert: bool = True):
@@ -490,10 +565,25 @@ class RadixCache(BasePrefixCache):
         radix_key = RadixKey(keys, req.extra_key, is_bigram=self.is_eagle)
 
         # Radix Cache takes one ref in memory pool
+        # Extract workflow_id from request ID if available (e.g., rid="wf0-step2-abc123").
+        # This enables cross-workflow prefix sharing: nodes accessed by multiple workflows
+        # get boosted priority in PriorityStrategy, making shared prefixes sticky.
+        workflow_id: Optional[int] = None
+        if hasattr(req, "rid") and req.rid:
+            m = re.match(r"wf(\d+)", req.rid)
+            if m:
+                workflow_id = int(m.group(1))
+
         if is_insert:
             priority = getattr(req, "priority", 0) or 0
+            role_type = getattr(req, "role_type", 0) or 0
+            convergence_factor = getattr(req, "convergence_factor", 0) or 0
+            critical_path_distance = getattr(req, "critical_path_distance", 1) or 1
             result = self.insert(
-                InsertParams(key=radix_key, value=values, priority=priority)
+                InsertParams(key=radix_key, value=values, priority=priority,
+                             role_type=role_type, convergence_factor=convergence_factor,
+                             critical_path_distance=critical_path_distance),
+                workflow_id=workflow_id,
             )
             new_prefix_len = result.prefix_len
             # Free the duplicates that were already in the tree
@@ -699,6 +789,8 @@ class RadixCache(BasePrefixCache):
         # New node inherits child's priority (represents shared prefix)
         new_node = TreeNode(priority=child.priority)
         new_node.hit_count = child.hit_count
+        new_node.workflow_refs.update(child.workflow_refs)
+        new_node.role_type = child.role_type
         new_node.children = {self.get_child_key_fn(key[split_len:]): child}
         new_node.parent = child.parent
         new_node.lock_ref = child.lock_ref
@@ -731,6 +823,10 @@ class RadixCache(BasePrefixCache):
         value,
         priority: int = 0,
         chunked: bool = False,
+        workflow_id: Optional[int] = None,
+        role_type: int = 0,
+        convergence_factor: int = 0,
+        critical_path_distance: int = 1,
     ):
         # Convert None priority to 0
         if priority is None:
@@ -738,7 +834,29 @@ class RadixCache(BasePrefixCache):
         access_time = time.monotonic()
         node.last_access_time = access_time
         # Update priority along the path (take max to propagate higher priority)
+        old_priority = node.priority
         node.priority = max(node.priority, priority)
+        # Debug logging for KVFlow priority tracking
+        if priority > 0 and node.priority != old_priority:
+            logger.debug(
+                f"[KVFlow-Priority] node_key={node.key!r:.50}, "
+                f"priority={priority}, old={old_priority}, new={node.priority}, "
+                f"role_type={role_type}, crit_dist={critical_path_distance}"
+            )
+        # Cross-workflow sharing: record which workflow touched this node.
+        # Nodes used by multiple workflows get priority boost in PriorityStrategy.
+        if workflow_id is not None:
+            node.workflow_refs.add(workflow_id)
+        # Token-type awareness: mark system/role nodes for priority retention boost.
+        if role_type > 0 and node.role_type == 0:
+            node.role_type = role_type
+        # DAG-aware convergence protection: mark convergence nodes for priority retention.
+        # Nodes with higher convergence_factor are protected from eviction.
+        if convergence_factor > 0 and node.convergence_factor == 0:
+            node.convergence_factor = convergence_factor
+        # DAG-aware critical path distance: mark nodes on the critical path for protection.
+        if critical_path_distance > 1 and node.critical_path_distance == 1:
+            node.critical_path_distance = critical_path_distance
         if len(key) == 0:
             return 0
 
@@ -757,10 +875,26 @@ class RadixCache(BasePrefixCache):
                 new_node = self._split_node(node.key, node, prefix_len)
                 new_node.priority = max(new_node.priority, priority)
                 self._inc_hit_count(new_node, chunked)
+                if workflow_id is not None:
+                    new_node.workflow_refs.add(workflow_id)
+                if role_type > 0 and new_node.role_type == 0:
+                    new_node.role_type = role_type
+                if convergence_factor > 0 and new_node.convergence_factor == 0:
+                    new_node.convergence_factor = convergence_factor
+                if critical_path_distance > 1 and new_node.critical_path_distance == 1:
+                    new_node.critical_path_distance = critical_path_distance
                 node = new_node
             else:
                 node.priority = max(node.priority, priority)
                 self._inc_hit_count(node, chunked)
+                if workflow_id is not None:
+                    node.workflow_refs.add(workflow_id)
+                if role_type > 0 and node.role_type == 0:
+                    node.role_type = role_type
+                if convergence_factor > 0 and node.convergence_factor == 0:
+                    node.convergence_factor = convergence_factor
+                if critical_path_distance > 1 and node.critical_path_distance == 1:
+                    node.critical_path_distance = critical_path_distance
             if len(key):
                 child_key = self.get_child_key_fn(key)
 
@@ -770,6 +904,14 @@ class RadixCache(BasePrefixCache):
             new_node.key = key
             new_node.value = value.clone()
             self._inc_hit_count(new_node, chunked)
+            if workflow_id is not None:
+                new_node.workflow_refs.add(workflow_id)
+            if role_type > 0:
+                new_node.role_type = role_type
+            if convergence_factor > 0:
+                new_node.convergence_factor = convergence_factor
+            if critical_path_distance > 0:
+                new_node.critical_path_distance = critical_path_distance
             node.children[child_key] = new_node
             self.evictable_size_ += len(key)
             self._update_leaf_status(node)

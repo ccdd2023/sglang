@@ -1,0 +1,123 @@
+#!/bin/bash
+# =============================================================================
+# KVFlow Benchmark - Quick Start Guide
+#
+# This script provides step-by-step instructions for running the KVFlow benchmark.
+# Run this script to see the commands you need to execute.
+#
+# =============================================================================
+
+SGLANG_ROOT="/home/comp/25480812/CodeMAS_Project/sglang-kvflow"
+BENCHMARK_DIR="$SGLANG_ROOT/benchmark/multi_workflow"
+LOG_DIR="/home/comp/25480812/CodeMAS_Project/logs/kvflow-multi-workflow"
+
+echo "=============================================="
+echo "KVFlow Benchmark - Quick Start Guide"
+echo "=============================================="
+echo ""
+
+# Step 1: Environment Setup
+echo "STEP 1: Setup Conda Environment"
+echo "----------------------------------------------"
+echo "1a. Create conda environment:"
+echo "   cd $SGLANG_ROOT"
+echo "   conda env create -f environment.yml -y"
+echo ""
+echo "1b. Or use the setup script:"
+echo "   bash setup_kvflow_env.sh"
+echo ""
+echo "1c. Activate environment:"
+echo "   conda activate sglang-kvflow"
+echo ""
+
+# Step 2: Download Model
+echo "STEP 2: Download Model (if needed)"
+echo "----------------------------------------------"
+echo "The benchmark requires a Qwen model. Options:"
+echo ""
+echo "2a. Download Qwen3-8B from HuggingFace:"
+echo "   conda activate sglang-kvflow"
+echo "   export HF_HOME=/home/comp/25480812/models"
+echo "   python -c \"from transformers import AutoTokenizer, AutoModelForCausalLM;\" \\"
+echo "       \"AutoTokenizer.from_pretrained('Qwen/Qwen3-8B');\" \\"
+echo "       \"AutoModelForCausalLM.from_pretrained('Qwen/Qwen3-8B')\""
+echo ""
+echo "2b. Or set MODEL_PATH to an existing model:"
+echo "   export MODEL_PATH=/path/to/your/model"
+echo ""
+
+# Step 3: Submit Job
+echo "STEP 3: Submit Slurm Job"
+echo "----------------------------------------------"
+echo "3a. Quick smoke test (recommended first):"
+echo "   cd $BENCHMARK_DIR"
+echo "   sbatch --export=EXP=quick run_kvflow_benchmark.slurm"
+echo ""
+echo "3b. Single experiment:"
+echo "   cd $BENCHMARK_DIR"
+echo "   sbatch --export=EXP=exp1 run_kvflow_benchmark.slurm"
+echo ""
+echo "3c. All experiments:"
+echo "   cd $BENCHMARK_DIR"
+echo "   sbatch run_kvflow_benchmark.slurm"
+echo ""
+
+# Step 4: Monitor Job
+echo "STEP 4: Monitor Job"
+echo "----------------------------------------------"
+echo "4a. Check job status:"
+echo "   squeue -u \$USER"
+echo ""
+echo "4b. View job output (replace JOB_ID with actual job ID):"
+echo "   cat logs/kvflow_*_JOB_ID.out"
+echo ""
+echo "4c. Check server logs:"
+echo "   tail -f $LOG_DIR/server_*.log"
+echo ""
+
+# Step 5: Analyze Results
+echo "STEP 5: Analyze Results"
+echo "----------------------------------------------"
+echo "5a. View results directory:"
+echo "   ls -la $LOG_DIR/results/"
+echo ""
+echo "5b. Analyze results (if analyze script exists):"
+echo "   python $LOG_DIR/analyze_results.py"
+echo ""
+
+# Alternative: Run without Slurm (on a GPU node)
+echo "=============================================="
+echo "Alternative: Run Directly (without Slurm)"
+echo "=============================================="
+echo ""
+echo "If you have direct GPU access, you can run the benchmark directly:"
+echo ""
+echo "1. Activate environment:"
+echo "   conda activate sglang-kvflow"
+echo ""
+echo "2. Start server:"
+echo "   cd $BENCHMARK_DIR"
+echo "   ./run_server.sh priority_wb 30000"
+echo ""
+echo "3. Run benchmark (in another terminal):"
+echo "   cd $BENCHMARK_DIR"
+echo "   ./run_pipeline.sh quick"
+echo ""
+
+echo "=============================================="
+echo "Quick Reference"
+echo "=============================================="
+echo ""
+echo "Available experiments:"
+echo "  EXP=quick   - Fast smoke test (4 workflows, 3 rounds)"
+echo "  EXP=exp1     - Single workflow, light pressure"
+echo "  EXP=exp2     - 4 concurrent workflows, moderate pressure"
+echo "  EXP=exp3     - 8 concurrent workflows, heavy pressure"
+echo "  EXP=all      - Run all experiments (default)"
+echo ""
+echo "Key directories:"
+echo "  Logs:    $LOG_DIR"
+echo "  Results: $LOG_DIR/results"
+echo "  Scripts: $BENCHMARK_DIR"
+echo ""
+echo "=============================================="

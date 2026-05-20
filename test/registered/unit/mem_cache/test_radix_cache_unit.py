@@ -234,6 +234,24 @@ class TestTreeNode(unittest.TestCase):
         self.assertTrue(node1 < node2)
         self.assertFalse(node2 < node1)
 
+    def test_workflow_refs_initially_empty(self):
+        """workflow_refs is initialized as an empty set."""
+        node = TreeNode()
+        self.assertIsInstance(node.workflow_refs, set)
+        self.assertEqual(len(node.workflow_refs), 0)
+
+    def test_workflow_refs_add_multiple(self):
+        """workflow_refs tracks which workflows accessed this node."""
+        node = TreeNode()
+        node.workflow_refs.add(0)
+        node.workflow_refs.add(1)
+        node.workflow_refs.add(2)
+        self.assertEqual(len(node.workflow_refs), 3)
+        self.assertIn(0, node.workflow_refs)
+        self.assertIn(1, node.workflow_refs)
+        self.assertIn(2, node.workflow_refs)
+        self.assertNotIn(99, node.workflow_refs)
+
 
 class TestRadixCache(unittest.TestCase):
     """Test cases for RadixCache class."""

@@ -1,0 +1,6 @@
+// Stub <version> header for GCC < 9 which lacks this C++20 header.
+// Defining __cpp_lib_source_location = 0 forces the fallback source_location
+// in source_location.h, which is what this codebase already expects.
+#ifndef __has_include
+#define __cpp_lib_source_location 0
+#endif

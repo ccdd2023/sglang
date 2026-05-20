@@ -16,8 +16,20 @@ set -euo pipefail
 
 EVICTION="${1:-priority}"
 PORT="${2:-30000}"
-MODEL_PATH="${MODEL_PATH:-/home/comp/csgfyu/models/hub/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218}"
-LOG_DIR="${LOG_DIR:-/home/comp/csgfyu/logs/kvflow-multi-workflow}"
+MODEL_PATH="${MODEL_PATH:-/home/gfy/models/Qwen2.5-3B-Instruct}"
+LOG_DIR="${LOG_DIR:-/home/gfy/CodeMAS_Project/logs/kvflow-multi-workflow}"
+
+# Try to find conda environment
+if [[ -f "/usr/local/miniconda/py312_24.7.1-0/etc/profile.d/conda.sh" ]]; then
+    source "/usr/local/miniconda/py312_24.7.1-0/etc/profile.d/conda.sh"
+    if conda env list | grep -q "^sglang-kvflow "; then
+        conda activate sglang-kvflow
+    elif conda env list | grep -q "^sglang "; then
+        conda activate sglang
+    fi
+fi
+
+SGLANG_ROOT_DIR="/home/gfy/CodeMAS_Project/sglang-kvflow"
 mkdir -p "$LOG_DIR"
 
 # Port availability check and cleanup
@@ -98,12 +110,19 @@ echo "  Log file        : $SERVER_LOG"
 echo "  Model           : $MODEL_PATH"
 echo "=============================================="
 
-cd /home/comp/csgfyu/multi-agents/CodeGenerationKvCache/sglang-kvflow
+cd "$SGLANG_ROOT_DIR"
 
-source /home/comp/csgfyu/miniconda3/etc/profile.d/conda.sh
-conda activate sglang-kvflow
+# Find and activate conda environment
+if [[ -f "/usr/local/miniconda/py312_24.7.1-0/etc/profile.d/conda.sh" ]]; then
+    source "/usr/local/miniconda/py312_24.7.1-0/etc/profile.d/conda.sh"
+    if conda env list | grep -q "^sglang-kvflow "; then
+        conda activate sglang-kvflow
+    elif conda env list | grep -q "^sglang "; then
+        conda activate sglang
+    fi
+fi
 
-    python -m sglang.launch_server \
+python -m sglang.launch_server \
     --model-path "$MODEL_PATH" \
     --port "$PORT" \
     --tokenizer-path "$MODEL_PATH" \

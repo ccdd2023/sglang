@@ -632,6 +632,13 @@ class ChatCompletionRequest(BaseModel):
     cache_salt: Optional[Union[List[str], str]] = None
     # Priority for the request
     priority: Optional[int] = None
+    # KVFlow-aware hint: the text of the next agent's prefix.
+    # When provided, the server proactively prefetches (CPU->GPU KV load-back)
+    # this prefix while the current request is running, reducing the next TTFT.
+    next_agent_prefix: Optional[str] = None
+    # Token-type awareness for PriorityStrategy: 1=system(Tier-0),
+    # 2=role(Tier-1), 3=task(Tier-2), 0=unknown(Tier-3).
+    role_type: Optional[int] = None
 
     # For PD disaggregation
     bootstrap_host: Optional[Union[List[str], str]] = None
@@ -1184,6 +1191,30 @@ class ResponsesRequest(BaseModel):
         description="The request_id related to this request. If the caller does not set it, a random uuid will be generated.",
     )
     priority: int = Field(default=0, description="Request priority")
+    next_agent_prefix: Optional[str] = Field(
+        default=None,
+        description="KVFlow-aware hint: the exact text of the next agent's prefix. "
+        "The server can proactively prefetch (CPU->GPU KV load) this prefix "
+        "while the current request is still running, reducing the next TTFT.",
+    )
+    role_type: Optional[int] = Field(
+        default=0,
+        description="Token-type awareness for PriorityStrategy: 1=system(Tier-0), "
+        "2=role(Tier-1), 3=task(Tier-2), 0=unknown(Tier-3). Used to boost "
+        "retention of high-value shared prefixes.",
+    )
+    convergence_factor: int = Field(
+        default=0,
+        description="DAG-aware: number of downstream nodes depending on this prefix. "
+        "Higher value = more nodes depend on it = should be evicted later. "
+        "Used by PriorityStrategy to protect convergence nodes in DAG workflows.",
+    )
+    critical_path_distance: int = Field(
+        default=1,
+        description="DAG-aware: distance from this node to leaf node (higher = further from "
+        "leaf = needed later = protect from eviction). PLANNER=3, ARCHITECT/REVIEWER=2, "
+        "IMPLEMENTER/TESTER=1. Used by PriorityStrategy v3 for critical-path protection.",
+    )
     extra_key: Optional[str] = Field(
         default=None,
         description="Extra key for classifying the request (e.g. cache_salt)",

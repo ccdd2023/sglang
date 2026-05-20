@@ -1,0 +1,62 @@
+{
+  "dag_name": "diamond_6agent",
+  "description": "6-agent 菱形 DAG 结构: planner -> [retriever, architect, searcher] -> [impl_1, impl_2] -> reviewer",
+  "nodes": {
+    "planner": {
+      "role": "PLANNER",
+      "dependencies": [],
+      "parallel_group": null,
+      "description": "任务规划器，根节点"
+    },
+    "retriever": {
+      "role": "RETRIEVER",
+      "dependencies": ["planner"],
+      "parallel_group": "branch_1",
+      "description": "上下文检索"
+    },
+    "architect": {
+      "role": "ARCHITECT",
+      "dependencies": ["planner"],
+      "parallel_group": "branch_1",
+      "description": "架构设计"
+    },
+    "searcher": {
+      "role": "SEARCHER",
+      "dependencies": ["planner"],
+      "parallel_group": "branch_1",
+      "description": "代码搜索"
+    },
+    "impl_1": {
+      "role": "IMPLEMENTER",
+      "dependencies": ["retriever", "architect", "searcher"],
+      "parallel_group": "impl_phase",
+      "description": "实现者1"
+    },
+    "impl_2": {
+      "role": "IMPLEMENTER",
+      "dependencies": ["retriever", "architect", "searcher"],
+      "parallel_group": "impl_phase",
+      "description": "实现者2"
+    },
+    "reviewer": {
+      "role": "REVIEWER",
+      "dependencies": ["impl_1", "impl_2"],
+      "parallel_group": null,
+      "description": "代码审查，汇聚节点"
+    }
+  },
+  "execution_order": [
+    ["planner"],
+    ["retriever", "architect", "searcher"],
+    ["impl_1", "impl_2"],
+    ["reviewer"]
+  ],
+  "tier1_templates": {
+    "PLANNER": 0,
+    "RETRIEVER": 0,
+    "ARCHITECT": 0,
+    "SEARCHER": 0,
+    "IMPLEMENTER": 0,
+    "REVIEWER": 0
+  }
+}

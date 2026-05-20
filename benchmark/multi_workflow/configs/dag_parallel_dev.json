@@ -1,0 +1,49 @@
+{
+  "dag_name": "parallel_dev",
+  "description": "并行开发工作流：多个专家并行工作后汇聚到协调者",
+  "nodes": {
+    "PLANNER": {
+      "role": "PLANNER",
+      "dependencies": [],
+      "parallel_group": null,
+      "description": "任务规划者，生成执行计划"
+    },
+    "ARCHITECT": {
+      "role": "ARCHITECT",
+      "dependencies": ["PLANNER"],
+      "parallel_group": "parallel_experts",
+      "description": "架构师，设计系统架构"
+    },
+    "REVIEWER": {
+      "role": "REVIEWER",
+      "dependencies": ["PLANNER"],
+      "parallel_group": "parallel_experts",
+      "description": "代码审查员，审查设计"
+    },
+    "IMPLEMENTER": {
+      "role": "IMPLEMENTER",
+      "dependencies": ["ARCHITECT", "REVIEWER"],
+      "parallel_group": null,
+      "description": "实现者，等待架构和审查后实现"
+    },
+    "TESTER": {
+      "role": "TESTER",
+      "dependencies": ["IMPLEMENTER"],
+      "parallel_group": null,
+      "description": "测试者，测试实现"
+    }
+  },
+  "execution_order": [
+    ["PLANNER"],
+    ["ARCHITECT", "REVIEWER"],
+    ["IMPLEMENTER"],
+    ["TESTER"]
+  ],
+  "tier1_templates": {
+    "PLANNER": 0,
+    "ARCHITECT": 0,
+    "REVIEWER": 0,
+    "IMPLEMENTER": 0,
+    "TESTER": 0
+  }
+}

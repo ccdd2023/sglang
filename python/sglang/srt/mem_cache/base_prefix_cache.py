@@ -60,6 +60,22 @@ class InsertParams:
     # General
     chunked: bool = False
     priority: int = 0
+    # Cross-workflow prefix sharing: workflow ID used for ref-counting.
+    # Nodes accessed by multiple workflows get higher retention priority.
+    workflow_id: Optional[int] = None
+    # Token-type awareness for PriorityStrategy: marks which tier of the
+    # multi-agent prefix this insert belongs to (1=system, 2=role, 3=task).
+    # This enables PriorityStrategy to retain Tier-0/1 prefixes longer.
+    role_type: int = 0
+    # DAG-aware convergence protection: number of downstream nodes that depend
+    # on this prefix. Higher value = more nodes depend on it = should be evicted
+    # later. PriorityStrategy uses this to protect convergence nodes in DAG workflows.
+    convergence_factor: int = 0
+    # DAG-aware critical path distance: distance from this node to the leaf node.
+    # Higher distance = further from leaf = needed later = protect.
+    # PLANNER: distance=3, ARCHITECT/REVIEWER: distance=2, IMPLEMENTER/TESTER: distance=1.
+    # PriorityStrategy uses this to protect the critical path in DAG workflows.
+    critical_path_distance: int = 1
 
 
 @dataclasses.dataclass

@@ -1,0 +1,71 @@
+{
+  "dag_name": "tree_8agent",
+  "description": "8-agent 树形 DAG 结构: root -> [a,b,c] -> [ab,ac] -> [abc] -> sink",
+  "nodes": {
+    "root": {
+      "role": "ROOT",
+      "dependencies": [],
+      "parallel_group": null,
+      "description": "根节点，任务分解"
+    },
+    "a": {
+      "role": "AGENT_A",
+      "dependencies": ["root"],
+      "parallel_group": "branch_abc",
+      "description": "分支A：数据处理"
+    },
+    "b": {
+      "role": "AGENT_B",
+      "dependencies": ["root"],
+      "parallel_group": "branch_abc",
+      "description": "分支B：模型训练"
+    },
+    "c": {
+      "role": "AGENT_C",
+      "dependencies": ["root"],
+      "parallel_group": "branch_abc",
+      "description": "分支C：结果分析"
+    },
+    "ab": {
+      "role": "MERGE_AB",
+      "dependencies": ["a", "b"],
+      "parallel_group": "merge_phase",
+      "description": "合并AB结果"
+    },
+    "ac": {
+      "role": "MERGE_AC",
+      "dependencies": ["a", "c"],
+      "parallel_group": "merge_phase",
+      "description": "合并AC结果"
+    },
+    "abc": {
+      "role": "MERGE_ALL",
+      "dependencies": ["ab", "ac"],
+      "parallel_group": null,
+      "description": "最终合并"
+    },
+    "sink": {
+      "role": "SINK",
+      "dependencies": ["abc"],
+      "parallel_group": null,
+      "description": "汇节点，输出结果"
+    }
+  },
+  "execution_order": [
+    ["root"],
+    ["a", "b", "c"],
+    ["ab", "ac"],
+    ["abc"],
+    ["sink"]
+  ],
+  "tier1_templates": {
+    "ROOT": 0,
+    "AGENT_A": 0,
+    "AGENT_B": 0,
+    "AGENT_C": 0,
+    "MERGE_AB": 0,
+    "MERGE_AC": 0,
+    "MERGE_ALL": 0,
+    "SINK": 0
+  }
+}

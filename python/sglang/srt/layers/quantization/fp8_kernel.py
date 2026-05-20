@@ -49,7 +49,10 @@ _is_cpu = is_cpu()
 _use_aiter = get_bool_env_var("SGLANG_USE_AITER") and _is_hip
 
 if _is_cuda:
-    from sgl_kernel import sgl_per_token_quant_fp8
+    try:
+        from sgl_kernel import sgl_per_token_quant_fp8
+    except ImportError:
+        sgl_per_token_quant_fp8 = None
 
     from sglang.jit_kernel.per_tensor_quant_fp8 import (
         per_tensor_quant_fp8 as sgl_per_tensor_quant_fp8,
@@ -61,9 +64,12 @@ if _is_cuda:
 
         enable_sgl_per_token_group_quant_8bit = True
     except ImportError:
-        from sgl_kernel import sgl_per_token_group_quant_fp8
-
-        enable_sgl_per_token_group_quant_8bit = False
+        try:
+            from sgl_kernel import sgl_per_token_group_quant_fp8
+            enable_sgl_per_token_group_quant_8bit = False
+        except ImportError:
+            sgl_per_token_group_quant_fp8 = None
+            enable_sgl_per_token_group_quant_8bit = False
 
     from sglang.jit_kernel.per_token_group_quant_8bit import (
         per_token_group_quant_8bit as sgl_per_token_group_quant_8bit_jit,
@@ -2055,7 +2061,7 @@ def triton_scaled_mm(
     return result.to(out_dtype)
 
 
-if _is_cuda:
+if _is_cuda and sgl_per_token_quant_fp8 is not None:
     if enable_sgl_per_token_group_quant_8bit:
 
         @torch.library.register_fake("sgl_kernel::sgl_per_token_group_quant_8bit")

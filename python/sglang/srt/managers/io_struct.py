@@ -203,6 +203,16 @@ class GenerateReqInput(BaseReq):
     # Priority for the request
     priority: Optional[int] = None
 
+    # KVFlow-aware hint: the text of the next agent's prefix.
+    # When provided, the server proactively prefetches (CPU->GPU KV load-back)
+    # this prefix while the current request is running, reducing next TTFT.
+    next_agent_prefix: Optional[str] = None
+
+    # Token-type awareness: which tier of the multi-agent prefix this request
+    # belongs to. Passed via InsertParams.role_type to PriorityStrategy, which
+    # boosts retention of Tier-0 (system) and Tier-1 (role) prefixes.
+    role_type: int = 0
+
     # Extra key for classifying the request (e.g. cache_salt)
     extra_key: Optional[Union[List[str], str]] = None
 
@@ -715,6 +725,10 @@ class TokenizedGenerateReqInput(BaseReq):
 
     # Priority for the request
     priority: Optional[int] = None
+
+    # DAG-aware: critical path distance from node to leaf.
+    # Used by PriorityStrategy v3 for critical-path protection.
+    critical_path_distance: int = 1
 
     # Extra key for classifying the request (e.g. cache_salt)
     extra_key: Optional[str] = None

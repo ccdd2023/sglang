@@ -524,6 +524,9 @@ class Req(ReqDllmMixin):
         time_stats: Optional[
             Union[APIServerReqTimeStats, DPControllerReqTimeStats]
         ] = None,
+        # DAG-aware: critical path distance from node to leaf.
+        # Used by PriorityStrategy v3 for critical-path protection.
+        critical_path_distance: int = 1,
     ):
         # Input and output info
         self.rid = rid
@@ -563,6 +566,9 @@ class Req(ReqDllmMixin):
 
         # For multi-http worker
         self.http_worker_ipc = http_worker_ipc
+
+        # DAG-aware: critical path distance from node to leaf (PriorityStrategy v3)
+        self.critical_path_distance = critical_path_distance
 
         # Require reasoning for the request (hybrid reasoning model only)
         self.require_reasoning = require_reasoning

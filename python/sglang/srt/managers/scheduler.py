@@ -1670,6 +1670,7 @@ class Scheduler(
                 disagg_prefill_dp_rank=recv_req.disagg_prefill_dp_rank,
                 vocab_size=self.model_config.vocab_size,
                 priority=recv_req.priority,
+                critical_path_distance=recv_req.critical_path_distance,
                 metrics_collector=(
                     self.metrics_collector if self.enable_metrics else None
                 ),
@@ -1837,6 +1838,71 @@ class Scheduler(
                     prefix_keys,
                 )
 
+    def _prefetch_kvcache_for_next_agent(self, req: Req):
+        """KVFlow-aware proactive prefetch: prefetch the next agent's prefix.
+
+        Called when a request arrives with next_agent_prefix set (via the
+        bench_multi_workflow client's prefetch hint). While the current agent
+        is running, we proactively load the next agent's Tier-1 prefix from
+        CPU to GPU, hiding the CPU->GPU transfer latency before the next
+        request arrives.
+
+        The prefetch uses a synthetic request ID derived from the current
+        request's rid so it can be tracked and cancelled if the current
+        request fails.
+        """
+        if not self.enable_hicache_storage:
+            return
+        if not req.next_agent_prefix:
+            return
+
+        # Use a synthetic rid for the prefetch request
+        prefetch_rid = f"{req.rid}__next_agent_pref"
+        prefix_text = req.next_agent_prefix
+
+        # Tokenize the next agent's prefix
+        try:
+            token_ids = self.tokenizer.encode(prefix_text, add_special_tokens=False)
+        except Exception:
+            return
+
+        if len(token_ids) < 2:
+            return
+
+        # Find the last host node for this prefix in the radix cache
+        # (match_prefix will find existing nodes or return root)
+        from sglang.srt.mem_cache.base_prefix_cache import MatchPrefixParams
+        match_result = self.tree_cache.match_prefix(
+            MatchPrefixParams(key=token_ids)
+        )
+        last_host_node = match_result.last_host_node
+
+        if not (last_host_node.backuped or last_host_node is self.tree_cache.root_node):
+            # Nothing to prefetch -- prefix is already on GPU
+            return
+
+        last_hash = last_host_node.get_last_hash_value()
+        # matched_len = number of tokens already on GPU from match_prefix
+        matched_len = len(match_result.device_indices)
+        new_input_tokens = token_ids[matched_len:]
+
+        if len(new_input_tokens) < 2:
+            return
+
+        prefix_keys = (
+            last_host_node.get_prefix_hash_values(last_host_node.parent)
+            if self.tree_cache.hicache_storage_pass_prefix_keys
+            else None
+        )
+
+        self.tree_cache.prefetch_from_storage(
+            prefetch_rid,
+            last_host_node,
+            new_input_tokens,
+            last_hash,
+            prefix_keys,
+        )
+
     def _add_request_to_queue(self, req: Req, is_retracted: bool = False):
         if self.disaggregation_mode == DisaggregationMode.NULL:
             if not self._set_or_validate_priority(req):
@@ -1844,10 +1910,15 @@ class Scheduler(
             if self._abort_on_queued_limit(req):
                 return
             self._prefetch_kvcache(req)
+            # KVFlow-aware proactive prefetch: if this request carries a hint
+            # for the next agent's prefix, start loading it to GPU now.
+            # This runs in parallel with the current request's decode.
+            self._prefetch_kvcache_for_next_agent(req)
             self.waiting_queue.append(req)
             req.time_stats.set_wait_queue_entry_time()
         elif self.disaggregation_mode == DisaggregationMode.PREFILL:
             self._prefetch_kvcache(req)
+            self._prefetch_kvcache_for_next_agent(req)
             self.disagg_prefill_bootstrap_queue.add(
                 req, self.model_config.num_key_value_heads
             )
@@ -1977,6 +2048,7 @@ class Scheduler(
             token_type_ids=recv_req.token_type_ids,
             routed_dp_rank=recv_req.routed_dp_rank,
             priority=recv_req.priority,
+            critical_path_distance=recv_req.critical_path_distance,
             dimensions=recv_req.dimensions,
             lora_id=recv_req.lora_id,
             http_worker_ipc=recv_req.http_worker_ipc,

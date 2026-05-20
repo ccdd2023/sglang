@@ -315,6 +315,8 @@ class OpenAIServingChat(OpenAIServingBase):
             extra_key=self._compute_extra_key(request),
             require_reasoning=self._get_reasoning_from_request(request),
             priority=request.priority,
+            next_agent_prefix=request.next_agent_prefix,
+            role_type=request.role_type,
             routing_key=self.extract_routing_key(raw_request),
             custom_labels=custom_labels,
             custom_logit_processor=request.custom_logit_processor,

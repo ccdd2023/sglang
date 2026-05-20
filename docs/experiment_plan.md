@@ -1,8 +1,27 @@
 # KVFlow 实验设计文档
 
 > **目标**: 找到让 Priority + HiCache + Prefetch 稳定超过 LRU + HiCache 的配置和场景
-> **状态**: 实验设计中
-> **最后更新**: 2026-03-26
+> **状态**: 第一轮机制验证完成；已形成可复现的串行实验套件
+> **最后更新**: 2026-05-19
+
+---
+
+## 0. 2026-05 更新摘要
+
+### 0.1 已确认的关键前提
+
+- 双 server（两个 scheduler）同机同时跑会争用 GPU 资源，TTFT 对比会被污染；需要采用单 GPU 串行 A/B 套件。
+- KVFlow 的收益强依赖 “是否存在逐出压力”。在 cache 不触发 eviction 的场景下，Priority/Tiered 可能仅引入开销而不带来收益。
+
+### 0.2 最新实验结论（本地 Qwen2.5-3B-Instruct）
+
+- steady-state 线性共享 workload：LRU 更快（此类场景难以体现 eviction 质量差异）。
+- eviction-pressure workload（shared prefix 被 flood 请求挤压）：Priority/Tiered 显著优于 LRU，Phase-3 TTFT 提升稳定可复现。
+
+### 0.3 当前推荐实验入口
+
+- 系统级串行套件：`benchmark/multi_workflow/run_serial_policy_suite.py`
+- 逐出压力串行套件：`benchmark/multi_workflow/run_serial_eviction_suite.py`
 
 ---
 
@@ -103,29 +122,23 @@ write_through_threshold = 1 (write_through) / 2 (write_back)
 ### 3.2 Priority 参数
 
 ```python
-# Priority 计算（bench_multi_workflow.py）
-priority = step_counter + num_agents  # 当前公式
-
-# 问题 1: step_counter 是全局递增的，但 round-robin 下每个 agent 每 num_agents 步被访问一次
-# 所以 priority = N 的节点，下次被访问在 N + num_agents 步后
-
-# 问题 2: 如果多个 workflow 并发，step_counter 是全局的
-# 但不同 workflow 的 agent 访问顺序可能不同
-# 这可能导致 priority 在跨 workflow 时不准确
-
-# 可能更好的公式
-priority = total_steps_in_workflow - steps_until_next_use
-# 即: 越快被访问的节点，priority 越小
+# Priority 计算遵循 KVFlow 公式（线性/阶段并行）:
+# priority = global_step_counter + steps_to_execution
+#
+# 其中 steps_to_execution 对线性 workflow 可用 “剩余步数” 近似:
+# steps_to_execution = max(1, total_steps - current_step)
+#
+# 语义对齐服务端 PriorityStrategy：
+# - priority 越大表示越久才需要，因此越早可被驱逐
+# - priority 越小表示越快会复用，因此应尽量保留
 ```
 
 ### 3.3 驱逐阈值
 
 ```python
-# hiradix_cache.py: evict()
-# 当前驱逐逻辑：
-# 1. 从 evictable_leaves 构建 min-heap（按 priority）
-# 2. pop() 获取最小 priority = 最远需要的节点
-# 3. 驱逐
+# 驱逐策略以 “更应该被驱逐” 的排序键为主导。
+# 当前 PriorityStrategy 会联合 critical_path_distance / priority / last_access_time 做排序，
+# 在高逐出压力下优先驱逐更远才需要的节点，并优先保护更接近执行点的共享前缀。
 
 # 可能问题：
 # - evictable_leaves 不包含 pinned/locked 节点
@@ -190,30 +203,27 @@ grep "cached_tokens\|cached" bench_*.log
 
 ## 5. 迭代计划
 
-### Round 1（当前）- 基础对比
+### Round 1（已完成）- 机制与实验基建验证
 
-- [x] 修复 pipeline bug（`--max-total-tokens` 硬编码）
-- [x] 简化配置：只保留 hicache vs kvflow
-- [ ] 运行 `quick` 冒烟测试
-- [ ] 运行 `exp3` 验证是否在高压下产生差异
+- [x] 修复 PriorityStrategy 方向与层级权重问题
+- [x] 打通 KVFlow hint 端到端透传
+- [x] 构建单 GPU 串行 suite，避免双 server 争用污染结果
+- [x] 增加 eviction-pressure 基准，用于稳定观测 eviction 质量差异
 
-### Round 2 - 如果 Round 1 无明显差异
+### Round 2（进行中）- 用真实工作流与更强模型验证任务级收益
 
-**目标**: 找到让差异显现的参数
+**目标**: 在真实 MAScoder workload 下验证 “共享前缀保护 + 预取” 是否能稳定带来收益
 
-- [ ] 增大 `hicache-ratio`（如 3.0）给 kvflow 更多 CPU 空间
-- [ ] 减小 `max-total-tokens`（如 40k）增加 GPU 侧驱逐压力
-- [ ] 调整 priority 公式：考虑 workflow 并发时的跨 workflow priority 干扰
-- [ ] 检查 `prefetch_next_agent()` 是否真的在调度循环中被调用
+- [ ] 导出并扩充真实模板库存（不仅限 next_line）
+- [ ] 在更强模型上复跑 RepoBench / DS1000 子集，观察准确率与时延共同变化
+- [ ] 分离 “hint 开销” 与 “eviction 收益”，给出适用边界结论
 
-### Round 3 - 如果 Round 2 仍无差异
+### Round 3（待定）- 预取与锁策略（仅在证据充足时推进）
 
-**目标**: 确认是代码问题还是场景问题
+**目标**: 若在高压场景下仍观察到 prefetch 与 eviction 的负交互，再考虑引入锁/窗口机制
 
-- [ ] 添加 `SGLANG_DEBUG=priority` 日志打印 priority 传播链路
-- [ ] 在 `evict()` 中添加日志，打印每次驱逐的 priority 值
-- [ ] 添加 metrics 统计 evict 被跳过的 locked 节点数
-- [ ] 对比 evict 发生次数：hicache vs kvflow 是否接近
+- [ ] 增加可观测性：prefetch 队列长度、load_back 成功率、evict 触发次数
+- [ ] 在 eviction-pressure 基准中做 prefetch 消融
 
 ---
 

@@ -24,6 +24,7 @@ def _make_node(**kwargs):
     node.hit_count = kwargs.get("hit_count", 0)
     node.creation_time = kwargs.get("creation_time", 0.0)
     node.priority = kwargs.get("priority", 0)
+    node.workflow_refs = kwargs.get("workflow_refs", set())
     return node
 
 
@@ -121,8 +122,9 @@ class TestPriorityStrategy(unittest.TestCase):
         self.strategy = PriorityStrategy()
 
     def test_priority_is_tuple(self):
-        """Tuple is (-priority, -last_access_time) for positive absolute step encoding."""
+        """Tuple is (-(priority + shared_boost), -last_access_time)."""
         node = _make_node(priority=2, last_access_time=4.0)
+        # shared_boost = len(workflow_refs) * 10 = 0 * 10 = 0
         self.assertEqual(self.strategy.get_priority(node), (-2, -4.0))
 
     def test_higher_priority_value_evicted_first(self):
@@ -140,6 +142,40 @@ class TestPriorityStrategy(unittest.TestCase):
         new = _make_node(priority=3, last_access_time=10.0)
         self.assertLess(
             self.strategy.get_priority(new), self.strategy.get_priority(old)
+        )
+
+    def test_cross_workflow_shared_node_retained_longer(self):
+        """Nodes used by multiple workflows get priority boost and are retained longer."""
+        # Single-workflow node: shared_boost = 1 * 10 = 10
+        single = _make_node(priority=5, last_access_time=1.0, workflow_refs={0})
+        # Multi-workflow node: shared_boost = 3 * 10 = 30, effective_priority = 5 + 30 = 35
+        multi = _make_node(priority=5, last_access_time=10.0, workflow_refs={0, 1, 2})
+        # multi has effective priority 35 vs single's 5, so multi is evicted FIRST
+        # (higher effective priority = further from use = first to evict).
+        # This means single-workflow nodes are protected -> shared nodes evicted later.
+        self.assertLess(
+            self.strategy.get_priority(multi), self.strategy.get_priority(single)
+        )
+
+    def test_cross_workflow_boost_proportional_to_refs(self):
+        """More workflow refs = higher boost = retained longer."""
+        refs1 = _make_node(priority=5, last_access_time=1.0, workflow_refs={0})
+        refs2 = _make_node(priority=5, last_access_time=1.0, workflow_refs={0, 1})
+        refs5 = _make_node(priority=5, last_access_time=1.0, workflow_refs={0, 1, 2, 3, 4})
+        # More refs -> higher effective priority -> evicted first (protected from earlier eviction)
+        self.assertLess(self.strategy.get_priority(refs5), self.strategy.get_priority(refs2))
+        self.assertLess(self.strategy.get_priority(refs2), self.strategy.get_priority(refs1))
+
+    def test_boost_overwhelms_priority_difference(self):
+        """Sufficiently many workflow refs can overwhelm priority differences."""
+        # Low priority but multi-workflow: effective = 1 + 30 = 31
+        low_pri_multi = _make_node(priority=1, last_access_time=1.0, workflow_refs={0, 1, 2})
+        # High priority but single-workflow: effective = 10 + 0 = 10
+        high_pri_single = _make_node(priority=10, last_access_time=10.0, workflow_refs=set())
+        # Multi-workflow is retained despite lower base priority
+        self.assertLess(
+            self.strategy.get_priority(low_pri_multi),
+            self.strategy.get_priority(high_pri_single),
         )
 
 

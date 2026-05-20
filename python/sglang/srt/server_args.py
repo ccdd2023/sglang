@@ -172,7 +172,7 @@ NSA_CHOICES = [
     "trtllm",
 ]
 
-RADIX_EVICTION_POLICY_CHOICES = ["lru", "lfu", "slru", "priority"]
+RADIX_EVICTION_POLICY_CHOICES = ["lru", "lfu", "slru", "priority", "tiered"]
 
 RL_ON_POLICY_TARGET_CHOICES = ["fsdp"]
 
@@ -3927,7 +3927,7 @@ class ServerArgs:
             type=str,
             choices=RADIX_EVICTION_POLICY_CHOICES,
             default=ServerArgs.radix_eviction_policy,
-            help="The eviction policy of radix trees. 'lru' stands for Least Recently Used, 'lfu' stands for Least Frequently Used, and 'slru' stands for Segmented Least Recently Used.",
+            help="The eviction policy of radix trees. 'lru' stands for Least Recently Used, 'lfu' stands for Least Frequently Used, 'slru' stands for Segmented LRU, 'priority' for DAG-aware priority, and 'tiered' for layered LRU+Priority to avoid Priority×Prefetch interference.",
         )
         parser.add_argument(
             "--enable-prefill-delayer",

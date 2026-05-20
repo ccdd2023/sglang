@@ -1563,6 +1563,9 @@ class HiRadixCache(RadixCache):
             new_node.host_ref_counter += 1
         new_node.key = child.key[:split_len]
         new_node.hit_count = child.hit_count
+        # Inherit workflow refs so split does not lose cross-workflow sharing info.
+        new_node.workflow_refs.update(child.workflow_refs)
+        new_node.role_type = child.role_type
 
         # split value and host value if exists
         if child.evicted:
@@ -1583,11 +1586,14 @@ class HiRadixCache(RadixCache):
 
         return new_node
 
-    def insert(self, params: InsertParams) -> InsertResult:
+    def insert(self, params: InsertParams, workflow_id: Optional[int] = None,
+               role_type: int = 0) -> InsertResult:
         key = params.key
         value = params.value
         chunked = params.chunked
         priority = params.priority
+        effective_wid = workflow_id if workflow_id is not None else params.workflow_id
+        effective_role_type = role_type or getattr(params, "role_type", 0)
 
         if priority is None:
             priority = 0
@@ -1604,10 +1610,23 @@ class HiRadixCache(RadixCache):
         child_key = self.get_child_key_fn(key)
         total_prefix_length = 0
 
+        # Cross-workflow sharing: record workflow ref on root node hit
+        if effective_wid is not None:
+            node.workflow_refs.add(effective_wid)
+        # Token-type awareness: mark system/role node type
+        if effective_role_type > 0 and node.role_type == 0:
+            node.role_type = effective_role_type
+
         while len(key) > 0 and child_key in node.children.keys():
             node = node.children[child_key]
             node.last_access_time = time.monotonic()
             node.priority = max(node.priority, priority)
+            # Cross-workflow sharing: record which workflow touched this node.
+            if effective_wid is not None:
+                node.workflow_refs.add(effective_wid)
+            # Token-type awareness: mark node type if not already set
+            if effective_role_type > 0 and node.role_type == 0:
+                node.role_type = effective_role_type
             prefix_len = self.key_match_fn(node.key, key)
 
             if prefix_len == len(node.key):
@@ -1628,6 +1647,8 @@ class HiRadixCache(RadixCache):
                 new_node = self._split_node(node.key, node, prefix_len)
                 # shared-prefix node should also reflect max priority
                 new_node.priority = max(new_node.priority, priority)
+                if effective_role_type > 0 and new_node.role_type == 0:
+                    new_node.role_type = effective_role_type
                 if new_node.evicted:
                     new_node.value = value[:prefix_len].clone()
                     self.evictable_size_ += len(new_node.value)
@@ -1651,6 +1672,10 @@ class HiRadixCache(RadixCache):
             new_node.parent = node
             new_node.key = key
             new_node.value = value.clone()
+            if effective_wid is not None:
+                new_node.workflow_refs.add(effective_wid)
+            if effective_role_type > 0:
+                new_node.role_type = effective_role_type
             node.children[child_key] = new_node
             self.evictable_size_ += len(value)
             self._update_leaf_status(node)
