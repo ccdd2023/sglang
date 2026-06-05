@@ -1,0 +1,13 @@
+\begin{table}[t]
+\centering
+\small
+\caption{Cross-model transferability of the \texttt{predicted\_distance\_table}. \emph{canonical} is the (0 offset, planner, none) cell; \emph{high\_offset} is the (50--100 offset, tester, imports\_wrap) cell. Smaller values mean the K/V is more reusable.}\label{tab:cross-model-summary}
+\begin{tabular}{lrrr}
+\toprule
+model & canonical & high offset & global max \\
+\midrule
+Qwen/qwen2.5-coder-3b-instruct & 1.636 & 2.536 & 2.572 \\
+Qwen/qwen2.5-coder-7b-instruct & 1.770 & 2.703 & 2.739 \\
+\bottomrule
+\end{tabular}
+\end{table}

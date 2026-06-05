@@ -42,10 +42,13 @@ def load_model(model_name: str, dtype: torch.dtype = torch.bfloat16, device: str
     print(f"[ctx_distance] loading {model_name} (dtype={dtype}) on {device} ...", flush=True)
     t0 = time.time()
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+    # Avoid device_map=... (requires `accelerate` which may not be
+    # installed in all envs). Load on CPU then move to device explicitly.
     model = AutoModelForCausalLM.from_pretrained(
         model_name, torch_dtype=dtype, low_cpu_mem_usage=True,
-        device_map=device, trust_remote_code=True, attn_implementation="eager",
+        trust_remote_code=True, attn_implementation="eager",
     )
+    model = model.to(device)
     model.eval()
     print(f"[ctx_distance] loaded in {time.time() - t0:.1f}s", flush=True)
     return model, tokenizer

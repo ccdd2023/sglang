@@ -857,6 +857,114 @@ def main() -> None:
             "\n".join(lines), encoding="utf-8"
         )
 
+    # ----- Section 7 additions: cross-model transferability (Study 1) -----
+    # Read all per-model tables and produce a 2-row comparison table
+    # summarising d_norm at the canonical (0, planner, none) cell and
+    # the 50-100 offset cell, plus the global max. Embedded in the
+    # paper as tab_cross_model_summary.tex.
+    xmodel_dir = ROOT / "results" / "lookup_table_transferability" / "data"
+    xmodel_files = sorted(xmodel_dir.glob("predicted_distance_table_*.json"))
+
+    def _slug_to_pretty(slug: str) -> str:
+        """e.g. 'qwen-qwen2.5-coder-3b-instruct' -> 'Qwen2.5-Coder-3B-Instruct'."""
+        body = slug.split("qwen-", 1)[-1]
+        # Capitalise only the first letter of each token (so 3B stays 3B)
+        parts = []
+        for tok in body.split("-"):
+            if not tok:
+                continue
+            if tok[0].isdigit():
+                parts.append(tok.upper())
+            else:
+                parts.append(tok[0].upper() + tok[1:])
+        return "-".join(parts)
+
+    if xmodel_files:
+        xrows = []
+        for path in xmodel_files:
+            slug = path.stem.replace("predicted_distance_table_", "")
+            try:
+                t = read_json(path)
+            except Exception:
+                continue
+            cells = t.get("cells", [])
+            if not cells:
+                continue
+            # canonical = 0, planner, none (find the cell with lowest d_norm)
+            canonical = [c for c in cells if c["position_offset"] == "0"
+                         and c["system_prompt_class"] == "planner"
+                         and c["surrounding_code_class"] == "none"]
+            hi = [c for c in cells if c["position_offset"] == "50-100"
+                  and c["system_prompt_class"] == "tester"
+                  and c["surrounding_code_class"] == "imports_wrap"]
+            if not canonical or not hi:
+                continue
+            xrows.append({
+                "model": _slug_to_pretty(slug),
+                "n_cells": len(cells),
+                "canonical": f"{canonical[0]['predicted_d_norm_mean']:.3f}",
+                "high_offset": f"{hi[0]['predicted_d_norm_mean']:.3f}",
+                "global_max": f"{t.get('global', {}).get('predicted_d_norm_max_observed', 0):.3f}",
+            })
+        if xrows:
+            # Also emit a per-model d_norm vs position_offset table
+            xlines = [
+                r"\begin{table}[t]",
+                r"\centering",
+                r"\small",
+                r"\caption{Cross-model transferability of the \texttt{predicted\_distance\_table}. "
+                r"\emph{canonical} is the (0 offset, planner, none) cell; "
+                r"\emph{high\_offset} is the (50--100 offset, tester, imports\_wrap) cell. "
+                r"Smaller values mean the K/V is more reusable.}"
+                r"\label{tab:cross-model-summary}",
+                r"\begin{tabular}{lrrr}",
+                r"\toprule",
+                r"model & canonical & high offset & global max \\",
+                r"\midrule",
+            ]
+            for r in xrows:
+                xlines.append(
+                    f"{tex_escape(r['model'])} & {r['canonical']} & {r['high_offset']} & {r['global_max']} \\\\"
+                )
+            xlines += [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+            (TAB / "tab_cross_model_summary.tex").write_text(
+                "\n".join(xlines), encoding="utf-8"
+            )
+
+    # ----- Section 7 additions: real-trace reuse (Study 2) ----------------
+    # Read swe_bench_aggregate.json (from real_trace_reuse) and emit a
+    # per-agent-pair hit rate table + a tokens-saved table.
+    real_trace = ROOT / "results" / "real_trace_reuse" / "data" / "swe_bench_aggregate.json"
+    if real_trace.exists():
+        try:
+            agg = read_json(real_trace)
+        except Exception:
+            agg = {}
+        if agg:
+            pairs = agg.get("agent_pair_stats", {})
+            if pairs:
+                plines = [
+                    r"\begin{table}[t]",
+                    r"\centering",
+                    r"\small",
+                    r"\caption{SWE-bench Verified replay: KVCOMM hit rate by agent pair. "
+                    r"\emph{n} is the number of cross-agent request pairs; "
+                    r"\emph{matched} is how many had the same content signature.}"
+                    r"\label{tab:real-trace-hit-rate}",
+                    r"\begin{tabular}{lrrr}",
+                    r"\toprule",
+                    r"agent pair & n & matched & hit rate \\",
+                    r"\midrule",
+                ]
+                for pair, s in pairs.items():
+                    plines.append(
+                        f"{tex_escape(pair)} & {s['n_pairs']} & {s['n_matched_content']} & {s['hit_rate']:.1%} \\\\"
+                    )
+                plines += [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+                (TAB / "tab_real_trace_reuse_stats.tex").write_text(
+                    "\n".join(plines), encoding="utf-8"
+                )
+
     print(f"Wrote figures to {FIG}")
     print(f"Wrote tables to {TAB}")
     print(f"Wrote manifest to {DATA}")
