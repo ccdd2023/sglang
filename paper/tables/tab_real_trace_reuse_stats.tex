@@ -1,0 +1,17 @@
+\begin{table}[t]
+\centering
+\small
+\caption{SWE-bench Verified replay: KVCOMM hit rate by agent pair. \emph{n} is the number of cross-agent request pairs; \emph{matched} is how many had the same content signature.}\label{tab:real-trace-hit-rate}
+\begin{tabular}{lrrr}
+\toprule
+agent pair & n & matched & hit rate \\
+\midrule
+planner→coder & 452 & 452 & 100.0% \\
+coder→reviewer & 452 & 452 & 100.0% \\
+planner→reviewer & 452 & 452 & 100.0% \\
+planner→planner & 452 & 1 & 0.2% \\
+coder→coder & 452 & 452 & 100.0% \\
+reviewer→reviewer & 452 & 452 & 100.0% \\
+\bottomrule
+\end{tabular}
+\end{table}
