@@ -382,3 +382,187 @@ def test_length_bin_for_thresholds():
     assert am.length_bin_for(499) == "200-500"
     assert am.length_bin_for(500) == ">500"
     assert am.length_bin_for(10_000) == ">500"
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for radix_cache.py bug fixes (2026-06)
+# ---------------------------------------------------------------------------
+import logging
+import threading
+from types import SimpleNamespace
+
+import pytest
+import torch
+
+
+def _make_minimal_radix_cache(monkeypatch):
+    """Build a RadixCache-like object that has just enough state for the 3
+    regression tests below, without spinning up a real model + KV pool.
+
+    We skip __init__ entirely and just attach the 3 attributes that
+    _split_node, _decrement_anchor_refs, and _store_anchor_kv touch.
+    """
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    cache = rc.RadixCache.__new__(rc.RadixCache)
+    # Reuse the class's static get_child_key_fn for unit-test simplicity
+    cache.get_child_key_fn = rc.get_child_key
+    cache.page_size = 1
+    cache.anchor_kv_store = {}
+    cache.anchor_kv_store_lock = threading.RLock()
+    cache.evictable_size_ = 0
+    cache.evictable_leaves = set()
+    cache.root_node = rc.TreeNode(priority=0)
+    return cache
+
+
+def _make_tree_node(rc, *, anchor_id="", content_sig="", anchor_type="",
+                    anchor_spans=None, nesting_depth=0, pos_offset=0,
+                    sys_class="", surr_hash=""):
+    n = rc.TreeNode(priority=0)
+    n.anchor_id = anchor_id
+    n.anchor_type = anchor_type
+    n.code_content_signature = content_sig
+    n.anchor_spans = list(anchor_spans or [])
+    n.nesting_depth = nesting_depth
+    n.prompt_position_offset = pos_offset
+    n.system_prompt_class = sys_class
+    n.surrounding_code_hash = surr_hash
+    return n
+
+
+def test_split_node_propagates_anchor_metadata(monkeypatch):
+    """Bug A: _split_node must propagate the 8 anchor / context fields from
+    the child to the new prefix node, otherwise the prefix becomes
+    anchor-blind and select_best_match won't consider it."""
+    from sglang.srt.mem_cache import radix_cache as rc
+    cache = _make_minimal_radix_cache(monkeypatch)
+
+    tokens = [1, 2, 3, 4, 5, 6]
+    child = _make_tree_node(
+        rc, anchor_id="aid-1", content_sig="content-1", anchor_type="function",
+        anchor_spans=[{"start_line": 1, "end_line": 5}],
+        nesting_depth=1, pos_offset=100, sys_class="tester", surr_hash="imports_wrap",
+    )
+    child.key = rc.RadixKey(tokens)
+    child.value = torch.zeros(6, 4, dtype=torch.float32)
+    parent = rc.TreeNode(priority=0)
+    parent.children = {cache.get_child_key_fn(child.key): child}
+    child.parent = parent
+
+    new_node = cache._split_node(child.key, child, split_len=3)
+    # The 8 fields must be propagated
+    assert new_node.anchor_id == "aid-1"
+    assert new_node.anchor_type == "function"
+    assert new_node.code_content_signature == "content-1"
+    assert new_node.anchor_spans == [{"start_line": 1, "end_line": 5}]
+    assert new_node.nesting_depth == 1
+    assert new_node.prompt_position_offset == 100
+    assert new_node.system_prompt_class == "tester"
+    assert new_node.surrounding_code_hash == "imports_wrap"
+
+
+def test_split_node_does_not_propagate_when_anchor_id_empty(monkeypatch):
+    """If the child has no anchor_id, the new_node should also have empty
+    anchor fields (not stale copies of garbage)."""
+    from sglang.srt.mem_cache import radix_cache as rc
+    cache = _make_minimal_radix_cache(monkeypatch)
+
+    tokens = [1, 2, 3, 4, 5, 6]
+    child = _make_tree_node(rc)  # all default = empty
+    child.key = rc.RadixKey(tokens)
+    child.value = torch.zeros(6, 4, dtype=torch.float32)
+    parent = rc.TreeNode(priority=0)
+    parent.children = {cache.get_child_key_fn(child.key): child}
+    child.parent = parent
+
+    new_node = cache._split_node(child.key, child, split_len=3)
+    assert new_node.anchor_id == ""
+    assert new_node.code_content_signature == ""
+    assert new_node.anchor_spans == []
+
+
+def test_decrement_anchor_refs_drops_entry_at_zero(monkeypatch):
+    """Bug B: when a TreeNode carrying an anchor's content_signature is
+    deleted, the corresponding AnchorKVEntry's ref_count should drop to 0
+    and the entry should be removed from anchor_kv_store."""
+    from sglang.srt.mem_cache import radix_cache as rc
+    cache = _make_minimal_radix_cache(monkeypatch)
+
+    entry = rc.AnchorKVEntry(
+        signature="aid-1", token_ids=[1, 2, 3], kv_indices=None,
+        start_pos=0, code_content_signature="content-1",
+    )
+    entry.ref_count = 1  # baseline
+    cache.anchor_kv_store["content-1"] = [entry]
+
+    # Simulate a TreeNode eviction that carries the same content_signature
+    node = _make_tree_node(rc, content_sig="content-1")
+    cache._decrement_anchor_refs(node)
+    assert entry.ref_count == 0
+    assert "content-1" not in cache.anchor_kv_store  # dropped
+
+
+def test_decrement_anchor_refs_keeps_entry_when_refcount_still_positive(monkeypatch):
+    """If the entry has been reused elsewhere (ref_count > 1), decrementing
+    once should NOT drop it."""
+    from sglang.srt.mem_cache import radix_cache as rc
+    cache = _make_minimal_radix_cache(monkeypatch)
+
+    entry = rc.AnchorKVEntry(
+        signature="aid-1", token_ids=[1, 2, 3], kv_indices=None,
+        start_pos=0, code_content_signature="content-1",
+    )
+    entry.ref_count = 3  # currently used by 2 active borrows
+    cache.anchor_kv_store["content-1"] = [entry]
+
+    node = _make_tree_node(rc, content_sig="content-1")
+    cache._decrement_anchor_refs(node)
+    assert entry.ref_count == 2
+    assert cache.anchor_kv_store["content-1"] == [entry]  # still there
+
+
+def test_store_anchor_kv_warns_on_missing_token_spans(monkeypatch, caplog):
+    """Bug C: _store_anchor_kv should log a warning (not silently return)
+    when code_anchor_token_spans is missing on a request that has
+    code_anchor_signature set."""
+    from sglang.srt.mem_cache import radix_cache as rc
+    cache = _make_minimal_radix_cache(monkeypatch)
+
+    # Build a minimal req with signature but no token spans
+    req = SimpleNamespace(
+        rid="test-rid-1",
+        code_anchor_signature="aid-1",
+        code_content_signature="content-1",
+        code_anchor_token_spans=[],   # empty!
+        origin_input_ids=[1, 2, 3, 4],
+        output_ids=[],
+    )
+
+    with caplog.at_level(logging.WARNING, logger="sglang.srt.mem_cache.radix_cache"):
+        cache._store_anchor_kv(req, kv_indices=None)
+    # The store should remain empty AND a warning should have been logged
+    assert cache.anchor_kv_store == {}
+    msgs = [r.message for r in caplog.records if "anchor_kv_store" in r.message]
+    assert any("missing code_anchor_token_spans" in m for m in msgs), msgs
+
+
+def test_store_anchor_kv_quiet_when_signature_also_missing(monkeypatch, caplog):
+    """When even the signature is empty, _store_anchor_kv should still
+    silent-return (the request never intended to opt into lossy)."""
+    from sglang.srt.mem_cache import radix_cache as rc
+    cache = _make_minimal_radix_cache(monkeypatch)
+
+    req = SimpleNamespace(
+        rid="test-rid-2",
+        code_anchor_signature="",
+        code_content_signature="",
+        code_anchor_token_spans=[],
+        origin_input_ids=[1, 2, 3, 4],
+        output_ids=[],
+    )
+    with caplog.at_level(logging.WARNING, logger="sglang.srt.mem_cache.radix_cache"):
+        cache._store_anchor_kv(req, kv_indices=None)
+    assert cache.anchor_kv_store == {}
+    # No warning expected — the request never opted in.
+    assert not any("anchor_kv_store" in r.message for r in caplog.records)

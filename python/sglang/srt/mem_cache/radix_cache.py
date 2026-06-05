@@ -704,6 +704,16 @@ class RadixCache(BasePrefixCache):
             return
 
         if not token_spans:
+            # The lossy reuse path needs explicit token positions to know
+            # which KV slots to copy. Without them we silently can't store
+            # the entry, which means the next request can't fuzzy-match
+            # against it. Surface this in logs so the misconfiguration is
+            # visible in production (Bug C fix).
+            logger.warning(
+                "[anchor_kv_store] skip store for rid=%s sig=%s content=%s: "
+                "missing code_anchor_token_spans on request",
+                getattr(req, "rid", "?"), signature, content_signature,
+            )
             return
 
         token_ids = list(req.origin_input_ids) + list(req.output_ids)
@@ -1341,6 +1351,19 @@ class RadixCache(BasePrefixCache):
         child.value = child.value[split_len:].clone()
         new_node.parent.children[self.get_child_key_fn(key)] = new_node
 
+        # Propagate the 8 anchor / context-anchor fields from child to new_node.
+        # Without this, the prefix side of a split becomes "anchor-blind" and
+        # `select_best_match` in anchor_match.py will not consider it.
+        if child.anchor_id:
+            new_node.anchor_id = child.anchor_id
+            new_node.anchor_type = child.anchor_type
+            new_node.code_content_signature = child.code_content_signature
+            new_node.anchor_spans = list(child.anchor_spans)
+            new_node.nesting_depth = child.nesting_depth
+            new_node.prompt_position_offset = child.prompt_position_offset
+            new_node.system_prompt_class = child.system_prompt_class
+            new_node.surrounding_code_hash = child.surrounding_code_hash
+
         # Split hash_value if it was already computed, otherwise leave as None
         new_node.hash_value, child.hash_value = split_node_hash_value(
             child.hash_value, split_len, self.page_size
@@ -1610,10 +1633,51 @@ class RadixCache(BasePrefixCache):
         v = node.parent.children.pop(key, None)
         assert v == node, f"parent does not have child key, {key}"
 
+        # GC: decrement ref_count on every AnchorKVEntry whose original
+        # content signature matches this node. The node's KV slots are
+        # about to be freed, so any entry that "lived" on them is now
+        # potentially stale. We use content_signature as the join key
+        # because AnchorKVEntry does not carry a back-pointer to the
+        # source TreeNode. Entries that match but still have ref_count > 0
+        # after this decrement are kept (they were reused elsewhere and
+        # will get their own GC signal later).
+        self._decrement_anchor_refs(node)
+
         self.evictable_size_ -= len(node.key)
         if node in self.evictable_leaves:
             self.evictable_leaves.remove(node)
         self._update_leaf_status(node.parent)
+
+    def _decrement_anchor_refs(self, node: TreeNode) -> None:
+        """Decrement ref_count on every AnchorKVEntry whose content signature
+        matches the deleted node's. Drop entries that reach 0.
+
+        Without this, `ref_count` only ever goes up (incremented in
+        `_try_lossy_fuzzy_match`), causing the anchor store to leak entries
+        whose source KV slots are now freed.
+        """
+        sig = getattr(node, "code_content_signature", "") or ""
+        if not sig:
+            return
+        with self.anchor_kv_store_lock:
+            entries = self.anchor_kv_store.get(sig)
+            if not entries:
+                return
+            survivors = []
+            for entry in entries:
+                if entry.ref_count > 0:
+                    entry.ref_count -= 1
+                if entry.ref_count > 0:
+                    survivors.append(entry)
+                else:
+                    logger.info(
+                        "[anchor_kv_store] GC drop entry sig=%s content=%s start_pos=%d",
+                        entry.signature, entry.code_content_signature, entry.start_pos,
+                    )
+            if survivors:
+                self.anchor_kv_store[sig] = survivors
+            else:
+                self.anchor_kv_store.pop(sig, None)
 
     def _update_leaf_status(self, node: TreeNode):
         if node.evicted or node.lock_ref > 0:
