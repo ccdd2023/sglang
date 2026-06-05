@@ -1,0 +1,24 @@
+\section{Related Work}
+
+\paragraph{LLM serving and KV cache management.}
+PagedAttention and vLLM introduced efficient KV memory management for high-throughput serving~\cite{kwon2023vllm}.
+SGLang and RadixAttention exploit structure in language-model programs and shared prefixes~\cite{zheng2023sglang}.
+KVFlow further shows that multi-agent workflows can guide prefix-cache priority and prefetch decisions~\cite{kvflow2025}.
+Parrot exposes semantic variables for LLM application serving~\cite{parrot2024}, while ContiguousKV and Tokencake study prefill granularity and KV-centric serving for agent applications~\cite{contiguouskv,tokencake2025}.
+\system builds on this serving direction, but targets code-base segments that recur across agents at different prompt positions rather than only at common prefixes.
+
+\paragraph{Multi-agent software engineering.}
+Coding MAS frameworks decompose software tasks into planning, implementation, debugging, and review roles~\cite{multiagent2025,llmagents2024}.
+Plan caching and local/cloud collaboration show that agent workflows expose reusable execution structure beyond a single LLM request~\cite{plancaching2026,minions2025}.
+Most prior work studies task decomposition, agent coordination, or cost-aware model placement.
+\system treats the workflow template as a serving signal that can expose future KV reuse and prefetch opportunities.
+
+\paragraph{Lossy and approximate KV reuse.}
+Prior KV-reuse methods often measure numerical drift using vector similarity, attention or logit divergence, and downstream accuracy.
+RelayCaching reuses collaborative-agent KV across decode and prefill phases~\cite{relaycaching}; Continuum retains agent KV across tool delays with TTL policies~\cite{continuum}; \kvcomm studies communication-efficient cross-context KV reuse~\cite{kvcomm2025}.
+\system follows this measurement style with K/V cosine, KL divergence, top-k agreement, and pass@1, but imposes a stricter content-safety boundary for code: no reuse is allowed unless the code text signature matches exactly.
+
+\paragraph{Program analysis for code LLMs.}
+ASTs, anchors, and code spans are useful for locating and structuring code context.
+\system uses them for candidate discovery, but not as a proof of reuse safety.
+This separation avoids false accepts from syntactically similar but behaviorally different code.

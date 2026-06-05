@@ -1,0 +1,18 @@
+\begin{table}[t]
+\centering
+\caption{Near-match safety expansion from 500 repo-level negative pairs plus exact controls.}
+\label{tab:nearmatch-safety}
+\begin{tabular}{lrrr}
+\toprule
+Policy & Allows & False accepts & False rejects \\
+\midrule
+exact\_content\_gate & 50 & 0 & 0 \\
+ast\_only & 550 & 500 & 0 \\
+span\_overlap\_only & 550 & 500 & 0 \\
+path\_function\_name & 550 & 500 & 0 \\
+content\_signature & 50 & 0 & 0 \\
+token\_text\_exact & 50 & 0 & 0 \\
+no\_gate & 550 & 500 & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}

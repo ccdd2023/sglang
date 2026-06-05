@@ -19,7 +19,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -83,6 +83,11 @@ def start_server(args: argparse.Namespace, policy: str, port: int, log_path: Pat
         "--log-level",
         "info",
     ]
+    if args.dtype:
+        cmd.extend(["--dtype", str(args.dtype)])
+    if args.quantization:
+        cmd.extend(["--quantization", str(args.quantization)])
+
     if cfg["hicache"]:
         cmd.extend(
             [
@@ -127,7 +132,44 @@ def stop_server(proc: subprocess.Popen) -> None:
         log_fp.close()
 
 
-def run_one_policy(args: argparse.Namespace, policy: str, port: int) -> Dict[str, object]:
+def maybe_export_real_templates(args: argparse.Namespace) -> Tuple[Optional[Path], Optional[Dict[str, object]]]:
+    if args.real_templates:
+        return Path(args.real_templates), None
+    if not args.template_cache_input:
+        return None, None
+
+    export_script = Path(args.export_script)
+    output_path = Path(args.output_dir) / "exports" / "real_templates.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        sys.executable,
+        str(export_script),
+        "--input",
+        args.template_cache_input,
+        "--output",
+        str(output_path),
+    ]
+    subprocess.run(cmd, check=True, cwd=str(ROOT))
+    try:
+        export_data = json.loads(output_path.read_text(encoding="utf-8"))
+    except Exception:
+        export_data = None
+    export_stats = None
+    if isinstance(export_data, dict):
+        export_stats = {
+            "total_templates": export_data.get("total_templates"),
+            "by_task_type": export_data.get("by_task_type"),
+            "by_task_family": export_data.get("by_task_family"),
+        }
+    return output_path, export_stats
+
+
+def run_one_policy(
+    args: argparse.Namespace,
+    policy: str,
+    port: int,
+    real_templates: Optional[Path],
+) -> Dict[str, object]:
     policy_output_dir = Path(args.output_dir) / policy
     policy_output_dir.mkdir(parents=True, exist_ok=True)
     log_path = Path(args.output_dir) / "logs" / f"{policy}.server.log"
@@ -145,6 +187,9 @@ def run_one_policy(args: argparse.Namespace, policy: str, port: int) -> Dict[str
             "--num-unique",
             str(args.num_unique),
         ]
+        if real_templates:
+            cmd.extend(["--real-templates", str(real_templates)])
+            cmd.extend(["--real-template-role", args.real_template_role])
         if args.verbose:
             cmd.append("--verbose")
         proc = subprocess.run(cmd, check=True, cwd=str(ROOT), capture_output=True, text=True)
@@ -313,18 +358,35 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--chunked-prefill-size", type=int, default=2048)
     parser.add_argument("--max-prefill-tokens", type=int, default=4096)
     parser.add_argument("--hicache-ratio", type=float, default=2.0)
+    parser.add_argument("--dtype", default="auto")
+    parser.add_argument("--quantization", default=None)
+    parser.add_argument("--real-templates", default=None)
+    parser.add_argument("--template-cache-input", default=None)
+    parser.add_argument("--real-template-role", default="planner")
+    parser.add_argument("--real-templates-mode", choices=["mix", "dominant"], default="mix")
+    parser.add_argument(
+        "--export-script",
+        default="/home/gfy/CodeMAS_Project/MAScoder/scripts/export_kv_templates.py",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    real_templates, export_stats = maybe_export_real_templates(args)
     results: List[Dict[str, object]] = []
     for idx, policy in enumerate(args.policies):
         port = args.base_port + idx
         print(f"\n=== Eviction suite: {policy} (port {port}) ===", flush=True)
-        results.append(run_one_policy(args, policy, port))
+        results.append(run_one_policy(args, policy, port, real_templates))
 
     summary = build_summary(results, args.baseline_policy)
+    if real_templates:
+        summary["real_templates_path"] = str(real_templates)
+        summary["real_template_role"] = args.real_template_role
+        summary["real_templates_mode"] = args.real_templates_mode
+    if export_stats:
+        summary["template_export_stats"] = export_stats
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     json_path = output_dir / "suite_summary.json"

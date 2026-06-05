@@ -1399,6 +1399,17 @@ class HiRadixCache(RadixCache):
         key = params.key
         empty_value = torch.empty((0,), dtype=torch.int64, device=self.device)
         key, _ = self.maybe_bigram_convert(key)
+        req = params.req
+        best_node = None
+        if req is not None and (getattr(req, "reuse_mode", "") or "") == "lossy":
+            best_node, _ = self._resolve_lossy_match(req)
+            if not (getattr(req, "lossy_first_reuse_allowed", True)):
+                return MatchResult(
+                    device_indices=empty_value,
+                    last_device_node=self.root_node,
+                    last_host_node=self.root_node,
+                    host_hit_length=0,
+                )
         if self.disable or len(key) == 0:
             return MatchResult(
                 device_indices=empty_value,
@@ -1413,6 +1424,10 @@ class HiRadixCache(RadixCache):
             key = key[:page_aligned_len]
 
         value, last_node = self._match_prefix_helper(self.root_node, key)
+        if best_node is not None:
+            value, last_node = self._try_lossy_fuzzy_match(
+                req, key, value, last_node, best_node
+            )
         if value:
             value = torch.cat(value)
         else:
@@ -1566,6 +1581,20 @@ class HiRadixCache(RadixCache):
         # Inherit workflow refs so split does not lose cross-workflow sharing info.
         new_node.workflow_refs.update(child.workflow_refs)
         new_node.role_type = child.role_type
+        new_node.convergence_factor = child.convergence_factor
+        new_node.critical_path_distance = child.critical_path_distance
+        new_node.anchor_type = child.anchor_type
+        new_node.anchor_id = child.anchor_id
+        new_node.code_content_signature = child.code_content_signature
+        new_node.anchor_spans = list(child.anchor_spans)
+        new_node.reuse_mode = child.reuse_mode
+        new_node.reuse_confidence = child.reuse_confidence
+        new_node.syntax_region_type = child.syntax_region_type
+        new_node.template_task_family = child.template_task_family
+        new_node.template_workflow_signature = child.template_workflow_signature
+        new_node.template_structural_fingerprint = (
+            child.template_structural_fingerprint
+        )
 
         # split value and host value if exists
         if child.evicted:
@@ -1594,6 +1623,24 @@ class HiRadixCache(RadixCache):
         priority = params.priority
         effective_wid = workflow_id if workflow_id is not None else params.workflow_id
         effective_role_type = role_type or getattr(params, "role_type", 0)
+        effective_convergence_factor = getattr(params, "convergence_factor", 0) or 0
+        effective_crit_distance = getattr(params, "critical_path_distance", 1) or 1
+        effective_anchor_type = getattr(params, "anchor_type", "") or ""
+        effective_anchor_id = getattr(params, "anchor_id", "") or ""
+        effective_code_content_signature = (
+            getattr(params, "code_content_signature", "") or ""
+        )
+        effective_anchor_spans = getattr(params, "anchor_spans", None) or []
+        effective_reuse_mode = getattr(params, "reuse_mode", "") or ""
+        effective_reuse_confidence = getattr(params, "reuse_confidence", 0.0) or 0.0
+        effective_syntax_region_type = getattr(params, "syntax_region_type", "") or ""
+        effective_template_task_family = getattr(params, "template_task_family", "") or ""
+        effective_template_workflow_signature = (
+            getattr(params, "template_workflow_signature", "") or ""
+        )
+        effective_template_structural_fingerprint = (
+            getattr(params, "template_structural_fingerprint", "") or ""
+        )
 
         if priority is None:
             priority = 0
@@ -1616,6 +1663,38 @@ class HiRadixCache(RadixCache):
         # Token-type awareness: mark system/role node type
         if effective_role_type > 0 and node.role_type == 0:
             node.role_type = effective_role_type
+        if effective_convergence_factor > 0 and node.convergence_factor == 0:
+            node.convergence_factor = effective_convergence_factor
+        if effective_crit_distance > 1 and node.critical_path_distance == 1:
+            node.critical_path_distance = effective_crit_distance
+        if effective_anchor_type and not node.anchor_type:
+            node.anchor_type = effective_anchor_type
+        if effective_anchor_id and not node.anchor_id:
+            node.anchor_id = effective_anchor_id
+        if effective_code_content_signature and not node.code_content_signature:
+            node.code_content_signature = effective_code_content_signature
+        if effective_anchor_spans and not node.anchor_spans:
+            node.anchor_spans = list(effective_anchor_spans)
+        if effective_reuse_mode and not node.reuse_mode:
+            node.reuse_mode = effective_reuse_mode
+        if effective_reuse_confidence > 0 and node.reuse_confidence == 0.0:
+            node.reuse_confidence = effective_reuse_confidence
+        if effective_syntax_region_type and not node.syntax_region_type:
+            node.syntax_region_type = effective_syntax_region_type
+        if effective_template_task_family and not node.template_task_family:
+            node.template_task_family = effective_template_task_family
+        if (
+            effective_template_workflow_signature
+            and not node.template_workflow_signature
+        ):
+            node.template_workflow_signature = effective_template_workflow_signature
+        if (
+            effective_template_structural_fingerprint
+            and not node.template_structural_fingerprint
+        ):
+            node.template_structural_fingerprint = (
+                effective_template_structural_fingerprint
+            )
 
         while len(key) > 0 and child_key in node.children.keys():
             node = node.children[child_key]
@@ -1627,6 +1706,40 @@ class HiRadixCache(RadixCache):
             # Token-type awareness: mark node type if not already set
             if effective_role_type > 0 and node.role_type == 0:
                 node.role_type = effective_role_type
+            if effective_convergence_factor > 0 and node.convergence_factor == 0:
+                node.convergence_factor = effective_convergence_factor
+            if effective_crit_distance > 1 and node.critical_path_distance == 1:
+                node.critical_path_distance = effective_crit_distance
+            if effective_anchor_type and not node.anchor_type:
+                node.anchor_type = effective_anchor_type
+            if effective_anchor_id and not node.anchor_id:
+                node.anchor_id = effective_anchor_id
+            if effective_code_content_signature and not node.code_content_signature:
+                node.code_content_signature = effective_code_content_signature
+            if effective_anchor_spans and not node.anchor_spans:
+                node.anchor_spans = list(effective_anchor_spans)
+            if effective_reuse_mode and not node.reuse_mode:
+                node.reuse_mode = effective_reuse_mode
+            if effective_reuse_confidence > 0 and node.reuse_confidence == 0.0:
+                node.reuse_confidence = effective_reuse_confidence
+            if effective_syntax_region_type and not node.syntax_region_type:
+                node.syntax_region_type = effective_syntax_region_type
+            if effective_template_task_family and not node.template_task_family:
+                node.template_task_family = effective_template_task_family
+            if (
+                effective_template_workflow_signature
+                and not node.template_workflow_signature
+            ):
+                node.template_workflow_signature = (
+                    effective_template_workflow_signature
+                )
+            if (
+                effective_template_structural_fingerprint
+                and not node.template_structural_fingerprint
+            ):
+                node.template_structural_fingerprint = (
+                    effective_template_structural_fingerprint
+                )
             prefix_len = self.key_match_fn(node.key, key)
 
             if prefix_len == len(node.key):
@@ -1649,6 +1762,60 @@ class HiRadixCache(RadixCache):
                 new_node.priority = max(new_node.priority, priority)
                 if effective_role_type > 0 and new_node.role_type == 0:
                     new_node.role_type = effective_role_type
+                if (
+                    effective_convergence_factor > 0
+                    and new_node.convergence_factor == 0
+                ):
+                    new_node.convergence_factor = effective_convergence_factor
+                if (
+                    effective_crit_distance > 1
+                    and new_node.critical_path_distance == 1
+                ):
+                    new_node.critical_path_distance = effective_crit_distance
+                if effective_anchor_type and not new_node.anchor_type:
+                    new_node.anchor_type = effective_anchor_type
+                if effective_anchor_id and not new_node.anchor_id:
+                    new_node.anchor_id = effective_anchor_id
+                if (
+                    effective_code_content_signature
+                    and not new_node.code_content_signature
+                ):
+                    new_node.code_content_signature = (
+                        effective_code_content_signature
+                    )
+                if effective_anchor_spans and not new_node.anchor_spans:
+                    new_node.anchor_spans = list(effective_anchor_spans)
+                if effective_reuse_mode and not new_node.reuse_mode:
+                    new_node.reuse_mode = effective_reuse_mode
+                if (
+                    effective_reuse_confidence > 0
+                    and new_node.reuse_confidence == 0.0
+                ):
+                    new_node.reuse_confidence = effective_reuse_confidence
+                if (
+                    effective_syntax_region_type
+                    and not new_node.syntax_region_type
+                ):
+                    new_node.syntax_region_type = effective_syntax_region_type
+                if (
+                    effective_template_task_family
+                    and not new_node.template_task_family
+                ):
+                    new_node.template_task_family = effective_template_task_family
+                if (
+                    effective_template_workflow_signature
+                    and not new_node.template_workflow_signature
+                ):
+                    new_node.template_workflow_signature = (
+                        effective_template_workflow_signature
+                    )
+                if (
+                    effective_template_structural_fingerprint
+                    and not new_node.template_structural_fingerprint
+                ):
+                    new_node.template_structural_fingerprint = (
+                        effective_template_structural_fingerprint
+                    )
                 if new_node.evicted:
                     new_node.value = value[:prefix_len].clone()
                     self.evictable_size_ += len(new_node.value)
@@ -1676,6 +1843,34 @@ class HiRadixCache(RadixCache):
                 new_node.workflow_refs.add(effective_wid)
             if effective_role_type > 0:
                 new_node.role_type = effective_role_type
+            if effective_convergence_factor > 0:
+                new_node.convergence_factor = effective_convergence_factor
+            if effective_crit_distance > 0:
+                new_node.critical_path_distance = effective_crit_distance
+            if effective_anchor_type:
+                new_node.anchor_type = effective_anchor_type
+            if effective_anchor_id:
+                new_node.anchor_id = effective_anchor_id
+            if effective_code_content_signature:
+                new_node.code_content_signature = effective_code_content_signature
+            if effective_anchor_spans:
+                new_node.anchor_spans = list(effective_anchor_spans)
+            if effective_reuse_mode:
+                new_node.reuse_mode = effective_reuse_mode
+            if effective_reuse_confidence > 0:
+                new_node.reuse_confidence = effective_reuse_confidence
+            if effective_syntax_region_type:
+                new_node.syntax_region_type = effective_syntax_region_type
+            if effective_template_task_family:
+                new_node.template_task_family = effective_template_task_family
+            if effective_template_workflow_signature:
+                new_node.template_workflow_signature = (
+                    effective_template_workflow_signature
+                )
+            if effective_template_structural_fingerprint:
+                new_node.template_structural_fingerprint = (
+                    effective_template_structural_fingerprint
+                )
             node.children[child_key] = new_node
             self.evictable_size_ += len(value)
             self._update_leaf_status(node)

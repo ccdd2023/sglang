@@ -54,6 +54,31 @@
 
 </details>
 
+---
+
+## KVFlow: Coding-MAS-Aware KV Cache Management (this fork)
+
+This repository is a fork of SGLang that adds **template-driven KV cache management for Coding Multi-Agent System (MAS)** workflows. See [`KVFLOW_OVERVIEW.md`](KVFLOW_OVERVIEW.md) for the consolidated project documentation (replaces the previous `KVCOMM.md` + `PROGRESS_SUMMARY.md` + `ARCHITECTURE_LIMIT.md` triplet).
+
+**At a glance**:
+- **3 contributions** layered on top of SGLang's `RadixCache`:
+  1. Workflow Template Generation (Planner/Implementer/Reviewer fixed chain)
+  2. Template-Guided KV Prefetch & Eviction
+  3. Code-Base-Aware Lossy KV Reuse (KVCOMM) + **Context-Aware Confidence Modifier**
+- **Data-driven gate**: the lossy reuse gate is the exact `code_content_signature` match, but a learned modifier down-grades the confidence for an exact match when the request's prompt context (position offset, system prompt, surrounding wrap) predicts a high KV distance.
+- **Experiments**:
+  - `results/ast_kv_distance/` — 121-segment AST-type KV distance analysis (Qwen2.5-Coder-7B)
+  - `results/same_code_context_variation/` — 2,304 forward-pass experiment that drives the confidence modifier
+- **Tooling**: `tools/aggregate_lossy_rope_delta.py` for production telemetry
+
+Quick links:
+- [KVFLOW_OVERVIEW.md](KVFLOW_OVERVIEW.md) — main project doc
+- [docs/experiment_plan.md](docs/experiment_plan.md) — main experiment plan
+- [results/ast_kv_distance/report.md](results/ast_kv_distance/report.md) — first KV-distance write-up
+- [results/same_code_context_variation/report.md](results/same_code_context_variation/report.md) — second KV-distance write-up
+- [python/sglang/srt/mem_cache/anchor_match.py](python/sglang/srt/mem_cache/anchor_match.py) — gate logic + modifier
+- [python/sglang/srt/mem_cache/radix_cache.py](python/sglang/srt/mem_cache/radix_cache.py) — anchor KV store + lossy copy + RoPE delta
+
 ## About
 SGLang is a high-performance serving framework for large language models and multimodal models.
 It is designed to deliver low-latency and high-throughput inference across a wide range of setups, from a single GPU to large distributed clusters.

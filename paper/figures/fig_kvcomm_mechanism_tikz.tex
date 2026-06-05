@@ -1,0 +1,22 @@
+\begin{tikzpicture}[
+  font=\scriptsize,
+  box/.style={draw, rounded corners=2pt, align=center, inner sep=3pt, minimum height=0.52cm},
+  arrow/.style={-{Latex[length=1.8mm]}, line width=0.35pt},
+  note/.style={draw, rounded corners=2pt, align=center, fill=gray!8, inner sep=2pt}
+]
+\node[box, fill=blue!6, minimum width=3.0cm] (pa) {Prompt A\\prefix + \textbf{Code Base X} at $i$};
+\node[box, fill=blue!6, below=0.35cm of pa, minimum width=3.0cm] (pb) {Prompt B\\context + \textbf{Code Base X} at $j$};
+\node[note, right=0.38cm of pa, yshift=-0.43cm] (loc) {AST/anchor\\locator only};
+\node[box, fill=green!8, right=0.45cm of loc] (sig) {content\\signature};
+\node[box, fill=green!8, right=0.35cm of sig] (match) {exact\\match};
+\node[box, fill=orange!10, below=0.35cm of match] (kv) {cached\\K,V};
+\node[box, fill=orange!10, right=0.35cm of match] (rope) {RoPE delta\\$j-i$};
+\node[box, fill=orange!10, right=0.35cm of rope] (reuse) {reuse +\\decode};
+\draw[arrow] (pa.east) -- (loc.west);
+\draw[arrow] (pb.east) -- (loc.west);
+\draw[arrow] (loc) -- (sig);
+\draw[arrow] (sig) -- (match);
+\draw[arrow] (kv) -- (rope);
+\draw[arrow] (match) -- (rope);
+\draw[arrow] (rope) -- (reuse);
+\end{tikzpicture}

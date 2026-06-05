@@ -1,0 +1,57 @@
+\section{Motivation}
+
+\subsection{Repository Context Repeats Across Agents}
+
+In a coding MAS workflow, agents have different roles but often consult the same code base.
+For example, a Planner may receive a repository summary and several large files to decide a repair strategy.
+An Implementer later receives the issue, the plan, and two of the same files.
+A Debugger may receive test output plus one of the same files.
+The repeated code is exact, but its prompt position changes because each agent has a different prefix and context.
+This is the common case rather than an artifact of a particular prompt template: role instructions, chain-of-thought summaries, test output, and tool results are usually prepended before the code that a later agent must inspect.
+As a result, the expensive tokens are stable as repository content but unstable as prefix positions.
+
+This pattern is not rare in repo-level tasks.
+Our 500-case SWE-bench Verified code-base-content manifest contains 1500 large Python file segments, 5.97M source lines, and an estimated 58.8M reusable tokens.
+The repeated data is large enough to matter for serving latency and memory movement, yet structured enough for templates to describe future accesses.
+The serving problem is therefore not simply ``can we cache a prompt?'' but ``can we preserve useful KV for code objects that recur across different agents?''
+Treating repository files as first-class objects gives the runtime a stable name and signature for content that would otherwise appear only as a long substring inside each request.
+
+\subsection{Agent Templates Expose Serving Semantics}
+
+The previous project draft, AgentTemplateKV, observed that multi-agent code programs are not arbitrary conversations.
+They have repeatable task-specific DAGs such as plan--implement--test--debug--review, and edges carry typed content such as patches, code files, test logs, or review comments.
+\system keeps this template view but narrows the serving objective.
+Rather than assigning generic TTLs to every agent turn, \system asks which exact code-base segments will recur in later agents and when the engine should prefetch or retain their KV.
+
+The template side therefore records role, downstream consumers, edge content type, and use distance.
+These fields are compiled into \prefetchhint and priority metadata.
+The engine can use them for prefetch and eviction without trusting them for correctness.
+Correctness is still determined by the exact content gate at reuse time.
+This separation is important because templates are predictive.
+They may be incomplete, stale, or conservative; a later agent may skip a file, add a new diagnostic log, or receive a shortened prompt after a tool failure.
+\system treats such deviations as scheduling misses rather than correctness failures.
+A wrong hint can waste prefetch work, but it cannot authorize reuse of non-identical code.
+
+\subsection{Prefix Caches Are Not Enough}
+
+Prefix caching works when requests share the same initial token sequence.
+Coding MAS prompts can share a system prefix, but the expensive repository content is often placed after role-specific instructions or intermediate outputs.
+Two prompts may therefore contain the same file at positions $i$ and $j$.
+The cached K/V tensors for the span are not position-free: RoPE encodes positions into attention states.
+This makes direct middle-span reuse numerically different from a fresh prefill.
+One conservative solution is to recompute every non-prefix code token for every agent.
+That solution is simple but leaves substantial reuse opportunity unused, especially when two or three agents inspect the same thousand-line file.
+The alternative explored here is narrower: reuse only when the code content is byte-for-byte equivalent after normalization, and then repair the positional mismatch with a RoPE delta transform.
+This keeps the semantic risk focused on numerical approximation rather than on approximate code matching.
+
+\subsection{Syntax Is a Locator, Not a Safety Gate}
+
+AST and anchor metadata help find corresponding code regions.
+They are not sufficient to prove safe reuse.
+Two functions can share names or syntax shape while changing a literal, operator, or call target.
+Our controlled gate suite confirms this: AST-only, span-overlap-only, and no-gate policies falsely accept changed code, while exact-content gating rejects every non-identical case.
+This observation drives the central safety invariant of \system: only exact code content can be reused.
+The point is not that syntax metadata is useless.
+On the contrary, it makes candidate lookup practical by narrowing the search to likely spans and by attaching source-level explanations to cache entries.
+The safety boundary is simply placed after lookup.
+Locators answer where a reusable object might be; signatures answer whether the cached object is the same code.

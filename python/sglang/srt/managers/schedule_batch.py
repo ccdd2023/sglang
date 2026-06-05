@@ -516,7 +516,23 @@ class Req(ReqDllmMixin):
         disagg_prefill_dp_rank: Optional[int] = None,
         vocab_size: Optional[int] = None,
         priority: Optional[int] = None,
+        next_agent_prefix: Optional[str] = None,
+        codebase_prefetch_hints: Optional[List[Dict[str, Any]]] = None,
         metrics_collector: Optional[SchedulerMetricsCollector] = None,
+        code_anchor_signature: Optional[str] = None,
+        code_content_signature: Optional[str] = None,
+        code_anchor_spans: Optional[List[Dict[str, Any]]] = None,
+        code_anchor_token_spans: Optional[List[Dict[str, Any]]] = None,
+        reuse_mode: Optional[str] = None,
+        lossy_alignment_method: Optional[str] = None,
+        template_task_family: Optional[str] = None,
+        template_workflow_signature: Optional[str] = None,
+        template_structural_fingerprint: Optional[str] = None,
+        # Prompt-context fields (sglang-kvflow context_aware_confidence).
+        nesting_depth: int = 0,
+        prompt_position_offset: int = 0,
+        system_prompt_class: str = "",
+        surrounding_code_hash: str = "",
         extra_key: Optional[str] = None,
         routing_key: Optional[str] = None,
         dimensions: Optional[int] = None,
@@ -620,6 +636,33 @@ class Req(ReqDllmMixin):
         self.eos_token_ids = eos_token_ids
         self.vocab_size = vocab_size
         self.priority = priority
+        self.next_agent_prefix = next_agent_prefix
+        self.codebase_prefetch_hints = codebase_prefetch_hints or []
+        self.codebase_prefetch_hint_count = len(self.codebase_prefetch_hints)
+        self.codebase_prefetch_text_count = sum(
+            1
+            for hint in self.codebase_prefetch_hints
+            if isinstance(hint, dict)
+            and (hint.get("text") or hint.get("code") or hint.get("content"))
+        )
+        self.codebase_prefetch_queued_tokens = 0
+        self.codebase_prefetch_matched_tokens = 0
+        self.codebase_prefetch_success_count = 0
+        self.codebase_prefetch_device_hit_count = 0
+        self.code_anchor_signature = code_anchor_signature
+        self.code_content_signature = code_content_signature
+        self.code_anchor_spans = code_anchor_spans or []
+        self.code_anchor_token_spans = code_anchor_token_spans or []
+        self.reuse_mode = reuse_mode
+        self.lossy_alignment_method = lossy_alignment_method
+        self.template_task_family = template_task_family
+        self.template_workflow_signature = template_workflow_signature
+        self.template_structural_fingerprint = template_structural_fingerprint
+        # Prompt-context fields (sglang-kvflow context_aware_confidence)
+        self.nesting_depth = int(nesting_depth or 0)
+        self.prompt_position_offset = int(prompt_position_offset or 0)
+        self.system_prompt_class = str(system_prompt_class or "")
+        self.surrounding_code_hash = str(surrounding_code_hash or "")
 
         # For incremental decoding
         # ----- | --------- read_ids -------|

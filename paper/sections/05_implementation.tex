@@ -1,0 +1,42 @@
+\section{Implementation}
+
+\system is implemented across MAScoder templates and an SGLang-based serving stack that reuses KVFlow-style scheduling hooks.
+The template side builds an agent code-base plan and serializes \prefetchhint into request metadata.
+The engine side propagates the field through request parsing and scheduling, preserving observability counters such as hint count, text-bearing hint count, matched tokens, queued tokens, and exact-content match reason.
+The request schema treats \prefetchhint as optional metadata.
+Legacy requests therefore follow the original serving path, while MAS requests can attach an array of code-base objects without changing the user-visible prompt text.
+Each hint record contains a stable code-base identifier, content signature, priority, target role, use distance, and optionally the exact text block.
+The optional text field is useful for active tokenization and prefetch; the signature-only form is still useful for cache accounting and for validating that later exact-content hits correspond to template-predicted objects.
+
+The scheduler performs two prefetch paths.
+The original path prefetches KV for the next agent prefix.
+The coding-aware path examines code-base hints.
+Hints with exact text can be tokenized and matched against the radix/HiCache structures; hints without text are retained as scheduling metadata.
+The current evaluated configuration uses device-resident cache matching and disables host-backed storage prefetch for the main table because the file-backed backend exposed a token-to-KV allocator leak in smoke tests.
+This implementation choice keeps the measured path conservative.
+When a hint cannot be tokenized, cannot be matched, or points to an evicted object, the scheduler records the miss and the request continues through ordinary prefill.
+No user-visible output depends on a hint being honored.
+The counters reported in the evaluation distinguish between hints observed by the scheduler, text-bearing hints that could be considered for active prefetch, tokens queued for code-base prefetch, and tokens actually matched by the exact-content reuse path.
+
+The exact-content reuse layer extends cached nodes with code-anchor metadata, syntax-region type, content signature, and token span information.
+The reuse decision is deliberately conservative.
+Locator metadata may identify a candidate, but a mismatch in content signature rejects reuse even if the AST shape, path, or span overlaps.
+When a match is allowed, the implementation computes the relative position delta between source and target spans and applies RoPE alignment before the target request decodes.
+The cache node extension is local to the code-aware path.
+Prefix-cache entries can still be used without code metadata, and code metadata can be absent for spans that are not part of a template object.
+For spans with metadata, the runtime stores both source token offsets and normalized source text signatures.
+At lookup time, the target request recomputes the normalized signature from the actual prompt content.
+This avoids trusting an external manifest when the live prompt differs from the planned template.
+
+Template metadata is represented as KV-object metadata at runtime.
+Each candidate object records the producing agent, role, code-base id, content type, downstream consumers, priority, and token span.
+This metadata mirrors the original AgentTemplateKV lifecycle abstraction, but \system adds code-specific fields: normalized content signature, syntax-region type, anchor signature, and match reason.
+The additional fields make it possible to report whether a serving speedup came from prefix cache reuse, code-base prefetch, or exact-content segment reuse.
+The benchmark harness reads these counters through the serving API response and writes per-case JSON/CSV summaries.
+The paper tables are generated from those summaries rather than from hand-entered numbers.
+For the 100-case serving experiment, partial runs are merged by manifest index and deduplicated before recomputing averages and percentile latency statistics.
+This matters because long serving experiments can be interrupted by runtime or hardware limits; recomputing the table from unique case identifiers prevents duplicated retries from inflating hit rates.
+
+The prototype also records failure modes explicitly.
+The 32B GPTQ run is stored as a hardware-capacity limitation rather than as missing evidence, and the file-backed HiCache leak is excluded from the main performance claim.
+These records are not part of the algorithm, but they keep the implementation/evaluation boundary honest: the reported gains come from device-resident exact-content reuse and scheduling metadata, not from unvalidated host load-back acceleration.

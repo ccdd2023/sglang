@@ -1,0 +1,81 @@
+\documentclass[sigplan,10pt,anonymous,review]{acmart}
+
+\settopmatter{printfolios=true,printccs=false,printacmref=false}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\pagestyle{plain}
+
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{subcaption}
+\usepackage{xspace}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc,shapes.geometric}
+\graphicspath{{figures/}{paper/figures/}}
+\makeatletter
+\def\input@path{{./}{paper/}}
+\makeatother
+
+\newcommand{\system}{CodeMAS\xspace}
+\newcommand{\kvcomm}{KVCOMM\xspace}
+\newcommand{\exactgate}{\texttt{exact\_code\_content\_signature}\xspace}
+\newcommand{\prefetchhint}{\texttt{codebase\_prefetch\_hints}\xspace}
+
+\title{Template-Guided Code-Base Segment Reuse for Multi-Agent Software Engineering}
+\author{Anonymous Authors}
+\affiliation{\institution{Anonymous Institution}}
+
+\begin{document}
+
+\begin{abstract}
+Multi-agent systems for software engineering increasingly decompose a task into planner, implementer, debugger, and reviewer roles.
+These agents often share a large repository context, but conventional prefix caching is poorly matched to this access pattern: the repeated content is not only at the prompt prefix, and the same code base may appear after different role-specific instructions and intermediate context.
+This paper presents \system, a template-guided serving stack for coding multi-agent systems.
+\system builds on prior workflow-aware cache scheduling and cross-context KV reuse, including KVFlow and \kvcomm, but focuses on the software-engineering case where the reusable object is an exact repository code segment.
+\system contributes three code-specific mechanisms.
+First, workflow templates expose future code-base access patterns across agents.
+Second, a coding-aware hint schema propagates code-base identifiers, content signatures, priorities, and downstream consumers to the serving engine without treating hints as correctness evidence.
+Third, an exact-content reuse policy uses AST and anchor metadata only to locate candidate code spans, requires an exact content signature match before reuse, and applies a RoPE delta transform when cached KV tensors are consumed at different prompt positions.
+
+On SWE-bench Verified code-base-content workloads, \system identifies 58.8M reusable code tokens across 500 repo-level cases.
+In controlled safety tests, the exact-content gate has zero false accepts, while AST-only and span-only gates accept semantically changed code.
+In numerical ablations, correct RoPE delta alignment reaches 0.999 mean K cosine, 0.0147 next-token KL divergence, and 96.9\% top-1 token agreement.
+On a 30-case local SWE-bench pass@1 comparison with Qwen2.5-7B-Instruct, exact-content segment reuse preserves the lossless baseline within one solved case while increasing average cached tokens from 1253 to 2190 and reducing generation latency from 2052 ms to 1729 ms.
+These results suggest that coding-aware templates can turn repository repetition into safe serving-time KV reuse without allowing approximate or AST-only code substitution.
+\end{abstract}
+
+\begin{CCSXML}
+<ccs2012>
+ <concept>
+  <concept_id>10010520.10010521.10010542</concept_id>
+  <concept_desc>Computer systems organization~Distributed architectures</concept_desc>
+  <concept_significance>300</concept_significance>
+ </concept>
+ <concept>
+  <concept_id>10011007.10010940.10010941.10010949</concept_id>
+  <concept_desc>Software and its engineering~Software testing and debugging</concept_desc>
+  <concept_significance>300</concept_significance>
+ </concept>
+</ccs2012>
+\end{CCSXML}
+\ccsdesc[300]{Computer systems organization~Distributed architectures}
+\ccsdesc[300]{Software and its engineering~Software testing and debugging}
+\keywords{LLM serving, KV cache, multi-agent systems, software engineering agents, code generation}
+
+\maketitle
+
+\input{sections/01_introduction}
+\input{sections/02_motivation}
+\input{sections/03_background}
+\input{sections/04_design}
+\input{sections/05_implementation}
+\input{sections/06_evaluation}
+\input{sections/07_discussion}
+\input{sections/08_related_work}
+\input{sections/09_conclusion}
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{refs}
+
+\end{document}

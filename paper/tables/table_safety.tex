@@ -1,0 +1,17 @@
+\begin{table}[t]
+\centering
+\caption{Gate safety ablation. The exact-content policy permits reuse only on identical code text.}
+\label{tab:safety}
+\begin{tabular}{lrrr}
+\toprule
+Policy & Allows & False accepts & False rejects \\
+\midrule
+exact\_content\_gate & 1 & 0 & 0 \\
+ast\_only & 6 & 5 & 0 \\
+span\_overlap\_only & 6 & 5 & 0 \\
+content\_only & 1 & 0 & 0 \\
+token\_text\_exact & 1 & 0 & 0 \\
+no\_gate & 6 & 5 & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}

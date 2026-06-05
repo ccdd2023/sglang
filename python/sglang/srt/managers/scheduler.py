@@ -177,7 +177,7 @@ from sglang.srt.managers.session_controller import SessionController
 from sglang.srt.managers.utils import GenerationBatchResult, validate_input_length
 from sglang.srt.mem_cache.cache_init_params import CacheInitParams
 from sglang.srt.mem_cache.common import release_kv_cache
-from sglang.srt.mem_cache.radix_cache import RadixCache
+from sglang.srt.mem_cache.radix_cache import RadixCache, RadixKey
 from sglang.srt.mem_cache.session_aware_cache import SessionAwareCache
 from sglang.srt.model_executor.forward_batch_info import ForwardMode, PPProxyTensors
 from sglang.srt.multiplex.multiplexing_mixin import SchedulerMultiplexMixin
@@ -687,6 +687,15 @@ class Scheduler(
             self.tp_worker.get_memory_pool()
         )
 
+        # Extract RoPE parameters from model config for active KV delta rotation
+        rope_base = getattr(self.model_config.hf_text_config, "rope_theta", 10000.0)
+        rope_rotary_dim = getattr(
+            self.model_config, "head_dim",
+            self.model_config.hf_text_config.hidden_size
+            // self.model_config.hf_text_config.num_attention_heads,
+        )
+        rope_num_kv_heads = self.model_config.get_total_num_kv_heads()
+
         # Create cache
         params = CacheInitParams(
             disable=server_args.disable_radix_cache,
@@ -707,6 +716,10 @@ class Scheduler(
             pp_size=self.pp_size,
             chunked_prefill_size=server_args.chunked_prefill_size,
             sliding_window_size=self.sliding_window_size,
+            rope_base=rope_base,
+            rope_rotary_dim=rope_rotary_dim,
+            rope_is_neox_style=True,
+            rope_num_kv_heads=rope_num_kv_heads,
         )
 
         if (
@@ -1670,6 +1683,22 @@ class Scheduler(
                 disagg_prefill_dp_rank=recv_req.disagg_prefill_dp_rank,
                 vocab_size=self.model_config.vocab_size,
                 priority=recv_req.priority,
+                next_agent_prefix=recv_req.next_agent_prefix,
+                codebase_prefetch_hints=recv_req.codebase_prefetch_hints,
+                code_anchor_signature=recv_req.code_anchor_signature,
+                code_content_signature=recv_req.code_content_signature,
+                code_anchor_spans=recv_req.code_anchor_spans,
+                code_anchor_token_spans=recv_req.code_anchor_token_spans,
+                reuse_mode=recv_req.reuse_mode,
+                lossy_alignment_method=recv_req.lossy_alignment_method,
+                template_task_family=recv_req.template_task_family,
+                template_workflow_signature=recv_req.template_workflow_signature,
+                template_structural_fingerprint=recv_req.template_structural_fingerprint,
+                # Prompt-context fields (sglang-kvflow context_aware_confidence)
+                nesting_depth=recv_req.nesting_depth,
+                prompt_position_offset=recv_req.prompt_position_offset,
+                system_prompt_class=recv_req.system_prompt_class,
+                surrounding_code_hash=recv_req.surrounding_code_hash,
                 critical_path_distance=recv_req.critical_path_distance,
                 metrics_collector=(
                     self.metrics_collector if self.enable_metrics else None
@@ -1873,7 +1902,7 @@ class Scheduler(
         # (match_prefix will find existing nodes or return root)
         from sglang.srt.mem_cache.base_prefix_cache import MatchPrefixParams
         match_result = self.tree_cache.match_prefix(
-            MatchPrefixParams(key=token_ids)
+            MatchPrefixParams(key=RadixKey(token_ids=list(token_ids), extra_key=None))
         )
         last_host_node = match_result.last_host_node
 
@@ -1903,6 +1932,93 @@ class Scheduler(
             prefix_keys,
         )
 
+    def _prefetch_kvcache_for_codebases(self, req: Req):
+        """Coding-aware KVFlow prefetch for future exact code-base segments.
+
+        Template/planner hints can tell the engine that later agents will reuse
+        a specific code-base segment. AST/anchor is locator metadata only; this
+        path prefetches when the hint carries exact text, and the later lossy
+        reuse still requires ``exact_code_content_signature`` to match.
+        """
+        if not self.enable_hicache_storage:
+            return
+
+        hints = getattr(req, "codebase_prefetch_hints", None) or []
+        if not hints:
+            return
+
+        for idx, hint in enumerate(hints[:8]):
+            if not isinstance(hint, dict):
+                continue
+            text = hint.get("text") or hint.get("code") or hint.get("content")
+            content_signature = str(
+                hint.get("content_signature")
+                or hint.get("code_content_signature")
+                or ""
+            )
+            if not text or not content_signature:
+                continue
+
+            prefetch_rid = f"{req.rid}__codebase_pref_{idx}"
+            try:
+                token_ids = self.tokenizer.encode(text, add_special_tokens=False)
+            except Exception:
+                continue
+
+            if len(token_ids) < 2:
+                continue
+
+            from sglang.srt.mem_cache.base_prefix_cache import MatchPrefixParams
+
+            match_result = self.tree_cache.match_prefix(
+                MatchPrefixParams(key=RadixKey(token_ids=list(token_ids), extra_key=None))
+            )
+            last_host_node = match_result.last_host_node
+            matched_len = len(match_result.device_indices)
+
+            if not (last_host_node.backuped or last_host_node is self.tree_cache.root_node):
+                if matched_len > 0:
+                    req.codebase_prefetch_matched_tokens += matched_len
+                    req.codebase_prefetch_success_count += 1
+                    req.codebase_prefetch_device_hit_count += 1
+                continue
+
+            new_input_tokens = token_ids[matched_len:]
+            if len(new_input_tokens) < 2:
+                if matched_len > 0:
+                    req.codebase_prefetch_matched_tokens += matched_len
+                    req.codebase_prefetch_success_count += 1
+                    req.codebase_prefetch_device_hit_count += 1
+                continue
+
+            req.codebase_prefetch_matched_tokens += matched_len
+            req.codebase_prefetch_queued_tokens += len(new_input_tokens)
+            req.codebase_prefetch_success_count += 1
+            last_hash = last_host_node.get_last_hash_value()
+            prefix_keys = (
+                last_host_node.get_prefix_hash_values(last_host_node.parent)
+                if self.tree_cache.hicache_storage_pass_prefix_keys
+                else None
+            )
+
+            self.tree_cache.prefetch_from_storage(
+                prefetch_rid,
+                last_host_node,
+                new_input_tokens,
+                last_hash,
+                prefix_keys,
+            )
+            logger.debug(
+                "[KVFlow-CodePrefetch] rid=%s code_base_id=%s target_agent=%s "
+                "signature=%s tokens=%d matched=%d",
+                req.rid,
+                hint.get("code_base_id", ""),
+                hint.get("target_agent", ""),
+                content_signature,
+                len(token_ids),
+                matched_len,
+            )
+
     def _add_request_to_queue(self, req: Req, is_retracted: bool = False):
         if self.disaggregation_mode == DisaggregationMode.NULL:
             if not self._set_or_validate_priority(req):
@@ -1914,11 +2030,13 @@ class Scheduler(
             # for the next agent's prefix, start loading it to GPU now.
             # This runs in parallel with the current request's decode.
             self._prefetch_kvcache_for_next_agent(req)
+            self._prefetch_kvcache_for_codebases(req)
             self.waiting_queue.append(req)
             req.time_stats.set_wait_queue_entry_time()
         elif self.disaggregation_mode == DisaggregationMode.PREFILL:
             self._prefetch_kvcache(req)
             self._prefetch_kvcache_for_next_agent(req)
+            self._prefetch_kvcache_for_codebases(req)
             self.disagg_prefill_bootstrap_queue.add(
                 req, self.model_config.num_key_value_heads
             )

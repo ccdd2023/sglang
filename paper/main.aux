@@ -1,0 +1,130 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{swebench,multiagent2025,llmagents2024}
+\citation{kwon2023vllm,zheng2023sglang,parrot2024,kvflow2025,tokencake2025}
+\@writefile{toc}{\contentsline {section}{Abstract}{1}{section*.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {2}Motivation}{2}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Repository Context Repeats Across Agents}{2}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Agent Templates Expose Serving Semantics}{2}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}Prefix Caches Are Not Enough}{2}{subsection.2.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Syntax Is a Locator, Not a Safety Gate}{2}{subsection.2.4}\protected@file@percent }
+\citation{kwon2023vllm,zheng2023sglang}
+\citation{contiguouskv,tokencake2025}
+\citation{kvflow2025}
+\citation{continuum}
+\citation{relaycaching}
+\citation{kvcomm2025}
+\citation{su2021rope}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Background}{3}{section.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{KV cache serving.}{3}{section*.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Workflow-aware cache scheduling.}{3}{section*.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{RoPE and cross-position reuse.}{3}{section*.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Design}{3}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Workflow Templates}{3}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Coding-Aware Scheduling Hints}{3}{subsection.4.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces CodeMAS\xspace  overview. Workflow templates expose future agent and code-base accesses; a KVFlow-style scheduler consumes coding-aware prefetch hints; the reuse layer enforces exact-content gates before RoPE-aligned segment reuse.}}{4}{figure.caption.7}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:architecture}{{1}{4}{\system overview. Workflow templates expose future agent and code-base accesses; a KVFlow-style scheduler consumes coding-aware prefetch hints; the reuse layer enforces exact-content gates before RoPE-aligned segment reuse}{figure.caption.7}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Template synthesis process inherited from the original project draft and specialized in CodeMAS\xspace  to emit code-base reuse plans.}}{4}{figure.caption.8}\protected@file@percent }
+\newlabel{fig:template-synthesis}{{2}{4}{Template synthesis process inherited from the original project draft and specialized in \system to emit code-base reuse plans}{figure.caption.8}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Coding-aware prefetch hints. Templates reveal future code-base use to a KVFlow-style scheduler, while exact-content gates remain responsible for reuse safety.}}{4}{figure.caption.9}\protected@file@percent }
+\newlabel{fig:prefetch}{{3}{4}{Coding-aware prefetch hints. Templates reveal future code-base use to a KVFlow-style scheduler, while exact-content gates remain responsible for reuse safety}{figure.caption.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Exact-Content Segment Reuse}{4}{subsection.4.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Exact-content segment reuse. AST/anchor information locates candidate spans only; reuse requires exact code content and then applies RoPE delta alignment for the target prompt position.}}{5}{figure.caption.10}\protected@file@percent }
+\newlabel{fig:kvcomm}{{4}{5}{Exact-content segment reuse. AST/anchor information locates candidate spans only; reuse requires exact code content and then applies RoPE delta alignment for the target prompt position}{figure.caption.10}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.4}Safety Invariant}{5}{subsection.4.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Implementation}{5}{section.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Evaluation}{6}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Experimental Setup}{6}{subsection.6.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Gate safety ablation. The exact-content policy permits reuse only on identical code text.}}{6}{table.caption.11}\protected@file@percent }
+\newlabel{tab:safety}{{1}{6}{Gate safety ablation. The exact-content policy permits reuse only on identical code text}{table.caption.11}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Near-match safety expansion from 500 repo-level negative pairs plus exact controls.}}{6}{table.caption.12}\protected@file@percent }
+\newlabel{tab:nearmatch-safety}{{2}{6}{Near-match safety expansion from 500 repo-level negative pairs plus exact controls}{table.caption.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}RQ1: Safety}{6}{subsection.6.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces False accepts in the controlled gate suite. Only exact-content policies avoid unsafe reuse.}}{7}{figure.caption.13}\protected@file@percent }
+\newlabel{fig:gate}{{5}{7}{False accepts in the controlled gate suite. Only exact-content policies avoid unsafe reuse}{figure.caption.13}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces False accepts on 500 repo-derived near-match negatives. Exact-content policies reject all changed code; locator-only policies do not.}}{7}{figure.caption.14}\protected@file@percent }
+\newlabel{fig:gate-nearmatch}{{6}{7}{False accepts on 500 repo-derived near-match negatives. Exact-content policies reject all changed code; locator-only policies do not}{figure.caption.14}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}RQ2: Numerical Correctness}{7}{subsection.6.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces RoPE and logit-level alignment. Correct delta strongly outperforms wrong-position reuse and preserves next-token behavior.}}{7}{figure.caption.15}\protected@file@percent }
+\newlabel{fig:rope}{{7}{7}{RoPE and logit-level alignment. Correct delta strongly outperforms wrong-position reuse and preserves next-token behavior}{figure.caption.15}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces TTFT speedup by code length in the long-code stress workload.}}{7}{figure.caption.17}\protected@file@percent }
+\newlabel{fig:ttft-speedup}{{8}{7}{TTFT speedup by code length in the long-code stress workload}{figure.caption.17}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.4}RQ3: Performance}{7}{subsection.6.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces KVCOMM-style TTFT stress experiment plan. Results are generated by \texttt  {bench\_kvcomm\_ttft\_stress.py}.}}{8}{table.caption.16}\protected@file@percent }
+\newlabel{tab:ttft-stress}{{3}{8}{KVCOMM-style TTFT stress experiment plan. Results are generated by \texttt {bench\_kvcomm\_ttft\_stress.py}}{table.caption.16}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Cumulative workflow TTFT speedup as more downstream agents reuse the same exact code objects.}}{8}{figure.caption.18}\protected@file@percent }
+\newlabel{fig:agent-scaling}{{9}{8}{Cumulative workflow TTFT speedup as more downstream agents reuse the same exact code objects}{figure.caption.18}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces KVCOMM performance ablation. Results are generated by \texttt  {bench\_kvcomm\_ttft\_stress.py}.}}{8}{table.caption.19}\protected@file@percent }
+\newlabel{tab:ablation}{{4}{8}{KVCOMM performance ablation. Results are generated by \texttt {bench\_kvcomm\_ttft\_stress.py}}{table.caption.19}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Prefix-only cache scheduling versus coding-aware modes on 100 repo-level cases. Exact-content segment reuse with codebase hints increases cached tokens by 64\% and keeps exact-content hit rate at 0.99.}}{8}{figure.caption.22}\protected@file@percent }
+\newlabel{fig:prefetch-modes}{{10}{8}{Prefix-only cache scheduling versus coding-aware modes on 100 repo-level cases. Exact-content segment reuse with codebase hints increases cached tokens by 64\% and keeps exact-content hit rate at 0.99}{figure.caption.22}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.5}RQ4: Accuracy}{8}{subsection.6.5}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Realistic E2E serving check on 100 cases. See Table\nonbreakingspace \ref {tab:ttft-stress} for the primary prefill-dominated TTFT speedup claim.}}{9}{table.caption.20}\protected@file@percent }
+\newlabel{tab:prefetch}{{5}{9}{Realistic E2E serving check on 100 cases. See Table~\ref {tab:ttft-stress} for the primary prefill-dominated TTFT speedup claim}{table.caption.20}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Template segment ablation. More exposed code-base segments and downstream agents increase exact reuse opportunity.}}{9}{table.caption.21}\protected@file@percent }
+\newlabel{tab:template-segments}{{6}{9}{Template segment ablation. More exposed code-base segments and downstream agents increase exact reuse opportunity}{table.caption.21}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces Template segment ablation. More exposed code-base segments and downstream agents increase exact reuse opportunities.}}{9}{figure.caption.23}\protected@file@percent }
+\newlabel{fig:template-segments}{{11}{9}{Template segment ablation. More exposed code-base segments and downstream agents increase exact reuse opportunities}{figure.caption.23}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.6}RQ5: Scalability}{9}{subsection.6.6}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces 30-case lossless KV vs. exact-content segment reuse pass@1 comparison.}}{9}{table.caption.24}\protected@file@percent }
+\newlabel{tab:passrate}{{7}{9}{30-case lossless KV vs. exact-content segment reuse pass@1 comparison}{table.caption.24}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {12}{\ignorespaces Lossless KV versus exact-content segment reuse on 28 discriminative SWE-bench cases. The reuse mode increases cached tokens and lowers latency with a one-case pass@1 delta.}}{9}{figure.caption.25}\protected@file@percent }
+\newlabel{fig:passrate}{{12}{9}{Lossless KV versus exact-content segment reuse on 28 discriminative SWE-bench cases. The reuse mode increases cached tokens and lowers latency with a one-case pass@1 delta}{figure.caption.25}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Repo-level dataset scale.}}{9}{table.caption.26}\protected@file@percent }
+\newlabel{tab:scalability}{{8}{9}{Repo-level dataset scale}{table.caption.26}{}}
+\citation{kwon2023vllm}
+\citation{zheng2023sglang}
+\citation{kvflow2025}
+\citation{parrot2024}
+\citation{contiguouskv,tokencake2025}
+\citation{multiagent2025,llmagents2024}
+\citation{plancaching2026,minions2025}
+\citation{relaycaching}
+\citation{continuum}
+\citation{kvcomm2025}
+\@writefile{lof}{\contentsline {figure}{\numberline {13}{\ignorespaces Repo-level scalability statistics from the 500-case manifest.}}{10}{figure.caption.27}\protected@file@percent }
+\newlabel{fig:scalability}{{13}{10}{Repo-level scalability statistics from the 500-case manifest}{figure.caption.27}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Discussion and Limitations}{10}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Relationship to KVFlow and KVCOMM.}{10}{section*.28}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Lossy does not mean approximate code reuse.}{10}{section*.29}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Patch quality is a separate bottleneck.}{10}{section*.30}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Hardware-constrained model evaluation.}{10}{section*.31}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Host-backed prefetch needs more engineering.}{10}{section*.32}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Scope.}{10}{section*.33}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Related Work}{10}{section.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{LLM serving and KV cache management.}{10}{section*.34}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Multi-agent software engineering.}{10}{section*.35}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Lossy and approximate KV reuse.}{10}{section*.36}\protected@file@percent }
+\bibstyle{ACM-Reference-Format}
+\bibdata{refs}
+\bibcite{tokencake2025}{{1}{2025}{{Bian et~al\mbox  {.}}}{{}}}
+\bibcite{relaycaching}{{2}{2026}{{Geng et~al\mbox  {.}}}{{}}}
+\bibcite{swebench}{{3}{2024}{{Jimenez et~al\mbox  {.}}}{{}}}
+\bibcite{kwon2023vllm}{{4}{2023}{{Kwon et~al\mbox  {.}}}{{}}}
+\bibcite{continuum}{{5}{2026}{{Li et~al\mbox  {.}}}{{}}}
+\bibcite{parrot2024}{{6}{2024}{{Lin et~al\mbox  {.}}}{{}}}
+\bibcite{llmagents2024}{{7}{2025}{{Liu et~al\mbox  {.}}}{{}}}
+\bibcite{minions2025}{{8}{2025}{{Narayan et~al\mbox  {.}}}{{}}}
+\bibcite{kvflow2025}{{9}{2025}{{Pan et~al\mbox  {.}}}{{}}}
+\bibcite{multiagent2025}{{10}{2026}{{Rasheeda et~al\mbox  {.}}}{{}}}
+\bibcite{su2021rope}{{11}{2021}{{Su et~al\mbox  {.}}}{{}}}
+\bibcite{kvcomm2025}{{12}{2025}{{Ye et~al\mbox  {.}}}{{}}}
+\bibcite{plancaching2026}{{13}{2026}{{Zhang et~al\mbox  {.}}}{{}}}
+\bibcite{zheng2023sglang}{{14}{2024}{{Zheng et~al\mbox  {.}}}{{}}}
+\bibcite{contiguouskv}{{15}{2026}{{Zou et~al\mbox  {.}}}{{}}}
+\newlabel{tocindent-1}{0pt}
+\newlabel{tocindent0}{0pt}
+\newlabel{tocindent1}{4.65pt}
+\newlabel{tocindent2}{11.49998pt}
+\newlabel{tocindent3}{0pt}
+\newlabel{tocindent4}{0pt}
+\newlabel{tocindent5}{0pt}
+\@writefile{toc}{\contentsline {paragraph}{Program analysis for code LLMs.}{11}{section*.37}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9}Conclusion}{11}{section.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{References}{11}{section*.39}\protected@file@percent }
+\newlabel{TotPages}{{11}{11}{}{page.11}{}}
+\gdef \@abspage@last{11}

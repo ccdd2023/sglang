@@ -207,11 +207,21 @@ class GenerateReqInput(BaseReq):
     # When provided, the server proactively prefetches (CPU->GPU KV load-back)
     # this prefix while the current request is running, reducing next TTFT.
     next_agent_prefix: Optional[str] = None
+    codebase_prefetch_hints: Optional[List[Dict[str, Any]]] = None
 
     # Token-type awareness: which tier of the multi-agent prefix this request
     # belongs to. Passed via InsertParams.role_type to PriorityStrategy, which
     # boosts retention of Tier-0 (system) and Tier-1 (role) prefixes.
     role_type: int = 0
+    code_anchor_signature: Optional[str] = None
+    code_content_signature: Optional[str] = None
+    code_anchor_spans: Optional[List[Dict[str, Any]]] = None
+    code_anchor_token_spans: Optional[List[Dict[str, Any]]] = None
+    reuse_mode: Optional[str] = None
+    lossy_alignment_method: Optional[str] = None
+    template_task_family: Optional[str] = None
+    template_workflow_signature: Optional[str] = None
+    template_structural_fingerprint: Optional[str] = None
 
     # Extra key for classifying the request (e.g. cache_salt)
     extra_key: Optional[Union[List[str], str]] = None
@@ -654,6 +664,17 @@ class GenerateReqInput(BaseReq):
             disagg_prefill_dp_rank=self.disagg_prefill_dp_rank,
             conversation_id=self.conversation_id,
             priority=self.priority,
+            next_agent_prefix=self.next_agent_prefix,
+            codebase_prefetch_hints=self.codebase_prefetch_hints,
+            code_anchor_signature=self.code_anchor_signature,
+            code_content_signature=self.code_content_signature,
+            code_anchor_spans=self.code_anchor_spans,
+            code_anchor_token_spans=self.code_anchor_token_spans,
+            reuse_mode=self.reuse_mode,
+            lossy_alignment_method=self.lossy_alignment_method,
+            template_task_family=self.template_task_family,
+            template_workflow_signature=self.template_workflow_signature,
+            template_structural_fingerprint=self.template_structural_fingerprint,
             extra_key=self.extra_key,
             no_logs=self.no_logs,
             custom_labels=self.custom_labels,
@@ -725,6 +746,20 @@ class TokenizedGenerateReqInput(BaseReq):
 
     # Priority for the request
     priority: Optional[int] = None
+
+    # KVFlow prefetch hints.
+    next_agent_prefix: Optional[str] = None
+    codebase_prefetch_hints: Optional[List[Dict[str, Any]]] = None
+
+    code_anchor_signature: Optional[str] = None
+    code_content_signature: Optional[str] = None
+    code_anchor_spans: Optional[List[Dict[str, Any]]] = None
+    code_anchor_token_spans: Optional[List[Dict[str, Any]]] = None
+    reuse_mode: Optional[str] = None
+    lossy_alignment_method: Optional[str] = None
+    template_task_family: Optional[str] = None
+    template_workflow_signature: Optional[str] = None
+    template_structural_fingerprint: Optional[str] = None
 
     # DAG-aware: critical path distance from node to leaf.
     # Used by PriorityStrategy v3 for critical-path protection.

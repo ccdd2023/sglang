@@ -1,0 +1,236 @@
+{
+  "generated_by": "paper/scripts/generate_paper_figures.py",
+  "sources": {
+    "gate_safety": "results/kvcomm_ablation_package/gate_safety_ablation.csv",
+    "gate_nearmatch": "results/kvcomm_ablation_package/gate_nearmatch_500.csv",
+    "rope_delta": "results/kvcomm_ablation_package/rope_delta_ablation.csv",
+    "logit_alignment": "results/kvcomm_ablation_package/logit_alignment_ablation.csv",
+    "passrate_primary": "results/swe_generated_patch_kvcomm/qwen2_5_7b_json_30/passrate_table.csv",
+    "prefetch_primary": "results/coding_kvflow_prefetch/qwen2_5_7b_100/prefetch_table.csv",
+    "ttft_stress": "results/kvcomm_ttft_stress/qwen2_5_7b/ttft_stress_table.csv",
+    "ablation": "results/kvcomm_ttft_stress/qwen2_5_7b/ttft_stress_table.csv",
+    "template_segments": "results/template_codebase_segments/template_segment_ablation.csv",
+    "manifest_30": "results/repo_level_datasets/manifest_30.json",
+    "manifest_100": "results/repo_level_datasets/manifest_100.json",
+    "manifest_500": "results/repo_level_datasets/manifest_500.json",
+    "gate_500": "results/repo_level_datasets/500_gate_anchor_stats.csv"
+  },
+  "summaries": {
+    "passrate": {
+      "lossless": {
+        "cases": 28,
+        "diff": 14,
+        "synth": 14,
+        "apply": 14,
+        "pass": 3,
+        "cached": 1253.3214285714287,
+        "latency": 2052.1414285714286,
+        "exact_hits": 0
+      },
+      "lossy": {
+        "cases": 28,
+        "diff": 12,
+        "synth": 12,
+        "apply": 12,
+        "pass": 2,
+        "cached": 2190.1785714285716,
+        "latency": 1729.3710714285714,
+        "exact_hits": 28
+      }
+    },
+    "prefetch": {
+      "baseline_prefix_cache_only": {
+        "cases": 100,
+        "latency": 3910.6056,
+        "latency_p50": 3872.49,
+        "latency_p90": 4134.83,
+        "cached": 1581.84,
+        "hints": 0.0,
+        "hits": 0
+      },
+      "kvflow_prefix_only": {
+        "cases": 100,
+        "latency": 3941.1927,
+        "latency_p50": 3879.04,
+        "latency_p90": 4212.35,
+        "cached": 1581.84,
+        "hints": 0.0,
+        "hits": 0
+      },
+      "kvflow_prefix_plus_codebase_prefetch": {
+        "cases": 100,
+        "latency": 3926.5361,
+        "latency_p50": 3870.37,
+        "latency_p90": 4262.42,
+        "cached": 1584.81,
+        "hints": 2.97,
+        "hits": 0
+      },
+      "kvcomm_lossy_plus_codebase_prefetch": {
+        "cases": 100,
+        "latency": 3837.5622999999996,
+        "latency_p50": 3833.29,
+        "latency_p90": 4184.18,
+        "cached": 2592.51,
+        "hints": 2.97,
+        "hits": 99
+      }
+    },
+    "ttft_stress": {
+      "ttft_prefix_cache_only_8000": {
+        "cases": 50,
+        "p50_ttft": 671.25,
+        "p90_ttft": 717.78,
+        "speedup_vs_prefix": 1.0,
+        "exact_hits": 0
+      },
+      "ttft_prefix_cache_only_16000": {
+        "cases": 50,
+        "p50_ttft": 1718.84,
+        "p90_ttft": 1735.08,
+        "speedup_vs_prefix": 1.0,
+        "exact_hits": 0
+      },
+      "ttft_exact_reuse_no_hints_8000": {
+        "cases": 50,
+        "p50_ttft": 668.18,
+        "p90_ttft": 709.46,
+        "speedup_vs_prefix": 1.0045945703253616,
+        "exact_hits": 50
+      },
+      "ttft_exact_reuse_no_hints_16000": {
+        "cases": 50,
+        "p50_ttft": 1480.14,
+        "p90_ttft": 1735.92,
+        "speedup_vs_prefix": 1.161268528652695,
+        "exact_hits": 50
+      },
+      "ttft_exact_reuse_plus_code_hints_8000": {
+        "cases": 50,
+        "p50_ttft": 665.81,
+        "p90_ttft": 710.11,
+        "speedup_vs_prefix": 1.0081704990913325,
+        "exact_hits": 50
+      },
+      "ttft_exact_reuse_plus_code_hints_16000": {
+        "cases": 50,
+        "p50_ttft": 1483.16,
+        "p90_ttft": 1736.34,
+        "speedup_vs_prefix": 1.1589039618112678,
+        "exact_hits": 50
+      }
+    },
+    "ablation": {
+      "ablation_prefix_only": {
+        "p50_ttft": 4156.34,
+        "speedup": 1.0,
+        "cached_gain": 0.0,
+        "exact_hits": 0,
+        "f1": 1.0
+      },
+      "ablation_hints_no_exact": {
+        "p50_ttft": 4153.75,
+        "speedup": 1.0006235329521518,
+        "cached_gain": 0.0,
+        "exact_hits": 0,
+        "f1": 0.603805
+      },
+      "ablation_exact_no_hints": {
+        "p50_ttft": 4142.36,
+        "speedup": 1.0033748877451503,
+        "cached_gain": 0.6499999999999986,
+        "exact_hits": 13,
+        "f1": 0.757235
+      },
+      "ablation_exact_gate_rope": {
+        "p50_ttft": 4149.9,
+        "speedup": 1.001551844622762,
+        "cached_gain": -21.700000000000003,
+        "exact_hits": 13,
+        "f1": 0.6683950000000001
+      }
+    },
+    "template_segments": {
+      "planner_implementer_s1": {
+        "exact_hits": 1.0,
+        "estimated_cached_tokens": 4988.0
+      },
+      "planner_implementer_s2": {
+        "exact_hits": 2.0,
+        "estimated_cached_tokens": 9977.0
+      },
+      "planner_implementer_s3": {
+        "exact_hits": 2.0,
+        "estimated_cached_tokens": 9977.0
+      },
+      "planner_implementer_debugger_s1": {
+        "exact_hits": 1.0,
+        "estimated_cached_tokens": 4988.0
+      },
+      "planner_implementer_debugger_s2": {
+        "exact_hits": 2.0,
+        "estimated_cached_tokens": 9977.0
+      },
+      "planner_implementer_debugger_s3": {
+        "exact_hits": 3.0,
+        "estimated_cached_tokens": 14967.0
+      }
+    },
+    "nearmatch_safety": {
+      "exact_content_gate": {
+        "pairs": 550,
+        "allow": 50,
+        "false_accept": 0,
+        "false_reject": 0
+      },
+      "ast_only": {
+        "pairs": 550,
+        "allow": 550,
+        "false_accept": 500,
+        "false_reject": 0
+      },
+      "span_overlap_only": {
+        "pairs": 550,
+        "allow": 550,
+        "false_accept": 500,
+        "false_reject": 0
+      },
+      "path_function_name": {
+        "pairs": 550,
+        "allow": 550,
+        "false_accept": 500,
+        "false_reject": 0
+      },
+      "content_signature": {
+        "pairs": 550,
+        "allow": 50,
+        "false_accept": 0,
+        "false_reject": 0
+      },
+      "token_text_exact": {
+        "pairs": 550,
+        "allow": 50,
+        "false_accept": 0,
+        "false_reject": 0
+      },
+      "no_gate": {
+        "pairs": 550,
+        "allow": 550,
+        "false_accept": 500,
+        "false_reject": 0
+      }
+    },
+    "scale": {
+      "approx_tokens": 58772478,
+      "unique_sigs": 681
+    },
+    "rope_logit": {
+      "correct_k_cosine": 0.9990463333333333,
+      "no_rotation_k_cosine": 0.9658553333333333,
+      "wrong_large_delta_k_cosine": 0.9497212500000001,
+      "mean_kl": 0.014716221562500001,
+      "top1_agreement": 0.96875,
+      "top5_agreement": 1.0
+    }
+  }
+}

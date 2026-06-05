@@ -76,6 +76,16 @@ class InsertParams:
     # PLANNER: distance=3, ARCHITECT/REVIEWER: distance=2, IMPLEMENTER/TESTER: distance=1.
     # PriorityStrategy uses this to protect the critical path in DAG workflows.
     critical_path_distance: int = 1
+    anchor_type: str = ""
+    anchor_id: str = ""
+    code_content_signature: str = ""
+    anchor_spans: list[dict[str, Any]] = dataclasses.field(default_factory=list)
+    reuse_mode: str = ""
+    reuse_confidence: float = 0.0
+    syntax_region_type: str = ""
+    template_task_family: str = ""
+    template_workflow_signature: str = ""
+    template_structural_fingerprint: str = ""
 
 
 @dataclasses.dataclass

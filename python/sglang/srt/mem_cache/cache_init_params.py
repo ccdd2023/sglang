@@ -36,3 +36,9 @@ class CacheInitParams:
 
     # Time-to-live for cache entries in seconds. If None, TTL is disabled.
     cache_ttl_seconds: Optional[float] = None
+
+    # RoPE parameters for active KV delta rotation (KVCOMM)
+    rope_base: float = 10000.0
+    rope_rotary_dim: int = 0
+    rope_is_neox_style: bool = True
+    rope_num_kv_heads: int = 0

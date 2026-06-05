@@ -1,0 +1,285 @@
+%%% -*-BibTeX-*-
+%%% Do NOT edit. File created by BibTeX with style
+%%% ACM-Reference-Format-Journals [18-Jan-2012].
+
+\begin{thebibliography}{15}
+
+%%% ====================================================================
+%%% NOTE TO THE USER: you can override these defaults by providing
+%%% customized versions of any of these macros before the \bibliography
+%%% command.  Each of them MUST provide its own final punctuation,
+%%% except for \shownote{} and \showURL{}.  The latter two
+%%% do not use final punctuation, in order to avoid confusing it with
+%%% the Web address.
+%%%
+%%% To suppress output of a particular field, define its macro to expand
+%%% to an empty string, or better, \unskip, like this:
+%%%
+%%% \newcommand{\showURL}[1]{\unskip}   % LaTeX syntax
+%%%
+%%% \def \showURL #1{\unskip}           % plain TeX syntax
+%%%
+%%% ====================================================================
+
+\ifx \showCODEN    \undefined \def \showCODEN     #1{\unskip}     \fi
+\ifx \showISBNx    \undefined \def \showISBNx     #1{\unskip}     \fi
+\ifx \showISBNxiii \undefined \def \showISBNxiii  #1{\unskip}     \fi
+\ifx \showISSN     \undefined \def \showISSN      #1{\unskip}     \fi
+\ifx \showLCCN     \undefined \def \showLCCN      #1{\unskip}     \fi
+\ifx \shownote     \undefined \def \shownote      #1{#1}          \fi
+\ifx \showarticletitle \undefined \def \showarticletitle #1{#1}   \fi
+\ifx \showURL      \undefined \def \showURL       {\relax}        \fi
+% The following commands are used for tagged output and should be
+% invisible to TeX
+\providecommand\bibfield[2]{#2}
+\providecommand\bibinfo[2]{#2}
+\providecommand\natexlab[1]{#1}
+\providecommand\showeprint[2][]{arXiv:#2}
+
+\bibitem[Bian et~al\mbox{.}(2025)]%
+        {tokencake2025}
+\bibfield{author}{\bibinfo{person}{Zhuohang Bian}, \bibinfo{person}{Feiyang
+  Wu}, \bibinfo{person}{Teng Ma}, {and} \bibinfo{person}{Youwei Zhuo}.}
+  \bibinfo{year}{2025}\natexlab{}.
+\newblock \bibinfo{title}{Tokencake: A KV-Cache-centric Serving Framework for
+  LLM-based Multi-Agent Applications}.
+\newblock
+\showeprint[arxiv]{2510.18586}~[cs.DC]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2510.18586}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Geng et~al\mbox{.}(2026)]%
+        {relaycaching}
+\bibfield{author}{\bibinfo{person}{Yingsheng Geng}, \bibinfo{person}{Yuchong
+  Gao}, \bibinfo{person}{Weihong Wu}, \bibinfo{person}{Guyue Liu}, {and}
+  \bibinfo{person}{Jiang Liu}.} \bibinfo{year}{2026}\natexlab{}.
+\newblock \bibinfo{title}{RelayCaching: Accelerating LLM Collaboration via
+  Decoding KV Cache Reuse}.
+\newblock
+\showeprint[arxiv]{2603.13289}~[cs.LG]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2603.13289}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Jimenez et~al\mbox{.}(2024)]%
+        {swebench}
+\bibfield{author}{\bibinfo{person}{Carlos~E. Jimenez}, \bibinfo{person}{John
+  Yang}, \bibinfo{person}{Alexander Wettig}, \bibinfo{person}{Shunyu Yao},
+  \bibinfo{person}{Kexin Pei}, \bibinfo{person}{Ofir Press}, {and}
+  \bibinfo{person}{Karthik Narasimhan}.} \bibinfo{year}{2024}\natexlab{}.
+\newblock \showarticletitle{{SWE}-bench: Can Language Models Resolve Real-world
+  Github Issues?}. In \bibinfo{booktitle}{\emph{The Twelfth International
+  Conference on Learning Representations}}.
+\newblock
+\urldef\tempurl%
+\url{https://openreview.net/forum?id=VTF8yNQM66}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Kwon et~al\mbox{.}(2023)]%
+        {kwon2023vllm}
+\bibfield{author}{\bibinfo{person}{Woosuk Kwon}, \bibinfo{person}{Zhuohan Li},
+  \bibinfo{person}{Siyuan Zhuang}, \bibinfo{person}{Ying Sheng},
+  \bibinfo{person}{Lianmin Zheng}, \bibinfo{person}{Cody~Hao Yu},
+  \bibinfo{person}{Joseph~E. Gonzalez}, \bibinfo{person}{Hao Zhang}, {and}
+  \bibinfo{person}{Ion Stoica}.} \bibinfo{year}{2023}\natexlab{}.
+\newblock \showarticletitle{Efficient Memory Management for Large Language
+  Model Serving with PagedAttention}. In \bibinfo{booktitle}{\emph{Proceedings
+  of the 29th Symposium on Operating Systems Principles}}.
+  \bibinfo{pages}{611--626}.
+\newblock
+\href{https://doi.org/10.1145/3600006.3613165}{doi:\nolinkurl{10.1145/3600006.3613165}}
+
+
+\bibitem[Li et~al\mbox{.}(2026)]%
+        {continuum}
+\bibfield{author}{\bibinfo{person}{Hanchen Li}, \bibinfo{person}{Runyuan He},
+  \bibinfo{person}{Qiuyang Mang}, \bibinfo{person}{Qizheng Zhang},
+  \bibinfo{person}{Huanzhi Mao}, \bibinfo{person}{Xiaokun Chen},
+  \bibinfo{person}{Hangrui Zhou}, \bibinfo{person}{Alvin Cheung},
+  \bibinfo{person}{Joseph Gonzalez}, {and} \bibinfo{person}{Ion Stoica}.}
+  \bibinfo{year}{2026}\natexlab{}.
+\newblock \bibinfo{title}{Continuum: Efficient and Robust Multi-Turn LLM Agent
+  Scheduling with KV Cache Time-to-Live}.
+\newblock
+\showeprint[arxiv]{2511.02230}~[cs.OS]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2511.02230}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Lin et~al\mbox{.}(2024)]%
+        {parrot2024}
+\bibfield{author}{\bibinfo{person}{Chaofan Lin}, \bibinfo{person}{Zhenhua Han},
+  \bibinfo{person}{Chengruidong Zhang}, \bibinfo{person}{Yuqing Yang},
+  \bibinfo{person}{Fan Yang}, \bibinfo{person}{Chen Chen}, {and}
+  \bibinfo{person}{Lili Qiu}.} \bibinfo{year}{2024}\natexlab{}.
+\newblock \showarticletitle{Parrot: Efficient Serving of {LLM-based}
+  Applications with Semantic Variable}. In \bibinfo{booktitle}{\emph{18th
+  USENIX Symposium on Operating Systems Design and Implementation (OSDI 24)}}.
+  \bibinfo{publisher}{USENIX Association}, \bibinfo{address}{Santa Clara, CA},
+  \bibinfo{pages}{929--945}.
+\newblock
+\showISBNx{978-1-939133-40-3}
+\urldef\tempurl%
+\url{https://www.usenix.org/conference/osdi24/presentation/lin-chaofan}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Liu et~al\mbox{.}(2025)]%
+        {llmagents2024}
+\bibfield{author}{\bibinfo{person}{Junwei Liu}, \bibinfo{person}{Kaixin Wang},
+  \bibinfo{person}{Yixuan Chen}, \bibinfo{person}{Xin Peng},
+  \bibinfo{person}{Zhenpeng Chen}, \bibinfo{person}{Lingming Zhang}, {and}
+  \bibinfo{person}{Yiling Lou}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \bibinfo{title}{Large Language Model-Based Agents for Software
+  Engineering: A Survey}.
+\newblock
+\showeprint[arxiv]{2409.02977}~[cs.SE]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2409.02977}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Narayan et~al\mbox{.}(2025)]%
+        {minions2025}
+\bibfield{author}{\bibinfo{person}{Avanika Narayan}, \bibinfo{person}{Dan
+  Biderman}, \bibinfo{person}{Sabri Eyuboglu}, \bibinfo{person}{Avner May},
+  \bibinfo{person}{Scott Linderman}, \bibinfo{person}{James Zou}, {and}
+  \bibinfo{person}{Christopher Re}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \bibinfo{title}{Minions: Cost-efficient Collaboration Between
+  On-device and Cloud Language Models}.
+\newblock
+\showeprint[arxiv]{2502.15964}~[cs.LG]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2502.15964}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Pan et~al\mbox{.}(2025)]%
+        {kvflow2025}
+\bibfield{author}{\bibinfo{person}{Zaifeng Pan}, \bibinfo{person}{Ajjkumar
+  Patel}, \bibinfo{person}{Zhengding Hu}, \bibinfo{person}{Yipeng Shen},
+  \bibinfo{person}{Yue Guan}, \bibinfo{person}{Wan-Lu Li},
+  \bibinfo{person}{Lianhui Qin}, \bibinfo{person}{Yida Wang}, {and}
+  \bibinfo{person}{Yufei Ding}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \bibinfo{title}{KVFlow: Efficient Prefix Caching for Accelerating
+  LLM-Based Multi-Agent Workflows}.
+\newblock
+\showeprint[arxiv]{2507.07400}~[cs.DC]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2507.07400}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Rasheeda et~al\mbox{.}(2026)]%
+        {multiagent2025}
+\bibfield{author}{\bibinfo{person}{Zeeshan Rasheeda}, \bibinfo{person}{Muhammad
+  Waseema}, \bibinfo{person}{Kai-Kristian Kemella}, \bibinfo{person}{Mika
+  Saari}, {and} \bibinfo{person}{Pekka Abrahamsson}.}
+  \bibinfo{year}{2026}\natexlab{}.
+\newblock \bibinfo{title}{LLM-Based Multi-Agent Systems for Code Generation: A
+  Multi-Vocal Literature Review}.
+\newblock
+\showeprint[arxiv]{2604.16321}~[cs.SE]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2604.16321}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Su et~al\mbox{.}(2021)]%
+        {su2021rope}
+\bibfield{author}{\bibinfo{person}{Jianlin Su}, \bibinfo{person}{Yu Lu},
+  \bibinfo{person}{Shengfeng Pan}, \bibinfo{person}{Ahmed Murtadha},
+  \bibinfo{person}{Bo Wen}, {and} \bibinfo{person}{Yunfeng Liu}.}
+  \bibinfo{year}{2021}\natexlab{}.
+\newblock \bibinfo{title}{RoFormer: Enhanced Transformer with Rotary Position
+  Embedding}.
+\newblock
+\showeprint[arxiv]{2104.09864}~[cs.CL]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2104.09864}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Ye et~al\mbox{.}(2025)]%
+        {kvcomm2025}
+\bibfield{author}{\bibinfo{person}{Hancheng Ye}, \bibinfo{person}{Zhengqi Gao},
+  \bibinfo{person}{Mingyuan Ma}, \bibinfo{person}{Qinsi Wang},
+  \bibinfo{person}{Yuzhe Fu}, \bibinfo{person}{Ming-Yu Chung},
+  \bibinfo{person}{Yueqian Lin}, \bibinfo{person}{Zhijian Liu},
+  \bibinfo{person}{Jianyi Zhang}, \bibinfo{person}{Danyang Zhuo}, {and}
+  \bibinfo{person}{Yiran Chen}.} \bibinfo{year}{2025}\natexlab{}.
+\newblock \bibinfo{title}{KVCOMM: Online Cross-context KV-cache Communication
+  for Efficient LLM-based Multi-agent Systems}.
+\newblock
+\showeprint[arxiv]{2510.12872}~[cs.MA]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2510.12872}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Zhang et~al\mbox{.}(2026)]%
+        {plancaching2026}
+\bibfield{author}{\bibinfo{person}{Qizheng Zhang}, \bibinfo{person}{Michael
+  Wornow}, \bibinfo{person}{Gerry Wan}, {and} \bibinfo{person}{Kunle
+  Olukotun}.} \bibinfo{year}{2026}\natexlab{}.
+\newblock \bibinfo{title}{Agentic Plan Caching: Test-Time Memory for Fast and
+  Cost-Efficient LLM Agents}.
+\newblock
+\showeprint[arxiv]{2506.14852}~[cs.DC]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2506.14852}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Zheng et~al\mbox{.}(2024)]%
+        {zheng2023sglang}
+\bibfield{author}{\bibinfo{person}{Lianmin Zheng}, \bibinfo{person}{Liangsheng
+  Yin}, \bibinfo{person}{Zhiqiang Xie}, \bibinfo{person}{Chuyue Huang},
+  \bibinfo{person}{Jeff Sun}, \bibinfo{person}{Cody~Hao Yu},
+  \bibinfo{person}{Shiyi Cao}, \bibinfo{person}{Christos Kozyrakis},
+  \bibinfo{person}{Ion Stoica}, \bibinfo{person}{Joseph~E. Gonzalez},
+  \bibinfo{person}{Clark Barrett}, {and} \bibinfo{person}{Ying Sheng}.}
+  \bibinfo{year}{2024}\natexlab{}.
+\newblock \bibinfo{title}{SGLang: Efficient Execution of Structured Language
+  Model Programs}.
+\newblock
+\showeprint[arxiv]{2312.07104}~[cs.AI]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2312.07104}
+\showURL{%
+\tempurl}
+
+
+\bibitem[Zou et~al\mbox{.}(2026)]%
+        {contiguouskv}
+\bibfield{author}{\bibinfo{person}{Jing Zou}, \bibinfo{person}{Shangyu Wu},
+  \bibinfo{person}{Hancong Duan}, \bibinfo{person}{Qiao Li}, {and}
+  \bibinfo{person}{Chun~Jason Xue}.} \bibinfo{year}{2026}\natexlab{}.
+\newblock \bibinfo{title}{ContiguousKV: Accelerating LLM Prefill with
+  Granularity-Aligned KV Cache Management}.
+\newblock
+\showeprint[arxiv]{2601.13631}~[cs.OS]
+\urldef\tempurl%
+\url{https://arxiv.org/abs/2601.13631}
+\showURL{%
+\tempurl}
+
+
+\end{thebibliography}

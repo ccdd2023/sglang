@@ -636,9 +636,33 @@ class ChatCompletionRequest(BaseModel):
     # When provided, the server proactively prefetches (CPU->GPU KV load-back)
     # this prefix while the current request is running, reducing the next TTFT.
     next_agent_prefix: Optional[str] = None
+    # Coding-aware KVFlow hints for future code-base segments. Each item may
+    # contain code_base_id, content_signature, target_agent, steps_to_use, and
+    # optionally exact text. Reuse is still gated by exact code content.
+    codebase_prefetch_hints: Optional[List[Dict[str, Any]]] = None
     # Token-type awareness for PriorityStrategy: 1=system(Tier-0),
     # 2=role(Tier-1), 3=task(Tier-2), 0=unknown(Tier-3).
     role_type: Optional[int] = None
+    # Code/template-aware lossy KV reuse hints.
+    code_anchor_signature: Optional[str] = None
+    code_content_signature: Optional[str] = None
+    code_anchor_spans: Optional[List[Dict[str, Any]]] = None
+    # Token-level spans for the anchor block: [{"start_token": int, "end_token": int}]
+    code_anchor_token_spans: Optional[List[Dict[str, Any]]] = None
+    reuse_mode: Optional[str] = None
+    lossy_alignment_method: Optional[str] = None
+    template_task_family: Optional[str] = None
+    template_workflow_signature: Optional[str] = None
+    template_structural_fingerprint: Optional[str] = None
+    # Prompt-context fields (driven by results/same_code_context_variation/).
+    # These describe WHERE/WHEN the code is sent (position, system prompt,
+    # surrounding wrap) — they let the server predict KV reuse quality for
+    # an exact-content match even when the K/V cache itself can't be reused
+    # verbatim across contexts.
+    nesting_depth: Optional[int] = None
+    prompt_position_offset: Optional[int] = None
+    system_prompt_class: Optional[str] = None
+    surrounding_code_hash: Optional[str] = None
 
     # For PD disaggregation
     bootstrap_host: Optional[Union[List[str], str]] = None
@@ -913,6 +937,7 @@ class ChatCompletionStreamResponse(BaseModel):
     choices: List[ChatCompletionResponseStreamChoice]
     usage: Optional[UsageInfo] = None
     sglext: Optional[SglExt] = None
+    metadata: Optional[Dict[str, Any]] = None
 
     @model_serializer(mode="wrap")
     def _serialize(self, handler):
@@ -1196,6 +1221,13 @@ class ResponsesRequest(BaseModel):
         description="KVFlow-aware hint: the exact text of the next agent's prefix. "
         "The server can proactively prefetch (CPU->GPU KV load) this prefix "
         "while the current request is still running, reducing the next TTFT.",
+    )
+    codebase_prefetch_hints: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Coding-aware KVFlow hints for future exact code-base segments. "
+        "Each hint may include code_base_id, content_signature, target_agent, "
+        "steps_to_use, priority, and optional exact text for proactive HiCache "
+        "prefetch. Exact code content remains the reuse gate.",
     )
     role_type: Optional[int] = Field(
         default=0,

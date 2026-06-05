@@ -1,0 +1,15 @@
+\begin{table}[t]
+\centering
+\caption{KVCOMM performance ablation. Speedup is relative to prefix-only; cached-token gain is increase over prefix-only.}
+\label{tab:ablation}
+\begin{tabular}{lrrrrr}
+\toprule
+Mode & P50 TTFT (ms) & Speedup & Cached gain & Exact hits & Output F1 \\
+\midrule
+Prefix only & 4156.3 & 1.00$\times$ & +0 & 0/20 & 1.000 \\
+Hints only & 4153.8 & 1.00$\times$ & +0 & 0/20 & 0.604 \\
+Exact gate (no hints) & 4142.4 & 1.00$\times$ & +1 & 13/20 & 0.757 \\
+Exact gate + RoPE $\delta$ & 4149.9 & 1.00$\times$ & -22 & 13/20 & 0.668 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>KVCOMM Anchor-Level Matching Report</title>
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+    background: #fafafa;
+    color: #222;
+}
+h1 { font-size: 24px; margin-bottom: 4px; }
+.summary { color: #666; margin-bottom: 32px; }
+.case {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    margin-bottom: 32px;
+    padding: 20px;
+}
+.case-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
+    margin: -20px -20px 12px -20px;
+    background: #f5f5f5;
+    border-radius: 8px 8px 0 0;
+}
+.case-id { font-weight: 700; font-size: 18px; font-family: monospace; }
+.case-desc { color: #555; }
+.case-verdict { margin-left: auto; font-weight: 600; font-size: 14px; }
+.case-meta {
+    font-size: 12px;
+    color: #888;
+    display: flex;
+    gap: 20px;
+    margin-bottom: 12px;
+}
+.side-by-side {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+.code-block pre {
+    margin: 0;
+    padding: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    background: #f8f8f8;
+    border-radius: 4px;
+    padding: 8px 0;
+    overflow-x: auto;
+}
+.code-label {
+    font-weight: 600;
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 2px;
+    padding-left: 4px;
+}
+.anchor-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 8px;
+}
+.anchor-table th {
+    background: #f0f0f0;
+    padding: 6px 10px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid #ddd;
+}
+.anchor-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #eee;
+}
+.anchor-table code {
+    background: #f0f0f0;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+}
+h4 { margin: 16px 0 4px; font-size: 14px; color: #555; }
+</style>
+</head>
+<body>
+<h1>KVCOMM Anchor-Level Matching Report</h1>
+<div class="summary">
+    warmup (BASE_CODE): 5 个锚点, 签名 <code>ae343d6ef62925b8</code><br>
+    lossy_alignment_method=kvcomm, template_task_family=code_generation
+</div>
+
+    <div class="case">
+        <div class="case-header" style="border-left: 6px solid #2e7d32">
+            <span class="case-id">exact_same</span>
+            <span class="case-desc">完全相同的代码</span>
+            <span class="case-verdict" style="color:#2e7d32">
+                ✅ 复用允许
+                &nbsp;|&nbsp; 原因: exact_anchor_signature &nbsp;|&nbsp; 置信度: 100%
+            </span>
+        </div>
+        <div class="case-meta">
+            <span>warmup 签名: <code>ae343d6ef62925b8</code></span>
+            <span>候选签名: <code>ae343d6ef62925b8</code></span>
+            <span>结构指纹: for,function,if → for,function,if</span>
+        </div>
+        <div class="side-by-side">
+            <div class="code-block"><div class="code-label">warmup (BASE_CODE)</div><pre>
+<span style="display:block;padding-left:12px">
+  1 from typing import List</span>
+<span style="display:block;padding-left:12px">
+  2 </span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  3 def count_up_to(n: int) -&gt; List[int]:</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  4     result = []</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  5     for value in range(2, n):</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  6         is_prime = True</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  7         for factor in range(2, int(value ** 0.5) + 1):</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  8             if value % factor == 0:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  9                 is_prime = False</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 10                 break</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 11         if is_prime:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 12             result.append(value)</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+ 13     return result</span>
+</pre></div>
+            <div class="code-block"><div class="code-label">candidate (exact_same)</div><pre>
+<span style="display:block;padding-left:12px">
+  1 from typing import List</span>
+<span style="display:block;padding-left:12px">
+  2 </span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  3 def count_up_to(n: int) -&gt; List[int]:</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  4     result = []</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  5     for value in range(2, n):</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  6         is_prime = True</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  7         for factor in range(2, int(value ** 0.5) + 1):</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  8             if value % factor == 0:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  9                 is_prime = False</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 10                 break</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 11         if is_prime:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 12             result.append(value)</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+ 13     return result</span>
+</pre></div>
+        </div>
+        <div class="legend">
+            <div style="font-size:13px;color:#666;margin-top:4px">锚点颜色: <span style="display:inline-block;width:14px;height:14px;background:#d94a90;border-radius:3px;margin-right:4px"></span>class&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#4a90d9;border-radius:3px;margin-right:4px"></span>for&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#e6a817;border-radius:3px;margin-right:4px"></span>function&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#6ebd6e;border-radius:3px;margin-right:4px"></span>if&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#9b59b6;border-radius:3px;margin-right:4px"></span>try&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#d97a4a;border-radius:3px;margin-right:4px"></span>while&nbsp;&nbsp;</div>
+        </div>
+        <h4>锚点级别匹配明细</h4>
+        <table class="anchor-table"><thead><tr><th>类型</th><th>warmup 名称</th><th>warmup 签名</th><th>warmup 行</th><th>候选名称</th><th>候选签名</th><th>候选行</th><th>匹配</th></tr></thead><tbody><tr><td style="border-left:4px solid #e6a817;padding-left:8px">function</td><td>count_up_to</td><td><code>6000392b</code></td><td>L3-L13</td><td>count_up_to</td><td><code>6000392b</code></td><td>L3-L13</td><td style="color:#2e7d32">✓ 签名匹配</td></tr><tr><td style="border-left:4px solid #4a90d9;padding-left:8px">for</td><td>for</td><td><code>6b2c24cb</code></td><td>L5-L12</td><td>for</td><td><code>6b2c24cb</code></td><td>L5-L12</td><td style="color:#2e7d32">✓ 签名匹配</td></tr><tr><td style="border-left:4px solid #4a90d9;padding-left:8px">for</td><td>for</td><td><code>12ade5b6</code></td><td>L7-L10</td><td>for</td><td><code>12ade5b6</code></td><td>L7-L10</td><td style="color:#2e7d32">✓ 签名匹配</td></tr><tr><td style="border-left:4px solid #6ebd6e;padding-left:8px">if</td><td>if</td><td><code>2f2d94b5</code></td><td>L8-L10</td><td>if</td><td><code>2f2d94b5</code></td><td>L8-L10</td><td style="color:#2e7d32">✓ 签名匹配</td></tr><tr><td style="border-left:4px solid #6ebd6e;padding-left:8px">if</td><td>if</td><td><code>ce78dfb1</code></td><td>L11-L12</td><td>if</td><td><code>ce78dfb1</code></td><td>L11-L12</td><td style="color:#2e7d32">✓ 签名匹配</td></tr></tbody></table>
+    </div>
+    
+
+    <div class="case">
+        <div class="case-header" style="border-left: 6px solid #2e7d32">
+            <span class="case-id">rename_variables</span>
+            <span class="case-desc">变量重命名: result→primes, value→candidate</span>
+            <span class="case-verdict" style="color:#2e7d32">
+                ✅ 复用允许
+                &nbsp;|&nbsp; 原因: span_overlap_high &nbsp;|&nbsp; 置信度: 82%
+            </span>
+        </div>
+        <div class="case-meta">
+            <span>warmup 签名: <code>ae343d6ef62925b8</code></span>
+            <span>候选签名: <code>42e8ced34bf3cc40</code></span>
+            <span>结构指纹: for,function,if → for,function,if</span>
+        </div>
+        <div class="side-by-side">
+            <div class="code-block"><div class="code-label">warmup (BASE_CODE)</div><pre>
+<span style="display:block;padding-left:12px">
+  1 from typing import List</span>
+<span style="display:block;padding-left:12px">
+  2 </span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  3 def count_up_to(n: int) -&gt; List[int]:</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  4     result = []</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  5     for value in range(2, n):</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  6         is_prime = True</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  7         for factor in range(2, int(value ** 0.5) + 1):</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  8             if value % factor == 0:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  9                 is_prime = False</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 10                 break</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 11         if is_prime:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 12             result.append(value)</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+ 13     return result</span>
+</pre></div>
+            <div class="code-block"><div class="code-label">candidate (rename_variables)</div><pre>
+<span style="display:block;padding-left:12px">
+  1 from typing import List</span>
+<span style="display:block;padding-left:12px">
+  2 </span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  3 def count_up_to(n: int) -&gt; List[int]:</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  4     primes = []</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  5     for candidate in range(2, n):</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  6         is_prime = True</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  7         for factor in range(2, int(candidate ** 0.5) + 1):</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  8             if candidate % factor == 0:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  9                 is_prime = False</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 10                 break</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 11         if is_prime:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 12             primes.append(candidate)</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+ 13     return primes</span>
+</pre></div>
+        </div>
+        <div class="legend">
+            <div style="font-size:13px;color:#666;margin-top:4px">锚点颜色: <span style="display:inline-block;width:14px;height:14px;background:#d94a90;border-radius:3px;margin-right:4px"></span>class&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#4a90d9;border-radius:3px;margin-right:4px"></span>for&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#e6a817;border-radius:3px;margin-right:4px"></span>function&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#6ebd6e;border-radius:3px;margin-right:4px"></span>if&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#9b59b6;border-radius:3px;margin-right:4px"></span>try&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#d97a4a;border-radius:3px;margin-right:4px"></span>while&nbsp;&nbsp;</div>
+        </div>
+        <h4>锚点级别匹配明细</h4>
+        <table class="anchor-table"><thead><tr><th>类型</th><th>warmup 名称</th><th>warmup 签名</th><th>warmup 行</th><th>候选名称</th><th>候选签名</th><th>候选行</th><th>匹配</th></tr></thead><tbody><tr><td style="border-left:4px solid #e6a817;padding-left:8px">function</td><td>count_up_to</td><td><code>6000392b</code></td><td>L3-L13</td><td>count_up_to</td><td><code>fba46ea7</code></td><td>L3-L13</td><td style="color:#1565c0">≈ 高重叠 (100%)</td></tr><tr><td style="border-left:4px solid #4a90d9;padding-left:8px">for</td><td>for</td><td><code>6b2c24cb</code></td><td>L5-L12</td><td>for</td><td><code>11101f04</code></td><td>L5-L12</td><td style="color:#1565c0">≈ 高重叠 (100%)</td></tr><tr><td style="border-left:4px solid #4a90d9;padding-left:8px">for</td><td>for</td><td><code>12ade5b6</code></td><td>L7-L10</td><td>for</td><td><code>aca13a2d</code></td><td>L7-L10</td><td style="color:#1565c0">≈ 高重叠 (100%)</td></tr><tr><td style="border-left:4px solid #6ebd6e;padding-left:8px">if</td><td>if</td><td><code>2f2d94b5</code></td><td>L8-L10</td><td>if</td><td><code>820e9bb0</code></td><td>L8-L10</td><td style="color:#1565c0">≈ 高重叠 (100%)</td></tr><tr><td style="border-left:4px solid #6ebd6e;padding-left:8px">if</td><td>if</td><td><code>ce78dfb1</code></td><td>L11-L12</td><td>if</td><td><code>9b443603</code></td><td>L11-L12</td><td style="color:#1565c0">≈ 高重叠 (100%)</td></tr></tbody></table>
+    </div>
+    
+
+    <div class="case">
+        <div class="case-header" style="border-left: 6px solid #2e7d32">
+            <span class="case-id">comment_only</span>
+            <span class="case-desc">仅在顶部增加注释</span>
+            <span class="case-verdict" style="color:#2e7d32">
+                ✅ 复用允许
+                &nbsp;|&nbsp; 原因: exact_anchor_signature &nbsp;|&nbsp; 置信度: 100%
+            </span>
+        </div>
+        <div class="case-meta">
+            <span>warmup 签名: <code>ae343d6ef62925b8</code></span>
+            <span>候选签名: <code>ae343d6ef62925b8</code></span>
+            <span>结构指纹: for,function,if → for,function,if</span>
+        </div>
+        <div class="side-by-side">
+            <div class="code-block"><div class="code-label">warmup (BASE_CODE)</div><pre>
+<span style="display:block;padding-left:12px">
+  1 from typing import List</span>
+<span style="display:block;padding-left:12px">
+  2 </span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  3 def count_up_to(n: int) -&gt; List[int]:</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  4     result = []</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  5     for value in range(2, n):</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  6         is_prime = True</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  7         for factor in range(2, int(value ** 0.5) + 1):</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  8             if value % factor == 0:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  9                 is_prime = False</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 10                 break</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 11         if is_prime:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 12             result.append(value)</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+ 13     return result</span>
+</pre></div>
+            <div class="code-block"><div class="code-label">candidate (comment_only)</div><pre>
+<span style="display:block;padding-left:12px">
+  1 # Count primes below n</span>
+<span style="display:block;padding-left:12px">
+  2 from typing import List</span>
+<span style="display:block;padding-left:12px">
+  3 </span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  4 def count_up_to(n: int) -&gt; List[int]:</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  5     result = []</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  6     for value in range(2, n):</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  7         is_prime = True</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  8         for factor in range(2, int(value ** 0.5) + 1):</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  9             if value % factor == 0:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 10                 is_prime = False</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 11                 break</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 12         if is_prime:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 13             result.append(value)</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+ 14     return result</span>
+</pre></div>
+        </div>
+        <div class="legend">
+            <div style="font-size:13px;color:#666;margin-top:4px">锚点颜色: <span style="display:inline-block;width:14px;height:14px;background:#d94a90;border-radius:3px;margin-right:4px"></span>class&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#4a90d9;border-radius:3px;margin-right:4px"></span>for&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#e6a817;border-radius:3px;margin-right:4px"></span>function&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#6ebd6e;border-radius:3px;margin-right:4px"></span>if&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#9b59b6;border-radius:3px;margin-right:4px"></span>try&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#d97a4a;border-radius:3px;margin-right:4px"></span>while&nbsp;&nbsp;</div>
+        </div>
+        <h4>锚点级别匹配明细</h4>
+        <table class="anchor-table"><thead><tr><th>类型</th><th>warmup 名称</th><th>warmup 签名</th><th>warmup 行</th><th>候选名称</th><th>候选签名</th><th>候选行</th><th>匹配</th></tr></thead><tbody><tr><td style="border-left:4px solid #e6a817;padding-left:8px">function</td><td>count_up_to</td><td><code>6000392b</code></td><td>L3-L13</td><td>count_up_to</td><td><code>6000392b</code></td><td>L4-L14</td><td style="color:#2e7d32">✓ 签名匹配</td></tr><tr><td style="border-left:4px solid #4a90d9;padding-left:8px">for</td><td>for</td><td><code>6b2c24cb</code></td><td>L5-L12</td><td>for</td><td><code>6b2c24cb</code></td><td>L6-L13</td><td style="color:#2e7d32">✓ 签名匹配</td></tr><tr><td style="border-left:4px solid #4a90d9;padding-left:8px">for</td><td>for</td><td><code>12ade5b6</code></td><td>L7-L10</td><td>for</td><td><code>12ade5b6</code></td><td>L8-L11</td><td style="color:#2e7d32">✓ 签名匹配</td></tr><tr><td style="border-left:4px solid #6ebd6e;padding-left:8px">if</td><td>if</td><td><code>2f2d94b5</code></td><td>L8-L10</td><td>if</td><td><code>2f2d94b5</code></td><td>L9-L11</td><td style="color:#2e7d32">✓ 签名匹配</td></tr><tr><td style="border-left:4px solid #6ebd6e;padding-left:8px">if</td><td>if</td><td><code>ce78dfb1</code></td><td>L11-L12</td><td>if</td><td><code>ce78dfb1</code></td><td>L12-L13</td><td style="color:#2e7d32">✓ 签名匹配</td></tr></tbody></table>
+    </div>
+    
+
+    <div class="case">
+        <div class="case-header" style="border-left: 6px solid #2e7d32">
+            <span class="case-id">add_helper</span>
+            <span class="case-desc">增加一个 helper 函数</span>
+            <span class="case-verdict" style="color:#2e7d32">
+                ✅ 复用允许
+                &nbsp;|&nbsp; 原因: span_overlap_medium &nbsp;|&nbsp; 置信度: 68%
+            </span>
+        </div>
+        <div class="case-meta">
+            <span>warmup 签名: <code>ae343d6ef62925b8</code></span>
+            <span>候选签名: <code>a452af6fee5f8a3c</code></span>
+            <span>结构指纹: for,function,if → for,function,if</span>
+        </div>
+        <div class="side-by-side">
+            <div class="code-block"><div class="code-label">warmup (BASE_CODE)</div><pre>
+<span style="display:block;padding-left:12px">
+  1 from typing import List</span>
+<span style="display:block;padding-left:12px">
+  2 </span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  3 def count_up_to(n: int) -&gt; List[int]:</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  4     result = []</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  5     for value in range(2, n):</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  6         is_prime = True</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  7         for factor in range(2, int(value ** 0.5) + 1):</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  8             if value % factor == 0:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  9                 is_prime = False</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 10                 break</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 11         if is_prime:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 12             result.append(value)</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+ 13     return result</span>
+</pre></div>
+            <div class="code-block"><div class="code-label">candidate (add_helper)</div><pre>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  1 def _identity(x):</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  2     return x</span>
+<span style="display:block;padding-left:12px">
+  3 </span>
+<span style="display:block;padding-left:12px">
+  4 from typing import List</span>
+<span style="display:block;padding-left:12px">
+  5 </span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  6 def count_up_to(n: int) -&gt; List[int]:</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  7     result = []</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  8     for value in range(2, n):</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  9         is_prime = True</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+ 10         for factor in range(2, int(value ** 0.5) + 1):</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 11             if value % factor == 0:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 12                 is_prime = False</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 13                 break</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 14         if is_prime:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 15             result.append(value)</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+ 16     return result</span>
+</pre></div>
+        </div>
+        <div class="legend">
+            <div style="font-size:13px;color:#666;margin-top:4px">锚点颜色: <span style="display:inline-block;width:14px;height:14px;background:#d94a90;border-radius:3px;margin-right:4px"></span>class&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#4a90d9;border-radius:3px;margin-right:4px"></span>for&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#e6a817;border-radius:3px;margin-right:4px"></span>function&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#6ebd6e;border-radius:3px;margin-right:4px"></span>if&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#9b59b6;border-radius:3px;margin-right:4px"></span>try&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#d97a4a;border-radius:3px;margin-right:4px"></span>while&nbsp;&nbsp;</div>
+        </div>
+        <h4>锚点级别匹配明细</h4>
+        <table class="anchor-table"><thead><tr><th>类型</th><th>warmup 名称</th><th>warmup 签名</th><th>warmup 行</th><th>候选名称</th><th>候选签名</th><th>候选行</th><th>匹配</th></tr></thead><tbody><tr><td style="border-left:4px solid #e6a817;padding-left:8px">function</td><td>count_up_to</td><td><code>6000392b</code></td><td>L3-L13</td><td>count_up_to</td><td><code>6000392b</code></td><td>L6-L16</td><td style="color:#2e7d32">✓ 签名匹配</td></tr><tr><td style="border-left:4px solid #4a90d9;padding-left:8px">for</td><td>for</td><td><code>6b2c24cb</code></td><td>L5-L12</td><td>for</td><td><code>6b2c24cb</code></td><td>L8-L15</td><td style="color:#2e7d32">✓ 签名匹配</td></tr><tr><td style="border-left:4px solid #4a90d9;padding-left:8px">for</td><td>for</td><td><code>12ade5b6</code></td><td>L7-L10</td><td>for</td><td><code>6b2c24cb</code></td><td>L8-L15</td><td style="color:#b71c1c">≈ 低重叠 (38%)</td></tr><tr><td style="border-left:4px solid #6ebd6e;padding-left:8px">if</td><td>if</td><td><code>2f2d94b5</code></td><td>L8-L10</td><td>—</td><td><code>—</code></td><td>—</td><td style="color:#b71c1c">❌ 无同类型锚点</td></tr><tr><td style="border-left:4px solid #6ebd6e;padding-left:8px">if</td><td>if</td><td><code>ce78dfb1</code></td><td>L11-L12</td><td>if</td><td><code>2f2d94b5</code></td><td>L11-L13</td><td style="color:#e65100">≈ 中重叠 (67%)</td></tr><tr style="opacity:0.5"><td>—</td><td>—</td><td>—</td><td>—</td><td>_identity</td><td><code>4938c250</code></td><td>L1-L2</td><td style="color:#888">新增锚点</td></tr></tbody></table>
+    </div>
+    
+
+    <div class="case">
+        <div class="case-header" style="border-left: 6px solid #2e7d32">
+            <span class="case-id">structure_rewrite</span>
+            <span class="case-desc">将内部逻辑重构为嵌套函数 + 列表推导式</span>
+            <span class="case-verdict" style="color:#2e7d32">
+                ✅ 复用允许
+                &nbsp;|&nbsp; 原因: span_overlap_high &nbsp;|&nbsp; 置信度: 82%
+            </span>
+        </div>
+        <div class="case-meta">
+            <span>warmup 签名: <code>ae343d6ef62925b8</code></span>
+            <span>候选签名: <code>d36520bcbe00b5cc</code></span>
+            <span>结构指纹: for,function,if → for,function,if</span>
+        </div>
+        <div class="side-by-side">
+            <div class="code-block"><div class="code-label">warmup (BASE_CODE)</div><pre>
+<span style="display:block;padding-left:12px">
+  1 from typing import List</span>
+<span style="display:block;padding-left:12px">
+  2 </span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  3 def count_up_to(n: int) -&gt; List[int]:</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  4     result = []</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  5     for value in range(2, n):</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  6         is_prime = True</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  7         for factor in range(2, int(value ** 0.5) + 1):</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  8             if value % factor == 0:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  9                 is_prime = False</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 10                 break</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 11         if is_prime:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 12             result.append(value)</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+ 13     return result</span>
+</pre></div>
+            <div class="code-block"><div class="code-label">candidate (structure_rewrite)</div><pre>
+<span style="display:block;padding-left:12px">
+  1 from typing import List</span>
+<span style="display:block;padding-left:12px">
+  2 </span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  3 def count_up_to(n: int) -&gt; List[int]:</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  4     def is_prime(value: int) -&gt; bool:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  5         if value &lt; 2:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  6             return False</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  7         for factor in range(2, int(value ** 0.5) + 1):</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  8             if value % factor == 0:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  9                 return False</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+ 10         return True</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+ 11 </span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+ 12     return [value for value in range(2, n) if is_prime(value)]</span>
+</pre></div>
+        </div>
+        <div class="legend">
+            <div style="font-size:13px;color:#666;margin-top:4px">锚点颜色: <span style="display:inline-block;width:14px;height:14px;background:#d94a90;border-radius:3px;margin-right:4px"></span>class&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#4a90d9;border-radius:3px;margin-right:4px"></span>for&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#e6a817;border-radius:3px;margin-right:4px"></span>function&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#6ebd6e;border-radius:3px;margin-right:4px"></span>if&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#9b59b6;border-radius:3px;margin-right:4px"></span>try&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#d97a4a;border-radius:3px;margin-right:4px"></span>while&nbsp;&nbsp;</div>
+        </div>
+        <h4>锚点级别匹配明细</h4>
+        <table class="anchor-table"><thead><tr><th>类型</th><th>warmup 名称</th><th>warmup 签名</th><th>warmup 行</th><th>候选名称</th><th>候选签名</th><th>候选行</th><th>匹配</th></tr></thead><tbody><tr><td style="border-left:4px solid #e6a817;padding-left:8px">function</td><td>count_up_to</td><td><code>6000392b</code></td><td>L3-L13</td><td>count_up_to</td><td><code>194ae6be</code></td><td>L3-L12</td><td style="color:#1565c0">≈ 高重叠 (91%)</td></tr><tr><td style="border-left:4px solid #4a90d9;padding-left:8px">for</td><td>for</td><td><code>6b2c24cb</code></td><td>L5-L12</td><td>for</td><td><code>3c3fd4ea</code></td><td>L7-L9</td><td style="color:#b71c1c">≈ 低重叠 (38%)</td></tr><tr><td style="border-left:4px solid #4a90d9;padding-left:8px">for</td><td>for</td><td><code>12ade5b6</code></td><td>L7-L10</td><td>for</td><td><code>3c3fd4ea</code></td><td>L7-L9</td><td style="color:#e65100">≈ 中重叠 (75%)</td></tr><tr><td style="border-left:4px solid #6ebd6e;padding-left:8px">if</td><td>if</td><td><code>2f2d94b5</code></td><td>L8-L10</td><td>if</td><td><code>6ffa83f6</code></td><td>L8-L9</td><td style="color:#e65100">≈ 中重叠 (67%)</td></tr><tr><td style="border-left:4px solid #6ebd6e;padding-left:8px">if</td><td>if</td><td><code>ce78dfb1</code></td><td>L11-L12</td><td>—</td><td><code>—</code></td><td>—</td><td style="color:#b71c1c">❌ 无同类型锚点</td></tr></tbody></table>
+    </div>
+    
+
+    <div class="case">
+        <div class="case-header" style="border-left: 6px solid #b71c1c">
+            <span class="case-id">different_function</span>
+            <span class="case-desc">完全不同的函数</span>
+            <span class="case-verdict" style="color:#b71c1c">
+                ❌ 复用拒绝
+                &nbsp;|&nbsp; 原因: no_anchor_overlap &nbsp;|&nbsp; 置信度: 0%
+            </span>
+        </div>
+        <div class="case-meta">
+            <span>warmup 签名: <code>ae343d6ef62925b8</code></span>
+            <span>候选签名: <code>900b2fa26a6e1a46</code></span>
+            <span>结构指纹: for,function,if → function</span>
+        </div>
+        <div class="side-by-side">
+            <div class="code-block"><div class="code-label">warmup (BASE_CODE)</div><pre>
+<span style="display:block;padding-left:12px">
+  1 from typing import List</span>
+<span style="display:block;padding-left:12px">
+  2 </span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  3 def count_up_to(n: int) -&gt; List[int]:</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  4     result = []</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  5     for value in range(2, n):</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  6         is_prime = True</span>
+<span style="display:block;border-left:4px solid #4a90d9;padding-left:8px;background:#4a90d910">
+  7         for factor in range(2, int(value ** 0.5) + 1):</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  8             if value % factor == 0:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+  9                 is_prime = False</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 10                 break</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 11         if is_prime:</span>
+<span style="display:block;border-left:4px solid #6ebd6e;padding-left:8px;background:#6ebd6e10">
+ 12             result.append(value)</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+ 13     return result</span>
+</pre></div>
+            <div class="code-block"><div class="code-label">candidate (different_function)</div><pre>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  1 def reverse_words(text: str) -&gt; str:</span>
+<span style="display:block;border-left:4px solid #e6a817;padding-left:8px;background:#e6a81710">
+  2     return " ".join(reversed(text.split()))</span>
+</pre></div>
+        </div>
+        <div class="legend">
+            <div style="font-size:13px;color:#666;margin-top:4px">锚点颜色: <span style="display:inline-block;width:14px;height:14px;background:#d94a90;border-radius:3px;margin-right:4px"></span>class&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#4a90d9;border-radius:3px;margin-right:4px"></span>for&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#e6a817;border-radius:3px;margin-right:4px"></span>function&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#6ebd6e;border-radius:3px;margin-right:4px"></span>if&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#9b59b6;border-radius:3px;margin-right:4px"></span>try&nbsp;&nbsp;<span style="display:inline-block;width:14px;height:14px;background:#d97a4a;border-radius:3px;margin-right:4px"></span>while&nbsp;&nbsp;</div>
+        </div>
+        <h4>锚点级别匹配明细</h4>
+        <table class="anchor-table"><thead><tr><th>类型</th><th>warmup 名称</th><th>warmup 签名</th><th>warmup 行</th><th>候选名称</th><th>候选签名</th><th>候选行</th><th>匹配</th></tr></thead><tbody><tr><td style="border-left:4px solid #e6a817;padding-left:8px">function</td><td>count_up_to</td><td><code>6000392b</code></td><td>L3-L13</td><td>—</td><td><code>—</code></td><td>—</td><td style="color:#b71c1c">❌ 无同类型锚点</td></tr><tr><td style="border-left:4px solid #4a90d9;padding-left:8px">for</td><td>for</td><td><code>6b2c24cb</code></td><td>L5-L12</td><td>—</td><td><code>—</code></td><td>—</td><td style="color:#b71c1c">❌ 无同类型锚点</td></tr><tr><td style="border-left:4px solid #4a90d9;padding-left:8px">for</td><td>for</td><td><code>12ade5b6</code></td><td>L7-L10</td><td>—</td><td><code>—</code></td><td>—</td><td style="color:#b71c1c">❌ 无同类型锚点</td></tr><tr><td style="border-left:4px solid #6ebd6e;padding-left:8px">if</td><td>if</td><td><code>2f2d94b5</code></td><td>L8-L10</td><td>—</td><td><code>—</code></td><td>—</td><td style="color:#b71c1c">❌ 无同类型锚点</td></tr><tr><td style="border-left:4px solid #6ebd6e;padding-left:8px">if</td><td>if</td><td><code>ce78dfb1</code></td><td>L11-L12</td><td>—</td><td><code>—</code></td><td>—</td><td style="color:#b71c1c">❌ 无同类型锚点</td></tr><tr style="opacity:0.5"><td>—</td><td>—</td><td>—</td><td>—</td><td>reverse_words</td><td><code>5b11ee26</code></td><td>L1-L2</td><td style="color:#888">新增锚点</td></tr></tbody></table>
+    </div>
+    
+</body>
+</html>

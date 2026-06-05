@@ -1,0 +1,18 @@
+\section{Background}
+
+\paragraph{KV cache serving.}
+Autoregressive LLM serving stores per-layer key and value tensors so future decoding steps do not recompute previous tokens.
+Systems such as vLLM and SGLang exploit this cache to improve throughput and latency~\cite{kwon2023vllm,zheng2023sglang}.
+Radix-style prefix caches index shared token prefixes, while host-backed caches can spill and reload KV blocks across requests.
+Recent KV-management work further studies prefill granularity and multi-agent KV retention~\cite{contiguouskv,tokencake2025}.
+
+\paragraph{Workflow-aware cache scheduling.}
+KVFlow shows that multi-agent workflows can provide useful cache scheduling signals, such as future agent order, priority, and prefetch opportunities~\cite{kvflow2025}.
+\system uses this idea as a reference point, but changes the unit of scheduling from generic agent prefixes to repository code-base segments.
+This direction is complementary to TTL-based multi-turn scheduling~\cite{continuum}, decoding-to-prefill reuse for collaborative agents~\cite{relaycaching}, and \kvcomm-style cross-context KV reuse~\cite{kvcomm2025}.
+
+\paragraph{RoPE and cross-position reuse.}
+Rotary position embedding (RoPE) injects token position into attention keys and queries~\cite{su2021rope}.
+If a code span appears at position $i$ in one prompt and position $j$ in another, the cached KV produced at $i$ is not identical to freshly computed KV at $j$.
+Cross-position reuse therefore needs a delta transform based on $j-i$ to align cached tensors before reuse.
+In \system, the resulting reuse is lossy in the numerical sense, but remains exact in code-content identity.

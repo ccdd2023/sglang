@@ -1,0 +1,1 @@
+Create a precise academic mechanism diagram explaining Code-Base-Aware Lossy KV Reuse. Show Prompt A with Code Base X at position i and Prompt B with identical Code Base X at position j. Show AST/anchor locator as locator only, content signature exact match, cached K,V, RoPE delta j-i, reuse, and decode. White background, vector-like, no logos.

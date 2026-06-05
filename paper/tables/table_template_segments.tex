@@ -1,0 +1,17 @@
+\begin{table}[t]
+\centering
+\caption{Template segment ablation. More exposed code-base segments and downstream agents increase exact reuse opportunity.}
+\label{tab:template-segments}
+\begin{tabular}{lrrr}
+\toprule
+Workflow & Segments & Exact hits & Est. cached tok. \\
+\midrule
+P$\rightarrow$I & 1 & 1 & 4988 \\
+P$\rightarrow$I & 2 & 2 & 9977 \\
+P$\rightarrow$I & 3 & 2 & 9977 \\
+P$\rightarrow$I$\rightarrow$D & 1 & 1 & 4988 \\
+P$\rightarrow$I$\rightarrow$D & 2 & 2 & 9977 \\
+P$\rightarrow$I$\rightarrow$D & 3 & 3 & 14967 \\
+\bottomrule
+\end{tabular}
+\end{table}

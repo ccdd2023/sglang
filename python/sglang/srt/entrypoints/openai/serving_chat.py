@@ -316,7 +316,17 @@ class OpenAIServingChat(OpenAIServingBase):
             require_reasoning=self._get_reasoning_from_request(request),
             priority=request.priority,
             next_agent_prefix=request.next_agent_prefix,
+            codebase_prefetch_hints=request.codebase_prefetch_hints,
             role_type=request.role_type,
+            code_anchor_signature=request.code_anchor_signature,
+            code_content_signature=request.code_content_signature,
+            code_anchor_spans=request.code_anchor_spans,
+            code_anchor_token_spans=request.code_anchor_token_spans,
+            reuse_mode=request.reuse_mode,
+            lossy_alignment_method=request.lossy_alignment_method,
+            template_task_family=request.template_task_family,
+            template_workflow_signature=request.template_workflow_signature,
+            template_structural_fingerprint=request.template_structural_fingerprint,
             routing_key=self.extract_routing_key(raw_request),
             custom_labels=custom_labels,
             custom_logit_processor=request.custom_logit_processor,
@@ -634,6 +644,7 @@ class OpenAIServingChat(OpenAIServingBase):
         prompt_tokens = {}
         completion_tokens = {}
         cached_tokens = {}
+        lossy_metadata = {}  # populated from first chunk's meta_info
         hidden_states = {}
         routed_experts = {}
 
@@ -648,6 +659,36 @@ class OpenAIServingChat(OpenAIServingBase):
                     "completion_tokens", 0
                 )
                 cached_tokens[index] = content["meta_info"].get("cached_tokens", 0)
+                if not lossy_metadata:
+                    has_reuse_meta = any(
+                        content["meta_info"].get(k) is not None
+                        for k in (
+                            "lossy_anchor_match_used",
+                            "codebase_prefetch_hint_count",
+                        )
+                    )
+                    if has_reuse_meta:
+                        lossy_metadata = {
+                            k: content["meta_info"].get(k)
+                            for k in (
+                                "lossy_anchor_match_used",
+                                "lossy_anchor_match_len",
+                                "lossy_anchor_match_gap_len",
+                                "lossy_anchor_match_signature",
+                                "lossy_anchor_match_content_signature",
+                                "lossy_anchor_rope_delta",
+                                "lossy_first_match_reason",
+                                "lossy_first_matched_anchor_signature",
+                                "lossy_first_matched_content_signature",
+                                "codebase_prefetch_hint_count",
+                                "codebase_prefetch_text_count",
+                                "codebase_prefetch_queued_tokens",
+                                "codebase_prefetch_matched_tokens",
+                                "codebase_prefetch_success_count",
+                                "codebase_prefetch_device_hit_count",
+                            )
+                            if content["meta_info"].get(k) is not None
+                        }
                 hidden_states[index] = content["meta_info"].get("hidden_states", None)
                 routed_experts[index] = content["meta_info"].get("routed_experts", None)
 
@@ -877,6 +918,7 @@ class OpenAIServingChat(OpenAIServingBase):
                     choices=[],  # Empty choices array as per OpenAI spec
                     model=request.model,
                     usage=usage,
+                    metadata={"lossy_reuse": lossy_metadata} if lossy_metadata else None,
                 )
                 yield f"data: {usage_chunk.model_dump_json()}\n\n"
 
@@ -1011,13 +1053,55 @@ class OpenAIServingChat(OpenAIServingBase):
             enable_cache_report=self.tokenizer_manager.server_args.enable_cache_report,
         )
 
+        response_metadata = {"weight_version": ret[0]["meta_info"]["weight_version"]}
+        lossy_keys = [
+            "lossy_candidate_count",
+            "lossy_first_match_reason",
+            "lossy_first_rejected_reason",
+            "lossy_first_reuse_allowed",
+            "lossy_first_reuse_confidence",
+            "lossy_first_matched_anchor_signature",
+            "lossy_first_matched_content_signature",
+            "lossy_first_syntax_region_type",
+            "lossy_first_matched_node_id",
+            "lossy_final_match_reason",
+            "lossy_final_rejected_reason",
+            "lossy_final_reuse_allowed",
+            "lossy_final_reuse_confidence",
+            "lossy_final_matched_anchor_signature",
+            "lossy_final_matched_content_signature",
+            "lossy_final_syntax_region_type",
+            "lossy_final_matched_node_id",
+            "lossy_fuzzy_match_used",
+            "lossy_fuzzy_match_exact_len",
+            "lossy_fuzzy_match_best_len",
+            "lossy_fuzzy_match_reason",
+            "lossy_anchor_match_used",
+            "lossy_anchor_match_len",
+            "lossy_anchor_match_signature",
+            "lossy_anchor_match_content_signature",
+            "codebase_prefetch_hint_count",
+            "codebase_prefetch_text_count",
+            "codebase_prefetch_queued_tokens",
+            "codebase_prefetch_matched_tokens",
+            "codebase_prefetch_success_count",
+            "codebase_prefetch_device_hit_count",
+        ]
+        lossy_metadata = {
+            key: ret[0]["meta_info"].get(key)
+            for key in lossy_keys
+            if ret[0]["meta_info"].get(key) is not None
+        }
+        if lossy_metadata:
+            response_metadata["lossy_reuse"] = lossy_metadata
+
         return ChatCompletionResponse(
             id=ret[0]["meta_info"]["id"],
             created=created,
             model=request.model,
             choices=choices,
             usage=usage,
-            metadata={"weight_version": ret[0]["meta_info"]["weight_version"]},
+            metadata=response_metadata,
             sglext=response_sglext,
         )
 

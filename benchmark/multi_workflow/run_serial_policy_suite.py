@@ -127,6 +127,8 @@ def start_server(
     chunked_prefill_size: int,
     max_prefill_tokens: int,
     log_path: Path,
+    dtype: Optional[str] = None,
+    quantization: Optional[str] = None,
 ) -> subprocess.Popen:
     cfg = POLICY_SERVER_ARGS[policy]
     cmd = [
@@ -154,6 +156,10 @@ def start_server(
         "--log-level",
         "info",
     ]
+    if dtype:
+        cmd.extend(["--dtype", str(dtype)])
+    if quantization:
+        cmd.extend(["--quantization", str(quantization)])
     if cfg["hicache"]:
         cmd.extend(
             [
@@ -199,11 +205,13 @@ def stop_server(proc: subprocess.Popen) -> None:
         log_fp.close()
 
 
-def maybe_export_real_templates(args: argparse.Namespace) -> Optional[Path]:
+def maybe_export_real_templates(
+    args: argparse.Namespace,
+) -> Tuple[Optional[Path], Optional[Dict[str, object]]]:
     if args.real_templates:
-        return Path(args.real_templates)
+        return Path(args.real_templates), None
     if not args.template_cache_input:
-        return None
+        return None, None
 
     export_script = Path(args.export_script)
     output_path = Path(args.output_dir) / "exports" / "real_templates.json"
@@ -217,7 +225,18 @@ def maybe_export_real_templates(args: argparse.Namespace) -> Optional[Path]:
         str(output_path),
     ]
     subprocess.run(cmd, check=True)
-    return output_path
+    try:
+        export_data = json.loads(output_path.read_text(encoding="utf-8"))
+    except Exception:
+        export_data = None
+    export_stats = None
+    if isinstance(export_data, dict):
+        export_stats = {
+            "total_templates": export_data.get("total_templates"),
+            "by_task_type": export_data.get("by_task_type"),
+            "by_task_family": export_data.get("by_task_family"),
+        }
+    return output_path, export_stats
 
 
 def newest_json(output_dir: Path, before: set[Path]) -> Path:
@@ -268,6 +287,8 @@ def run_one_policy(
             max_total_tokens=args.max_total_tokens,
             chunked_prefill_size=args.chunked_prefill_size,
             max_prefill_tokens=args.max_prefill_tokens,
+            dtype=args.dtype,
+            quantization=args.quantization,
             log_path=log_path,
         )
         before = set(policy_output_dir.glob("*.json"))
@@ -568,6 +589,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--chunked-prefill-size", type=int, default=2048)
     parser.add_argument("--max-prefill-tokens", type=int, default=4096)
     parser.add_argument("--hicache-ratio", type=float, default=2.0)
+    parser.add_argument("--dtype", default=None)
+    parser.add_argument("--quantization", default=None)
     parser.add_argument(
         "--workflow-candidates",
         default="",
@@ -593,7 +616,7 @@ def main() -> None:
     if args.workflow_type == "dag" and not args.dag_config:
         raise SystemExit("--dag-config is required for DAG mode")
 
-    real_templates = maybe_export_real_templates(args)
+    real_templates, export_stats = maybe_export_real_templates(args)
     results: List[Dict[str, object]] = []
     baseline_json: Optional[Path] = None
     for idx, policy in enumerate(args.policies):
@@ -605,6 +628,11 @@ def main() -> None:
         results.append(result)
 
     summary = build_summary(results, args.baseline_policy)
+    if real_templates:
+        summary["real_templates_path"] = str(real_templates)
+        summary["real_templates_mode"] = args.real_templates_mode
+    if export_stats:
+        summary["template_export_stats"] = export_stats
     summary_path = Path(args.output_dir) / "suite_summary.json"
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     with summary_path.open("w", encoding="utf-8") as fh:

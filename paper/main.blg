@@ -1,0 +1,61 @@
+This is BibTeX, Version 0.99e (TeX Live 2026)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: main.aux
+The style file: ACM-Reference-Format.bst
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Database file #1: refs.bib
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 9000 items from 6000.
+Reallocated glb_str_ptr (elt_size=4) to 20 items from 10.
+Reallocated global_strs (elt_size=200001) to 20 items from 10.
+Reallocated glb_str_end (elt_size=4) to 20 items from 10.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Warning--empty publisher in swebench
+Warning--empty address in swebench
+Warning--page numbers missing in both pages and numpages fields in swebench
+Warning--empty publisher in kwon2023vllm
+Warning--empty address in kwon2023vllm
+You've used 15 entries,
+            6273 wiz_defined-function locations,
+            1610 strings with 22286 characters,
+and the built_in function-call counts, 16551 in all, are:
+= -- 1632
+> -- 969
+< -- 0
++ -- 339
+- -- 324
+* -- 1579
+:= -- 1919
+add.period$ -- 62
+call.type$ -- 15
+change.case$ -- 180
+chr.to.int$ -- 15
+cite$ -- 20
+duplicate$ -- 1213
+empty$ -- 876
+format.name$ -- 384
+if$ -- 3526
+int.to.chr$ -- 2
+int.to.str$ -- 1
+missing$ -- 15
+newline$ -- 214
+num.names$ -- 105
+pop$ -- 527
+preamble$ -- 1
+purify$ -- 288
+quote$ -- 0
+skip$ -- 495
+stack$ -- 0
+substring$ -- 908
+swap$ -- 81
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 450
+warning$ -- 5
+while$ -- 51
+width$ -- 0
+write$ -- 355
+(There were 5 warnings)

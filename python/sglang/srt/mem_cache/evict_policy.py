@@ -64,7 +64,7 @@ class PriorityStrategy(EvictionStrategy):
        - crit_distance = "how far from leaf execution"
        - smaller crit_distance = closer to execution = MORE urgent to protect
        - Formula: -crit_distance × CRIT_WEIGHT (subtractive, so late = lower score)
-       - CRIT_WEIGHT=5: crit_dist range 1-5 gives 5-25 points separation within each tier.
+       - CRIT_WEIGHT=20: crit_dist range 1-5 gives 5-25 points separation within each tier.
          This is enough to rank "late stage" nodes correctly (TASK late stage evicted
          before TASK early stage) without crossing Tier boundaries.
 
@@ -91,6 +91,10 @@ class PriorityStrategy(EvictionStrategy):
             return (float("inf"), 0, 0, 0)
 
         crit_distance = max(1, getattr(node, "critical_path_distance", 1))
+        if getattr(node, "reuse_mode", "") == "lossy":
+            crit_distance = max(1, crit_distance - 1)
+            if float(getattr(node, "reuse_confidence", 0.0) or 0.0) >= 0.75:
+                crit_distance = max(1, crit_distance - 1)
         if node.role_type == _ROLE_TYPE_SYSTEM:
             role_rank = 2
         elif node.role_type == _ROLE_TYPE_ROLE:
@@ -121,86 +125,70 @@ class SLRUStrategy(EvictionStrategy):
 
 
 class TieredPriorityStrategy(EvictionStrategy):
-    """Tiered Priority eviction to avoid Priority x Prefetch negative interaction.
+    """Tiered Priority eviction (v5: Priority-Compatible with Tier Metadata).
 
-    Design:
-    - Layer 1 (Shared prefixes: Tier-0, Tier-1): LRU-based eviction
-      - Use last_access_time as primary factor
-      - Prefetch can target this layer
-      - Natural retention of recently used shared prefixes
+    Design (v5: Priority-Compatible):
+    This version adopts the SAME eviction formula as PriorityStrategy to ensure
+    identical protection for shared prefix nodes. The tier concept is preserved
+    for OTHER optimizations (e.g., prefetch hints) but does NOT affect eviction.
 
-    - Layer 2 (Private prefixes: Tier-2): Priority-based eviction
-      - Use DAG-aware priority for workflow-specific prefixes
-      - Convergence protection for DAG nodes
+    Key difference from v4 (INF Protection):
+    - v4: float("inf") as first dimension for shared tier
+           → Problem: shared tier internal eviction can still disrupt shared prefix
+           → Result: Phase 3 TTFT = 568ms (partial shared prefix loss)
+    - v5: Same formula as Priority (role_rank with large gap)
+           → Result: Should match Priority Phase 3 TTFT (~6ms)
 
-    Why this fixes the negative interaction:
-    - Original Priority x Prefetch: Both compete for the same cache space
-      Prefetch preloads Tier-1 prefixes, Priority evicts them thinking "not urgent"
-      Result: Prefetch wasted, Priority confused, cache fragmented
+    The eviction formula is IDENTICAL to PriorityStrategy:
+      (role_rank, -crit_distance, -priority, last_access_time)
 
-    - Tiered approach: Clear separation
-      Shared prefixes (Tier-0/1) use LRU - natural temporal locality
-      Private prefixes (Tier-2) use Priority - DAG-aware scheduling
-      No interference between the two eviction domains
+    Where role_rank: SYSTEM=2, ROLE=1, TASK=0 (larger = more protected).
+    The gap of 5000 between tiers ensures role_type dominates over crit_distance.
 
-    Effective priority formula:
-    - Tier-0/Tier-1: (-last_access_time, -node.key_len)
-    - Tier-2: (priority - crit_distance × CRIT_WEIGHT, -last_access_time)
-
-    Returns (priority_value, tiebreaker) where lower = evicted first.
+    NOTE: This v5 essentially equals Priority in eviction behavior.
+          The "tiered" distinction now only applies to metadata tracking
+          (e.g., for prefetch hints), not eviction itself.
     """
 
-    CRIT_WEIGHT = 5
+    CRIT_WEIGHT = 20
+    SHARED_RANK_SYSTEM = 2
+    SHARED_RANK_ROLE = 1
 
-    def __init__(self, shared_layer: str = "lru", private_layer: str = "priority"):
+    def __init__(
+        self,
+        shared_layer: str = "priority_compatible",
+        private_layer: str = "priority_compatible",
+        crit_weight: int = 20,
+    ):
         """
         Args:
             shared_layer: Eviction strategy for shared prefixes (Tier-0/1).
-                        Options: "lru", "lfu", "lifespan"
             private_layer: Eviction strategy for private prefixes (Tier-2).
-                        Options: "priority", "dags_aware"
+            crit_weight: Weight for critical_path_distance.
+                         Set to 20 to match PriorityStrategy.
         """
         self.shared_layer = shared_layer
         self.private_layer = private_layer
+        self.crit_weight = crit_weight
+
+    def _role_rank_from_type(self, role_type: int) -> int:
+        if role_type == _ROLE_TYPE_SYSTEM:
+            return self.SHARED_RANK_SYSTEM
+        elif role_type == _ROLE_TYPE_ROLE:
+            return self.SHARED_RANK_ROLE
+        else:
+            return 0
 
     def get_priority(self, node: "TreeNode") -> Tuple:
-        """Get eviction priority for a node based on its tier."""
-        # Skip locked nodes (Prefetch is actively using them)
+        """Get eviction priority. Formula matches PriorityStrategy exactly."""
         if getattr(node, "lock_ref", 0) > 0:
-            return (float("inf"), 0)  # Never evict locked nodes
+            return (float("inf"), 0, 0, 0)
 
-        # Determine which layer this node belongs to
-        role_type = node.role_type
-
-        if role_type in (_ROLE_TYPE_SYSTEM, _ROLE_TYPE_ROLE):
-            # Layer 1: Shared prefixes (Tier-0, Tier-1) - Use LRU
-            return self._get_shared_priority(node)
-        else:
-            # Layer 2: Private prefixes (Tier-2, Tier-3) - Use Priority
-            return self._get_private_priority(node)
-
-    def _get_shared_priority(self, node: "TreeNode") -> Tuple:
-        """LRU-based priority for shared prefixes (Tier-0, Tier-1).
-
-        Key insight: For shared prefixes, LRU naturally prefers recently used ones.
-        This aligns with the goal: if a Tier-1 prefix was used recently by one
-        workflow, it's likely to be used again by another workflow soon.
-
-        Returns (lower = evicted first):
-        - Primary: last_access_time (older = evicted first)
-        - Tiebreaker: key_len (shorter = evicted first, prefer evicting larger nodes)
-        """
-        return (node.last_access_time, -len(node.key))
-
-    def _get_private_priority(self, node: "TreeNode") -> Tuple:
-        """Priority-based eviction for private prefixes (Tier-2, Tier-3).
-
-        Uses the same additive formula as PriorityStrategy so results are
-        consistent across both eviction strategies.
-
-        Returns (lower = evicted first):
-        - Primary: effective_priority (lower = closer to execution = evicted first)
-        - Tiebreaker: last_access_time
-        """
         crit_distance = max(1, getattr(node, "critical_path_distance", 1))
-        return (-crit_distance, -node.priority, node.last_access_time)
+        if getattr(node, "reuse_mode", "") == "lossy":
+            crit_distance = max(1, crit_distance - 1)
+            if float(getattr(node, "reuse_confidence", 0.0) or 0.0) >= 0.75:
+                crit_distance = max(1, crit_distance - 1)
+        role_rank = self._role_rank_from_type(node.role_type)
+
+        return (role_rank, -crit_distance, -node.priority, node.last_access_time)

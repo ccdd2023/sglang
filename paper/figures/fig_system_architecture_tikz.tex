@@ -1,0 +1,38 @@
+\begin{tikzpicture}[
+  font=\scriptsize,
+  box/.style={draw, rounded corners=2pt, align=center, minimum height=0.62cm, inner sep=3pt},
+  layer/.style={draw, rounded corners=3pt, inner sep=6pt},
+  arrow/.style={-{Latex[length=2mm]}, line width=0.35pt},
+  dashedarrow/.style={-{Latex[length=2mm]}, dashed, line width=0.35pt},
+  blue/.style={box, fill=blue!6, draw=blue!55!black},
+  green/.style={box, fill=green!6, draw=green!45!black},
+  orange/.style={box, fill=orange!8, draw=orange!70!black}
+]
+\node[blue, minimum width=2.0cm] (template) {Workflow\\Template};
+\node[blue, right=0.45cm of template] (planner) {Planner};
+\node[blue, right=0.38cm of planner] (impl) {Implementer};
+\node[blue, right=0.38cm of impl] (debug) {Debugger};
+\draw[arrow] (template) -- (planner);
+\draw[arrow] (planner) -- (impl);
+\draw[arrow] (impl) -- (debug);
+\node[layer, fit=(template)(planner)(impl)(debug), label={[font=\scriptsize]left:{1. Template layer}}] (l1) {};
+
+\node[green, below=0.55cm of planner, minimum width=1.55cm] (prefix) {prefix\\hints};
+\node[green, below=0.55cm of impl, minimum width=2.2cm] (cbhints) {codebase\\prefetch hints};
+\node[green, below=0.55cm of debug, minimum width=1.95cm] (sched) {KVFlow\\Scheduler};
+\draw[arrow] (prefix) -- (sched);
+\draw[arrow] (cbhints) -- (sched);
+\draw[arrow] (l1.south) -- ($(sched.north)+(0,0.12)$);
+\node[layer, fit=(prefix)(cbhints)(sched), label={[font=\scriptsize]left:{2. Scheduling layer}}] (l2) {};
+
+\node[orange, below=0.55cm of prefix, minimum width=1.8cm] (cache) {HiRadix /\\HiCache};
+\node[orange, below=0.55cm of cbhints, minimum width=1.75cm] (gate) {exact\\content gate};
+\node[orange, below=0.55cm of sched, minimum width=1.5cm] (rope) {RoPE\\delta};
+\node[orange, right=0.35cm of rope, minimum width=1.2cm] (decode) {decode};
+\draw[arrow] (cache) -- (gate);
+\draw[arrow] (gate) -- (rope);
+\draw[arrow] (rope) -- (decode);
+\draw[arrow] (sched) -- (rope);
+\node[layer, fit=(cache)(gate)(rope)(decode), label={[font=\scriptsize]left:{3. Reuse layer}}] (l3) {};
+
+\end{tikzpicture}

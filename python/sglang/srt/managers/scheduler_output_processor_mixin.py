@@ -80,6 +80,79 @@ class SchedulerOutputProcessorMixin:
             return details
         return None
 
+    def _append_lossy_observability(
+        self, customized_info: dict, req: Req, send_token_offset: int = 0
+    ) -> None:
+        observability_fields = {
+            "lossy_candidate_count": getattr(req, "lossy_candidate_count", None),
+            "lossy_first_match_reason": getattr(req, "lossy_first_match_reason", None),
+            "lossy_first_rejected_reason": getattr(req, "lossy_first_rejected_reason", None),
+            "lossy_first_reuse_allowed": getattr(req, "lossy_first_reuse_allowed", None),
+            "lossy_first_reuse_confidence": getattr(req, "lossy_first_reuse_confidence", None),
+            "lossy_first_matched_anchor_signature": getattr(
+                req, "lossy_first_matched_anchor_signature", None
+            ),
+            "lossy_first_matched_content_signature": getattr(
+                req, "lossy_first_matched_content_signature", None
+            ),
+            "lossy_first_syntax_region_type": getattr(
+                req, "lossy_first_syntax_region_type", None
+            ),
+            "lossy_first_matched_node_id": getattr(req, "lossy_first_matched_node_id", None),
+            "lossy_final_match_reason": getattr(req, "lossy_final_match_reason", None),
+            "lossy_final_rejected_reason": getattr(req, "lossy_final_rejected_reason", None),
+            "lossy_final_reuse_allowed": getattr(req, "lossy_final_reuse_allowed", None),
+            "lossy_final_reuse_confidence": getattr(req, "lossy_final_reuse_confidence", None),
+            "lossy_final_matched_anchor_signature": getattr(
+                req, "lossy_final_matched_anchor_signature", None
+            ),
+            "lossy_final_matched_content_signature": getattr(
+                req, "lossy_final_matched_content_signature", None
+            ),
+            "lossy_final_syntax_region_type": getattr(
+                req, "lossy_final_syntax_region_type", None
+            ),
+            "lossy_final_matched_node_id": getattr(req, "lossy_final_matched_node_id", None),
+            "lossy_anchor_match_used": getattr(req, "lossy_anchor_match_used", None),
+            "lossy_anchor_match_len": getattr(req, "lossy_anchor_match_len", None),
+            "lossy_anchor_match_gap_len": getattr(req, "lossy_anchor_match_gap_len", None),
+            "lossy_anchor_match_signature": getattr(
+                req, "lossy_anchor_match_signature", None
+            ),
+            "lossy_anchor_match_content_signature": getattr(
+                req, "lossy_anchor_match_content_signature", None
+            ),
+            "lossy_anchor_rope_delta": getattr(req, "lossy_anchor_rope_delta", 0),
+            # context_aware_confidence modifier telemetry (sglang-kvflow)
+            "lossy_predicted_distance": getattr(req, "lossy_predicted_distance", None),
+            "lossy_context_aware_confidence": getattr(req, "lossy_context_aware_confidence", None),
+            "lossy_context_aware_multiplier": getattr(req, "lossy_context_aware_multiplier", None),
+            "codebase_prefetch_hint_count": getattr(
+                req, "codebase_prefetch_hint_count", None
+            ),
+            "codebase_prefetch_text_count": getattr(
+                req, "codebase_prefetch_text_count", None
+            ),
+            "codebase_prefetch_queued_tokens": getattr(
+                req, "codebase_prefetch_queued_tokens", None
+            ),
+            "codebase_prefetch_matched_tokens": getattr(
+                req, "codebase_prefetch_matched_tokens", None
+            ),
+            "codebase_prefetch_success_count": getattr(
+                req, "codebase_prefetch_success_count", None
+            ),
+            "codebase_prefetch_device_hit_count": getattr(
+                req, "codebase_prefetch_device_hit_count", None
+            ),
+        }
+        for key, value in observability_fields.items():
+            if value is None:
+                continue
+            if key not in customized_info:
+                customized_info[key] = []
+            customized_info[key].append(value)
+
     def process_batch_result_prebuilt(self: Scheduler, batch: ScheduleBatch):
         assert self.disaggregation_mode == DisaggregationMode.DECODE
         for req in batch.reqs:
@@ -1106,6 +1179,10 @@ class SchedulerOutputProcessorMixin:
                         if k not in customized_info:
                             customized_info[k] = []
                         customized_info[k].append(v[send_token_offset:])
+
+                self._append_lossy_observability(
+                    customized_info, req, send_token_offset=send_token_offset
+                )
 
             if (
                 req.finished()

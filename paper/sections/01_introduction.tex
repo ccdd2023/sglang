@@ -1,0 +1,33 @@
+\section{Introduction}
+
+Coding multi-agent systems (MAS) are a natural fit for software engineering tasks~\cite{swebench,multiagent2025,llmagents2024}.
+A planner can inspect the issue and decide which files matter; an implementer can edit the code; a debugger can reason over failures; a reviewer can verify the final patch.
+However, this decomposition creates a serving-system mismatch.
+Each agent typically receives a different instruction prefix and different intermediate context, yet many agents repeatedly read the same repository files.
+The shared content is therefore a large code-base segment embedded at different prompt positions, rather than a simple common prefix.
+
+Modern LLM serving systems reduce prefill and decode cost through paged KV memory, structured program execution, semantic variables, workflow-aware cache scheduling, and KV-centric agent serving~\cite{kwon2023vllm,zheng2023sglang,parrot2024,kvflow2025,tokencake2025}.
+However, existing prefix-cache mechanisms accelerate exact shared prefixes.
+They do not directly address repeated middle or suffix spans.
+A serving engine may observe that two prompts both contain the same large code file, but the cached KV tensors for that file were produced at different RoPE positions.
+Naively reusing them can perturb attention behavior; using syntax or anchor similarity as a gate can be unsafe because the same AST shape or function name can hide behavior-changing edits.
+
+This paper argues that coding MAS creates a structured opportunity for safe lossy KV reuse.
+The word ``lossy'' in this work has a narrow meaning: KV tensors are reused across different prompt positions after RoPE delta alignment.
+It does not mean that different or approximate code content may be reused.
+Our safety rule is strict: AST, anchors, file paths, and span overlap are locators only; reuse is allowed only when the normalized code content signature is exactly identical.
+
+We present \system, a template-guided serving stack for coding MAS.
+\system connects three layers.
+At the template layer, a workflow describes how Planner, Implementer, Debugger, and Reviewer agents will consume code-base segments.
+At the scheduling layer, these templates emit coding-aware hints, including \prefetchhint, so a KVFlow-style engine can prepare code-base KV before a later agent needs it.
+At the reuse layer, the prototype adapts cross-context KV reuse ideas from \kvcomm to code segments: it locates candidate spans, enforces \exactgate, and rotates cached K/V tensors using the RoPE position delta.
+This framing borrows the original AgentTemplateKV insight that agent DAGs, roles, and tool edges are serving-time signals, but specializes it to repo-level coding workloads where large exact code files dominate the reusable context.
+
+The contributions are:
+\begin{itemize}[leftmargin=*]
+\item We identify code-base repetition as a distinct cache-reuse pattern in coding MAS: large exact code segments recur across agents but not necessarily at prompt prefixes.
+\item We design a template-derived code-base hint schema that exposes future code-base use through \prefetchhint while preserving a strict separation between scheduling hints and reuse safety gates.
+\item We implement a code-specific exact-content reuse policy on top of an SGLang/KVFlow-style prototype, combining candidate localization, content-signature gating, and RoPE delta alignment without claiming KVFlow or \kvcomm themselves as new contributions.
+\item We evaluate \system on SWE-bench Verified code-base workloads, controlled ablations, repo-level reuse experiments, and local pass@1 tests, showing zero false accepts for the full gate, near-lossless logit behavior, and cached-token/latency gains with small lossless-vs-lossy accuracy delta.
+\end{itemize}

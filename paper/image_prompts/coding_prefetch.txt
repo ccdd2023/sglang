@@ -1,0 +1,1 @@
+Create a clean academic diagram showing coding-aware KVFlow prefetch. Use a timeline with Planner, Implementer, Debugger. Planner emits codebase_prefetch_hints for Code Base 1, Code Base 2, Code Base 3. KVFlow Scheduler uses priority and steps_to_use, sends text-bearing hints to HiCache prefetch, records signature-only hints, and later uses exact content gate.

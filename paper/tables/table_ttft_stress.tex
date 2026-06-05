@@ -1,0 +1,17 @@
+\begin{table*}[t]
+\centering
+\caption{KVCOMM-style long-code TTFT stress results. Speedup is relative to prefix-only at the same length bucket.}
+\label{tab:ttft-stress}
+\begin{tabular}{lrrrrr}
+\toprule
+Mode & Max chars & Cases & P50 TTFT (ms) & Speedup & Exact hits \\
+\midrule
+Prefix only & 8000 & 50 & 671.2 & 1.00$\times$ & 0/50 \\
+Prefix only & 16000 & 50 & 1718.8 & 1.00$\times$ & 0/50 \\
+Exact reuse & 8000 & 50 & 668.2 & 1.00$\times$ & 50/50 \\
+Exact reuse & 16000 & 50 & 1480.1 & 1.16$\times$ & 50/50 \\
+Exact reuse + hints & 8000 & 50 & 665.8 & 1.01$\times$ & 50/50 \\
+Exact reuse + hints & 16000 & 50 & 1483.2 & 1.16$\times$ & 50/50 \\
+\bottomrule
+\end{tabular}
+\end{table*}

@@ -23,7 +23,9 @@ If LRU:
 import time
 import httpx
 import argparse
+import json
 from dataclasses import dataclass
+from pathlib import Path
 
 LRU_BASE = "http://localhost:30001"
 PRIORITY_BASE = "http://localhost:30002"
@@ -110,6 +112,49 @@ def make_large_task(idx: int) -> str:
 SHARED_SYSTEM = make_large_system(9999)
 SHARED_CODE = make_large_code_context(9999)
 SHARED_TASK = "Add comprehensive error handling with retry logic."
+
+
+ROLE_ALIASES = {
+    "plan": "planner",
+    "planner": "planner",
+    "architect": "architect",
+    "retrieve": "retriever",
+    "retriever": "retriever",
+    "coder": "implementer",
+    "code": "implementer",
+    "implementer": "implementer",
+    "test": "tester",
+    "tester": "tester",
+    "review": "reviewer",
+    "reviewer": "reviewer",
+    "opt": "optimizer",
+    "optimizer": "optimizer",
+    "debug": "debugger",
+    "debugger": "debugger",
+}
+
+
+def normalize_role(role: str) -> str:
+    lowered = (role or "").strip().lower()
+    return ROLE_ALIASES.get(lowered, lowered)
+
+
+def load_real_template_prefix(template_path: str, role: str) -> str:
+    path = Path(template_path)
+    if not path.exists():
+        return ""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+
+    target_role = normalize_role(role)
+    for tpl in data.get("templates", []):
+        for rp in tpl.get("role_prefixes", []):
+            rp_role = normalize_role(rp.get("role", ""))
+            if rp_role == target_role and rp.get("prefix_text"):
+                return str(rp["prefix_text"]).strip()
+    return ""
 
 
 @dataclass
@@ -264,6 +309,8 @@ def main():
                         help="Single-server mode: test only this base URL")
     parser.add_argument("--server-name", type=str, default="Single",
                         help="Display name for --base-url single-server mode")
+    parser.add_argument("--real-templates", type=str, default=None)
+    parser.add_argument("--real-template-role", type=str, default="planner")
     parser.add_argument("--lru-only", action="store_true")
     parser.add_argument("--priority-only", action="store_true")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -273,6 +320,15 @@ def main():
     print("  KVFlow Adversarial Eviction Pressure Test v2")
     print("  Key: Large unique requests to fill cache faster")
     print("=" * 70)
+
+    if args.real_templates:
+        prefix = load_real_template_prefix(args.real_templates, args.real_template_role)
+        if prefix:
+            global SHARED_SYSTEM
+            SHARED_SYSTEM = prefix + "\n\n" + SHARED_SYSTEM
+            print(f"  [real_templates] using role={normalize_role(args.real_template_role)} prefix_len={len(prefix)} chars")
+        else:
+            print(f"  [real_templates] failed to load role={normalize_role(args.real_template_role)} from {args.real_templates}")
 
     if args.base_url:
         result = run_test(args.base_url, args.server_name, args.num_unique, verbose=args.verbose)

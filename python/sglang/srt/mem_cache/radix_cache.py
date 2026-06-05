@@ -24,8 +24,10 @@ The radix tree data structure for managing the KV cache.
 
 import heapq
 import logging
+import os
 import re
 import sys
+import threading
 import time
 from collections import defaultdict
 from functools import lru_cache, partial
@@ -33,13 +35,48 @@ from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Tuple, Union
 
 import torch
 
+from sglang.srt.mem_cache.memory_pool import move_kv_cache_native
+
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Anchor KV Entry for position-aligned non-prefix reuse (KVCOMM)
+# ---------------------------------------------------------------------------
+class AnchorKVEntry:
+    """Stores KV cache for an anchor block, keyed by signature + position."""
+
+    def __init__(
+        self,
+        signature: str,
+        token_ids: torch.Tensor,
+        kv_indices: torch.Tensor,
+        start_pos: int,
+        code_content_signature: str = "",
+    ):
+        self.signature = signature
+        self.code_content_signature = code_content_signature
+        self.token_ids = token_ids
+        self.kv_indices = kv_indices
+        self.start_pos = start_pos
+        self.ref_count = 1
+
+    def __repr__(self):
+        return (
+            f"AnchorKVEntry(sig={self.signature!r:.30}, "
+            f"start_pos={self.start_pos}, len={len(self.token_ids)}, ref={self.ref_count})"
+        )
 
 from sglang.srt.disaggregation.kv_events import (
     MEDIUM_GPU,
     AllBlocksCleared,
     BlockRemoved,
     BlockStored,
+)
+from sglang.srt.mem_cache.anchor_match import (
+    AnchorMetadata,
+    AnchorMatchResult,
+    build_anchor_metadata,
+    select_best_match,
 )
 from sglang.srt.mem_cache.base_prefix_cache import (
     BasePrefixCache,
@@ -198,6 +235,21 @@ class TreeNode:
         # PLANNER: distance=3, ARCHITECT/REVIEWER: distance=2, IMPLEMENTER/TESTER: distance=1.
         # PriorityStrategy uses this to protect the critical path in DAG workflows.
         self.critical_path_distance: int = 1
+        self.anchor_type: str = ""
+        self.anchor_id: str = ""
+        self.code_content_signature: str = ""
+        self.anchor_spans: list[dict[str, Any]] = []
+        self.reuse_mode: str = ""
+        self.reuse_confidence: float = 0.0
+        self.syntax_region_type: str = ""
+        self.template_task_family: str = ""
+        self.template_workflow_signature: str = ""
+        self.template_structural_fingerprint: str = ""
+        # Prompt-context fields (sglang-kvflow context_aware_confidence)
+        self.nesting_depth: int = 0
+        self.prompt_position_offset: int = 0
+        self.system_prompt_class: str = ""
+        self.surrounding_code_hash: str = ""
 
         self.id = TreeNode.counter if id is None else id
         TreeNode.counter += 1
@@ -390,6 +442,15 @@ class RadixCache(BasePrefixCache):
             )
 
         self.evictable_leaves = set()
+        self.anchor_kv_store: dict[str, list[AnchorKVEntry]] = {}
+        self.anchor_kv_store_lock = threading.RLock()
+
+        self.rope_base = params.rope_base
+        self.rope_rotary_dim = params.rope_rotary_dim
+        self.rope_is_neox_style = params.rope_is_neox_style
+        self.rope_num_kv_heads = params.rope_num_kv_heads
+        self.rope_inv_freq: Optional[torch.Tensor] = None
+
         self.reset()
 
     @classmethod
@@ -423,6 +484,8 @@ class RadixCache(BasePrefixCache):
         self.evictable_size_ = 0
         self.protected_size_ = 0
         self.evictable_leaves.clear()
+        with self.anchor_kv_store_lock:
+            self.anchor_kv_store.clear()
         self._record_all_cleared_event()
 
     def maybe_bigram_convert(
@@ -469,6 +532,7 @@ class RadixCache(BasePrefixCache):
         """
         key = params.key
         key, _ = self.maybe_bigram_convert(key)
+        req = params.req
 
         def empty_match_result():
             return MatchResult(
@@ -481,6 +545,12 @@ class RadixCache(BasePrefixCache):
                 last_host_node=self.root_node,
             )
 
+        best_node = None
+        if req is not None and (getattr(req, "reuse_mode", "") or "") == "lossy":
+            best_node, _ = self._resolve_lossy_match(req)
+            if not (getattr(req, "lossy_first_reuse_allowed", True)):
+                return empty_match_result()
+
         if self.disable or len(key) == 0:
             return empty_match_result()
 
@@ -492,6 +562,10 @@ class RadixCache(BasePrefixCache):
             return empty_match_result()
 
         value, last_node = self._match_prefix_helper(self.root_node, key)
+        if best_node is not None:
+            value, last_node = self._try_lossy_fuzzy_match(
+                req, key, value, last_node, best_node
+            )
         if value:
             value = torch.cat(value)
         else:
@@ -524,6 +598,21 @@ class RadixCache(BasePrefixCache):
         effective_convergence_factor = getattr(params, "convergence_factor", 0) or 0
         # critical_path_distance: DAG-aware critical path distance
         effective_crit_distance = getattr(params, "critical_path_distance", 1) or 1
+        effective_anchor_type = getattr(params, "anchor_type", "") or ""
+        effective_anchor_id = getattr(params, "anchor_id", "") or ""
+        effective_code_content_signature = getattr(params, "code_content_signature", "") or ""
+        effective_anchor_spans = getattr(params, "anchor_spans", None) or []
+        effective_reuse_mode = getattr(params, "reuse_mode", "") or ""
+        effective_reuse_confidence = getattr(params, "reuse_confidence", 0.0) or 0.0
+        effective_syntax_region_type = getattr(params, "syntax_region_type", "") or ""
+        effective_template_task_family = getattr(params, "template_task_family", "") or ""
+        effective_template_workflow_signature = getattr(params, "template_workflow_signature", "") or ""
+        effective_template_structural_fingerprint = getattr(params, "template_structural_fingerprint", "") or ""
+        # Prompt-context fields (sglang-kvflow context_aware_confidence)
+        effective_nesting_depth = getattr(params, "nesting_depth", 0) or 0
+        effective_prompt_position_offset = getattr(params, "prompt_position_offset", 0) or 0
+        effective_system_prompt_class = getattr(params, "system_prompt_class", "") or ""
+        effective_surrounding_code_hash = getattr(params, "surrounding_code_hash", "") or ""
 
         if value is None:
             value = torch.tensor(key.token_ids, dtype=torch.int64)
@@ -536,8 +625,408 @@ class RadixCache(BasePrefixCache):
             role_type=effective_role_type,
             convergence_factor=effective_convergence_factor,
             critical_path_distance=effective_crit_distance,
+            anchor_type=effective_anchor_type,
+            anchor_id=effective_anchor_id,
+            code_content_signature=effective_code_content_signature,
+            anchor_spans=effective_anchor_spans,
+            reuse_mode=effective_reuse_mode,
+            reuse_confidence=effective_reuse_confidence,
+            syntax_region_type=effective_syntax_region_type,
+            template_task_family=effective_template_task_family,
+            template_workflow_signature=effective_template_workflow_signature,
+            template_structural_fingerprint=effective_template_structural_fingerprint,
+            nesting_depth=effective_nesting_depth,
+            prompt_position_offset=effective_prompt_position_offset,
+            system_prompt_class=effective_system_prompt_class,
+            surrounding_code_hash=effective_surrounding_code_hash,
         )
         return InsertResult(prefix_len=prefix_len)
+
+    def _build_req_anchor_metadata(self, req: Req) -> AnchorMetadata:
+        return build_anchor_metadata(
+            code_anchor_signature=getattr(req, "code_anchor_signature", "") or "",
+            code_content_signature=getattr(req, "code_content_signature", "") or "",
+            code_anchor_spans=getattr(req, "code_anchor_spans", None) or [],
+            reuse_mode=getattr(req, "reuse_mode", "") or "",
+            lossy_alignment_method=getattr(req, "lossy_alignment_method", "") or "",
+            template_task_family=getattr(req, "template_task_family", "") or "",
+            template_workflow_signature=getattr(req, "template_workflow_signature", "") or "",
+            template_structural_fingerprint=getattr(req, "template_structural_fingerprint", "") or "",
+            nesting_depth=getattr(req, "nesting_depth", 0) or 0,
+            prompt_position_offset=getattr(req, "prompt_position_offset", 0) or 0,
+            system_prompt_class=getattr(req, "system_prompt_class", "") or "",
+            surrounding_code_hash=getattr(req, "surrounding_code_hash", "") or "",
+        )
+
+    def _build_node_anchor_metadata(self, node: TreeNode) -> AnchorMetadata:
+        return build_anchor_metadata(
+            code_anchor_signature=node.anchor_id,
+            code_content_signature=node.code_content_signature,
+            code_anchor_spans=node.anchor_spans,
+            reuse_mode=node.reuse_mode,
+            lossy_alignment_method=node.anchor_type,
+            template_task_family=node.template_task_family,
+            template_workflow_signature=node.template_workflow_signature,
+            template_structural_fingerprint=node.template_structural_fingerprint,
+            nesting_depth=node.nesting_depth,
+            prompt_position_offset=node.prompt_position_offset,
+            system_prompt_class=node.system_prompt_class,
+            surrounding_code_hash=node.surrounding_code_hash,
+        )
+
+    def _iter_nodes_with_anchor_metadata(self) -> Iterator[TreeNode]:
+        stack = [self.root_node]
+        while stack:
+            node = stack.pop()
+            if node.anchor_id or node.anchor_spans:
+                yield node
+            stack.extend(node.children.values())
+
+    def _default_syntax_region_type(self, req: Req) -> str:
+        spans = getattr(req, "code_anchor_spans", None) or []
+        if spans and isinstance(spans[0], dict):
+            anchor_type = str(spans[0].get("anchor_type", "") or "")
+            if anchor_type:
+                return anchor_type
+        return "code_anchor"
+
+    def _store_anchor_kv(self, req: Req, kv_indices: torch.Tensor):
+        """Extract anchor block KV and store for position-aligned reuse.
+
+        Uses ``code_anchor_token_spans`` (if provided) to identify the exact
+        token positions of the anchor block within the prompt. Falls back to
+        line-based spans with approximate mapping.
+        """
+        signature = getattr(req, "code_anchor_signature", "") or ""
+        content_signature = getattr(req, "code_content_signature", "") or ""
+        token_spans = getattr(req, "code_anchor_token_spans", None) or []
+        if not signature:
+            return
+
+        if not token_spans:
+            return
+
+        token_ids = list(req.origin_input_ids) + list(req.output_ids)
+        max_pos = len(token_ids)
+
+        for span in token_spans:
+            if not isinstance(span, dict):
+                continue
+            start = int(span.get("start_token", -1))
+            end = int(span.get("end_token", -1))
+            if start < 0 or end <= start or end > max_pos:
+                continue
+
+            span_token_ids = torch.tensor(
+                token_ids[start:end], dtype=torch.int64, device=self.device
+            )
+            span_kv_indices = kv_indices[start:end].clone()
+
+            entry = AnchorKVEntry(
+                signature=signature,
+                code_content_signature=content_signature,
+                token_ids=span_token_ids,
+                kv_indices=span_kv_indices,
+                start_pos=start,
+            )
+            segment_content_signature = str(
+                span.get("content_signature", "") or content_signature
+            )
+            if not segment_content_signature:
+                continue
+
+            entry.code_content_signature = segment_content_signature
+            with self.anchor_kv_store_lock:
+                self.anchor_kv_store.setdefault(segment_content_signature, []).append(entry)
+            logger.info(
+                "[anchor_kv_store] stored anchor_sig=%s content_sig=%s start=%d len=%d",
+                signature, segment_content_signature, start, end - start,
+            )
+
+    def _resolve_lossy_match(self, req: Req) -> AnchorMatchResult:
+        request_meta = self._build_req_anchor_metadata(req)
+        candidate_nodes = list(self._iter_nodes_with_anchor_metadata())
+        best_node, best_result = select_best_match(
+            request_meta,
+            ((node, self._build_node_anchor_metadata(node)) for node in candidate_nodes),
+        )
+        is_first = getattr(req, "lossy_first_match_reason", None) is None
+        setattr(req, "lossy_candidate_count", len(candidate_nodes))
+        setattr(req, "lossy_final_match_reason", best_result.match_reason)
+        setattr(req, "lossy_final_rejected_reason", best_result.rejected_reason)
+        setattr(req, "lossy_final_reuse_allowed", best_result.reuse_allowed)
+        setattr(req, "lossy_final_reuse_confidence", best_result.reuse_confidence)
+        setattr(req, "lossy_final_matched_anchor_signature", best_result.matched_anchor_signature)
+        setattr(req, "lossy_final_matched_content_signature", best_result.matched_content_signature)
+        setattr(req, "lossy_final_syntax_region_type", best_result.syntax_region_type)
+        setattr(req, "lossy_final_matched_node_id", getattr(best_node, "id", None))
+        # context_aware_confidence modifier telemetry
+        setattr(req, "lossy_predicted_distance", best_result.predicted_distance)
+        setattr(req, "lossy_context_aware_confidence", best_result.reuse_confidence)
+        setattr(req, "lossy_context_aware_multiplier", best_result.context_aware_multiplier)
+        if is_first:
+            setattr(req, "lossy_first_match_reason", best_result.match_reason)
+            setattr(req, "lossy_first_rejected_reason", best_result.rejected_reason)
+            setattr(req, "lossy_first_reuse_allowed", best_result.reuse_allowed)
+            setattr(req, "lossy_first_reuse_confidence", best_result.reuse_confidence)
+            setattr(req, "lossy_first_matched_anchor_signature", best_result.matched_anchor_signature)
+            setattr(req, "lossy_first_matched_content_signature", best_result.matched_content_signature)
+            setattr(req, "lossy_first_syntax_region_type", best_result.syntax_region_type)
+            setattr(req, "lossy_first_matched_node_id", getattr(best_node, "id", None))
+        setattr(req, "lossy_match_reason", best_result.match_reason)
+        setattr(req, "lossy_rejected_reason", best_result.rejected_reason)
+        setattr(req, "lossy_reuse_allowed", best_result.reuse_allowed)
+        setattr(req, "lossy_reuse_confidence", best_result.reuse_confidence)
+        setattr(req, "lossy_matched_anchor_signature", best_result.matched_anchor_signature)
+        setattr(req, "lossy_matched_content_signature", best_result.matched_content_signature)
+        setattr(req, "lossy_syntax_region_type", best_result.syntax_region_type)
+        setattr(req, "lossy_matched_node_id", getattr(best_node, "id", None))
+        logger.info(
+            "[lossy_reuse] rid=%s candidates=%d req_sig=%s allowed=%s reason=%s rejected=%s matched_sig=%s first=%s",
+            getattr(req, "rid", ""),
+            len(candidate_nodes),
+            getattr(req, "code_anchor_signature", "") or "",
+            best_result.reuse_allowed,
+            best_result.match_reason,
+            best_result.rejected_reason,
+            best_result.matched_anchor_signature,
+            is_first,
+        )
+        return best_node, best_result
+
+    def _ensure_rope_inv_freq(self):
+        if self.rope_inv_freq is None and self.rope_rotary_dim > 0:
+            self.rope_inv_freq = 1.0 / (
+                self.rope_base
+                ** (
+                    torch.arange(0, self.rope_rotary_dim, 2, dtype=torch.float32)
+                    / self.rope_rotary_dim
+                )
+            )
+
+    def _compute_rope_cos_sin_for_delta(
+        self, delta_positions: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Compute cos/sin for RoPE delta rotation.
+
+        Args:
+            delta_positions: [num_tokens] int tensor of new_pos - old_pos.
+
+        Returns:
+            cos: [num_tokens, rotary_dim] float32
+            sin: [num_tokens, rotary_dim] float32
+        """
+        self._ensure_rope_inv_freq()
+        inv_freq = self.rope_inv_freq.to(device=delta_positions.device)
+        freqs = torch.einsum("i,j->ij", delta_positions.float(), inv_freq)
+        cos = freqs.cos()
+        sin = freqs.sin()
+        return cos, sin
+
+    def _apply_rope_delta_to_keys(
+        self, k_buffer, dst_slots: torch.Tensor, delta_positions: torch.Tensor
+    ):
+        """Apply RoPE delta rotation to key cache at dst_slots.
+
+        Reads keys from the cache at dst_slots, applies a RoPE rotation
+        corresponding to delta_positions, and writes them back. Only keys
+        are rotated (values are position-independent).
+
+        Args:
+            k_buffer: list of [max_tokens, num_kv_heads * head_size] tensors per layer.
+            dst_slots: [num_tokens] int tensor of slot indices.
+            delta_positions: [num_tokens] int tensor of position deltas.
+        """
+        cos, sin = self._compute_rope_cos_sin_for_delta(delta_positions)
+        cos = cos.to(device=dst_slots.device)
+        sin = sin.to(device=dst_slots.device)
+        head_size = self.rope_rotary_dim
+        is_neox = self.rope_is_neox_style
+
+        dst_flat = dst_slots.view(-1).long()
+        num_tokens = dst_flat.shape[0]
+
+        # Timing via CUDA events for micro-benchmarking
+        start_event = torch.cuda.Event(enable_timing=True)
+        end_event = torch.cuda.Event(enable_timing=True)
+        start_event.record()
+
+        for k_cache in k_buffer:
+            # k_cache: [max_tokens, num_kv_heads, head_size] (3D)
+            k_selected = k_cache[dst_flat]  # [num_tokens, num_kv_heads, head_size]
+            from sglang.srt.layers.rotary_embedding.utils import apply_rotary_emb
+
+            k_rotated = apply_rotary_emb(k_selected, cos, sin, is_neox)
+            k_cache[dst_flat] = k_rotated
+
+        end_event.record()
+        torch.cuda.synchronize()
+        elapsed_ms = start_event.elapsed_time(end_event)
+
+        logger.warning(
+            "[rope_delta] rotated %d tokens x %d layers in %.3f ms (%.3f ms/layer)",
+            num_tokens,
+            len(k_buffer),
+            elapsed_ms,
+            elapsed_ms / len(k_buffer) if k_buffer else 0,
+        )
+
+    def _try_lossy_fuzzy_match(
+        self,
+        req: Req,
+        key: RadixKey,
+        exact_values: List[torch.Tensor],
+        exact_node: TreeNode,
+        best_node: Optional[TreeNode],
+    ) -> Tuple[List[torch.Tensor], TreeNode]:
+        """Extend cache match via anchor KV store with active RoPE rotation.
+
+        Unlike the original position-aligned approach, this method can reuse
+        cached KV from ANY position by applying a RoPE delta rotation to
+        re-encode the keys for the new position.
+
+        Controlled by the ``SGLANG_LOSSY_FUZZY_MATCH`` environment variable.
+        """
+        lossy_env = os.environ.get("SGLANG_LOSSY_FUZZY_MATCH", "0")
+        if best_node is None or lossy_env != "1":
+            return exact_values, exact_node
+
+        exact_len = sum(len(v) for v in exact_values) if exact_values else 0
+        if exact_len >= len(key):
+            return exact_values, exact_node
+
+        match_reason = getattr(req, "lossy_first_match_reason", "")
+        if match_reason not in (
+            "exact_anchor_signature",
+            "exact_code_content_signature",
+            "span_overlap_high",
+            "span_overlap_medium",
+        ):
+            return exact_values, exact_node
+
+        matched_content_sig = getattr(req, "lossy_first_matched_content_signature", "") or ""
+        if not matched_content_sig:
+            matched_content_sig = getattr(req, "code_content_signature", "") or ""
+        if not matched_content_sig:
+            return exact_values, exact_node
+
+        with self.anchor_kv_store_lock:
+            entries = list(self.anchor_kv_store.get(matched_content_sig, []))
+        if not entries:
+            return exact_values, exact_node
+
+        key_tokens = key.token_ids
+        token_spans = getattr(req, "code_anchor_token_spans", None) or []
+        skip_check = os.environ.get("SGLANG_LOSSY_SKIP_TOKEN_CHECK", "0") == "1"
+        req_content_signature = matched_content_sig
+
+        for entry in entries:
+            if (
+                not req_content_signature
+                or not entry.code_content_signature
+                or req_content_signature != entry.code_content_signature
+            ):
+                continue
+            entry_len = len(entry.token_ids)
+
+            # Determine the anchor's position in the current request.
+            # Use code_anchor_token_spans if available; otherwise fall back
+            # to entry.start_pos (legacy position-aligned path).
+            anchor_pos = None
+            for span in token_spans:
+                s_start = span.get("start_token", -1)
+                s_end = span.get("end_token", -1)
+                span_content_signature = str(
+                    span.get("content_signature", "") or req_content_signature
+                )
+                if span_content_signature != entry.code_content_signature:
+                    continue
+                if s_start < 0 or s_end > len(key_tokens) or s_end - s_start != entry_len:
+                    continue
+                if skip_check:
+                    anchor_pos = s_start
+                    break
+                span_tokens = torch.tensor(
+                    key_tokens[s_start:s_end],
+                    dtype=entry.token_ids.dtype,
+                    device=entry.token_ids.device,
+                )
+                if torch.equal(span_tokens, entry.token_ids):
+                    anchor_pos = s_start
+                    break
+
+            if anchor_pos is None:
+                # Fallback: position-aligned token match at entry.start_pos
+                entry_end = entry.start_pos + entry_len
+                if entry_end > len(key_tokens) or entry.start_pos < 0:
+                    continue
+                if not skip_check:
+                    current_span = torch.tensor(
+                        key_tokens[entry.start_pos : entry_end],
+                        dtype=entry.token_ids.dtype,
+                        device=entry.token_ids.device,
+                    )
+                    if not torch.equal(current_span, entry.token_ids):
+                        continue
+                anchor_pos = entry.start_pos
+
+            anchor_end = anchor_pos + entry_len
+            if exact_len >= anchor_end:
+                continue
+
+            suffix_start = max(0, exact_len - anchor_pos)
+            copy_len = entry_len - suffix_start
+            if copy_len <= 0:
+                continue
+
+            gap_len = max(0, anchor_pos - exact_len)
+            total_new = gap_len + copy_len
+
+            new_slots = self.token_to_kv_pool_allocator.alloc(total_new)
+            if new_slots is None:
+                logger.warning("[anchor_kv] alloc failed for content_sig=%s", matched_content_sig)
+                continue
+
+            kvcache = self.token_to_kv_pool_allocator.get_kvcache()
+
+            if gap_len > 0:
+                gap_slots = new_slots[:gap_len]
+                for layer_id in range(kvcache.layer_num):
+                    kvcache.get_key_buffer(layer_id)[gap_slots] = 0
+                    kvcache.get_value_buffer(layer_id)[gap_slots] = 0
+
+            # Copy anchor KV
+            src_kv = entry.kv_indices[suffix_start : suffix_start + copy_len]
+            dst_kv = new_slots[gap_len : gap_len + copy_len]
+            move_kv_cache_native(kvcache.k_buffer, kvcache.v_buffer, dst_kv, src_kv)
+            with self.anchor_kv_store_lock:
+                entry.ref_count += 1
+
+            # Apply RoPE delta rotation: key positions must match the new
+            # absolute positions in this request. Delta = new_pos - old_pos.
+            # Since RoPE is additive in 2D, R(new) = R(delta) * R(old).
+            delta = (exact_len + gap_len) - (entry.start_pos + suffix_start)
+            if delta != 0 and self.rope_rotary_dim > 0:
+                delta_tensor = torch.full(
+                    (copy_len,), delta, dtype=torch.long, device=dst_kv.device
+                )
+                self._apply_rope_delta_to_keys(kvcache.k_buffer, dst_kv, delta_tensor)
+                logger.info(
+                    "[anchor_kv] RoPE delta=%d for sig=%s (old_pos=%d, new_pos=%d)",
+                    delta, matched_content_sig,
+                    entry.start_pos + suffix_start, exact_len + gap_len,
+                )
+
+            extended = exact_values + [new_slots]
+            setattr(req, "lossy_anchor_match_used", True)
+            setattr(req, "lossy_anchor_match_len", copy_len)
+            setattr(req, "lossy_anchor_match_gap_len", gap_len)
+            setattr(req, "lossy_anchor_match_signature", entry.signature)
+            setattr(req, "lossy_anchor_match_content_signature", matched_content_sig)
+            setattr(req, "lossy_anchor_rope_delta", delta)
+            return extended, exact_node
+
+        return exact_values, exact_node
 
     def cache_finished_req(self, req: Req, is_insert: bool = True):
         """Cache request when it finishes."""
@@ -579,10 +1068,37 @@ class RadixCache(BasePrefixCache):
             role_type = getattr(req, "role_type", 0) or 0
             convergence_factor = getattr(req, "convergence_factor", 0) or 0
             critical_path_distance = getattr(req, "critical_path_distance", 1) or 1
+            code_anchor_signature = getattr(req, "code_anchor_signature", "") or ""
+            code_content_signature = getattr(req, "code_content_signature", "") or ""
+            code_anchor_spans = getattr(req, "code_anchor_spans", None) or []
+            reuse_mode = getattr(req, "reuse_mode", "") or ""
+            lossy_alignment_method = getattr(req, "lossy_alignment_method", "") or ""
+            template_task_family = getattr(req, "template_task_family", "") or ""
+            template_workflow_signature = getattr(req, "template_workflow_signature", "") or ""
+            template_structural_fingerprint = getattr(req, "template_structural_fingerprint", "") or ""
+            lossy_match = (
+                self._resolve_lossy_match(req)[1]
+                if reuse_mode == "lossy"
+                else AnchorMatchResult(
+                    reuse_allowed=False,
+                    reuse_confidence=0.0,
+                    syntax_region_type=self._default_syntax_region_type(req),
+                )
+            )
             result = self.insert(
                 InsertParams(key=radix_key, value=values, priority=priority,
                              role_type=role_type, convergence_factor=convergence_factor,
-                             critical_path_distance=critical_path_distance),
+                             critical_path_distance=critical_path_distance,
+                             anchor_type=lossy_alignment_method,
+                             anchor_id=code_anchor_signature,
+                             code_content_signature=code_content_signature,
+                             anchor_spans=code_anchor_spans,
+                             reuse_mode=reuse_mode,
+                             reuse_confidence=lossy_match.reuse_confidence if lossy_match.reuse_allowed else 0.0,
+                             syntax_region_type=lossy_match.syntax_region_type or self._default_syntax_region_type(req),
+                             template_task_family=template_task_family,
+                             template_workflow_signature=template_workflow_signature,
+                             template_structural_fingerprint=template_structural_fingerprint),
                 workflow_id=workflow_id,
             )
             new_prefix_len = result.prefix_len
@@ -597,6 +1113,9 @@ class RadixCache(BasePrefixCache):
 
         # free the unaligned tail
         self.token_to_kv_pool_allocator.free(kv_indices[len(keys) :])
+
+        # Store anchor KV for position-aligned non-prefix reuse
+        self._store_anchor_kv(req, kv_indices)
 
         # Remove req slot release the cache lock
         self.dec_lock_ref(req.last_node)
@@ -618,12 +1137,33 @@ class RadixCache(BasePrefixCache):
         radix_key = RadixKey(keys, req.extra_key, is_bigram=self.is_eagle)
 
         # Radix Cache takes one ref in memory pool
+        code_anchor_spans = getattr(req, "code_anchor_spans", None) or []
+        reuse_mode = getattr(req, "reuse_mode", "") or ""
+        lossy_match = (
+            self._resolve_lossy_match(req)[1]
+            if reuse_mode == "lossy"
+            else AnchorMatchResult(
+                reuse_allowed=False,
+                reuse_confidence=0.0,
+                syntax_region_type=self._default_syntax_region_type(req),
+            )
+        )
         result = self.insert(
             InsertParams(
                 key=radix_key,
                 value=values,
                 chunked=chunked,
                 priority=getattr(req, "priority", 0) or 0,
+                anchor_type=getattr(req, "lossy_alignment_method", "") or "",
+                anchor_id=getattr(req, "code_anchor_signature", "") or "",
+                code_content_signature=getattr(req, "code_content_signature", "") or "",
+                anchor_spans=code_anchor_spans,
+                reuse_mode=reuse_mode,
+                reuse_confidence=lossy_match.reuse_confidence if lossy_match.reuse_allowed else 0.0,
+                syntax_region_type=lossy_match.syntax_region_type or self._default_syntax_region_type(req),
+                template_task_family=getattr(req, "template_task_family", "") or "",
+                template_workflow_signature=getattr(req, "template_workflow_signature", "") or "",
+                template_structural_fingerprint=getattr(req, "template_structural_fingerprint", "") or "",
             )
         )
         new_prefix_len = result.prefix_len
@@ -827,6 +1367,21 @@ class RadixCache(BasePrefixCache):
         role_type: int = 0,
         convergence_factor: int = 0,
         critical_path_distance: int = 1,
+        anchor_type: str = "",
+        anchor_id: str = "",
+        code_content_signature: str = "",
+        anchor_spans: list[dict[str, Any]] | None = None,
+        reuse_mode: str = "",
+        reuse_confidence: float = 0.0,
+        syntax_region_type: str = "",
+        template_task_family: str = "",
+        template_workflow_signature: str = "",
+        # Prompt-context fields (sglang-kvflow context_aware_confidence)
+        nesting_depth: int = 0,
+        prompt_position_offset: int = 0,
+        system_prompt_class: str = "",
+        surrounding_code_hash: str = "",
+        template_structural_fingerprint: str = "",
     ):
         # Convert None priority to 0
         if priority is None:
@@ -857,6 +1412,34 @@ class RadixCache(BasePrefixCache):
         # DAG-aware critical path distance: mark nodes on the critical path for protection.
         if critical_path_distance > 1 and node.critical_path_distance == 1:
             node.critical_path_distance = critical_path_distance
+        if anchor_type and not node.anchor_type:
+            node.anchor_type = anchor_type
+        if anchor_id and not node.anchor_id:
+            node.anchor_id = anchor_id
+        if code_content_signature and not node.code_content_signature:
+            node.code_content_signature = code_content_signature
+        if anchor_spans and not node.anchor_spans:
+            node.anchor_spans = list(anchor_spans)
+        if reuse_mode and not node.reuse_mode:
+            node.reuse_mode = reuse_mode
+        if reuse_confidence > 0 and node.reuse_confidence == 0.0:
+            node.reuse_confidence = reuse_confidence
+        if syntax_region_type and not node.syntax_region_type:
+            node.syntax_region_type = syntax_region_type
+        if template_task_family and not node.template_task_family:
+            node.template_task_family = template_task_family
+        if template_workflow_signature and not node.template_workflow_signature:
+            node.template_workflow_signature = template_workflow_signature
+        if template_structural_fingerprint and not node.template_structural_fingerprint:
+            node.template_structural_fingerprint = template_structural_fingerprint
+        if nesting_depth and not node.nesting_depth:
+            node.nesting_depth = nesting_depth
+        if prompt_position_offset and not node.prompt_position_offset:
+            node.prompt_position_offset = prompt_position_offset
+        if system_prompt_class and not node.system_prompt_class:
+            node.system_prompt_class = system_prompt_class
+        if surrounding_code_hash and not node.surrounding_code_hash:
+            node.surrounding_code_hash = surrounding_code_hash
         if len(key) == 0:
             return 0
 
@@ -883,6 +1466,34 @@ class RadixCache(BasePrefixCache):
                     new_node.convergence_factor = convergence_factor
                 if critical_path_distance > 1 and new_node.critical_path_distance == 1:
                     new_node.critical_path_distance = critical_path_distance
+                if anchor_type and not new_node.anchor_type:
+                    new_node.anchor_type = anchor_type
+                if anchor_id and not new_node.anchor_id:
+                    new_node.anchor_id = anchor_id
+                if code_content_signature and not new_node.code_content_signature:
+                    new_node.code_content_signature = code_content_signature
+                if anchor_spans and not new_node.anchor_spans:
+                    new_node.anchor_spans = list(anchor_spans)
+                if reuse_mode and not new_node.reuse_mode:
+                    new_node.reuse_mode = reuse_mode
+                if reuse_confidence > 0 and new_node.reuse_confidence == 0.0:
+                    new_node.reuse_confidence = reuse_confidence
+                if syntax_region_type and not new_node.syntax_region_type:
+                    new_node.syntax_region_type = syntax_region_type
+                if template_task_family and not new_node.template_task_family:
+                    new_node.template_task_family = template_task_family
+                if template_workflow_signature and not new_node.template_workflow_signature:
+                    new_node.template_workflow_signature = template_workflow_signature
+                if template_structural_fingerprint and not new_node.template_structural_fingerprint:
+                    new_node.template_structural_fingerprint = template_structural_fingerprint
+                if nesting_depth and not new_node.nesting_depth:
+                    new_node.nesting_depth = nesting_depth
+                if prompt_position_offset and not new_node.prompt_position_offset:
+                    new_node.prompt_position_offset = prompt_position_offset
+                if system_prompt_class and not new_node.system_prompt_class:
+                    new_node.system_prompt_class = system_prompt_class
+                if surrounding_code_hash and not new_node.surrounding_code_hash:
+                    new_node.surrounding_code_hash = surrounding_code_hash
                 node = new_node
             else:
                 node.priority = max(node.priority, priority)
@@ -895,6 +1506,34 @@ class RadixCache(BasePrefixCache):
                     node.convergence_factor = convergence_factor
                 if critical_path_distance > 1 and node.critical_path_distance == 1:
                     node.critical_path_distance = critical_path_distance
+                if anchor_type and not node.anchor_type:
+                    node.anchor_type = anchor_type
+                if anchor_id and not node.anchor_id:
+                    node.anchor_id = anchor_id
+                if code_content_signature and not node.code_content_signature:
+                    node.code_content_signature = code_content_signature
+                if anchor_spans and not node.anchor_spans:
+                    node.anchor_spans = list(anchor_spans)
+                if reuse_mode and not node.reuse_mode:
+                    node.reuse_mode = reuse_mode
+                if reuse_confidence > 0 and node.reuse_confidence == 0.0:
+                    node.reuse_confidence = reuse_confidence
+                if syntax_region_type and not node.syntax_region_type:
+                    node.syntax_region_type = syntax_region_type
+                if template_task_family and not node.template_task_family:
+                    node.template_task_family = template_task_family
+                if template_workflow_signature and not node.template_workflow_signature:
+                    node.template_workflow_signature = template_workflow_signature
+                if template_structural_fingerprint and not node.template_structural_fingerprint:
+                    node.template_structural_fingerprint = template_structural_fingerprint
+                if nesting_depth and not node.nesting_depth:
+                    node.nesting_depth = nesting_depth
+                if prompt_position_offset and not node.prompt_position_offset:
+                    node.prompt_position_offset = prompt_position_offset
+                if system_prompt_class and not node.system_prompt_class:
+                    node.system_prompt_class = system_prompt_class
+                if surrounding_code_hash and not node.surrounding_code_hash:
+                    node.surrounding_code_hash = surrounding_code_hash
             if len(key):
                 child_key = self.get_child_key_fn(key)
 
@@ -912,6 +1551,34 @@ class RadixCache(BasePrefixCache):
                 new_node.convergence_factor = convergence_factor
             if critical_path_distance > 0:
                 new_node.critical_path_distance = critical_path_distance
+            if anchor_type:
+                new_node.anchor_type = anchor_type
+            if anchor_id:
+                new_node.anchor_id = anchor_id
+            if code_content_signature:
+                new_node.code_content_signature = code_content_signature
+            if anchor_spans:
+                new_node.anchor_spans = list(anchor_spans)
+            if reuse_mode:
+                new_node.reuse_mode = reuse_mode
+            if reuse_confidence > 0:
+                new_node.reuse_confidence = reuse_confidence
+            if syntax_region_type:
+                new_node.syntax_region_type = syntax_region_type
+            if template_task_family:
+                new_node.template_task_family = template_task_family
+            if template_workflow_signature:
+                new_node.template_workflow_signature = template_workflow_signature
+            if template_structural_fingerprint:
+                new_node.template_structural_fingerprint = template_structural_fingerprint
+            if nesting_depth:
+                new_node.nesting_depth = nesting_depth
+            if prompt_position_offset:
+                new_node.prompt_position_offset = prompt_position_offset
+            if system_prompt_class:
+                new_node.system_prompt_class = system_prompt_class
+            if surrounding_code_hash:
+                new_node.surrounding_code_hash = surrounding_code_hash
             node.children[child_key] = new_node
             self.evictable_size_ += len(key)
             self._update_leaf_status(node)

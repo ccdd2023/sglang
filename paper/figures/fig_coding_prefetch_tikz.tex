@@ -1,0 +1,23 @@
+\begin{tikzpicture}[
+  font=\scriptsize,
+  box/.style={draw, rounded corners=2pt, align=center, inner sep=3pt, minimum height=0.52cm},
+  arrow/.style={-{Latex[length=1.8mm]}, line width=0.35pt},
+  time/.style={draw, circle, inner sep=1.5pt, fill=blue!8}
+]
+\node[time] (p) {P};
+\node[time, right=1.15cm of p] (i) {I};
+\node[time, right=1.15cm of i] (d) {D};
+\draw[arrow] (p) -- node[above] {Planner} (i);
+\draw[arrow] (i) -- node[above] {Implementer} (d);
+\node[above=0.45cm of i, box, fill=blue!6, minimum width=2.7cm] (hints) {codebase\_prefetch\_hints\\priority, steps\_to\_use};
+\node[right=0.65cm of hints, box, fill=green!8, minimum width=1.85cm] (sched) {KVFlow\\Scheduler};
+\node[below=0.45cm of sched, box, fill=orange!10, minimum width=1.75cm] (cache) {HiCache\\prefetch};
+\node[right=0.5cm of cache, box, fill=orange!10, minimum width=1.75cm] (gate) {exact\\content gate};
+\draw[arrow] (p) |- (hints);
+\draw[arrow] (hints) -- (sched);
+\draw[arrow] (sched) -- node[right] {text} (cache);
+\draw[arrow] (cache) -- (gate);
+\draw[arrow] (gate) |- (d);
+\node[below=0.18cm of hints, align=center] {\scriptsize Code Base 1 / 2 / 3};
+\node[below=0.15cm of cache, align=center] {\scriptsize signature-only hints are recorded};
+\end{tikzpicture}

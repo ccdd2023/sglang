@@ -1,0 +1,33 @@
+\section{Discussion and Limitations}
+
+\paragraph{Relationship to KVFlow and KVCOMM.}
+\system uses KVFlow and \kvcomm as reference designs, not as claimed contributions.
+The contribution is the coding-specific layer around them: workflow-derived code segment hints, exact content signatures, conservative safety gating, and SWE-bench-oriented validation.
+This distinction matters because the same underlying cache scheduler or cross-context reuse primitive could be replaced by another serving backend without changing the code-base safety invariant.
+
+\paragraph{Lossy does not mean approximate code reuse.}
+Reuse is lossy only because the reused KV tensors are transformed across positions.
+The code content must be exactly identical.
+This distinction is central to the safety argument and should be preserved in any deployment.
+In the 100-case serving scalability experiment (Table~\ref{tab:prefetch}), exact-content reuse achieves a 99\% hit rate with 64\% more cached tokens than the prefix-only baseline, confirming that lossy-position reuse does not compromise code content integrity.
+
+\paragraph{Patch quality is a separate bottleneck.}
+The 30-case pass@1 run uses a 7B instruction model and constrained JSON edits.
+The absolute pass@1 is low for both lossless and lossy modes.
+We therefore interpret the accuracy result as a lossless-vs-lossy delta test, not as a claim that the current patch generator is state of the art.
+A stronger coder model or richer repair loop should improve absolute pass@1 while preserving the same KV reuse comparison.
+
+\paragraph{Hardware-constrained model evaluation.}
+We attempted to evaluate a 32B-parameter quantized model (Qwen2.5-32B-Instruct-GPTQ-Int4) on a single RTX~4090 (24\,GB) as paired accuracy evidence.
+The model weights consume nearly all GPU memory, leaving only ${\sim}2{,}554$ input-token capacity---insufficient for realistic repo-level coding prompts.
+Auto-truncation causes an internal metadata index error in the serving runtime.
+We therefore report all accuracy and serving results with the 7B model and acknowledge that stronger-model validation requires multi-GPU or higher-memory hardware.
+
+\paragraph{Host-backed prefetch needs more engineering.}
+The file-backed HiCache storage backend triggers a token-to-KV-pool allocator leak during serving, causing runtime crashes.
+The present coding-aware prefetch result (Table~\ref{tab:prefetch}) is therefore obtained with host-backed storage disabled, validating the interface, metadata path, and exact-content reuse behavior but not host load-back acceleration.
+Completing robust host load-back is future work for stronger TTFT gains.
+
+\paragraph{Scope.}
+\system targets coding MAS prompts with large repeated code-base segments.
+It is not designed to reuse arbitrary natural-language context, approximate code variants, or semantically equivalent but textually different implementations.
