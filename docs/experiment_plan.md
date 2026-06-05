@@ -6,6 +6,48 @@
 
 ---
 
+## 0.5. 2026-06 更新（Context-Aware Confidence Modifier）
+
+### 0.5.1 新增实验
+
+- `results/ast_kv_distance/` — 121 段代码 × all-pairs L2 距离，Qwen2.5-Coder-7B 最后 4 层。结论：AST 类型单独不是好信号（within/cross ratio = 1.21，within-type 实际上比 cross-type **更远** 21%）。
+- `results/same_code_context_variation/` — 24 段代码 × 96 个 prompt 变体（6 position_offset × 4 system_prompt × 4 surrounding_wrap）= 2,304 forward pass。输出 144-cell 4D `predicted_distance_table.json`，被 `context_aware_confidence` modifier 在 runtime 实时查询。
+
+### 0.5.2 改造的 gate
+
+- **移除** `structural_distance_gate` tier（4 sites + `_try_structural_distance_gate` helper）。AST 单独放行复用是错的——实验数据不支持。
+- **新增** `context_aware_confidence` 修饰器：在 `exact_code_content_signature` 命中**之后**运行，按查表得的 `predicted_d_norm` 把 base 0.95 置信度乘以 `multiplier = 0.5 + 0.5 * (1 - d/d_max)`。当 `predicted_d = d_max` 时 multiplier=0.5 → confidence=0.475 → 拒绝复用。详见 `KVFLOW_OVERVIEW.md` §3.3。
+
+### 0.5.3 新增 prompt-context 字段（plumbing）
+
+- `nesting_depth` / `prompt_position_offset` / `system_prompt_class` / `surrounding_code_hash` 在 5 个文件中已 plumbing：MAScoder `code_anchor.py` + `kvflow_integration.py`；sglang-kvflow `protocol.py` + `schedule_batch.py` + `scheduler.py` + `radix_cache.py`。
+- 新增 telemetry：`lossy_predicted_distance` / `lossy_context_aware_confidence` / `lossy_context_aware_multiplier`。
+
+### 0.5.4 关键数据点
+
+| Bucket | d_norm | multiplier | final conf | outcome |
+|---|---|---|---|---|
+| (50-200, 0, planner, none) | 1.77 | 0.68 | 0.63 | ✅ allowed |
+| (50-200, 50-100, planner, none) | 2.19 | 0.60 | 0.57 | ✅ allowed |
+| (50-200, 50-100, tester, imports_wrap) | 2.74 | 0.50 | 0.475 | ❌ refused |
+
+### 0.5.5 Bug 修复
+
+- `_split_node` 现在传播 8 个 anchor / context-anchor 字段到 prefix 节点（之前 prefix 变 "anchor-blind"）
+- `ref_count` 在 TreeNode 驱逐时 GC（`_decrement_anchor_refs`），归零的 entry 从 `anchor_kv_store` 移除
+- `_store_anchor_kv` 在缺 `code_anchor_token_spans` 时打 `logger.warning`（不再静默 return）
+
+### 0.5.6 测试状态
+
+`python -m pytest python/sglang/srt/mem_cache/test_anchor_match.py` —— 20/20 通过（6 个 regression test + 14 个原有）。
+
+### 0.5.7 相关分支
+
+- sglang-kvflow: `feature/context-aware-kv-reuse`
+- MAScoder: `feature/code-anchor-integration`
+
+---
+
 ## 0. 2026-05 更新摘要
 
 ### 0.1 已确认的关键前提

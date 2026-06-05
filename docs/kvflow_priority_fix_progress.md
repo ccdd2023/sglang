@@ -5,6 +5,60 @@
 
 ---
 
+## 0.5. 2026-06 更新（Context-Aware Confidence Modifier 已并入）
+
+### 0.5.1 状态变化
+
+- 贡献 3「Code-Base-Aware Lossy KV Reuse」已从「验证中」升级为「**已实现 + Context-Aware Modifier 已上线**」。
+- 移除 `structural_distance_gate` tier（独立 gate 的方向走不通，详见 §0.5.2）。
+- 20/20 anchor_match 单测通过（`python/sglang/srt/mem_cache/test_anchor_match.py`），其中 6 个是 2026-06 新加的 regression test。
+
+### 0.5.2 关键设计决策
+
+- **AST 结构不用于放宽 content gate**——它只用于**预测**「即使 content_signature 相同，KV 距离仍可能不同」。这是 `results/ast_kv_distance/` 实验的直接结论（AST 单独 ratio=1.21，within-type 反而更远）。
+- `context_aware_confidence` 是**修饰器**（modifier），不是新 tier；它跑在 `exact_code_content_signature` 命中**之后**，作用是把 0.95 base confidence 乘以 `0.5 + 0.5 * (1 - predicted_d/d_max)`。
+- **数据驱动 vs 启发式**：modifier 依赖的 `predicted_distance_table.json` 由实验 `results/same_code_context_variation/` 离线构建（2,304 forward pass，144 个 4D 单元）。
+
+### 0.5.3 关键数据点（驱动 modifier 行为）
+
+| Bucket | d_norm | multiplier | final conf | outcome |
+|---|---|---|---|---|
+| (50-200, 0, planner, none) | 1.77 | 0.68 | 0.63 | ✅ allowed |
+| (50-200, 50-100, planner, none) | 2.19 | 0.60 | 0.57 | ✅ allowed |
+| (50-200, 50-100, tester, imports_wrap) | 2.74 | 0.50 | 0.475 | ❌ refused |
+
+### 0.5.4 新增 prompt-context 字段（4 个）
+
+`nesting_depth` / `prompt_position_offset` / `system_prompt_class` / `surrounding_code_hash` 已 plumbing 到 `AnchorMetadata`、`Req`、`ChatCompletionRequest`、`TreeNode`、`KVFlowHint`。客户端（MAScoder `orchestrator.py`）调用 `build_code_anchor_payload(task, ..., system_prompt_class=..., prompt_position_offset=..., surrounding_code_hash=...)` 注入。
+
+### 0.5.5 Bug 修复（2026-06）
+
+| Bug | 修复 |
+|---|---|
+| `_split_node` 不传 anchor 字段，prefix 变 anchor-blind | 现在传播 8 个字段（4 anchor + 4 context） |
+| `ref_count` 从不递减 → anchor_kv_store 内存泄漏 | 新增 `_decrement_anchor_refs(node)` helper，TreeNode 驱逐时按 content_signature GC，归零 entry 从 store 移除 |
+| `_store_anchor_kv` 缺 token_spans 时静默 return | 现在打 `logger.warning("[anchor_kv_store] skip store for rid=%s sig=%s content=%s: missing code_anchor_token_spans ...")` |
+
+### 0.5.6 端开关
+
+| Env var | Default | Effect |
+|---|---|---|
+| `SGLANG_CONTEXT_AWARE_CONFIDENCE` | auto (on if `predicted_distance_table.json` exists) | 启用 data-driven modifier |
+| `SGLANG_CONTEXT_DISTANCE_TABLE` | `results/same_code_context_variation/data/predicted_distance_table.json` | 覆盖 modifier 查表路径 |
+
+### 0.5.7 相关分支 / PR
+
+- sglang-kvflow: `feature/context-aware-kv-reuse` (commit `7735cc3d1` + 后续 bug-fix commit)
+- MAScoder: `feature/code-anchor-integration` (commit `a98777a`)
+
+### 0.5.8 剩余工程债（next cycle）
+
+- 跑 `bench_multiagent_ttft.py` 测 modifier 对 BLEU/TTFT 的真实影响
+- E2E server smoke：发 lossy 请求验证 response metadata 包含 `lossy_predicted_distance` / `lossy_context_aware_confidence` / `lossy_context_aware_multiplier`
+- 论文 fig/table：把 `results/ast_kv_distance/` 和 `results/same_code_context_variation/` 数据转成 LaTeX 资源
+
+---
+
 ## 0. 当前结论（面向复现）
 
 ### 0.1 修复点
