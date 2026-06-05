@@ -773,6 +773,90 @@ def main() -> None:
         },
     }
     DATA.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    # ----- Section 7 additions: anchor-distance experiment figures -----
+    # Pull the per-axis aggregated d_norm from the same-code-different-
+    # context experiment and emit three bar charts plus a sample of
+    # the predicted_distance_table.json as a paper table.
+    ctx = read_json(ROOT / "results/same_code_context_variation/data/context_distance_7b.json")
+    table_json = read_json(ROOT / "results/same_code_context_variation/data/predicted_distance_table.json")
+    if ctx.get("per_segment"):
+        per_seg = ctx["per_segment"]
+        by_pos: dict = defaultdict(list)
+        by_sys: dict = defaultdict(list)
+        by_sur: dict = defaultdict(list)
+        for s in per_seg:
+            for k, v in s["by_position_offset"].items():
+                by_pos[k].append(v["mean"])
+            for k, v in s["by_system_prompt_class"].items():
+                by_sys[k].append(v["mean"])
+            for k, v in s["by_surrounding_code_class"].items():
+                by_sur[k].append(v["mean"])
+        pos_keys = sorted(by_pos, key=lambda k: int(k))
+        sys_keys = sorted(by_sys)
+        sur_keys = sorted(by_sur)
+        grouped_bar_pdf(
+            FIG / "fig_anchor_distance_by_position_offset.pdf",
+            "d_norm vs position offset (same code, 7B, last-4 layers)",
+            pos_keys,
+            [("mean d_norm", [sum(by_pos[k]) / len(by_pos[k]) for k in pos_keys])],
+            yfmt=lambda v: f"{v:.2f}",
+        )
+        grouped_bar_pdf(
+            FIG / "fig_anchor_distance_by_system_prompt.pdf",
+            "d_norm vs system prompt class",
+            sys_keys,
+            [("mean d_norm", [sum(by_sys[k]) / len(by_sys[k]) for k in sys_keys])],
+            yfmt=lambda v: f"{v:.2f}",
+        )
+        grouped_bar_pdf(
+            FIG / "fig_anchor_distance_by_surrounding_code.pdf",
+            "d_norm vs surrounding code wrap",
+            sur_keys,
+            [("mean d_norm", [sum(by_sur[k]) / len(by_sur[k]) for k in sur_keys])],
+            yfmt=lambda v: f"{v:.2f}",
+        )
+
+    if table_json.get("cells"):
+        # Sample the 4D lookup table as a paper-ready LaTeX table: pick
+        # the (50-200, 50-100) row across all 4 sys_cls x 4 surr_cls = 16
+        # cells. This is the most interesting "high offset" range.
+        target_lb = "50-200"
+        target_pos = "50-100"
+        sampled = [
+            c for c in table_json["cells"]
+            if c["length_bin"] == target_lb and c["position_offset"] == target_pos
+        ]
+        # Sort by (sys_cls, surr_cls) for readability
+        sampled.sort(key=lambda c: (c["system_prompt_class"], c["surrounding_code_class"]))
+        lines = [
+            r"\begin{table}[t]",
+            r"\centering",
+            r"\small",
+            r"\caption{Predicted KV distance (\(d_{\text{norm}}\)) for the (50--200 tokens, 50--100 offset) bucket of the \texttt{context\_aware\_confidence} lookup table. "
+            r"Rows are system prompt classes, columns are surrounding code wraps. "
+            r"Values closer to 0 mean the K/V is more reusable; the multiplier drops the 0.95 base confidence proportionally.}"
+            r"\label{tab:predicted-distance-50-100}",
+            r"\begin{tabular}{l|rrrr}",
+            r"\toprule",
+            r" & none & class\_wrap & try\_wrap & imports\_wrap \\",
+            r"\midrule",
+        ]
+        sys_order = ["planner", "coder", "reviewer", "tester"]
+        for sys_cls in sys_order:
+            row_cells = [c for c in sampled if c["system_prompt_class"] == sys_cls]
+            row_cells.sort(key=lambda c: c["surrounding_code_class"])
+            cells = [f"{c['predicted_d_norm_mean']:.2f}" for c in row_cells]
+            lines.append(f"{sys_cls} & " + " & ".join(cells) + r" \\")
+        lines += [
+            r"\bottomrule",
+            r"\end{tabular}",
+            r"\end{table}",
+        ]
+        (TAB / "tab_predicted_distance_50_100.tex").write_text(
+            "\n".join(lines), encoding="utf-8"
+        )
+
     print(f"Wrote figures to {FIG}")
     print(f"Wrote tables to {TAB}")
     print(f"Wrote manifest to {DATA}")

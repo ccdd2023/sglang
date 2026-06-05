@@ -1,0 +1,15 @@
+\begin{table}[t]
+\centering
+\small
+\caption{Predicted KV distance (\(d_{\text{norm}}\)) for the (50--200 tokens, 50--100 offset) bucket of the \texttt{context\_aware\_confidence} lookup table. Rows are system prompt classes, columns are surrounding code wraps. Values closer to 0 mean the K/V is more reusable; the multiplier drops the 0.95 base confidence proportionally.}\label{tab:predicted-distance-50-100}
+\begin{tabular}{l|rrrr}
+\toprule
+ & none & class\_wrap & try\_wrap & imports\_wrap \\
+\midrule
+planner & 2.29 & 2.33 & 2.19 & 2.27 \\
+coder & 2.65 & 2.69 & 2.55 & 2.63 \\
+reviewer & 2.65 & 2.70 & 2.56 & 2.63 \\
+tester & 2.69 & 2.74 & 2.60 & 2.67 \\
+\bottomrule
+\end{tabular}
+\end{table}
