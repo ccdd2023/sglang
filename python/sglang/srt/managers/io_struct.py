@@ -222,6 +222,11 @@ class GenerateReqInput(BaseReq):
     template_task_family: Optional[str] = None
     template_workflow_signature: Optional[str] = None
     template_structural_fingerprint: Optional[str] = None
+    # Prompt-context fields (sglang-kvflow context_aware_confidence)
+    nesting_depth: int = 0
+    prompt_position_offset: int = 0
+    system_prompt_class: str = ""
+    surrounding_code_hash: str = ""
 
     # Extra key for classifying the request (e.g. cache_salt)
     extra_key: Optional[Union[List[str], str]] = None
@@ -675,6 +680,11 @@ class GenerateReqInput(BaseReq):
             template_task_family=self.template_task_family,
             template_workflow_signature=self.template_workflow_signature,
             template_structural_fingerprint=self.template_structural_fingerprint,
+            # Prompt-context fields (sglang-kvflow context_aware_confidence)
+            nesting_depth=self.nesting_depth,
+            prompt_position_offset=self.prompt_position_offset,
+            system_prompt_class=self.system_prompt_class,
+            surrounding_code_hash=self.surrounding_code_hash,
             extra_key=self.extra_key,
             no_logs=self.no_logs,
             custom_labels=self.custom_labels,
@@ -760,6 +770,11 @@ class TokenizedGenerateReqInput(BaseReq):
     template_task_family: Optional[str] = None
     template_workflow_signature: Optional[str] = None
     template_structural_fingerprint: Optional[str] = None
+    # Prompt-context fields (sglang-kvflow context_aware_confidence)
+    nesting_depth: int = 0
+    prompt_position_offset: int = 0
+    system_prompt_class: str = ""
+    surrounding_code_hash: str = ""
 
     # DAG-aware: critical path distance from node to leaf.
     # Used by PriorityStrategy v3 for critical-path protection.

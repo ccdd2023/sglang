@@ -991,6 +991,11 @@ class TokenizerManager(TokenizerCommunicatorMixin, TokenizerManagerMultiItemMixi
                 template_task_family=obj.template_task_family,
                 template_workflow_signature=obj.template_workflow_signature,
                 template_structural_fingerprint=obj.template_structural_fingerprint,
+                # Prompt-context fields (sglang-kvflow context_aware_confidence)
+                nesting_depth=obj.nesting_depth,
+                prompt_position_offset=obj.prompt_position_offset,
+                system_prompt_class=obj.system_prompt_class,
+                surrounding_code_hash=obj.surrounding_code_hash,
                 extra_key=obj.extra_key,
                 routing_key=obj.routing_key,
                 need_wait_for_mm_inputs=obj.need_wait_for_mm_inputs,
