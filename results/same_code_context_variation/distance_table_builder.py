@@ -131,17 +131,36 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--in", dest="in_path",
                    default="/home/gfy/CodeMAS_Project/sglang-kvflow/results/same_code_context_variation/data/context_distance_7b.json")
+    p.add_argument("--in-long", dest="in_long",
+                   default="/home/gfy/CodeMAS_Project/sglang-kvflow/results/same_code_context_variation/data/context_distance_7b_long.json",
+                   help="Optional second input (long_code, >500 bin). Merged with --in.")
     p.add_argument("--out", default="/home/gfy/CodeMAS_Project/sglang-kvflow/results/same_code_context_variation/data/predicted_distance_table.json")
     args = p.parse_args()
+
     with open(args.in_path) as f:
         data = json.load(f)
     per_segment = data["per_segment"]
+
+    # Merge long_code per_segment if available (fills the >500 length_bin).
+    if args.in_long and os.path.exists(args.in_long):
+        with open(args.in_long) as f:
+            long_data = json.load(f)
+        n_before = len(per_segment)
+        # Replace any existing >500 bin (so the merge is idempotent if rerun)
+        per_segment = [s for s in per_segment if s.get("length_bin") != ">500"]
+        per_segment.extend(long_data["per_segment"])
+        print(f"[distance_table] merged long_code: +{len(per_segment) - n_before} segs (after dedup >500)")
+
     table = build_table(per_segment)
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, "w") as f:
         json.dump(table, f, indent=2, ensure_ascii=False)
     print(f"[distance_table] wrote {args.out}")
     print(f"[distance_table] {len(table['cells'])} cells, baseline={table['global']['predicted_d_norm_baseline']}, max={table['global']['predicted_d_norm_max_observed']}")
+    # Per-bin counts
+    from collections import Counter
+    cnt = Counter(c["length_bin"] for c in table["cells"])
+    print(f"[distance_table] per-bin cells: {dict(cnt)}")
 
 
 if __name__ == "__main__":

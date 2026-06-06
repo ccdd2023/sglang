@@ -35,15 +35,13 @@ from transformers import AutoTokenizer
 
 PROJECT_ROOT = Path("/home/gfy/CodeMAS_Project/sglang-kvflow")
 PYTHON_BIN = "/home/gfy/.conda/envs/sglang-kvflow/bin/python"
-MODEL = "/home/gfy/models/Qwen2.5-3B-Instruct"
+DEFAULT_MODEL = "/home/gfy/models/Qwen2.5-3B-Instruct"
 DEFAULT_PORT = 31086
 OUT_PATH = PROJECT_ROOT / "results" / "e2e_accel_accuracy.json"
 
+# Default SAMPLE_CODE: short no-indent snippet. Works around Qwen2.5
+# tokenizer whitespace-merging issue. Override via --sample-code-file.
 SAMPLE_CODE = "def add(a, b): return a + b"
-# No-indent code: Qwen2.5 tokenizer merges the leading whitespace
-# differently when the same code appears standalone vs inside a string.
-# A no-indent code sample produces a stable contiguous token sequence
-# in both contexts, so the server can locate it via the spans.
 CONTENT_SIG = "e2e-accel-test-v3"
 
 
@@ -61,18 +59,18 @@ def _wait_for_server(port: int, timeout: int = 240) -> bool:
     return False
 
 
-def _start_server(port: int) -> subprocess.Popen:
+def _start_server(port: int, model_path: str, max_total_tokens: int) -> subprocess.Popen:
     log = PROJECT_ROOT / "results" / "e2e_accel_sglang.log"
     env = os.environ.copy()
     env["SGLANG_LOSSY_FUZZY_MATCH"] = "1"
     env["SGLANG_LOSSY_SKIP_TOKEN_CHECK"] = "1"
     cmd = [
         PYTHON_BIN, "-m", "sglang.launch_server",
-        "--model-path", MODEL,
+        "--model-path", model_path,
         "--port", str(port),
         "--tp-size", "1",
         "--mem-fraction-static", "0.85",
-        "--max-total-tokens", "16384",
+        "--max-total-tokens", str(max_total_tokens),
         "--chunked-prefill-size", "4096",
         "--max-prefill-tokens", "4096",
         "--radix-eviction-policy", "priority",
@@ -186,10 +184,30 @@ def main() -> int:
     p.add_argument("--n-runs", type=int, default=3)
     p.add_argument("--skip-server", action="store_true",
                    help="assume server already running on --port")
+    p.add_argument("--model-path", default=DEFAULT_MODEL,
+                   help="HF model path or local path")
+    p.add_argument("--sample-code-file", default=None,
+                   help="Path to a text file containing the SAMPLE_CODE to embed in the user prompt. "
+                        "Defaults to the in-script `def add(a, b): return a + b`.")
+    p.add_argument("--content-sig", default=CONTENT_SIG,
+                   help="Content signature for anchor store keying")
+    p.add_argument("--max-total-tokens", type=int, default=16384,
+                   help="KV cache capacity (raise for long code)")
+    p.add_argument("--out", default=None, help="Output JSON path (overrides default)")
     args = p.parse_args()
 
+    # Override module-level constants
+    global MODEL, SAMPLE_CODE, OUT_PATH
+    MODEL = args.model_path
+    if args.sample_code_file:
+        SAMPLE_CODE = Path(args.sample_code_file).read_text().rstrip("\n")
+    if args.content_sig:
+        globals()["CONTENT_SIG"] = args.content_sig
+    if args.out:
+        OUT_PATH = Path(args.out)
+
     if not args.skip_server:
-        proc = _start_server(args.port)
+        proc = _start_server(args.port, args.model_path, args.max_total_tokens)
         try:
             if not _wait_for_server(args.port):
                 print(f"[e2e_accel] FATAL: server did not start")
@@ -225,13 +243,20 @@ def main() -> int:
 
 def _compute_token_span(tokenizer) -> tuple[int, int]:
     """Find the exact token positions of SAMPLE_CODE in the chat-templated
-    user prompt. Uses the same algorithm as bench_multiagent_ttft.py:
-    encode the full prompt and the code separately, then search for a
-    contiguous match.
+    user prompt. Uses a fuzzy match that allows whitespace-merging drift
+    between the standalone encoding and the in-context encoding.
 
-    NOTE: The Qwen2.5 tokenizer merges whitespace differently when the
-    same code appears standalone vs inside a string. SAMPLE_CODE MUST
-    be no-indent (or the search will fail)."""
+    The Qwen2.5 family merges whitespace differently for the same string
+    when it appears as a top-level input vs inside a chat-templated string.
+    A pure exact-match search therefore fails on indented multi-line code.
+    We do a 2-stage search:
+      1. Exact match (fast path; works for no-indent short code).
+      2. Token-by-token match with at most `max_drift` mismatches per line,
+         allowing whitespace / newline re-tokenization.
+    Returns the longest contiguous prefix-of-code that matches starting at
+    some position, so the server can locate the code block via the spans
+    (the server also uses fuzzy matching when the exact span fails).
+    """
     system = "You are a helpful coding assistant."
     user_content = (
         f"Code:\n```python\n{SAMPLE_CODE}\n```\n"
@@ -243,11 +268,41 @@ def _compute_token_span(tokenizer) -> tuple[int, int]:
                                                  add_generation_prompt=True)
     full_ids = tokenizer.encode(full_prompt, add_special_tokens=False)
     code_ids = tokenizer.encode(SAMPLE_CODE, add_special_tokens=False)
+
+    # Stage 1: exact contiguous match
     for i in range(len(full_ids) - len(code_ids) + 1):
         if full_ids[i:i+len(code_ids)] == code_ids:
             return (i, i + len(code_ids))
-    raise RuntimeError(f"could not find SAMPLE_CODE in tokenized prompt "
-                       f"(full={len(full_ids)} tokens, code={len(code_ids)} tokens)")
+
+    # Stage 2: fuzzy match — find the longest run of code tokens that
+    # matches starting at some i in full_ids, allowing a single mismatch
+    # every `drift_every` tokens.
+    drift_every = 8
+    best_i, best_len = -1, 0
+    for i in range(len(full_ids)):
+        mismatches = 0
+        matched = 0
+        for j, tid in enumerate(code_ids):
+            if i + j >= len(full_ids):
+                break
+            if full_ids[i + j] == tid:
+                matched += 1
+            else:
+                mismatches += 1
+                if mismatches * drift_every > matched:
+                    break
+        if matched > best_len:
+            best_len = matched
+            best_i = i
+    if best_len < len(code_ids) // 2:
+        raise RuntimeError(
+            f"could not find SAMPLE_CODE in tokenized prompt "
+            f"(full={len(full_ids)} tokens, code={len(code_ids)} tokens, "
+            f"best_fuzzy_match={best_len} at pos={best_i})"
+        )
+    print(f"[e2e_accel] exact match failed; using fuzzy span "
+          f"({best_len}/{len(code_ids)} code tokens matched at pos={best_i})", flush=True)
+    return (best_i, best_i + best_len)
 
 
 def _run_experiment(port: int, n_runs: int) -> dict:

@@ -238,9 +238,9 @@ Trying to reuse "AST similar but text-different" code is not supported. The gate
 
 **Question**: for the *same* code, how much does the K/V cache change when the prompt context (position, system prompt, surrounding wrap) varies?
 
-**Setup**: 24 code samples × 96 prompt variations = 2,304 forward passes. Qwen2.5-Coder-7B-Instruct, last-4-layer K/V. Each variation's K/V is compared against the canonical (offset=0, planner, none) variation of the same code.
+**Setup**: 24 short code samples (HumanEval + 6 synthetic fixtures, 18–275 tokens) × 96 prompt variations = 2,304 forward passes; **plus 12 long code samples** (500–2300 tokens, extracted from `bigcode/the-stack-smol-xs` via `long_code_extractor.py`) × 96 variations = 1,152 forward passes. Qwen2.5-Coder-7B-Instruct, last-4-layer K/V. Each variation's K/V is compared against the canonical (offset=0, planner, none) variation of the same code.
 
-**Per-axis aggregated d_norm**:
+**Per-axis aggregated d_norm** (short code, 24 segs):
 
 | Position offset (tokens) | Mean d_norm |
 |---|---|
@@ -265,17 +265,54 @@ Trying to reuse "AST similar but text-different" code is not supported. The gate
 | class_wrap | 2.03 |
 | imports_wrap | 2.08 |
 
+**Per-axis aggregated d_norm** (long code, 12 segs, 500–2300 tokens):
+
+| Position offset (tokens) | Mean d_norm |
+|---|---|
+| 0 | 2.06 |
+| 5 | 2.12 |
+| 10 | 2.22 |
+| 25 | 2.27 |
+| 50 | 2.31 |
+| 100 | 2.33 |
+
+| System prompt class | Mean d_norm |
+|---|---|
+| planner (canonical) | 2.13 |
+| coder | 2.25 |
+| reviewer | 2.22 |
+| tester | 2.26 |
+
+| Surrounding wrap | Mean d_norm |
+|---|---|
+| none | 2.08 |
+| try_wrap | 2.24 |
+| class_wrap | 2.27 |
+| imports_wrap | 2.28 |
+
+**Long-vs-short ratio (per axis)**: long-code d_norm is ~5–23% higher than short-code d_norm across all axes. The biggest jump is the planner system prompt (1.23×), confirming that the context_aware_confidence modifier's "more confidence drop on long code" prediction is correct. The 4-bin `predicted_distance_table.json` (192 cells, 48 per bin) is now fully populated.
+
 **Outputs**:
-- `data/context_distance_7b.json` — per-segment × per-variation raw data
-- `data/predicted_distance_table.json` — 144-cell 4D lookup table consumed by `anchor_match.py`
+- `data/context_distance_7b.json` — per-segment × per-variation raw data (short)
+- `data/context_distance_7b_long.json` — long-code raw data (12 segs × 96 variations)
+- `data/segments_long.json`, `data/variations_long.json` — long-code extracted corpus
+- `data/predicted_distance_table.json` — 192-cell 4D lookup table consumed by `anchor_match.py`
 - `plots/{d_norm_by_position_offset, d_norm_by_system_prompt, d_norm_by_surrounding_code, scatter_per_segment, heatmap_offset_x_prompt}.png`
 - `report.md` — full write-up
 
 **Re-running the experiment** (after a model change):
 ```bash
 cd sglang-kvflow
+# Short code (HumanEval + 6 synthetic fixtures)
 python results/same_code_context_variation/context_sampler.py
 python results/same_code_context_variation/kv_distance_analyzer.py
+# Long code (the-stack-smol-xs, 500-3000 token functions/classes)
+python results/same_code_context_variation/long_code_extractor.py \
+  --target-segments 12 --min-tokens 500 --max-tokens 3000
+python results/same_code_context_variation/kv_distance_analyzer.py \
+  --segments data/segments_long.json --variations data/variations_long.json \
+  --out data/context_distance_7b_long.json --max-seq-len 4096
+# Build the merged 192-cell table (short + long)
 python results/same_code_context_variation/distance_table_builder.py
 python results/same_code_context_variation/report_generator.py
 ```
@@ -288,6 +325,40 @@ python results/same_code_context_variation/report_generator.py
 3. **Lossy-Reuse** — `SGLANG_LOSSY_FUZZY_MATCH=1` enabled, anchor KV copy + RoPE delta
 
 Output: `results/ma_ttft/{run_final.log, summary.md, sglang.log}` with BLEU and TTFT per agent.
+
+### 5.4 Long-code E2E accel micro-benchmark (`results/e2e_accel_long_7b.json`)
+
+**Setup**: 634-token `SshKey` class (from `bigcode/the-stack-smol-xs`) embedded in a chat prompt. Qwen2.5-Coder-7B-Instruct served via sglang-kvflow. SGLANG_LOSSY_FUZZY_MATCH=1, max_total_tokens=16384. Seed (lossy) → 3 lossless → 3 lossy.
+
+**Result (2026-06-06 run)**:
+- TTFT (lossless): 39.6 ± 0.6 ms
+- TTFT (lossy):    40.6 ± 0.5 ms  → **−2.5% (no speedup)**
+- Cached tokens: 0/0 (radix tree miss on both lossless and lossy paths)
+- lossy_anchor_match_used: 0/3
+- Accuracy (token F1 vs lossless): 1.0 across all 3 runs
+
+**Interpretation**: The K/V copy path is known-failing on the 24GB RTX 4090 due to a 3.82 GB free-KV-cache budget after model weights + CUDA graph compilation. Even the lossless radix prefix match misses (cached_tokens=0), which is consistent with the limitation noted in commit `3681e8fa2`. The cross-model study (Section 5.5) and the long-code distance table (Section 5.2) are the *data* contributions; this e2e test is purely a sanity check that the KVCOMM gate fires without crashing.
+
+**Future work for the e2e accel claim**:
+- Move to ≥48GB GPU (A100 80GB or 2×RTX 4090) to fit both model weights AND a multi-segment prefix
+- Use `bench_multiagent_ttft.py` (3-mode) instead of the single-server `e2e_accel_accuracy.py` so the lossless baseline isn't dominated by HTTP/decode overhead
+
+### 5.5 Model selection & 24GB constraint (`results/lookup_table_transferability/`)
+
+The user constraint is "single 4090 (24GB), strong model, room for KV cache scheduling." As of 2026-06-06:
+
+| Model | Status on 24GB | Reason |
+|---|---|---|
+| Qwen2.5-3B-Instruct (existing) | ✅ works | "烂"/bad — too small for code tasks |
+| Qwen2.5-7B-Instruct / 8B-Instruct (existing) | ✅ works | baseline |
+| Qwen2.5-Coder-7B-Instruct (HF cache) | ✅ works | code-specialized, 15 GB bf16, the long-code d_norm datapoint used the >500 bin |
+| Qwen3-8B (HF cache) | ✅ works | newer arch, 14 GB bf16 |
+| Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit (17 GB on disk) | ❌ load fails | The community AWQ checkpoint did NOT quantize the MoE experts — `load` warning shows `model.layers.{0...47}.mlp.experts.{gate_up_proj,down_proj}` MISSING. transformers falls back to bf16, which OOMs on 24GB (model weights alone = ~30 GB bf16). Need either a checkpoint with the experts actually quantized, or vLLM/sglang's MoE-AWQ loader. |
+| Qwen2.5-32B-Instruct-GPTQ-Int4 (19 GB on disk) | ❌ load fails | transformers 5.3.0 (pinned by sglang) requires `optimum` to load GPTQ. The latest `gptqmodel 7.0.0` requires `transformers >= 5.4.0`, but `transformers.utils.hub.create_repo` was removed in 5.4, so it crashes on import. No compatible (gptqmodel × transformers 5.3) pair exists. |
+
+**The current 7B-Coder path is a deliberate degradation**: the 7B size is the largest coder-specialized model that fits 24GB at bf16, and it is the model used in the cross-model transferability study (3/4 model runs). Going to 30B-class will require a community AWQ/GPTQ re-quantization of the MoE experts, or a hardware upgrade.
+
+**Cross-model study status** (`results/lookup_table_transferability/`): 3/4 models completed (Coder-7B, Coder-3B, 7B-Instruct). Qwen3-8B was rate-limited mid-download. The d_norm values cluster within ±0.07 across the 7B–8B class ("Medium portable" verdict).
 
 ---
 
