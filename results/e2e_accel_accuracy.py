@@ -75,7 +75,14 @@ def _start_server(port: int, model_path: str, max_total_tokens: int) -> subproce
         "--max-prefill-tokens", "4096",
         "--radix-eviction-policy", "priority",
         "--disable-cuda-graph",
-        "--log-level", "error",
+        "--disable-piecewise-cuda-graph",
+        # NOTE: --enable-cache-report is OFF by default; turning it on surfaces
+        # usage.prompt_tokens_details.cached_tokens but trips an
+        # IndexError in scheduler_output_processor_mixin._append_lossy_observability
+        # when a heterogeneous batch (lossy + lossless) is processed. We rely on
+        # `metadata.lossy_reuse` (set in serving_chat.py unconditionally) instead.
+        # Use info log so we can see [lossy_reuse]/[anchor_kv] debug lines.
+        "--log-level", "info",
     ]
     return subprocess.Popen(
         cmd, env=env, cwd=str(PROJECT_ROOT),
@@ -96,6 +103,7 @@ def _stream_one_request(port: int, *, lossy_mode: bool, token_span: tuple[int, i
         "max_tokens": 64,
         "temperature": 0.0,
         "stream": True,
+        "stream_options": {"include_usage": True},
     }
     if lossy_mode:
         body.update({
@@ -121,7 +129,14 @@ def _stream_one_request(port: int, *, lossy_mode: bool, token_span: tuple[int, i
     t0 = time.perf_counter()
     ttft = None
     text_chunks: list[str] = []
-    final_meta: dict = {}
+    # sglang-kvflow streams a per-chunk `usage` + `metadata` block on the
+    # FINAL chunk (and intermediate `meta_info` on the per-token chunks).
+    # The lossy K/V copy telemetry lives in metadata.lossy_reuse; the radix
+    # prefix-match telemetry lives in usage.prompt_tokens_details.cached_tokens.
+    final_usage: dict = {}
+    final_metadata: dict = {}
+    lossy_metadata: dict = {}
+    final_meta_info: dict = {}
     with requests.post(url, json=body, stream=True, timeout=120) as r:
         r.raise_for_status()
         for raw in r.iter_lines():
@@ -147,18 +162,34 @@ def _stream_one_request(port: int, *, lossy_mode: bool, token_span: tuple[int, i
                 delta = choice.get("delta", {}) or {}
                 if delta.get("content"):
                     text_chunks.append(delta["content"])
-            meta = obj.get("meta_info") or {}
-            if meta:
-                final_meta = meta
+            # Per-token meta_info is on intermediate chunks (legacy sglang field)
+            mi = obj.get("meta_info")
+            if mi:
+                final_meta_info.update(mi)
+            # Final usage chunk carries `usage` and `metadata`
+            u = obj.get("usage")
+            if u:
+                final_usage = u
+            md = obj.get("metadata")
+            if md:
+                final_metadata = md
+                if isinstance(md.get("lossy_reuse"), dict):
+                    lossy_metadata = md["lossy_reuse"]
     total_ms = (time.perf_counter() - t0) * 1000
+    # Prefer the lossless / lossy radix cached_tokens from usage.prompt_tokens_details
+    ptd = final_usage.get("prompt_tokens_details") or {}
+    cached_tokens = ptd.get("cached_tokens", 0) or 0
+    # Fallback to meta_info if usage doesn't have it
+    if not cached_tokens:
+        cached_tokens = final_meta_info.get("cached_tokens", 0) or 0
     return {
         "ttft_ms": round(ttft, 1) if ttft else None,
         "total_ms": round(total_ms, 1),
         "text": "".join(text_chunks),
-        "n_tokens": final_meta.get("completion_tokens") or 0,
-        "cached_tokens": final_meta.get("cached_tokens", 0) or 0,
-        "prompt_tokens": final_meta.get("prompt_tokens", 0) or 0,
-        "lossy_metadata": {k: v for k, v in final_meta.items() if k.startswith("lossy_")},
+        "n_tokens": final_usage.get("completion_tokens") or final_meta_info.get("completion_tokens") or 0,
+        "cached_tokens": cached_tokens,
+        "prompt_tokens": final_usage.get("prompt_tokens") or final_meta_info.get("prompt_tokens") or 0,
+        "lossy_metadata": lossy_metadata,
     }
 
 
@@ -342,11 +373,29 @@ def _run_experiment(port: int, n_runs: int) -> dict:
     lossy_total = [r["total_ms"] for r in lossy]
     lossless_cached = [r["cached_tokens"] for r in lossless]
     lossy_cached = [r["cached_tokens"] for r in lossy]
-    lossy_used = sum(1 for r in lossy if r["lossy_metadata"].get("lossy_anchor_match_used"))
+    # The "did lossy K/V copy actually fire" signal is `lossy_first_match_reason`
+    # being a non-empty reason like "exact_code_content_signature", OR
+    # `lossy_first_reuse_allowed` being True. (legacy `lossy_anchor_match_used`
+    # is no longer populated in current sglang-kvflow.)
+    lossy_used = sum(
+        1 for r in lossy
+        if r["lossy_metadata"].get("lossy_first_reuse_allowed")
+        or r["lossy_metadata"].get("lossy_first_match_reason", "") not in ("", None)
+    )
     lossy_match_len = [r["lossy_metadata"].get("lossy_anchor_match_len", 0) or 0
                        for r in lossy]
     lossy_rope = [r["lossy_metadata"].get("lossy_anchor_rope_delta", 0) or 0
                    for r in lossy]
+    lossy_predicted_d = [r["lossy_metadata"].get("lossy_predicted_distance", 0) or 0
+                         for r in lossy]
+    lossy_cac = [r["lossy_metadata"].get("lossy_context_aware_confidence", 0) or 0
+                  for r in lossy]
+    lossy_cac_mult = [r["lossy_metadata"].get("lossy_context_aware_multiplier", 1.0) or 1.0
+                       for r in lossy]
+    lossy_match_reason = [r["lossy_metadata"].get("lossy_first_match_reason", "")
+                          for r in lossy]
+    lossy_cand_count = [r["lossy_metadata"].get("lossy_candidate_count", 0) or 0
+                         for r in lossy]
 
     # Pairwise text accuracy: lossless[i] vs lossy[i] (same i)
     text_f1s = [_token_f1(a["text"], b["text"])
@@ -385,6 +434,11 @@ def _run_experiment(port: int, n_runs: int) -> dict:
             "n_lossy_match_used": lossy_used,
             "lossy_anchor_match_len_mean": round(statistics.mean(lossy_match_len), 1) if lossy_match_len else 0,
             "lossy_anchor_rope_delta_mean": round(statistics.mean(lossy_rope), 1) if lossy_rope else 0,
+            "lossy_predicted_distance_mean": round(statistics.mean(lossy_predicted_d), 4) if lossy_predicted_d else 0,
+            "lossy_context_aware_confidence_mean": round(statistics.mean(lossy_cac), 4) if lossy_cac else 0,
+            "lossy_context_aware_multiplier_mean": round(statistics.mean(lossy_cac_mult), 4) if lossy_cac_mult else 1.0,
+            "lossy_first_match_reasons": lossy_match_reason,
+            "lossy_candidate_counts": lossy_cand_count,
         },
         "speedup_pct": round(speedup_pct, 1),
         "accuracy_token_f1_mean": round(text_f1_mean, 3),

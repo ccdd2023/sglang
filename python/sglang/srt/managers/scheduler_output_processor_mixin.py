@@ -147,10 +147,12 @@ class SchedulerOutputProcessorMixin:
             ),
         }
         for key, value in observability_fields.items():
-            if value is None:
-                continue
             if key not in customized_info:
                 customized_info[key] = []
+            # Always append — even for None values — so the list length
+            # matches the request index in the batch. tokenizer_manager
+            # indexes v[req_idx] and would IndexError if non-lossy reqs
+            # skipped the append.
             customized_info[key].append(value)
 
     def process_batch_result_prebuilt(self: Scheduler, batch: ScheduleBatch):
