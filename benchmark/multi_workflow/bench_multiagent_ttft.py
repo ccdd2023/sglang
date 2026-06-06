@@ -108,7 +108,7 @@ def kill():
             pass
 
 
-def launch(lossy=False):
+def launch(lossy=False, model_path=None, port=None):
     e = os.environ.copy()
     e["PYTHONPATH"] = str(ROOT / "python") + (
         ":" + e.get("PYTHONPATH", "") if e.get("PYTHONPATH") else ""
@@ -122,9 +122,9 @@ def launch(lossy=False):
             "-m",
             "sglang.launch_server",
             "--model-path",
-            MODEL,
+            model_path or MODEL,
             "--port",
-            str(PORT),
+            str(port or PORT),
             "--tp-size",
             "1",
             "--mem-fraction-static",
@@ -154,14 +154,14 @@ def launch(lossy=False):
     )
 
 
-def wait_ready(t=150):
+def wait_ready(t=150, port=PORT):
     import urllib.request
 
     d = time.monotonic() + t
     while time.monotonic() < d:
         try:
             with urllib.request.urlopen(
-                f"http://127.0.0.1:{PORT}/health_generate", timeout=5
+                f"http://127.0.0.1:{port}/health_generate", timeout=5
             ) as r:
                 if r.status == 200:
                     return True
@@ -422,12 +422,14 @@ async def run_ground_truth(sess, model, code1, code2, max_tokens):
 
 async def run_no_reuse(sess, model, code1, code2, gt, max_tokens):
     """No-Reuse: restart server between every agent."""
+    global _BENCH_ARGS
+    args = _BENCH_ARGS
     results = {}
 
     # A1 (code1)
     kill()
     time.sleep(2)
-    p = launch()
+    p = launch(model_path=args.model, port=args.port)
     if not wait_ready():
         p.terminate()
         return None
@@ -439,7 +441,7 @@ async def run_no_reuse(sess, model, code1, code2, gt, max_tokens):
 
     # A2 (code2, with A1 output as prefix)
     time.sleep(2)
-    p = launch()
+    p = launch(model_path=args.model, port=args.port)
     if not wait_ready():
         p.terminate()
         return None
@@ -453,7 +455,7 @@ async def run_no_reuse(sess, model, code1, code2, gt, max_tokens):
 
     # A3 (code2, with A1+A2 outputs as prefix)
     time.sleep(2)
-    p = launch()
+    p = launch(model_path=args.model, port=args.port)
     if not wait_ready():
         p.terminate()
         return None
@@ -473,6 +475,8 @@ async def run_no_reuse(sess, model, code1, code2, gt, max_tokens):
 
 async def run_full_reuse(sess, model, code1, code2, gt, max_tokens):
     """Full-Reuse: single server, lossless mode."""
+    global _BENCH_ARGS
+    args = _BENCH_ARGS
     results = {}
 
     r1 = await req_both(sess, build_a1_payload(model, code1, max_tokens))
@@ -496,6 +500,8 @@ async def run_full_reuse(sess, model, code1, code2, gt, max_tokens):
 
 async def run_lossy_reuse(sess, model, code1, code2, gt, max_tokens):
     """Lossy-Reuse: single server, lossy mode."""
+    global _BENCH_ARGS
+    args = _BENCH_ARGS
     results = {}
 
     r1 = await req_both(sess, build_a1_payload(model, code1, max_tokens))
@@ -535,7 +541,7 @@ async def main(args):
         print("  [GT] collecting ground truth...")
         kill()
         time.sleep(2)
-        p = launch()
+        p = launch(model_path=args.model, port=args.port)
         if not wait_ready():
             print("  server fail")
             p.terminate()
@@ -582,7 +588,7 @@ async def main(args):
         print("  [Full-Reuse] warm start with prefix match...")
         kill()
         time.sleep(2)
-        p = launch()
+        p = launch(model_path=args.model, port=args.port)
         if not wait_ready():
             print("  server fail")
             p.terminate()
@@ -618,7 +624,7 @@ async def main(args):
         print("  [Lossy-Reuse] warm start with lossy match...")
         kill()
         time.sleep(2)
-        p = launch(lossy=True)
+        p = launch(lossy=True, model_path=args.model, port=args.port)
         if not wait_ready():
             print("  server fail")
             p.terminate()
@@ -701,7 +707,7 @@ def report(results):
     lines = [
         "# Multi-Agent Intermediate-Context KV Reuse — TTFT Acceleration",
         "",
-        f"Model: Qwen2.5-3B | {len(results)} files | 3-Agent workflow",
+        f"Model: {_BENCH_ARGS.model.split('/')[-1]} | {len(results)} files | 3-Agent workflow",
         "",
         "## Summary",
         "",
@@ -775,11 +781,20 @@ def report(results):
     (OUT / "summary.md").write_text("\n".join(lines) + "\n")
 
 
+_BENCH_ARGS = None  # set by pa() at startup; consumed by run_no_reuse etc.
+
+
 def pa():
     p = argparse.ArgumentParser()
     p.add_argument("--model", default=MODEL)
     p.add_argument("--max-tokens", type=int, default=256)
-    return p.parse_args()
+    p.add_argument("--port", type=int, default=PORT)
+    args = p.parse_args()
+    # Reload tokenizer + recompute token spans to match the chosen model.
+    global TOK, _BENCH_ARGS
+    TOK = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
+    _BENCH_ARGS = args
+    return args
 
 
 if __name__ == "__main__":

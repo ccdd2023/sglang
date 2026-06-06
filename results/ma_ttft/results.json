@@ -1,0 +1,1118 @@
+[
+  {
+    "name": "same-func (AVL insert)",
+    "code1": "avl_tree_insert",
+    "code2": "avl_tree_insert",
+    "code1_lines": 53,
+    "code2_lines": 53,
+    "gt": {
+      "a1": {
+        "text": "This code implements an AVL tree, a self-balancing binary search tree. The purpose is to maintain a balanced tree for efficient insertion, deletion, and search operations. The design pattern used is the AVL tree data structure. Potential bugs include incorrect height calculations, which could lead to incorrect rotations and imbalanced trees. Additionally, the code lacks error handling for invalid inputs."
+      },
+      "a2": {
+        "text": "To fix the potential bug related to incorrect height calculations, we need to ensure that the height of each node is correctly updated after each insertion or deletion. The current implementation seems to be correct, but we can add a check to ensure that the height is updated properly.\n\nHere's the modified code with the added height update check:\n\n```python\nclass AVLNode:\n    def __init__(self, key):\n        self.key = key\n        self.left = None\n        self.right = None\n        self.height = 1\n\ndef avl_tree_insert(root, key):\n    if not root:\n        return AVLNode(key)\n    if"
+      },
+      "a3": {
+        "text": "The fix is correct."
+      }
+    },
+    "no_reuse": {
+      "a1": {
+        "ttft_ms": 79.3,
+        "total_ms": 1252.9,
+        "text": "This code implements an AVL tree, a self-balancing binary search tree. The purpose is to maintain a balanced tree for efficient insertion, deletion, and search operations. The design pattern used is the AVL tree data structure. Potential bugs include incorrect height calculations, which could lead to incorrect rotations and imbalanced trees. Additionally, the code lacks error handling for invalid inputs.",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 86.6,
+        "total_ms": 2129.7,
+        "text": "To fix the potential bug related to incorrect height calculations, we need to ensure that the height of each node is correctly updated after each insertion or deletion. The current implementation seems to be correct, but we can add a check to ensure that the height is updated properly.\n\nHere's the modified code with the added height update check:\n\n```python\n# A2 variant\nclass AVLNode:\n    def __init__(self, key):\n        self.key = key\n        self.left = None\n        self.right = None\n        self.height = 1\n\ndef avl_tree_insert(root, key):\n    if not root:\n        return AVL",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 97.9,
+        "total_ms": 179.0,
+        "text": "The fix is correct.",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 0.9841269841269841,
+        "a3": 1.0
+      }
+    },
+    "full_reuse": {
+      "a1": {
+        "ttft_ms": 76.5,
+        "total_ms": 1257.5,
+        "text": "This code implements an AVL tree, a self-balancing binary search tree. The purpose is to maintain a balanced tree for efficient insertion, deletion, and search operations. The design pattern used is the AVL tree data structure. Potential bugs include incorrect height calculations, which could lead to incorrect rotations and imbalanced trees. Additionally, the code lacks error handling for invalid inputs.",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 74.1,
+        "total_ms": 2113.4,
+        "text": "To fix the potential bug related to incorrect height calculations, we need to ensure that the height of each node is correctly updated after each insertion or deletion. The current implementation seems to be correct, but we can add a check to ensure that the height is updated properly.\n\nHere's the modified code with the added height update check:\n\n```python\nclass AVLNode:\n    def __init__(self, key):\n        self.key = key\n        self.left = None\n        self.right = None\n        self.height = 1\n\ndef avl_tree_insert(root, key):\n    if not root:\n        return AVLNode(key)\n    if",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 85.1,
+        "total_ms": 165.8,
+        "text": "The fix is correct.",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    },
+    "lossy_reuse": {
+      "a1": {
+        "ttft_ms": 76.7,
+        "total_ms": 1248.9,
+        "text": "This code implements an AVL tree, a self-balancing binary search tree. The purpose is to maintain a balanced tree for efficient insertion, deletion, and search operations. The design pattern used is the AVL tree data structure. Potential bugs include incorrect height calculations, which could lead to incorrect rotations and imbalanced trees. Additionally, the code lacks error handling for invalid inputs.",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 75.5,
+        "total_ms": 2114.9,
+        "text": "To fix the potential bug related to incorrect height calculations, we need to ensure that the height of each node is correctly updated after each insertion or deletion. The current implementation seems to be correct, but we can add a check to ensure that the height is updated properly.\n\nHere's the modified code with the added height update check:\n\n```python\nclass AVLNode:\n    def __init__(self, key):\n        self.key = key\n        self.left = None\n        self.right = None\n        self.height = 1\n\ndef avl_tree_insert(root, key):\n    if not root:\n        return AVLNode(key)\n    if",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "lossy_predicted_distance": 1.8268,
+          "lossy_context_aware_confidence": 0.6388,
+          "lossy_context_aware_multiplier": 0.6725,
+          "lossy_first_match_reason": "exact_code_content_signature",
+          "lossy_first_matched_anchor_signature": "9a5d4c985b2418f1",
+          "lossy_first_matched_content_signature": "1bcc1e1becdd328f08ed0101cbe3a9dc",
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 89.1,
+        "total_ms": 170.3,
+        "text": "The fix is correct.",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "lossy_predicted_distance": 1.8268,
+          "lossy_context_aware_confidence": 0.6388,
+          "lossy_context_aware_multiplier": 0.6725,
+          "lossy_first_match_reason": "exact_code_content_signature",
+          "lossy_first_matched_anchor_signature": "9a5d4c985b2418f1",
+          "lossy_first_matched_content_signature": "1bcc1e1becdd328f08ed0101cbe3a9dc",
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    }
+  },
+  {
+    "name": "same-func (RedBlack insert)",
+    "code1": "rbtree_insert",
+    "code2": "rbtree_insert",
+    "code1_lines": 96,
+    "code2_lines": 96,
+    "gt": {
+      "a1": {
+        "text": "This code implements a Red-Black Tree, a self-balancing binary search tree. It uses the Red-Black Tree properties to maintain balance during insertions and deletions. The code follows a top-down approach for insertion and uses helper functions for rotations and color adjustments. Potential bugs include issues with node color handling and edge cases during rotations."
+      },
+      "a2": {
+        "text": "To fix the potential bug related to node color handling and edge cases during rotations, we need to ensure that the root node is always black after an insertion. This can be done by explicitly setting the root color to black after the `_fix_rb_insert` function returns.\n\nHere is the modified code:\n\n```python\n# A2 variant\nclass RBNode:\n    def __init__(self, key, color=\"RED\"):\n        self.key = key\n        self.color = color\n        self.left = None\n        self.right = None\n        self.parent = None\n\ndef rbtree_insert(root, key):\n    node = RBNode(key"
+      },
+      "a3": {
+        "text": "Yes, the fix is correct."
+      }
+    },
+    "no_reuse": {
+      "a1": {
+        "ttft_ms": 96.1,
+        "total_ms": 1395.8,
+        "text": "This code implements a Red-Black Tree, a self-balancing binary search tree. It uses the Red-Black Tree properties to maintain balance during insertions and deletions. The code follows a top-down approach for insertion and uses helper functions for rotations and color adjustments. Potential bugs include issues with node color handling and edge cases during rotations.",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 114.9,
+        "total_ms": 2176.5,
+        "text": "To fix the potential bug related to node color handling and edge cases during rotations, we need to ensure that the root node is always black after an insertion. This can be done by explicitly setting the root color to black after the `_fix_rb_insert` function returns.\n\nHere is the modified code:\n\n```python\n# A2 variant\nclass RBNode:\n    def __init__(self, key, color=\"RED\"):\n        self.key = key\n        self.color = color\n        self.left = None\n        self.right = None\n        self.parent = None\n\ndef rbtree_insert(root, key):\n    node = RBNode(key",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 122.1,
+        "total_ms": 235.3,
+        "text": "Yes, the fix is correct.",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    },
+    "full_reuse": {
+      "a1": {
+        "ttft_ms": 101.5,
+        "total_ms": 1402.5,
+        "text": "This code implements a Red-Black Tree, a self-balancing binary search tree. It uses the Red-Black Tree properties to maintain balance during insertions and deletions. The code follows a top-down approach for insertion and uses helper functions for rotations and color adjustments. Potential bugs include issues with node color handling and edge cases during rotations.",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 91.7,
+        "total_ms": 2173.2,
+        "text": "To fix the potential bug related to node color handling and edge cases during rotations, we need to ensure that the root node is always black after an insertion. This can be done by explicitly setting the root color to black after the `_fix_rb_insert` function returns.\n\nHere is the modified code:\n\n```python\n# A2 variant\nclass RBNode:\n    def __init__(self, key, color=\"RED\"):\n        self.key = key\n        self.color = color\n        self.left = None\n        self.right = None\n        self.parent = None\n\ndef rbtree_insert(root, key):\n    node = RBNode(key",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 100.7,
+        "total_ms": 213.2,
+        "text": "Yes, the fix is correct.",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    },
+    "lossy_reuse": {
+      "a1": {
+        "ttft_ms": 100.1,
+        "total_ms": 1401.3,
+        "text": "This code implements a Red-Black Tree, a self-balancing binary search tree. It uses the Red-Black Tree properties to maintain balance during insertions and deletions. The code follows a top-down approach for insertion and uses helper functions for rotations and color adjustments. Potential bugs include issues with node color handling and edge cases during rotations.",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 93.8,
+        "total_ms": 2135.4,
+        "text": "To fix the potential bug related to node color handling and edge cases during rotations, we need to ensure that the root node is always black after an insertion. This can be done by explicitly setting the root color to black after the `_fix_rb_insert` function returns.\n\nHere is the modified code:\n\n```python\n# A2 variant\nclass RBNode:\n    def __init__(self, key, color=\"RED\"):\n        self.key = key\n        self.color = color\n        self.left = None\n        self.right = None\n        self.parent = None\n\ndef rbtree_insert(root, key):\n    node = RBNode(key",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "lossy_predicted_distance": 1.8268,
+          "lossy_context_aware_confidence": 0.6388,
+          "lossy_context_aware_multiplier": 0.6725,
+          "lossy_first_match_reason": "exact_code_content_signature",
+          "lossy_first_matched_anchor_signature": "b769ab36ec891f8f",
+          "lossy_first_matched_content_signature": "085f417f3cc42188f965802d4658da15",
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 106.1,
+        "total_ms": 224.7,
+        "text": "Yes, the fix is correct.",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "lossy_predicted_distance": 1.8268,
+          "lossy_context_aware_confidence": 0.6388,
+          "lossy_context_aware_multiplier": 0.6725,
+          "lossy_first_match_reason": "exact_code_content_signature",
+          "lossy_first_matched_anchor_signature": "b769ab36ec891f8f",
+          "lossy_first_matched_content_signature": "085f417f3cc42188f965802d4658da15",
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    }
+  },
+  {
+    "name": "same-func (merge sort)",
+    "code1": "merge_sort",
+    "code2": "merge_sort",
+    "code1_lines": 24,
+    "code2_lines": 24,
+    "gt": {
+      "a1": {
+        "text": "Purpose: The code implements the Merge Sort algorithm, a divide-and-conquer sorting technique.\n\nDesign Patterns: Uses the divide-and-conquer pattern by recursively splitting the array into halves until subarrays are trivially sortable (length <= 1), then merges them back together in sorted order.\n\nPotential Bugs:\n1. The recursive calls to `merge_sort(left)` and `merge_sort(right)` do not return the sorted subarrays, which means the original array is not being updated.\n2. The function does not handle the case where the input array is empty or contains only one element, which is already sorted.\n3. The variable `k`"
+      },
+      "a2": {
+        "text": "```python\n# A2 variant with fix\ndef merge_sort(arr):\n    if len(arr) <= 1:\n        return arr\n    mid = len(arr) // 2\n    left = merge_sort(arr[:mid])\n    right = merge_sort(arr[mid:])\n    i = j = k = 0\n    while i < len(left) and j < len(right):\n        if left[i] <= right[j]:\n            arr[k] = left[i]\n            i += 1\n        else:\n            arr[k] = right[j]\n            j += 1\n        k += 1\n    while i <"
+      },
+      "a3": {
+        "text": "Yes, the fix is correct."
+      }
+    },
+    "no_reuse": {
+      "a1": {
+        "ttft_ms": 57.0,
+        "total_ms": 2097.2,
+        "text": "Purpose: The code implements the Merge Sort algorithm, a divide-and-conquer sorting technique.\n\nDesign Patterns: Uses the divide-and-conquer pattern by recursively splitting the array into halves until subarrays are trivially sortable (length <= 1), then merges them back together in sorted order.\n\nPotential Bugs:\n1. The recursive calls to `merge_sort(left)` and `merge_sort(right)` do not return the sorted subarrays, which means the original array is not being updated.\n2. The function does not handle the case where the input array is empty or contains only one element, which is already sorted.\n3. The variable `k`",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 68.8,
+        "total_ms": 2113.8,
+        "text": "```python\n# A2 variant with fix\ndef merge_sort(arr):\n    if len(arr) <= 1:\n        return arr\n    mid = len(arr) // 2\n    left = merge_sort(arr[:mid])\n    right = merge_sort(arr[mid:])\n    i = j = k = 0\n    while i < len(left) and j < len(right):\n        if left[i] <= right[j]:\n            arr[k] = left[i]\n            i += 1\n        else:\n            arr[k] = right[j]\n            j += 1\n        k += 1\n    while i <",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 80.5,
+        "total_ms": 195.5,
+        "text": "Yes, the fix is correct.",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    },
+    "full_reuse": {
+      "a1": {
+        "ttft_ms": 57.3,
+        "total_ms": 2197.2,
+        "text": "Purpose: The code implements the Merge Sort algorithm, a divide-and-conquer sorting technique.\n\nDesign Patterns: Uses the divide-and-conquer pattern by recursively splitting the array into halves until subarrays are trivially sortable (length <= 1), then merges them back together in sorted order.\n\nPotential Bugs:\n1. The recursive calls to `merge_sort(left)` and `merge_sort(right)` do not return the sorted subarrays, which means the original array is not being updated.\n2. The function does not handle the case where the input array is empty or contains only one element, which is already sorted.\n3. The variable `k`",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 56.4,
+        "total_ms": 2095.9,
+        "text": "```python\n# A2 variant with fix\ndef merge_sort(arr):\n    if len(arr) <= 1:\n        return arr\n    mid = len(arr) // 2\n    left = merge_sort(arr[:mid])\n    right = merge_sort(arr[mid:])\n    i = j = k = 0\n    while i < len(left) and j < len(right):\n        if left[i] <= right[j]:\n            arr[k] = left[i]\n            i += 1\n        else:\n            arr[k] = right[j]\n            j += 1\n        k += 1\n    while i <",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 66.1,
+        "total_ms": 178.8,
+        "text": "Yes, the fix is correct.",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    },
+    "lossy_reuse": {
+      "a1": {
+        "ttft_ms": 54.5,
+        "total_ms": 2095.4,
+        "text": "Purpose: The code implements the Merge Sort algorithm, a divide-and-conquer sorting technique.\n\nDesign Patterns: Uses the divide-and-conquer pattern by recursively splitting the array into halves until subarrays are trivially sortable (length <= 1), then merges them back together in sorted order.\n\nPotential Bugs:\n1. The recursive calls to `merge_sort(left)` and `merge_sort(right)` do not return the sorted subarrays, which means the original array is not being updated.\n2. The function does not handle the case where the input array is empty or contains only one element, which is already sorted.\n3. The variable `k`",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 66.3,
+        "total_ms": 2180.4,
+        "text": "```python\n# A2 variant with fix\ndef merge_sort(arr):\n    if len(arr) <= 1:\n        return arr\n    mid = len(arr) // 2\n    left = merge_sort(arr[:mid])\n    right = merge_sort(arr[mid:])\n    i = j = k = 0\n    while i < len(left) and j < len(right):\n        if left[i] <= right[j]:\n            arr[k] = left[i]\n            i += 1\n        else:\n            arr[k] = right[j]\n            j += 1\n        k += 1\n    while i <",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "lossy_predicted_distance": 1.8268,
+          "lossy_context_aware_confidence": 0.6388,
+          "lossy_context_aware_multiplier": 0.6725,
+          "lossy_first_match_reason": "exact_code_content_signature",
+          "lossy_first_matched_anchor_signature": "ec0c3167fe0b6422",
+          "lossy_first_matched_content_signature": "0995f762072d23f3f5cfaf58e07c9680",
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 69.8,
+        "total_ms": 182.4,
+        "text": "Yes, the fix is correct.",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "lossy_predicted_distance": 1.8268,
+          "lossy_context_aware_confidence": 0.6388,
+          "lossy_context_aware_multiplier": 0.6725,
+          "lossy_first_match_reason": "exact_code_content_signature",
+          "lossy_first_matched_anchor_signature": "ec0c3167fe0b6422",
+          "lossy_first_matched_content_signature": "0995f762072d23f3f5cfaf58e07c9680",
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    }
+  },
+  {
+    "name": "same-func (heap sort)",
+    "code1": "heap_sort",
+    "code2": "heap_sort",
+    "code1_lines": 20,
+    "code2_lines": 20,
+    "gt": {
+      "a1": {
+        "text": "**Purpose:** The code implements the Heap Sort algorithm, which sorts an array by first building a max heap and then repeatedly extracting the maximum element and placing it at the end of the array.\n\n**Design Patterns:** Uses a recursive helper function `_heapify` to maintain the heap property.\n\n**Potential Bugs:**\n1. The `_heapify` function does not handle the case where `arr` is empty or has only one element.\n2. The `_heapify` function should be defined before it is called in `heap_sort`.\n3. The `_heapify` function should be renamed to `_max_heapify` to clearly indicate its"
+      },
+      "a2": {
+        "text": "```python\n# A2 variant\ndef heap_sort(arr):\n    n = len(arr)\n    if n <= 1:\n        return arr\n    for i in range(n // 2 - 1, -1, -1):\n        _max_heapify(arr, n, i)\n    for i in range(n - 1, 0, -1):\n        arr[i], arr[0] = arr[0], arr[i]\n        _max_heapify(arr, i, 0)\n    return arr\n\ndef _max_heapify(arr, n, i):\n    largest = i\n    left = "
+      },
+      "a3": {
+        "text": "The fix is mostly correct, but the `_max_heapify` function is incomplete. It should include the logic to compare and swap elements with their children to maintain the max heap property."
+      }
+    },
+    "no_reuse": {
+      "a1": {
+        "ttft_ms": 55.1,
+        "total_ms": 2105.6,
+        "text": "**Purpose:** The code implements the Heap Sort algorithm, which sorts an array by first building a max heap and then repeatedly extracting the maximum element and placing it at the end of the array.\n\n**Design Patterns:** Uses a recursive helper function `_heapify` to maintain the heap property.\n\n**Potential Bugs:**\n1. The `_heapify` function does not handle the case where `arr` is empty or has only one element.\n2. The `_heapify` function should be defined before it is called in `heap_sort`.\n3. The `_heapify` function should be renamed to `_max_heapify` to clearly indicate its",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 69.0,
+        "total_ms": 2109.7,
+        "text": "```python\n# A2 variant\ndef heap_sort(arr):\n    n = len(arr)\n    if n <= 1:\n        return arr\n    for i in range(n // 2 - 1, -1, -1):\n        _max_heapify(arr, n, i)\n    for i in range(n - 1, 0, -1):\n        arr[i], arr[0] = arr[0], arr[i]\n        _max_heapify(arr, i, 0)\n    return arr\n\ndef _max_heapify(arr, n, i):\n    largest = i\n    left = ",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 80.7,
+        "total_ms": 675.2,
+        "text": "The fix is mostly correct, but the `_max_heapify` function is incomplete. It should include the logic to compare and swap elements with their children to maintain the max heap property.",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    },
+    "full_reuse": {
+      "a1": {
+        "ttft_ms": 56.5,
+        "total_ms": 2097.6,
+        "text": "**Purpose:** The code implements the Heap Sort algorithm, which sorts an array by first building a max heap and then repeatedly extracting the maximum element and placing it at the end of the array.\n\n**Design Patterns:** Uses a recursive helper function `_heapify` to maintain the heap property.\n\n**Potential Bugs:**\n1. The `_heapify` function does not handle the case where `arr` is empty or has only one element.\n2. The `_heapify` function should be defined before it is called in `heap_sort`.\n3. The `_heapify` function should be renamed to `_max_heapify` to clearly indicate its",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 56.2,
+        "total_ms": 2096.6,
+        "text": "```python\n# A2 variant\ndef heap_sort(arr):\n    n = len(arr)\n    if n <= 1:\n        return arr\n    for i in range(n // 2 - 1, -1, -1):\n        _max_heapify(arr, n, i)\n    for i in range(n - 1, 0, -1):\n        arr[i], arr[0] = arr[0], arr[i]\n        _max_heapify(arr, i, 0)\n    return arr\n\ndef _max_heapify(arr, n, i):\n    largest = i\n    left = ",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 68.6,
+        "total_ms": 712.5,
+        "text": "The fix is mostly correct, but the `_max_heapify` function is incomplete. It should include the logic to compare and swap elements with their children to maintain the max heap property.",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    },
+    "lossy_reuse": {
+      "a1": {
+        "ttft_ms": 58.0,
+        "total_ms": 2098.1,
+        "text": "**Purpose:** The code implements the Heap Sort algorithm, which sorts an array by first building a max heap and then repeatedly extracting the maximum element and placing it at the end of the array.\n\n**Design Patterns:** Uses a recursive helper function `_heapify` to maintain the heap property.\n\n**Potential Bugs:**\n1. The `_heapify` function does not handle the case where `arr` is empty or has only one element.\n2. The `_heapify` function should be defined before it is called in `heap_sort`.\n3. The `_heapify` function should be renamed to `_max_heapify` to clearly indicate its",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 57.5,
+        "total_ms": 2098.3,
+        "text": "```python\n# A2 variant\ndef heap_sort(arr):\n    n = len(arr)\n    if n <= 1:\n        return arr\n    for i in range(n // 2 - 1, -1, -1):\n        _max_heapify(arr, n, i)\n    for i in range(n - 1, 0, -1):\n        arr[i], arr[0] = arr[0], arr[i]\n        _max_heapify(arr, i, 0)\n    return arr\n\ndef _max_heapify(arr, n, i):\n    largest = i\n    left = ",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "lossy_predicted_distance": 1.8268,
+          "lossy_context_aware_confidence": 0.6388,
+          "lossy_context_aware_multiplier": 0.6725,
+          "lossy_first_match_reason": "exact_code_content_signature",
+          "lossy_first_matched_anchor_signature": "ff072aeb5dfb279e",
+          "lossy_first_matched_content_signature": "1f92b8417aab64c917021fd7591d1b7f",
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 69.3,
+        "total_ms": 663.5,
+        "text": "The fix is mostly correct, but the `_max_heapify` function is incomplete. It should include the logic to compare and swap elements with their children to maintain the max heap property.",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "lossy_predicted_distance": 1.8268,
+          "lossy_context_aware_confidence": 0.6388,
+          "lossy_context_aware_multiplier": 0.6725,
+          "lossy_first_match_reason": "exact_code_content_signature",
+          "lossy_first_matched_anchor_signature": "ff072aeb5dfb279e",
+          "lossy_first_matched_content_signature": "1f92b8417aab64c917021fd7591d1b7f",
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    }
+  },
+  {
+    "name": "same-func (Dijkstra)",
+    "code1": "dijkstra",
+    "code2": "dijkstra",
+    "code1_lines": 18,
+    "code2_lines": 18,
+    "gt": {
+      "a1": {
+        "text": "**Purpose:** The code implements Dijkstra's algorithm to find the shortest paths from a start node to all other nodes in a weighted graph.\n\n**Design Patterns:** Uses a priority queue (heapq) to efficiently select the next node with the smallest tentative distance.\n\n**Potential Bugs:**\n1. **Uninitialized Nodes:** If the graph contains nodes not reachable from the start node, their distances will remain infinity, which might not be intended.\n2. **Negative Weights:** The algorithm does not handle negative weights, which can lead to incorrect results or infinite loops.\n3. **Graph Representation:** Assumes the graph is represented as an adjacency list"
+      },
+      "a2": {
+        "text": "**Fix:** Handle negative weights by raising an error if any negative weight is detected in the graph.\n\n```python\n# A2 variant\nimport heapq\n\ndef dijkstra(graph, start):\n    # Check for negative weights\n    for node in graph:\n        for neighbor, weight in graph[node].items():\n            if weight < 0:\n                raise ValueError(\"Graph contains negative weights, which is not supported by Dijkstra's algorithm.\")\n    \n    distances = {node: float('inf') for node in graph}\n    distances[start] = 0\n    pq = [(0, start)]\n    visited = set()\n    while"
+      },
+      "a3": {
+        "text": "Yes, the fix is correct."
+      }
+    },
+    "no_reuse": {
+      "a1": {
+        "ttft_ms": 54.8,
+        "total_ms": 2094.4,
+        "text": "**Purpose:** The code implements Dijkstra's algorithm to find the shortest paths from a start node to all other nodes in a weighted graph.\n\n**Design Patterns:** Uses a priority queue (heapq) to efficiently select the next node with the smallest tentative distance.\n\n**Potential Bugs:**\n1. **Uninitialized Nodes:** If the graph contains nodes not reachable from the start node, their distances will remain infinity, which might not be intended.\n2. **Negative Weights:** The algorithm does not handle negative weights, which can lead to incorrect results or infinite loops.\n3. **Graph Representation:** Assumes the graph is represented as an adjacency list",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 67.1,
+        "total_ms": 2107.6,
+        "text": "**Fix:** Handle negative weights by raising an exception if any negative weight is detected in the graph.\n\n```python\n# A2 variant\nimport heapq\n\ndef dijkstra(graph, start):\n    # Check for negative weights\n    for node in graph:\n        for neighbor, weight in graph[node].items():\n            if weight < 0:\n                raise ValueError(\"Graph contains negative weights, which is not supported by Dijkstra's algorithm.\")\n    \n    distances = {node: float('inf') for node in graph}\n    distances[start] = 0\n    pq = [(0, start)]\n    visited = set()\n    while",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 81.3,
+        "total_ms": 193.6,
+        "text": "Yes, the fix is correct.",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 0.9818181818181818,
+        "a3": 1.0
+      }
+    },
+    "full_reuse": {
+      "a1": {
+        "ttft_ms": 56.5,
+        "total_ms": 2095.9,
+        "text": "**Purpose:** The code implements Dijkstra's algorithm to find the shortest paths from a start node to all other nodes in a weighted graph.\n\n**Design Patterns:** Uses a priority queue (heapq) to efficiently select the next node with the smallest tentative distance.\n\n**Potential Bugs:**\n1. **Uninitialized Nodes:** If the graph contains nodes not reachable from the start node, their distances will remain infinity, which might not be intended.\n2. **Negative Weights:** The algorithm does not handle negative weights, which can lead to incorrect results or infinite loops.\n3. **Graph Representation:** Assumes the graph is represented as an adjacency list",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 55.4,
+        "total_ms": 2096.9,
+        "text": "**Fix:** Handle negative weights by raising an error if any negative weight is detected in the graph.\n\n```python\n# A2 variant\nimport heapq\n\ndef dijkstra(graph, start):\n    # Check for negative weights\n    for node in graph:\n        for neighbor, weight in graph[node].items():\n            if weight < 0:\n                raise ValueError(\"Graph contains negative weights, which is not supported by Dijkstra's algorithm.\")\n    \n    distances = {node: float('inf') for node in graph}\n    distances[start] = 0\n    pq = [(0, start)]\n    visited = set()\n    while",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 62.9,
+        "total_ms": 175.3,
+        "text": "Yes, the fix is correct.",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    },
+    "lossy_reuse": {
+      "a1": {
+        "ttft_ms": 56.4,
+        "total_ms": 2096.3,
+        "text": "**Purpose:** The code implements Dijkstra's algorithm to find the shortest paths from a start node to all other nodes in a weighted graph.\n\n**Design Patterns:** Uses a priority queue (heapq) to efficiently select the next node with the smallest tentative distance.\n\n**Potential Bugs:**\n1. **Uninitialized Nodes:** If the graph contains nodes not reachable from the start node, their distances will remain infinity, which might not be intended.\n2. **Negative Weights:** The algorithm does not handle negative weights, which can lead to incorrect results or infinite loops.\n3. **Graph Representation:** Assumes the graph is represented as an adjacency list",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 55.9,
+        "total_ms": 2133.5,
+        "text": "**Fix:** Handle negative weights by raising an error if any negative weight is detected in the graph.\n\n```python\n# A2 variant\nimport heapq\n\ndef dijkstra(graph, start):\n    # Check for negative weights\n    for node in graph:\n        for neighbor, weight in graph[node].items():\n            if weight < 0:\n                raise ValueError(\"Graph contains negative weights, which is not supported by Dijkstra's algorithm.\")\n    \n    distances = {node: float('inf') for node in graph}\n    distances[start] = 0\n    pq = [(0, start)]\n    visited = set()\n    while",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "lossy_predicted_distance": 1.8268,
+          "lossy_context_aware_confidence": 0.6388,
+          "lossy_context_aware_multiplier": 0.6725,
+          "lossy_first_match_reason": "exact_code_content_signature",
+          "lossy_first_matched_anchor_signature": "c48bc2cf0a1c1257",
+          "lossy_first_matched_content_signature": "1d580fea14d8c004377acc8891e6f447",
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 66.3,
+        "total_ms": 179.0,
+        "text": "Yes, the fix is correct.",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "lossy_predicted_distance": 1.8268,
+          "lossy_context_aware_confidence": 0.6388,
+          "lossy_context_aware_multiplier": 0.6725,
+          "lossy_first_match_reason": "exact_code_content_signature",
+          "lossy_first_matched_anchor_signature": "c48bc2cf0a1c1257",
+          "lossy_first_matched_content_signature": "1d580fea14d8c004377acc8891e6f447",
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    }
+  },
+  {
+    "name": "same-func (BFS)",
+    "code1": "bfs_shortest",
+    "code2": "bfs_shortest",
+    "code1_lines": 17,
+    "code2_lines": 17,
+    "gt": {
+      "a1": {
+        "text": "**Purpose:** The code implements a Breadth-First Search (BFS) algorithm to find the shortest path from a start node to a target node in an unweighted graph.\n\n**Design Patterns:** Uses the Queue data structure from the `collections` module to implement BFS.\n\n**Potential Bugs:**\n1. **Uninitialized Graph:** If the graph is not properly initialized or contains missing nodes, the function may fail.\n2. **Duplicate Visits:** The `visited` set is used to avoid revisiting nodes, but if the graph is not connected, the function may not explore all nodes.\n3. **Path Reconstruction:** The path"
+      },
+      "a2": {
+        "text": "```python\n# A2 variant\nfrom collections import deque\n\ndef bfs_shortest_path(graph, start, target):\n    if start not in graph or target not in graph:\n        return None  # Handle uninitialized graph or missing nodes\n    \n    visited = set()\n    queue = deque([(start, [start])])\n    visited.add(start)\n    while queue:\n        current_node, path = queue.popleft()\n        if current_node == target:\n            return path\n        for neighbor in graph.get(current_node, []):\n            if neighbor not in visited:\n                visited.add(neighbor)\n                new_path = list(path)\n                new_path"
+      },
+      "a3": {
+        "text": "The fix is correct."
+      }
+    },
+    "no_reuse": {
+      "a1": {
+        "ttft_ms": 51.2,
+        "total_ms": 2089.9,
+        "text": "**Purpose:** The code implements a Breadth-First Search (BFS) algorithm to find the shortest path from a start node to a target node in an unweighted graph.\n\n**Design Patterns:** Uses the Queue data structure from the `collections` module to implement BFS.\n\n**Potential Bugs:**\n1. **Uninitialized Graph:** If the graph is not properly initialized or contains missing nodes, the function may fail.\n2. **Duplicate Visits:** The `visited` set is used to avoid revisiting nodes, but if the graph is not connected, the function may not explore all nodes.\n3. **Path Reconstruction:** The path",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 65.4,
+        "total_ms": 2103.7,
+        "text": "```python\n# A2 variant\nfrom collections import deque\n\ndef bfs_shortest_path(graph, start, target):\n    if start not in graph or target not in graph:\n        return None  # Handle uninitialized graph or missing nodes\n    \n    visited = set()\n    queue = deque([(start, [start])])\n    visited.add(start)\n    while queue:\n        current_node, path = queue.popleft()\n        if current_node == target:\n            return path\n        for neighbor in graph.get(current_node, []):\n            if neighbor not in visited:\n                visited.add(neighbor)\n                new_path = list(path)\n                new_path",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 85.8,
+        "total_ms": 168.5,
+        "text": "The fix is correct.",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    },
+    "full_reuse": {
+      "a1": {
+        "ttft_ms": 53.5,
+        "total_ms": 2109.5,
+        "text": "**Purpose:** The code implements a Breadth-First Search (BFS) algorithm to find the shortest path from a start node to a target node in an unweighted graph.\n\n**Design Patterns:** Uses the Queue data structure from the `collections` module to implement BFS.\n\n**Potential Bugs:**\n1. **Uninitialized Graph:** If the graph is not properly initialized or contains missing nodes, the function may fail.\n2. **Duplicate Visits:** The `visited` set is used to avoid revisiting nodes, but if the graph is not connected, the function may not explore all nodes.\n3. **Path Reconstruction:** The path",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 51.7,
+        "total_ms": 2091.6,
+        "text": "```python\n# A2 variant\nfrom collections import deque\n\ndef bfs_shortest_path(graph, start, target):\n    if start not in graph or target not in graph:\n        return None  # Handle uninitialized graph or missing nodes\n    \n    visited = set()\n    queue = deque([(start, [start])])\n    visited.add(start)\n    while queue:\n        current_node, path = queue.popleft()\n        if current_node == target:\n            return path\n        for neighbor in graph.get(current_node, []):\n            if neighbor not in visited:\n                visited.add(neighbor)\n                new_path = list(path)\n                new_path",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 62.3,
+        "total_ms": 142.7,
+        "text": "The fix is correct.",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    },
+    "lossy_reuse": {
+      "a1": {
+        "ttft_ms": 52.9,
+        "total_ms": 2108.5,
+        "text": "**Purpose:** The code implements a Breadth-First Search (BFS) algorithm to find the shortest path from a start node to a target node in an unweighted graph.\n\n**Design Patterns:** Uses the Queue data structure from the `collections` module to implement BFS.\n\n**Potential Bugs:**\n1. **Uninitialized Graph:** If the graph is not properly initialized or contains missing nodes, the function may fail.\n2. **Duplicate Visits:** The `visited` set is used to avoid revisiting nodes, but if the graph is not connected, the function may not explore all nodes.\n3. **Path Reconstruction:** The path",
+        "cached_tokens": 0,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a2": {
+        "ttft_ms": 53.4,
+        "total_ms": 2093.6,
+        "text": "```python\n# A2 variant\nfrom collections import deque\n\ndef bfs_shortest_path(graph, start, target):\n    if start not in graph or target not in graph:\n        return None  # Handle uninitialized graph or missing nodes\n    \n    visited = set()\n    queue = deque([(start, [start])])\n    visited.add(start)\n    while queue:\n        current_node, path = queue.popleft()\n        if current_node == target:\n            return path\n        for neighbor in graph.get(current_node, []):\n            if neighbor not in visited:\n                visited.add(neighbor)\n                new_path = list(path)\n                new_path",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "lossy_predicted_distance": 1.8268,
+          "lossy_context_aware_confidence": 0.6388,
+          "lossy_context_aware_multiplier": 0.6725,
+          "lossy_first_match_reason": "exact_code_content_signature",
+          "lossy_first_matched_anchor_signature": "6934c0bc9f25b75c",
+          "lossy_first_matched_content_signature": "1d44b2d01e4ce5c9511334dd52c8859e",
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "a3": {
+        "ttft_ms": 64.8,
+        "total_ms": 151.6,
+        "text": "The fix is correct.",
+        "cached_tokens": 25,
+        "meta": {
+          "lossy_anchor_rope_delta": 0,
+          "lossy_predicted_distance": 1.8268,
+          "lossy_context_aware_confidence": 0.6388,
+          "lossy_context_aware_multiplier": 0.6725,
+          "lossy_first_match_reason": "exact_code_content_signature",
+          "lossy_first_matched_anchor_signature": "6934c0bc9f25b75c",
+          "lossy_first_matched_content_signature": "1d44b2d01e4ce5c9511334dd52c8859e",
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0
+        }
+      },
+      "bleu": {
+        "a1": 1.0,
+        "a2": 1.0,
+        "a3": 1.0
+      }
+    }
+  }
+]
