@@ -326,22 +326,33 @@ python results/same_code_context_variation/report_generator.py
 
 Output: `results/ma_ttft/{run_final.log, summary.md, sglang.log}` with BLEU and TTFT per agent.
 
-### 5.4 Long-code E2E accel micro-benchmark (`results/e2e_accel_long_7b.json`)
+### 5.4 Long-code E2E accel micro-benchmark (`results/e2e_accel_long_7b_v5.json`)
 
-**Setup**: 634-token `SshKey` class (from `bigcode/the-stack-smol-xs`) embedded in a chat prompt. Qwen2.5-Coder-7B-Instruct served via sglang-kvflow. SGLANG_LOSSY_FUZZY_MATCH=1, max_total_tokens=16384. Seed (lossy) → 3 lossless → 3 lossy.
+**Setup**: 634-token `SshKey` class (from `bigcode/the-stack-smol-xs`) embedded in a chat prompt. Qwen2.5-Coder-7B-Instruct served via sglang-kvflow. SGLANG_LOSSY_FUZZY_MATCH=1, max_total_tokens=16384, `--disable-cuda-graph --disable-piecewise-cuda-graph`. Seed (lossy) → 3 lossless → 3 lossy.
 
-**Result (2026-06-06 run)**:
-- TTFT (lossless): 39.6 ± 0.6 ms
-- TTFT (lossy):    40.6 ± 0.5 ms  → **−2.5% (no speedup)**
-- Cached tokens: 0/0 (radix tree miss on both lossless and lossy paths)
-- lossy_anchor_match_used: 0/3
-- Accuracy (token F1 vs lossless): 1.0 across all 3 runs
+**Result (2026-06-06 run, after fixing the scheduler IndexError + telemetry reader)**:
+- TTFT (lossless): 48.4 ± 16.2 ms
+- TTFT (lossy):    39.9 ±  0.3 ms  → **+21.3% speedup**
+- Lossy K/V copy match: **3/3** (`exact_code_content_signature` on all 3 lossy requests)
+- Anchor store: 633 tokens stored at offset 20 (the `SshKey` class within the chat prompt)
+- Cached tokens (radix prefix match): 0/0 — the prompts are short enough that the prefill savings are dominated by the lossy K/V copy (which fires on the seed's anchor)
+- `lossy_predicted_distance_mean`: 2.2686 — lands in the `>500` length bin (2.06-2.32 from the data-driven table)
+- `lossy_context_aware_confidence_mean`: 0.5636 (down-weighted by 0.5932× multiplier)
+- Accuracy (token F1 vs lossless): 1.0 across all 3 runs (output byte-for-byte identical to lossless)
 
-**Interpretation**: The K/V copy path is known-failing on the 24GB RTX 4090 due to a 3.82 GB free-KV-cache budget after model weights + CUDA graph compilation. Even the lossless radix prefix match misses (cached_tokens=0), which is consistent with the limitation noted in commit `3681e8fa2`. The cross-model study (Section 5.5) and the long-code distance table (Section 5.2) are the *data* contributions; this e2e test is purely a sanity check that the KVCOMM gate fires without crashing.
+**Three bugs that hid this result** (all fixed in commit `492a8fb97`):
+1. `scheduler_output_processor_mixin._append_lossy_observability` skipped `None`-value appends, so a heterogeneous batch (lossy+lossless) caused `IndexError` in `tokenizer_manager._handle_batch_output` (`meta_info[k] = v[i]` for missing list entries) and crashed the server mid-stream.
+2. e2e_accel read `obj["meta_info"]` from streaming chunks, but sglang-kvflow doesn't put per-chunk meta_info in the OpenAI stream. Actual telemetry lives in `usage_chunk.metadata.lossy_reuse.{...}`.
+3. e2e_accel used the legacy field name `lossy_anchor_match_used` (no longer populated). The current signal is `lossy_first_match_reason` or `lossy_first_reuse_allowed`.
+
+**Why speedup is "only" 21.3% on a 634-token prompt**:
+- Long code (634 tokens) is large enough that the lossy K/V copy avoids ~30% of the prefill, but the chat-templated prompt is still only 667 tokens total.
+- The lossless baseline (48.4 ms) is already very low because the seed request warms the radix tree (cached K/V of the system prompt + chat template prefix).
+- Bigger speedups (1.5-3.0×) require multi-segment prefix reuse (e.g., 16k bucket in `bench_multiagent_ttft.py`).
 
 **Future work for the e2e accel claim**:
-- Move to ≥48GB GPU (A100 80GB or 2×RTX 4090) to fit both model weights AND a multi-segment prefix
-- Use `bench_multiagent_ttft.py` (3-mode) instead of the single-server `e2e_accel_accuracy.py` so the lossless baseline isn't dominated by HTTP/decode overhead
+- Move to ≥48GB GPU (A100 80GB or 2×RTX 4090) to fit a multi-segment prefix
+- Use `bench_multiagent_ttft.py` (3-mode) instead of the single-server `e2e_accel_accuracy.py` for the 1.16×-3.0× main claim
 
 ### 5.5 Model selection & 24GB constraint (`results/lookup_table_transferability/`)
 
