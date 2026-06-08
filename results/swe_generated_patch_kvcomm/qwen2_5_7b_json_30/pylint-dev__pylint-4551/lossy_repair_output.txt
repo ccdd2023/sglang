@@ -1,0 +1,41 @@
+Sure, to get the annotations from `pylint` or `mypy` (used by `mypy.ini` or `pyright` to understand and enforce type hints annotations, you can follow these steps:
+
+### Steps 1: Install or Upgrade Type-Checking Tools
+If you are using `mypy` or `pylint` with `mypy` for type-checking, you should ensure `mypy` is installed and up-to-date. If you are using `pylint` with `mypy` plugin, you can install or upgrade it:
+
+```bash
+pip install mypy
+pip install --upgrade mypy
+```
+
+Alternatively, if you are using `pylint` with `mypy` plugin, you can install or upgrade `pylint` and the the plugin:
+
+```bash
+pip install pylint
+pip install git+https://github.com/PyCQA/mypy
+# or upgrade
+pip install -U mypy-extensions
+```
+
+Alternatively, if you are using `mypy` standalone, you can annotate your class/methods/functions/classes/functions/classes_example.py as follows:
+
+### Step 2: Modify the Example Code
+Update your class/method/function/class annotations:
+
+```python
+from typing import Optional, TypeVar, Type
+
+T = TypeVar('T')
+
+class MyClass:
+    def __init__(self, a: Optional[str] = ...) -> None:
+        ...
+
+    def my_method(self, param1: 'Optional[str]', 
+                \    # or
+                # or
+                # or
+                # or
+```
+
+However, for a completeness and to clarify, here's how you can annotate the class and its `__init__` and `my_method` function/method/functions/classes/functions/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes/functions/classes

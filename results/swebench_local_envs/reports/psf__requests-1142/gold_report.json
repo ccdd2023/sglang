@@ -1,0 +1,15 @@
+{
+  "instance_id": "psf__requests-1142",
+  "repo": "psf/requests",
+  "version": "1.1",
+  "mode": "gold",
+  "env_name": "swe_psf_requests_1142_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-1142",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "test_requests.py::RequestsTestCase::test_no_content_length"
+  ],
+  "returncode": 0
+}

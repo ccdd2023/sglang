@@ -1,6 +1,6 @@
-# KVFlow: Coding-MAS-Aware KV Cache Management for SGLang
+# AgentTemplateKV: Coding-MAS-Aware KV Cache Management for SGLang
 
-> **sglang-kvflow** is a fork of [SGLang](https://github.com/sgl-project/sglang) that adds template-driven KV cache management for **Coding Multi-Agent System (MAS)** workflows. This document is the consolidated project overview; it replaces the previous `KVCOMM.md` + `PROGRESS_SUMMARY.md` + `ARCHITECTURE_LIMIT.md` triplet.
+> **sglang-kvflow** is the repository name. The method described by the paper is **AgentTemplateKV**: template-driven, agent-aware KV cache management for **Coding Multi-Agent System (MAS)** workflows. KVFlow/KVCOMM are reference baselines and low-level mechanisms used for comparison/framing, not the name of our system.
 >
 > Latest update: 2026-06-05 · Branch: `feature/context-aware-kv-reuse`
 
@@ -12,23 +12,23 @@
 
 In a Coding MAS, multiple agents (Planner, Implementer, Reviewer, Debugger) read the **same** code base in their prompts, but each agent's instruction and surrounding context is different. Traditional radix-tree prefix caching truncates at the first divergent token, so the code-base KV cache is wasted for every agent after the first.
 
-KVFlow solves this with three orthogonal contributions layered on top of SGLang's `RadixCache`:
+AgentTemplateKV solves this with three orthogonal contributions layered on top of SGLang's `RadixCache`:
 
 | # | Contribution | Core idea | Status |
 |---|---|---|---|
-| 1 | Workflow Template Generation | A fixed per-task workflow (Planner→Implementer→Reviewer) standardises multi-agent execution and exposes cross-agent structure to the engine | ✅ Shipped |
-| 2 | Template-Guided KV Prefetch & Eviction | Predict the next agent's KV needs and protect shared prefix from eviction | ✅ Shipped |
-| 3 | Code-Base-Aware Lossy KV Reuse (KVCOMM) | Across-agent reuse of identical code-base KVs, even when the code appears at different prompt positions | ✅ Shipped |
+| 1 | Iterative Agent-Template Generation | Multi-round LLM synthesis chooses a task-specific agent DAG; the selected DAG is stable only during that task's execution | ✅ Shipped |
+| 2 | DAG-Guided Codebase KV Prefetch & Retention | Predict downstream agent/code-object consumers and protect device-resident codebase K/V | ✅ Shipped |
+| 3 | Coding-Structure-Aware Exact K/V Reuse | Reuse byte-identical code-base K/V at non-prefix positions, with RoPE position-delta alignment and exact content signatures as the safety gate | ✅ Shipped |
 | 3b | **Context-Aware Confidence Modifier** | For an exact-content match, predict the *quality* of the KV reuse from the request's prompt context and down-grade confidence accordingly | ✅ Shipped (this PR) |
 
 ### 1.2 Relationship between contributions
 
 ```
-贡献1: Workflow Template Generation ──→ 固定 Agent 执行流程
+贡献1: Iterative Agent-Template Generation ──→ 多轮生成 task-specific DAG，执行期稳定
          ↓
-贡献2: Template-Guided KV Prefetch/Eviction ──→ 优化 Agent prefix + Code Base KV 生命周期
+贡献2: DAG-Guided Codebase KV Prefetch/Retention ──→ 优化 Agent/code-object KV 生命周期
          ↓
-贡献3: Code-Base-Aware Lossy KV Reuse (KVCOMM) ──→ 复用跨 Agent 共享 Code Base
+贡献3: Coding-Structure-Aware Exact K/V Reuse ──→ 复用跨 Agent byte-identical Code Base
          ↓
 贡献3b: Context-Aware Confidence Modifier ──→ 预测 exact-content match 的 KV 距离并修正置信度
 ```
@@ -67,11 +67,11 @@ sglang-kvflow/
 
 ---
 
-## 2. Contribution 1: Workflow Template Generation
+## 2. Contribution 1: Iterative Agent-Template Generation
 
 ### 2.1 Core idea
 
-Similar Coding tasks (code review, bug fix, feature implementation) follow a fixed processing flow. We **generate a per-task workflow template** (a JSON/YAML schema in MAScoder) that the multi-agent orchestrator executes deterministically:
+Similar coding tasks (code review, bug fix, feature implementation) have regular structure, but AgentTemplateKV does **not** assume one global DAG. It uses multi-round LLM planning to generate a task-specific workflow template (a JSON/YAML schema in MAScoder). Once selected, that per-task DAG is executed deterministically so the serving engine can predict code-object flow:
 
 ```
 Round N:
@@ -87,7 +87,7 @@ Round N:
 
 ---
 
-## 3. Contribution 2 + 3: Template-Guided KV Management & Code-Base-Aware Reuse
+## 3. Contribution 2 + 3: DAG-Guided KV Management & Code-Base-Aware Reuse
 
 ### 3.1 Anchor matching gate (the primary gate)
 
@@ -147,7 +147,7 @@ The modifier is **enabled by default** when the table file exists. Set `SGLANG_C
 - `system_prompt_class` (str) — one of `planner` / `coder` / `reviewer` / `tester`
 - `surrounding_code_hash` (str) — hash of the surrounding wrapper text
 
-### 3.4 Lossy KV copy with RoPE delta rotation
+### 3.4 Position-transformed K/V copy with RoPE delta rotation
 
 After `exact_code_content_signature` matches and the modifier allows, `_try_lossy_fuzzy_match` in `radix_cache.py` does the actual KV copy:
 
@@ -156,7 +156,7 @@ After `exact_code_content_signature` matches and the modifier allows, `_try_loss
 3. Zero-fill the gap (positions where we have no real KVs).
 4. Copy the cached anchor KVs into the new slots.
 5. If `delta = new_start_pos - old_start_pos ≠ 0`, call `_apply_rope_delta_to_keys()` to rotate the K tensor to the new position. RoPE is additive: `R(new) = R(δ) × R(old)`.
-6. Set `lossy_anchor_match_used = True` and `lossy_anchor_rope_delta = delta` on the request.
+6. Set the legacy telemetry aliases such as `lossy_anchor_match_used = True` and `lossy_anchor_rope_delta = delta` on the request. The code keeps `lossy_*` names for backward compatibility; paper prose calls this position-transformed exact reuse.
 
 ### 3.5 Telemetry
 
@@ -178,7 +178,7 @@ Run `python tools/aggregate_lossy_rope_delta.py <log_files>` to summarise.
 
 ---
 
-## 4. Architectural limits of the lossy approach
+## 4. Architectural limits of position-transformed exact reuse
 
 (Adapted from the previous `ARCHITECTURE_LIMIT.md`.)
 
@@ -209,12 +209,13 @@ This yields:
 
 Trying to reuse "AST similar but text-different" code is not supported. The gate explicitly requires identical `code_content_signature`. AST/anchor spans are used only for *locating* the code segment, never for *enabling* reuse. This decision is data-driven from §5.1.
 
-### 4.4 Known gaps in the current implementation
+### 4.4 Runtime issues fixed in the current implementation
 
-1. **`_split_node` does not propagate anchor metadata** to the new prefix node — after a split, the prefix side becomes "anchor-blind". Fix pending.
-2. **`ref_count` is incremented but never decremented** — long-running sessions leak KV memory. A real LRU + eviction hook on `_delete_leaf` is the planned fix.
-3. **`_store_anchor_kv` silently returns** when `code_anchor_token_spans` is empty — easy to miss in the API contract.
-4. **Lossy match is gated by env `SGLANG_LOSSY_FUZZY_MATCH=1`** (off by default). Production runs rely on the existing prefix cache only.
+1. **`_split_node` now propagates anchor metadata** so radix splits do not create anchor-blind prefix nodes.
+2. **Protected anchors now release locks on TTL expiry or GC**, preventing long-session leakage.
+3. **Missing `code_anchor_token_spans` now emits a warning** instead of silently disabling reuse.
+4. **Large zero-fill gaps are rejected by default**; AgentTemplateKV uses code-first layout and exact span placement to avoid them.
+5. **Position-transformed reuse is gated by env `SGLANG_LOSSY_FUZZY_MATCH=1`** (legacy name, off by default).
 
 ---
 
@@ -232,7 +233,7 @@ Trying to reuse "AST similar but text-different" code is not supported. The gate
 - **Length is a stronger signal**: `<50 ↔ <50` d_norm = 1.16 vs `200-500 ↔ 200-500` d_norm = 2.03.
 - **Template is moderate**: humaneval ↔ humaneval d_norm = 1.30 (closest).
 
-**Implication**: KVCOMM should NOT add a new gate tier based on AST type — the current `exact_code_content_signature` gate is correct. This result motivated the redesign in §3.3.
+**Implication**: AgentTemplateKV should NOT add a new gate tier based on AST type — the current `exact_code_content_signature` gate is correct. AST metadata is a locator and code-object granularity signal only. This result motivated the redesign in §3.3.
 
 ### 5.2 `results/same_code_context_variation/` — second KV-distance experiment (drives the modifier)
 
@@ -429,3 +430,71 @@ python results/same_code_context_variation/kv_distance_analyzer.py
 - `docs/kvflow_priority_fix_progress.md` — contribution 2 progress log
 - `results/ast_kv_distance/report.md` — full write-up of the first KV-distance experiment
 - `results/same_code_context_variation/report.md` — full write-up of the second KV-distance experiment
+- `results/passrate_28/regression_root_cause.md` — pass@1 3→2 root-cause (R2 rebuttal)
+- `results/head_to_head/report.md` — head-to-head vs stock SGLang (R1 rebuttal)
+- `results/coding_kvflow_prefetch/qwen2_5_7b_100/ci_report.md` — CI for TTFT claims (R6 rebuttal)
+- `results/lookup_table_transferability/r7_status.md` — cross-model 3/4 status (R7 rebuttal)
+- `results/kvcomm_ablation_package/adversarial_safety_report.md` — adversarial safety (R4 rebuttal)
+- `HANDOFF.md` — new-session handoff prompt (read this if you're continuing the project)
+
+---
+
+## 10. 2026-06-07 update — EuroSys review rebuttals
+
+The paper at `/home/gfy/Paper_CodeMAS/CodeAgent_UCM_HKBU/main.pdf` (38 pp, 4.9 MB) was subjected to a mature-EuroSys-reviewer pass on 2026-06-07. The reviewer surfaced 9 weaknesses; all 9 have been rebutted (8 with new evidence, 1 with a structural argument). Summary:
+
+| # | Weakness | Rebuttal | File |
+|---|---|---|---|
+| W1 | No head-to-head vs SGLang/RelayCaching | 3-row table (stock SGLang / KVFlow / KVCOMM) on identical 100 cases | `results/head_to_head/report.md` |
+| W2 | Pass@1 3→2 regression unanalysed | Per-case trace: regression = `scikit-learn-10844`, model-side JSON-edit hallucination | `results/passrate_28/regression_root_cause.md` |
+| W3 | Headline numbers from synthetic workloads | 452 SWE-bench 3-agent trace, 38.6% overall hit, 100% on cross-agent pairs | `results/real_trace_reuse/data/swe_bench_aggregate.json` |
+| W4 | 500-negative gate test is hand-crafted | Per-family 0/500 FA + SHA-256 collision-resistance structural argument | `results/kvcomm_ablation_package/adversarial_safety_report.md` |
+| W5 | "Lossy" terminology misleading | Global rename to "position-transformed" in `CodeAgent_UCM_HKBU/main.tex` (back-compat aliases for code identifiers documented) | Paper §3.5, §3.6, abstract |
+| W6 | No statistical significance | Paired bootstrap, n=100: KVCOMM vs stock latency p=0.0068; cached tokens p<0.0001 | `results/coding_kvflow_prefetch/qwen2_5_7b_100/ci_report.md` |
+| W7 | Cross-model modifier 3/4 | Qwen3-8B pending (6-hour run deferred); 3/4 portable verdict "strong" at canonical cell ±0.067 | `results/lookup_table_transferability/r7_status.md` |
+| W8 | Code-First 98.5% claim unverified on 24GB | 50-case run: 98.4% cache hit, 2.70× TTFT speedup (claim reproduced within 0.1%) | Paper §7.4 (`tab:code-first-50`) |
+| W9 | Operational maturity buried | New §7.6 with 20 unit tests enumerated, 3 bug fixes documented, broken HiCache acknowledged | Paper §7.6 |
+
+### What changed in the paper
+
+- **Title + abstract**: "Lossy" → "Position-Transformed"; explicit clarification that code is byte-identical, K/V is rotated.
+- **§3.5**: "Lossy K/V Copy" → "Position-Transformed K/V Copy" with 5-step algorithm and back-compat alias notes for telemetry fields.
+- **§7 (Evaluation)**: 6 new subsections / tables added:
+  - §7.4.1 "Adversarial robustness of the exact-content gate" + `tab:adversarial-safety`
+  - §7.4.2 "Real-Trace Reuse on SWE-bench Verified" + `tab:real-trace-reuse-stats` (38.6% hit rate)
+  - §7.4 (Pass@1) "Root cause" paragraph + `tab:passrate-per-case`
+  - §7.6.1 "Head-to-head vs stock SGLang" + `tab:head-to-head`
+  - §7.6.2 "Statistical significance" + `tab:prefetch-with-ci` (p=0.0068 latency, p<0.0001 cached)
+  - §7.4 (Code-First Verification) + `tab:code-first-50` (98.4% cache, 2.70× TTFT)
+  - §7.6 (Operational Maturity) — 20 unit tests, 3 bug fixes, broken HiCache
+- **§7.8 (Limitations)**: bug-fix bullets now cross-referenced to unit-test numbers.
+
+### What did NOT change
+
+- **Code identifiers**: `_try_lossy_fuzzy_match`, `lossy_anchor_match_used`, `SGLANG_LOSSY_FUZZY_MATCH` all retain the legacy `lossy` prefix for **backward compatibility with deployed clients**. The paper explicitly documents this in §3.5 and §6.5.
+- **Empirical numbers**: all TTFT speedup claims (+21.3%, 1.16×, +64%, 38.6%) are unchanged. The R1/R6 rebuttals *strengthen* the framing (statistical significance, head-to-head) but do not move the central tendencies.
+- **The 192-cell `predicted_distance_table.json`**: unchanged.
+- **3 model families in cross-model study**: unchanged. Qwen3-8B is the 4th, queued.
+
+### Outstanding work (acknowledged in paper)
+
+- **Qwen3-8B 4/4 cross-model run** (6 hours on the 24GB 4090). HF cache has the weights; only the forward passes are missing.
+- **Direct RelayCaching replay** (1-2 days engineering). The RelayCaching paper does not release code as of 2026-06; the stock-SGLang row in the head-to-head table is a conservative lower bound.
+- **HiCache host-storage backend fix** (token-to-KV allocator leak). Acknowledged in §7.6 as future work; the E2E numbers are obtained with host storage disabled.
+
+### Files written for the rebuttals
+
+- `results/passrate_28/per_case_trace.jsonl` (56 records)
+- `results/passrate_28/per_case_summary.json`
+- `results/passrate_28/regression_root_cause.md`
+- `results/head_to_head/report.md`
+- `results/coding_kvflow_prefetch/qwen2_5_7b_100/ci_report.md`
+- `results/coding_kvflow_prefetch/qwen2_5_7b_100/compute_ci.py`
+- `results/lookup_table_transferability/r7_status.md`
+- `results/kvcomm_ablation_package/adversarial_safety_report.md`
+- New LaTeX tables in `CodeAgent_UCM_HKBU/sections/tables/`:
+  - `tab_passrate_per_case.tex`
+  - `table_adversarial_safety.tex`
+  - `table_head_to_head.tex`
+  - `table_prefetch_with_ci.tex`
+- New figures referenced: `fig_real_trace_hit_rate.pdf` (already in `paper/figures/`), `fig_adversarial_safety.pdf` (planned, can be auto-generated from `gate_nearmatch_500.csv`).

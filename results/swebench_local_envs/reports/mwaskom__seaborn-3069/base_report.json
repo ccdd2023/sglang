@@ -1,0 +1,16 @@
+{
+  "instance_id": "mwaskom__seaborn-3069",
+  "repo": "mwaskom/seaborn",
+  "version": "0.12",
+  "mode": "base",
+  "env_name": "swe_mwaskom_seaborn_3069_base",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/mwaskom__seaborn-3069",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "--no-header",
+    "-rA",
+    "tests/_core/test_plot.py::TestScaling::test_nominal_x_axis_tweaks"
+  ],
+  "returncode": 1
+}

@@ -1,0 +1,12 @@
+diff --git a/astropy/timeseries/core.py b/astropy/timeseries/core.py
+--- a/astropy/timeseries/core.py
++++ b/astropy/timeseries/core.py
+@@ -30,6 +30,8 @@
+         def wrapper(self, *args, **kwargs):
+             result = method(self, *args, **kwargs)
+             self._check_required_columns()
++            if not self._check_required_columns():
++                raise ValueError(f"TimeSeries object is invalid - expected {self._required_columns} as the first columns but found {list(self.colnames)}")
+             return result
+ 
+         return wrapper

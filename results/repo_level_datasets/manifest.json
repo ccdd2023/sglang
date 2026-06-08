@@ -1,0 +1,92 @@
+{
+  "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+  "samples": [
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "instance_id": "astropy__astropy-12907",
+      "repo_key": "astropy__astropy",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/astropy__astropy-12907",
+      "files": [
+        {
+          "path": "astropy/modeling/core.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/astropy__astropy-12907/astropy/modeling/core.py",
+          "content_hash": "13615f0d5a58344aa0054b03669f5badc519443b3578ecd78868f3fef9f7cb1e",
+          "lines": 4473,
+          "chars": 175823
+        },
+        {
+          "path": "astropy/table/table.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/astropy__astropy-12907/astropy/table/table.py",
+          "content_hash": "c42c0d5375112980d71b0cd6ee7070da392b7dabf5ff04f8a182d7475032a61b",
+          "lines": 3972,
+          "chars": 150650
+        },
+        {
+          "path": "astropy/io/votable/tree.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/astropy__astropy-12907/astropy/io/votable/tree.py",
+          "content_hash": "c0f407b14507566fa2c3d96935240deca7f8d2dabf9d960eee21ec79c1eaea2a",
+          "lines": 3881,
+          "chars": 131634
+        }
+      ]
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "instance_id": "django__django-10097",
+      "repo_key": "django__django",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-10097",
+      "files": [
+        {
+          "path": "django/db/models/fields/__init__.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-10097/django/db/models/fields/__init__.py",
+          "content_hash": "0cb17b964dde645db0b03c241695e12c452e28485769f5117f6efba86b14935f",
+          "lines": 2338,
+          "chars": 83969
+        },
+        {
+          "path": "django/db/models/sql/query.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-10097/django/db/models/sql/query.py",
+          "content_hash": "84c06efb9da20008362cf6670f41651566ebb631d779c8709945ef89d3421ac7",
+          "lines": 2224,
+          "chars": 98948
+        },
+        {
+          "path": "django/contrib/admin/options.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-10097/django/contrib/admin/options.py",
+          "content_hash": "d1b051ec7a035d1a91a75d612ac37f05fd623ad91bd4eb396b0550da9853ec98",
+          "lines": 2164,
+          "chars": 91683
+        }
+      ]
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "instance_id": "matplotlib__matplotlib-13989",
+      "repo_key": "matplotlib__matplotlib",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/matplotlib__matplotlib-13989",
+      "files": [
+        {
+          "path": "lib/matplotlib/axes/_axes.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/matplotlib__matplotlib-13989/lib/matplotlib/axes/_axes.py",
+          "content_hash": "6c4d3e43e8b4842976f388f41a131f1269c5f9131f8ab688a4e98760117c7e83",
+          "lines": 8164,
+          "chars": 311257
+        },
+        {
+          "path": "lib/matplotlib/patches.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/matplotlib__matplotlib-13989/lib/matplotlib/patches.py",
+          "content_hash": "3e62926da3d9c965627a63ce785581bc1d624f80fc87d11a25d067a47a5a0ea8",
+          "lines": 4579,
+          "chars": 150794
+        },
+        {
+          "path": "lib/matplotlib/axes/_base.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/matplotlib__matplotlib-13989/lib/matplotlib/axes/_base.py",
+          "content_hash": "0b18db403ae03c2b8561883efb9cd43c21a4a0723d915d8cc2c4b63236377618",
+          "lines": 4442,
+          "chars": 157015
+        }
+      ]
+    }
+  ]
+}

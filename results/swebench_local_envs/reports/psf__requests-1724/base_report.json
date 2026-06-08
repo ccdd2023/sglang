@@ -1,0 +1,15 @@
+{
+  "instance_id": "psf__requests-1724",
+  "repo": "psf/requests",
+  "version": "2.0",
+  "mode": "base",
+  "env_name": "swe_psf_requests_1724_base",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-1724",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "test_requests.py::RequestsTestCase::test_DIGEST_AUTH_RETURNS_COOKIE"
+  ],
+  "returncode": 1
+}

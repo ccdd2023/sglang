@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/image.py",
+      "search": "raise ValueError(\"Invalid vmin or vmax\")",
+      "replace": "if self.vmin == self.vmax: return np.full_like(value, 0)"
+    }
+  ]
+}
+```

@@ -1,0 +1,34 @@
+[
+  {
+    "seg_id": "he__HumanEval_23_strlen",
+    "ast_type": "FunctionDef",
+    "length_bin": "<50",
+    "token_count": 41,
+    "source": "def strlen(string: str) -> int:\n    \"\"\" Return length of given string\n    >>> strlen('')\n    0\n    >>> strlen('abc')\n    3\n    \"\"\"",
+    "source_id": "HumanEval_23_strlen"
+  },
+  {
+    "seg_id": "he__HumanEval_53_add",
+    "ast_type": "FunctionDef",
+    "length_bin": "<50",
+    "token_count": 47,
+    "source": "def add(x: int, y: int) -> int:\n    \"\"\"Add two numbers x and y\n    >>> add(2, 3)\n    5\n    >>> add(5, 7)\n    12\n    \"\"\"",
+    "source_id": "HumanEval_53_add"
+  },
+  {
+    "seg_id": "he__HumanEval_138_is_equal_to_sum_even",
+    "ast_type": "FunctionDef",
+    "length_bin": "50-200",
+    "token_count": 60,
+    "source": "def is_equal_to_sum_even(n: int) -> bool:\n    \"\"\"Evaluate whether the given number n can be written as the sum of exactly 4 positive even numbers\n    Example\n    >>> is_equal_to_sum_even(4)\n    False\n    >>> is_equal_to_sum_even(6)\n    False\n    >>> is_equal_to_sum_even(8)\n    True\n    \"\"\"",
+    "source_id": "HumanEval_138_is_equal_to_sum_even"
+  },
+  {
+    "seg_id": "he__HumanEval_36_fizz_buzz",
+    "ast_type": "FunctionDef",
+    "length_bin": "50-200",
+    "token_count": 63,
+    "source": "def fizz_buzz(n: int) -> int:\n    \"\"\"Return the number of times the digit 7 appears in integers less than n which are divisible by 11 or 13.\n    >>> fizz_buzz(50)\n    0\n    >>> fizz_buzz(78)\n    2\n    >>> fizz_buzz(79)\n    3\n    \"\"\"",
+    "source_id": "HumanEval_36_fizz_buzz"
+  }
+]

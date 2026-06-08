@@ -1,0 +1,10 @@
+```json
+{"ingressos":[{"path":"/path/to/file.py","search":"raise NotImplementedError","replace":"    def _calculate_separability_matrix(model):
+        if (model._calculate_separability_matrix()) is not NotImplemented:
+            return model._calculate_separability_matrix()
+        else:
+            return _default_separability_matrix(model)}
+       ,"path感"]:
+    "path":"/path/to/file.py"
+}]}
+```

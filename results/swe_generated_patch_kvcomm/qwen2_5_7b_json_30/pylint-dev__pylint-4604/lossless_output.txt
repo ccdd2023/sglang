@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "pylint/checkers/variables.py",
+      "search": "if any\\(isinstance\\(definition\\.parent, astroid\\.If\\) and definition\\.parent\\.test\\.as_string\\(\\) in TYPING_TYPE_CHECKS_GUARDS\\) for definition in globs\\[name\\]\\):",
+      "replace": "if any\\(isinstance\\(definition\\.parent, astroid\\.If\\) and definition\\.parent\\.test\\.as_string\\(\\) in TYPING_TYPE_CHECKS_GUARDS and not isinstance\\(definition\\.parent\\.parent, astroid\\.FunctionDef\\)\\) for definition in globs\\[name\\]\\):"
+    }
+  ]
+}
+```

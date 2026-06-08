@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "requests/auth.py",
+      "search": "response="%s"" % (respdig),
+      "replace": "response="%s"" % ('"%s"' % (respdig))
+    }
+  ]
+}
+```

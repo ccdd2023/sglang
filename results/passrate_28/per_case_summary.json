@@ -1,0 +1,18 @@
+{
+  "n_cases": 28,
+  "n_records": 56,
+  "lossless_pass1": 3,
+  "lossy_pass1": 2,
+  "regressions": [
+    {
+      "instance_id": "scikit-learn__scikit-learn-10844",
+      "lossless_fail_step": "none",
+      "lossy_fail_step": "json_edit_extract",
+      "lossy_match_reason": "exact_code_content_signature",
+      "lossy_candidate_count": 24,
+      "lossy_cached_tokens": 8863,
+      "lossless_cached_tokens": 1306
+    }
+  ],
+  "improvements": []
+}

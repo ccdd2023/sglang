@@ -1,0 +1,363 @@
+{
+  "agents": {
+    "planner": {
+      "agent": "planner",
+      "prefix": "Planner prefix",
+      "context": "content1: plan the workflow",
+      "segments": [
+        {
+          "segment_id": "code_base1",
+          "content_signature": "b7f755ed61b688242dbd7940b8a87372",
+          "anchor_signature": "",
+          "anchor_spans": []
+        },
+        {
+          "segment_id": "code_base2",
+          "content_signature": "d771fd6899f6eb45489505b1b0bc1ff9",
+          "anchor_signature": "",
+          "anchor_spans": []
+        },
+        {
+          "segment_id": "code_base3",
+          "content_signature": "5c3805e6a045d37fcc3077fec686d265",
+          "anchor_signature": "",
+          "anchor_spans": []
+        }
+      ]
+    },
+    "implementer": {
+      "agent": "implementer",
+      "prefix": "Implementer prefix",
+      "context": "context2: implement the requested behavior",
+      "segments": [
+        {
+          "segment_id": "code_base1",
+          "content_signature": "b7f755ed61b688242dbd7940b8a87372",
+          "anchor_signature": "",
+          "anchor_spans": []
+        },
+        {
+          "segment_id": "code_base2",
+          "content_signature": "d771fd6899f6eb45489505b1b0bc1ff9",
+          "anchor_signature": "",
+          "anchor_spans": []
+        }
+      ]
+    },
+    "debugger": {
+      "agent": "debugger",
+      "prefix": "Debugger prefix",
+      "context": "context2: inspect runtime failure",
+      "segments": [
+        {
+          "segment_id": "code_base3",
+          "content_signature": "5c3805e6a045d37fcc3077fec686d265",
+          "anchor_signature": "",
+          "anchor_spans": []
+        }
+      ]
+    }
+  },
+  "scenarios": {
+    "planner_implementer_s1": {
+      "events": [
+        {
+          "agent": "planner",
+          "segment_id": "code_base1",
+          "reusable_from": null,
+          "reuse_allowed": false,
+          "match_reason": "first_observation",
+          "matched_content_signature": "",
+          "estimated_cached_tokens": 0
+        },
+        {
+          "agent": "implementer",
+          "segment_id": "code_base1",
+          "reusable_from": "planner",
+          "reuse_allowed": true,
+          "match_reason": "exact_code_content_signature",
+          "matched_content_signature": "b7f755ed61b688242dbd7940b8a87372",
+          "estimated_cached_tokens": 4988
+        }
+      ],
+      "exact_hits": 1,
+      "estimated_cached_tokens": 4988,
+      "agent_count": 2
+    },
+    "planner_implementer_s2": {
+      "events": [
+        {
+          "agent": "planner",
+          "segment_id": "code_base1",
+          "reusable_from": null,
+          "reuse_allowed": false,
+          "match_reason": "first_observation",
+          "matched_content_signature": "",
+          "estimated_cached_tokens": 0
+        },
+        {
+          "agent": "planner",
+          "segment_id": "code_base2",
+          "reusable_from": null,
+          "reuse_allowed": false,
+          "match_reason": "first_observation",
+          "matched_content_signature": "",
+          "estimated_cached_tokens": 0
+        },
+        {
+          "agent": "implementer",
+          "segment_id": "code_base1",
+          "reusable_from": "planner",
+          "reuse_allowed": true,
+          "match_reason": "exact_code_content_signature",
+          "matched_content_signature": "b7f755ed61b688242dbd7940b8a87372",
+          "estimated_cached_tokens": 4988
+        },
+        {
+          "agent": "implementer",
+          "segment_id": "code_base2",
+          "reusable_from": "planner",
+          "reuse_allowed": true,
+          "match_reason": "exact_code_content_signature",
+          "matched_content_signature": "d771fd6899f6eb45489505b1b0bc1ff9",
+          "estimated_cached_tokens": 4989
+        }
+      ],
+      "exact_hits": 2,
+      "estimated_cached_tokens": 9977,
+      "agent_count": 2
+    },
+    "planner_implementer_s3": {
+      "events": [
+        {
+          "agent": "planner",
+          "segment_id": "code_base1",
+          "reusable_from": null,
+          "reuse_allowed": false,
+          "match_reason": "first_observation",
+          "matched_content_signature": "",
+          "estimated_cached_tokens": 0
+        },
+        {
+          "agent": "planner",
+          "segment_id": "code_base2",
+          "reusable_from": null,
+          "reuse_allowed": false,
+          "match_reason": "first_observation",
+          "matched_content_signature": "",
+          "estimated_cached_tokens": 0
+        },
+        {
+          "agent": "planner",
+          "segment_id": "code_base3",
+          "reusable_from": null,
+          "reuse_allowed": false,
+          "match_reason": "first_observation",
+          "matched_content_signature": "",
+          "estimated_cached_tokens": 0
+        },
+        {
+          "agent": "implementer",
+          "segment_id": "code_base1",
+          "reusable_from": "planner",
+          "reuse_allowed": true,
+          "match_reason": "exact_code_content_signature",
+          "matched_content_signature": "b7f755ed61b688242dbd7940b8a87372",
+          "estimated_cached_tokens": 4988
+        },
+        {
+          "agent": "implementer",
+          "segment_id": "code_base2",
+          "reusable_from": "planner",
+          "reuse_allowed": true,
+          "match_reason": "exact_code_content_signature",
+          "matched_content_signature": "d771fd6899f6eb45489505b1b0bc1ff9",
+          "estimated_cached_tokens": 4989
+        }
+      ],
+      "exact_hits": 2,
+      "estimated_cached_tokens": 9977,
+      "agent_count": 2
+    },
+    "planner_implementer_debugger_s1": {
+      "events": [
+        {
+          "agent": "planner",
+          "segment_id": "code_base1",
+          "reusable_from": null,
+          "reuse_allowed": false,
+          "match_reason": "first_observation",
+          "matched_content_signature": "",
+          "estimated_cached_tokens": 0
+        },
+        {
+          "agent": "implementer",
+          "segment_id": "code_base1",
+          "reusable_from": "planner",
+          "reuse_allowed": true,
+          "match_reason": "exact_code_content_signature",
+          "matched_content_signature": "b7f755ed61b688242dbd7940b8a87372",
+          "estimated_cached_tokens": 4988
+        }
+      ],
+      "exact_hits": 1,
+      "estimated_cached_tokens": 4988,
+      "agent_count": 3
+    },
+    "planner_implementer_debugger_s2": {
+      "events": [
+        {
+          "agent": "planner",
+          "segment_id": "code_base1",
+          "reusable_from": null,
+          "reuse_allowed": false,
+          "match_reason": "first_observation",
+          "matched_content_signature": "",
+          "estimated_cached_tokens": 0
+        },
+        {
+          "agent": "planner",
+          "segment_id": "code_base2",
+          "reusable_from": null,
+          "reuse_allowed": false,
+          "match_reason": "first_observation",
+          "matched_content_signature": "",
+          "estimated_cached_tokens": 0
+        },
+        {
+          "agent": "implementer",
+          "segment_id": "code_base1",
+          "reusable_from": "planner",
+          "reuse_allowed": true,
+          "match_reason": "exact_code_content_signature",
+          "matched_content_signature": "b7f755ed61b688242dbd7940b8a87372",
+          "estimated_cached_tokens": 4988
+        },
+        {
+          "agent": "implementer",
+          "segment_id": "code_base2",
+          "reusable_from": "planner",
+          "reuse_allowed": true,
+          "match_reason": "exact_code_content_signature",
+          "matched_content_signature": "d771fd6899f6eb45489505b1b0bc1ff9",
+          "estimated_cached_tokens": 4989
+        }
+      ],
+      "exact_hits": 2,
+      "estimated_cached_tokens": 9977,
+      "agent_count": 3
+    },
+    "planner_implementer_debugger_s3": {
+      "events": [
+        {
+          "agent": "planner",
+          "segment_id": "code_base1",
+          "reusable_from": null,
+          "reuse_allowed": false,
+          "match_reason": "first_observation",
+          "matched_content_signature": "",
+          "estimated_cached_tokens": 0
+        },
+        {
+          "agent": "planner",
+          "segment_id": "code_base2",
+          "reusable_from": null,
+          "reuse_allowed": false,
+          "match_reason": "first_observation",
+          "matched_content_signature": "",
+          "estimated_cached_tokens": 0
+        },
+        {
+          "agent": "planner",
+          "segment_id": "code_base3",
+          "reusable_from": null,
+          "reuse_allowed": false,
+          "match_reason": "first_observation",
+          "matched_content_signature": "",
+          "estimated_cached_tokens": 0
+        },
+        {
+          "agent": "implementer",
+          "segment_id": "code_base1",
+          "reusable_from": "planner",
+          "reuse_allowed": true,
+          "match_reason": "exact_code_content_signature",
+          "matched_content_signature": "b7f755ed61b688242dbd7940b8a87372",
+          "estimated_cached_tokens": 4988
+        },
+        {
+          "agent": "implementer",
+          "segment_id": "code_base2",
+          "reusable_from": "planner",
+          "reuse_allowed": true,
+          "match_reason": "exact_code_content_signature",
+          "matched_content_signature": "d771fd6899f6eb45489505b1b0bc1ff9",
+          "estimated_cached_tokens": 4989
+        },
+        {
+          "agent": "debugger",
+          "segment_id": "code_base3",
+          "reusable_from": "planner",
+          "reuse_allowed": true,
+          "match_reason": "exact_code_content_signature",
+          "matched_content_signature": "5c3805e6a045d37fcc3077fec686d265",
+          "estimated_cached_tokens": 4990
+        }
+      ],
+      "exact_hits": 3,
+      "estimated_cached_tokens": 14967,
+      "agent_count": 3
+    }
+  },
+  "rows": [
+    {
+      "workflow": "planner_implementer",
+      "segment_count": 1,
+      "agent_count": 2,
+      "exact_hits": 1,
+      "estimated_cached_tokens": 4988,
+      "event_count": 2
+    },
+    {
+      "workflow": "planner_implementer",
+      "segment_count": 2,
+      "agent_count": 2,
+      "exact_hits": 2,
+      "estimated_cached_tokens": 9977,
+      "event_count": 4
+    },
+    {
+      "workflow": "planner_implementer",
+      "segment_count": 3,
+      "agent_count": 2,
+      "exact_hits": 2,
+      "estimated_cached_tokens": 9977,
+      "event_count": 5
+    },
+    {
+      "workflow": "planner_implementer_debugger",
+      "segment_count": 1,
+      "agent_count": 3,
+      "exact_hits": 1,
+      "estimated_cached_tokens": 4988,
+      "event_count": 2
+    },
+    {
+      "workflow": "planner_implementer_debugger",
+      "segment_count": 2,
+      "agent_count": 3,
+      "exact_hits": 2,
+      "estimated_cached_tokens": 9977,
+      "event_count": 4
+    },
+    {
+      "workflow": "planner_implementer_debugger",
+      "segment_count": 3,
+      "agent_count": 3,
+      "exact_hits": 3,
+      "estimated_cached_tokens": 14967,
+      "event_count": 6
+    }
+  ],
+  "passed": true
+}

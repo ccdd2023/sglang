@@ -1,0 +1,77 @@
+It seems like you're encountering an a incompatibility in how axes handle the `invert_xaxis` and `invert_y` for a `matplotlib` when using a `LogLocator` scale. Specifically, in `matplotlib` 3.1.0, inverting the `y`-axis (or `invert_y`) on a `matplotlib` `3.1.0` and later might not behave as expected, especially when combined with a `log` scale.
+
+### Explanation:
+- **Previous Behavior (Before 3.1.0):**
+  - When inverting the `y`-axis (`invert_y`) with `yscale='log'`, the plot would automatically adjust to inverting the `y`-axis correctly.
+
+- **Current Behavior (3.1.0 and later):**
+  - The inverting of the `y`-axis is not automatically adjusted when `yscale='log'`.
+
+### Solution:
+To revert the inverting of the `y`-axis when using `yscale='log'` in `matplotlib 3.1.0+`, you can manually adjust the `ylim` manually. Specifically, you can manually specify the `ylim` that inverts the `y`-axis.
+
+Here's how you can modify your script to work correctly:
+
+1. **Explicitly set `ylim` with inverted `y`-axis.**
+2. Ensure `autoscale` is `False` to prevent automatic adjustment.
+
+### Updated Script:
+
+```python
+import numpy as np
+from matplotlib import pyplot as plt
+
+# Sample data
+y = np.random.rand(10)
+x = np.arange(10)
+
+# Create a plot with yscale='log'
+fig, ax = plt.subplots()
+_ = plt.plot(x, 10. * x, '-')
+plt.yscale('log')
+
+# Explicitly set the ylim to invert the y-axis
+plt.ylim(1, 1000)  # Adjust the ylim to invert the axis
+
+plt.show()
+```
+
+Alternatively, if you want to invert the axis dynamically based on the plot data range:
+
+```python
+# Get the y-data dynamically
+ylim = (y.min() - 1, y.max() + 1)
+
+# Invert the ylim dynamically
+plt.ylim(*ylim.tolist())
+
+plt.show()
+```
+
+Alternatively, if you are using `matplotlib` 3.1.0 and above, and you want to ensure that the `yscale` is handled correctly, you can use:
+
+### Full-Commit Patch:
+1. **Backport the `invert_*` methods:**
+   - You can manually redefine or add a `_set_inverted` and `_get_inverted` in `_Axis` and `_XYPropsTester` to handle inverting dynamically.
+
+2. **Use `_invertible` flag:**
+   - Ensure `_invertible` is `True` for the `Transforms` that need inverting dynamically.
+
+Here's a snippet to manually redefine `_invert` in `_Axis`:
+
+```python
+from matplotlib.axis import XYPolynomialAxis
+
+class MyXYPolynomialAxis(mpl.axis.XYPolynomialAxis):
+    def _invert(self, renderer, renderer, is_first, is_last):
+        if self.get_inverted():
+            return self._transform.iscale.inverse_transform_values(
+                [self.get_view_interval().get_extents()[1], 0])
+        else:
+            return self._transform.transform_values(
+                [0, self.get_view_interval().get_extents()[1]])
+
+mpl.axis.XYPAxis = type('XYPolynomialAxis', mpl.axis.XYPolynomialAxis, {})
+mpl.axis.YAxis = mpl.axis.XYPAxis
+mpl.axis.Axis = mpl.axis.YAxis
+mpl.axis.XAxis = mpl.axis.XYP

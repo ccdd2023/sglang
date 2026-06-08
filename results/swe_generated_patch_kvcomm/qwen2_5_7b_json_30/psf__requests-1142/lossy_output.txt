@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "repo/requests/models.py",
+      "search": "self.headers['Content-Length'] = '0'",
+      "replace": "self.headers.pop('Content-Length', None)"
+    }
+  ]
+}
+```

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Benchmark KVFlow prefix prefetch vs coding-aware codebase prefetch."""
+"""Benchmark prefix caching vs AgentTemplateKV coding-aware codebase prefetch."""
 
 from __future__ import annotations
 
@@ -53,6 +53,13 @@ MODES = [
     "kvflow_prefix_plus_codebase_prefetch",
     "kvcomm_lossy_plus_codebase_prefetch",
 ]
+
+DISPLAY_MODE = {
+    "baseline_prefix_cache_only": "stock_sglang_prefix_only",
+    "kvflow_prefix_only": "kvflow_style_prefix_baseline",
+    "kvflow_prefix_plus_codebase_prefetch": "kvflow_style_prefix_plus_hints",
+    "kvcomm_lossy_plus_codebase_prefetch": "agenttemplatekv_exact_reuse",
+}
 
 
 def launch_server(args: argparse.Namespace) -> subprocess.Popen:
@@ -331,6 +338,13 @@ async def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
                             "codebase_prefetch_matched_tokens": meta.get("codebase_prefetch_matched_tokens", 0),
                             "codebase_prefetch_success_count": meta.get("codebase_prefetch_success_count", 0),
                             "codebase_prefetch_device_hit_count": meta.get("codebase_prefetch_device_hit_count", 0),
+                            "agenttemplatekv_prefetch_hit_count": meta.get("agenttemplatekv_prefetch_hit_count", 0),
+                            "agenttemplatekv_prefetch_miss_count": meta.get("agenttemplatekv_prefetch_miss_count", 0),
+                            "agenttemplatekv_prefetch_protected_tokens": meta.get("agenttemplatekv_prefetch_protected_tokens", 0),
+                            "agenttemplatekv_prefetch_newly_protected_tokens": meta.get("agenttemplatekv_prefetch_newly_protected_tokens", 0),
+                            "agenttemplatekv_prefetch_consumed_count": meta.get("agenttemplatekv_prefetch_consumed_count", 0),
+                            "agenttemplatekv_prefetch_expired_tokens": meta.get("agenttemplatekv_prefetch_expired_tokens", 0),
+                            "agenttemplatekv_rejected_large_gap_count": meta.get("agenttemplatekv_rejected_large_gap_count", 0),
                             "raw_metadata": meta,
                             "request_start_ms": round(start, 2),
                         }
@@ -421,6 +435,22 @@ def summarize_mode(summary: dict[str, Any]) -> dict[str, dict[str, float]]:
                 1.0 if int(r["codebase_prefetch_device_hit_count"] or 0) > 0 else 0.0
                 for r in rows
             ),
+            "agenttemplatekv_prefetch_hit_rate": statistics.mean(
+                1.0 if int(r.get("agenttemplatekv_prefetch_hit_count") or 0) > 0 else 0.0
+                for r in rows
+            ),
+            "avg_agenttemplatekv_protected_tokens": statistics.mean(
+                float(r.get("agenttemplatekv_prefetch_protected_tokens") or 0) for r in rows
+            ),
+            "avg_agenttemplatekv_newly_protected_tokens": statistics.mean(
+                float(r.get("agenttemplatekv_prefetch_newly_protected_tokens") or 0) for r in rows
+            ),
+            "avg_agenttemplatekv_expired_tokens": statistics.mean(
+                float(r.get("agenttemplatekv_prefetch_expired_tokens") or 0) for r in rows
+            ),
+            "avg_agenttemplatekv_large_gap_rejections": statistics.mean(
+                float(r.get("agenttemplatekv_rejected_large_gap_count") or 0) for r in rows
+            ),
             "exact_content_hit_rate": statistics.mean(
                 1.0 if r.get("lossy_match_reason") == "exact_code_content_signature" else 0.0
                 for r in rows
@@ -483,7 +513,7 @@ def write_artifacts(out_dir: Path, summary: dict[str, Any]) -> None:
         plt.close()
 
     report_lines = [
-        "# Coding KVFlow Prefetch Report",
+        "# AgentTemplateKV Coding Prefetch Report",
         "",
         "## Summary",
         "",
@@ -492,20 +522,24 @@ def write_artifacts(out_dir: Path, summary: dict[str, Any]) -> None:
         f"- Cases: {len(summary['results'])}",
         f"- HiCache storage backend: `{summary.get('hicache_storage_backend', 'disabled')}`",
         f"- Hierarchical cache: `{summary.get('hierarchical_cache', True)}`",
-        "- Safety rule: codebase prefetch may predict future code blocks, but KVCOMM reuse still requires `exact_code_content_signature`.",
+        "- Safety rule: codebase prefetch may predict future code blocks, but AgentTemplateKV reuse still requires `exact_code_content_signature`.",
         "",
         "## Main Table",
         "",
-        "| mode | cases | avg latency ms | avg cached tokens | avg hints | avg prefetch queued | prefetch success | exact-content hit | avg token F1 |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| mode | cases | avg latency ms | avg cached tokens | avg hints | avg prefetch queued | protected hit | protected toks | expired toks | large-gap rejects | exact-content hit | avg token F1 |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for mode in labels:
         item = stats[mode]
         report_lines.append(
-            f"| {mode} | {int(item['n'])} | {item['avg_latency_ms']:.1f} | "
+            f"| {DISPLAY_MODE.get(mode, mode)} | {int(item['n'])} | {item['avg_latency_ms']:.1f} | "
             f"{item['avg_cached_tokens']:.1f} | {item['avg_prefetch_hints']:.1f} | "
             f"{item['avg_prefetch_queued_tokens']:.1f} | "
-            f"{item['prefetch_success_rate']:.2f} | {item['exact_content_hit_rate']:.2f} | "
+            f"{item['agenttemplatekv_prefetch_hit_rate']:.2f} | "
+            f"{item['avg_agenttemplatekv_protected_tokens']:.1f} | "
+            f"{item['avg_agenttemplatekv_expired_tokens']:.1f} | "
+            f"{item['avg_agenttemplatekv_large_gap_rejections']:.1f} | "
+            f"{item['exact_content_hit_rate']:.2f} | "
             f"{item['avg_token_f1_vs_baseline']:.4f} |"
         )
     report_lines.extend(
@@ -521,14 +555,17 @@ def write_artifacts(out_dir: Path, summary: dict[str, Any]) -> None:
             "",
             "## Per-Case Table",
             "",
-            "| instance_id | mode | latency ms | cached | prefetch queued | match reason | token F1 |",
-            "|---|---|---:|---:|---:|---|---:|",
+            "| instance_id | mode | latency ms | cached | protected hit | protected toks | expired toks | large-gap rejects | match reason | token F1 |",
+            "|---|---|---:|---:|---:|---:|---:|---:|---|---:|",
         ]
     )
     for row in rows:
         report_lines.append(
-            f"| {row['instance_id']} | {row['mode']} | {row['elapsed_ms']} | "
-            f"{row['cached_tokens']} | {row['codebase_prefetch_queued_tokens']} | "
+            f"| {row['instance_id']} | {DISPLAY_MODE.get(row['mode'], row['mode'])} | {row['elapsed_ms']} | "
+            f"{row['cached_tokens']} | {row.get('agenttemplatekv_prefetch_hit_count', 0)} | "
+            f"{row.get('agenttemplatekv_prefetch_protected_tokens', 0)} | "
+            f"{row.get('agenttemplatekv_prefetch_expired_tokens', 0)} | "
+            f"{row.get('agenttemplatekv_rejected_large_gap_count', 0)} | "
             f"{row.get('lossy_match_reason') or ''} | {row['output_token_f1_vs_baseline']} |"
         )
     report_lines.extend(
@@ -536,9 +573,9 @@ def write_artifacts(out_dir: Path, summary: dict[str, Any]) -> None:
             "",
             "## Interpretation",
             "",
-            "This benchmark isolates serving-side KVFlow behavior. It does not replace the SWE-bench pass@1 table; use it to show whether coding-aware prefetch improves cached-token/latency behavior before running expensive candidate tests.",
+            "This benchmark isolates serving-side AgentTemplateKV behavior. It does not replace the SWE-bench pass@1 table; use it to show whether coding-aware prefetch improves cached-token/latency behavior before running expensive candidate tests.",
             "",
-            "When `hicache_storage_backend` is disabled, `codebase_prefetch_hints` still verifies template-to-engine guidance and exact-content KVCOMM hits, but host load-back counters remain zero. Enable `--hicache-storage-backend file` only for storage-specific debugging; the current local file backend can trip SGLang's runtime memory checker on long coding prompts.",
+            "When `hicache_storage_backend` is disabled, `codebase_prefetch_hints` still verifies template-to-engine guidance and AgentTemplateKV exact-content hits. The device-first protected-anchor counters (`agenttemplatekv_*`) report whether hints become protected device anchors without host load-back. Enable `--hicache-storage-backend file` only for storage-specific debugging; the current local file backend can trip SGLang's runtime memory checker on long coding prompts.",
         ]
     )
     (out_dir / "PREFETCH_REPORT.md").write_text("\n".join(report_lines) + "\n", encoding="utf-8")

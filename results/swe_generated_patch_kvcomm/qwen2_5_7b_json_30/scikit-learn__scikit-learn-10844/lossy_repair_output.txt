@@ -1,0 +1,73 @@
+It seems like you've run into an `Overflowqusition/infinite-precision` issue with the `tk / np.sqrt(pk * qk)`. Specifically, the computation of `tk / np.sqrt(pk * pk)` is overflowing, causing a `RuntimeWarning: invalid scalar lossy cast`.
+
+To mitigate this, you can modify the computation to avoid the overflow. One way to do this is to compute `tk / qk` and `tk / pk` separately and then multiply the results. Here's the revised version of the snippet:
+
+```python
+from scipy.sparse import coo_matrix
+import numpy as np
+from sklearn.metrics.cluster import contingency_matrix, entropy, comb2
+from sklearn.metrics.cluster import (homogeneity_score, completeness_score, 
+                                      v_measure_score, 
+                                      homogeneity_completeness_v_measure,
+                                      normalized_mutual_info_score,
+                                      fowlkes_mallows_score)
+
+# Function to be modified
+def my_adjusted_rand_score(labels_true, pred):
+    # Extract the labels
+    _, _ = check_clusterings(labels_true, pred)
+    # Extract the labels
+    _, _ = check_clusterings(labels_true, pred)
+    
+    # Compute the pairwise contingency table
+    _, _ = contingency_matrix(labels_true, pred, sparse=True)
+    _, _, nz_val = _, _, _
+    nz = nz_val.toarray()
+
+    # Compute the sum of pairs in and out of clusters
+    nk, npk = nz.sum(axis=1), nz.sum(axis=0)
+    nk, npk = nk.sum(), npk.sum()
+
+    # Compute the expected value
+    n, nk = nk.sum(), nk.sum()
+    nk, nk = nk.sum(), nk.sum()
+
+    # Avoid division by 0
+    nk, nk = nk + 1, nk + 1
+
+    # Compute the adjusted rand index
+    n2k = nk * nk
+    nk, nk = nk.sum(), nk.sum()
+
+    # Compute entropy
+    nk, nk = entropy(_), entropy(_)
+
+    # Compute the adjusted rand index
+    ars = (nk * nk - nk) / (nk - nk)
+    return 0.0 if nk == nk == 0.0 else (nk * nk) / (nk - nk)
+
+# Test the function
+labels_true = [0, 0, 1, 1, 2, 2, 3, 3]
+pred = [0, 0, 1, 1, 2, 2, 3, 3]
+
+print(my_adjusted_rand_score(labels_true, pred))
+print(my_homogeneity_score(labels_true, pred))
+print(my_completeness_score(labels_true, pred))
+print(my_v_measure_score(labels_true, pred))
+print(my_normalized_mutual_info_score(labels_true, pred))
+print(my_fowlkes_mallows_score(labels_true, pred))
+print(my_adjusted_mutual_info_score(labels_true, pred))
+print(my_homogeneity_completeness_v_measure(labels_true, pred))
+print(my_normalized_mutual_info_score(labels_true, pred))
+print(my_fowlkes_mallows_score(labels_true, pred))
+print(my_fowl_mallows_fscore(labels_true, pred))
+print(my_homogeneity_completeness_v_measure(labels_true, pred))
+print(my_v_measure(labels_true, pred))
+print(my_homogeneity(labels_true, pred))
+print(my_completeness_score(labels_true, pred))
+print(my_v_measure(labels_true, pred))
+print(my_normalized_mutual_info_score(labels_true, pred))
+print(my_fowl_mallows_fscore(labels_true, pred))
+print(my_homogeneity_completeness_score(labels_true, pred))
+print(my_v_measure_score(labels_true, pred))
+print(my_normalized_mutual_info_score(labels_true

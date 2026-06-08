@@ -1,0 +1,12 @@
+diff --git a/sphinx/ext/autodoc/typehints.py b/sphinx/ext/autodoc/typehints.py
+--- a/sphinx/ext/autodoc/typehints.py
++++ b/sphinx/ext/autodoc/typehints.py
+@@ -58,7 +58,7 @@
+             field_lists.append(field_list)
+ 
+         for field_list in field_lists:
+-            if app.config.autodoc_typehints_description_target == "all":
++            if app.config.autodoc_typehints_description_target == "all" and 'return' not in annotations:
+                 modify_field_list(field_list, annotations[fullname])
+             elif app.config.autodoc_typehints_description_target == "documented_params":
+                 augment_descriptions_with_types(

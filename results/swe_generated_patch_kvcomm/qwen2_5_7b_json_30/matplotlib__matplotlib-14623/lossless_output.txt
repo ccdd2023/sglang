@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/axes/_base.py",
+      "search": "ax.set_ylim(10, 1)",
+      "replace": "ax.set_ylim(10, 1, auto_invert=True)"
+    }
+  ]
+}
+```

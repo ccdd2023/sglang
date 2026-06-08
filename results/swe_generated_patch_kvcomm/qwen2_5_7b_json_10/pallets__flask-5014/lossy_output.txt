@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "src/flask/blueprints.py",
+      "search": "Blueprint",
+      "replace": "Blueprint('', __name__)"
+    }
+  ]
+}
+```

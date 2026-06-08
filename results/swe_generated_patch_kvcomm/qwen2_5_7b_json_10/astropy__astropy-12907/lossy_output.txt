@@ -1,0 +1,2 @@
+```json
+{"edits":[{"path":"/astropy/modeling/separable.py","search":"return np.ones((left_outputs, left_inputs))","replace":"return np.eye(min(left_outputs, left_inputs), dtype=bool)"}]}

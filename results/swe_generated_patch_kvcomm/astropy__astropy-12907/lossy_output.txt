@@ -1,0 +1,32 @@
+<think>
+Okay, let's see. The user is reporting an issue with the separability_matrix function in the astropy modeling code. The problem is that when you nest CompoundModels, the separability matrix isn't computed correctly. 
+
+Looking at the example they provided, when they have a compound model cm = Linear1D(10) & Linear1D(5), the separability matrix is diagonal, which is correct. But when they nest this with another model, like Pix2Sky_TAN() & cm, the matrix becomes non-diagonal, which seems incorrect.
+
+Hmm, the user's test case shows that when they nest the compound model, the inputs and outputs are no longer considered separable. But according to their expectation, the nested models should still have separable inputs and outputs. 
+
+Let me look at the code for _separable and the operators. The _separable function checks if the transform is a CompoundModel and then applies the operator function. The operators are mapped to _cstack for '&' and _cdot for '|'. 
+
+Wait, in the _cdot function, there's a line where left and right are swapped. That might be a problem. Let me check. The _cdot function is supposed to handle the '|' operator, which is the composition of models. But in the code, they swap left and right, which might be causing the matrix to be computed incorrectly. 
+
+In the example where they have Pix2Sky_TAN() & cm, the '|' operator is used. Let's think about how the _cdot function works. The _cdot function is supposed to compute the matrix for the composition of left and right models. But by swapping left and right, maybe the order is messed up. 
+
+Wait, the _cdot function starts with left, right = right, left. So the left and right are swapped. Then, they compute the coord matrices for left and right. Then they do a dot product. But the order of the dot product might be incorrect. 
+
+In the case of the nested model, the left part is Pix2Sky_TAN() and the right part is cm. When they swap left and right, the left becomes cm and the right becomes Pix2Sky_TAN(). Then, the coord matrix for left (cm) is computed as the left part, and the right (Pix2Sky_TAN) as the right part. 
+
+But the composition of models using '|' is supposed to be right composition. Wait, maybe the operator is being handled in the wrong order. For example, when you have A | B, it's equivalent to B(A(x)), so the order of the matrices might be reversed. 
+
+In the _cdot function, after swapping left and right, they compute the coord matrices for left (which is the original right) and right (original left). Then they do a dot product of cleft and cright. But if the composition is B(A(x)), then the matrix should be the product of B's matrix and A's matrix. 
+
+Wait, the _cdot function is supposed to handle the composition of models. Let me think: when you have A | B, the output of A is the input to B. So the separability matrix for the composition would be the product of B's matrix and A's matrix. But in the code, after swapping left and right, they compute cleft (which is B's matrix) and cright (A's matrix), then do cleft * cright. That would be B's matrix multiplied by A's matrix, which is correct for the composition. 
+
+But in the example given, when the user nests Pix2Sky_TAN() & cm, the separability matrix is not diagonal. Let me think about the structure. The model is Pix2Sky_TAN() & cm. The '&' operator is the combination of models, so the separability matrix should be the cstack of the two models. 
+
+Wait, the _cstack function is for the '&' operator, which combines models in parallel. So for Pix2Sky_TAN() & cm, the separability matrix should be the horizontal stack of the two models' matrices. 
+
+But in the user's example, when they do Pix2Sky_TAN() & cm, the separability matrix is not diagonal. Wait, the user's example shows that when they do Pix2Sky_TAN() & cm, the matrix has True in the first two rows and columns, but the third and fourth rows and columns are also True. That suggests that the inputs are being considered as dependent, which shouldn't be the case. 
+
+Wait, maybe the issue is in the _coord_matrix function. Let me look at that. For a model that is separable, the _coord_matrix function sets the diagonal elements to 1. But when the model is a CompoundModel, the _separable function recursively computes the separability matrix. 
+
+Wait, in the case of the nested model, the Pix2Sky_TAN() is a model that's not separable. The

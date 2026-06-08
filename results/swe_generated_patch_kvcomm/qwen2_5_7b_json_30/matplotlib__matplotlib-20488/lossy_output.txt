@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/image.py",
+      "search": "raise ValueError(\"Invalid vmin or vmax\")",
+      "replace": "if self.vmin < 0: self.vmin = 1e-10; self.vmax = 1e10; raise ValueError(\"Invalid vmin or vmax\")"
+    }
+  ]
+}
+```

@@ -1,0 +1,3 @@
+```json
+{"edits":[{"path":"pylint/pyreverse/diagrams.py","search":"def __init__(self, title="No name", node=None):","replace":"def __init__(self, title: str = 'No name', node: astroid.Node = None):"}]}
+```

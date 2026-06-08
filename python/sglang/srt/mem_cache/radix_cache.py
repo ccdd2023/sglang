@@ -40,7 +40,11 @@ from sglang.srt.mem_cache.memory_pool import move_kv_cache_native
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Anchor KV Entry for position-aligned non-prefix reuse (KVCOMM)
+# Anchor KV Entry for position-aligned non-prefix reuse.
+#
+# AgentTemplateKV treats the KVCOMM-style exact-content/RoPE copy as the low
+# level mechanism, then adds device-resident future-use protection so coding
+# agent templates can turn prefetch hints into real GPU hits.
 # ---------------------------------------------------------------------------
 class AnchorKVEntry:
     """Stores KV cache for an anchor block, keyed by signature + position."""
@@ -52,6 +56,7 @@ class AnchorKVEntry:
         kv_indices: torch.Tensor,
         start_pos: int,
         code_content_signature: str = "",
+        source_node: Optional["TreeNode"] = None,
     ):
         self.signature = signature
         self.code_content_signature = code_content_signature
@@ -59,6 +64,11 @@ class AnchorKVEntry:
         self.kv_indices = kv_indices
         self.start_pos = start_pos
         self.ref_count = 1
+        self.source_node = source_node
+        self.prefetch_protected_until = 0.0
+        self.prefetch_steps_remaining = 0
+        self.prefetch_lock_held = False
+        self.prefetch_hit_count = 0
 
     def __repr__(self):
         return (
@@ -690,7 +700,252 @@ class RadixCache(BasePrefixCache):
                 return anchor_type
         return "code_anchor"
 
-    def _store_anchor_kv(self, req: Req, kv_indices: torch.Tensor):
+    def _extract_prefetch_hint_signatures(self, req: Req) -> set[str]:
+        signatures: set[str] = set()
+        for hint in getattr(req, "codebase_prefetch_hints", None) or []:
+            if not isinstance(hint, dict):
+                continue
+            signature = str(
+                hint.get("content_signature")
+                or hint.get("code_content_signature")
+                or ""
+            )
+            if signature:
+                signatures.add(signature)
+        return signatures
+
+    def _agenttemplatekv_protect_entry(
+        self,
+        entry: AnchorKVEntry,
+        *,
+        req: Optional[Req] = None,
+        steps_to_use: int = 1,
+        ttl_s: Optional[float] = None,
+        max_ancestors: int = 2,
+    ) -> bool:
+        """Keep an exact-content anchor resident for the next coding agent.
+
+        Safety-net cap: if locking the entry would push ``protected_size_``
+        above ``_agenttemplatekv_protected_size_cap()``, the protect is
+        rejected (treated as a miss). This bounds cumulative state across
+        cases so the KV pool never gets starved.
+
+        Capped walk: instead of locking every ancestor up to root, only
+        ``max_ancestors`` (default 2) levels are locked, plus the leaf.
+        Per-protect cost drops from O(prefix_length) to O(leaf+small).
+        """
+        now = time.monotonic()
+        ttl = (
+            float(ttl_s)
+            if ttl_s is not None
+            else float(os.environ.get("SGLANG_AGENTTEMPLATEKV_PREFETCH_TTL_S", "60"))
+        )
+        entry.prefetch_protected_until = max(entry.prefetch_protected_until, now + ttl)
+        entry.prefetch_steps_remaining = max(entry.prefetch_steps_remaining, steps_to_use)
+
+        if entry.prefetch_lock_held:
+            return False
+
+        node = entry.source_node
+        if node is not None and not node.evicted:
+            # Safety-net cap: try to FIFO-evict oldest still-locked protected
+            # anchors first; only reject if the cap is still exceeded after
+            # the eviction sweep.  Without this, anchors churn into the cap
+            # at 9.6x its capacity and the pool starves the next request.
+            cap = self._agenttemplatekv_protected_size_cap()
+            if cap > 0 and self.protected_size_ + len(entry.token_ids) > cap:
+                self._agenttemplatekv_evict_oldest_protected(
+                    need_tokens=len(entry.token_ids), cap=cap
+                )
+                if self.protected_size_ + len(entry.token_ids) > cap:
+                    logger.warning(
+                        "agenttemplatekv_protect rejected: "
+                        "protected_size_=%d + token_ids=%d > cap=%d "
+                        "(eviction sweep could not free enough)",
+                        self.protected_size_, len(entry.token_ids), cap,
+                    )
+                    if req is not None:
+                        setattr(
+                            req,
+                            "agenttemplatekv_prefetch_miss_count",
+                            getattr(
+                                req, "agenttemplatekv_prefetch_miss_count", 0
+                            )
+                            + 1,
+                        )
+                    return False
+            # Capped walk: only lock the leaf + max_ancestors ancestors.
+            locked = self._inc_lock_ref_capped(node, max_ancestors=max_ancestors)
+            setattr(entry, "_protected_ancestor_nodes", locked)
+            entry.prefetch_lock_held = True
+            return True
+
+        if req is not None:
+            setattr(
+                req,
+                "agenttemplatekv_prefetch_miss_count",
+                getattr(req, "agenttemplatekv_prefetch_miss_count", 0) + 1,
+            )
+        return False
+
+    def _agenttemplatekv_evict_oldest_protected(
+        self, need_tokens: int, cap: int
+    ) -> int:
+        """FIFO evict the oldest still-locked protected anchors to make room
+        for a new protect of ``need_tokens`` tokens under the cap.
+
+        Walks ``anchor_kv_store`` under ``anchor_kv_store_lock``, finds
+        entries where ``prefetch_lock_held`` is True, sorts by
+        ``prefetch_protected_until`` (oldest expiration first), and
+        releases the earliest ones until the cap can satisfy the request
+        or there are no more candidates.
+
+        Returns the number of tokens freed. Caller should re-check
+        ``protected_size_ + need_tokens <= cap`` after this returns.
+        """
+        if self.disable:
+            return 0
+        freed = 0
+        with self.anchor_kv_store_lock:
+            candidates = []
+            for entries in self.anchor_kv_store.values():
+                for entry in entries:
+                    if entry.prefetch_lock_held:
+                        candidates.append(
+                            (entry.prefetch_protected_until, entry)
+                        )
+            if not candidates:
+                return 0
+            # FIFO by expiration timestamp; ties broken by id() for stability.
+            candidates.sort(key=lambda x: (x[0], id(x[1])))
+            for _ts, entry in candidates:
+                if self.protected_size_ + need_tokens <= cap:
+                    break
+                if self._agenttemplatekv_release_entry(entry):
+                    freed += len(entry.token_ids)
+                    logger.info(
+                        "agenttemplatekv_evict_oldest: released sig=%s "
+                        "tokens=%d (freed=%d, still_need=%d, "
+                        "protected_size_=%d)",
+                        entry.signature,
+                        len(entry.token_ids),
+                        freed,
+                        need_tokens,
+                        self.protected_size_,
+                    )
+        return freed
+
+    def _agenttemplatekv_release_entry(self, entry: AnchorKVEntry) -> bool:
+        if not entry.prefetch_lock_held:
+            return False
+        # Release the capped chain if stored (post-fix path). Fall back to
+        # the full walk for entries from older engine versions.
+        locked = getattr(entry, "_protected_ancestor_nodes", None)
+        if locked is None:
+            node = entry.source_node
+            if node is not None and not node.evicted:
+                self.dec_lock_ref(node)
+        else:
+            for locked_node in locked:
+                if locked_node is not None and not locked_node.evicted:
+                    self._dec_lock_ref_one(locked_node)
+            setattr(entry, "_protected_ancestor_nodes", [])
+        entry.prefetch_lock_held = False
+        entry.prefetch_protected_until = 0.0
+        entry.prefetch_steps_remaining = 0
+        return True
+
+    def _agenttemplatekv_release_expired_prefetch_entries(self, req: Optional[Req] = None):
+        now = time.monotonic()
+        released = 0
+        with self.anchor_kv_store_lock:
+            for entries in self.anchor_kv_store.values():
+                for entry in entries:
+                    if (
+                        entry.prefetch_lock_held
+                        and entry.prefetch_protected_until > 0
+                        and entry.prefetch_protected_until <= now
+                    ):
+                        if self._agenttemplatekv_release_entry(entry):
+                            released += len(entry.token_ids)
+        if req is not None and released:
+            setattr(
+                req,
+                "agenttemplatekv_prefetch_expired_tokens",
+                getattr(req, "agenttemplatekv_prefetch_expired_tokens", 0) + released,
+            )
+
+    def agenttemplatekv_prefetch_codebases(self, req: Req, tokenizer=None, max_hints: int = 8):
+        """Device-first codebase prefetch for AgentTemplateKV.
+
+        This path does not depend on HiCache. It checks whether exact-content
+        anchors from earlier agents are already resident on device, pins them
+        for the next template step, and records a real device hit.
+        """
+        self._agenttemplatekv_release_expired_prefetch_entries(req)
+
+        hints = getattr(req, "codebase_prefetch_hints", None) or []
+        if not hints:
+            return
+
+        for hint in hints[:max_hints]:
+            if not isinstance(hint, dict):
+                continue
+            content_signature = str(
+                hint.get("content_signature")
+                or hint.get("code_content_signature")
+                or ""
+            )
+            if not content_signature:
+                continue
+
+            entries = []
+            with self.anchor_kv_store_lock:
+                entries = list(self.anchor_kv_store.get(content_signature, []))
+            if not entries:
+                req.agenttemplatekv_prefetch_miss_count += 1
+                continue
+
+            text = hint.get("text") or hint.get("code") or hint.get("content")
+            text_token_ids = None
+            if text and tokenizer is not None:
+                try:
+                    text_token_ids = tokenizer.encode(text, add_special_tokens=False)
+                except Exception:
+                    text_token_ids = None
+
+            matched_entry = None
+            for entry in entries:
+                if entry.code_content_signature != content_signature:
+                    continue
+                if text_token_ids is not None and list(entry.token_ids.tolist()) != list(text_token_ids):
+                    continue
+                matched_entry = entry
+                break
+
+            if matched_entry is None:
+                req.agenttemplatekv_prefetch_miss_count += 1
+                continue
+
+            steps_to_use = int(hint.get("steps_to_use") or 1)
+            locked_now = self._agenttemplatekv_protect_entry(
+                matched_entry, req=req, steps_to_use=max(1, steps_to_use)
+            )
+            matched_tokens = len(matched_entry.token_ids)
+            req.codebase_prefetch_matched_tokens += matched_tokens
+            req.codebase_prefetch_success_count += 1
+            req.codebase_prefetch_device_hit_count += 1
+            req.agenttemplatekv_prefetch_hit_count += 1
+            req.agenttemplatekv_prefetch_protected_tokens += matched_tokens
+            if locked_now:
+                req.agenttemplatekv_prefetch_newly_protected_tokens += matched_tokens
+
+    def _store_anchor_kv(
+        self,
+        req: Req,
+        kv_indices: torch.Tensor,
+        source_node: Optional[TreeNode] = None,
+    ):
         """Extract anchor block KV and store for position-aligned reuse.
 
         Uses ``code_anchor_token_spans`` (if provided) to identify the exact
@@ -738,6 +993,7 @@ class RadixCache(BasePrefixCache):
                 token_ids=span_token_ids,
                 kv_indices=span_kv_indices,
                 start_pos=start,
+                source_node=source_node,
             )
             segment_content_signature = str(
                 span.get("content_signature", "") or content_signature
@@ -748,6 +1004,16 @@ class RadixCache(BasePrefixCache):
             entry.code_content_signature = segment_content_signature
             with self.anchor_kv_store_lock:
                 self.anchor_kv_store.setdefault(segment_content_signature, []).append(entry)
+            if segment_content_signature in self._extract_prefetch_hint_signatures(req):
+                locked_now = self._agenttemplatekv_protect_entry(
+                    entry,
+                    req=req,
+                    steps_to_use=1,
+                )
+                matched_tokens = len(entry.token_ids)
+                req.agenttemplatekv_prefetch_protected_tokens += matched_tokens
+                if locked_now:
+                    req.agenttemplatekv_prefetch_newly_protected_tokens += matched_tokens
             logger.info(
                 "[anchor_kv_store] stored anchor_sig=%s content_sig=%s start=%d len=%d",
                 signature, segment_content_signature, start, end - start,
@@ -990,6 +1256,19 @@ class RadixCache(BasePrefixCache):
                 continue
 
             gap_len = max(0, anchor_pos - exact_len)
+            max_gap = int(os.environ.get("SGLANG_AGENTTEMPLATEKV_MAX_ZERO_GAP", "16"))
+            if gap_len > max_gap:
+                setattr(req, "lossy_rejected_reason", "agenttemplatekv_large_zero_gap")
+                setattr(req, "lossy_anchor_match_gap_len", gap_len)
+                setattr(req, "agenttemplatekv_rejected_large_gap_count", 1)
+                logger.info(
+                    "[agenttemplatekv] reject content_sig=%s gap_len=%d max_gap=%d",
+                    matched_content_sig,
+                    gap_len,
+                    max_gap,
+                )
+                continue
+
             total_new = gap_len + copy_len
 
             new_slots = self.token_to_kv_pool_allocator.alloc(total_new)
@@ -1011,6 +1290,17 @@ class RadixCache(BasePrefixCache):
             move_kv_cache_native(kvcache.k_buffer, kvcache.v_buffer, dst_kv, src_kv)
             with self.anchor_kv_store_lock:
                 entry.ref_count += 1
+                # Track so cache_finished_req can decrement on natural
+                # request finish (prevents anchor_kv_store leak across
+                # multi-case runs).  setattr keeps the change off the
+                # public Req API; unit tests build SimpleNamespace reqs
+                # and do not assert on this attribute.
+                if req is not None:
+                    _consumed = getattr(req, "_consumed_anchor_entries", None)
+                    if _consumed is None:
+                        setattr(req, "_consumed_anchor_entries", [entry])
+                    else:
+                        _consumed.append(entry)
 
             # Apply RoPE delta rotation: key positions must match the new
             # absolute positions in this request. Delta = new_pos - old_pos.
@@ -1034,12 +1324,62 @@ class RadixCache(BasePrefixCache):
             setattr(req, "lossy_anchor_match_signature", entry.signature)
             setattr(req, "lossy_anchor_match_content_signature", matched_content_sig)
             setattr(req, "lossy_anchor_rope_delta", delta)
+            if entry.prefetch_lock_held:
+                entry.prefetch_hit_count += 1
+                setattr(
+                    req,
+                    "agenttemplatekv_prefetch_consumed_count",
+                    getattr(req, "agenttemplatekv_prefetch_consumed_count", 0) + 1,
+                )
+                entry.prefetch_steps_remaining -= 1
+                if entry.prefetch_steps_remaining <= 0:
+                    self._agenttemplatekv_release_entry(entry)
             return extended, exact_node
 
         return exact_values, exact_node
 
     def cache_finished_req(self, req: Req, is_insert: bool = True):
         """Cache request when it finishes."""
+        # AgentTemplateKV hooks (must run even if insertion is disabled).
+        # 1) Make TTL release reachable: warmup requests carry no hints,
+        #    so locks from prior cases' planner+mode4 would otherwise never
+        #    expire.  Trigger the sweep here on every request finish.
+        try:
+            self._agenttemplatekv_release_expired_prefetch_entries(req)
+        except Exception as _e:
+            logger.warning("release_expired_prefetch_entries failed: %s", _e)
+        # 2) Decrement ref_count for entries this request consumed via
+        #    lossy reuse.  Without this, ref_count only ever goes up and
+        #    anchor_kv_store grows unboundedly across cases.
+        try:
+            consumed = getattr(req, "_consumed_anchor_entries", None)
+            if consumed:
+                self._decrement_consumed_anchor_refs(consumed)
+        except Exception as _e:
+            logger.warning("decrement_consumed_anchor_refs failed: %s", _e)
+        # 3) Optional per-case state dump for debugging the protected-anchor
+        #    accumulation.  Enable with SGLANG_DBGCASE=1.
+        if os.environ.get("SGLANG_DBGCASE") == "1":
+            try:
+                with self.anchor_kv_store_lock:
+                    _total = sum(len(v) for v in self.anchor_kv_store.values())
+                    _held = sum(
+                        1
+                        for v in self.anchor_kv_store.values()
+                        for e in v
+                        if e.prefetch_lock_held
+                    )
+                logger.info(
+                    "[dbgcase] rid=%s protected=%d evictable=%d held=%d total=%d",
+                    getattr(req, "rid", "?"),
+                    self.protected_size_,
+                    self.evictable_size_,
+                    _held,
+                    _total,
+                )
+            except Exception as _e:
+                logger.warning("dbgcase log failed: %s", _e)
+
         # In deterministic mode, disable finished request insertion to radix cache
         if self.disable_finished_insert:
             is_insert = False
@@ -1124,8 +1464,15 @@ class RadixCache(BasePrefixCache):
         # free the unaligned tail
         self.token_to_kv_pool_allocator.free(kv_indices[len(keys) :])
 
-        # Store anchor KV for position-aligned non-prefix reuse
-        self._store_anchor_kv(req, kv_indices)
+        # Store anchor KV for position-aligned non-prefix reuse. Re-match the
+        # just-inserted full key so AgentTemplateKV can pin the actual radix
+        # node behind future-use codebase anchors.
+        source_node = None
+        if is_insert:
+            source_node = self.match_prefix(
+                MatchPrefixParams(key=radix_key)
+            ).last_device_node
+        self._store_anchor_kv(req, kv_indices, source_node=source_node)
 
         # Remove req slot release the cache lock
         self.dec_lock_ref(req.last_node)
@@ -1266,6 +1613,78 @@ class RadixCache(BasePrefixCache):
             self._update_leaf_status(node)
             node = node.parent
         return IncLockRefResult(delta=delta)
+
+    # ------------------------------------------------------------------
+    # AgentTemplateKV device-first protected-anchor helpers
+    # ------------------------------------------------------------------
+    def _inc_lock_ref_capped(
+        self, node: TreeNode, max_ancestors: int = 2
+    ) -> list:
+        """Like ``inc_lock_ref`` but stops after ``max_ancestors`` steps from
+        ``node`` toward root, instead of walking all the way to root.
+
+        This bounds the per-protect cost when a deep ``source_node`` (the
+        full-prompt leaf, ~14k tokens) is protected: only the leaf + 2
+        ancestors are locked, not the entire prefix path back to root.
+        Returns the list of nodes that were locked (for symmetric release).
+        """
+        if self.disable:
+            return []
+        locked = []
+        steps = 0
+        cur = node
+        while cur is not None and cur != self.root_node and steps <= max_ancestors:
+            if cur.lock_ref == 0:
+                self.evictable_size_ -= len(cur.key)
+                self.protected_size_ += len(cur.key)
+            cur.lock_ref += 1
+            self._update_leaf_status(cur)
+            locked.append(cur)
+            cur = cur.parent
+            steps += 1
+        return locked
+
+    def _dec_lock_ref_one(self, node: TreeNode) -> None:
+        """Single-node decrement of ``lock_ref``, mirroring the body of
+        ``dec_lock_ref`` but for exactly one level (not a full walk to root).
+        Used by ``_agenttemplatekv_release_entry`` to release the capped
+        chain stored by ``_inc_lock_ref_capped``.
+        """
+        if self.disable or node is None:
+            return
+        if node.lock_ref == 1:
+            self.evictable_size_ += len(node.key)
+            self.protected_size_ -= len(node.key)
+        if node.lock_ref > 0:
+            node.lock_ref -= 1
+        self._update_leaf_status(node)
+
+    def _agenttemplatekv_protected_size_cap(self) -> int:
+        """Return the protected-anchor size cap in tokens.  A new protect
+        that would push ``protected_size_`` above this cap is rejected.
+
+        Default: ``0.5 * SGLANG_MAX_TOTAL_TOKENS`` (32 768 when the pool is
+        65 536).  Overridable via ``SGLANG_AGENTTEMPLATEKV_PROTECTED_FRAC``
+        (float) or ``SGLANG_AGENTTEMPLATEKV_PROTECTED_MAX_TOKENS`` (int).
+        Returns 0 to disable the cap.
+        """
+        override = os.environ.get("SGLANG_AGENTTEMPLATEKV_PROTECTED_MAX_TOKENS")
+        if override is not None:
+            try:
+                return max(0, int(override))
+            except ValueError:
+                pass
+        frac_override = os.environ.get("SGLANG_AGENTTEMPLATEKV_PROTECTED_FRAC")
+        try:
+            frac = (
+                float(frac_override)
+                if frac_override is not None
+                else 0.5
+            )
+        except ValueError:
+            frac = 0.5
+        max_total = int(os.environ.get("SGLANG_MAX_TOTAL_TOKENS", "65536"))
+        return max(0, int(frac * max_total))
 
     def dec_lock_ref(
         self, node: TreeNode, params: Optional[DecLockRefParams] = None
@@ -1670,6 +2089,7 @@ class RadixCache(BasePrefixCache):
                 if entry.ref_count > 0:
                     survivors.append(entry)
                 else:
+                    self._agenttemplatekv_release_entry(entry)
                     logger.info(
                         "[anchor_kv_store] GC drop entry sig=%s content=%s start_pos=%d",
                         entry.signature, entry.code_content_signature, entry.start_pos,
@@ -1678,6 +2098,35 @@ class RadixCache(BasePrefixCache):
                 self.anchor_kv_store[sig] = survivors
             else:
                 self.anchor_kv_store.pop(sig, None)
+
+    def _decrement_consumed_anchor_refs(self, consumed) -> None:
+        """Decrement ref_count on every entry this request consumed via lossy
+        reuse. Drop entries that reach 0.
+
+        Called from ``cache_finished_req`` with the
+        ``req._consumed_anchor_entries`` list populated by
+        ``_try_lossy_fuzzy_match``. This is the natural request-finish path
+        (vs. ``_decrement_anchor_refs`` which only fires from leaf eviction).
+        """
+        if not consumed:
+            return
+        with self.anchor_kv_store_lock:
+            for entry in consumed:
+                if entry is None:
+                    continue
+                if entry.ref_count > 0:
+                    entry.ref_count -= 1
+                if entry.ref_count <= 0:
+                    self._agenttemplatekv_release_entry(entry)
+                    sig = entry.code_content_signature
+                    if sig in self.anchor_kv_store:
+                        survivors = [
+                            e for e in self.anchor_kv_store[sig] if e is not entry
+                        ]
+                        if survivors:
+                            self.anchor_kv_store[sig] = survivors
+                        else:
+                            self.anchor_kv_store.pop(sig, None)
 
     def _update_leaf_status(self, node: TreeNode):
         if node.evicted or node.lock_ref > 0:

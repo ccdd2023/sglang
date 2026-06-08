@@ -670,6 +670,7 @@ class OpenAIServingChat(OpenAIServingBase):
                         for k in (
                             "lossy_anchor_match_used",
                             "codebase_prefetch_hint_count",
+                            "agenttemplatekv_prefetch_hit_count",
                         )
                     )
                     if has_reuse_meta:
@@ -694,6 +695,13 @@ class OpenAIServingChat(OpenAIServingBase):
                                 "codebase_prefetch_matched_tokens",
                                 "codebase_prefetch_success_count",
                                 "codebase_prefetch_device_hit_count",
+                                "agenttemplatekv_prefetch_hit_count",
+                                "agenttemplatekv_prefetch_miss_count",
+                                "agenttemplatekv_prefetch_protected_tokens",
+                                "agenttemplatekv_prefetch_newly_protected_tokens",
+                                "agenttemplatekv_prefetch_consumed_count",
+                                "agenttemplatekv_prefetch_expired_tokens",
+                                "agenttemplatekv_rejected_large_gap_count",
                             )
                             if content["meta_info"].get(k) is not None
                         }
@@ -1099,6 +1107,13 @@ class OpenAIServingChat(OpenAIServingBase):
             "codebase_prefetch_matched_tokens",
             "codebase_prefetch_success_count",
             "codebase_prefetch_device_hit_count",
+            "agenttemplatekv_prefetch_hit_count",
+            "agenttemplatekv_prefetch_miss_count",
+            "agenttemplatekv_prefetch_protected_tokens",
+            "agenttemplatekv_prefetch_newly_protected_tokens",
+            "agenttemplatekv_prefetch_consumed_count",
+            "agenttemplatekv_prefetch_expired_tokens",
+            "agenttemplatekv_rejected_large_gap_count",
         ]
         lossy_metadata = {
             key: ret[0]["meta_info"].get(key)

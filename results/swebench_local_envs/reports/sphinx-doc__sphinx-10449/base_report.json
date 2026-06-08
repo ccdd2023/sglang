@@ -1,0 +1,18 @@
+{
+  "instance_id": "sphinx-doc__sphinx-10449",
+  "repo": "sphinx-doc/sphinx",
+  "version": "5.1",
+  "mode": "base",
+  "env_name": "swe_sphinx_doc_sphinx_10449_base",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/sphinx-doc__sphinx-10449",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "tox",
+    "--current-env",
+    "-epy39",
+    "-v",
+    "--",
+    "tests/test_ext_autodoc_configs.py::test_autodoc_typehints_description_with_documented_init"
+  ],
+  "returncode": 1
+}

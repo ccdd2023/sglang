@@ -2,7 +2,8 @@
   "models": [
     "Qwen/Qwen2.5-Coder-7B-Instruct",
     "Qwen/Qwen2.5-Coder-3B-Instruct",
-    "Qwen/Qwen2.5-7B-Instruct"
+    "Qwen/Qwen2.5-7B-Instruct",
+    "Qwen/Qwen3-8B"
   ],
   "per_model": {
     "Qwen/Qwen2.5-Coder-7B-Instruct": {
@@ -67,18 +68,46 @@
       },
       "global_baseline": 1.7195,
       "global_max": 2.6477
+    },
+    "Qwen/Qwen3-8B": {
+      "by_position_offset": {
+        "0": 3.2481828125,
+        "5-25": 3.479415625,
+        "50-100": 3.8096765625
+      },
+      "by_system_prompt_class": {
+        "planner": 3.2512375000000002,
+        "coder": 3.6066354166666668,
+        "reviewer": 3.551133333333333,
+        "tester": 3.64069375
+      },
+      "by_surrounding_code_class": {
+        "none": 3.3865833333333337,
+        "class_wrap": 3.54151875,
+        "try_wrap": 3.5257770833333333,
+        "imports_wrap": 3.5958208333333332
+      },
+      "global_baseline": 2.0645,
+      "global_max": 4.4665
     }
   },
   "pairwise_mean_abs_diff": {
     "Qwen/Qwen2.5-Coder-7B-Instruct vs Qwen/Qwen2.5-Coder-7B-Instruct": 0.0,
-    "Qwen/Qwen2.5-Coder-7B-Instruct vs Qwen/Qwen2.5-Coder-3B-Instruct": 0.0,
-    "Qwen/Qwen2.5-Coder-7B-Instruct vs Qwen/Qwen2.5-7B-Instruct": 0.0,
-    "Qwen/Qwen2.5-Coder-3B-Instruct vs Qwen/Qwen2.5-Coder-7B-Instruct": 0.0,
+    "Qwen/Qwen2.5-Coder-7B-Instruct vs Qwen/Qwen2.5-Coder-3B-Instruct": 0.16553333333333334,
+    "Qwen/Qwen2.5-Coder-7B-Instruct vs Qwen/Qwen2.5-7B-Instruct": 0.06667777777777778,
+    "Qwen/Qwen2.5-Coder-7B-Instruct vs Qwen/Qwen3-8B": 1.4752784722222223,
+    "Qwen/Qwen2.5-Coder-3B-Instruct vs Qwen/Qwen2.5-Coder-7B-Instruct": 0.16553333333333334,
     "Qwen/Qwen2.5-Coder-3B-Instruct vs Qwen/Qwen2.5-Coder-3B-Instruct": 0.0,
-    "Qwen/Qwen2.5-Coder-3B-Instruct vs Qwen/Qwen2.5-7B-Instruct": 0.0,
-    "Qwen/Qwen2.5-7B-Instruct vs Qwen/Qwen2.5-Coder-7B-Instruct": 0.0,
-    "Qwen/Qwen2.5-7B-Instruct vs Qwen/Qwen2.5-Coder-3B-Instruct": 0.0,
-    "Qwen/Qwen2.5-7B-Instruct vs Qwen/Qwen2.5-7B-Instruct": 0.0
+    "Qwen/Qwen2.5-Coder-3B-Instruct vs Qwen/Qwen2.5-7B-Instruct": 0.09885555555555556,
+    "Qwen/Qwen2.5-Coder-3B-Instruct vs Qwen/Qwen3-8B": 1.6408118055555556,
+    "Qwen/Qwen2.5-7B-Instruct vs Qwen/Qwen2.5-Coder-7B-Instruct": 0.06667777777777778,
+    "Qwen/Qwen2.5-7B-Instruct vs Qwen/Qwen2.5-Coder-3B-Instruct": 0.09885555555555556,
+    "Qwen/Qwen2.5-7B-Instruct vs Qwen/Qwen2.5-7B-Instruct": 0.0,
+    "Qwen/Qwen2.5-7B-Instruct vs Qwen/Qwen3-8B": 1.54195625,
+    "Qwen/Qwen3-8B vs Qwen/Qwen2.5-Coder-7B-Instruct": 1.4752784722222223,
+    "Qwen/Qwen3-8B vs Qwen/Qwen2.5-Coder-3B-Instruct": 1.6408118055555556,
+    "Qwen/Qwen3-8B vs Qwen/Qwen2.5-7B-Instruct": 1.54195625,
+    "Qwen/Qwen3-8B vs Qwen/Qwen3-8B": 0.0
   },
-  "verdict": "**Strong portable**: tables agree within ±0.15 d_norm on average → 7-8B model-agnostic"
+  "verdict": "**Weak portable**: tables diverge significantly → per-model calibration required"
 }

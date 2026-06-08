@@ -1,0 +1,145 @@
+# KVCOMM TTFT Stress Report
+
+This run is prefill/TTFT dominant and is intended to complement the realistic 100-case E2E table.
+
+## Output Schema
+
+`ttft_ms`, `e2e_ms`, `prompt_tokens`, `cached_tokens`, `cached_ratio`, `exact_hit`, `match_reason`, `matched_content_signature`, `output_exact_match_vs_baseline`, `output_token_f1_vs_baseline`, `mode`, `case_id`, `agent_id`, `segment_count`, `max_file_chars`.
+
+## Row Counts
+
+- ablation: 80
+- agent_scaling: 1800
+- agent_scaling_workflow: 540
+- ttft_stress: 800
+
+## Summary Groups
+
+- `ablation|ablation_exact_gate_rope|32000|32|1|3`: n=20, avg TTFT=2756.5 ms, p50=4149.9 ms, exact hit=0.65, F1=0.6684
+- `ablation|ablation_exact_no_hints|32000|32|1|3`: n=20, avg TTFT=2748.2 ms, p50=4142.4 ms, exact hit=0.65, F1=0.7572
+- `ablation|ablation_hints_no_exact|32000|32|1|3`: n=20, avg TTFT=2726.0 ms, p50=4153.8 ms, exact hit=0.00, F1=0.6038
+- `ablation|ablation_prefix_only|32000|32|1|3`: n=20, avg TTFT=2726.5 ms, p50=4156.3 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|16000|1|2|1`: n=10, avg TTFT=1000.6 ms, p50=760.9 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|16000|1|2|2`: n=10, avg TTFT=1430.5 ms, p50=1084.2 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|16000|1|2|3`: n=10, avg TTFT=2221.7 ms, p50=2219.7 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|16000|1|3|1`: n=10, avg TTFT=1848.8 ms, p50=2085.1 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|16000|1|3|2`: n=10, avg TTFT=2063.9 ms, p50=1621.4 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|16000|1|3|3`: n=10, avg TTFT=3650.6 ms, p50=3339.9 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|16000|1|5|1`: n=10, avg TTFT=2771.3 ms, p50=2942.4 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|16000|1|5|2`: n=10, avg TTFT=5301.2 ms, p50=5390.3 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|16000|1|5|3`: n=10, avg TTFT=6183.9 ms, p50=6177.0 ms, exact hit=0.10, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|32000|1|2|1`: n=10, avg TTFT=2845.4 ms, p50=2844.2 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|32000|1|2|2`: n=10, avg TTFT=5032.5 ms, p50=5020.1 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|32000|1|2|3`: n=10, avg TTFT=8379.6 ms, p50=8387.6 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|32000|1|3|1`: n=10, avg TTFT=4263.4 ms, p50=4261.6 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|32000|1|3|2`: n=10, avg TTFT=7596.0 ms, p50=7613.9 ms, exact hit=0.10, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|32000|1|3|3`: n=10, avg TTFT=12651.6 ms, p50=12659.8 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|32000|1|5|1`: n=10, avg TTFT=7118.0 ms, p50=7112.6 ms, exact hit=0.10, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|32000|1|5|2`: n=10, avg TTFT=12803.7 ms, p50=12804.3 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|32000|1|5|3`: n=10, avg TTFT=21182.3 ms, p50=21072.0 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|8000|1|2|1`: n=10, avg TTFT=382.2 ms, p50=381.7 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|8000|1|2|2`: n=10, avg TTFT=756.3 ms, p50=804.9 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|8000|1|2|3`: n=10, avg TTFT=1335.3 ms, p50=1328.5 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|8000|1|3|1`: n=10, avg TTFT=639.9 ms, p50=717.4 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|8000|1|3|2`: n=10, avg TTFT=908.7 ms, p50=794.5 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|8000|1|3|3`: n=10, avg TTFT=2054.0 ms, p50=2072.9 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|8000|1|5|1`: n=10, avg TTFT=1346.2 ms, p50=1422.6 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|8000|1|5|2`: n=10, avg TTFT=1560.4 ms, p50=1324.4 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|exact_reuse_plus_code_hints|8000|1|5|3`: n=10, avg TTFT=3647.8 ms, p50=3558.4 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|16000|1|2|1`: n=10, avg TTFT=1318.2 ms, p50=1318.6 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|16000|1|2|2`: n=10, avg TTFT=2233.4 ms, p50=2233.6 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|16000|1|2|3`: n=10, avg TTFT=3448.0 ms, p50=3446.8 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|16000|1|3|1`: n=10, avg TTFT=2014.8 ms, p50=1982.9 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|16000|1|3|2`: n=10, avg TTFT=3343.5 ms, p50=3340.7 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|16000|1|3|3`: n=10, avg TTFT=5164.2 ms, p50=5162.8 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|16000|1|5|1`: n=10, avg TTFT=3301.2 ms, p50=3297.2 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|16000|1|5|2`: n=10, avg TTFT=5606.7 ms, p50=5603.3 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|16000|1|5|3`: n=10, avg TTFT=8623.1 ms, p50=8621.0 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|32000|1|2|1`: n=10, avg TTFT=2842.6 ms, p50=2845.1 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|32000|1|2|2`: n=10, avg TTFT=5070.7 ms, p50=5090.4 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|32000|1|2|3`: n=10, avg TTFT=8328.5 ms, p50=8328.6 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|32000|1|3|1`: n=10, avg TTFT=4272.7 ms, p50=4274.3 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|32000|1|3|2`: n=10, avg TTFT=7602.7 ms, p50=7649.4 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|32000|1|3|3`: n=10, avg TTFT=12490.5 ms, p50=12482.7 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|32000|1|5|1`: n=10, avg TTFT=7119.4 ms, p50=7117.0 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|32000|1|5|2`: n=10, avg TTFT=12668.2 ms, p50=12720.8 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|32000|1|5|3`: n=10, avg TTFT=20875.2 ms, p50=20898.6 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|8000|1|2|1`: n=10, avg TTFT=512.3 ms, p50=512.2 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|8000|1|2|2`: n=10, avg TTFT=905.5 ms, p50=905.4 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|8000|1|2|3`: n=10, avg TTFT=1416.0 ms, p50=1423.1 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|8000|1|3|1`: n=10, avg TTFT=768.6 ms, p50=769.4 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|8000|1|3|2`: n=10, avg TTFT=1362.2 ms, p50=1361.0 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|8000|1|3|3`: n=10, avg TTFT=2127.6 ms, p50=2134.1 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|8000|1|5|1`: n=10, avg TTFT=1282.3 ms, p50=1282.1 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|8000|1|5|2`: n=10, avg TTFT=2273.3 ms, p50=2273.7 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling_workflow|prefix_cache_only|8000|1|5|3`: n=10, avg TTFT=3554.2 ms, p50=3563.8 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|16000|1|2|1`: n=20, avg TTFT=500.3 ms, p50=683.0 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|16000|1|2|2`: n=20, avg TTFT=715.2 ms, p50=547.3 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|16000|1|2|3`: n=20, avg TTFT=1110.9 ms, p50=1110.9 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|16000|1|3|1`: n=30, avg TTFT=616.3 ms, p50=697.1 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|16000|1|3|2`: n=30, avg TTFT=688.0 ms, p50=544.9 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|16000|1|3|3`: n=30, avg TTFT=1216.9 ms, p50=1115.3 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|16000|1|5|1`: n=50, avg TTFT=554.3 ms, p50=718.8 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|16000|1|5|2`: n=50, avg TTFT=1060.2 ms, p50=1203.2 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|16000|1|5|3`: n=50, avg TTFT=1236.8 ms, p50=1117.7 ms, exact hit=0.82, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|32000|1|2|1`: n=20, avg TTFT=1422.7 ms, p50=1424.5 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|32000|1|2|2`: n=20, avg TTFT=2516.3 ms, p50=2518.8 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|32000|1|2|3`: n=20, avg TTFT=4189.8 ms, p50=4182.0 ms, exact hit=0.50, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|32000|1|3|1`: n=30, avg TTFT=1421.1 ms, p50=1422.5 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|32000|1|3|2`: n=30, avg TTFT=2532.0 ms, p50=2537.4 ms, exact hit=0.70, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|32000|1|3|3`: n=30, avg TTFT=4217.2 ms, p50=4210.1 ms, exact hit=0.67, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|32000|1|5|1`: n=50, avg TTFT=1423.6 ms, p50=1426.6 ms, exact hit=0.82, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|32000|1|5|2`: n=50, avg TTFT=2560.7 ms, p50=2562.3 ms, exact hit=0.80, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|32000|1|5|3`: n=50, avg TTFT=4236.5 ms, p50=4208.8 ms, exact hit=0.80, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|8000|1|2|1`: n=20, avg TTFT=191.1 ms, p50=320.0 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|8000|1|2|2`: n=20, avg TTFT=378.2 ms, p50=453.0 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|8000|1|2|3`: n=20, avg TTFT=667.6 ms, p50=670.5 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|8000|1|3|1`: n=30, avg TTFT=213.3 ms, p50=328.7 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|8000|1|3|2`: n=30, avg TTFT=302.9 ms, p50=264.8 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|8000|1|3|3`: n=30, avg TTFT=684.7 ms, p50=668.2 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|8000|1|5|1`: n=50, avg TTFT=269.2 ms, p50=342.2 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|8000|1|5|2`: n=50, avg TTFT=312.1 ms, p50=264.8 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|exact_reuse_plus_code_hints|8000|1|5|3`: n=50, avg TTFT=729.6 ms, p50=712.9 ms, exact hit=1.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|16000|1|2|1`: n=20, avg TTFT=659.1 ms, p50=658.9 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|16000|1|2|2`: n=20, avg TTFT=1116.7 ms, p50=1119.4 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|16000|1|2|3`: n=20, avg TTFT=1724.0 ms, p50=1722.7 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|16000|1|3|1`: n=30, avg TTFT=671.6 ms, p50=659.5 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|16000|1|3|2`: n=30, avg TTFT=1114.5 ms, p50=1116.6 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|16000|1|3|3`: n=30, avg TTFT=1721.4 ms, p50=1722.7 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|16000|1|5|1`: n=50, avg TTFT=660.2 ms, p50=661.0 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|16000|1|5|2`: n=50, avg TTFT=1121.3 ms, p50=1122.3 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|16000|1|5|3`: n=50, avg TTFT=1724.6 ms, p50=1725.0 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|32000|1|2|1`: n=20, avg TTFT=1421.3 ms, p50=1423.6 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|32000|1|2|2`: n=20, avg TTFT=2535.3 ms, p50=2547.9 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|32000|1|2|3`: n=20, avg TTFT=4164.2 ms, p50=4168.4 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|32000|1|3|1`: n=30, avg TTFT=1424.2 ms, p50=1425.4 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|32000|1|3|2`: n=30, avg TTFT=2534.2 ms, p50=2544.6 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|32000|1|3|3`: n=30, avg TTFT=4163.5 ms, p50=4163.0 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|32000|1|5|1`: n=50, avg TTFT=1423.9 ms, p50=1425.1 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|32000|1|5|2`: n=50, avg TTFT=2533.6 ms, p50=2542.3 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|32000|1|5|3`: n=50, avg TTFT=4175.0 ms, p50=4169.9 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|8000|1|2|1`: n=20, avg TTFT=256.1 ms, p50=256.4 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|8000|1|2|2`: n=20, avg TTFT=452.7 ms, p50=453.4 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|8000|1|2|3`: n=20, avg TTFT=708.0 ms, p50=710.9 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|8000|1|3|1`: n=30, avg TTFT=256.2 ms, p50=256.6 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|8000|1|3|2`: n=30, avg TTFT=454.1 ms, p50=454.8 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|8000|1|3|3`: n=30, avg TTFT=709.2 ms, p50=712.1 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|8000|1|5|1`: n=50, avg TTFT=256.5 ms, p50=256.6 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|8000|1|5|2`: n=50, avg TTFT=454.7 ms, p50=455.2 ms, exact hit=0.00, F1=1.0000
+- `agent_scaling|prefix_cache_only|8000|1|5|3`: n=50, avg TTFT=710.8 ms, p50=713.0 ms, exact hit=0.00, F1=1.0000
+- `ttft_stress|exact_reuse_no_hints|16000|1|1|3`: n=50, avg TTFT=1396.8 ms, p50=1480.1 ms, exact hit=1.00, F1=0.7600
+- `ttft_stress|exact_reuse_no_hints|16000|32|1|3`: n=50, avg TTFT=732.3 ms, p50=928.7 ms, exact hit=1.00, F1=0.4429
+- `ttft_stress|exact_reuse_no_hints|8000|1|1|3`: n=50, avg TTFT=654.8 ms, p50=668.2 ms, exact hit=1.00, F1=0.8200
+- `ttft_stress|exact_reuse_no_hints|8000|32|1|3`: n=50, avg TTFT=60.4 ms, p50=61.4 ms, exact hit=1.00, F1=0.6938
+- `ttft_stress|exact_reuse_plus_code_hints|16000|1|1|3`: n=50, avg TTFT=1438.0 ms, p50=1483.2 ms, exact hit=1.00, F1=0.7200
+- `ttft_stress|exact_reuse_plus_code_hints|16000|32|1|3`: n=50, avg TTFT=974.7 ms, p50=1109.2 ms, exact hit=1.00, F1=0.3750
+- `ttft_stress|exact_reuse_plus_code_hints|8000|1|1|3`: n=50, avg TTFT=654.6 ms, p50=665.8 ms, exact hit=1.00, F1=0.8600
+- `ttft_stress|exact_reuse_plus_code_hints|8000|32|1|3`: n=50, avg TTFT=60.7 ms, p50=62.1 ms, exact hit=1.00, F1=0.6645
+- `ttft_stress|no_reuse_fresh_salt|16000|1|1|3`: n=50, avg TTFT=1645.0 ms, p50=1715.5 ms, exact hit=0.00, F1=1.0000
+- `ttft_stress|no_reuse_fresh_salt|16000|32|1|3`: n=50, avg TTFT=931.1 ms, p50=940.3 ms, exact hit=0.00, F1=0.6635
+- `ttft_stress|no_reuse_fresh_salt|8000|1|1|3`: n=50, avg TTFT=684.4 ms, p50=699.1 ms, exact hit=0.00, F1=0.8800
+- `ttft_stress|no_reuse_fresh_salt|8000|32|1|3`: n=50, avg TTFT=59.8 ms, p50=61.3 ms, exact hit=0.00, F1=0.7098
+- `ttft_stress|prefix_cache_only|16000|1|1|3`: n=50, avg TTFT=1647.5 ms, p50=1718.8 ms, exact hit=0.00, F1=1.0000
+- `ttft_stress|prefix_cache_only|16000|32|1|3`: n=50, avg TTFT=1231.5 ms, p50=1718.8 ms, exact hit=0.00, F1=1.0000
+- `ttft_stress|prefix_cache_only|8000|1|1|3`: n=50, avg TTFT=687.7 ms, p50=671.2 ms, exact hit=0.00, F1=1.0000
+- `ttft_stress|prefix_cache_only|8000|32|1|3`: n=50, avg TTFT=60.6 ms, p50=61.8 ms, exact hit=0.00, F1=1.0000

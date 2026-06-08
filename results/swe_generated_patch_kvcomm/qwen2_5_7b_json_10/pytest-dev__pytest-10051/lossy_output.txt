@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "repo/src/_pytest/logging.py",
+      "search": "caplog.clear()",
+      "replace": "self.handler.reset()"
+    }
+  ]
+}
+```

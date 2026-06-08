@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "xarray/core/indexing.py",
+      "search": "v = self.cls('x', 0.5 * np.arange(10), {'foo': 'bar'})",
+      "replace": "v = self.cls('x', (0.5 * np.arange(10)).astype(str), {'foo': 'bar'})"
+    }
+  ]
+}
+```

@@ -1933,18 +1933,24 @@ class Scheduler(
         )
 
     def _prefetch_kvcache_for_codebases(self, req: Req):
-        """Coding-aware KVFlow prefetch for future exact code-base segments.
+        """AgentTemplateKV device-first prefetch for exact code-base segments.
 
         Template/planner hints can tell the engine that later agents will reuse
         a specific code-base segment. AST/anchor is locator metadata only; this
         path prefetches when the hint carries exact text, and the later lossy
         reuse still requires ``exact_code_content_signature`` to match.
         """
-        if not self.enable_hicache_storage:
-            return
-
         hints = getattr(req, "codebase_prefetch_hints", None) or []
         if not hints:
+            return
+
+        if hasattr(self.tree_cache, "agenttemplatekv_prefetch_codebases"):
+            self.tree_cache.agenttemplatekv_prefetch_codebases(
+                req,
+                tokenizer=self.tokenizer,
+            )
+
+        if not self.enable_hicache_storage:
             return
 
         for idx, hint in enumerate(hints[:8]):

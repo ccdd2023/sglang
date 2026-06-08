@@ -1,0 +1,764 @@
+{
+  "model": "/home/gfy/models/Qwen2.5-7B-Instruct",
+  "dataset": "results/repo_level_datasets/swe_verified_100_instances.json",
+  "manifest": "results/repo_level_datasets/manifest_100.json",
+  "timestamp": "2026-06-03 07:10:13",
+  "hicache_storage_backend": "disabled",
+  "hierarchical_cache": false,
+  "modes": [
+    "baseline_prefix_cache_only",
+    "kvflow_prefix_only",
+    "kvflow_prefix_plus_codebase_prefetch",
+    "kvcomm_lossy_plus_codebase_prefetch"
+  ],
+  "results": [
+    {
+      "instance_id": "astropy__astropy-12907",
+      "repo": "astropy/astropy",
+      "segments": [
+        {
+          "name": "astropy/modeling/core.py",
+          "chars": 22000,
+          "signature": "43b875af6787468bd882a08171a25d62"
+        },
+        {
+          "name": "astropy/table/table.py",
+          "chars": 21991,
+          "signature": "c2fcd93b717e9d059169b1454b25e12b"
+        },
+        {
+          "name": "astropy/io/votable/tree.py",
+          "chars": 22000,
+          "signature": "6b82578ec2a741ffb530fe239bfb6c23"
+        }
+      ],
+      "modes": [
+        {
+          "mode": "baseline_prefix_cache_only",
+          "elapsed_ms": 3790.04,
+          "cached_tokens": 1101,
+          "output_chars": 514,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528698214.85,
+          "output_exact_match_vs_baseline": true,
+          "output_token_f1_vs_baseline": 1.0
+        },
+        {
+          "mode": "kvflow_prefix_only",
+          "elapsed_ms": 3785.03,
+          "cached_tokens": 1101,
+          "output_chars": 566,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528702005.0,
+          "output_exact_match_vs_baseline": false,
+          "output_token_f1_vs_baseline": 0.1835
+        },
+        {
+          "mode": "kvflow_prefix_plus_codebase_prefetch",
+          "elapsed_ms": 3784.82,
+          "cached_tokens": 1104,
+          "output_chars": 413,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "codebase_prefetch_hint_count": 3,
+          "codebase_prefetch_text_count": 3,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528705790.62,
+          "output_exact_match_vs_baseline": false,
+          "output_token_f1_vs_baseline": 0.1509
+        },
+        {
+          "mode": "kvcomm_lossy_plus_codebase_prefetch",
+          "elapsed_ms": 3375.77,
+          "cached_tokens": 5725,
+          "output_chars": 516,
+          "lossy_match_reason": "exact_code_content_signature",
+          "matched_content_signature": "43b875af6787468bd882a08171a25d62",
+          "codebase_prefetch_hint_count": 3,
+          "codebase_prefetch_text_count": 3,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "lossy_candidate_count": 6,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.95,
+            "lossy_first_matched_anchor_signature": "8f29cb1de46c5311",
+            "lossy_first_matched_content_signature": "43b875af6787468bd882a08171a25d62",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 12,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.95,
+            "lossy_final_matched_anchor_signature": "8f29cb1de46c5311",
+            "lossy_final_matched_content_signature": "43b875af6787468bd882a08171a25d62",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 27,
+            "lossy_anchor_match_used": true,
+            "lossy_anchor_match_len": 4599,
+            "lossy_anchor_match_signature": "237f1668dea78b03",
+            "lossy_anchor_match_content_signature": "43b875af6787468bd882a08171a25d62",
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528709687.35,
+          "output_exact_match_vs_baseline": false,
+          "output_token_f1_vs_baseline": 0.0169
+        }
+      ]
+    },
+    {
+      "instance_id": "astropy__astropy-13033",
+      "repo": "astropy/astropy",
+      "segments": [
+        {
+          "name": "astropy/modeling/core.py",
+          "chars": 22000,
+          "signature": "c3b69d103934d95895e1602b9b5ae5b8"
+        },
+        {
+          "name": "astropy/table/table.py",
+          "chars": 21991,
+          "signature": "c2fcd93b717e9d059169b1454b25e12b"
+        },
+        {
+          "name": "astropy/io/votable/tree.py",
+          "chars": 22000,
+          "signature": "6b82578ec2a741ffb530fe239bfb6c23"
+        }
+      ],
+      "modes": [
+        {
+          "mode": "baseline_prefix_cache_only",
+          "elapsed_ms": 3809.41,
+          "cached_tokens": 1275,
+          "output_chars": 570,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528717433.15,
+          "output_exact_match_vs_baseline": true,
+          "output_token_f1_vs_baseline": 1.0
+        },
+        {
+          "mode": "kvflow_prefix_only",
+          "elapsed_ms": 3800.05,
+          "cached_tokens": 1275,
+          "output_chars": 556,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528721242.67,
+          "output_exact_match_vs_baseline": false,
+          "output_token_f1_vs_baseline": 0.9459
+        },
+        {
+          "mode": "kvflow_prefix_plus_codebase_prefetch",
+          "elapsed_ms": 3801.37,
+          "cached_tokens": 1278,
+          "output_chars": 544,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "codebase_prefetch_hint_count": 3,
+          "codebase_prefetch_text_count": 3,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528725043.3,
+          "output_exact_match_vs_baseline": false,
+          "output_token_f1_vs_baseline": 0.6993
+        },
+        {
+          "mode": "kvcomm_lossy_plus_codebase_prefetch",
+          "elapsed_ms": 3803.48,
+          "cached_tokens": 1276,
+          "output_chars": 627,
+          "lossy_match_reason": "exact_code_content_signature",
+          "matched_content_signature": "49d99a24f93f1bb7",
+          "codebase_prefetch_hint_count": 3,
+          "codebase_prefetch_text_count": 3,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "lossy_candidate_count": 7,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.95,
+            "lossy_first_matched_anchor_signature": "fb9a8eac13fac5f5",
+            "lossy_first_matched_content_signature": "49d99a24f93f1bb7",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 38,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.95,
+            "lossy_final_matched_anchor_signature": "fb9a8eac13fac5f5",
+            "lossy_final_matched_content_signature": "49d99a24f93f1bb7",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 53,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528728952.55,
+          "output_exact_match_vs_baseline": false,
+          "output_token_f1_vs_baseline": 0.5125
+        }
+      ]
+    },
+    {
+      "instance_id": "astropy__astropy-13236",
+      "repo": "astropy/astropy",
+      "segments": [
+        {
+          "name": "astropy/modeling/core.py",
+          "chars": 22000,
+          "signature": "cf2700e14081143562b14f2487b43ee0"
+        },
+        {
+          "name": "astropy/table/table.py",
+          "chars": 21992,
+          "signature": "c6fabac696de5ead820754bffe2ee5e8"
+        },
+        {
+          "name": "astropy/io/votable/tree.py",
+          "chars": 22000,
+          "signature": "6b82578ec2a741ffb530fe239bfb6c23"
+        }
+      ],
+      "modes": [
+        {
+          "mode": "baseline_prefix_cache_only",
+          "elapsed_ms": 3842.4,
+          "cached_tokens": 2072,
+          "output_chars": 560,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528737229.1,
+          "output_exact_match_vs_baseline": true,
+          "output_token_f1_vs_baseline": 1.0
+        },
+        {
+          "mode": "kvflow_prefix_only",
+          "elapsed_ms": 3839.87,
+          "cached_tokens": 2072,
+          "output_chars": 507,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528741071.62,
+          "output_exact_match_vs_baseline": false,
+          "output_token_f1_vs_baseline": 0.3947
+        },
+        {
+          "mode": "kvflow_prefix_plus_codebase_prefetch",
+          "elapsed_ms": 3844.09,
+          "cached_tokens": 2075,
+          "output_chars": 551,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "codebase_prefetch_hint_count": 3,
+          "codebase_prefetch_text_count": 3,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528744912.08,
+          "output_exact_match_vs_baseline": false,
+          "output_token_f1_vs_baseline": 0.3165
+        },
+        {
+          "mode": "kvcomm_lossy_plus_codebase_prefetch",
+          "elapsed_ms": 3845.19,
+          "cached_tokens": 2073,
+          "output_chars": 543,
+          "lossy_match_reason": "exact_code_content_signature",
+          "matched_content_signature": "6b82578ec2a741ffb530fe239bfb6c23",
+          "codebase_prefetch_hint_count": 3,
+          "codebase_prefetch_text_count": 3,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "lossy_candidate_count": 7,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.95,
+            "lossy_first_matched_anchor_signature": "b006d7a2a4469790",
+            "lossy_first_matched_content_signature": "6b82578ec2a741ffb530fe239bfb6c23",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 63,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.95,
+            "lossy_final_matched_anchor_signature": "b006d7a2a4469790",
+            "lossy_final_matched_content_signature": "6b82578ec2a741ffb530fe239bfb6c23",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 79,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528748870.98,
+          "output_exact_match_vs_baseline": false,
+          "output_token_f1_vs_baseline": 0.3497
+        }
+      ]
+    },
+    {
+      "instance_id": "astropy__astropy-13398",
+      "repo": "astropy/astropy",
+      "segments": [
+        {
+          "name": "astropy/modeling/core.py",
+          "chars": 21999,
+          "signature": "587e84b6ee4dafc2b2b60963af2370d7"
+        },
+        {
+          "name": "astropy/table/table.py",
+          "chars": 21992,
+          "signature": "c6fabac696de5ead820754bffe2ee5e8"
+        },
+        {
+          "name": "astropy/io/votable/tree.py",
+          "chars": 22000,
+          "signature": "6b82578ec2a741ffb530fe239bfb6c23"
+        }
+      ],
+      "modes": [
+        {
+          "mode": "baseline_prefix_cache_only",
+          "elapsed_ms": 3918.32,
+          "cached_tokens": 3782,
+          "output_chars": 583,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528757423.42,
+          "output_exact_match_vs_baseline": true,
+          "output_token_f1_vs_baseline": 1.0
+        },
+        {
+          "mode": "kvflow_prefix_only",
+          "elapsed_ms": 3918.8,
+          "cached_tokens": 3782,
+          "output_chars": 633,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528761341.86,
+          "output_exact_match_vs_baseline": false,
+          "output_token_f1_vs_baseline": 0.3949
+        },
+        {
+          "mode": "kvflow_prefix_plus_codebase_prefetch",
+          "elapsed_ms": 3937.42,
+          "cached_tokens": 3785,
+          "output_chars": 542,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "codebase_prefetch_hint_count": 3,
+          "codebase_prefetch_text_count": 3,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528765261.25,
+          "output_exact_match_vs_baseline": false,
+          "output_token_f1_vs_baseline": 0.4085
+        },
+        {
+          "mode": "kvcomm_lossy_plus_codebase_prefetch",
+          "elapsed_ms": 3925.39,
+          "cached_tokens": 3783,
+          "output_chars": 634,
+          "lossy_match_reason": "exact_code_content_signature",
+          "matched_content_signature": "1ac71aaf7618203e",
+          "codebase_prefetch_hint_count": 3,
+          "codebase_prefetch_text_count": 3,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "lossy_candidate_count": 7,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.95,
+            "lossy_first_matched_anchor_signature": "db4168f22d528e7f",
+            "lossy_first_matched_content_signature": "1ac71aaf7618203e",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 90,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.95,
+            "lossy_final_matched_anchor_signature": "db4168f22d528e7f",
+            "lossy_final_matched_content_signature": "1ac71aaf7618203e",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 105,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528769341.86,
+          "output_exact_match_vs_baseline": false,
+          "output_token_f1_vs_baseline": 0.3816
+        }
+      ]
+    },
+    {
+      "instance_id": "astropy__astropy-13453",
+      "repo": "astropy/astropy",
+      "segments": [
+        {
+          "name": "astropy/modeling/core.py",
+          "chars": 21999,
+          "signature": "587e84b6ee4dafc2b2b60963af2370d7"
+        },
+        {
+          "name": "astropy/table/table.py",
+          "chars": 21992,
+          "signature": "c6fabac696de5ead820754bffe2ee5e8"
+        },
+        {
+          "name": "astropy/io/votable/tree.py",
+          "chars": 22000,
+          "signature": "6b82578ec2a741ffb530fe239bfb6c23"
+        }
+      ],
+      "modes": [
+        {
+          "mode": "baseline_prefix_cache_only",
+          "elapsed_ms": 3899.9,
+          "cached_tokens": 3034,
+          "output_chars": 573,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528777867.18,
+          "output_exact_match_vs_baseline": true,
+          "output_token_f1_vs_baseline": 1.0
+        },
+        {
+          "mode": "kvflow_prefix_only",
+          "elapsed_ms": 3888.91,
+          "cached_tokens": 3034,
+          "output_chars": 597,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "codebase_prefetch_hint_count": 0,
+          "codebase_prefetch_text_count": 0,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528781767.19,
+          "output_exact_match_vs_baseline": false,
+          "output_token_f1_vs_baseline": 0.7471
+        },
+        {
+          "mode": "kvflow_prefix_plus_codebase_prefetch",
+          "elapsed_ms": 3909.4,
+          "cached_tokens": 3037,
+          "output_chars": 596,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "codebase_prefetch_hint_count": 3,
+          "codebase_prefetch_text_count": 3,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528785656.67,
+          "output_exact_match_vs_baseline": false,
+          "output_token_f1_vs_baseline": 0.7232
+        },
+        {
+          "mode": "kvcomm_lossy_plus_codebase_prefetch",
+          "elapsed_ms": 3874.52,
+          "cached_tokens": 3035,
+          "output_chars": 604,
+          "lossy_match_reason": "exact_code_content_signature",
+          "matched_content_signature": "1ac71aaf7618203e",
+          "codebase_prefetch_hint_count": 3,
+          "codebase_prefetch_text_count": 3,
+          "codebase_prefetch_queued_tokens": 0,
+          "codebase_prefetch_matched_tokens": 0,
+          "codebase_prefetch_success_count": 0,
+          "codebase_prefetch_device_hit_count": 0,
+          "raw_metadata": {
+            "lossy_candidate_count": 7,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.95,
+            "lossy_first_matched_anchor_signature": "db4168f22d528e7f",
+            "lossy_first_matched_content_signature": "1ac71aaf7618203e",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 116,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.95,
+            "lossy_final_matched_anchor_signature": "db4168f22d528e7f",
+            "lossy_final_matched_content_signature": "1ac71aaf7618203e",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 131,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0
+          },
+          "request_start_ms": 528789707.22,
+          "output_exact_match_vs_baseline": false,
+          "output_token_f1_vs_baseline": 0.5714
+        }
+      ]
+    }
+  ],
+  "mode_summary": {
+    "baseline_prefix_cache_only": {
+      "n": 5,
+      "avg_latency_ms": 3852.014,
+      "median_latency_ms": 3842.4,
+      "avg_cached_tokens": 2252.8,
+      "avg_prefetch_queued_tokens": 0.0,
+      "avg_prefetch_matched_tokens": 0.0,
+      "avg_prefetch_hints": 0.0,
+      "prefetch_success_rate": 0.0,
+      "prefetch_device_hit_rate": 0.0,
+      "exact_content_hit_rate": 0.0,
+      "avg_token_f1_vs_baseline": 1.0
+    },
+    "kvflow_prefix_only": {
+      "n": 5,
+      "avg_latency_ms": 3846.532,
+      "median_latency_ms": 3839.87,
+      "avg_cached_tokens": 2252.8,
+      "avg_prefetch_queued_tokens": 0.0,
+      "avg_prefetch_matched_tokens": 0.0,
+      "avg_prefetch_hints": 0.0,
+      "prefetch_success_rate": 0.0,
+      "prefetch_device_hit_rate": 0.0,
+      "exact_content_hit_rate": 0.0,
+      "avg_token_f1_vs_baseline": 0.53322
+    },
+    "kvflow_prefix_plus_codebase_prefetch": {
+      "n": 5,
+      "avg_latency_ms": 3855.42,
+      "median_latency_ms": 3844.09,
+      "avg_cached_tokens": 2255.8,
+      "avg_prefetch_queued_tokens": 0.0,
+      "avg_prefetch_matched_tokens": 0.0,
+      "avg_prefetch_hints": 3.0,
+      "prefetch_success_rate": 0.0,
+      "prefetch_device_hit_rate": 0.0,
+      "exact_content_hit_rate": 0.0,
+      "avg_token_f1_vs_baseline": 0.45968
+    },
+    "kvcomm_lossy_plus_codebase_prefetch": {
+      "n": 5,
+      "avg_latency_ms": 3764.87,
+      "median_latency_ms": 3845.19,
+      "avg_cached_tokens": 3178.4,
+      "avg_prefetch_queued_tokens": 0.0,
+      "avg_prefetch_matched_tokens": 0.0,
+      "avg_prefetch_hints": 3.0,
+      "prefetch_success_rate": 0.0,
+      "prefetch_device_hit_rate": 0.0,
+      "exact_content_hit_rate": 1.0,
+      "avg_token_f1_vs_baseline": 0.36641999999999997
+    }
+  }
+}

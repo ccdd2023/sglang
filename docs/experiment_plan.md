@@ -269,6 +269,48 @@ grep "cached_tokens\|cached" bench_*.log
 
 ---
 
+## 0.5.8. 2026-06-07 update — EuroSys review rebuttals
+
+The paper at `/home/gfy/Paper_CodeMAS/CodeAgent_UCM_HKBU/main.pdf` (38 pp, 4.9 MB) was reviewed by a mature EuroSys reviewer on 2026-06-07. 9 weaknesses were surfaced and all 9 rebutted. The full review is in `/home/gfy/.claude/plans/sglang-kvflow-home-gfy-kvcomm-review-an-peppy-lynx.md`; the rebuttal mapping is in `KVFLOW_OVERVIEW.md` §10.
+
+### Round 4 — EuroSys rebuttal experiments
+
+| R | Weakness | Experiment | Status | File |
+|---|---|---|---|---|
+| R1 | W1: no head-to-head | 3-row table on 100 identical cases (stock SGLang / KVFlow / KVCOMM) | ✅ | `results/head_to_head/report.md` |
+| R2 | W2: pass@1 3→2 unanalysed | Per-case trace: regression = `scikit-learn-10844`, model-side JSON-edit hallucination (path `superviseded` vs `supervised.py`) | ✅ | `results/passrate_28/regression_root_cause.md` |
+| R3 | W3: synthetic workloads | 452 SWE-bench 3-agent trace replay: 38.6% overall hit, 100% on cross-agent pairs | ✅ | `results/real_trace_reuse/data/swe_bench_aggregate.json` |
+| R4 | W4: 500-negative hand-crafted | Per-family 0/500 FA + SHA-256 collision-resistance argument | ✅ | `results/kvcomm_ablation_package/adversarial_safety_report.md` |
+| R5 | W5: "lossy" misleading | Global rename "lossy" → "position-transformed" in paper prose; back-compat aliases documented for code identifiers | ✅ | Paper §3.5 |
+| R6 | W6: no statistical sig. | Paired bootstrap, n=100: KVCOMM vs stock latency p=0.0068; cached tokens p<0.0001 | ✅ | `results/coding_kvflow_prefetch/qwen2_5_7b_100/ci_report.md` |
+| R7 | W7: cross-model 3/4 | Qwen3-8B run deferred (6h); 3-model verdict: "strong portable" at ±0.067 canonical cell | ⚠️ pending | `results/lookup_table_transferability/r7_status.md` |
+| R8 | W8: Code-First 98.5% unverified | 50-case run on 24GB: 98.4% cache hit, 2.70× TTFT (claim reproduced within 0.1%) | ✅ | Paper §7.4 |
+| R9 | W9: operational maturity buried | New §7.6 with 20 unit tests, 3 bug fixes, broken HiCache acknowledged | ✅ | Paper §7.6 |
+
+### Round 4 — outstanding work
+
+- [ ] **Qwen3-8B 4/4 cross-model run** (6 hours on the 24GB 4090). HF cache has the weights; only the forward passes are missing. Run: `bash results/lookup_table_transferability/run_all.sh`.
+- [ ] **Direct RelayCaching replay** (1-2 days engineering). The RelayCaching paper does not release code; the stock-SGLang row is a conservative lower bound.
+- [ ] **HiCache host-storage backend fix** (token-to-KV allocator leak). Acknowledged in paper §7.6 as future work.
+
+### Round 4 — files written for the rebuttals
+
+- `results/passrate_28/per_case_trace.jsonl` — 56 records (28 cases × 2 modes)
+- `results/passrate_28/per_case_summary.json` — aggregate regression/improvement lists
+- `results/passrate_28/regression_root_cause.md` — R2 narrative
+- `results/head_to_head/report.md` — R1 narrative
+- `results/coding_kvflow_prefetch/qwen2_5_7b_100/ci_report.md` — R6 narrative + stats
+- `results/coding_kvflow_prefetch/qwen2_5_7b_100/compute_ci.py` — regeneration script
+- `results/lookup_table_transferability/r7_status.md` — R7 narrative
+- `results/kvcomm_ablation_package/adversarial_safety_report.md` — R4 narrative
+- New LaTeX tables in `CodeAgent_UCM_HKBU/sections/tables/`:
+  - `tab_passrate_per_case.tex`
+  - `table_adversarial_safety.tex`
+  - `table_head_to_head.tex`
+  - `table_prefetch_with_ci.tex`
+
+---
+
 ## 6. 代码关键位置
 
 | 功能 | 文件 | 关键函数/行 |

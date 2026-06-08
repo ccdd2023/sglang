@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Generate and test SWE-bench patches with and without KVCOMM reuse."""
+"""Generate and test SWE-bench patches with AgentTemplateKV-style reuse.
+
+KVFlow/KVCOMM remain reference baselines in this harness. The AgentTemplateKV
+layout keeps shared codebase blocks stable and early in the prompt so exact
+code reuse and device-first prefetch can translate into end-to-end speed.
+"""
 
 from __future__ import annotations
 
@@ -273,7 +278,28 @@ def reset_repo_to_base(instance: dict[str, Any], repo_dir: Path):
     run(["git", "clean", "-fdx"], cwd=repo_dir, timeout=120)
 
 
-def build_messages(instance: dict[str, Any], segments: list[CodeSegment], mode_label: str, output_schema: str) -> list[dict[str, str]]:
+def build_codebase_block(segments: list[CodeSegment]) -> list[str]:
+    body = []
+    for idx, segment in enumerate(segments, 1):
+        body.extend(
+            [
+                f"## code_base{idx}: {segment.name}",
+                "```python",
+                segment.text,
+                "```",
+                "",
+            ]
+        )
+    return body
+
+
+def build_messages(
+    instance: dict[str, Any],
+    segments: list[CodeSegment],
+    mode_label: str,
+    output_schema: str,
+    prompt_layout: str = "agenttemplatekv",
+) -> list[dict[str, str]]:
     if output_schema == "json-edit":
         output_instruction = [
             "Return only compact JSON with this exact schema:",
@@ -299,11 +325,7 @@ def build_messages(instance: dict[str, Any], segments: list[CodeSegment], mode_l
             "You are a precise software maintenance agent. "
             "Your entire response must be a valid unified git diff and nothing else."
         )
-    body = [
-        "You are fixing a real SWE-bench repository issue.",
-        "",
-        *output_instruction,
-        "",
+    shared_task = [
         "## Issue",
         instance.get("problem_statement", "").strip(),
         "",
@@ -325,11 +347,28 @@ def build_messages(instance: dict[str, Any], segments: list[CodeSegment], mode_l
         "- Replacement strings must preserve the surrounding original code and add only the minimal fix.",
         "- Do not use placeholders, pseudo-code, ellipsis, or abbreviated function signatures.",
         "",
-        f"## Generation mode: {mode_label}",
+        f"## Agent step: {mode_label}",
         "",
     ]
-    for idx, segment in enumerate(segments, 1):
-        body.extend([f"## code_base{idx}: {segment.name}", "```python", segment.text, "```", ""])
+    if prompt_layout == "legacy":
+        body = [
+            "You are fixing a real SWE-bench repository issue.",
+            "",
+            *output_instruction,
+            "",
+            *shared_task,
+            *build_codebase_block(segments),
+        ]
+    else:
+        body = [
+            "You are fixing a real SWE-bench repository issue.",
+            "",
+            *build_codebase_block(segments),
+            "## Agent instruction",
+            *output_instruction,
+            "",
+            *shared_task,
+        ]
     return [
         {
             "role": "system",
@@ -347,6 +386,7 @@ def build_repair_messages(
     apply_error: str,
     mode_label: str,
     output_schema: str,
+    prompt_layout: str = "agenttemplatekv",
 ) -> list[dict[str, str]]:
     if output_schema == "json-edit":
         hard_requirements = [
@@ -371,10 +411,7 @@ def build_repair_messages(
             "You repair invalid patches. "
             "Your entire response must be a valid unified git diff and nothing else."
         )
-    body = [
-        "Your previous response was not an applyable unified git diff.",
-        "Repair it now.",
-        "",
+    repair_tail = [
         "Hard requirements:",
         *hard_requirements,
         "",
@@ -384,7 +421,7 @@ def build_repair_messages(
         "## Apply check error",
         apply_error.strip()[-3000:],
         "",
-        f"## Generation mode: repair {mode_label}",
+        f"## Agent step: repair {mode_label}",
         "",
         f"## {previous_label}",
         previous_diff.strip()[-6000:],
@@ -393,8 +430,22 @@ def build_repair_messages(
         previous_output.strip()[-6000:],
         "",
     ]
-    for idx, segment in enumerate(segments, 1):
-        body.extend([f"## code_base{idx}: {segment.name}", "```python", segment.text, "```", ""])
+    if prompt_layout == "legacy":
+        body = [
+            "Your previous response was not an applyable unified git diff.",
+            "Repair it now.",
+            "",
+            *repair_tail,
+            *build_codebase_block(segments),
+        ]
+    else:
+        body = [
+            "Your previous response was not an applyable unified git diff.",
+            "Repair it now.",
+            "",
+            *build_codebase_block(segments),
+            *repair_tail,
+        ]
     return [
         {
             "role": "system",
@@ -593,6 +644,7 @@ async def run_benchmark(args: argparse.Namespace):
                     segments,
                     "planner warmup; identify files and reusable code bases",
                     args.output_schema,
+                    args.prompt_layout,
                 )
                 await post_chat(
                     session,
@@ -615,7 +667,13 @@ async def run_benchmark(args: argparse.Namespace):
                     ("lossy", "lossy", True, False),
                     ("lossy_prefetch", "lossy", True, True),
                 ]:
-                    messages = build_messages(instance, segments, mode, args.output_schema)
+                    messages = build_messages(
+                        instance,
+                        segments,
+                        mode,
+                        args.output_schema,
+                        args.prompt_layout,
+                    )
                     raw_path = case_dir / f"{mode}_output.txt"
                     patch_path = case_dir / f"{mode}.patch"
                     try:
@@ -665,6 +723,7 @@ async def run_benchmark(args: argparse.Namespace):
                                 apply_check.get("stderr_tail", ""),
                                 mode,
                                 args.output_schema,
+                                args.prompt_layout,
                             )
                             repair_response = await post_chat(
                                 session,
@@ -794,6 +853,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--server-timeout", type=int, default=180)
     parser.add_argument("--repair-attempts", type=int, default=1)
     parser.add_argument("--output-schema", choices=["diff", "json-edit"], default="diff")
+    parser.add_argument("--prompt-layout", choices=["agenttemplatekv", "legacy"], default="agenttemplatekv")
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
     return parser.parse_args()
 

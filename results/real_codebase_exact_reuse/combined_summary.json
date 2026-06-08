@@ -1,0 +1,245 @@
+{
+  "model": "/home/gfy/models/Qwen2.5-3B-Instruct",
+  "timestamp": "2026-05-31 18:00:00",
+  "codebases": [
+    {
+      "name": "data_structures",
+      "lines": 125,
+      "signature": "91454f70b52f74737e9eab9fea3eaa7a"
+    },
+    {
+      "name": "graph_algorithms",
+      "lines": 96,
+      "signature": "1f66cec0fe6bbdce76751d0f5a3e07fb"
+    },
+    {
+      "name": "sorting",
+      "lines": 69,
+      "signature": "6b3a73cc8d1156a90398d02b485e466c"
+    }
+  ],
+  "sglang_exact_reuse": {
+    "planner": {
+      "elapsed_ms": 1435.39,
+      "cached_tokens": 0,
+      "prompt_tokens": 2344,
+      "output": "For the downstream agents, the components to inspect are as follows:\n\n1. **Data Structures**:\n   - **AVL Tree**: Inspect the insertion and rotation operations to ensure they maintain the AVL tree properties (balance factor between -1 and 1).\n   - **Min Heap**: Verify the heapify-up and heapify-down operations to ensure the heap property is maintained.\n   - **LinkedList**: Examine the append, find, and delete operations to ensure the linked list"
+    },
+    "pairs": [
+      {
+        "agent": "implementer",
+        "lossless_elapsed_ms": 1381.48,
+        "lossy_elapsed_ms": 1316.27,
+        "speedup_vs_lossless": 1.0495,
+        "lossless_cached_tokens": 18,
+        "lossy_cached_tokens": 1729,
+        "lossless_prompt_tokens": 1730,
+        "lossy_prompt_tokens": 1730,
+        "exact_output_match": false,
+        "token_f1": 1.0,
+        "lossy_meta": {
+          "lossy_candidate_count": 7,
+          "lossy_first_match_reason": "exact_code_content_signature",
+          "lossy_first_reuse_allowed": true,
+          "lossy_first_reuse_confidence": 0.95,
+          "lossy_first_matched_anchor_signature": "75a7abef4a0634a8",
+          "lossy_first_matched_content_signature": "1f66cec0fe6bbdce76751d0f5a3e07fb",
+          "lossy_first_syntax_region_type": "code_base",
+          "lossy_first_matched_node_id": 5,
+          "lossy_final_match_reason": "exact_code_content_signature",
+          "lossy_final_reuse_allowed": true,
+          "lossy_final_reuse_confidence": 0.95,
+          "lossy_final_matched_anchor_signature": "75a7abef4a0634a8",
+          "lossy_final_matched_content_signature": "1f66cec0fe6bbdce76751d0f5a3e07fb",
+          "lossy_final_syntax_region_type": "code_base",
+          "lossy_final_matched_node_id": 5
+        },
+        "lossless_output": "A proposed implementation change could be to add a method to the `AVLTree` class to balance the tree after an insertion, ensuring the AVL property is maintained. This can be done by calling the `_rotate_right` and `_rotate_left` methods in the `insert` method to rebalance the tree if necessary.\n\nHere's the updated `AVLTree` class:\n\n```python\nclass AVLTree:\n    # ... (previous code remains the same)\n    def insert(self",
+        "lossy_output": "A proposed implementation change could be to add a method to the `AVLTree` class to balance the tree after an insertion, ensuring the AVL property is maintained. This can be done by calling the `_rotate_left` and `_rotate_right` methods in the `insert` method to rebalance the tree if necessary.\n\nHere's the updated `AVLTree` class:\n\n```python\nclass AVLTree:\n    # ... (previous code remains the same)\n    def insert(self"
+      },
+      {
+        "agent": "debugger",
+        "lossless_elapsed_ms": 1329.63,
+        "lossy_elapsed_ms": 1308.41,
+        "speedup_vs_lossless": 1.0162,
+        "lossless_cached_tokens": 18,
+        "lossy_cached_tokens": 669,
+        "lossless_prompt_tokens": 670,
+        "lossy_prompt_tokens": 670,
+        "exact_output_match": false,
+        "token_f1": 0.7273,
+        "lossy_meta": {
+          "lossy_candidate_count": 12,
+          "lossy_first_match_reason": "exact_code_content_signature",
+          "lossy_first_reuse_allowed": true,
+          "lossy_first_reuse_confidence": 0.95,
+          "lossy_first_matched_anchor_signature": "75a7abef4a0634a8",
+          "lossy_first_matched_content_signature": "6b3a73cc8d1156a90398d02b485e466c",
+          "lossy_first_syntax_region_type": "code_base",
+          "lossy_first_matched_node_id": 5,
+          "lossy_final_match_reason": "exact_code_content_signature",
+          "lossy_final_reuse_allowed": true,
+          "lossy_final_reuse_confidence": 0.95,
+          "lossy_final_matched_anchor_signature": "75a7abef4a0634a8",
+          "lossy_final_matched_content_signature": "6b3a73cc8d1156a90398d02b485e466c",
+          "lossy_final_syntax_region_type": "code_base",
+          "lossy_final_matched_node_id": 5
+        },
+        "lossless_output": "The provided `Sorter` class contains several sorting methods, including merge sort, quick sort, heap sort, insertion sort, and counting sort. The reported failure is not specified, but common issues in sorting algorithms include incorrect comparison logic, improper handling of edge cases, or incorrect implementation of the sorting algorithm. To debug, focus on the quick sort method, as it is less commonly used and has a higher chance of subtle bugs. Specifically, check the conditions for selecting the pivot and",
+        "lossy_output": "The provided `Sorter` class implements several sorting algorithms: merge sort, quick sort, heap sort, insertion sort, and counting sort. The reported failure is not specified, but common issues in sorting algorithms include incorrect comparison logic, improper handling of edge cases, or incorrect implementation of the sorting algorithm. To debug, focus on the specific sorting method that is failing. For example, if the merge sort is failing, check the `_merge` method for any off-by-one errors or"
+      }
+    ]
+  },
+  "hf_kv_delta": {
+    "rope_theta": 1000000.0,
+    "results": [
+      {
+        "codebase": "data_structures",
+        "lines": 125,
+        "tokens": 957,
+        "old_start": 6,
+        "new_start": 26,
+        "rope_delta": 20,
+        "prefill_a_ms": 270.32,
+        "prefill_b_ms": 49.09,
+        "estimated_full_code_prefill_savings_ms": 47.16,
+        "layers": [
+          {
+            "layer": 0,
+            "k_mean_abs": 0.002827,
+            "k_max_abs": 0.25,
+            "k_cosine": 1.0,
+            "v_mean_abs": 0.0,
+            "v_max_abs": 0.0,
+            "v_cosine": 1.0
+          },
+          {
+            "layer": 12,
+            "k_mean_abs": 0.045127,
+            "k_max_abs": 1.649902,
+            "k_cosine": 0.999241,
+            "v_mean_abs": 0.027188,
+            "v_max_abs": 1.310547,
+            "v_cosine": 0.996929
+          },
+          {
+            "layer": 24,
+            "k_mean_abs": 0.109369,
+            "k_max_abs": 5.816406,
+            "k_cosine": 0.995103,
+            "v_mean_abs": 0.086066,
+            "v_max_abs": 4.6875,
+            "v_cosine": 0.98209
+          },
+          {
+            "layer": 35,
+            "k_mean_abs": 0.070959,
+            "k_max_abs": 8.539062,
+            "k_cosine": 0.998488,
+            "v_mean_abs": 0.111595,
+            "v_max_abs": 3.453125,
+            "v_cosine": 0.989858
+          }
+        ]
+      },
+      {
+        "codebase": "graph_algorithms",
+        "lines": 96,
+        "tokens": 689,
+        "old_start": 6,
+        "new_start": 26,
+        "rope_delta": 20,
+        "prefill_a_ms": 74.96,
+        "prefill_b_ms": 39.31,
+        "estimated_full_code_prefill_savings_ms": 37.2,
+        "layers": [
+          {
+            "layer": 0,
+            "k_mean_abs": 0.002742,
+            "k_max_abs": 0.25,
+            "k_cosine": 1.0,
+            "v_mean_abs": 0.0,
+            "v_max_abs": 0.0,
+            "v_cosine": 1.0
+          },
+          {
+            "layer": 12,
+            "k_mean_abs": 0.047892,
+            "k_max_abs": 2.617188,
+            "k_cosine": 0.999073,
+            "v_mean_abs": 0.026501,
+            "v_max_abs": 1.29248,
+            "v_cosine": 0.997008
+          },
+          {
+            "layer": 24,
+            "k_mean_abs": 0.110832,
+            "k_max_abs": 4.5,
+            "k_cosine": 0.995324,
+            "v_mean_abs": 0.079407,
+            "v_max_abs": 3.117188,
+            "v_cosine": 0.984568
+          },
+          {
+            "layer": 35,
+            "k_mean_abs": 0.067046,
+            "k_max_abs": 8.357422,
+            "k_cosine": 0.998611,
+            "v_mean_abs": 0.104629,
+            "v_max_abs": 3.882812,
+            "v_cosine": 0.991473
+          }
+        ]
+      },
+      {
+        "codebase": "sorting",
+        "lines": 69,
+        "tokens": 603,
+        "old_start": 6,
+        "new_start": 26,
+        "rope_delta": 20,
+        "prefill_a_ms": 40.38,
+        "prefill_b_ms": 37.0,
+        "estimated_full_code_prefill_savings_ms": 34.75,
+        "layers": [
+          {
+            "layer": 0,
+            "k_mean_abs": 0.003812,
+            "k_max_abs": 0.5,
+            "k_cosine": 1.0,
+            "v_mean_abs": 0.000449,
+            "v_max_abs": 0.015625,
+            "v_cosine": 0.999995
+          },
+          {
+            "layer": 12,
+            "k_mean_abs": 0.054353,
+            "k_max_abs": 1.984375,
+            "k_cosine": 0.998857,
+            "v_mean_abs": 0.031716,
+            "v_max_abs": 1.505859,
+            "v_cosine": 0.995272
+          },
+          {
+            "layer": 24,
+            "k_mean_abs": 0.121696,
+            "k_max_abs": 5.5625,
+            "k_cosine": 0.993752,
+            "v_mean_abs": 0.085604,
+            "v_max_abs": 3.890625,
+            "v_cosine": 0.981112
+          },
+          {
+            "layer": 35,
+            "k_mean_abs": 0.072452,
+            "k_max_abs": 5.796875,
+            "k_cosine": 0.99859,
+            "v_mean_abs": 0.114705,
+            "v_max_abs": 2.46875,
+            "v_cosine": 0.990877
+          }
+        ]
+      }
+    ]
+  }
+}

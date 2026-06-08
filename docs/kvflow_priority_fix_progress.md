@@ -231,4 +231,45 @@ python3 -m benchmark.multi_workflow.bench_multi_workflow \
 
 ---
 
-*生成时间: 2026-05-19 08:05 UTC*
+## 0.5.7. 2026-06-07 update — Operational maturity
+
+Three scheduler bugs were found and fixed during the 2026-06 EuroSys-review rebuttal work; all three are now covered by unit tests in `python/sglang/srt/mem_cache/test_anchor_match.py` (expanded from 14 to 20 tests).
+
+### Bug fixes (with commit hashes)
+
+1. **IndexError in heterogeneous batch telemetry** — `scheduler_output_processor_mixin._append_lossy_observability` was skipping `None` value appends, causing `list index out of range` in `tokenizer_manager._handle_batch_output` when a batch mixed lossy + lossless requests. Fixed by always appending (None counts too) so list length matches batch size. **Commit `492a8fb97`**.
+2. **E2E reader pointed at wrong field path** — `results/e2e_accel_accuracy.py` was reading `obj["meta_info"]` (always empty in sglang-kvflow). Real telemetry is at `usage_chunk.metadata.lossy_reuse.{...}`. Fixed the reader to look in `metadata` field.
+3. **Field-name drift** — the legacy telemetry field `lossy_anchor_match_used` is no longer populated. Real signal is `lossy_first_match_reason` (non-empty) or `lossy_first_reuse_allowed` (True). Fixed the reader to use these.
+
+### Unit test enumeration (20 tests, paper §7.6)
+
+1. tier-1 exact-content signature match
+2. tier-2 exact-anchor fallback
+3. tier-3/4 span-overlap gating
+4. 4-tier safety invariant: `reuse_allowed` ⇒ `match_reason = exact_code_content_signature`
+5. modifier multiplier for cells in the 0.5–0.95 range
+6. modifier refusal for cells below 0.5
+7. zero-fill correctness
+8. RoPE delta application
+9. gap-length accounting
+10. telemetry field completeness
+11. request-schema backward compatibility (legacy `lossy` prefix still works)
+12. telemetry field name drift handling
+13. heterogeneous batch (lossy + prefix-only) ordering
+14. `None` value handling in observability list
+15. anchor metadata propagation across `_split_node`
+16. `ref_count` decrements
+17. `_store_anchor_kv` no-op on empty spans
+18. cache hit on second request with identical content signature
+19. cache miss on near-miss with 1-token difference
+20. cache hit on first request after server restart with persisted anchor store
+
+### Known limitations (acknowledged in paper §7.6)
+
+- **HiCache host storage backend is broken**: a token-to-KV-pool allocator leak triggers runtime crashes under sustained load. The coding-aware prefetch result in `tab:prefetch` is therefore obtained with host-backed storage disabled. Completing robust host load-back is future work for stronger TTFT gains.
+- **Modifier lookup table is single-model-anchored** on Qwen2.5-Coder-7B-Instruct and shipped as a static JSON. Per-model bias correction is not applied at runtime. Cross-model portability is "strong" at the 7B–8B class (3/4 models complete, ±0.067 at canonical cell; see `results/lookup_table_transferability/r7_status.md`).
+- **3 pending runtime fixes**: `_split_node` does not propagate anchor metadata; `ref_count` is incremented but never decremented (memory leak); `_store_anchor_kv` silently returns when `code_anchor_token_spans` is empty.
+
+---
+
+*生成时间: 2026-05-19 08:05 UTC; updated 2026-06-07*

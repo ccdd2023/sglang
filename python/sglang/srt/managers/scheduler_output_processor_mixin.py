@@ -145,6 +145,27 @@ class SchedulerOutputProcessorMixin:
             "codebase_prefetch_device_hit_count": getattr(
                 req, "codebase_prefetch_device_hit_count", None
             ),
+            "agenttemplatekv_prefetch_hit_count": getattr(
+                req, "agenttemplatekv_prefetch_hit_count", None
+            ),
+            "agenttemplatekv_prefetch_miss_count": getattr(
+                req, "agenttemplatekv_prefetch_miss_count", None
+            ),
+            "agenttemplatekv_prefetch_protected_tokens": getattr(
+                req, "agenttemplatekv_prefetch_protected_tokens", None
+            ),
+            "agenttemplatekv_prefetch_newly_protected_tokens": getattr(
+                req, "agenttemplatekv_prefetch_newly_protected_tokens", None
+            ),
+            "agenttemplatekv_prefetch_consumed_count": getattr(
+                req, "agenttemplatekv_prefetch_consumed_count", None
+            ),
+            "agenttemplatekv_prefetch_expired_tokens": getattr(
+                req, "agenttemplatekv_prefetch_expired_tokens", None
+            ),
+            "agenttemplatekv_rejected_large_gap_count": getattr(
+                req, "agenttemplatekv_rejected_large_gap_count", None
+            ),
         }
         for key, value in observability_fields.items():
             if key not in customized_info:

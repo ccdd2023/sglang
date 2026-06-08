@@ -1,0 +1,6 @@
+```python
+-        elif isinstance(transform, Model):
++        elif isinstance(transform, Model) and not isinstance(transform, Mapping):
+```
+
+This change ensures that the separability is only computed for non-mapping models, addressing the issue with nested CompoundModels.

@@ -649,6 +649,13 @@ class Req(ReqDllmMixin):
         self.codebase_prefetch_matched_tokens = 0
         self.codebase_prefetch_success_count = 0
         self.codebase_prefetch_device_hit_count = 0
+        self.agenttemplatekv_prefetch_hit_count = 0
+        self.agenttemplatekv_prefetch_miss_count = 0
+        self.agenttemplatekv_prefetch_protected_tokens = 0
+        self.agenttemplatekv_prefetch_newly_protected_tokens = 0
+        self.agenttemplatekv_prefetch_consumed_count = 0
+        self.agenttemplatekv_prefetch_expired_tokens = 0
+        self.agenttemplatekv_rejected_large_gap_count = 0
         self.code_anchor_signature = code_anchor_signature
         self.code_content_signature = code_content_signature
         self.code_anchor_spans = code_anchor_spans or []

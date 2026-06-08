@@ -1,0 +1,3 @@
+```json
+{"edits":[{"path":"astropy/table/table.py","search":"            data = data.view(NdarrayMixin)\n            data_is_mixin = True","replace":"            warnings.warn('In future versions, structured arrays will be added as Columns. Please wrap your data in a Column.', FutureWarning)\n            data_is_mixin = False"}]}
+```

@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/axes/_base.py",
+      "search": "self.transLimits + self.transAxes",
+      "replace": "self.transLimits + self.transAxes if self.get_xscale() != 'log' and self.get_yscale() != 'log' else self.transAxes"
+    }
+  ]
+}
+```

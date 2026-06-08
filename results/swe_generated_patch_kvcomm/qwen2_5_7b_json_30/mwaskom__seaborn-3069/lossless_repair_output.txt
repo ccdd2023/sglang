@@ -1,0 +1,76 @@
+It seems like you have a substantial and detailed documentation and examples for the Jupyter/IPExec's `seaborn` plotting-internal methods. However, it looks like you're aiming to finalize and streamline the documentation and some of the code snippets. Below? Specifically, it's important to ensure clarity, correctness, and adherence to Python's and Pythonic way of doing things. 
+
+Let's break it down and refine the snippets for clarity, correctness, and efficiency. Particularly, we need to ensure:
+
+1. **Clarity and Readability**: Ensure the code is readable and easy to follow.
+2. **Correctness and Validation**: Ensure that the examples and comments are in line with the documentation/documentation.
+3. **Efficiency and Best Practices**: Leverage Python's and Python's best practices.
+
+Let's start by refining and validating the `on()`, `add()`, `scale()`, `theme()`, and `plot()` methods.
+
+### 1. `on(target: Axes | Figure, ...)`:
+
+Ensure that `on` correctly handles `Axes`, `Figure`, and `SubFigure` types and initializes the `target` attribute properly.
+
+```python
+def on(self, *, target: Axes | Figure = None, ...) -> "self":
+    """
+    Specify the existing `matplotlib` `Axes`, `Figure`, or `SubFigure` for rendering.
+
+    Parameters
+    ----------
+    - `target`: `Axes`, `Figure`, or `SubFigure`
+        Specifies the existing plot target. If `None`, a new one is created.
+    """
+    if isinstance(target, (mpl.axes.Axes, mpl.figure.Figure, mpl.figure.SubFigure)):
+        self._target = target
+    elif target is not None:
+        if not isinstance(target, (mpl.axes.Axes, mpl.figure.Figure, mpl.figure.SubFigure)):
+            self._error(f"Invalid `target` type: {type(target)}. Expected `Axes`, `Figure`, or `SubFigure`.")
+    
+    return self
+```
+
+### 2. `add(mark: ...)`:
+
+Ensure that `add()` correctly handles `mark` and `transforms`, and initializes `_layers` properly.
+
+```python
+    def add(self, *, 
+            -    transforms: Iterable[Union[Stat, Move]] = (),
++           stat: Optional[BaseStatParams] = None,
++           moves: Iterable[BaseMove] = (),
++           orient: Orient, 
++           data: Optional[DataSource] = None, 
++           variables: Dict[str, VariableSpec] = None, 
++           **kwargs) -> "self":
+
+        """
+        Define and add a new `mark` and `transforms` to the `_layers`.
+
+        Parameters
+        ----------
+        - `mark`: `Mark`
+            The visual representation to plot.
+        + `orient`: {"x", "y", None}
+            Orientation orientation, or `None` to infer.
+        + `data`: `DataFrame`, `Series`, `ArrayLike`, or `None`
+            Data source to use, or `None` to use the `_data` from `_init__()`.
+        + `variables`: `dict[str, VariableSpec]`
+            A dictionary of variable names and `VariableSpec`s.
+        + `transforms`: Iterable[BaseStat | Bunch]
+            A sequence of `BaseStat` or `BaseMove`s.
+        + `kwargs`: `Any`
+            Additional keyword arguments to pass to `plot_data()`.
+
+        Returns
+        -------
+        - `self`: `self`
++           A mutable builder for further chaining.
+
+        Raises
+        -------
+        - TypeError: If `mark` is invalid.
++           ValueError: If `orient` is invalid.
+        """
+        from collections.abc import Iterable

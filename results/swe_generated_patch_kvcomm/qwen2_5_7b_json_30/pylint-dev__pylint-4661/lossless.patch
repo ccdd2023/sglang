@@ -1,0 +1,12 @@
+diff --git a/pylint/config/__init__.py b/pylint/config/__init__.py
+--- a/pylint/config/__init__.py
++++ b/pylint/config/__init__.py
+@@ -63,7 +63,7 @@
+ elif USER_HOME == "~":
+     PYLINT_HOME = ".pylint.d"
+ else:
+-    PYLINT_HOME = os.path.join(USER_HOME, ".pylint.d")
++    PYLINT_HOME = appdirs.user_cache_dir("pylint")
+ 
+ 
+ def _get_pdata_path(base_name, recurs):

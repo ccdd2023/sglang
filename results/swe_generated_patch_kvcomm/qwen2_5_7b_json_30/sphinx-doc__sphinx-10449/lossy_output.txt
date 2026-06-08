@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "sphinx/ext/autodoc/typehints.py",
+      "search": "if app.config.autodoc_typehints_description_target == \"all\":",
+      "replace": "if app.config.autodoc_typehints_description_target == \"all\" and 'return' not in annotations:"
+    }
+  ]
+}
+```

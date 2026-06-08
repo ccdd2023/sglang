@@ -1,0 +1,16 @@
+diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
+--- a/astropy/modeling/separable.py
++++ b/astropy/modeling/separable.py
+@@ -24,7 +24,11 @@
+ __all__ = ["is_separable", "separability_matrix"]
+ 
+ 
+-def is_separable(transform):
++def is_separable(transform, depth=0):
++    if isinstance(transform, CompoundModel) and depth == 0:
++        return is_separable(transform._model, depth=depth+1)
++    else:
++        return is_separable(transform, depth=depth+1) if isinstance(transform, CompoundModel) else np.all(separability_matrix(transform) == np.eye(transform.n_outputs, transform.n_inputs, dtype=bool))
+     """
+     A separability test for the outputs of a transform.
+ 

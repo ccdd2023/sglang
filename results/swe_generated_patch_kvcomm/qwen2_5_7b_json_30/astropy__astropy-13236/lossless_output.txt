@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "astropy/table/table.py",
+      "search": "if (not isinstance(data, Column) and not data_is_mixin and isinstance(data, np.ndarray) and len(data.dtype) > 1):",
+      "replace": "if (not isinstance(data, Column) and not data_is_mixin and isinstance(data, np.ndarray) and len(data.dtype) > 1):\n        warnings.warn(\"Adding a structured ndarray directly to a Table is deprecated. Please wrap the data in a Column. This behavior will change in a future version.\", FutureWarning, stacklevel=2)"
+    }
+  ]
+}
+```

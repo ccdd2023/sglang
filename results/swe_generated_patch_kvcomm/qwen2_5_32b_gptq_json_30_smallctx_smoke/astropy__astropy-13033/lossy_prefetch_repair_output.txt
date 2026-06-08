@@ -1,0 +1,3 @@
+```json
+{"edits":[{"path":"astropy/timeseries/core.py","search":"raise ValueError(\"{} object is invalid - expected '\\''{}\\''","replace":"raise ValueError(\"{} object is invalid - expected '\\''{}\\'' as the first column{} but found '\\''{}\\''".format(self.__class__.__name__, required_columns, plural, self.colnames[:len(required_columns)])}]}
+```

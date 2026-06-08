@@ -92,7 +92,7 @@ def _pairwise_diff_matrix(per_model: dict) -> tuple[list[str], np.ndarray]:
 
 
 def _slug_for(model_name: str) -> str:
-    s = model_name.lower().replace("/", "--")
+    s = model_name.lower().replace("/", "-")
     out = []
     for ch in s:
         if ch.isalnum() or ch == ".":

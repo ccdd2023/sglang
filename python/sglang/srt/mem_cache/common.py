@@ -213,15 +213,44 @@ def alloc_token_slots(
     out_cache_loc = allocator.alloc(num_tokens)
 
     if out_cache_loc is None:
-        error_msg = (
-            f"Out of memory. Try to lower your batch size.\n"
-            f"Try to allocate {num_tokens} tokens.\n"
-            f"{available_and_evictable_str(tree_cache)}"
-        )
-        logger.error(error_msg)
-        if tree_cache is not None:
-            tree_cache.pretty_print()
-        raise RuntimeError(error_msg)
+        # G2/G4: eager retry.  The reactive eviction above may not produce
+        # a long enough head-prefix run in the LIFO free list -- e.g. when
+        # the head is fragmented into small chunks.  Force additional
+        # eviction passes to extend the head run.  Each retry doubles the
+        # requested eviction amount, so the head grows quickly if there
+        # is any evictable mass left.  Cap the retries to bound latency.
+        #
+        # Critically, after each eviction we sort the allocator's free
+        # list by pool index.  Without this, the prefix-slice alloc
+        # would happily return non-contiguous pool indices (the freed
+        # leaves' values form contiguous blocks, but the concatenation
+        # of multiple blocks at the head of the LIFO free list is NOT
+        # itself a contiguous range).  Sorting makes the prefix slice
+        # the lowest N free indices, which IS contiguous.
+        max_attempts = 16
+        for _ in range(max_attempts):
+            if tree_cache is None or tree_cache.evictable_size_ == 0:
+                break
+            tree_cache.evict(EvictParams(num_tokens=num_tokens * 2))
+            # Sort the free list so the prefix slice is the lowest pool
+            # indices, guaranteeing a contiguous range for alloc.
+            free_pages = getattr(allocator, "free_pages", None)
+            if free_pages is not None and isinstance(free_pages, torch.Tensor):
+                sorted_pages, _ = torch.sort(free_pages)
+                allocator.free_pages = sorted_pages
+            out_cache_loc = allocator.alloc(num_tokens)
+            if out_cache_loc is not None:
+                break
+        if out_cache_loc is None:
+            error_msg = (
+                f"Out of memory. Try to lower your batch size.\n"
+                f"Try to allocate {num_tokens} tokens.\n"
+                f"{available_and_evictable_str(tree_cache)}"
+            )
+            logger.error(error_msg)
+            if tree_cache is not None:
+                tree_cache.pretty_print()
+            raise RuntimeError(error_msg)
 
     return (out_cache_loc, state) if backup_state else out_cache_loc
 

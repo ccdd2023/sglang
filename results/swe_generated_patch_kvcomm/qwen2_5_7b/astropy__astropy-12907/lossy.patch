@@ -1,0 +1,94 @@
+diff --git a/astropy/modeling/functional_fit.pyx i t/functional_fit.pyx
+index 0000000..0000000
+--- a/functional_fit.pyx
++++ t/functional_fit.pyx
+@@ -1,5 +1,5 @@
+ # Licensed under a 3-clause BSD style license - see LICENSE.rst
+
+-from .core import separability_matrix
++from .core import separability_matrix
+
+ from .core import is_separable
+ from .core import separability_matrix
+ from .core import _compute_n_outputs
+ from .core import _arith_oper
+ from .core import _coord_matrix
+ from .core import _cstack
+ from .log import log
+ from .mappings import Mapping
+ from .parameter import Parameter
+ from .parameter import InputParameterError
+ from .parameter import MissingMeta
+ from .parameter import Parameter
+ from .parameter import ParameterSpace
+ from .parameter import ParameterSpaceState
+ from .parameter import ParameterSpaceTransform
+ from .parameter import ParameterSpaceTransformError
+ from .parameter import ParameterSpaceValueError
+ from .parameter import ParameterSpaceWarning
+ from .parameter import ParameterSpaceZeroDivisionError
+ from .parameter import ParameterSpaceZerosDivisionError
+ from .parameter import ParameterSpaceZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosWarning
+ from .parameter import ParameterSpaceZerosWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionError
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning
+ from .parameter import ParameterSpaceZerosZeroDivisionWarning

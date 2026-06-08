@@ -389,6 +389,7 @@ def test_length_bin_for_thresholds():
 # ---------------------------------------------------------------------------
 import logging
 import threading
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -411,8 +412,11 @@ def _make_minimal_radix_cache(monkeypatch):
     cache.anchor_kv_store = {}
     cache.anchor_kv_store_lock = threading.RLock()
     cache.evictable_size_ = 0
+    cache.protected_size_ = 0
     cache.evictable_leaves = set()
     cache.root_node = rc.TreeNode(priority=0)
+    cache.device = torch.device("cpu")
+    cache.disable = False
     return cache
 
 
@@ -522,6 +526,32 @@ def test_decrement_anchor_refs_keeps_entry_when_refcount_still_positive(monkeypa
     assert cache.anchor_kv_store["content-1"] == [entry]  # still there
 
 
+def test_decrement_anchor_refs_releases_prefetch_lock(monkeypatch):
+    """Protected AgentTemplateKV anchors must release their radix lock before
+    GC drops the entry."""
+    from sglang.srt.mem_cache import radix_cache as rc
+    cache = _make_minimal_radix_cache(monkeypatch)
+    source_node = _make_source_node(rc, cache, [1, 2, 3])
+
+    entry = rc.AnchorKVEntry(
+        signature="aid-1",
+        token_ids=torch.tensor([1, 2, 3], dtype=torch.int64),
+        kv_indices=torch.tensor([1, 2, 3], dtype=torch.int64),
+        start_pos=0,
+        code_content_signature="content-1",
+        source_node=source_node,
+    )
+    entry.ref_count = 1
+    cache.anchor_kv_store["content-1"] = [entry]
+    cache._agenttemplatekv_protect_entry(entry)
+    assert source_node.lock_ref == 1
+
+    node = _make_tree_node(rc, content_sig="content-1")
+    cache._decrement_anchor_refs(node)
+    assert source_node.lock_ref == 0
+    assert "content-1" not in cache.anchor_kv_store
+
+
 def test_store_anchor_kv_warns_on_missing_token_spans(monkeypatch, caplog):
     """Bug C: _store_anchor_kv should log a warning (not silently return)
     when code_anchor_token_spans is missing on a request that has
@@ -566,3 +596,158 @@ def test_store_anchor_kv_quiet_when_signature_also_missing(monkeypatch, caplog):
     assert cache.anchor_kv_store == {}
     # No warning expected — the request never opted in.
     assert not any("anchor_kv_store" in r.message for r in caplog.records)
+
+
+def _make_source_node(rc, cache, tokens):
+    node = rc.TreeNode(priority=0)
+    node.key = rc.RadixKey(tokens)
+    node.value = torch.arange(len(tokens), dtype=torch.int64)
+    node.parent = cache.root_node
+    cache.root_node.children[cache.get_child_key_fn(node.key)] = node
+    cache.evictable_size_ = len(tokens)
+    return node
+
+
+def _make_agenttemplatekv_req(**overrides):
+    base = dict(
+        rid="agenttemplatekv-rid",
+        code_anchor_signature="anchor-sig",
+        code_content_signature="content-sig",
+        code_anchor_token_spans=[
+            {"start_token": 1, "end_token": 4, "content_signature": "content-sig"}
+        ],
+        origin_input_ids=[0, 11, 12, 13, 99],
+        output_ids=[],
+        codebase_prefetch_hints=[
+            {
+                "content_signature": "content-sig",
+                "text": "abc",
+                "steps_to_use": 1,
+            }
+        ],
+        codebase_prefetch_matched_tokens=0,
+        codebase_prefetch_success_count=0,
+        codebase_prefetch_device_hit_count=0,
+        agenttemplatekv_prefetch_hit_count=0,
+        agenttemplatekv_prefetch_miss_count=0,
+        agenttemplatekv_prefetch_protected_tokens=0,
+        agenttemplatekv_prefetch_newly_protected_tokens=0,
+        agenttemplatekv_prefetch_consumed_count=0,
+        agenttemplatekv_prefetch_expired_tokens=0,
+    )
+    base.update(overrides)
+    return SimpleNamespace(**base)
+
+
+def test_agenttemplatekv_store_protects_hint_anchor(monkeypatch):
+    """HiCache-independent path: when a finished Planner stores an exact
+    codebase anchor listed in its hints, AgentTemplateKV pins the source radix
+    node on device for the next agent."""
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    cache = _make_minimal_radix_cache(monkeypatch)
+    source_node = _make_source_node(rc, cache, [0, 11, 12, 13, 99])
+    req = _make_agenttemplatekv_req()
+    kv_indices = torch.arange(5, dtype=torch.int64)
+
+    cache._store_anchor_kv(req, kv_indices, source_node=source_node)
+
+    entry = cache.anchor_kv_store["content-sig"][0]
+    assert entry.prefetch_lock_held is True
+    assert source_node.lock_ref == 1
+    assert req.codebase_prefetch_device_hit_count == 0
+    assert req.agenttemplatekv_prefetch_newly_protected_tokens == 3
+
+
+def test_agenttemplatekv_prefetch_hits_protected_device_anchor(monkeypatch):
+    """A later agent carrying the same exact-content hint should see a device
+    hit even when HiCache is disabled."""
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    cache = _make_minimal_radix_cache(monkeypatch)
+    source_node = _make_source_node(rc, cache, [0, 11, 12, 13, 99])
+    entry = rc.AnchorKVEntry(
+        signature="anchor-sig",
+        token_ids=torch.tensor([11, 12, 13], dtype=torch.int64),
+        kv_indices=torch.tensor([1, 2, 3], dtype=torch.int64),
+        start_pos=1,
+        code_content_signature="content-sig",
+        source_node=source_node,
+    )
+    cache.anchor_kv_store["content-sig"] = [entry]
+
+    class Tok:
+        def encode(self, text, add_special_tokens=False):
+            assert text == "abc"
+            return [11, 12, 13]
+
+    req = _make_agenttemplatekv_req()
+    cache.agenttemplatekv_prefetch_codebases(req, tokenizer=Tok())
+
+    assert entry.prefetch_lock_held is True
+    assert source_node.lock_ref == 1
+    assert req.codebase_prefetch_device_hit_count == 1
+    assert req.agenttemplatekv_prefetch_hit_count == 1
+    assert req.agenttemplatekv_prefetch_protected_tokens == 3
+
+
+def test_agenttemplatekv_prefetch_ttl_releases_lock(monkeypatch):
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    cache = _make_minimal_radix_cache(monkeypatch)
+    source_node = _make_source_node(rc, cache, [1, 2, 3])
+    entry = rc.AnchorKVEntry(
+        signature="anchor-sig",
+        token_ids=torch.tensor([1, 2, 3], dtype=torch.int64),
+        kv_indices=torch.tensor([1, 2, 3], dtype=torch.int64),
+        start_pos=0,
+        code_content_signature="content-sig",
+        source_node=source_node,
+    )
+    cache.anchor_kv_store["content-sig"] = [entry]
+    cache._agenttemplatekv_protect_entry(entry, ttl_s=0.001)
+    assert source_node.lock_ref == 1
+
+    entry.prefetch_protected_until = time.monotonic() - 1.0
+    req = _make_agenttemplatekv_req(codebase_prefetch_hints=[])
+    cache._agenttemplatekv_release_expired_prefetch_entries(req)
+    assert source_node.lock_ref == 0
+    assert req.agenttemplatekv_prefetch_expired_tokens == 3
+
+
+def test_agenttemplatekv_rejects_large_zero_fill_gap(monkeypatch):
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    monkeypatch.setenv("SGLANG_AGENTTEMPLATEKV_MAX_ZERO_GAP", "4")
+    cache = _make_minimal_radix_cache(monkeypatch)
+    entry = rc.AnchorKVEntry(
+        signature="anchor-sig",
+        token_ids=torch.tensor([7, 8, 9], dtype=torch.int64),
+        kv_indices=torch.tensor([20, 21, 22], dtype=torch.int64),
+        start_pos=20,
+        code_content_signature="content-sig",
+    )
+    cache.anchor_kv_store["content-sig"] = [entry]
+    req = SimpleNamespace(
+        lossy_first_match_reason="exact_code_content_signature",
+        lossy_first_matched_content_signature="content-sig",
+        code_anchor_token_spans=[
+            {"start_token": 20, "end_token": 23, "content_signature": "content-sig"}
+        ],
+    )
+    key_tokens = [0, 1] + [2] * 18 + [7, 8, 9]
+    exact_values = [torch.tensor([100, 101], dtype=torch.int64)]
+
+    values, node = cache._try_lossy_fuzzy_match(
+        req,
+        rc.RadixKey(key_tokens),
+        exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert values == exact_values
+    assert node is cache.root_node
+    assert req.lossy_rejected_reason == "agenttemplatekv_large_zero_gap"
+    assert req.agenttemplatekv_rejected_large_gap_count == 1

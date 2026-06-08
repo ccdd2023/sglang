@@ -1,0 +1,15 @@
+{
+  "instance_id": "pydata__xarray-2905",
+  "repo": "pydata/xarray",
+  "version": "0.12",
+  "mode": "gold",
+  "env_name": "swe_pydata_xarray_2905_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "xarray/tests/test_variable.py::TestAsCompatibleData::test_unsupported_type"
+  ],
+  "returncode": 0
+}

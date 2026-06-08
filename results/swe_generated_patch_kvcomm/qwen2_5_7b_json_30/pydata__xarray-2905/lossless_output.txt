@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "xarray/core/variable.py",
+      "search": "self._data = as_compatible_data(data, fastpath=fastpath)",
+      "replace": "self._data = as_compatible_data(data, fastpath=fastpath)\nif not isinstance(data, Variable) and hasattr(data, 'values'):\n    data = data.values"
+    }
+  ]
+}
+```

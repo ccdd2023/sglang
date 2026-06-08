@@ -1,0 +1,74 @@
+## Issue Summary.getBoundingClientRect()�ǎı́lę=dict()
+
+It seems like there was a typo/grammar/syntax error in the provided document. Let's clarify and refine the documentation to properly describe and document the use case regarding the overriding of test markers when inheriting from multiple classes with pytest.
+
+### The Issue
+
+When you inherit from two or more base classes in pytest that define pytest decorators (often referred to as "markers" in pytest terminology), the the behavior of which pytest should apply the decorators can be unintuitive. Specifically, if `Base` is a subclass of `Foo` and `Bar`, and `TestDing` inherits from `Foo` and `Bar`, the `test_method_ding` will only have the `pytest` marker from `Bar` and not `Foo`.
+
+This is because pytest follows the method resolution order (MRO) for method and attribute lookup, and by default, the first occurrence of a attribute/method in the first superclass is the one that is used. This can be confusing and unintuitive for users expecting the all defined in all bases to be propagated to the subclass.
+
+### The Fix
+
+To ensure that `TestDing` picks up all the decorators from `Foo` and `Bar`, we can use a explicit getter and setter for `_pytestmark` in `pytestmark.setter`. Here's the updated version of your code:
+
+```python
+import itertools
+import pytest
+from typing import *
+
+class MyBaseMeta(type):
+    @property
+    def pytestmark(self) -> Iterable["pytest.mark"]:
+        return (
+            getattr(self, "_pytestmark", []) 
+            .extend(getattr(x, "_pytestmark", []) for x in self.__mro__)
+        )
+
+    @pytestmark.setter
+    def pytestmark(self, value: Iterable["pytest.mark"]):
+        self._pytestmark = list(itertools.chain_or_from_iterable(value))
+
+class MyBaseClassA:
+    @pytest.mark.foo
+    def do_important_thing():
+        print("Doing
+收回纠正后的代码如下：
+
+```python
+import itertools
+from typing import *
+from typing import *
+
+class MyBaseMeta(type):
+    @property
+    def pytestmark(self) -> Iterable["pytest.mark"]:
+        return (
+            getattr(self, "_pytestmark", []) 
+            .extend(getattr(x, "_pytestmark", []) 
+            for x in self.__mro__[1:])
+        )
+
+    @pytestmark.setter
+通常，我们不需要在这里列出MRO，因为`self`本身就包含了方法解析的完整MRO信息。
+
+```python
+import itertools
+import pytest
+from typing import *
+
+# Meta class to ensure pytestmarks from both bases are used
+class MyBaseMeta(type):
+    @property
+    def pytestmark(self) -> Iterable["pytest.mark"]:
+        return (
+            getattr(self, "_pytestmark", []) 
+            .extend(getattr(x, "_pytestmark", []) 
+            for i, x in enumerate(self.__mro__)
+            if i > 0
+            )
+        )
+
+    @pytestmark.setter
+    def pytestmark(self, value: Iterable["pytest.mark"]):
+        self._pytestmark = list(itypy

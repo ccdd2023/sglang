@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "astropy/modeling/separable.py",
+      "search": "return _operators[transform.op](sepleft, sepright)",
+      "replace": "return _operators[transform.op](sepleft, sepright) if sepright is not None else sepleft"
+    }
+  ]
+}
+```

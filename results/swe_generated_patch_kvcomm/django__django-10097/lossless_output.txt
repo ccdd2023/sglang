@@ -1,0 +1,43 @@
+<think>
+Okay, let's tackle this issue. The problem is that the URLValidator in Django is accepting URLs with invalid characters in the username and password fields. According to RFC 1738, characters like colon, @, and / in the user and password fields should be encoded. The current regex isn't checking for these, so some invalid URLs are passing.
+
+First, I need to look at the existing regex in the URLValidator. The regex is defined as:
+
+r'^(?:[a-z0-9\.\-\+]*)://'  # scheme is validated separately
+r'(?:\S+(?::\S*)?@)?'  # user:pass authentication
+r'(?:' + ipv4_re + '|' + ipv6_re + '|' + host_re + ')'
+r'(?::\d{2,5})?'  # port
+r'(?:[/?#][^\s]*)?'  # resource path
+r'\Z', re.IGNORECASE
+
+The part that handles the username and password is '(?:\S+(?::\S*)?@)?'. This matches any non-whitespace characters for the user and password, but doesn't check for invalid characters. The issue is that characters like :, @, / aren't being properly encoded, so they're allowed here.
+
+The goal is to modify the regex to reject these invalid characters in the username and password. The RFC says that within the user and password field, those characters must be encoded. So the regex should ensure that any occurrence of :, @, or / in the user or password part is properly encoded with %XX.
+
+But how to adjust the regex to check for this? The current pattern uses \S+ for the user and password. \S matches any non-whitespace character, which includes the invalid ones. So we need to restrict the allowed characters in the user and password parts.
+
+The user and password part is in the format user:password@. So the regex for that part is (\S+(?::\S*)?@). We need to make sure that the user and password parts don't contain invalid characters. The invalid characters are :, @, /, but since the @ is part of the separator, maybe we need to check the user and password parts for these.
+
+Wait, the user and password are separated by a colon, and then followed by @. So the user part is before the colon, and the password is after. So the user part can't contain :, @, or /, and the password part can't contain those either. But how to enforce that in the regex?
+
+Alternatively, maybe the entire user:password part should be checked to ensure that any of those characters are properly encoded. But since the regex is a simple pattern, perhaps we can adjust the regex to only allow certain characters in the user and password fields.
+
+The original regex uses \S+ for the user and password. \S includes any non-whitespace, which includes the invalid characters. So to restrict the user and password parts to only allow valid characters (excluding :, @, /), we need to adjust the regex.
+
+But what are the valid characters for the user and password fields? According to RFC 1738, the user and password fields are similar to the path component, which allows certain characters. However, the exact allowed characters might be complex. But the main issue here is that the current regex allows :, @, and / in the user and password fields without encoding.
+
+So perhaps the solution is to modify the regex to ensure that the user and password parts do not contain any of these invalid characters. But how to do that?
+
+One approach is to use a regex that matches the user and password parts, ensuring that they don't contain :, @, or /. However, this might be too restrictive. Alternatively, we can check that any occurrence of these characters is properly encoded.
+
+But since the regex is a simple pattern, maybe we can adjust the regex to only allow certain characters. For example, the user and password parts can include letters, numbers, and some safe characters, but not :, @, or /.
+
+Looking at the current regex for the user and password part: (?:\S+(?::\S*)?@)? 
+
+The \S+ matches any non-whitespace, which includes the invalid characters. So to restrict the user and password parts, we can replace \S+ with a regex that allows only valid characters. But what are the valid characters?
+
+RFC 1738 says that the user and password fields are similar to the path component, which allows certain characters. However, the exact allowed characters might be complex. But the main issue is that the current regex allows :, @, and / in the user and password fields without encoding.
+
+An alternative approach is to split the user and password parts and check each for invalid characters. However, that might complicate the regex.
+
+Alternatively, we can adjust the regex to ensure that the user and password parts do not contain any of the invalid characters. For example,

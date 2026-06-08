@@ -1,0 +1,18 @@
+{
+  "instance_id": "sphinx-doc__sphinx-10323",
+  "repo": "sphinx-doc/sphinx",
+  "version": "5.0",
+  "mode": "gold",
+  "env_name": "swe_sphinx_doc_sphinx_10323_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/sphinx-doc__sphinx-10323",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "tox",
+    "--current-env",
+    "-epy39",
+    "-v",
+    "--",
+    "tests/test_directive_code.py::test_LiteralIncludeReader_dedent_and_append_and_prepend"
+  ],
+  "returncode": 0
+}

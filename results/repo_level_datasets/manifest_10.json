@@ -1,0 +1,337 @@
+{
+  "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+  "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+  "label": "10",
+  "samples": [
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "astropy__astropy-12907",
+      "repo": "astropy/astropy",
+      "version": "4.3",
+      "difficulty": "15 min - 1 hour",
+      "repo_key": "astropy__astropy",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/astropy__astropy-12907",
+      "files": [
+        {
+          "path": "astropy/modeling/core.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/astropy__astropy-12907/astropy/modeling/core.py",
+          "content_hash": "13615f0d5a58344aa0054b03669f5badc519443b3578ecd78868f3fef9f7cb1e",
+          "lines": 4473,
+          "chars": 175823
+        },
+        {
+          "path": "astropy/table/table.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/astropy__astropy-12907/astropy/table/table.py",
+          "content_hash": "c42c0d5375112980d71b0cd6ee7070da392b7dabf5ff04f8a182d7475032a61b",
+          "lines": 3972,
+          "chars": 150650
+        },
+        {
+          "path": "astropy/io/votable/tree.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/astropy__astropy-12907/astropy/io/votable/tree.py",
+          "content_hash": "c0f407b14507566fa2c3d96935240deca7f8d2dabf9d960eee21ec79c1eaea2a",
+          "lines": 3881,
+          "chars": 131634
+        }
+      ]
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "django__django-10097",
+      "repo": "django/django",
+      "version": "2.2",
+      "difficulty": "<15 min fix",
+      "repo_key": "django__django",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-10097",
+      "files": [
+        {
+          "path": "django/db/models/fields/__init__.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-10097/django/db/models/fields/__init__.py",
+          "content_hash": "0cb17b964dde645db0b03c241695e12c452e28485769f5117f6efba86b14935f",
+          "lines": 2338,
+          "chars": 83969
+        },
+        {
+          "path": "django/db/models/sql/query.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-10097/django/db/models/sql/query.py",
+          "content_hash": "84c06efb9da20008362cf6670f41651566ebb631d779c8709945ef89d3421ac7",
+          "lines": 2224,
+          "chars": 98948
+        },
+        {
+          "path": "django/contrib/admin/options.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-10097/django/contrib/admin/options.py",
+          "content_hash": "d1b051ec7a035d1a91a75d612ac37f05fd623ad91bd4eb396b0550da9853ec98",
+          "lines": 2164,
+          "chars": 91683
+        }
+      ]
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "matplotlib__matplotlib-13989",
+      "repo": "matplotlib/matplotlib",
+      "version": "3.0",
+      "difficulty": "<15 min fix",
+      "repo_key": "matplotlib__matplotlib",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/matplotlib__matplotlib-13989",
+      "files": [
+        {
+          "path": "lib/matplotlib/axes/_axes.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/matplotlib__matplotlib-13989/lib/matplotlib/axes/_axes.py",
+          "content_hash": "6c4d3e43e8b4842976f388f41a131f1269c5f9131f8ab688a4e98760117c7e83",
+          "lines": 8164,
+          "chars": 311257
+        },
+        {
+          "path": "lib/matplotlib/patches.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/matplotlib__matplotlib-13989/lib/matplotlib/patches.py",
+          "content_hash": "3e62926da3d9c965627a63ce785581bc1d624f80fc87d11a25d067a47a5a0ea8",
+          "lines": 4579,
+          "chars": 150794
+        },
+        {
+          "path": "lib/matplotlib/axes/_base.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/matplotlib__matplotlib-13989/lib/matplotlib/axes/_base.py",
+          "content_hash": "0b18db403ae03c2b8561883efb9cd43c21a4a0723d915d8cc2c4b63236377618",
+          "lines": 4442,
+          "chars": 157015
+        }
+      ]
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "mwaskom__seaborn-3069",
+      "repo": "mwaskom/seaborn",
+      "version": "0.12",
+      "difficulty": "15 min - 1 hour",
+      "repo_key": "mwaskom__seaborn",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/mwaskom__seaborn-3069",
+      "files": [
+        {
+          "path": "seaborn/categorical.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/mwaskom__seaborn-3069/seaborn/categorical.py",
+          "content_hash": "c21b43f1e6a00c718983924f3372e4fa87e8abfb9537688131027d949b5e29f8",
+          "lines": 3542,
+          "chars": 129654
+        },
+        {
+          "path": "seaborn/distributions.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/mwaskom__seaborn-3069/seaborn/distributions.py",
+          "content_hash": "d3e27e7d496077222ea61ba9cde08c2f965557e9eca661ccfe0b05f0b4a2e362",
+          "lines": 2546,
+          "chars": 87233
+        },
+        {
+          "path": "seaborn/axisgrid.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/mwaskom__seaborn-3069/seaborn/axisgrid.py",
+          "content_hash": "3df343a5d3d34727f3813fd9593aee8a6cfe905cd7643352de806b660b68bf8a",
+          "lines": 2400,
+          "chars": 87517
+        }
+      ]
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "pallets__flask-5014",
+      "repo": "pallets/flask",
+      "version": "2.3",
+      "difficulty": "<15 min fix",
+      "repo_key": "pallets__flask",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pallets__flask-5014",
+      "files": [
+        {
+          "path": "src/flask/app.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pallets__flask-5014/src/flask/app.py",
+          "content_hash": "d439102c7658f90f896556c557df89501f2c98ad498d6317453f10ef58508710",
+          "lines": 2228,
+          "chars": 88074
+        },
+        {
+          "path": "src/flask/cli.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pallets__flask-5014/src/flask/cli.py",
+          "content_hash": "a4b9a758e6defc6e3f640150761ee4830a8f3314579b8a1485a51206924c7aae",
+          "lines": 1054,
+          "chars": 33532
+        },
+        {
+          "path": "src/flask/scaffold.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pallets__flask-5014/src/flask/scaffold.py",
+          "content_hash": "12d4caff83fd4f57d51c2d29ec0a873508ac035f596a100d1729edccd18d04ac",
+          "lines": 921,
+          "chars": 35380
+        }
+      ]
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "psf__requests-1142",
+      "repo": "psf/requests",
+      "version": "1.1",
+      "difficulty": "<15 min fix",
+      "repo_key": "psf__requests",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-1142",
+      "files": [
+        {
+          "path": "requests/packages/charade/big5freq.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-1142/requests/packages/charade/big5freq.py",
+          "content_hash": "0fca13773f8633b260f13b1a5890e6eb9bccfce2c70b7c6e6faa94277ace82c4",
+          "lines": 925,
+          "chars": 82594
+        },
+        {
+          "path": "requests/models.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-1142/requests/models.py",
+          "content_hash": "d9214453d8c7844deb50d985c79b89a30bacab6b3ffbd4079bcb81f7709da0b3",
+          "lines": 657,
+          "chars": 20789
+        },
+        {
+          "path": "requests/packages/charade/euckrfreq.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-1142/requests/packages/charade/euckrfreq.py",
+          "content_hash": "4f9b1a2b99889b2486e728103edb29ea8dae2ae968b82c189b61253b216426a5",
+          "lines": 596,
+          "chars": 45978
+        }
+      ]
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "pydata__xarray-2905",
+      "repo": "pydata/xarray",
+      "version": "0.12",
+      "difficulty": "15 min - 1 hour",
+      "repo_key": "pydata__xarray",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pydata__xarray-2905",
+      "files": [
+        {
+          "path": "xarray/core/dataset.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pydata__xarray-2905/xarray/core/dataset.py",
+          "content_hash": "ef3be071f1c63c510800e6ed342c2d5bc54a8c971309393757b21166fd2b3399",
+          "lines": 6975,
+          "chars": 260896
+        },
+        {
+          "path": "xarray/core/dataarray.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pydata__xarray-2905/xarray/core/dataarray.py",
+          "content_hash": "fe41147df9efdadbdd5ededbf26fb2e83a6fc2a7091ce44a66858f741064f3c3",
+          "lines": 4341,
+          "chars": 158365
+        },
+        {
+          "path": "xarray/core/variable.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pydata__xarray-2905/xarray/core/variable.py",
+          "content_hash": "43c9aea0e95932e3e98648da8f5e55b6819058ffab96f7901fef5295fe114a4f",
+          "lines": 2838,
+          "chars": 104156
+        }
+      ]
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "pylint-dev__pylint-4551",
+      "repo": "pylint-dev/pylint",
+      "version": "2.9",
+      "difficulty": "1-4 hours",
+      "repo_key": "pylint-dev__pylint",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pylint-dev__pylint-4551",
+      "files": [
+        {
+          "path": "pylint/checkers/base.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pylint-dev__pylint-4551/pylint/checkers/base.py",
+          "content_hash": "63318311a250dca0e952ed2a3da1f148d781f3660a0ad79d493b36530c6dfa85",
+          "lines": 2597,
+          "chars": 100202
+        },
+        {
+          "path": "pylint/checkers/classes.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pylint-dev__pylint-4551/pylint/checkers/classes.py",
+          "content_hash": "4edc4465095a1fa60b1654f6ed27656488d09668a3206264c63ac8e60ec43bec",
+          "lines": 2329,
+          "chars": 88753
+        },
+        {
+          "path": "pylint/checkers/variables.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pylint-dev__pylint-4551/pylint/checkers/variables.py",
+          "content_hash": "162675ffaef0dcf3c9b302bf2b9c1a6806d18f6e79fa89bfd6a7096bab3f036c",
+          "lines": 2152,
+          "chars": 83537
+        }
+      ]
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "pytest-dev__pytest-10051",
+      "repo": "pytest-dev/pytest",
+      "version": "7.2",
+      "difficulty": "15 min - 1 hour",
+      "repo_key": "pytest-dev__pytest",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pytest-dev__pytest-10051",
+      "files": [
+        {
+          "path": "testing/python/fixtures.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pytest-dev__pytest-10051/testing/python/fixtures.py",
+          "content_hash": "fea1a7c81a2eff4e851cf5a0e5741b89f98331f8ad1b3e52c3acd06b8d8d0e6e",
+          "lines": 4470,
+          "chars": 137342
+        },
+        {
+          "path": "testing/python/metafunc.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pytest-dev__pytest-10051/testing/python/metafunc.py",
+          "content_hash": "bc21bdd64c4ec019e5909e003696259d6871d31a4a07b37c5718422b20980db4",
+          "lines": 1974,
+          "chars": 65213
+        },
+        {
+          "path": "src/_pytest/python.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pytest-dev__pytest-10051/src/_pytest/python.py",
+          "content_hash": "053cf2a0b0e173574aa6a6ef7cd383df618bb31e343e64b57b576100bad13fa9",
+          "lines": 1816,
+          "chars": 70380
+        }
+      ]
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "scikit-learn__scikit-learn-10297",
+      "repo": "scikit-learn/scikit-learn",
+      "version": "0.20",
+      "difficulty": "15 min - 1 hour",
+      "repo_key": "scikit-learn__scikit-learn",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/scikit-learn__scikit-learn-10297",
+      "files": [
+        {
+          "path": "sklearn/preprocessing/data.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/scikit-learn__scikit-learn-10297/sklearn/preprocessing/data.py",
+          "content_hash": "163ac33b0cab042b0bdeb25fc04ad395e683fea53b1eaf9101140c7b50b12e2b",
+          "lines": 3162,
+          "chars": 116849
+        },
+        {
+          "path": "sklearn/linear_model/coordinate_descent.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/scikit-learn__scikit-learn-10297/sklearn/linear_model/coordinate_descent.py",
+          "content_hash": "da01b06c312229eed87c5d84df69db9b4cd1cf97027fb00e226be9c574747f51",
+          "lines": 2223,
+          "chars": 84726
+        },
+        {
+          "path": "sklearn/model_selection/_split.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/scikit-learn__scikit-learn-10297/sklearn/model_selection/_split.py",
+          "content_hash": "e3c24ded5ed185e214086b0ca460691410101114e99e2b9b1811db58b973980f",
+          "lines": 2095,
+          "chars": 77109
+        }
+      ]
+    }
+  ]
+}

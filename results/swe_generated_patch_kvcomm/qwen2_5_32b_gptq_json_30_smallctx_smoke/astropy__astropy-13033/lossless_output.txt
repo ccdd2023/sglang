@@ -1,0 +1,1 @@
+{"edits":[{"path":"astropy/timeseries/core.py","search":"self._check_required_columns()","replace":"self._check_required_columns()\n            if not self._check_required_columns():\n                raise ValueError(f\"TimeSeries object is invalid - expected {self._required_columns} as the first columns but found {list(self.colnames)}\")"}]}

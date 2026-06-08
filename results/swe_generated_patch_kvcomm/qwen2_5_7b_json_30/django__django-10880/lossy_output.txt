@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "django/db/models/aggregates.py",
+      "search": "COUNT\\(DISTINCTCASE WHEN",
+      "replace": "COUNT(DISTINCT CASE WHEN"
+    }
+  ]
+}
+```

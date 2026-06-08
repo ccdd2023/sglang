@@ -1,0 +1,36 @@
+{
+  "config": {
+    "model": "/home/gfy/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/c03e6d358207e414f1eca0bb1891e29f1db0e242",
+    "n_runs_per_mode": 3,
+    "content_sig": "e2e-accel-long-7b-v3"
+  },
+  "seed": {
+    "ttft_ms": 721.2,
+    "cached_tokens": 0,
+    "text": "The `SshKey` class in Python provides methods to manage SSH keys through a cloud panel API, including retrieving key details and waiting for the key to reach a desired state."
+  },
+  "lossless_mode": {
+    "ttft_ms_mean": 42.9,
+    "ttft_ms_stdev": 8.0,
+    "total_ms_mean": 641.1,
+    "cached_tokens_mean": 0,
+    "sample_text": "The `SshKey` class in Python provides methods to manage SSH keys through a cloud panel API, including retrieving key details and waiting for the key to reach a desired state."
+  },
+  "lossy_mode": {
+    "ttft_ms_mean": 42.3,
+    "ttft_ms_stdev": 0.6,
+    "total_ms_mean": 631.5,
+    "cached_tokens_mean": 0,
+    "sample_text": "The `SshKey` class in Python provides methods to manage SSH keys through a cloud panel API, including retrieving key details and waiting for the key to reach a desired state.",
+    "n_lossy_match_used": 0,
+    "lossy_anchor_match_len_mean": 0,
+    "lossy_anchor_rope_delta_mean": 0
+  },
+  "speedup_pct": 1.3,
+  "accuracy_token_f1_mean": 1.0,
+  "per_run_token_f1": [
+    1.0,
+    1.0,
+    1.0
+  ]
+}

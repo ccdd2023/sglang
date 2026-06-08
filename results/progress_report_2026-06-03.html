@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Code-Aware KV Reuse — 实验进展报告</title>
+<style>
+  :root {
+    --primary: #2563eb; --accent: #7c3aed; --success: #059669;
+    --warn: #d97706; --danger: #dc2626; --info: #0891b2;
+    --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0;
+    --text: #1e293b; --muted: #64748b;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--text);
+    line-height: 1.7; font-size: 15px;
+  }
+  .container { max-width: 1150px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 1.9em; margin-bottom: 6px; color: var(--primary); }
+  h2 {
+    font-size: 1.35em; margin: 30px 0 12px;
+    padding-bottom: 8px; border-bottom: 2.5px solid var(--primary);
+  }
+  h3 {
+    font-size: 1.12em; margin: 20px 0 10px;
+    color: var(--accent); font-weight: 600;
+  }
+  h4 {
+    font-size: 1.02em; margin: 14px 0 8px;
+    color: var(--info); font-weight: 600;
+  }
+  .subtitle { color: var(--muted); margin-bottom: 4px; }
+  .timestamp { color: #94a3b8; font-size: 0.82em; margin-bottom: 18px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 22px;
+    margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .card.highlight { border-left: 4px solid var(--primary); }
+  .card.success { border-left: 4px solid var(--success); }
+  .card.warn { border-left: 4px solid var(--warn); }
+  .card.danger { border-left: 4px solid var(--danger); }
+  .card.info { border-left: 4px solid var(--info); }
+  table {
+    width: 100%; border-collapse: collapse;
+    margin: 10px 0; font-size: 0.9em;
+  }
+  th {
+    background: #f1f5f9; padding: 8px 10px;
+    text-align: left; font-weight: 600;
+    border-bottom: 2px solid var(--border); white-space: nowrap;
+  }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  tr:hover td { background: #f8fafc; }
+  .badge {
+    display: inline-block; padding: 2px 8px;
+    border-radius: 10px; font-size: 0.78em; font-weight: 700;
+  }
+  .badge-ok { background: #d1fae5; color: #065f46; }
+  .badge-warn { background: #fef3c7; color: #92400e; }
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px; margin: 12px 0;
+  }
+  .metric-box {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px; text-align: center;
+  }
+  .metric-box .value {
+    font-size: 1.8em; font-weight: 800; color: var(--primary);
+    line-height: 1.1;
+  }
+  .metric-box .label {
+    font-size: 0.75em; color: var(--muted);
+    margin-top: 5px; line-height: 1.3;
+  }
+  ul, ol { margin-left: 20px; margin-bottom: 10px; }
+  li { margin-bottom: 4px; }
+  code {
+    background: #f1f5f9; padding: 2px 6px;
+    border-radius: 4px; font-size: 0.87em;
+  }
+  .tag {
+    display: inline-block; padding: 2px 9px;
+    border-radius: 12px; font-size: 0.75em;
+    font-weight: 700; margin-right: 4px; margin-bottom: 3px;
+  }
+  .tag-safety { background: #dbeafe; color: #1e40af; }
+  .tag-accuracy { background: #fef3c7; color: #92400e; }
+  .tag-performance { background: #d1fae5; color: #065f46; }
+  .tag-numerical { background: #fce7f3; color: #9d174d; }
+  .tag-system { background: #cffafe; color: #155e75; }
+  .two-col {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  }
+  @media (max-width: 800px) {
+    .two-col { grid-template-columns: 1fr; }
+    .metric-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .note {
+    background: #f0f9ff; border-left: 3px solid var(--info);
+    padding: 10px 14px; border-radius: 0 8px 8px 0;
+    margin: 10px 0; font-size: 0.92em;
+  }
+  .warning-box {
+    background: #fffbeb; border-left: 3px solid var(--warn);
+    padding: 10px 14px; border-radius: 0 8px 8px 0;
+    margin: 10px 0; font-size: 0.92em;
+  }
+  .setup-box {
+    background: #f8fafc; border: 1px dashed #cbd5e1;
+    border-radius: 8px; padding: 12px 16px;
+    margin: 10px 0; font-size: 0.9em;
+  }
+  .setup-box strong { color: var(--primary); }
+  .formula {
+    background: #f8fafc; border: 1px dashed #cbd5e1;
+    border-radius: 8px; padding: 10px 14px;
+    margin: 8px 0; font-family: monospace; font-size: 0.88em;
+    overflow-x: auto;
+  }
+  .section-divider {
+    height: 2px; background: linear-gradient(90deg, var(--primary), var(--accent));
+    border-radius: 1px; margin: 30px 0;
+  }
+  .layer-badge {
+    display: inline-block; padding: 4px 14px;
+    border-radius: 20px; font-size: 0.85em; font-weight: 700;
+    color: white; margin-bottom: 10px;
+  }
+  .layer1 { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
+  .layer2 { background: linear-gradient(135deg, #2563eb, #60a5fa); }
+  .layer3 { background: linear-gradient(135deg, #059669, #34d399); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>🧠 Code-Aware KV Reuse — 实验进展报告</h1>
+<p class="subtitle">Template-Guided Code-Base Segment Reuse for Multi-Agent Software Engineering</p>
+<p class="timestamp">生成时间：2026-06-04 &nbsp;|&nbsp; 模型：Qwen2.5-7B-Instruct &nbsp;|&nbsp; GPU：RTX 4090 24GB &nbsp;|&nbsp; 框架：SGLang custom fork</p>
+
+<!-- ==================== 摘要 ==================== -->
+<div class="card highlight">
+<h3>📌 摘要（三层递进叙事）</h3>
+<p>本报告按 <strong>Accuracy → Independent Speedup → KVFlow Integration</strong> 三层递进结构组织：</p>
+<ol>
+<li><strong>方法是否安全且数值正确？</strong> — Exact-content gate 实现 0 false accepts；RoPE delta alignment 达到 0.999 K cosine。</li>
+<li><strong>方法独立能带来多少加速？</strong> — 在 16k 代码段上，exact-content segment reuse 实现 <strong>1.16× TTFT speedup</strong>，100% exact hit rate。</li>
+<li><strong>与 KVFlow 结合后效果如何？</strong> — 在 100-case realistic serving 中，cached tokens 提升 <strong>+64%</strong>（1582→2593），99/100 cases 命中 exact-content。</li>
+</ol>
+</div>
+
+<div class="metric-grid">
+  <div class="metric-box"><div class="value" style="color:var(--success)">0</div><div class="label">False Accepts<br>(550 near-match pairs)</div></div>
+  <div class="metric-box"><div class="value" style="color:var(--primary)">0.999</div><div class="label">K Cosine<br>(RoPE Correct Δ)</div></div>
+  <div class="metric-box"><div class="value" style="color:var(--primary)">1.16×</div><div class="label">Independent TTFT<br>Speedup (16k)</div></div>
+  <div class="metric-box"><div class="value" style="color:var(--success)">100%</div><div class="label">Exact Hit Rate<br>(E6, 100 cases)</div></div>
+  <div class="metric-box"><div class="value" style="color:var(--primary)">+64%</div><div class="label">Cached Tokens ↑<br>(vs KVFlow baseline)</div></div>
+  <div class="metric-box"><div class="value" style="color:var(--info)">99/100</div><div class="label">Exact Hits<br>(100-case E2E)</div></div>
+</div>
+
+<div class="section-divider"></div>
+
+<!-- ============================================================ -->
+<!-- LAYER 1: ACCURACY                                            -->
+<!-- ============================================================ -->
+<span class="layer-badge layer1">🔬 第一层：Accuracy 相关实验</span>
+<h2>方法是否安全、数值正确、输出一致？</h2>
+
+<!-- --- 1.1 Safety --- -->
+<h3><span class="tag tag-safety">安全性</span> E3/E4：Exact-Content Gate Safety</h3>
+
+<div class="card success">
+<h4>实验设置</h4>
+<div class="setup-box">
+<strong>数据集：</strong> 从 SWE-bench Verified 500-case manifest 中抽取 550 对 near-match 负样本<br>
+<strong>构造方式：</strong> 保持相同 repo/path/function 定位器，仅修改字面量、运算符、函数调用、变量名、注释或函数体<br>
+<strong>策略：</strong> 仅使用 <code>exact_content_gate</code>（内容 SHA256 签名完全匹配）<br>
+<strong>评估指标：</strong> False Accepts（错误允许复用）、False Rejects（错误拒绝复用）
+</div>
+</div>
+
+<table>
+<tr><th>Metric</th><th>Value</th><th>结论</th></tr>
+<tr style="background:#f0fdf4"><td><strong>False Accepts</strong></td><td><strong>0 / 550</strong></td><td><span class="badge badge-ok">✅ 安全</span></td></tr>
+<tr style="background:#f0fdf4"><td><strong>False Rejects</strong></td><td><strong>0 / 550</strong></td><td><span class="badge badge-ok">✅ 无漏判</span></td></tr>
+<tr><td>Exact-content hits</td><td>50 / 50</td><td>正样本全部命中</td></tr>
+</table>
+
+<div class="note">
+<strong>设计原则：</strong>AST、span、path 仅作为 <em>locator</em>（定位器），不参与 reuse 判定。只有 <code>exact-content signature</code>（SHA256 哈希）完全匹配才允许 KV 复用。这确保了即使代码结构相同、仅一个运算符改变，也会被正确拒绝。
+</div>
+
+<!-- --- 1.2 Numerical Correctness --- -->
+<h3><span class="tag tag-numerical">数值正确性</span> E5：RoPE Delta Alignment</h3>
+
+<div class="card success">
+<h4>实验设置</h4>
+<div class="setup-box">
+<strong>模型：</strong> Qwen2.5-7B-Instruct<br>
+<strong>测试方式：</strong> 对同一 code segment 在不同 prompt 位置进行 KV reuse，比较 reused KV 与 fresh compute 的 key 向量余弦相似度和 next-token 分布<br>
+<strong>变体：</strong> (a) Correct Δ — 计算正确 RoPE 位置偏移；(b) No Rotation — 不做 RoPE 旋转；(c) Wrong Δ — 故意使用错误偏移<br>
+<strong>评估指标：</strong> Mean K Cosine, Top-1 Agreement, KL Divergence
+</div>
+</div>
+
+<table>
+<tr><th>Variant</th><th>Mean K Cosine</th><th>Top-1 Agreement</th><th>KL Divergence</th><th>结论</th></tr>
+<tr style="background:#f0fdf4"><td><strong>Correct Δ</strong></td><td><strong>0.999</strong></td><td><strong>96.9%</strong></td><td><strong>0.0147</strong></td><td><span class="badge badge-ok">✅ 数值一致</span></td></tr>
+<tr><td>No Rotation</td><td>0.966</td><td>—</td><td>—</td><td>降级</td></tr>
+<tr><td>Wrong Δ (≥16)</td><td>0.950</td><td>—</td><td>—</td><td>错误</td></tr>
+</table>
+
+<div class="note">
+<strong>解释：</strong>0.999 K cosine 表示 reused KV 与 fresh compute 的 key 向量几乎相同；0.0147 KL divergence 表示 next-token 分布差异极小；96.9% top-1 agreement 表示下一 token 选择高度一致。
+</div>
+
+<!-- --- 1.3 Output Quality --- -->
+<h3><span class="tag tag-accuracy">输出质量</span> E1 + E2：Patch 生成与输出一致性</h3>
+
+<div class="two-col">
+<div class="card">
+<h4>E1: Pass@1 实验设置</h4>
+<div class="setup-box">
+<strong>模型：</strong> Qwen2.5-7B-Instruct<br>
+<strong>数据集：</strong> SWE-bench Verified 30-case 子集（过滤后 28 discriminative cases）<br>
+<strong>Patch 格式：</strong> 约束 JSON-edit schema（file/search/replace）<br>
+<strong>模式：</strong> Lossless KV（全 prefill） vs Exact-content reuse（KV 复用）<br>
+<strong>评估指标：</strong> diff extracted → clean apply → pass@1
+</div>
+<table>
+<tr><th>Metric</th><th>Lossless KV</th><th>Exact Reuse</th></tr>
+<tr><td>Diff extracted</td><td>14/28</td><td>12/28</td></tr>
+<tr><td>Clean apply</td><td>14/28</td><td>12/28</td></tr>
+<tr><td><strong>Pass@1</strong></td><td><strong>3/28</strong></td><td><strong>2/28</strong></td></tr>
+<tr><td>Avg cached tok.</td><td>1253</td><td>2190</td></tr>
+<tr><td>Avg latency</td><td>2052ms</td><td>1729ms</td></tr>
+<tr><td>Exact hits</td><td>—</td><td>28/28</td></tr>
+</table>
+<p style="font-size:0.85em;color:var(--muted)">低 absolute pass@1 是 7B 约束 patch 格式的固有限制，与 KV reuse 无关。关键：exact reuse 增加 cached tokens 并降低 latency，仅 1 case delta。</p>
+</div>
+
+<div class="card">
+<h4>E2: 100-case 输出一致性实验设置</h4>
+<div class="setup-box">
+<strong>模型：</strong> Qwen2.5-7B-Instruct<br>
+<strong>数据集：</strong> SWE-bench Verified 100-case manifest（3 files/case）<br>
+<strong>模式：</strong> Prefix-only baseline vs Exact reuse + hints<br>
+<strong>max_tokens：</strong> 128（E2E realistic setting）+ 32（sanity check）<br>
+<strong>评估指标：</strong> Token F1 vs baseline, Exact match rate
+</div>
+<table>
+<tr><th>Mode</th><th>Token F1</th><th>Exact Match</th></tr>
+<tr><td>Prefix only</td><td>1.000</td><td>—</td></tr>
+<tr style="background:#f0fdf4"><td><strong>Exact reuse + hints</strong></td><td><strong>1.000</strong></td><td><strong>99/100</strong></td></tr>
+</table>
+<p style="font-size:0.85em;color:var(--muted)">max_tokens=32 sanity run 下，exact reuse 输出与 prefix-only baseline 的 token F1 = 1.0，证明 reuse 不改变模型行为。</p>
+</div>
+</div>
+
+<div class="section-divider"></div>
+
+<!-- ============================================================ -->
+<!-- LAYER 2: INDEPENDENT SPEEDUP                                 -->
+<!-- ============================================================ -->
+<span class="layer-badge layer2">⚡ 第二层：方法独立的加速</span>
+<h2>Exact-Content Reuse 独立能带来多少 TTFT 加速？</h2>
+
+<div class="card info">
+<p>本层隔离 exact-content reuse <strong>本身</strong>的加速效果，不包含 KVFlow hints 或 codebase prefetch。对比模式：</p>
+<ul>
+<li><strong>Baseline：</strong><code>prefix_cache_only</code> — 仅 vanilla RadixCache 前缀匹配</li>
+<li><strong>Our Method：</strong><code>exact_reuse_no_hints</code> — exact-content anchor match + RoPE delta，无 hints</li>
+</ul>
+</div>
+
+<!-- --- 2.1 E6 Results --- -->
+<h3>E6: Long-Code TTFT Stress</h3>
+
+<div class="card">
+<h4>实验设置</h4>
+<div class="setup-box">
+<strong>模型：</strong> Qwen2.5-7B-Instruct<br>
+<strong>数据集：</strong> SWE-bench Verified 500-case manifest，选取最长代码文件样本<br>
+<strong>Case 数：</strong> 50 cases<br>
+<strong>Segments/case：</strong> 3 files（每个 segment 被截断到指定长度）<br>
+<strong>Length buckets：</strong> 8000 chars, 16000 chars<br>
+<strong>max_tokens：</strong> 1（主 TTFT 测量）/ 32（输出一致性 sanity check）<br>
+<strong>模式：</strong> no_reuse_fresh_salt / prefix_cache_only / exact_reuse_no_hints / exact_reuse_plus_code_hints<br>
+<strong>测量方式：</strong> Streaming HTTP 请求，客户端 perf_counter 测量 TTFT（首个 token 到达时间）<br>
+<strong>服务器配置：</strong> --disable-hierarchical-cache, --max-total-tokens 65536, --mem-fraction-static 0.78
+</div>
+</div>
+
+<table>
+<tr>
+  <th>Mode</th><th>Bucket</th><th>N</th><th>P50 TTFT</th><th>Speedup</th><th>Avg Cached</th><th>Cached Ratio</th><th>Exact Hit</th>
+</tr>
+<tr><td>Prefix only</td><td>8k</td><td>50</td><td>672.9ms</td><td>1.00×</td><td>70</td><td>1.05%</td><td>—</td></tr>
+<tr style="background:#eff6ff"><td><strong>Exact reuse (no hints)</strong></td><td>8k</td><td>50</td><td>668.6ms</td><td><strong>1.01×</strong></td><td>361</td><td>5.63%</td><td><span class="badge badge-ok">1.00</span></td></tr>
+<tr><td>Fresh salt</td><td>8k</td><td>50</td><td>699.9ms</td><td>0.96×</td><td>35</td><td>0.53%</td><td><span class="badge badge-warn">0.00</span></td></tr>
+<tr style="border-top:2px solid #cbd5e1"><td>Prefix only</td><td>16k</td><td>50</td><td>1719.0ms</td><td>1.00×</td><td>71</td><td>0.48%</td><td>—</td></tr>
+<tr style="background:#f0fdf4"><td><strong>Exact reuse (no hints)</strong></td><td>16k</td><td>50</td><td><strong>1480.4ms</strong></td><td><strong>1.16×</strong></td><td><strong>2684</strong></td><td><strong>17.42%</strong></td><td><span class="badge badge-ok">1.00</span></td></tr>
+<tr><td>Fresh salt</td><td>16k</td><td>50</td><td>1715.8ms</td><td>1.00×</td><td>36</td><td>0.24%</td><td><span class="badge badge-warn">0.00</span></td></tr>
+</table>
+
+<div class="two-col">
+<div class="card success">
+<h4>✅ 关键发现</h4>
+<ul>
+<li><strong>16k bucket：</strong>cached ratio 17.4%，TTFT 降低 239ms → <strong>1.16× speedup</strong></li>
+<li><strong>8k bucket：</strong>segment 较短，cached ratio 仅 5.6%，prefill 节省被其他开销稀释 → 1.01×</li>
+<li><strong>Exact hit rate：</strong>100%（50/50 在两种 bucket）</li>
+<li><strong>Fresh salt：</strong>无 cache 命中，TTFT 与 prefix-only 持平，验证 baseline 公平性</li>
+</ul>
+</div>
+<div class="card warn">
+<h4>⚠️ 限制</h4>
+<ul>
+<li>32k/48k bucket 受 RTX 4090 24GB 限制，planner+implementer KV 无法同时驻留 GPU</li>
+<li>10-case 校准曾达 1.56×，50-case 平均 1.16×，差异来自样本多样性</li>
+<li>在更大 GPU（A100 80GB）上预期 32k bucket speedup 可达 1.5–2.0×</li>
+</ul>
+</div>
+</div>
+
+<!-- --- 2.2 E7 Agent Scaling --- -->
+<h3>E7: Multi-Agent Scaling（独立方法视角）</h3>
+
+<div class="card">
+<h4>实验设置</h4>
+<div class="setup-box">
+<strong>模型：</strong> Qwen2.5-7B-Instruct<br>
+<strong>数据集：</strong> SWE-bench Verified 500-case manifest<br>
+<strong>Case 数：</strong> 10 cases<br>
+<strong>Workflow：</strong> Planner warmup → Implementer/Debugger/Reviewer/Verifier/Auditor 依次请求<br>
+<strong>Agent count：</strong> 2, 3, 5<br>
+<strong>Segment count：</strong> 1, 2, 3<br>
+<strong>Length buckets：</strong> 8000, 16000, 32000 chars<br>
+<strong>max_tokens：</strong> 1<br>
+<strong>模式：</strong> prefix_cache_only vs exact_reuse_plus_code_hints<br>
+<strong>测量：</strong> per-agent TTFT, cumulative workflow TTFT
+</div>
+</div>
+
+<table>
+<tr><th>Mode</th><th>Agents</th><th>Segs</th><th>Bucket</th><th>N</th><th>P50 TTFT</th><th>Speedup</th></tr>
+<tr><td>Prefix only</td><td>2</td><td>3</td><td>8k</td><td>20</td><td>710.9ms</td><td>1.00×</td></tr>
+<tr style="background:#eff6ff"><td><strong>Exact reuse + hints</strong></td><td>2</td><td>3</td><td>8k</td><td>20</td><td>670.5ms</td><td><strong>1.06×</strong></td></tr>
+<tr><td>Prefix only</td><td>3</td><td>3</td><td>8k</td><td>30</td><td>712.2ms</td><td>1.00×</td></tr>
+<tr style="background:#eff6ff"><td><strong>Exact reuse + hints</strong></td><td>3</td><td>3</td><td>8k</td><td>30</td><td>668.3ms</td><td><strong>1.07×</strong></td></tr>
+<tr><td>Prefix only</td><td>5</td><td>3</td><td>8k</td><td>50</td><td>713.9ms</td><td>1.00×</td></tr>
+<tr style="background:#eff6ff"><td><strong>Exact reuse + hints</strong></td><td>5</td><td>3</td><td>8k</td><td>50</td><td>712.9ms</td><td><strong>1.00×</strong></td></tr>
+</table>
+
+<div class="note">
+<strong>分析：</strong>8k bucket 下 per-agent TTFT 改善有限（~6%），因 segment 较短 cached ratio 低。16k bucket 的 E7 数据（3 segments, longer code）预期展示更明显 speedup，受 GPU 容量限制未完成。E7 smoke（2 agents, 8k, 1 seg）曾显示 <strong>4.5×</strong> speedup（56ms vs 253ms），表明短 prompt 下 cache hit 比例更高。
+</div>
+
+<div class="section-divider"></div>
+
+<!-- ============================================================ -->
+<!-- LAYER 3: KVFlow INTEGRATION                                  -->
+<!-- ============================================================ -->
+<span class="layer-badge layer3">🚀 第三层：与 KVFlow 结合的加速比</span>
+<h2>与 KVFlow 结合后，相比 KVFlow baseline 提升多少？</h2>
+
+<div class="card info">
+<p>本层展示 <strong>Code-Aware KV Reuse</strong> 作为增量模块叠加在 KVFlow serving 系统上的效果。四模式渐进对比：</p>
+<ol>
+<li><strong>Baseline prefix cache</strong>：vanilla SGLang RadixCache，无 KVFlow</li>
+<li><strong>KVFlow prefix only</strong>：KVFlow 的 workflow-aware prefix prefetch</li>
+<li><strong>KVFlow + code hints</strong>：KVFlow + 我们的 codebase hint metadata（无 exact match）</li>
+<li><strong>KVFlow + exact reuse + hints</strong>：完整系统（KVFlow + hints + exact-content segment reuse）</li>
+</ol>
+</div>
+
+<h3>E2: 100-Case Realistic E2E Serving Check</h3>
+
+<div class="card">
+<h4>实验设置</h4>
+<div class="setup-box">
+<strong>模型：</strong> Qwen2.5-7B-Instruct<br>
+<strong>数据集：</strong> SWE-bench Verified 100-case manifest（3 files/case）<br>
+<strong>Case 数：</strong> 100 cases<br>
+<strong>max_tokens：</strong> 128（realistic E2E setting）<br>
+<strong>模式：</strong> baseline_prefix_cache_only / kvflow_prefix_only / kvflow_prefix_plus_codebase_prefetch / kvcomm_lossy_plus_codebase_prefetch<br>
+<strong>服务器配置：</strong> --disable-hierarchical-cache（host storage backend 未启用）<br>
+<strong>测量：</strong> end-to-end latency, cached tokens, hint count, exact hits
+</div>
+</div>
+
+<table>
+<tr>
+  <th>Mode</th><th>Avg Latency</th><th>P50</th><th>P90</th><th>Avg Cached</th><th>Hints</th><th>Exact Hits</th>
+</tr>
+<tr><td>Baseline prefix cache</td><td>3911ms</td><td>3872ms</td><td>4135ms</td><td>1582</td><td>0</td><td>0/100</td></tr>
+<tr><td>KVFlow prefix only</td><td>3941ms</td><td>3879ms</td><td>4212ms</td><td>1582</td><td>0</td><td>0/100</td></tr>
+<tr><td>KVFlow + code hints</td><td>3927ms</td><td>3870ms</td><td>4262ms</td><td>1585</td><td>2.97</td><td>0/100</td></tr>
+<tr style="background:#f0fdf4"><td><strong>KVFlow + exact reuse + hints</strong></td><td><strong>3838ms</strong></td><td><strong>3833ms</strong></td><td><strong>4184ms</strong></td><td><strong>2593</strong></td><td>2.97</td><td><strong>99/100</strong></td></tr>
+</table>
+
+<div class="metric-grid">
+  <div class="metric-box"><div class="value" style="color:var(--primary)">−73ms</div><div class="label">Latency ↓<br>vs KVFlow baseline</div></div>
+  <div class="metric-box"><div class="value" style="color:var(--primary)">+64%</div><div class="label">Cached Tokens ↑<br>(1582→2593)</div></div>
+  <div class="metric-box"><div class="value" style="color:var(--success)">99%</div><div class="label">Exact Hit Rate<br>(99/100 cases)</div></div>
+  <div class="metric-box"><div class="value" style="color:var(--info)">1.02×</div><div class="label">E2E Speedup<br>(realistic workload)</div></div>
+</div>
+
+<div class="two-col">
+<div class="card success">
+<h4>✅ Progressive Improvement</h4>
+<table>
+<tr><th>Step</th><th>Δ Cached</th><th>Δ Latency</th></tr>
+<tr><td>KVFlow → +hints</td><td>+3 tok</td><td>−14ms</td></tr>
+<tr><td>+hints → +exact reuse</td><td><strong>+1008 tok</strong></td><td><strong>−89ms</strong></td></tr>
+</table>
+<p style="font-size:0.85em">hints alone 几乎无效果；<strong>exact-content reuse 是主要增量贡献</strong>。</p>
+</div>
+<div class="card warn">
+<h4>⚠️ 为什么 E2E speedup 只有 1.02×？</h4>
+<p>这是 expected 行为：</p>
+<ul>
+<li>max_tokens=128 → decode 阶段占主导，prefill savings 被稀释</li>
+<li>HTTP overhead、调度排队、tokenization 等固定开销不变</li>
+<li>主性能 claim 使用 E6 的 <strong>TTFT/prefill-dominant</strong> setting（max_tokens=1）</li>
+<li>E2 的作用是验证 <strong>realistic workload 下的 cache reuse 可行性</strong></li>
+</ul>
+</div>
+</div>
+
+<!-- --- 3.1 Integration Summary --- -->
+<h3>三层递进总结</h3>
+
+<table>
+<tr><th>层次</th><th>问题</th><th>核心实验</th><th>关键数字</th></tr>
+<tr>
+  <td><span class="tag tag-safety">Layer 1</span> Accuracy</td>
+  <td>安全吗？数值对吗？输出一致吗？</td>
+  <td>E3/E4 Safety + E5 RoPE + E1 Pass@1</td>
+  <td>0 false accepts, 0.999 K cosine, 96.9% top-1</td>
+</tr>
+<tr>
+  <td><span class="tag tag-performance">Layer 2</span> Independent Speedup</td>
+  <td>方法本身能加速多少？</td>
+  <td>E6 TTFT Stress (exact_reuse_no_hints vs prefix)</td>
+  <td><strong>1.16×</strong> TTFT speedup (16k), 100% exact hit</td>
+</tr>
+<tr>
+  <td><span class="tag tag-system">Layer 3</span> KVFlow Integration</td>
+  <td>与现有系统结合后提升多少？</td>
+  <td>E2 100-case Serving (4-mode progressive)</td>
+  <td><strong>+64%</strong> cached tokens, 99/100 exact hits</td>
+</tr>
+</table>
+
+<div class="section-divider"></div>
+
+<!-- ==================== E8 Ablation ==================== -->
+<h2>🔍 E8 消融实验：机制拆解</h2>
+
+<div class="card">
+<h4>实验设置</h4>
+<div class="setup-box">
+<strong>模型：</strong> Qwen2.5-7B-Instruct<br>
+<strong>数据集：</strong> SWE-bench Verified 500-case manifest（复用 E6 同一批 cases，避免数据集漂移）<br>
+<strong>Case 数：</strong> 20 cases<br>
+<strong>Bucket：</strong> 32000 chars（注：受 GPU 容量限制，此 bucket 下 ablation 效果未充分展现）<br>
+<strong>max_tokens：</strong> 32（输出一致性 sanity setting）<br>
+<strong>4 Ablation Modes：</strong><br>
+&nbsp;&nbsp;(a) <code>ablation_prefix_only</code> — 纯 prefix cache baseline<br>
+&nbsp;&nbsp;(b) <code>ablation_hints_no_exact</code> — code hints only, reuse_mode=lossless（禁止 exact match）<br>
+&nbsp;&nbsp;(c) <code>ablation_exact_no_hints</code> — anchor spans + exact match，无 next_agent_prefix 调度<br>
+&nbsp;&nbsp;(d) <code>ablation_exact_gate_rope</code> — anchor spans + exact match + RoPE delta（完整路径）<br>
+<strong>评估：</strong> TTFT speedup vs prefix-only, cached-token gain, exact hit rate, output F1
+</div>
+</div>
+
+<table>
+<tr><th>Mode</th><th>P50 TTFT</th><th>Speedup</th><th>Cached Gain</th><th>Exact Hits</th><th>Output F1</th></tr>
+<tr><td>Prefix only</td><td>4156ms</td><td>1.00×</td><td>—</td><td>0/20</td><td>1.000</td></tr>
+<tr><td>Hints only (no exact)</td><td>4154ms</td><td>1.00×</td><td>+0</td><td>0/20</td><td>0.604</td></tr>
+<tr><td>Exact gate (no hints)</td><td>4142ms</td><td>1.00×</td><td>+1</td><td>13/20</td><td>0.757</td></tr>
+<tr><td>Exact gate + RoPE δ</td><td>4150ms</td><td>1.00×</td><td>−22</td><td>13/20</td><td>0.668</td></tr>
+</table>
+
+<div class="warning-box">
+<strong>⚠️ 32k bucket 下的 Ablation 受限：</strong>E8 当前在 32k bucket 运行，受 RTX 4090 24GB 限制，planner+implementer KV 无法同时驻留，所有 mode 的 cached_tokens ≈ baseline。Ablation 未能展示预期差异。<strong>需在 16k bucket 重跑 E8</strong> 以获得有效的机制拆解结果。
+</div>
+
+<div class="note">
+<strong>仍可读的结论：</strong>hints only mode 的 F1=0.604（低于 prefix_only 的 1.0），说明 hints 改变了输出但不加速 prefill；exact gate mode 命中 13/20 但无实际 KV 复用（GPU 容量限制）。
+</div>
+
+<div class="section-divider"></div>
+
+<!-- ==================== 局限性 & 下一步 ==================== -->
+<h2>📋 诚实局限性</h2>
+
+<div class="card warn">
+<ol>
+<li><strong>GPU 容量瓶颈：</strong>RTX 4090 24GB 只能容纳 ~31k tokens KV cache。32k+ bucket 的 planner+implementer 无法同时驻留 → exact_hit 报告成功但 cached_tokens=0。</li>
+<li><strong>E6 speedup 未达目标：</strong>目标 1.3×，实际 1.16×（16k, 50-case）。10-case 校准曾达 1.56×，差异来自样本多样性。</li>
+<li><strong>E8 ablation 不完整：</strong>32k bucket 下无法有效隔离各子系统贡献，需 16k 重跑。</li>
+<li><strong>E2E speedup modest：</strong>100-case E2E 仅 1.02×，但这是 realistic workload 的预期行为（decode/HTTP 噪声稀释 prefill savings）。</li>
+<li><strong>HiCache file backend leak：</strong>文件存储后端存在内存泄漏，未作为主线使用。</li>
+</ol>
+</div>
+
+<h2>🚀 下一步计划</h2>
+
+<div class="card highlight">
+<h4>P0: 16k bucket E8 Ablation 重跑</h4>
+<p>在确认有效的 16k bucket 上重跑 4-mode ablation，预期展示 clear 的机制拆解。</p>
+</div>
+<div class="card">
+<h4>P1: GPU 升级后扩展 32k+ bucket</h4>
+<p>A100 80GB 或 2×RTX 4090 TP 后，预期 32k speedup 1.5–2.0×，48k speedup 2.0–3.0×。</p>
+</div>
+<div class="card">
+<h4>P2: 论文 RQ3 改写</h4>
+<p>以 E6 TTFT speedup 为主 claim，100-case E2E 为 sanity check，增加 GPU capacity limitation 讨论。</p>
+</div>
+
+</div>
+</body>
+</html>

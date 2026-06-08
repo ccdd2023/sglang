@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "django/db/models/sql/compiler.py",
+      "search": "self.query.combinator_all",
+      "replace": "self.query.combinator_all or []"
+    }
+  ]
+}
+```

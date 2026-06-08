@@ -1,0 +1,12 @@
+diff --git a/src/flask/blueprints.py b/src/flask/blueprints.py
+--- a/src/flask/blueprints.py
++++ b/src/flask/blueprints.py
+@@ -12,7 +12,7 @@
+ if t.TYPE_CHECKING:  # pragma: no cover
+     from .app import Flask
+ 
+-DeferredSetupFunction = t.Callable[["BlueprintSetupState"], t.Callable]
++DeferredSetupFunction = t.Callable[["Blueprint('', __name__)SetupState"], t.Callable]
+ T_after_request = t.TypeVar("T_after_request", bound=ft.AfterRequestCallable)
+ T_before_request = t.TypeVar("T_before_request", bound=ft.BeforeRequestCallable)
+ T_error_handler = t.TypeVar("T_error_handler", bound=ft.ErrorHandlerCallable)

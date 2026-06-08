@@ -1,0 +1,15 @@
+{
+  "instance_id": "pallets__flask-5014",
+  "repo": "pallets/flask",
+  "version": "2.3",
+  "mode": "candidate",
+  "env_name": "swe_pallets_flask_5014_candidate",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pallets__flask-5014",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "tests/test_blueprints.py::test_empty_name_not_allowed"
+  ],
+  "returncode": 4
+}

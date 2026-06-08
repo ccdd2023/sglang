@@ -1,0 +1,15 @@
+{
+  "instance_id": "pytest-dev__pytest-10356",
+  "repo": "pytest-dev/pytest",
+  "version": "7.2",
+  "mode": "gold",
+  "env_name": "swe_pytest_dev_pytest_10356_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-10356",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "testing/test_mark.py::test_mark_mro"
+  ],
+  "returncode": 0
+}

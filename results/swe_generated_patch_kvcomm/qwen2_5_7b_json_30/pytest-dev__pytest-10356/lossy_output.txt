@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "src/_pytest/mark/structures.py",
+      "search": "return (\n            getattr(self, \\"_pytestmark\\", []) +\n            list(itertools.chain.from_iterable(getattr(x, \\"_pytestmark\\", []) for x in self.__mro__))\n        )",
+      "replace": "return (\n            getattr(self, \\"_pytestmark\\", []) +\n            [mark for x in self.__mro__ for mark in getattr(x, \\"_pytestmark\\", []) if mark not in getattr(self, \\"_pytestmark\\", [])]\n        )"
+    }
+  ]
+}
+```

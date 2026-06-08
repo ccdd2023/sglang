@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "repo/sklearn/feature_extraction/text.py",
+      "search": "raise ValueError(\"CountVectorizer - Vocabulary wasn't fitted.\")",
+      "replace": "if not self.fixed_vocabulary_:\n            raise ValueError(\"CountVectorizer - Vocabulary wasn't fitted.\")"
+    }
+  ]
+}
+```

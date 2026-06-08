@@ -1,0 +1,15 @@
+{
+  "instance_id": "pydata__xarray-3151",
+  "repo": "pydata/xarray",
+  "version": "0.12",
+  "mode": "base",
+  "env_name": "swe_pydata_xarray_3151_base",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3151",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "xarray/tests/test_combine.py::TestCombineAuto::test_combine_leaving_bystander_dimensions"
+  ],
+  "returncode": 1
+}
