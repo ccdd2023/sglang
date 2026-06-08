@@ -1,0 +1,19 @@
+{
+  "instance_id": "django__django-11141",
+  "repo": "django/django",
+  "version": "3.1",
+  "mode": "gold",
+  "env_name": "swe_django_django_11141_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-11141",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "./tests/runtests.py",
+    "--verbosity",
+    "2",
+    "--settings=test_sqlite",
+    "--parallel",
+    "1",
+    "Migration directories without an __init__.py file are loaded."
+  ],
+  "returncode": 1
+}

@@ -1,0 +1,186 @@
+{
+  "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+  "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+  "label": "5-case discriminative subset of 100 (for pass@1 driver extension)",
+  "case_count": 5,
+  "repo_distribution": {
+    "django/django": 2,
+    "matplotlib/matplotlib": 1,
+    "psf/requests": 2
+  },
+  "file_stats": {
+    "total_files": 300,
+    "total_lines": 1019831,
+    "total_chars": 37926017,
+    "avg_files_per_case": 3.0,
+    "avg_lines_per_case": 10198.31,
+    "avg_chars_per_case": 379260.17
+  },
+  "samples": [
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "django__django-11138",
+      "repo": "django/django",
+      "version": "3.0",
+      "difficulty": "1-4 hours",
+      "repo_key": "django__django",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-11138",
+      "files": [
+        {
+          "path": "django/db/models/fields/__init__.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-11138/django/db/models/fields/__init__.py",
+          "content_hash": "240c1a59d936fa8357df59dbe7867310eabf34ddd2365cf7ea731601337116a8",
+          "lines": 2355,
+          "chars": 84578
+        },
+        {
+          "path": "django/db/models/sql/query.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-11138/django/db/models/sql/query.py",
+          "content_hash": "aa6cc53ad75533d672c563608caa0e0ba91748342644b9b0a27a16bc35c58e5a",
+          "lines": 2297,
+          "chars": 102678
+        },
+        {
+          "path": "django/contrib/admin/options.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-11138/django/contrib/admin/options.py",
+          "content_hash": "f755fbe374feb302c5308b5472a3122c4f58f0406d7a4e2a9633fd916a5daa86",
+          "lines": 2166,
+          "chars": 91505
+        }
+      ]
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "django__django-11149",
+      "repo": "django/django",
+      "version": "3.0",
+      "difficulty": "15 min - 1 hour",
+      "repo_key": "django__django",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-11149",
+      "files": [
+        {
+          "path": "django/db/models/fields/__init__.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-11149/django/db/models/fields/__init__.py",
+          "content_hash": "240c1a59d936fa8357df59dbe7867310eabf34ddd2365cf7ea731601337116a8",
+          "lines": 2355,
+          "chars": 84578
+        },
+        {
+          "path": "django/db/models/sql/query.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-11149/django/db/models/sql/query.py",
+          "content_hash": "aa6cc53ad75533d672c563608caa0e0ba91748342644b9b0a27a16bc35c58e5a",
+          "lines": 2297,
+          "chars": 102678
+        },
+        {
+          "path": "django/contrib/admin/options.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/django__django-11149/django/contrib/admin/options.py",
+          "content_hash": "7ffca0144d4957f3c9998a30d0cb43f5431b6faabfad913c228afa9847448e1f",
+          "lines": 2162,
+          "chars": 91563
+        }
+      ]
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "matplotlib__matplotlib-21568",
+      "repo": "matplotlib/matplotlib",
+      "version": "3.4",
+      "difficulty": "15 min - 1 hour",
+      "repo_key": "matplotlib__matplotlib",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/matplotlib__matplotlib-21568",
+      "files": [
+        {
+          "path": "lib/matplotlib/axes/_axes.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/matplotlib__matplotlib-21568/lib/matplotlib/axes/_axes.py",
+          "content_hash": "996469417f0888dc46d0a45f55d65d176bcc2633cecd4e86bb6e82b91cf01380",
+          "lines": 8096,
+          "chars": 316460
+        },
+        {
+          "path": "lib/matplotlib/patches.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/matplotlib__matplotlib-21568/lib/matplotlib/patches.py",
+          "content_hash": "90edf6b3815a3cc679b00c17235fb031473f84347afb62c0f0ea5def4eee0ed8",
+          "lines": 4745,
+          "chars": 163300
+        },
+        {
+          "path": "lib/matplotlib/axes/_base.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/matplotlib__matplotlib-21568/lib/matplotlib/axes/_base.py",
+          "content_hash": "e46f71cc36ffb655db1321bd35a0c1feb1eb5b2a8e82228e6536a96582bf0cf2",
+          "lines": 4735,
+          "chars": 179826
+        }
+      ]
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "psf__requests-5414",
+      "repo": "psf/requests",
+      "version": "2.26",
+      "difficulty": "<15 min fix",
+      "repo_key": "psf__requests",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-5414",
+      "files": [
+        {
+          "path": "requests/utils.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-5414/requests/utils.py",
+          "content_hash": "50cdf5bdc40cfe8ae7c0a327d913bf34e999e53192d1e2d35551f707785e4168",
+          "lines": 1048,
+          "chars": 32912
+        },
+        {
+          "path": "requests/models.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-5414/requests/models.py",
+          "content_hash": "c51202c76971a02910dd004688a4586ee1973ae3c354bf856a2c4575ebd1a888",
+          "lines": 973,
+          "chars": 35043
+        },
+        {
+          "path": "requests/sessions.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-5414/requests/sessions.py",
+          "content_hash": "66ef98f583e5c1322cc85c7586f22b737ce2c9e169b853ea70eb92bb3f01356b",
+          "lines": 771,
+          "chars": 29835
+        }
+      ]
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "psf__requests-6028",
+      "repo": "psf/requests",
+      "version": "2.27",
+      "difficulty": "15 min - 1 hour",
+      "repo_key": "psf__requests",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-6028",
+      "files": [
+        {
+          "path": "requests/utils.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-6028/requests/utils.py",
+          "content_hash": "7938f802679da01f5768d41526f22b63fcef2a96c491ec030b755c87bab3958d",
+          "lines": 1056,
+          "chars": 33128
+        },
+        {
+          "path": "requests/models.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-6028/requests/models.py",
+          "content_hash": "45f5df806519e57e8259485438392eefe30e40d595b3b94364f57a6c30b9ddc6",
+          "lines": 973,
+          "chars": 35051
+        },
+        {
+          "path": "requests/sessions.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-6028/requests/sessions.py",
+          "content_hash": "66ef98f583e5c1322cc85c7586f22b737ce2c9e169b853ea70eb92bb3f01356b",
+          "lines": 771,
+          "chars": 29835
+        }
+      ]
+    }
+  ]
+}

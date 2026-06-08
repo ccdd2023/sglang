@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/dates.py",
+      "search": "matplotlib.rcParams[\"text.usetex\"] = True\n",
+      "replace": "matplotlib.rcParams[\"text.usetex\"] = False\n"
+    }
+  ]
+}
+```

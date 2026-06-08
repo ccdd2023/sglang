@@ -1,0 +1,15 @@
+{
+  "instance_id": "matplotlib__matplotlib-20826",
+  "repo": "matplotlib/matplotlib",
+  "version": "3.4",
+  "mode": "gold",
+  "env_name": "swe_matplotlib_matplotlib_20826_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-20826",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "lib/matplotlib/tests/test_axes.py::test_shared_axes_clear[png]"
+  ],
+  "returncode": 4
+}

@@ -1,0 +1,15 @@
+{
+  "instance_id": "psf__requests-5414",
+  "repo": "psf/requests",
+  "version": "2.26",
+  "mode": "gold",
+  "env_name": "swe_psf_requests_5414_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-5414",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "tests/test_requests.py::TestRequests::test_invalid_url[InvalidURL-http://.example.com]"
+  ],
+  "returncode": 0
+}

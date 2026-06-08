@@ -1,0 +1,19 @@
+{
+  "instance_id": "django__django-11138",
+  "repo": "django/django",
+  "version": "3.0",
+  "mode": "base",
+  "env_name": "swe_django_django_11138_base",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-11138",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "./tests/runtests.py",
+    "--verbosity",
+    "2",
+    "--settings=test_sqlite",
+    "--parallel",
+    "1",
+    "timezones.tests.NewDatabaseTests.test_query_convert_timezones"
+  ],
+  "returncode": 1
+}

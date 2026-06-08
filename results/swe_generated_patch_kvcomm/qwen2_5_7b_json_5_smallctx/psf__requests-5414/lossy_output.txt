@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "requests/models.py",
+      "search": "raise\\nUnicodeError\\(\\)",
+      "replace": "raise\\nInvalidURL\\(\\\"URL has an invalid label.\\\"\\)"
+    }
+  ]
+}
+```

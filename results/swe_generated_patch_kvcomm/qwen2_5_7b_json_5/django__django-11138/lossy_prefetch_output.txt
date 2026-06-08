@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "django/db/backends/mysql/operations.py",
+      "search": "CONVERT_TZ(`my_model`.`my_datetime_field`, 'UTC', 'Europe/Paris')",
+      "replace": "CONVERT_TZ(`my_model`.`my_datetime_field`, '%(time_zone)s', 'Europe/Paris')"
+    }
+  ]
+}
+```

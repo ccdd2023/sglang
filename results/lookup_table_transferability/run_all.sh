@@ -65,6 +65,9 @@ fi
 run_model "Qwen/Qwen2.5-Coder-3B-Instruct"
 run_model "Qwen/Qwen2.5-7B-Instruct"
 run_model "Qwen/Qwen3-8B"
+# 5th model (Mistral-7B-Instruct-v0.3) was attempted on 2026-06-08 but
+# stalled at 3.6/14 GB due to HF unauthenticated rate limits. The 4/4
+# Qwen result stands; see results/non_qwen_attempted/REPORT.md.
 
 echo "[run_all] all models done"
 ls -la "$OUT_DIR/data/"

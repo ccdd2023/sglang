@@ -1,0 +1,9 @@
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/dates.py",
+      "search": "Jan\\$\\mathdefault{{-}01}$",
+      "replace": "Jan$\\mathdefault{{-}01}$"
+    }
+  ]
+}

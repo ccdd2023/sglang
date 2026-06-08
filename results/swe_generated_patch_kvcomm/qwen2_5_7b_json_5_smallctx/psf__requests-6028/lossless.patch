@@ -1,0 +1,12 @@
+diff --git a/requests/utils.py b/requests/utils.py
+--- a/requests/utils.py
++++ b/requests/utils.py
+@@ -52,7 +52,7 @@
+ if sys.platform == 'win32':
+     # provide a proxy_bypass version on Windows without DNS lookups
+ 
+-    def proxy_bypass_registry(host):
++    def proxy_bypass_registry(host) or False:
+         try:
+             if is_py3:
+                 import winreg

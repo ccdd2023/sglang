@@ -11,5 +11,5 @@
     "-rA",
     "tests/test_blueprints.py::test_empty_name_not_allowed"
   ],
-  "returncode": 0
+  "returncode": 1
 }
