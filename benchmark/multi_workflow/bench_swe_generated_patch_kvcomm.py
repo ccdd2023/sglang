@@ -118,6 +118,8 @@ def launch_server(args: argparse.Namespace) -> subprocess.Popen:
         "8192",
         "--max-prefill-tokens",
         "16384",
+        "--cpu-offload-gb",
+        str(args.cpu_offload_gb),
         "--enable-cache-report",
         "--disable-cuda-graph",
         "--allow-auto-truncate",
@@ -849,6 +851,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-tokens", type=int, default=1024)
     parser.add_argument("--max-total-tokens", type=int, default=65536)
     parser.add_argument("--mem-fraction-static", type=float, default=0.82)
+    parser.add_argument("--cpu-offload-gb", type=int, default=0,
+                        help="GB of system RAM reserved for KV-cache CPU offload (SGLang --cpu-offload-gb). 0 = disabled (default).")
     parser.add_argument("--eval-timeout", type=int, default=1200)
     parser.add_argument("--server-timeout", type=int, default=180)
     parser.add_argument("--repair-attempts", type=int, default=1)

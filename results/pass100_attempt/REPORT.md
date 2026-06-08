@@ -29,7 +29,11 @@ The 30-env gold smoke batch produced 5/30 passing envs (16.7%), all of
 which are discriminative. The SGLang allocator OOM is reproducible on
 this 24 GB GPU; the envs are ready to run pass@1 once the upstream
 allocator is fixed (or on a 40+ GB GPU where the cache fragmentation
-becomes irrelevant).
+becomes irrelevant). A CPU-offload attempt (32 GB reservation on a
+230-GB-RAM host) avoided the OOM but produced empty patches and
+aiohttp client timeouts, because the offload path adds a CPU↔GPU
+transfer per chunked-prefill step that is too slow to complete a
+request inside the 600-s client timeout (see Step 2.5).
 
 ## Step 0: 30-env gold smoke (cases 27-56 from 100-manifest)
 
@@ -75,6 +79,39 @@ Two log files:
 
 Both failed at the first prefill.
 
+## Step 2.5: Pass@1 driver with CPU offload (32 GB) (2026-06-08 13:31)
+
+Driver patch: added `--cpu-offload-gb` arg to
+`benchmark/multi_workflow/bench_swe_generated_patch_kvcomm.py:launch_server`
+(passes through SGLang's `--cpu-offload-gb 32`; the testbed has 230 GB
+free system RAM, so 32 GB reservation is well within budget).
+
+Output: `results/swe_generated_patch_kvcomm/qwen2_5_7b_json_5_cpuoffload/`
+
+**Outcome**: the OOM was avoided (no `RuntimeError: Out of memory` in
+the log), but the run **did not produce usable results**:
+
+- Case 1 (`django__django-11138`): all 3 patch files written but **0
+  bytes each** (empty); the model output is empty, presumably
+  because CPU offload made the per-token decode so slow that
+  `--max-tokens 1024` timed out before any token was generated.
+- Case 2 (`django__django-11149`): directory created but no patch
+  files; the request hit aiohttp `TimeoutError` (600 s client
+  timeout) and the run aborted.
+
+Server log: `results/swe_generated_patch_kvcomm/qwen2_5_7b_json_5_cpuoffload/sglang_server.log`
+(18 lines at `--log-level error`, no alloc errors, no OOM; just
+empty model output and aiohttp timeouts).
+
+**Why CPU offload did not help**: the allocator bug rejects 8K-token
+prefills when the cache is fragmented (6,342 free + 58,211 evictable
+= 64,553 available, allocator wants 8,192 contiguous). CPU offload
+adds another pool but the offload pool is itself fragmented, and
+the offload path adds a CPU↔GPU transfer per chunked prefill step
+that makes the per-request latency 5-10× longer than the GPU-only
+path. The empty-output / aiohttp-timeout failure is downstream of
+the same fragmentation issue, not a separate OOM.
+
 ## Step 3: Pass@1 driver on the 5 new cases (small ctx)
 
 Output: `results/swe_generated_patch_kvcomm/qwen2_5_7b_json_5_smallctx/`
@@ -116,3 +153,8 @@ For reproducibility, the manifest + dataset for the 5 new cases is at:
    the original 30 dataset had shorter files).
 4. **Use a sub-1.0 mem-fraction-static + chain multiple server
    restarts** to flush fragmented state between cases.
+5. **CPU offload** (added to driver as `--cpu-offload-gb`) **does
+   not work** for this workload: the offload path adds a per-step
+   CPU↔GPU transfer that makes chunked prefill 5-10× slower than
+   the GPU-only path, hitting the aiohttp 600-s client timeout
+   (Step 2.5 above).
