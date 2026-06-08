@@ -274,3 +274,7 @@ sgl-kernel/csrc/**/*_musa/
 *.glb
 *.ply
 *.npz
+
+# swebench_local_envs build outputs (loose checkouts from env_build, regenerated on demand)
+results/swebench_local_envs/repos/
+
