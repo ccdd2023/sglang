@@ -24,6 +24,7 @@ The radix tree data structure for managing the KV cache.
 
 import heapq
 import logging
+import math
 import os
 import re
 import sys
@@ -714,6 +715,19 @@ class RadixCache(BasePrefixCache):
                 signatures.add(signature)
         return signatures
 
+    def _agenttemplatekv_enabled(self) -> bool:
+        """Master gate: return False if AgentTemplateKV paths are disabled.
+
+        When ``SGLANG_LOSSY_ENABLED=0``, all ``_agenttemplatekv_*``
+        and ``agenttemplatekv_prefetch_codebases`` methods are no-ops. This
+        lets non-AgentTemplateKV users turn the feature off without changing
+        any other behavior. The default is ``1`` (enabled).
+        """
+        try:
+            return os.environ.get("SGLANG_LOSSY_ENABLED", "1") != "0"
+        except Exception:
+            return True
+
     def _agenttemplatekv_protect_entry(
         self,
         entry: AnchorKVEntry,
@@ -723,6 +737,8 @@ class RadixCache(BasePrefixCache):
         ttl_s: Optional[float] = None,
         max_ancestors: int = 2,
     ) -> bool:
+        if not self._agenttemplatekv_enabled():
+            return False
         """Keep an exact-content anchor resident for the next coding agent.
 
         Safety-net cap: if locking the entry would push ``protected_size_``
@@ -734,12 +750,20 @@ class RadixCache(BasePrefixCache):
         ``max_ancestors`` (default 2) levels are locked, plus the leaf.
         Per-protect cost drops from O(prefix_length) to O(leaf+small).
         """
+        # Resolve the TTL: explicit arg takes precedence over the env var.
+        # TTL=0 means "no-op": do not even bookkeep the protect; this is
+        # the canonical "feature off" semantic. A negative TTL is treated
+        # the same as 0.
+        if ttl_s is not None:
+            ttl = float(ttl_s)
+        else:
+            try:
+                ttl = float(os.environ.get("SGLANG_LOSSY_PREFETCH_TTL_S", "60"))
+            except ValueError:
+                ttl = 60.0
+        if ttl <= 0:
+            return False
         now = time.monotonic()
-        ttl = (
-            float(ttl_s)
-            if ttl_s is not None
-            else float(os.environ.get("SGLANG_AGENTTEMPLATEKV_PREFETCH_TTL_S", "60"))
-        )
         entry.prefetch_protected_until = max(entry.prefetch_protected_until, now + ttl)
         entry.prefetch_steps_remaining = max(entry.prefetch_steps_remaining, steps_to_use)
 
@@ -758,12 +782,21 @@ class RadixCache(BasePrefixCache):
                     need_tokens=len(entry.token_ids), cap=cap
                 )
                 if self.protected_size_ + len(entry.token_ids) > cap:
-                    logger.warning(
-                        "agenttemplatekv_protect rejected: "
-                        "protected_size_=%d + token_ids=%d > cap=%d "
-                        "(eviction sweep could not free enough)",
-                        self.protected_size_, len(entry.token_ids), cap,
+                    # Rate-limiter: only log every 1024 rejects to avoid
+                    # log spam in sustained cap-hit regimes. The miss counter
+                    # is always incremented; the warning is for human ops.
+                    self._agenttemplatekv_reject_count = (
+                        getattr(self, "_agenttemplatekv_reject_count", 0) + 1
                     )
+                    if self._agenttemplatekv_reject_count % 1024 == 1:
+                        logger.warning(
+                            "agenttemplatekv_protect rejected "
+                            "(suppressing further logs; count=%d): "
+                            "protected_size_=%d + token_ids=%d > cap=%d "
+                            "(eviction sweep could not free enough)",
+                            self._agenttemplatekv_reject_count,
+                            self.protected_size_, len(entry.token_ids), cap,
+                        )
                     if req is not None:
                         setattr(
                             req,
@@ -775,8 +808,8 @@ class RadixCache(BasePrefixCache):
                         )
                     return False
             # Capped walk: only lock the leaf + max_ancestors ancestors.
-            locked = self._inc_lock_ref_capped(node, max_ancestors=max_ancestors)
-            setattr(entry, "_protected_ancestor_nodes", locked)
+            result = self.inc_lock_ref(node, max_ancestors=max_ancestors)
+            setattr(entry, "_protected_ancestor_nodes", result.locked_nodes or [])
             entry.prefetch_lock_held = True
             return True
 
@@ -844,11 +877,20 @@ class RadixCache(BasePrefixCache):
         if locked is None:
             node = entry.source_node
             if node is not None and not node.evicted:
+                # Full walk: matches the original dec_lock_ref contract.
                 self.dec_lock_ref(node)
         else:
-            for locked_node in locked:
-                if locked_node is not None and not locked_node.evicted:
-                    self._dec_lock_ref_one(locked_node)
+            # Capped walk: re-derive max_ancestors from the stored list.
+            # Each step from leaf to root re-releases the corresponding
+            # ancestor; we walk from leaf upward via dec_lock_ref with the
+            # same cap used in inc_lock_ref.
+            n_ancestors = len(locked)
+            # Walk from the root-side of the chain so dec_lock_ref's
+            # max_ancestors cap (counted from `node`) reaches the leaf.
+            # Use the deepest node as the start and cap at n_ancestors
+            # (covers all stored nodes + the leaf).
+            deepest = locked[0]  # inc_lock_ref stored leaf-first
+            self.dec_lock_ref(deepest, max_ancestors=n_ancestors)
             setattr(entry, "_protected_ancestor_nodes", [])
         entry.prefetch_lock_held = False
         entry.prefetch_protected_until = 0.0
@@ -876,18 +918,30 @@ class RadixCache(BasePrefixCache):
             )
 
     def agenttemplatekv_prefetch_codebases(self, req: Req, tokenizer=None, max_hints: int = 8):
-        """Device-first codebase prefetch for AgentTemplateKV.
+        """Backward-compat alias for :class:`AgentTemplateKVCache.prefetch_codebases`.
 
-        This path does not depend on HiCache. It checks whether exact-content
-        anchors from earlier agents are already resident on device, pins them
-        for the next template step, and records a real device hit.
+        New code should construct an :class:`AgentTemplateKVCache` and call
+        :meth:`AgentTemplateKVCache.prefetch_codebases` directly. The
+        scheduler's isinstance check will then dispatch to the subclass
+        implementation. This alias remains so older call sites that call
+        ``tree_cache.agenttemplatekv_prefetch_codebases(...)`` keep working.
         """
+        if not self._agenttemplatekv_enabled():
+            return
+        # Defer to the subclass implementation if available; otherwise
+        # run the same body inline. The inline path matches the original
+        # RadixCache behaviour and is used by tests that build a stock
+        # RadixCache with no subclassing.
+        from sglang.srt.mem_cache.agenttemplatekv_cache import AgentTemplateKVCache
+        if isinstance(self, AgentTemplateKVCache):
+            AgentTemplateKVCache.prefetch_codebases(self, req, tokenizer=tokenizer, max_hints=max_hints)
+            return
+        # Inline fallback (used by tests and stock radix cache that hasn't
+        # been subclassed). Identical body to AgentTemplateKVCache.prefetch_codebases.
         self._agenttemplatekv_release_expired_prefetch_entries(req)
-
         hints = getattr(req, "codebase_prefetch_hints", None) or []
         if not hints:
             return
-
         for hint in hints[:max_hints]:
             if not isinstance(hint, dict):
                 continue
@@ -898,14 +952,12 @@ class RadixCache(BasePrefixCache):
             )
             if not content_signature:
                 continue
-
             entries = []
             with self.anchor_kv_store_lock:
                 entries = list(self.anchor_kv_store.get(content_signature, []))
             if not entries:
                 req.agenttemplatekv_prefetch_miss_count += 1
                 continue
-
             text = hint.get("text") or hint.get("code") or hint.get("content")
             text_token_ids = None
             if text and tokenizer is not None:
@@ -913,7 +965,6 @@ class RadixCache(BasePrefixCache):
                     text_token_ids = tokenizer.encode(text, add_special_tokens=False)
                 except Exception:
                     text_token_ids = None
-
             matched_entry = None
             for entry in entries:
                 if entry.code_content_signature != content_signature:
@@ -922,11 +973,9 @@ class RadixCache(BasePrefixCache):
                     continue
                 matched_entry = entry
                 break
-
             if matched_entry is None:
                 req.agenttemplatekv_prefetch_miss_count += 1
                 continue
-
             steps_to_use = int(hint.get("steps_to_use") or 1)
             locked_now = self._agenttemplatekv_protect_entry(
                 matched_entry, req=req, steps_to_use=max(1, steps_to_use)
@@ -1256,7 +1305,7 @@ class RadixCache(BasePrefixCache):
                 continue
 
             gap_len = max(0, anchor_pos - exact_len)
-            max_gap = int(os.environ.get("SGLANG_AGENTTEMPLATEKV_MAX_ZERO_GAP", "16"))
+            max_gap = int(os.environ.get("SGLANG_LOSSY_MAX_ZERO_GAP", "16"))
             if gap_len > max_gap:
                 setattr(req, "lossy_rejected_reason", "agenttemplatekv_large_zero_gap")
                 setattr(req, "lossy_anchor_match_gap_len", gap_len)
@@ -1379,6 +1428,17 @@ class RadixCache(BasePrefixCache):
                 )
             except Exception as _e:
                 logger.warning("dbgcase log failed: %s", _e)
+
+        # 4) Clear the consumed-entries list on the request so it doesn't
+        # leak across request reuse (the req object may be recycled by the
+        # paged scheduler). Drop the attribute entirely rather than leaving
+        # an empty list, to keep the SimpleNamespace tests' hasattr path
+        # explicit.
+        if hasattr(req, "_consumed_anchor_entries"):
+            try:
+                delattr(req, "_consumed_anchor_entries")
+            except Exception as _e:
+                logger.warning("del req._consumed_anchor_entries failed: %s", _e)
 
         # In deterministic mode, disable finished request insertion to radix cache
         if self.disable_finished_insert:
@@ -1588,7 +1648,13 @@ class RadixCache(BasePrefixCache):
 
             self.token_to_kv_pool_allocator.free(x.value)
             num_evicted += len(x.value)
-            self._delete_leaf(x)
+            # Hold the lock across _delete_leaf so a concurrent
+            # protect_entry cannot race with the ref_count GC inside
+            # _decrement_anchor_refs.  RLock supports re-entry, so the
+            # inner `with self.anchor_kv_store_lock:` in
+            # _decrement_anchor_refs is harmless.
+            with self.anchor_kv_store_lock:
+                self._delete_leaf(x)
 
             if len(x.parent.children) == 0 and x.parent.lock_ref == 0:
                 new_priority = self.eviction_strategy.get_priority(x.parent)
@@ -1599,82 +1665,70 @@ class RadixCache(BasePrefixCache):
         self.update_eviction_metrics(num_evicted, start_time)
         return EvictResult(num_tokens_evicted=num_evicted)
 
-    def inc_lock_ref(self, node: TreeNode) -> IncLockRefResult:
-        if self.disable:
-            return IncLockRefResult(delta=0)
+    def inc_lock_ref(
+        self, node: TreeNode, max_ancestors: Optional[int] = None
+    ) -> IncLockRefResult:
+        """Increment ``lock_ref`` along the ancestor chain from ``node``.
 
-        delta = 0
-        while node != self.root_node:
-            if node.lock_ref == 0:
-                self.evictable_size_ -= len(node.key)
-                self.protected_size_ += len(node.key)
-                delta -= len(node.key)
-            node.lock_ref += 1
-            self._update_leaf_status(node)
-            node = node.parent
-        return IncLockRefResult(delta=delta)
+        Default (``max_ancestors=None``) walks all the way to root, matching
+        the original RadixCache contract. Pass ``max_ancestors=N`` to cap
+        the walk at N levels from ``node``; the returned
+        ``locked_nodes`` field then enumerates the locked nodes for
+        symmetric release via :meth:`dec_lock_ref` with the same
+        ``max_ancestors`` value.
 
-    # ------------------------------------------------------------------
-    # AgentTemplateKV device-first protected-anchor helpers
-    # ------------------------------------------------------------------
-    def _inc_lock_ref_capped(
-        self, node: TreeNode, max_ancestors: int = 2
-    ) -> list:
-        """Like ``inc_lock_ref`` but stops after ``max_ancestors`` steps from
-        ``node`` toward root, instead of walking all the way to root.
-
-        This bounds the per-protect cost when a deep ``source_node`` (the
-        full-prompt leaf, ~14k tokens) is protected: only the leaf + 2
-        ancestors are locked, not the entire prefix path back to root.
-        Returns the list of nodes that were locked (for symmetric release).
+        AgentTemplateKV uses ``max_ancestors=2`` so a deep ``source_node``
+        (~14k tokens) only locks the leaf + 2 ancestors, not the entire
+        prefix path back to root.
         """
         if self.disable:
-            return []
-        locked = []
+            return IncLockRefResult(delta=0)
+        cap = math.inf if max_ancestors is None else int(max_ancestors)
+        delta = 0
+        locked: list = []
         steps = 0
         cur = node
-        while cur is not None and cur != self.root_node and steps <= max_ancestors:
+        # ``steps <= cap`` so max_ancestors=2 locks leaf + 2 ancestors
+        # (3 nodes total). Default cap=math.inf walks to root.
+        while cur is not None and cur != self.root_node and steps <= cap:
             if cur.lock_ref == 0:
                 self.evictable_size_ -= len(cur.key)
                 self.protected_size_ += len(cur.key)
+                delta -= len(cur.key)
             cur.lock_ref += 1
             self._update_leaf_status(cur)
             locked.append(cur)
             cur = cur.parent
             steps += 1
-        return locked
+        # When capped, return the locked list so the caller can release
+        # exactly those nodes. For a full walk (default), the caller
+        # already tracks the top-level node and dec_lock_ref will walk the
+        # full path itself, so we leave locked_nodes=None to keep
+        # IncLockRefResult lightweight in the hot path.
+        return IncLockRefResult(
+            delta=delta, locked_nodes=locked if math.isfinite(cap) else None
+        )
 
-    def _dec_lock_ref_one(self, node: TreeNode) -> None:
-        """Single-node decrement of ``lock_ref``, mirroring the body of
-        ``dec_lock_ref`` but for exactly one level (not a full walk to root).
-        Used by ``_agenttemplatekv_release_entry`` to release the capped
-        chain stored by ``_inc_lock_ref_capped``.
-        """
-        if self.disable or node is None:
-            return
-        if node.lock_ref == 1:
-            self.evictable_size_ += len(node.key)
-            self.protected_size_ -= len(node.key)
-        if node.lock_ref > 0:
-            node.lock_ref -= 1
-        self._update_leaf_status(node)
+    # ------------------------------------------------------------------
+    # AgentTemplateKV device-first protected-anchor helpers
+    # ------------------------------------------------------------------
 
     def _agenttemplatekv_protected_size_cap(self) -> int:
         """Return the protected-anchor size cap in tokens.  A new protect
         that would push ``protected_size_`` above this cap is rejected.
 
         Default: ``0.5 * SGLANG_MAX_TOTAL_TOKENS`` (32 768 when the pool is
-        65 536).  Overridable via ``SGLANG_AGENTTEMPLATEKV_PROTECTED_FRAC``
-        (float) or ``SGLANG_AGENTTEMPLATEKV_PROTECTED_MAX_TOKENS`` (int).
+        65 536).  Overridable via ``SGLANG_LOSSY_PROTECTED_FRAC``
+        (float) or ``SGLANG_LOSSY_PROTECTED_MAX_TOKENS`` (int).
         Returns 0 to disable the cap.
         """
-        override = os.environ.get("SGLANG_AGENTTEMPLATEKV_PROTECTED_MAX_TOKENS")
+        override = os.environ.get("SGLANG_LOSSY_PROTECTED_MAX_TOKENS")
         if override is not None:
             try:
                 return max(0, int(override))
             except ValueError:
                 pass
-        frac_override = os.environ.get("SGLANG_AGENTTEMPLATEKV_PROTECTED_FRAC")
+        frac_override = os.environ.get("SGLANG_LOSSY_PROTECTED_FRAC")
         try:
             frac = (
                 float(frac_override)
@@ -1683,28 +1737,53 @@ class RadixCache(BasePrefixCache):
             )
         except ValueError:
             frac = 0.5
-        max_total = int(os.environ.get("SGLANG_MAX_TOTAL_TOKENS", "65536"))
+        # Prefer the allocator's authoritative pool size over the env var.
+        # The env var was the legacy sizing reference but is silently wrong
+        # when the user tunes the pool size via the CLI --max-total-tokens
+        # without also setting SGLANG_MAX_TOTAL_TOKENS. CacheInitParams is
+        # the right source; fall back to the env var for back-compat.
+        max_total = 0
+        allocator = getattr(self, "token_to_kv_pool_allocator", None)
+        if allocator is not None and hasattr(allocator, "size"):
+            max_total = int(allocator.size)
+        if max_total <= 0:
+            max_total = int(os.environ.get("SGLANG_MAX_TOTAL_TOKENS", "65536"))
         return max(0, int(frac * max_total))
 
     def dec_lock_ref(
-        self, node: TreeNode, params: Optional[DecLockRefParams] = None
+        self,
+        node: TreeNode,
+        params: Optional[DecLockRefParams] = None,
+        max_ancestors: Optional[int] = None,
     ) -> DecLockRefResult:
+        """Decrement ``lock_ref`` along the ancestor chain from ``node``.
+
+        Default (``max_ancestors=None``) walks all the way to root, matching
+        the original RadixCache contract. Pass ``max_ancestors=N`` to cap
+        the walk at N levels (symmetric with :meth:`inc_lock_ref`); this is
+        used by AgentTemplateKV to release the chain locked by a prior
+        capped ``inc_lock_ref`` call.
+        """
         if self.disable:
             return DecLockRefResult(delta=0)
-
+        cap = math.inf if max_ancestors is None else int(max_ancestors)
         delta = 0
-        while node != self.root_node:
-            if node.lock_ref == 1:
-                self.evictable_size_ += len(node.key)
-                self.protected_size_ -= len(node.key)
-                delta += len(node.key)
-            node.lock_ref -= 1
-            self._update_leaf_status(node)
-            if node.parent is None:
+        steps = 0
+        cur = node
+        # Symmetric with inc_lock_ref: ``steps <= cap``.
+        while cur is not None and cur != self.root_node and steps <= cap:
+            if cur.lock_ref == 1:
+                self.evictable_size_ += len(cur.key)
+                self.protected_size_ -= len(cur.key)
+                delta += len(cur.key)
+            cur.lock_ref -= 1
+            self._update_leaf_status(cur)
+            if cur.parent is None:
                 assert (
-                    node is self.root_node
+                    cur is self.root_node
                 ), f"This request holds the node from another tree"
-            node = node.parent
+            cur = cur.parent
+            steps += 1
         return DecLockRefResult(delta=delta)
 
     def evictable_size(self):

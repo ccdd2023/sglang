@@ -1,0 +1,69 @@
+{
+  "n_cells_compared": 144,
+  "n_pairs": 6,
+  "n_significant_after_correction": 6,
+  "n_NOT_significant_after_correction": 0,
+  "verdict": "**weak portable** (the cross-family comparisons remain significant after correction; the Qwen2.5 family comparisons are still significant; this means the d_norm differences within Qwen2.5 and across Qwen3 vs Qwen2.5 are not just artifacts of multiple comparisons).",
+  "pairs": [
+    {
+      "a": "qwen-qwen2.5-coder-7b-instruct",
+      "b": "qwen-qwen2.5-coder-3b-instruct",
+      "mean_abs_d": 0.16553333333333334,
+      "std_abs_d": 0.0330003242196406,
+      "t": 60.19334800407102,
+      "p_naive": 0.0,
+      "p_bonferroni_holm": 0.0,
+      "significant_after_correction": true
+    },
+    {
+      "a": "qwen-qwen2.5-coder-7b-instruct",
+      "b": "qwen-qwen2.5-7b-instruct",
+      "mean_abs_d": 0.06667777777777778,
+      "std_abs_d": 0.01901575881049936,
+      "t": 42.07738125556935,
+      "p_naive": 0.0,
+      "p_bonferroni_holm": 0.0,
+      "significant_after_correction": true
+    },
+    {
+      "a": "qwen-qwen2.5-coder-7b-instruct",
+      "b": "qwen-qwen3-8b",
+      "mean_abs_d": 1.4752784722222223,
+      "std_abs_d": 0.17262471205373695,
+      "t": 102.55392438340886,
+      "p_naive": 0.0,
+      "p_bonferroni_holm": 0.0,
+      "significant_after_correction": true
+    },
+    {
+      "a": "qwen-qwen2.5-coder-3b-instruct",
+      "b": "qwen-qwen2.5-7b-instruct",
+      "mean_abs_d": 0.09885555555555556,
+      "std_abs_d": 0.03336562817848845,
+      "t": 35.55355410426467,
+      "p_naive": 0.0,
+      "p_bonferroni_holm": 0.0,
+      "significant_after_correction": true
+    },
+    {
+      "a": "qwen-qwen2.5-coder-3b-instruct",
+      "b": "qwen-qwen3-8b",
+      "mean_abs_d": 1.6408118055555556,
+      "std_abs_d": 0.16351657964162594,
+      "t": 120.4143439755164,
+      "p_naive": 0.0,
+      "p_bonferroni_holm": 0.0,
+      "significant_after_correction": true
+    },
+    {
+      "a": "qwen-qwen2.5-7b-instruct",
+      "b": "qwen-qwen3-8b",
+      "mean_abs_d": 1.54195625,
+      "std_abs_d": 0.17606912093061555,
+      "t": 105.09210758933565,
+      "p_naive": 0.0,
+      "p_bonferroni_holm": 0.0,
+      "significant_after_correction": true
+    }
+  ]
+}

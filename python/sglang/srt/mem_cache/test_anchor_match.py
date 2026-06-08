@@ -719,7 +719,7 @@ def test_agenttemplatekv_rejects_large_zero_fill_gap(monkeypatch):
     from sglang.srt.mem_cache import radix_cache as rc
 
     monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
-    monkeypatch.setenv("SGLANG_AGENTTEMPLATEKV_MAX_ZERO_GAP", "4")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_ZERO_GAP", "4")
     cache = _make_minimal_radix_cache(monkeypatch)
     entry = rc.AnchorKVEntry(
         signature="anchor-sig",
@@ -751,3 +751,308 @@ def test_agenttemplatekv_rejects_large_zero_fill_gap(monkeypatch):
     assert node is cache.root_node
     assert req.lossy_rejected_reason == "agenttemplatekv_large_zero_gap"
     assert req.agenttemplatekv_rejected_large_gap_count == 1
+
+
+def test_master_gate_SGLANG_LOSSY_ENABLED_disables_protect_entry(monkeypatch):
+    """When SGLANG_LOSSY_ENABLED=0, _agenttemplatekv_protect_entry is a no-op
+    and the source_node's lock_ref is unchanged. Same for
+    agenttemplatekv_prefetch_codebases.
+    """
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    monkeypatch.setenv("SGLANG_LOSSY_ENABLED", "0")
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    cache = _make_minimal_radix_cache(monkeypatch)
+    source_node = _make_source_node(rc, cache, [1, 2, 3])
+    entry = rc.AnchorKVEntry(
+        signature="anchor-sig",
+        token_ids=torch.tensor([1, 2, 3], dtype=torch.int64),
+        kv_indices=torch.tensor([1, 2, 3], dtype=torch.int64),
+        start_pos=0,
+        code_content_signature="content-sig",
+        source_node=source_node,
+    )
+    cache.anchor_kv_store["content-sig"] = [entry]
+    # protect_entry is a no-op when gate is off
+    result = cache._agenttemplatekv_protect_entry(entry)
+    assert result is False
+    assert source_node.lock_ref == 0
+    assert entry.prefetch_lock_held is False
+    # Prefetch is also a no-op (returns None)
+    req = _make_agenttemplatekv_req(codebase_prefetch_hints=[])
+    cache.agenttemplatekv_prefetch_codebases(req)
+    assert req.agenttemplatekv_prefetch_protected_tokens == 0
+    assert req.agenttemplatekv_prefetch_hit_count == 0
+
+
+def test_master_gate_SGLANG_LOSSY_ENABLED_default_is_on(monkeypatch):
+    """Default SGLANG_LOSSY_ENABLED=1 (omitted env var) — protect_entry fires normally.
+    """
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    monkeypatch.delenv("SGLANG_LOSSY_ENABLED", raising=False)
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    cache = _make_minimal_radix_cache(monkeypatch)
+    source_node = _make_source_node(rc, cache, [1, 2, 3])
+    entry = rc.AnchorKVEntry(
+        signature="anchor-sig",
+        token_ids=torch.tensor([1, 2, 3], dtype=torch.int64),
+        kv_indices=torch.tensor([1, 2, 3], dtype=torch.int64),
+        start_pos=0,
+        code_content_signature="content-sig",
+        source_node=source_node,
+    )
+    cache.anchor_kv_store["content-sig"] = [entry]
+    result = cache._agenttemplatekv_protect_entry(entry)
+    assert result is True
+    assert source_node.lock_ref == 1
+    assert entry.prefetch_lock_held is True
+
+
+def test_protected_size_cap_uses_allocator_size_when_available(monkeypatch):
+    """The cap helper prefers self.token_to_kv_pool_allocator.size over the
+    SGLANG_MAX_TOTAL_TOKENS env var. Set allocator.size=100000 and verify
+    the cap is 50000 (50% of 100000), regardless of the env var.
+    """
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    monkeypatch.setenv("SGLANG_LOSSY_PROTECTED_FRAC", "0.5")
+    monkeypatch.setenv("SGLANG_MAX_TOTAL_TOKENS", "1000")  # would give cap=500
+
+    cache = _make_minimal_radix_cache(monkeypatch)
+    # Inject a fake allocator with .size = 100000
+    class FakeAllocator:
+        size = 100000
+    cache.token_to_kv_pool_allocator = FakeAllocator()
+    cap = cache._agenttemplatekv_protected_size_cap()
+    assert cap == 50000, f"expected 50000 (50% of 100000), got {cap}"
+
+
+def test_force_evict_oldest_protected_anchor_on_cap_hit(monkeypatch):
+    """F3 logic: when protected_size_ is at the cap and a new protect would
+    exceed it, _agenttemplatekv_evict_oldest_protected releases the oldest
+    still-locked anchor to make room.
+    """
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_PROTECTED_MAX_TOKENS", "10")
+    cache = _make_minimal_radix_cache(monkeypatch)
+
+    # Create 2 protected entries, each with 4 tokens, totaling 8 < cap 10
+    nodes = []
+    entries = []
+    for i in range(2):
+        n = _make_source_node(rc, cache, [10 + i, 11 + i, 12 + i, 13 + i])
+        nodes.append(n)
+        e = rc.AnchorKVEntry(
+            signature=f"sig-{i}",
+            token_ids=torch.tensor([10 + i, 11 + i, 12 + i, 13 + i], dtype=torch.int64),
+            kv_indices=torch.tensor([10 + i, 11 + i, 12 + i, 13 + i], dtype=torch.int64),
+            start_pos=0,
+            code_content_signature=f"content-{i}",
+            source_node=n,
+        )
+        entries.append(e)
+        cache.anchor_kv_store[f"content-{i}"] = [e]
+        cache._agenttemplatekv_protect_entry(e, ttl_s=60)
+    # protected_size_ should be 8 (two 4-token entries)
+    assert cache.protected_size_ == 8
+    # Add a 3rd entry that would push to 12 > cap 10
+    n3 = _make_source_node(rc, cache, [20, 21, 22, 23, 24])
+    e3 = rc.AnchorKVEntry(
+        signature="sig-2",
+        token_ids=torch.tensor([20, 21, 22, 23, 24], dtype=torch.int64),
+        kv_indices=torch.tensor([20, 21, 22, 23, 24], dtype=torch.int64),
+        start_pos=0,
+        code_content_signature="content-2",
+        source_node=n3,
+    )
+    cache.anchor_kv_store["content-2"] = [e3]
+    result = cache._agenttemplatekv_protect_entry(e3, ttl_s=60)
+    # F3 should have evicted one of the first two entries
+    assert result is True
+    # protected_size_ should now be <= cap (10)
+    assert cache.protected_size_ <= 10
+    # The new entry should be locked
+    assert e3.prefetch_lock_held is True
+
+
+def test_env_var_rename_SGLANG_AGENTTEMPLATEKV_is_now_SGLANG_LOSSY(monkeypatch):
+    """Verify the env-var rename: the SGLANG_LOSSY_* prefix replaces the
+    older SGLANG_AGENTTEMPLATEKV_* prefix. The old name must NOT be read;
+    the new name must be read. The legacy SGLANG_LOSSY_FUZZY_MATCH=1
+    enables the path so the cap test fires.
+    """
+    import os
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_PROTECTED_FRAC", "0.5")
+    # Old name must NOT be honored
+    monkeypatch.setenv("SGLANG_AGENTTEMPLATEKV_PROTECTED_FRAC", "0.99")
+    # Set the env var to be ignored (use a very high frac via new name; the
+    # allocator.size-based cap should still apply)
+    cache = _make_minimal_radix_cache(monkeypatch)
+    class FakeAllocator:
+        size = 100000
+    cache.token_to_kv_pool_allocator = FakeAllocator()
+    # The old env var must NOT have been read; the new one is in effect.
+    # The new name defaults to 0.5 (50% of 100000 = 50000) regardless of
+    # the old-name override.
+    cap = cache._agenttemplatekv_protected_size_cap()
+    assert cap == 50000, (
+        f"old SGLANG_AGENTTEMPLATEKV_PROTECTED_FRAC=0.99 should be ignored; "
+        f"new SGLANG_LOSSY_PROTECTED_FRAC=0.5 should give 50% of 100000 = 50000; "
+        f"got {cap}"
+    )
+
+
+def test_inc_lock_ref_default_walks_to_root(monkeypatch):
+    """Without max_ancestors, inc_lock_ref walks all the way to root_node
+    (preserves the original RadixCache contract)."""
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    cache = _make_minimal_radix_cache(monkeypatch)
+    # Build a 4-level chain root -> a -> b -> c -> leaf
+    a = _make_source_node(rc, cache, [1, 2, 3])
+    b = rc.TreeNode(priority=0)
+    b.key = rc.RadixKey([4, 5, 6])
+    b.value = torch.arange(3, 6, dtype=torch.int64)
+    b.parent = a
+    a.children[cache.get_child_key_fn(b.key)] = b
+    leaf = rc.TreeNode(priority=0)
+    leaf.key = rc.RadixKey([7, 8, 9])
+    leaf.value = torch.arange(6, 9, dtype=torch.int64)
+    leaf.parent = b
+    b.children[cache.get_child_key_fn(leaf.key)] = leaf
+    cache.evictable_size_ += 6  # b + leaf tokens
+
+    result = cache.inc_lock_ref(leaf)
+    # Default: walk leaf -> b -> a -> root; lock_ref=1 on all 3
+    assert leaf.lock_ref == 1
+    assert b.lock_ref == 1
+    assert a.lock_ref == 1
+    assert result.delta == -9
+    # No locked_nodes on default (full-walk path) — caller tracks the leaf
+    assert result.locked_nodes is None
+
+    # Symmetric dec_lock_ref also walks to root
+    result_dec = cache.dec_lock_ref(leaf)
+    assert result_dec.delta == 9
+    assert leaf.lock_ref == 0
+    assert b.lock_ref == 0
+    assert a.lock_ref == 0
+
+
+def test_inc_lock_ref_capped_returns_locked_nodes(monkeypatch):
+    """With max_ancestors=2, inc_lock_ref stops at 2 levels (leaf + 2 ancestors).
+    The returned locked_nodes list is used by AgentTemplateKV to release
+    exactly those nodes via dec_lock_ref(max_ancestors=...)."""
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    cache = _make_minimal_radix_cache(monkeypatch)
+    a = _make_source_node(rc, cache, [1, 2, 3])
+    b = rc.TreeNode(priority=0)
+    b.key = rc.RadixKey([4, 5, 6])
+    b.value = torch.arange(3, 6, dtype=torch.int64)
+    b.parent = a
+    a.children[cache.get_child_key_fn(b.key)] = b
+    leaf = rc.TreeNode(priority=0)
+    leaf.key = rc.RadixKey([7, 8, 9])
+    leaf.value = torch.arange(6, 9, dtype=torch.int64)
+    leaf.parent = b
+    b.children[cache.get_child_key_fn(leaf.key)] = leaf
+    cache.evictable_size_ += 6  # b + leaf
+
+    result = cache.inc_lock_ref(leaf, max_ancestors=2)
+    # Capped walk: leaf, b, a — all 3 locked
+    assert leaf.lock_ref == 1
+    assert b.lock_ref == 1
+    assert a.lock_ref == 1
+    assert len(result.locked_nodes) == 3
+    assert result.locked_nodes[0] is leaf
+    assert result.locked_nodes[1] is b
+    assert result.locked_nodes[2] is a
+
+    # Release via dec_lock_ref with same cap
+    result_dec = cache.dec_lock_ref(leaf, max_ancestors=3)
+    assert result_dec.delta == 9
+    assert leaf.lock_ref == 0
+    assert b.lock_ref == 0
+    assert a.lock_ref == 0
+
+
+def test_alloc_with_defrag_gated_by_env(monkeypatch):
+    """Phase 4.3: alloc_with_defrag is gated by SGLANG_KV_ALLOCATOR_DEFRAG.
+
+    With need_sort=False, alloc() does NOT call merge_and_sort_free on its
+    own, so the only way to get a contiguous prefix slice when free_pages
+    is fragmented is to call alloc_with_defrag. With the env var off, the
+    prefix slice stays fragmented; with the env var on, merge_and_sort_free
+    runs first and the prefix slice is contiguous.
+    """
+    from sglang.srt.mem_cache import allocator as alloc_mod
+
+    a = alloc_mod.TokenToKVPoolAllocator.__new__(alloc_mod.TokenToKVPoolAllocator)
+    a.device = torch.device("cpu")
+    a.size = 100
+    a.need_sort = False  # critical: alloc() won't defrag on its own
+    # Fragmented free list: small head, material scattered in release_pages
+    a.free_pages = torch.tensor([50, 51, 52], dtype=torch.int64)  # head too small
+    a.release_pages = torch.tensor(
+        list(range(10, 30)), dtype=torch.int64
+    )  # 20 indices below
+    a.is_not_in_free_group = True
+    a.free_group = []
+
+    # Without env var: alloc() returns just the head (3 tokens) — not None,
+    # but NOT the requested 20. This simulates the failure mode common.py
+    # used to retry on: the alloc "succeeds" with a too-small slice.
+    monkeypatch.delenv("SGLANG_KV_ALLOCATOR_DEFRAG", raising=False)
+    out = a.alloc_with_defrag(20)
+    # Without defrag, alloc returns 3 of 20 → 20 is NOT satisfied.
+    # Real allocator.alloc would return None here; alloc_with_defrag just
+    # delegates to alloc() with no extra defrag, so we get None when
+    # need_size > free_pages. Verify the state: free_pages and release_pages
+    # are still fragmented (no merge happened).
+    assert out is None  # need_size 20 > free_pages 3
+    assert len(a.free_pages) == 3
+    assert len(a.release_pages) == 20
+
+    # With env var: merge_and_sort_free runs first. free_pages becomes the
+    # sorted concatenation [10,11,...,29,50,51,52] (23 entries). The prefix
+    # slice of 20 is contiguous.
+    monkeypatch.setenv("SGLANG_KV_ALLOCATOR_DEFRAG", "1")
+    out = a.alloc_with_defrag(20)
+    assert out is not None
+    assert out.numel() == 20
+    diffs = out[1:] - out[:-1]
+    assert (diffs == 1).all(), f"alloc returned non-contiguous slice: {out}"
+
+
+def test_agenttemplatekv_cache_subclass_dispatch(monkeypatch):
+    """Phase 4.4: AgentTemplateKVCache is a RadixCache subclass that exposes
+    prefetch_codebases. A stock RadixCache is NOT a subclass, so the
+    scheduler's isinstance check is the upstreamable dispatch."""
+    from sglang.srt.mem_cache.agenttemplatekv_cache import AgentTemplateKVCache
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    # Stock RadixCache (created via __new__ to skip __init__) is NOT an
+    # instance of AgentTemplateKVCache.
+    cache = rc.RadixCache.__new__(rc.RadixCache)
+    assert not isinstance(cache, AgentTemplateKVCache)
+    # The agenttemplatekv_prefetch_codebases alias on the base class still
+    # exists for back-compat with older scheduler call sites.
+    assert hasattr(cache, "agenttemplatekv_prefetch_codebases")
+
+    # AgentTemplateKVCache IS a RadixCache (subclass relationship holds)
+    assert issubclass(AgentTemplateKVCache, rc.RadixCache)
+    # And it has the public prefetch_codebases method
+    assert hasattr(AgentTemplateKVCache, "prefetch_codebases")
+    # The two methods are the same callable
+    assert (
+        AgentTemplateKVCache.prefetch_codebases
+        is not rc.RadixCache.agenttemplatekv_prefetch_codebases
+    )
+

@@ -179,6 +179,7 @@ from sglang.srt.mem_cache.cache_init_params import CacheInitParams
 from sglang.srt.mem_cache.common import release_kv_cache
 from sglang.srt.mem_cache.radix_cache import RadixCache, RadixKey
 from sglang.srt.mem_cache.session_aware_cache import SessionAwareCache
+from sglang.srt.mem_cache.agenttemplatekv_cache import AgentTemplateKVCache
 from sglang.srt.model_executor.forward_batch_info import ForwardMode, PPProxyTensors
 from sglang.srt.multiplex.multiplexing_mixin import SchedulerMultiplexMixin
 from sglang.srt.observability.req_time_stats import (
@@ -1944,8 +1945,8 @@ class Scheduler(
         if not hints:
             return
 
-        if hasattr(self.tree_cache, "agenttemplatekv_prefetch_codebases"):
-            self.tree_cache.agenttemplatekv_prefetch_codebases(
+        if isinstance(self.tree_cache, AgentTemplateKVCache):
+            self.tree_cache.prefetch_codebases(
                 req,
                 tokenizer=self.tokenizer,
             )

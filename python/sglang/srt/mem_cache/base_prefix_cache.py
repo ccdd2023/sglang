@@ -120,6 +120,11 @@ class IncLockRefResult:
 
     delta: Optional[int] = None
     swa_uuid_for_lock: Optional[int] = None
+    # List of nodes whose lock_ref was incremented. Populated when the
+    # caller passes max_ancestors < math.inf (capped walk); None for the
+    # default full walk. Used by AgentTemplateKV to release exactly the
+    # nodes it locked without re-walking the prefix path.
+    locked_nodes: Optional[list] = None
 
 
 @dataclasses.dataclass

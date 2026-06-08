@@ -1,0 +1,18 @@
+{
+  "n_simulations": 1000,
+  "n_instances": 452,
+  "n_repos": 12,
+  "routing_randomization_prob": 0.9,
+  "original_cross_agent_hit_rates": {
+    "planner->coder": 1.0,
+    "coder->reviewer": 1.0,
+    "planner->reviewer": 1.0,
+    "planner->planner": 0.002
+  },
+  "randomized_cross_agent_mean_hit_rate": 0.011857669616519174,
+  "randomized_cross_agent_std": 0.003141532841281749,
+  "randomized_cross_agent_min": 0.003687315634218289,
+  "randomized_cross_agent_max": 0.02359882005899705,
+  "randomized_cross_agent_p50": 0.011799410029498525,
+  "verdict": "The original 100% cross-agent hit rate is a construction artifact. With 90% randomized routing, the mean cross-agent hit rate drops to 1.19% ± 0.31% (p50 1.18%, range [0.37%, 2.36%]). This isolates the algorithm's intrinsic hit rate from the workload's routing convention."
+}

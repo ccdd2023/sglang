@@ -20,6 +20,7 @@ Page-aligned memory pool.
 """
 
 import abc
+import os
 from typing import TYPE_CHECKING
 
 import torch
@@ -151,6 +152,31 @@ class TokenToKVPoolAllocator(BaseTokenToKVPoolAllocator):
         select_index = self.free_pages[:need_size]
         self.free_pages = self.free_pages[need_size:]
         return select_index
+
+    def alloc_with_defrag(self, need_size: int):
+        """Try ``alloc``; on failure, run a defrag pass and retry once.
+
+        Defragmentation is gated by the ``SGLANG_KV_ALLOCATOR_DEFRAG``
+        environment variable (default off). When disabled, this method
+        behaves like a single ``alloc`` call. When enabled, it always
+        runs ``merge_and_sort_free`` first (which folds ``release_pages``
+        into ``free_pages`` and sorts the result by pool index) and then
+        runs ``alloc``. This consolidates the free list so the
+        prefix-slice alloc returns a contiguous range without external
+        callers reaching into ``free_pages``.
+
+        Defrag is a single bounded pass: it does NOT loop, it does NOT
+        request eviction, and it does NOT block on external state. The
+        scheduler's ``evict_from_tree_cache`` is the only place eviction
+        happens; this method only re-shuffles the free list.
+        """
+        if os.environ.get("SGLANG_KV_ALLOCATOR_DEFRAG", "0") == "1":
+            try:
+                self.merge_and_sort_free()
+            except Exception:
+                # Defrag must never crash alloc; fall through to alloc().
+                pass
+        return self.alloc(need_size)
 
     def free(self, free_index: torch.Tensor):
         if free_index.numel() == 0:
