@@ -1,0 +1,11 @@
+diff --git a/requests/utils.py b/requests/utils.py
+--- a/requests/utils.py
++++ b/requests/utils.py
+@@ -92,6 +92,7 @@
+         return False
+ 
+     def proxy_bypass(host):  # noqa
++    return False
+         """Return True, if the host should be bypassed.
+ 
+         Checks proxy settings gathered from the environment, if specified,

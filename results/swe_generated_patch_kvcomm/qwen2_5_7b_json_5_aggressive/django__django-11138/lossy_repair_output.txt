@@ -1,0 +1,21 @@
+```json
+{
+    "edits": [
+        {
+            "path": "django/db/backends/mysql/operations.py",
+            "search": "return 'CONVERT_TZ(%s, 'UTC', '%s')" % (field_name, tzname)",
+            "replace": "return 'CONVERT_TZ(%s, '%s', '%s')" % (field_name, settings.TIME_ZONE, tzname)"
+        },
+        {
+            "path": "django/db/backends/oracle/operations.py",
+            "search": "return 'CAST((FROM_TZ(%s, '0:00') AT TIME ZONE '%s') AS TIMESTAMP)' % (field_name, tzname)",
+            "replace": "return 'CAST((FROM_TZ(%s, '%s') AT TIME ZONE '%s') AS TIMESTAMP)' % (field_name, settings.TIME_ZONE, tzname)"
+        },
+        {
+            "path": "django/db/backends/sqlite3/base.py",
+            "search": "return 'CAST((FROM_TZ(%s, '0:00') AT TIME ZONE '%s') AS TIMESTAMP)' % (field_name, tzname)",
+            "replace": "return 'CAST((FROM_TZ(%s, '%s') AT TIME ZONE '%s') AS TIMESTAMP)' % (field_name, settings.TIME_ZONE, tzname)"
+        }
+    ]
+}
+```

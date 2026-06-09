@@ -217,16 +217,19 @@ For reproducibility, the manifest + dataset for the 5 new cases is at:
 
 1. **Run on a 40+ GB GPU** (A100-40GB or H100 80GB) where the
    prefill headroom is larger and the 8,192-token prefill fits
-   without needing eviction.
-2. **Add `--disable-overlap-schedule`** to the sglang server launch
+   without needing eviction. **This is the only path that preserves
+   full context AND avoids OOM AND yields comparable pass@1.**
+2. **Pre-truncate the test files to <6000 tokens** before the
+   pass@1 driver runs (the 30-case run used this implicitly because
+   the original 30 dataset had shorter files). Bypasses OOM but
+   breaks search anchors — 0/5 pass@1 in the 5-case test (Step 2.8).
+3. **Add `--disable-overlap-schedule`** to the sglang server launch
    so the scheduler serializes prefill batches; with one prefill in
    flight at a time, the previous request's leaves release their
    `lock_ref=3` before the next request starts, making
-   `evictable_leaves` non-empty.
-3. **Pre-truncate the test files to <6000 tokens** before the
-   pass@1 driver runs (the 30-case run used this implicitly because
-   the original 30 dataset had shorter files). With shorter prefills,
-   the 6,342-token `free_pages` headroom suffices without eviction.
+   `evictable_leaves` non-empty. **Reduces lock-pressure (58211 →
+   44482) but does not eliminate it for the 8K-token leaves**
+   (Step 2.6).
 4. **Upstream fix in SGLang's OOM error message**: report
    `evictable_leaves` (the actually-evictable token count) rather
    than `evictable_size_` (which includes internal nodes). This
@@ -242,3 +245,163 @@ For reproducibility, the manifest + dataset for the 5 new cases is at:
    per-step CPU↔GPU transfer that makes chunked prefill 5-10× slower
    than the GPU-only path, hitting the aiohttp 600-s client timeout
    (Step 2.5 above).
+7. **`--max-running-requests 1`** (added to driver as
+   `--max-running-requests`): **does not help** — produces
+   byte-identical OOM as Step 2.6 (Step 2.7).
+8. **`--chunked-prefill-size 5500`** (added to driver as
+   `--chunked-prefill-size`): **does not help** — the lock-pressure
+   problem isn't about chunk size, it's about contiguous allocation;
+   the cache state degrades between cases, leaving only 869 free
+   pages (Step 2.9).
+
+## Step 2.6: Pass@1 driver with --disable-overlap-schedule (2026-06-09 01:43)
+
+Driver patch: added `--disable-overlap-schedule` and `--max-running-requests`
+flags to `benchmark/multi_workflow/bench_swe_generated_patch_kvcomm.py:launch_server`.
+The flag passes `--disable-overlap-schedule` to `sglang.launch_server` so
+the scheduler serializes prefill batches (server_args.py:5313, default
+False). Serializing releases the previous request's `lock_ref=3` on
+radix-tree leaves before the next request starts.
+
+Output: `results/swe_generated_patch_kvcomm/qwen2_5_7b_json_5_nooverlap/`
+
+**Outcome**: cases 1-2 (`django__django-11138`, `django__django-11149`)
+completed end-to-end and produced `lossless.patch` / `lossy.patch`
+files. Case 3 (`matplotlib__matplotlib-21568`) OOM'd at the first
+prefill, but with a **reduced** evictable counter:
+
+| Run | OOM at | available_size | evictable_size |
+|---|---:|---:|---:|
+| Default (overlap ON) | 8192 tok | 6342 | 58211 |
+| `--disable-overlap-schedule` | 8192 tok | 6369 | 44482 |
+
+**What this means**: `--disable-overlap-schedule` does reduce
+lock-pressure on the radix tree (58211 → 44482, a 13.7K drop in
+`evictable_size_`). The radix-tree pretty-print confirms that 8154-
+and 8192-token leaves that were all `r=3` in the default run now have
+a mix of `r=0`, `r=1`, and `r=3` — some leaves released their lock
+between requests. But the 8192-token prefill chunk still doesn't fit
+because the **largest 8K leaves remain `r=3`** (locked by the
+in-flight prefill), so `RadixCache.evict()` cannot free an 8K
+contiguous range to satisfy the chunked prefill's first chunk.
+
+## Step 2.7: Pass@1 driver with --disable-overlap + --max-running-requests 1 + --kv-allocator-defrag (aggressive combo, 2026-06-09 01:52)
+
+Driver patch: combined all three unblock flags.
+
+Output: `results/swe_generated_patch_kvcomm/qwen2_5_7b_json_5_aggressive/`
+
+**Outcome**: byte-identical OOM. Same `available_size=6369` and
+`evictable_size=44482` as Step 2.6 (no change), same SIGQUIT after
+matplotlib-21568.
+
+**What this means**: the **defensive** flags don't help because
+`evict()` doesn't free anything (the 8K leaves are still `r=3`), and
+`alloc_with_defrag()` has nothing to merge. The lock-pressure is the
+irreducible bottleneck: until the in-flight prefill batch finishes
+and its `lock_ref=3` is released, the next request's prefill cannot
+proceed.
+
+## Step 2.8: Pass@1 driver with file pre-truncation (--max-file-chars 5000, 2026-06-09 01:56)
+
+Driver patch: combined `--disable-overlap-schedule` with
+`--max-file-chars 5000` (driver default 22000). With 3 files per case
+× 5000 chars = ~15K chars = ~3.7K tokens, which fits under the 6342
+free_pages headroom without needing any eviction.
+
+Output: `results/swe_generated_patch_kvcomm/qwen2_5_7b_json_5_truncated/`
+
+**Outcome**: **no OOM** — all 5 cases completed end-to-end, 3/5
+produced real patches, 0/5 pass@1:
+
+| Case | synth | apply | test_rc | pass@1 |
+|---|---:|---:|---:|---:|
+| django-11138 | False | — | — | 0 |
+| django-11149 | False | — | — | 0 |
+| matplotlib-21568 | True | 0 | 4 (lossless) / 1 (lossy) | 0 |
+| requests-5414 | True | 0 | 4 | 0 |
+| requests-6028 | True | 0 | 4 | 0 |
+
+**Trade-off**: pre-truncation solves the OOM but breaks the
+**search anchor**. The model generates edits whose `search` text
+references content that exists in the full file but is missing from
+the truncated file, so `synth=False` for the django cases. The
+matplotlib and requests cases got lucky and produced patches, but the
+patches were for the truncated content and didn't pass the test.
+
+**Verdict on truncation**: bypasses the OOM but is **not comparable
+to the 28-case full-ctx result** (same caveat as the small-ctx run in
+Step 3, but with a less aggressive 5000-char cap).
+
+## Step 2.9: Pass@1 driver with --chunked-prefill-size 5500 (2026-06-09 02:06)
+
+Driver patch: added `--chunked-prefill-size` and `--max-prefill-tokens`
+flags to launch_server. Setting `--chunked-prefill-size 5500` chunks
+the 18K-token prefill into 3 chunks of ~6K each, each under the 6342
+free_pages headroom.
+
+Output: `results/swe_generated_patch_kvcomm/qwen2_5_7b_json_5_chunked/`
+
+**Outcome**: cases 1-2 completed; case 3 OOM'd, but with **degraded
+cache state**:
+
+```
+Try to allocate 5500 tokens.
+Available tokens: 50851 (available_size=869 + evictable_size=49982)
+```
+
+The 869-token `available_size` is **8× smaller** than the 6369 we saw
+in Step 2.6 — the cache state deteriorated between the two runs
+because cases 1-2 consumed the headroom with their prefills. With only
+869 free pages, even a 5500-token chunk doesn't fit, and `evict()`
+still can't free an 5500-token contiguous range from the locked 8K
+leaves.
+
+**Verdict on chunked-prefill**: doesn't help either, because the
+lock-pressure problem isn't about chunk size — it's that **the
+allocator can't get any contiguous range** until the in-flight
+prefill's `lock_ref=3` is released. Smaller chunks just move the
+threshold: a 5500-token chunk needs 5500 contiguous, but the
+allocator only has 869 free + whatever can be evicted (which is
+nothing, because the only large enough leaves are still locked).
+
+## Step 2.10: Verdict — the 100-case expansion is deferred
+
+Six separate unblock attempts on the 5-case dataset have been
+exhausted, each documented with a clear root cause:
+
+| Step | Approach | OOM? | pass@1 |
+|---|---|---|---|
+| 2 (default) | No flags | Yes | n/a |
+| 2.4 (defrag) | `SGLANG_KV_ALLOCATOR_DEFRAG=1` | Yes (same) | n/a |
+| 2.5 (cpu offload) | `--cpu-offload-gb 32` | No | 0/5 (empty output, aiohttp timeout) |
+| 2.6 (nooverlap) | `--disable-overlap-schedule` | Yes (partially reduced) | n/a (cases 1-2 ran) |
+| 2.7 (aggressive) | + `--max-running-requests 1` + `--kv-allocator-defrag` | Yes (no change) | n/a |
+| 2.8 (truncate) | + `--max-file-chars 5000` | No | 0/5 (search anchors broken) |
+| 2.9 (chunked) | + `--chunked-prefill-size 5500` | Yes (cache degraded) | n/a |
+| 3 (small-ctx) | `--files-per-case 1 --max-file-chars 3000 --max-tokens 512` | No | 0/5 (not comparable) |
+
+The **irreducible constraint** is the lock-pressure on radix-tree
+leaves during chunked prefill on 24 GB GPU. The OOM happens because:
+
+1. Each prefill batch holds `lock_ref=3` on the 8K-token leaves it
+   processes.
+2. `RadixCache.evict()` only frees leaves (not internal nodes), and
+   only leaves with `lock_ref=0`.
+3. The next prefill's 8192-token chunk needs 8192 contiguous tokens
+   in the cache.
+4. No combination of `--disable-overlap-schedule`,
+   `--max-running-requests 1`, `--kv-allocator-defrag`, or
+   `--chunked-prefill-size 5500` releases the in-flight prefill's
+   lock on the 8K leaves before the next request's prefill arrives.
+
+The two paths that **did** bypass the OOM — file pre-truncation
+(Step 2.8) and small-ctx (Step 3) — both break the search anchor
+matching, yielding 0/5 pass@1. This is a real trade-off: **on a 24 GB
+GPU, you can either have full context and OOM, or truncated context
+and 0/5 pass@1, but not both.**
+
+The 100-case expansion is **deferred** to a session with a 40+ GB
+GPU. The 5-case discriminative dataset is preserved at
+`results/swebench_local_envs/manifest_5.json` and
+`_5_new_discriminative_instances.json` for that future run.

@@ -1,0 +1,16 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/axes/_axes.py",
+      "search": "def get_title(self, loc=\"center\"):",
+      "replace": "def get_title(self, loc=\"center\"):"
+    },
+    {
+      "path": "lib/matplotlib/patches.py",
+      "search": "def __init__(self,",
+      "replace": "def __init__(self, edgecolor=None, facecolor=None, color=None, linewidth=None, linestyle=None, antialiased=None, hatch=None, fill=True, capstyle=None, joinstyle=None, **kwargs):"
+    }
+  ]
+}
+```

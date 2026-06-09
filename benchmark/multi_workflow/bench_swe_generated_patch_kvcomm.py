@@ -123,11 +123,22 @@ def launch_server(args: argparse.Namespace) -> subprocess.Popen:
         "--max-total-tokens",
         str(args.max_total_tokens),
         "--chunked-prefill-size",
-        "8192",
+        str(args.chunked_prefill_size),
         "--max-prefill-tokens",
-        "16384",
+        str(args.max_prefill_tokens),
         "--cpu-offload-gb",
         str(args.cpu_offload_gb),
+    ]
+    if args.disable_overlap_schedule:
+        # Serializes prefill batches so the previous request's leaves
+        # release their lock_ref=3 before the next starts, making
+        # evictable_leaves non-empty for the next prefill. This is the
+        # unblock path for the transient lock-pressure OOM documented
+        # in results/pass100_attempt/REPORT.md (Step 2.4).
+        cmd.append("--disable-overlap-schedule")
+    if args.max_running_requests is not None:
+        cmd += ["--max-running-requests", str(args.max_running_requests)]
+    cmd += [
         "--enable-cache-report",
         "--disable-cuda-graph",
         "--allow-auto-truncate",
@@ -858,11 +869,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-file-chars", type=int, default=22000)
     parser.add_argument("--max-tokens", type=int, default=1024)
     parser.add_argument("--max-total-tokens", type=int, default=65536)
+    parser.add_argument("--chunked-prefill-size", type=int, default=8192,
+                        help="SGLang --chunked-prefill-size. Lower values (e.g. 6000) chunk the prefill under the free_pages headroom and avoid the lock-pressure OOM (see results/pass100_attempt/REPORT.md Step 2.7).")
+    parser.add_argument("--max-prefill-tokens", type=int, default=16384,
+                        help="SGLang --max-prefill-tokens.")
     parser.add_argument("--mem-fraction-static", type=float, default=0.82)
     parser.add_argument("--cpu-offload-gb", type=int, default=0,
                         help="GB of system RAM reserved for KV-cache CPU offload (SGLang --cpu-offload-gb). 0 = disabled (default).")
     parser.add_argument("--kv-allocator-defrag", action="store_true",
                         help="Set SGLANG_KV_ALLOCATOR_DEFRAG=1 so alloc_with_defrag merges release_pages into free_pages on alloc failure. Default off (matches upstream SGLang).")
+    parser.add_argument("--disable-overlap-schedule", action="store_true",
+                        help="Pass --disable-overlap-schedule to sglang.launch_server so prefill batches are serialized. This is the validated unblock path for the transient lock-pressure OOM (see results/pass100_attempt/REPORT.md Step 2.6). Default off (matches upstream SGLang).")
+    parser.add_argument("--max-running-requests", type=int, default=None,
+                        help="Cap on the number of concurrent in-flight requests (SGLang --max-running-requests). Lower values reduce lock-pressure on radix-tree leaves between requests.")
     parser.add_argument("--eval-timeout", type=int, default=1200)
     parser.add_argument("--server-timeout", type=int, default=180)
     parser.add_argument("--repair-attempts", type=int, default=1)

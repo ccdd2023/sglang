@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "django/contrib/admin/options.py",
+      "search": "inlineformset_factory(self.model, self.model._meta.get_field(self.inlines[0].model).__class__, can_delete=False, extra=0, can_add_related=False, can_change_related=False)",
+      "replace": "inlineformset_factory(self.model, self.model._meta.get_field(self.inlines[0].model).__class__, can_delete=False, extra=0, can_add_related=False, can_change_related=True)"
+    }
+  ]
+}
+```

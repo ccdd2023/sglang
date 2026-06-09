@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/dates.py",
+      "search": "Matplotlib date format",
+      "replace": "Matplotlib date format\n----------------------\nMatplotlib represents dates using floating point numbers specifying the number of\ndays since a default epoch of 1970-01-01 UTC; for example,\n1970-01-01, 06:00 is the floating point number 0.25. The formatters and\nlocators require the use of `datetime.datetime` objects, so only dates between\nyear 0001 and 9999 can be represented.  Microsecond precision\nis achievable for (approximately) 70 years on either side of the epoch, and\n20 microseconds for the rest of the allowable range of dates (year 0001 to\n9999). The epoch can be changed at import time via `.dates.set_epoch` or\n:rc:`dates.epoch` to other dates if necessary; see\n:doc:`/gallery/ticks/date_precision_and_epochs` for a discussion."
+    }
+  ]
+}
+```

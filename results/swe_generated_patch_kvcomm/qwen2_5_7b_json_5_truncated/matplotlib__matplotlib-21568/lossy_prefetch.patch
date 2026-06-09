@@ -1,0 +1,21 @@
+diff --git a/lib/matplotlib/dates.py b/lib/matplotlib/dates.py
+--- a/lib/matplotlib/dates.py
++++ b/lib/matplotlib/dates.py
+@@ -27,6 +27,17 @@
+ .. _date-format:
+ 
+ Matplotlib date format
++----------------------
++Matplotlib represents dates using floating point numbers specifying the number of
++days since a default epoch of 1970-01-01 UTC; for example,
++1970-01-01, 06:00 is the floating point number 0.25. The formatters and
++locators require the use of `datetime.datetime` objects, so only dates between
++year 0001 and 9999 can be represented.  Microsecond precision
++is achievable for (approximately) 70 years on either side of the epoch, and
++20 microseconds for the rest of the allowable range of dates (year 0001 to
++9999). The epoch can be changed at import time via `.dates.set_epoch` or
++:rc:`dates.epoch` to other dates if necessary; see
++:doc:`/gallery/ticks/date_precision_and_epochs` for a discussion.
+ ----------------------
+ 
+ Matplotlib represents dates using floating point numbers specifying the number

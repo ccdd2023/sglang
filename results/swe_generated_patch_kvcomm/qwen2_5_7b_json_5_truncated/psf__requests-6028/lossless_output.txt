@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "requests/utils.py",
+      "search": "def proxy_bypass(host):  # noqa",
+      "replace": "def proxy_bypass(host):  # noqa\n    return False"
+    }
+  ]
+}
+```
