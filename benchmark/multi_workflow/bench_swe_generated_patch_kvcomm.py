@@ -136,6 +136,14 @@ def launch_server(args: argparse.Namespace) -> subprocess.Popen:
         # unblock path for the transient lock-pressure OOM documented
         # in results/pass100_attempt/REPORT.md (Step 2.4).
         cmd.append("--disable-overlap-schedule")
+    if args.force_evict:
+        # SGLANG_RADIX_FORCE_EVICT=1 makes common.py:evict_from_tree_cache
+        # retry with force=True when normal evict() freed 0 tokens.
+        # RadixCache._force_evict_locked then frees leaves regardless of
+        # lock_ref, recovering from transient lock-pressure OOMs. See
+        # results/pass100_attempt/REPORT.md Step 2.10 for the empirical
+        # finding. Default off (matches upstream SGLang).
+        env["SGLANG_RADIX_FORCE_EVICT"] = "1"
     if args.max_running_requests is not None:
         cmd += ["--max-running-requests", str(args.max_running_requests)]
     cmd += [
@@ -878,6 +886,8 @@ def parse_args() -> argparse.Namespace:
                         help="GB of system RAM reserved for KV-cache CPU offload (SGLang --cpu-offload-gb). 0 = disabled (default).")
     parser.add_argument("--kv-allocator-defrag", action="store_true",
                         help="Set SGLANG_KV_ALLOCATOR_DEFRAG=1 so alloc_with_defrag merges release_pages into free_pages on alloc failure. Default off (matches upstream SGLang).")
+    parser.add_argument("--force-evict", action="store_true",
+                        help="Set SGLANG_RADIX_FORCE_EVICT=1 so common.py:evict_from_tree_cache retries with force=True when normal evict() freed 0 tokens, bypassing the lock_ref check on leaves. This recovers from transient lock-pressure OOMs (see results/pass100_attempt/REPORT.md Step 2.10). Default off.")
     parser.add_argument("--disable-overlap-schedule", action="store_true",
                         help="Pass --disable-overlap-schedule to sglang.launch_server so prefill batches are serialized. This is the validated unblock path for the transient lock-pressure OOM (see results/pass100_attempt/REPORT.md Step 2.6). Default off (matches upstream SGLang).")
     parser.add_argument("--max-running-requests", type=int, default=None,

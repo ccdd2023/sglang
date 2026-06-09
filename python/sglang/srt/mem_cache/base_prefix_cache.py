@@ -103,6 +103,11 @@ class EvictParams:
     num_tokens: int
     swa_num_tokens: int = 0
     mamba_num: int = 0
+    # When True, evict leaves regardless of lock_ref. Used to recover
+    # from transient lock-pressure OOMs where in-flight prefill batches
+    # hold lock_ref=3 on the only 8K-token leaves. Gated by
+    # SGLANG_RADIX_FORCE_EVICT=1 in common.py; default False.
+    force: bool = False
 
 
 @dataclasses.dataclass

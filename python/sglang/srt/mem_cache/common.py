@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import TYPE_CHECKING
 
 import torch
@@ -255,7 +256,20 @@ def evict_from_tree_cache(tree_cache: BasePrefixCache | None, num_tokens: int):
     else:
         # Standard allocator
         if allocator.available_size() < num_tokens:
-            tree_cache.evict(EvictParams(num_tokens=num_tokens))
+            result = tree_cache.evict(EvictParams(num_tokens=num_tokens))
+            # Lock-pressure recovery: if normal evict freed less
+            # than num_tokens (the typical case when all large
+            # leaves are r=3 locked by in-flight prefill batches
+            # and only a few small r=0 leaves get freed), retry
+            # with force=True to free leaves regardless of lock_ref.
+            # Gated by env var so it's opt-in; default off to match
+            # upstream SGLang semantics. See
+            # radix_cache.py:_force_evict_locked for the trade-off.
+            if (
+                result.num_tokens_evicted < num_tokens
+                and os.environ.get("SGLANG_RADIX_FORCE_EVICT") == "1"
+            ):
+                tree_cache.evict(EvictParams(num_tokens=num_tokens, force=True))
 
 
 def alloc_paged_token_slots_extend(

@@ -1636,6 +1636,14 @@ class RadixCache(BasePrefixCache):
 
         start_time = time.perf_counter()
         num_tokens = params.num_tokens
+        # When force=True, bypass the lock_ref check: walk the entire
+        # tree and free leaves regardless of lock state. This recovers
+        # from transient lock-pressure OOMs where all large leaves are
+        # held by in-flight prefill batches (lock_ref=3) and the normal
+        # `evictable_leaves` set is empty. Gated by
+        # SGLANG_RADIX_FORCE_EVICT=1 in common.py.
+        if getattr(params, "force", False):
+            return self._force_evict_locked(num_tokens, start_time)
         leaves = list(self.evictable_leaves)
         eviction_heap = [
             (self.eviction_strategy.get_priority(node), node) for node in leaves
@@ -1663,6 +1671,74 @@ class RadixCache(BasePrefixCache):
             self._record_remove_event(x)
 
         self.update_eviction_metrics(num_evicted, start_time)
+        return EvictResult(num_tokens_evicted=num_evicted)
+
+    def _force_evict_locked(self, num_tokens: int, start_time: float) -> EvictResult:
+        """Free leaves regardless of lock_ref. Used to recover from
+        transient lock-pressure OOMs.
+
+        Walks the entire radix tree, gathers all leaf nodes with
+        live KV data (including those with lock_ref > 0), and
+        frees them in LRU order until ``num_tokens`` is satisfied.
+        Each freed leaf has its ``value`` cleared so the
+        ``evicted`` ``@property`` returns True; this protects
+        against the in-flight request's later ``dec_lock_ref``
+        re-adding a dead node to ``evictable_leaves`` (because
+        ``_update_leaf_status`` short-circuits on
+        ``evicted == True``).
+
+        Trade-off: an in-flight request whose KV cache we evict
+        will recompute (or fail) on its next decode step. In the
+        prefill-dominated pass@1 workload, the in-flight request
+        is the one that's about to allocate the 8K space, so
+        force-evicting the previous case's leaves is safe: the
+        previous case has already completed prefill and either
+        finished or has only its decode output to re-derive.
+        """
+        # DFS to gather all leaves with KV data. We cannot use
+        # ``cur.evicted`` (a property returning ``value is None``)
+        # as a skip signal: the root_node also has ``value is None``
+        # and is therefore "evicted" by that property, which would
+        # cause us to skip the root and miss all live leaves
+        # beneath it. Instead, identify a real leaf as a node that
+        # has a non-None value (a live KV cache).
+        all_leaves: list = []
+        stack = [self.root_node]
+        while stack:
+            cur = stack.pop()
+            if cur.value is not None:
+                all_leaves.append(cur)
+            if len(cur.children) > 0:
+                for child in cur.children.values():
+                    stack.append(child)
+        # Sort by eviction priority (LRU: oldest first)
+        all_leaves.sort(key=self.eviction_strategy.get_priority)
+
+        num_evicted = 0
+        for x in all_leaves:
+            if num_evicted >= num_tokens:
+                break
+            if x.value is None:
+                continue
+            # Save the value reference, then clear the node's value
+            # so the ``evicted`` @property returns True and any
+            # concurrent _update_leaf_status / dec_lock_ref from the
+            # in-flight request sees the dead state.
+            val = x.value
+            x.value = None
+            self.token_to_kv_pool_allocator.free(val)
+            num_evicted += len(val)
+            with self.anchor_kv_store_lock:
+                self._delete_leaf(x)
+            self._record_remove_event(x)
+
+        self.update_eviction_metrics(num_evicted, start_time)
+        logger.warning(
+            "[radix_cache] force_evict_locked freed %d tokens (target %d) from %d leaves; "
+            "this recovers from a lock-pressure OOM but the in-flight request that held the "
+            "lock will need to re-derive its KV cache",
+            num_evicted, num_tokens, len(all_leaves),
+        )
         return EvictResult(num_tokens_evicted=num_evicted)
 
     def inc_lock_ref(

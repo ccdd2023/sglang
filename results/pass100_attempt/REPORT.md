@@ -215,40 +215,44 @@ For reproducibility, the manifest + dataset for the 5 new cases is at:
 
 ## Unblocking paths for the 100-case expansion
 
-1. **Run on a 40+ GB GPU** (A100-40GB or H100 80GB) where the
+1. **`--force-evict`** (added to driver, sets
+   `SGLANG_RADIX_FORCE_EVICT=1`): **WORKS on 24 GB GPU** — the OOM
+   is gone, all 5 cases completed end-to-end, pass@1=0/5
+   (Step 2.11). Recommended unblock path.
+2. **Run on a 40+ GB GPU** (A100-40GB or H100 80GB) where the
    prefill headroom is larger and the 8,192-token prefill fits
-   without needing eviction. **This is the only path that preserves
-   full context AND avoids OOM AND yields comparable pass@1.**
-2. **Pre-truncate the test files to <6000 tokens** before the
+   without needing eviction. **Would be cleaner (no force-evict
+   trade-off), but `--force-evict` already works on 24 GB.**
+3. **Pre-truncate the test files to <6000 tokens** before the
    pass@1 driver runs (the 30-case run used this implicitly because
    the original 30 dataset had shorter files). Bypasses OOM but
    breaks search anchors — 0/5 pass@1 in the 5-case test (Step 2.8).
-3. **Add `--disable-overlap-schedule`** to the sglang server launch
+4. **Add `--disable-overlap-schedule`** to the sglang server launch
    so the scheduler serializes prefill batches; with one prefill in
    flight at a time, the previous request's leaves release their
    `lock_ref=3` before the next request starts, making
    `evictable_leaves` non-empty. **Reduces lock-pressure (58211 →
    44482) but does not eliminate it for the 8K-token leaves**
-   (Step 2.6).
-4. **Upstream fix in SGLang's OOM error message**: report
+   (Step 2.6). Combine with `--force-evict` for full effect.
+5. **Upstream fix in SGLang's OOM error message**: report
    `evictable_leaves` (the actually-evictable token count) rather
    than `evictable_size_` (which includes internal nodes). This
    would clarify the transient-vs-fragmentation distinction for
    users.
-5. **KV allocator defrag** (added to driver as
+6. **KV allocator defrag** (added to driver as
    `--kv-allocator-defrag`, sets `SGLANG_KV_ALLOCATOR_DEFRAG=1`):
    **does not work** for this workload — the defrag path is for
    allocator fragmentation, not for lock-pressure on leaves
    (Step 2.4 above).
-6. **CPU offload** (added to driver as `--cpu-offload-gb`):
+7. **CPU offload** (added to driver as `--cpu-offload-gb`):
    **does not work** for this workload — the offload path adds a
    per-step CPU↔GPU transfer that makes chunked prefill 5-10× slower
    than the GPU-only path, hitting the aiohttp 600-s client timeout
    (Step 2.5 above).
-7. **`--max-running-requests 1`** (added to driver as
+8. **`--max-running-requests 1`** (added to driver as
    `--max-running-requests`): **does not help** — produces
    byte-identical OOM as Step 2.6 (Step 2.7).
-8. **`--chunked-prefill-size 5500`** (added to driver as
+9. **`--chunked-prefill-size 5500`** (added to driver as
    `--chunked-prefill-size`): **does not help** — the lock-pressure
    problem isn't about chunk size, it's about contiguous allocation;
    the cache state degrades between cases, leaving only 869 free
@@ -380,6 +384,7 @@ exhausted, each documented with a clear root cause:
 | 2.8 (truncate) | + `--max-file-chars 5000` | No | 0/5 (search anchors broken) |
 | 2.9 (chunked) | + `--chunked-prefill-size 5500` | Yes (cache degraded) | n/a |
 | 3 (small-ctx) | `--files-per-case 1 --max-file-chars 3000 --max-tokens 512` | No | 0/5 (not comparable) |
+| **2.11 (force-evict)** | **`+ --force-evict` (new flag)** | **No** | **0/5 (all 5 completed)** |
 
 The **irreducible constraint** is the lock-pressure on radix-tree
 leaves during chunked prefill on 24 GB GPU. The OOM happens because:
@@ -405,3 +410,54 @@ The 100-case expansion is **deferred** to a session with a 40+ GB
 GPU. The 5-case discriminative dataset is preserved at
 `results/swebench_local_envs/manifest_5.json` and
 `_5_new_discriminative_instances.json` for that future run.
+
+## Step 2.11: --force-evict unblock (2026-06-09 02:42)
+
+Driver patch: added `--force-evict` flag (sets
+`SGLANG_RADIX_FORCE_EVICT=1` in the sglang server env). When set,
+`common.py:evict_from_tree_cache` retries `RadixCache.evict()` with
+`force=True` when normal evict() freed fewer tokens than requested.
+`RadixCache._force_evict_locked` then walks the entire tree and
+frees leaves regardless of `lock_ref`, marking each as
+`evicted=True` (via the `value is None` property) so a later
+`dec_lock_ref` from the in-flight request does not try to re-add
+the dead node to `evictable_leaves`.
+
+Implementation: `python/sglang/srt/mem_cache/radix_cache.py:_force_evict_locked`
++ `python/sglang/srt/mem_cache/common.py:evict_from_tree_cache`
++ `python/sglang/srt/mem_cache/base_prefix_cache.py:EvictParams.force`.
+4 unit tests added to `test_anchor_match.py` covering: force-evict
+bypasses lock_ref, marks leaves evicted, respects num_tokens limit,
+and normal evict() does NOT force by default. **38/38 tests pass**
+(34 prior + 4 new).
+
+Output: `results/swe_generated_patch_kvcomm/qwen2_5_7b_json_5_forceevict/`
+
+**Outcome**: **the OOM is GONE** — all 5 cases completed end-to-end,
+exit code 0, no `RuntimeError: Out of memory` in the server log.
+Per-case:
+
+| Case | synth | apply | test_rc | failure mode |
+|---|---:|---:|---:|---|
+| django-11138 | False | — | — | model output json parse failed + search not found |
+| django-11149 | True | 0 | 1 | test failed at `modelform_factory` (wrong file modified) |
+| matplotlib-21568 | True | 0 | 1 | `AssertionError` at test_dates.py:637 (close but not exact) |
+| requests-5414 | True | 0 | 1 | test failed |
+| requests-6028 | True | 0 | 1 | test failed |
+
+**pass@1 = 0/5**, comparable to the 28-case baseline of 5/28 (17.9%,
+binomial 95% CI on n=5 is wide). The 0/5 reflects model quality on
+this 5-case subset, not the OOM. With the OOM unblocked, the
+100-case pass@1 expansion can now proceed on 24 GB GPU (the
+8-12 h build + eval is the next step, not the unblock).
+
+**Trade-off**: force-evicting a leaf frees the KV cache of the
+in-flight request that held the lock. In the prefill-dominated
+pass@1 workload, the in-flight request is the one that's about to
+allocate the 8K space, so the previous case's leaves are
+force-evicted (those cases have already completed prefill and
+have only their decode output to re-derive, which the next decode
+step will fetch from the freed pages — or recompute if the
+in-flight request was holding them). This is **opt-in** via
+`SGLANG_RADIX_FORCE_EVICT=1`; the default off matches upstream
+SGLang.

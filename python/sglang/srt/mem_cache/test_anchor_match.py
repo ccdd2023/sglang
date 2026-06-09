@@ -1056,3 +1056,155 @@ def test_agenttemplatekv_cache_subclass_dispatch(monkeypatch):
         is not rc.RadixCache.agenttemplatekv_prefetch_codebases
     )
 
+
+# ---------------------------------------------------------------------------
+# Regression tests for force-evict path (2026-06-09)
+# See results/pass100_attempt/REPORT.md Step 2.10 for context.
+# ---------------------------------------------------------------------------
+
+
+class _MockAllocator:
+    """Mock allocator that just records what was freed."""
+
+    def __init__(self):
+        self.freed_values = []
+
+    def free(self, value):
+        self.freed_values.append(value)
+
+
+class _LRUStrategy:
+    """Mock eviction strategy that returns the node's id() as priority
+    (so sort order is deterministic by insertion)."""
+
+    def get_priority(self, node):
+        # Lower priority = evicted first (heapq is a min-heap)
+        return node._priority_marker
+
+
+def _build_force_evict_setup(monkeypatch):
+    """Build a minimal RadixCache + tree with 3 leaves: 2 locked at r=3,
+    1 unlocked. The 2 locked leaves simulate the 8K-prefill OOM
+    scenario from results/pass100_attempt/REPORT.md Step 2.4."""
+    from sglang.srt.mem_cache import radix_cache as rc
+    from sglang.srt.mem_cache.base_prefix_cache import EvictParams
+
+    cache = rc.RadixCache.__new__(rc.RadixCache)
+    cache.get_child_key_fn = rc.get_child_key
+    cache.page_size = 1
+    cache.anchor_kv_store = {}
+    cache.anchor_kv_store_lock = threading.RLock()
+    cache.evictable_size_ = 0
+    cache.protected_size_ = 0
+    cache.evictable_leaves = set()
+    cache.root_node = rc.TreeNode(priority=0)
+    cache.device = torch.device("cpu")
+    cache.disable = False
+    cache.eviction_strategy = _LRUStrategy()
+    cache.token_to_kv_pool_allocator = _MockAllocator()
+    cache.enable_kv_cache_events = False  # skip _record_remove_event path
+
+    # Build 3 leaves under the root:
+    #   - leaf_a (locked r=3, 8K tokens) — typical OOM victim
+    #   - leaf_b (locked r=3, 8K tokens) — typical OOM victim
+    #   - leaf_c (r=0, 4K tokens) — would already be evictable normally
+    counter = [0]
+
+    def add_leaf(num_tokens, lock_ref):
+        counter[0] += 1
+        n = rc.TreeNode(priority=0)
+        n.key = rc.RadixKey([1000 + counter[0]] * num_tokens)
+        n.value = torch.arange(num_tokens, dtype=torch.int64)
+        n.parent = cache.root_node
+        n._priority_marker = counter[0]  # for LRU strategy
+        n.lock_ref = lock_ref
+        cache.root_node.children[cache.get_child_key_fn(n.key)] = n
+        if lock_ref == 0:
+            cache.evictable_leaves.add(n)
+            cache.evictable_size_ += num_tokens
+        else:
+            cache.protected_size_ += num_tokens
+        return n
+
+    leaf_a = add_leaf(8192, lock_ref=3)
+    leaf_b = add_leaf(8192, lock_ref=3)
+    leaf_c = add_leaf(4096, lock_ref=0)
+
+    return cache, leaf_a, leaf_b, leaf_c, EvictParams
+
+
+def test_force_evict_bypasses_lock_ref(monkeypatch):
+    """force_evict() must free leaves whose lock_ref > 0, the OOM
+    recovery scenario documented in results/pass100_attempt/REPORT.md
+    Step 2.10."""
+    cache, leaf_a, leaf_b, leaf_c, EvictParams = _build_force_evict_setup(monkeypatch)
+
+    # Sanity: normal evict() should free ONLY leaf_c (4096 tokens),
+    # because leaf_a and leaf_b are r=3 and not in evictable_leaves.
+    result_normal = cache.evict(EvictParams(num_tokens=16384))
+    assert result_normal.num_tokens_evicted == 4096, (
+        f"normal evict should have freed only leaf_c (4096), got {result_normal.num_tokens_evicted}"
+    )
+    assert len(cache.token_to_kv_pool_allocator.freed_values) == 1
+    assert cache.token_to_kv_pool_allocator.freed_values[0].numel() == 4096
+    # Reset the allocator's record so the next phase starts clean
+    cache.token_to_kv_pool_allocator.freed_values.clear()
+
+    # Re-attach leaf_a and leaf_b for the force test (the prior evict
+    # removed leaf_c but leaf_a and leaf_b are still in the tree).
+    cache.evictable_size_ = 16384  # 2x 8192 (the locked ones are still in tree)
+    cache.protected_size_ = 16384
+    # evictable_leaves should still be empty (no r=0 leaves)
+    assert len(cache.evictable_leaves) == 0, (
+        "precondition: 2 r=3 leaves should not be in evictable_leaves"
+    )
+
+    # Now force evict: should free the 2 locked leaves (16384 tokens)
+    result_force = cache.evict(EvictParams(num_tokens=16384, force=True))
+    assert result_force.num_tokens_evicted == 16384, (
+        f"force evict should have freed 16384 (2x 8192), got {result_force.num_tokens_evicted}"
+    )
+    # Mock allocator should have recorded 2 frees from the force path
+    freed = cache.token_to_kv_pool_allocator.freed_values
+    assert len(freed) == 2
+    assert all(v.numel() == 8192 for v in freed)
+
+
+def test_force_evict_marks_leaves_evicted(monkeypatch):
+    """force_evict() must set node.evicted=True on freed leaves so a
+    later dec_lock_ref from the in-flight request does not try to
+    re-add them to evictable_leaves."""
+    cache, leaf_a, leaf_b, leaf_c, EvictParams = _build_force_evict_setup(monkeypatch)
+    # Force-evict everything
+    cache.evict(EvictParams(num_tokens=100000, force=True))
+    # The freed leaves (a, b, c) should all have evicted=True now
+    assert leaf_a.evicted is True
+    assert leaf_b.evicted is True
+    assert leaf_c.evicted is True
+
+
+def test_force_evict_respects_num_tokens(monkeypatch):
+    """force_evict() should stop freeing once num_tokens is satisfied,
+    not blindly free everything in the tree."""
+    cache, leaf_a, leaf_b, leaf_c, EvictParams = _build_force_evict_setup(monkeypatch)
+    # Request only 8K (one leaf)
+    result = cache.evict(EvictParams(num_tokens=8192, force=True))
+    assert result.num_tokens_evicted == 8192
+    # Should have freed exactly 1 leaf
+    assert len(cache.token_to_kv_pool_allocator.freed_values) == 1
+
+
+def test_normal_evict_does_not_force(monkeypatch):
+    """The default path (force=False) must NOT bypass lock_ref — this
+    is the upstream SGLang behavior we preserve by default."""
+    cache, leaf_a, leaf_b, leaf_c, EvictParams = _build_force_evict_setup(monkeypatch)
+    # Normal evict: should free only leaf_c (the only one in evictable_leaves)
+    result = cache.evict(EvictParams(num_tokens=100000))
+    assert result.num_tokens_evicted == 4096
+    # leaf_a and leaf_b (r=3) should still be in the tree
+    assert cache.root_node.children  # still has children
+    # leaf_c should be gone
+    assert not any(
+        c.value.numel() == 4096 for c in cache.root_node.children.values()
+    ), "leaf_c should have been evicted by normal path"
+
