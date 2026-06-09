@@ -413,3 +413,53 @@ Kick off the 100-case build (8-12 h overnight) + base smoke (6-10 h)
 + pass@1 driver (8-12 h) on the 24 GB RTX 4090 testbed with
 `--force-evict` enabled. Full details at
 `results/pass100_attempt/REPORT.md`.
+
+### ~~Test-infra caveat for 0/8~~ **RESOLVED 2026-06-09**
+
+The 0/8 result on the 100-manifest subset was initially reported
+with a test-infra caveat: 6 of 8 cases had `synth=True, apply_rc=0,
+test_rc=1` with the candidate env's pytest crashing on Python 3.12
+(`TypeError: required field "lineno" missing from alias` in
+`_pytest/assertion/rewrite.py:360`).
+
+**Root cause**: the user's shell exports
+`VIRTUAL_ENV=/home/gfy/KVCOMM/.venv` and has
+`/home/gfy/KVCOMM/.venv/bin` early in PATH. The KVCOMM venv is a
+`--system-site-packages` venv created from
+`/home/gfy/.conda/envs/sglang-kvflow`, with a dev-build pytest
+pointing at
+`results/swebench_local_envs/repos/pytest-dev__pytest-7490/src`.
+When `conda run -n swe_X bash -lc '...'` runs inside that shell,
+conda appends the env's bin to the **end** of PATH and
+python/pip/pytest still resolve to the KVCOMM venv first, so
+`pip install pytest` lands in KVCOMM (not the candidate env) and
+`pytest` runs the broken dev build.
+
+**Fix** (fork `67426554e`):
+- New `_clean_user_env()` in
+  `benchmark/multi_workflow/setup_swebench_local_env.py` strips
+  any PATH entry containing `/KVCOMM/.venv` and unsets
+  `VIRTUAL_ENV` and `PYTHONHOME`. `run()` and `run_in_env()`
+  apply this to every subprocess.
+- `ensure_test_runner` now uses `run_in_env` (not `run_checked`)
+  so `python -m pip install pytest` resolves to the conda env's
+  pip. Result: `pytest==8.4.2` is installed in the candidate env
+  (released, not dev).
+
+**Re-test result** (verified pass@1=0/8): re-ran all 6 cases × 3
+modes = 18 attempts with the fix. All 18 attempts report
+`test_rc=1` with **real assertion errors** (not the
+lineno-missing crash). The patches are all wrong on real test
+logic:
+- `matplotlib-21568`: `01-01 00` vs `$\mathdefault{...}$` byte mismatch
+- `pylint-8898`: `(foo{1,}` vs `(foo{1}` regex message diff
+- `django-11149`: `AttributeError: 'super' object has no attribute 'formfield_for_manytomany'`
+- `requests-5414`: `Failed: DID NOT RAISE InvalidURL`
+- `requests-6028`, `matplotlib-20859`: close-but-not-exact semantic mismatch
+
+Re-test logs at
+`results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict_reretest/`.
+
+**Verdict**: 0/8 is now honest and confirmed as real model failure,
+not test infra. The 28-case run's 5/28 (on a disjoint, easier case
+set) remains the headline number.
