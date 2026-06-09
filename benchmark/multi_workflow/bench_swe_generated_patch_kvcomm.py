@@ -98,6 +98,14 @@ def launch_server(args: argparse.Namespace) -> subprocess.Popen:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(PROJECT / "python")
     env["SGLANG_LOSSY_FUZZY_MATCH"] = "1"
+    # Enable KV allocator defrag so evict_from_tree_cache can reclaim
+    # release_pages into free_pages on alloc failure. Without this, the
+    # allocator's alloc() only looks at free_pages, while evicted tokens
+    # land in release_pages; the alloc_with_defrag fallback is gated by
+    # this env var (default off in upstream SGLang). See
+    # python/sglang/srt/mem_cache/allocator.py:173.
+    if args.kv_allocator_defrag:
+        env["SGLANG_KV_ALLOCATOR_DEFRAG"] = "1"
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     log_path = OUT_DIR / "sglang_server.log"
     cmd = [
@@ -853,6 +861,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mem-fraction-static", type=float, default=0.82)
     parser.add_argument("--cpu-offload-gb", type=int, default=0,
                         help="GB of system RAM reserved for KV-cache CPU offload (SGLang --cpu-offload-gb). 0 = disabled (default).")
+    parser.add_argument("--kv-allocator-defrag", action="store_true",
+                        help="Set SGLANG_KV_ALLOCATOR_DEFRAG=1 so alloc_with_defrag merges release_pages into free_pages on alloc failure. Default off (matches upstream SGLang).")
     parser.add_argument("--eval-timeout", type=int, default=1200)
     parser.add_argument("--server-timeout", type=int, default=180)
     parser.add_argument("--repair-attempts", type=int, default=1)

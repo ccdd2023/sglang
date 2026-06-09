@@ -1,0 +1,9 @@
+{
+  "edits": [
+    {
+      "path": "django/contrib/admin/options.py",
+      "search": "has_add_permission(self, request, obj=None):",
+      "replace": "has_add_permission(self, request, obj=None):\n        if obj is None:\n            return self.has_view_permission(request, obj)\n        return super().has_add_permission(request, obj)"
+    }
+  ]
+}

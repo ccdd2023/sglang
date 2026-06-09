@@ -1,0 +1,21 @@
+```json
+{
+  "edits": [
+    {
+      "path": "django/contrib/admin/options.py",
+      "search": "has_add_permission(self, request, obj=None):",
+      "replace": "has_add_permission(self, request, obj=None):\n        return request.user.has_perm('%s.%s')" % (self.opts.app_label, get_permission_codename('add', self.opts))"
+    },
+    {
+      "path": "django/contrib/admin/options.py",
+      "search": "has_change_permission(self, request, obj=None):",
+      "replace": "has_change_permission(self, request, obj=None):\n        return request.user.has_perm('%s.%s')" % (self.opts.app_label, get_permission_codename('change', self.opts))"
+    },
+    {
+      "path": "django/contrib/admin/options.py",
+      "search": "has_delete_permission(self, request, obj=None):",
+      "replace": "has_delete_permission(self, request, obj=None):\n        return request.user.has_perm('%s.%s')" % (self.opts.app_label, get_permission_codename('delete', self.opts))"
+    }
+  ]
+}
+```
