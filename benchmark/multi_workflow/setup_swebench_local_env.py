@@ -26,9 +26,39 @@ DEFAULT_WORKDIR = PROJECT / "results" / "swebench_local_envs"
 DEFAULT_CONDA = Path("/home/gfy/miniconda3/bin/conda")
 
 
+def _clean_user_env(env: dict[str, str]) -> dict[str, str]:
+    """Strip KVCOMM/.venv and VIRTUAL_ENV from the inherited environment.
+
+    The user's shell sets VIRTUAL_ENV=/home/gfy/KVCOMM/.venv and has
+    /home/gfy/KVCOMM/.venv/bin early in PATH. KVCOMM/.venv is a
+    --system-site-packages venv created from /home/gfy/.conda/envs/sglang-kvflow,
+    so the inherited python is the same Python 3.12 as the sglang-kvflow
+    conda env but the site-packages are KVCOMM's (which contains the
+    dev/RC pytest build pointing at
+    results/swebench_local_envs/repos/pytest-dev__pytest-7490/src). When
+    we run `conda run -n swe_X python ...` inside that shell, conda
+    appends the env's bin to the *end* of PATH and python/pip still
+    resolve to the KVCOMM shim first — so `pip install pytest` lands in
+    KVCOMM (not in swe_X) and `pytest` then runs the broken dev build,
+    which crashes under Python 3.12's stricter AST handling with
+    `TypeError: required field "lineno" missing from alias` in
+    _pytest/assertion/rewrite.py. Strip both before any subprocess.run.
+    """
+    out = dict(env)
+    out.pop("VIRTUAL_ENV", None)
+    out.pop("PYTHONHOME", None)
+    new_path_parts = [
+        p for p in out.get("PATH", "").split(":")
+        if p and "/KVCOMM/.venv" not in p
+    ]
+    out["PATH"] = ":".join(new_path_parts)
+    return out
+
+
 def run(cmd: list[str], cwd: Path | None = None, env: dict[str, str] | None = None, timeout: int | None = None):
     print(f"$ {' '.join(shlex.quote(x) for x in cmd)}")
-    return subprocess.run(cmd, cwd=str(cwd) if cwd else None, env=env, text=True, timeout=timeout)
+    base_env = env if env is not None else os.environ.copy()
+    return subprocess.run(cmd, cwd=str(cwd) if cwd else None, env=_clean_user_env(base_env), text=True, timeout=timeout)
 
 
 def run_checked(cmd: list[str], cwd: Path | None = None, env: dict[str, str] | None = None, timeout: int | None = None):
@@ -111,7 +141,10 @@ def ensure_test_runner(conda: Path, env_name: str, specs: dict[str, Any], repo_d
     if not shlex.split(test_cmd) or shlex.split(test_cmd)[0] != "pytest":
         return
     pytest_package = "pytest<7" if str(specs.get("python", "")).startswith("3.6") else "pytest"
-    run_checked([str(conda), "run", "-n", env_name, "python", "-m", "pip", "install", pytest_package], cwd=repo_dir)
+    # Use run_in_env (not run_checked) so the conda env's python/pip is
+    # actually used, not the KVCOMM/.venv shim that the user's shell PATH
+    # exposes. See run_in_env docstring for the full reasoning.
+    run_in_env(conda, env_name, ["python", "-m", "pip", "install", pytest_package], cwd=repo_dir)
 
 
 def should_skip_pre_install(command: str) -> bool:
@@ -168,6 +201,9 @@ def run_in_env(
     env: dict[str, str] | None = None,
     timeout: int | None = None,
 ):
+    # PATH/VIRTUAL_ENV cleanup happens in run() via _clean_user_env, so the
+    # conda env's python/pip/pytest actually resolve to the env, not the
+    # KVCOMM/.venv shim the user's shell exports.
     return run([str(conda), "run", "-n", env_name] + command, cwd=cwd, env=env, timeout=timeout)
 
 

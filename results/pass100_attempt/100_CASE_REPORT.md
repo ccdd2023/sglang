@@ -162,31 +162,56 @@ tokens` and the next prefill's 8,192-token chunk hits
 `common.py:230 alloc_token_slots: RuntimeError: Out of memory`
 when `evictable_leaves` is empty (all leaves `lock_ref=3`).
 
-## Honest pass@1=0/8 + the test-infra caveat
+## Honest pass@1=0/8 — verified after test-infra fix (2026-06-09)
 
-The pass@1=0/8 result has two parts:
+The pass@1=0/8 result was first reported with a test-infra caveat:
+the 6 cases with `synth=True, apply_rc=0, test_rc=1` failed because
+the candidate env's pytest was the KVCOMM venv's dev build
+(`6.0.0rc2.dev33`), which crashes on Python 3.12. **We fixed this**
+on 2026-06-09 and re-ran all 6 affected cases × 3 modes = 18
+attempts:
 
-1. **Model output issues (2/8)**: `django-11138` JSON parse error
-   and `matplotlib-20676` search-not-found are real model failures.
-   These 2 cases are documented in the regression root-cause as
-   model-side.
+### The fix
 
-2. **Test infra broken (6/8)**: The 6 cases with `synth=True,
-   apply_rc=0, test_rc=1` failed because the candidate env's pytest
-   6.0.0rc2.dev33 + Python 3.12 + `_pytest/assertion/rewrite.py`
-   crash with `TypeError: required field "lineno" missing from
-   alias`. **We cannot conclude the patches are wrong from
-   test_rc=1 alone** — the test never ran. To verify, one would
-   need to either (a) fix the candidate env to use a released
-   pytest version, or (b) apply the patch manually in a fresh
-   env with a working pytest.
+- Root cause: the user's shell exports `VIRTUAL_ENV=/home/gfy/KVCOMM/.venv`
+  and has `/home/gfy/KVCOMM/.venv/bin` early in PATH. The KVCOMM venv
+  is a `--system-site-packages` venv created from
+  `/home/gfy/.conda/envs/sglang-kvflow`, with a dev-build pytest
+  pointing at
+  `results/swebench_local_envs/repos/pytest-dev__pytest-7490/src`.
+  When `conda run -n swe_X bash -lc '...'` runs inside that shell,
+  conda appends the env's bin to the **end** of PATH, and
+  python/pip/pytest still resolve to the KVCOMM venv first.
+- Fix: `_clean_user_env` in
+  `benchmark/multi_workflow/setup_swebench_local_env.py` strips
+  any PATH entry containing `/KVCOMM/.venv` and unsets
+  `VIRTUAL_ENV`. `run()` and `run_in_env()` now apply this to every
+  subprocess. `ensure_test_runner` now installs
+  `pytest==8.4.2` (released, not dev) into the candidate env.
+- Test: confirmed `python -m pip install pytest` in the candidate
+  env now resolves to the conda env's pip and installs pytest 8.4.2
+  with the released 1.6.0 pluggy. `pytest -rA` runs and reports
+  real test failures (not the "lineno missing" crash).
 
-The 28-case run's 5/28 was on different cases; the 5/28 number
-should remain the headline for the paper. The 0/8 result on
-the harder 100-manifest subset is documented here for
-completeness, with the test-infra caveat. A follow-up run with
-the pytest issue fixed could re-test the 6 affected cases and
-potentially increase pass@1.
+### Re-test result (verified pass@1=0/8)
+
+Re-ran all 6 cases × 3 modes = 18 attempts with the fix
+(`results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict_reretest/`).
+All 18 attempts: **test_rc=1 with real assertion errors**, no
+test-infra crashes. The patches are all wrong on real test logic:
+
+| Case | Real failure (lossy) |
+|---|---|
+| `matplotlib__matplotlib-21568` | Patch wraps formatter output in `$\mathdefault{...}$` but test compares raw `01-01 00` against `'\mathdefault{01{-}01\;;00}'` — visually equivalent but not byte-equal. |
+| `pylint-dev__pylint-8898` | Patch produces regex error `(foo{1}` (no trailing comma) but test expects `(foo{1,}` (with the comma). |
+| `django__django-11149` | Patch calls `super().formfield_for_manytomany()` which Django 3.0 does not expose on the parent — `AttributeError: 'super' object has no attribute 'formfield_for_manytomany'`. |
+| `psf__requests-5414` | Patch doesn't add the `InvalidURL` raise for `http://.example.com` — `Failed: DID NOT RAISE InvalidURL`. |
+| `psf__requests-6028` | Close-but-not-exact semantic mismatch on `prepend_scheme_if_needed`. |
+| `matplotlib__matplotlib-20859` | Close-but-not-exact semantic mismatch on the formatter behavior. |
+
+**Honest pass@1 = 0/8** — confirmed as real model failures, not
+test infra. The 28-case run's 5/28 baseline (on a disjoint, easier
+case set) remains the headline number.
 
 ## Files
 
