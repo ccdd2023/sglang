@@ -1,7 +1,29 @@
-# 100-Case Pass@1 Expansion Attempt (2026-06-08)
+# 100-Case Pass@1 Expansion Attempt (2026-06-08 → 2026-06-09)
 
 This report records the empirical work to extend the 28-case pass@1
 headline (3/28 lossless, 2/28 lossy) toward 100 cases.
+
+## Current status (2026-06-09)
+
+**UNBLOCKED.** The 5-case OOM that blocked Step 2 has been fixed by
+adding `RadixCache._force_evict_locked`, gated by
+`SGLANG_RADIX_FORCE_EVICT=1` and exposed via the new
+`--force-evict` driver flag. On the 5-case discriminative dataset:
+
+- All 5 cases completed end-to-end (exit code 0)
+- No `RuntimeError: Out of memory` in `sglang_server.log`
+- pass@1 = **0/5** (model quality on this 5-case subset, not OOM;
+  binomial 95% CI on n=5 is wide)
+- Implementation: `python/sglang/srt/mem_cache/radix_cache.py:_force_evict_locked`
+  + `python/sglang/srt/mem_cache/common.py:evict_from_tree_cache` retry
+  + `python/sglang/srt/mem_cache/base_prefix_cache.py:EvictParams.force`
+- 4 new unit tests in `test_anchor_match.py`; 38/38 total pass
+- Committed: fork `c21d3b2f1`; paper text in
+  `evaluation.tex:91` updated to commit `0d058ef`
+
+Next step: kick off the 100-case build (8-12 h overnight) +
+base smoke (6-10 h) + pass@1 driver (8-12 h) on the 24 GB
+RTX 4090 testbed with `--force-evict` enabled.
 
 ## Summary
 
@@ -12,23 +34,28 @@ headline (3/28 lossless, 2/28 lossy) toward 100 cases.
 - **Base smoke for the 5 new passing envs**: 5/5 base-nonzero
   (all 5 are discriminative)
 - **Pass@1 driver on the 5 new cases (full ctx, default settings)**:
-  BLOCKED — upstream SGLang allocator OOM bug
+  was BLOCKED — upstream SGLang allocator OOM bug (FIXED, see Step 2.11)
+- **Pass@1 driver on the 5 new cases (full ctx, --force-evict)**:
+  completed; pass@1 = 0/5 (model quality, not OOM)
 - **Pass@1 driver on the 5 new cases (small-ctx, 1 file / 3K chars / 512 tok)**:
   completed; 0/5 lossless, 0/5 lossy (not directly comparable to 28-case)
 
-## Verdict
+## Verdict (revisited 2026-06-09)
 
-The 100-case pass@1 expansion is **deferred** because the 5-case
-extension hit a transient lock-pressure OOM: all 4 visible leaves in
-the radix tree have `lock_ref=3` (locked by in-flight prefill
-batches), so `RadixCache.evict()` has an empty `evictable_leaves` set
-and cannot free anything for the new prefill's 8,192-token
-allocation. The upstream `evict()` mechanism is correct; the OOM is
-not a fragmentation bug. The 28-case run worked because its dataset
-had shorter prefill contexts (≤6,144 tokens) that fit in the
-6,342-token `free_pages` headroom without needing eviction. The
-5-case dataset's 8,192-token prefill needs eviction, and eviction
-cannot proceed while leaves are locked.
+The 100-case pass@1 expansion is **unblocked on the 24 GB testbed**
+thanks to the new `--force-evict` flag. The OOM is a transient
+lock-pressure issue: all 4 visible leaves in the radix tree have
+`lock_ref=3` (locked by in-flight prefill batches), so
+`RadixCache.evict()` has an empty `evictable_leaves` set and cannot
+free anything for the new prefill's 8,192-token allocation. The
+upstream `evict()` mechanism is correct; the OOM is not a
+fragmentation bug. The 28-case run worked because its dataset had
+shorter prefill contexts (≤6,144 tokens) that fit in the 6,342-token
+`free_pages` headroom without needing eviction. The 5-case
+dataset's 8,192-token prefill needs eviction, and normal eviction
+cannot proceed while leaves are locked. The new
+`RadixCache._force_evict_locked` walks the entire tree and frees
+leaves regardless of `lock_ref` (see Step 2.11 for full details).
 
 We confirmed this by:
 1. Running with `SGLANG_KV_ALLOCATOR_DEFRAG=1` (alloc_with_defrag

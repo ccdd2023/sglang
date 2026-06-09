@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "django/contrib/admin/options.py",
+      "search": "def formfield_for_manytomany(self, db_field, request, **kwargs):",
+      "replace": "def formfield_for_manytomany(self, db_field, request, **kwargs):\n        if not self.has_change_permission(request):\n            kwargs['readonly'] = True\n        return super().formfield_for_manytomany(db_field, request, **kwargs)"
+    }
+  ]
+}
+```

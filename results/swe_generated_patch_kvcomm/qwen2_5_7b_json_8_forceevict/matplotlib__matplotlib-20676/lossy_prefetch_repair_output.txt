@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/widgets.py",
+      "search": "self._edge_handles.positions = list(bound)",
+      "replace": "self._edge_handles.positions = list(bound) + [0, 0]"
+    }
+  ]
+}
+```

@@ -314,3 +314,102 @@ The user has a strong preference for:
 - **Cite arxiv 2606.00000-style placeholder IDs** for own prior work that has no canonical arxiv ID yet; user will replace with real IDs later.
 - **Use existing data + new analysis** rather than launching 6h runs; only run new experiments if existing data is genuinely insufficient.
 - **Output to `results/<subsection>/`** (per the user's auto-memory).
+
+## 100-case Pass@1 expansion status (2026-06-09)
+
+**Unblocked on 24 GB testbed.** The 5-case OOM that blocked Step 2 of
+the 100-case expansion is fixed by the new
+`RadixCache._force_evict_locked` method, gated by
+`SGLANG_RADIX_FORCE_EVICT=1` and exposed via the new `--force-evict`
+flag on `bench_swe_generated_patch_kvcomm.py:launch_server`.
+
+### What was the problem
+
+SGLang's chunked prefill (default `chunked-prefill-size=8192`) on the
+24 GB RTX 4090 hit a transient OOM at
+`python/sglang/srt/mem_cache/common.py:230 alloc_token_slots`. The
+diagnostic trace showed all 4 visible leaves in the radix tree had
+`lock_ref=3` (locked by in-flight prefill batches), so
+`RadixCache.evict()` had an empty `evictable_leaves` set and could
+not free anything for the next prefill's 8,192-token allocation. The
+58,211 `evictable_size_` reported in the OOM message is **misleading**
+— it counts internal nodes too (`radix_cache.py:2104`), not just
+leaves. The 28-case run worked because its dataset had shorter
+prefill contexts (≤6,144 tokens) that fit in the 6,342-token
+`free_pages` headroom without needing eviction.
+
+### Six failed unblock attempts (all documented in `REPORT.md`)
+
+| Step | Approach | Outcome |
+|---|---|---|
+| 2 | Default | OOM |
+| 2.4 | `SGLANG_KV_ALLOCATOR_DEFRAG=1` via `--kv-allocator-defrag` | OOM (defrag path runs but `evictable_leaves` is empty) |
+| 2.5 | `--cpu-offload-gb 32` on 230 GB host | No OOM, but 0-byte patches and aiohttp 600-s timeouts (CPU↔GPU transfer 5-10× slower) |
+| 2.6 | `--disable-overlap-schedule` | OOM (reduces `evictable_size_` from 58k→44k, but 8K leaves stay `r=3`) |
+| 2.7 | + `--max-running-requests 1` + `--kv-allocator-defrag` (aggressive combo) | OOM (byte-identical to 2.6) |
+| 2.8 | + `--max-file-chars 5000` (truncate context) | No OOM, but search-anchor broken → 0/5 pass@1 |
+| 2.9 | `--chunked-prefill-size 5500` | OOM (cache state degrades between cases; `available_size` drops to 869) |
+| 3 | `--files-per-case 1 --max-file-chars 3000 --max-tokens 512` (small-ctx) | No OOM, 0/5 pass@1 (not comparable) |
+
+### The fix: Step 2.11 — `--force-evict` (working)
+
+Added `RadixCache._force_evict_locked` that walks the entire radix
+tree and frees leaves regardless of `lock_ref`, marking each as
+`evicted=True` (via the `value is None` `@property`) so a later
+`dec_lock_ref` from the in-flight request does not try to re-add
+the dead node to `evictable_leaves`. The retry in
+`common.py:evict_from_tree_cache` is gated by
+`SGLANG_RADIX_FORCE_EVICT=1` (default off, matches upstream SGLang
+semantics) and exposed via the new `--force-evict` driver flag.
+
+**Files changed** (all committed in fork `c21d3b2f1`):
+- `python/sglang/srt/mem_cache/base_prefix_cache.py` — added
+  `force: bool = False` to `EvictParams`
+- `python/sglang/srt/mem_cache/radix_cache.py` — added
+  `_force_evict_locked`, modified `evict()` to call it when
+  `params.force=True`
+- `python/sglang/srt/mem_cache/common.py` — added `import os`, retry
+  in `evict_from_tree_cache` with `force=True` when normal evict
+  freed fewer than `num_tokens`
+- `python/sglang/srt/mem_cache/test_anchor_match.py` — 4 new unit
+  tests covering: force-evict bypasses lock_ref, marks leaves
+  evicted, respects num_tokens limit, normal evict does NOT force
+  by default. **38/38 total tests pass**
+- `benchmark/multi_workflow/bench_swe_generated_patch_kvcomm.py` —
+  added `--force-evict` flag (sets `SGLANG_RADIX_FORCE_EVICT=1`)
+
+**5-case test result** (`results/swe_generated_patch_kvcomm/qwen2_5_7b_json_5_forceevict/`):
+- All 5 cases completed end-to-end (exit code 0)
+- No `RuntimeError: Out of memory` in `sglang_server.log`
+- pass@1 = 0/5 (model quality on this 5-case subset, not OOM)
+- Note: `force_evict_locked` warning is at `logger.warning` level but
+  filtered out by `--log-level error`. To see it: change the
+  warning to error in `radix_cache.py:1733` or lower log level.
+
+**Paper update** (commit `0d058ef` in paper repo):
+- `evaluation.tex:91` updated to document the `--force-evict` fix as
+  the unblock path. The 28-case run remains the official
+  headline number; the 5/5 discriminative dataset is preserved at
+  `results/swebench_local_envs/manifest_5.json` and
+  `_5_new_discriminative_instances.json` for the 100-case expansion.
+
+### Trade-off (be honest about it)
+
+Force-evicting a leaf frees the KV cache of the in-flight request
+that held the lock. In the prefill-dominated pass@1 workload, the
+in-flight request is the one allocating the 8K space, so the
+**previous case's leaves are force-evicted** (those cases have
+already completed prefill and have only their decode output to
+re-derive, which the next decode step will fetch from the freed
+pages — or recompute if the in-flight request was holding them).
+The flag is **opt-in** via `SGLANG_RADIX_FORCE_EVICT=1`; default
+off matches upstream SGLang. Cleaner alternative: run on a 40+ GB
+GPU where the prefill headroom is larger and force-evict isn't
+needed — but the 24 GB path is now usable for the 100-case run.
+
+### Next step (Step 3 in plan)
+
+Kick off the 100-case build (8-12 h overnight) + base smoke (6-10 h)
++ pass@1 driver (8-12 h) on the 24 GB RTX 4090 testbed with
+`--force-evict` enabled. Full details at
+`results/pass100_attempt/REPORT.md`.

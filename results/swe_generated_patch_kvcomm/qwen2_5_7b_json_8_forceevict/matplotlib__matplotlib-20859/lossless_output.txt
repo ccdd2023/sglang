@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/legend.py",
+      "search": "if isinstance(parent, Axes):",
+      "replace": "if isinstance(parent, (Axes, FigureBase)):"
+    }
+  ]
+}
+```
