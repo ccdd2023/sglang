@@ -11,6 +11,12 @@ The code content must be exactly identical.
 This distinction is central to the safety argument and should be preserved in any deployment.
 In the 100-case serving scalability experiment (Table~\ref{tab:prefetch}), exact-content reuse achieves a 99\% hit rate with 64\% more cached tokens than the prefix-only baseline, confirming that lossy-position reuse does not compromise code content integrity.
 
+\paragraph{TTFT gains are currently bounded.}
+The strongest latency evidence is the TTFT-first 8k single-segment stress setting: exact-content reuse plus code hints gives multi-$\times$ p50 TTFT gains on one RTX~4090.
+The same experiment also exposes the present boundary of the prototype.
+At 16k--32k and in the two-segment setting, exact-content signatures still match, but the device-hit and consumed-counter path is less stable and the TTFT benefit shrinks or disappears.
+We therefore claim a working fast path for bounded prefill-dominated settings, not a general long-context serving speedup.
+
 \paragraph{Patch quality is a separate bottleneck.}
 The 30-case pass@1 run uses a 7B instruction model and constrained JSON edits.
 The absolute pass@1 is low for both lossless and lossy modes.
@@ -25,7 +31,7 @@ We therefore report all accuracy and serving results with the 7B model and ackno
 
 \paragraph{Host-backed prefetch needs more engineering.}
 The file-backed HiCache storage backend triggers a token-to-KV-pool allocator leak during serving, causing runtime crashes.
-The present coding-aware prefetch result (Table~\ref{tab:prefetch}) is therefore obtained with host-backed storage disabled, validating the interface, metadata path, and exact-content reuse behavior but not host load-back acceleration.
+The present coding-aware prefetch result (Table~\ref{tab:prefetch}) is therefore obtained with host-backed storage disabled, validating the interface, metadata path, and exact-content reuse opportunity but not host load-back acceleration.
 Completing robust host load-back is future work for stronger TTFT gains.
 
 \paragraph{Scope.}

@@ -47,6 +47,12 @@ def _clean_user_env(env: dict[str, str]) -> dict[str, str]:
     out = dict(env)
     out.pop("VIRTUAL_ENV", None)
     out.pop("PYTHONHOME", None)
+    out.pop("PYTHONPATH", None)
+    out.pop("PYTHONUSERBASE", None)
+    out.pop("CONDA_PREFIX", None)
+    out.pop("CONDA_DEFAULT_ENV", None)
+    out.pop("CONDA_PROMPT_MODIFIER", None)
+    out.pop("PIP_REQUIRE_VIRTUALENV", None)
     new_path_parts = [
         p for p in out.get("PATH", "").split(":")
         if p and "/KVCOMM/.venv" not in p
@@ -58,13 +64,34 @@ def _clean_user_env(env: dict[str, str]) -> dict[str, str]:
 def run(cmd: list[str], cwd: Path | None = None, env: dict[str, str] | None = None, timeout: int | None = None):
     print(f"$ {' '.join(shlex.quote(x) for x in cmd)}")
     base_env = env if env is not None else os.environ.copy()
-    return subprocess.run(cmd, cwd=str(cwd) if cwd else None, env=_clean_user_env(base_env), text=True, timeout=timeout)
+    result = subprocess.run(
+        cmd,
+        cwd=str(cwd) if cwd else None,
+        env=_clean_user_env(base_env),
+        text=True,
+        capture_output=True,
+        timeout=timeout,
+    )
+    if result.stdout:
+        print(result.stdout, end="" if result.stdout.endswith("\n") else "\n")
+    if result.stderr:
+        print(result.stderr, end="" if result.stderr.endswith("\n") else "\n", file=sys.stderr)
+    return result
+
+
+def tail_text(text: str | None, limit: int = 4000) -> str:
+    return (text or "")[-limit:]
 
 
 def run_checked(cmd: list[str], cwd: Path | None = None, env: dict[str, str] | None = None, timeout: int | None = None):
     result = run(cmd, cwd=cwd, env=env, timeout=timeout)
     if result.returncode != 0:
-        raise RuntimeError(f"command failed with exit code {result.returncode}: {' '.join(cmd)}")
+        raise RuntimeError(
+            "command failed with exit code "
+            f"{result.returncode}: {' '.join(cmd)}\n"
+            f"stdout tail:\n{tail_text(result.stdout)}\n"
+            f"stderr tail:\n{tail_text(result.stderr)}"
+        )
     return result
 
 
@@ -79,6 +106,11 @@ def load_instance(dataset_path: Path, instance_id: str) -> dict[str, Any]:
 def env_exists(conda: Path, env_name: str) -> bool:
     result = subprocess.run([str(conda), "env", "list"], text=True, capture_output=True)
     return any(line.split() and line.split()[0] == env_name for line in result.stdout.splitlines())
+
+
+def remove_env(conda: Path, env_name: str):
+    if env_exists(conda, env_name):
+        run_checked([str(conda), "env", "remove", "-y", "-n", env_name])
 
 
 def ensure_repo(instance: dict[str, Any], repo_dir: Path):
@@ -140,11 +172,41 @@ def ensure_test_runner(conda: Path, env_name: str, specs: dict[str, Any], repo_d
     test_cmd = specs.get("test_cmd", "pytest -rA")
     if not shlex.split(test_cmd) or shlex.split(test_cmd)[0] != "pytest":
         return
-    pytest_package = "pytest<7" if str(specs.get("python", "")).startswith("3.6") else "pytest"
+    python_spec = str(specs.get("python", ""))
+    if python_spec.startswith("3.6"):
+        pytest_package = "pytest<7"
+    elif python_spec.startswith("3.12"):
+        pytest_package = "pytest==8.4.2"
+    else:
+        pytest_package = "pytest<8"
     # Use run_in_env (not run_checked) so the conda env's python/pip is
     # actually used, not the KVCOMM/.venv shim that the user's shell PATH
     # exposes. See run_in_env docstring for the full reasoning.
     run_in_env(conda, env_name, ["python", "-m", "pip", "install", pytest_package], cwd=repo_dir)
+
+
+def collect_env_sanity(conda: Path, env_name: str, repo_dir: Path) -> dict[str, Any]:
+    checks: dict[str, Any] = {}
+    commands = {
+        "python_version": ["python", "-V"],
+        "python_executable": ["python", "-c", "import sys; print(sys.executable)"],
+        "pip_version": ["python", "-m", "pip", "--version"],
+        "pytest_version": ["python", "-c", "import pytest; print(pytest.__version__)"],
+        "numpy_version": ["python", "-c", "import numpy; print(numpy.__version__)"],
+        "setuptools_version": ["python", "-c", "import setuptools; print(setuptools.__version__)"],
+        "pip_freeze_head": ["python", "-m", "pip", "freeze"],
+    }
+    for name, command in commands.items():
+        result = run_in_env(conda, env_name, command, cwd=repo_dir, timeout=120)
+        value = {
+            "returncode": result.returncode,
+            "stdout_tail": tail_text(result.stdout, 2000),
+            "stderr_tail": tail_text(result.stderr, 1000),
+        }
+        if name == "pip_freeze_head":
+            value["stdout_tail"] = "\n".join((result.stdout or "").splitlines()[:80])
+        checks[name] = value
+    return checks
 
 
 def should_skip_pre_install(command: str) -> bool:
@@ -207,6 +269,26 @@ def run_in_env(
     return run([str(conda), "run", "-n", env_name] + command, cwd=cwd, env=env, timeout=timeout)
 
 
+def run_shell_in_env(
+    conda: Path,
+    env_name: str,
+    command: str,
+    cwd: Path,
+    env: dict[str, str] | None = None,
+    timeout: int | None = None,
+):
+    # Avoid `bash -l`: the user's startup files can reactivate KVCOMM/.venv
+    # inside `conda run`, causing Python/pip to resolve to Python 3.12.
+    return run_in_env(
+        conda,
+        env_name,
+        ["bash", "--noprofile", "--norc", "-lc", command],
+        cwd=cwd,
+        env=env,
+        timeout=timeout,
+    )
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
@@ -219,17 +301,22 @@ def main():
     parser.add_argument("--max-fail-tests", type=int, default=0)
     parser.add_argument("--test-target", action="append", default=[])
     parser.add_argument("--skip-pre-install", action="store_true")
+    parser.add_argument("--recreate-env", action="store_true")
     parser.add_argument("--timeout", type=int, default=1200)
     args = parser.parse_args()
 
     instance = load_instance(args.dataset, args.instance_id)
     specs = MAP_REPO_VERSION_TO_SPECS[instance["repo"]][str(instance["version"])]
+    candidate_patch = args.candidate_patch.resolve() if args.candidate_patch is not None else None
     env_name = f"swe_{args.instance_id.replace('__', '_').replace('-', '_')}_{args.mode}"
     repo_dir = args.workdir / "repos" / args.instance_id
     patch_dir = args.workdir / "patches" / args.instance_id
     patch_dir.mkdir(parents=True, exist_ok=True)
 
     ensure_repo(instance, repo_dir)
+
+    if args.recreate_env:
+        remove_env(args.conda, env_name)
 
     if not env_exists(args.conda, env_name):
         run_checked([str(args.conda), "create", "-y", "-n", env_name, f"python={specs['python']}"])
@@ -255,11 +342,23 @@ def main():
             if should_skip_pre_install(command):
                 print(f"Skipping root-only pre_install on local fallback: {command}")
                 continue
-            run_checked([str(args.conda), "run", "-n", env_name, "bash", "-lc", command], cwd=repo_dir)
+            result = run_shell_in_env(args.conda, env_name, command, cwd=repo_dir)
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"pre_install failed for {args.instance_id}: {command}\n"
+                    f"stdout tail:\n{tail_text(result.stdout)}\n"
+                    f"stderr tail:\n{tail_text(result.stderr)}"
+                )
 
     pip_packages = normalize_pip_packages(instance["repo"], specs.get("pip_packages", []))
     if pip_packages:
-        run_checked([str(args.conda), "run", "-n", env_name, "python", "-m", "pip", "install"] + pip_packages, cwd=repo_dir)
+        result = run_in_env(args.conda, env_name, ["python", "-m", "pip", "install"] + pip_packages, cwd=repo_dir)
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"pip install failed for {args.instance_id}\n"
+                f"stdout tail:\n{tail_text(result.stdout)}\n"
+                f"stderr tail:\n{tail_text(result.stderr)}"
+            )
     ensure_test_runner(args.conda, env_name, specs, repo_dir)
 
     test_patch = patch_dir / "test.patch"
@@ -270,13 +369,19 @@ def main():
     if args.mode == "gold":
         apply_patch_file(repo_dir, gold_patch)
     if args.mode == "candidate":
-        if args.candidate_patch is None:
+        if candidate_patch is None:
             raise ValueError("--candidate-patch is required for --mode candidate")
-        apply_patch_file(repo_dir, args.candidate_patch)
+        apply_patch_file(repo_dir, candidate_patch)
 
     install_cmd = specs.get("install")
     if install_cmd:
-        run_checked([str(args.conda), "run", "-n", env_name, "bash", "-lc", install_cmd], cwd=repo_dir, timeout=args.timeout)
+        result = run_shell_in_env(args.conda, env_name, install_cmd, cwd=repo_dir, timeout=args.timeout)
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"install failed for {args.instance_id}\n"
+                f"stdout tail:\n{tail_text(result.stdout)}\n"
+                f"stderr tail:\n{tail_text(result.stderr)}"
+            )
 
     test_cmd = build_test_command(
         instance,
@@ -304,6 +409,9 @@ def main():
         "skip_pre_install": args.skip_pre_install,
         "test_cmd": test_cmd,
         "returncode": result.returncode,
+        "stdout_tail": tail_text(result.stdout, 6000),
+        "stderr_tail": tail_text(result.stderr, 4000),
+        "env_sanity": collect_env_sanity(args.conda, env_name, repo_dir),
     }
     (out_dir / f"{args.mode}_report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2))

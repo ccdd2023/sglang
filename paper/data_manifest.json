@@ -7,8 +7,9 @@
     "logit_alignment": "results/kvcomm_ablation_package/logit_alignment_ablation.csv",
     "passrate_primary": "results/swe_generated_patch_kvcomm/qwen2_5_7b_json_30/passrate_table.csv",
     "prefetch_primary": "results/coding_kvflow_prefetch/qwen2_5_7b_100/prefetch_table.csv",
-    "ttft_stress": "results/kvcomm_ttft_stress/qwen2_5_7b/ttft_stress_table.csv",
-    "ablation": "results/kvcomm_ttft_stress/qwen2_5_7b/ttft_stress_table.csv",
+    "ttft_stress": "results/ttft_agenttemplatekv/p1_rollup.csv",
+    "ttft_p0_sanity": "results/ttft_agenttemplatekv/qwen2_5_7b_micro_final_p0/summary.json",
+    "ablation": "results/ttft_agenttemplatekv/p1_rollup.csv",
     "template_segments": "results/template_codebase_segments/template_segment_ablation.csv",
     "manifest_30": "results/repo_level_datasets/manifest_30.json",
     "manifest_100": "results/repo_level_datasets/manifest_100.json",
@@ -34,14 +35,14 @@
         "apply": 12,
         "pass": 2,
         "cached": 2190.1785714285716,
-        "latency": 1729.3710714285714,
+        "latency": 1729.3710714285717,
         "exact_hits": 28
       }
     },
     "prefetch": {
       "baseline_prefix_cache_only": {
         "cases": 100,
-        "latency": 3910.6056,
+        "latency": 3910.605600000001,
         "latency_p50": 3872.49,
         "latency_p90": 4134.83,
         "cached": 1581.84,
@@ -59,7 +60,7 @@
       },
       "kvflow_prefix_plus_codebase_prefetch": {
         "cases": 100,
-        "latency": 3926.5361,
+        "latency": 3926.536100000001,
         "latency_p50": 3870.37,
         "latency_p90": 4262.42,
         "cached": 1584.81,
@@ -68,7 +69,7 @@
       },
       "kvcomm_lossy_plus_codebase_prefetch": {
         "cases": 100,
-        "latency": 3837.5622999999996,
+        "latency": 3837.5623000000005,
         "latency_p50": 3833.29,
         "latency_p90": 4184.18,
         "cached": 2592.51,
@@ -77,77 +78,101 @@
       }
     },
     "ttft_stress": {
-      "ttft_prefix_cache_only_8000": {
-        "cases": 50,
-        "p50_ttft": 671.25,
-        "p90_ttft": 717.78,
-        "speedup_vs_prefix": 1.0,
-        "exact_hits": 0
+      "P0 sanity, 8k, 2 agents": {
+        "rows": 6,
+        "prefix_p50": 246.95,
+        "exact_hints_p50": 57.84,
+        "p50_speedup": 4.2695366528354075,
+        "p90_speedup": 6.437850963727424,
+        "exact_hit_rate": 1.0,
+        "device_hit_rate": 0.8333333333333334
       },
-      "ttft_prefix_cache_only_16000": {
-        "cases": 50,
-        "p50_ttft": 1718.84,
-        "p90_ttft": 1735.08,
-        "speedup_vs_prefix": 1.0,
-        "exact_hits": 0
+      "P1 8k, 2 agents, 1 seg.": {
+        "rows": 10,
+        "prefix_p50": 334.72,
+        "exact_hints_p50": 65.67,
+        "p50_speedup": 5.097000152276535,
+        "p90_speedup": 0.946270600386187,
+        "exact_hit_rate": 1.0,
+        "device_hit_rate": 0.7
       },
-      "ttft_exact_reuse_no_hints_8000": {
-        "cases": 50,
-        "p50_ttft": 668.18,
-        "p90_ttft": 709.46,
-        "speedup_vs_prefix": 1.0045945703253616,
-        "exact_hits": 50
+      "P1 8k, 3 agents, 1 seg.": {
+        "rows": 15,
+        "prefix_p50": 331.94,
+        "exact_hints_p50": 78.26,
+        "p50_speedup": 4.241502683363148,
+        "p90_speedup": 1.103226383054786,
+        "exact_hit_rate": 1.0,
+        "device_hit_rate": 0.5333333333333333
       },
-      "ttft_exact_reuse_no_hints_16000": {
-        "cases": 50,
-        "p50_ttft": 1480.14,
-        "p90_ttft": 1735.92,
-        "speedup_vs_prefix": 1.161268528652695,
-        "exact_hits": 50
+      "P1 8k, 2 agents, 2 seg.": {
+        "rows": 10,
+        "prefix_p50": 639.5,
+        "exact_hints_p50": 613.86,
+        "p50_speedup": 1.0417684814127,
+        "p90_speedup": 1.0344044091683682,
+        "exact_hit_rate": 1.0,
+        "device_hit_rate": 0.3
       },
-      "ttft_exact_reuse_plus_code_hints_8000": {
-        "cases": 50,
-        "p50_ttft": 665.81,
-        "p90_ttft": 710.11,
-        "speedup_vs_prefix": 1.0081704990913325,
-        "exact_hits": 50
+      "P1 16k, 2 agents, 1 seg.": {
+        "rows": 10,
+        "prefix_p50": 940.07,
+        "exact_hints_p50": 887.95,
+        "p50_speedup": 1.058696998704882,
+        "p90_speedup": 1.0846281325448166,
+        "exact_hit_rate": 1.0,
+        "device_hit_rate": 0.2
       },
-      "ttft_exact_reuse_plus_code_hints_16000": {
-        "cases": 50,
-        "p50_ttft": 1483.16,
-        "p90_ttft": 1736.34,
-        "speedup_vs_prefix": 1.1589039618112678,
-        "exact_hits": 50
+      "P1 32k, 2 agents, 1 seg.": {
+        "rows": 10,
+        "prefix_p50": 1796.64,
+        "exact_hints_p50": 1913.99,
+        "p50_speedup": 0.9386882899074708,
+        "p90_speedup": 0.9285862493487093,
+        "exact_hit_rate": 1.0,
+        "device_hit_rate": 0.0
       }
     },
     "ablation": {
-      "ablation_prefix_only": {
-        "p50_ttft": 4156.34,
+      "prefix_cache_only": {
+        "p50_ttft": 334.72,
         "speedup": 1.0,
         "cached_gain": 0.0,
-        "exact_hits": 0,
-        "f1": 1.0
+        "exact_hit_rate": 0.0,
+        "device_hit_rate": 0.0,
+        "consumed_rate": 0.0,
+        "f1": 1.0,
+        "status": "{'no_fast_path': 10}"
       },
-      "ablation_hints_no_exact": {
-        "p50_ttft": 4153.75,
-        "speedup": 1.0006235329521518,
-        "cached_gain": 0.0,
-        "exact_hits": 0,
-        "f1": 0.603805
+      "hints_no_exact": {
+        "p50_ttft": 338.24,
+        "speedup": 0.989593188268685,
+        "cached_gain": 80.5,
+        "exact_hit_rate": 0.0,
+        "device_hit_rate": 0.0,
+        "consumed_rate": 0.0,
+        "f1": 1.0,
+        "status": "{'no_fast_path': 10}"
       },
-      "ablation_exact_no_hints": {
-        "p50_ttft": 4142.36,
-        "speedup": 1.0033748877451503,
-        "cached_gain": 0.6499999999999986,
-        "exact_hits": 13,
-        "f1": 0.757235
+      "exact_reuse_no_hints": {
+        "p50_ttft": 65.44,
+        "speedup": 5.114914425427873,
+        "cached_gain": 1188.8000000000002,
+        "exact_hit_rate": 1.0,
+        "device_hit_rate": 0.5,
+        "consumed_rate": 0.1,
+        "f1": 1.0,
+        "status": "{'consumed': 1, 'device_hit_without_consumed': 4, 'no_fast_path': 5}"
       },
-      "ablation_exact_gate_rope": {
-        "p50_ttft": 4149.9,
-        "speedup": 1.001551844622762,
-        "cached_gain": -21.700000000000003,
-        "exact_hits": 13,
-        "f1": 0.6683950000000001
+      "exact_reuse_plus_code_hints": {
+        "p50_ttft": 65.67,
+        "speedup": 5.097000152276535,
+        "cached_gain": 1665.6000000000001,
+        "exact_hit_rate": 1.0,
+        "device_hit_rate": 0.7,
+        "consumed_rate": 0.0,
+        "f1": 1.0,
+        "status": "{'anchor_reuse_device_hit_consumed_counter_gap': 7, 'protected_not_consumed:no_anchor_match': 3}"
       }
     },
     "template_segments": {
@@ -227,8 +252,8 @@
     "rope_logit": {
       "correct_k_cosine": 0.9990463333333333,
       "no_rotation_k_cosine": 0.9658553333333333,
-      "wrong_large_delta_k_cosine": 0.9497212500000001,
-      "mean_kl": 0.014716221562500001,
+      "wrong_large_delta_k_cosine": 0.94972125,
+      "mean_kl": 0.014716221562500005,
       "top1_agreement": 0.96875,
       "top5_agreement": 1.0
     }

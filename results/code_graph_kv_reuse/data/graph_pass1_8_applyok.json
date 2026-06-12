@@ -1,0 +1,10 @@
+[
+  "astropy__astropy-12907",
+  "astropy__astropy-13236",
+  "django__django-10554",
+  "django__django-10880",
+  "matplotlib__matplotlib-13989",
+  "matplotlib__matplotlib-14623",
+  "matplotlib__matplotlib-20488",
+  "psf__requests-1142"
+]

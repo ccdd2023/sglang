@@ -28,6 +28,30 @@ This experiment keeps every code object byte-identical and varies the AST granul
 | control_block | 30 | 90 | 179.300 | 5379.000 | 0.245 | 0.463 | 0.585 | 0.246 | 122.598 |
 | statement_window | 30 | 90 | 168.567 | 5057.000 | 0.220 | 0.486 | 0.750 | 0.217 | 113.424 |
 
+## Cross-role-only AST Granularity
+
+This table excludes the planner self-comparison (`d_norm=0`) and keeps only coder/reviewer distances to the planner canonical span.
+
+| Granularity | spans | n | mean d_norm | p50 d_norm | p90 d_norm | max d_norm | tail >0.5 | retention toks |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| file_prefix | 30 | 60 | 0.369 | 0.349 | 0.461 | 0.573 | 6.7% | 57039 |
+| class | 30 | 60 | 0.419 | 0.406 | 0.562 | 0.770 | 20.0% | 4930 |
+| function | 30 | 60 | 0.333 | 0.324 | 0.424 | 0.457 | 0.0% | 5357 |
+| method | 30 | 60 | 0.343 | 0.338 | 0.421 | 0.576 | 8.3% | 5175 |
+| control_block | 30 | 60 | 0.367 | 0.358 | 0.468 | 0.585 | 8.3% | 5379 |
+| statement_window | 30 | 60 | 0.330 | 0.288 | 0.544 | 0.750 | 13.3% | 5057 |
+
+## KVCOMM-style Nearest-anchor Diagnostics
+
+| Granularity | own-anchor top1 | mean margin | mean normalized entropy |
+|---|---:|---:|---:|
+| file_prefix | 100.0% | 1.966 | 0.000 |
+| class | 100.0% | 1.303 | 0.042 |
+| function | 100.0% | 1.897 | 0.000 |
+| method | 100.0% | 1.746 | 0.000 |
+| control_block | 100.0% | 1.895 | 0.000 |
+| statement_window | 100.0% | 1.871 | 0.000 |
+
 ## By Token Bin
 
 | Bucket | spans | n | mean toks | retention toks | mean d_norm | p90 d_norm | max d_norm | weighted d_norm | reuse score |

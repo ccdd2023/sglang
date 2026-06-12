@@ -2,5 +2,5 @@
 
 \system shows that coding MAS workflows expose a new cache-reuse opportunity: large exact code-base segments recur across agents at different prompt positions.
 By combining workflow templates, coding-aware hints, exact-content gating, and RoPE delta alignment on top of existing cache-scheduling and cross-context reuse ideas, \system can reuse code-base KV without permitting approximate code substitution.
-The current evidence chain shows zero false accepts, near-lossless numerical behavior, higher cached-token counts, latency improvements, and a small lossless-vs-lossy pass@1 delta on local SWE-bench cases.
+The current evidence chain shows zero false accepts, near-lossless numerical behavior, higher cached-token counts in realistic serving, bounded TTFT improvements in 8k prefill-dominated stress settings, and a small lossless-vs-lossy pass@1 delta on local SWE-bench cases.
 These results make code-base-aware KV reuse a promising systems direction for repository-scale LLM agents.

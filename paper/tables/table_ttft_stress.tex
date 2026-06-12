@@ -1,17 +1,17 @@
 \begin{table*}[t]
 \centering
-\caption{KVCOMM-style long-code TTFT stress results. Speedup is relative to prefix-only at the same length bucket.}
+\caption{4090 TTFT-first micro/stress results. Speedup compares exact-content reuse plus code hints against prefix-only caching for the same setting; longer and multi-segment rows are diagnostic boundary cases.}
 \label{tab:ttft-stress}
-\begin{tabular}{lrrrrr}
+\begin{tabular}{lrrrrrr}
 \toprule
-Mode & Max chars & Cases & P50 TTFT (ms) & Speedup & Exact hits \\
+Setting & Rows & Prefix p50 & Exact p50 & P50 speedup & P90 speedup & Device-hit \\
 \midrule
-Prefix only & 8000 & 50 & 671.2 & 1.00$\times$ & 0/50 \\
-Prefix only & 16000 & 50 & 1718.8 & 1.00$\times$ & 0/50 \\
-Exact reuse & 8000 & 50 & 668.2 & 1.00$\times$ & 50/50 \\
-Exact reuse & 16000 & 50 & 1480.1 & 1.16$\times$ & 50/50 \\
-Exact reuse + hints & 8000 & 50 & 665.8 & 1.01$\times$ & 50/50 \\
-Exact reuse + hints & 16000 & 50 & 1483.2 & 1.16$\times$ & 50/50 \\
+P0 sanity, 8k, 2 agents & 6 & 246.9 & 57.8 & 4.27$\times$ & 6.44$\times$ & 83.3\% \\
+P1 8k, 2 agents, 1 seg. & 10 & 334.7 & 65.7 & 5.10$\times$ & 0.95$\times$ & 70.0\% \\
+P1 8k, 3 agents, 1 seg. & 15 & 331.9 & 78.3 & 4.24$\times$ & 1.10$\times$ & 53.3\% \\
+P1 8k, 2 agents, 2 seg. & 10 & 639.5 & 613.9 & 1.04$\times$ & 1.03$\times$ & 30.0\% \\
+P1 16k, 2 agents, 1 seg. & 10 & 940.1 & 888.0 & 1.06$\times$ & 1.08$\times$ & 20.0\% \\
+P1 32k, 2 agents, 1 seg. & 10 & 1796.6 & 1914.0 & 0.94$\times$ & 0.93$\times$ & 0.0\% \\
 \bottomrule
 \end{tabular}
 \end{table*}

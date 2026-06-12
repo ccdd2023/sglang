@@ -62,6 +62,21 @@ DISPLAY_MODE = {
 }
 
 
+def git_commit() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(PROJECT),
+            text=True,
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
+        return result.stdout.strip() or "unknown"
+    except Exception:
+        return "unknown"
+
+
 def launch_server(args: argparse.Namespace) -> subprocess.Popen:
     env = dict(**os.environ)
     env["PYTHONPATH"] = str(PROJECT / "python")
@@ -122,6 +137,12 @@ def launch_server(args: argparse.Namespace) -> subprocess.Popen:
         stdout=open(log_path, "w"),
         stderr=subprocess.STDOUT,
     )
+
+
+async def flush_cache(session: aiohttp.ClientSession, port: int) -> bool:
+    async with session.post(f"http://127.0.0.1:{port}/flush_cache") as resp:
+        await resp.text()
+        return resp.status == 200
 
 
 def make_codebase_hints(segments: list[CodeSegment], target_agent: str = "implementer") -> list[dict[str, Any]]:
@@ -268,12 +289,109 @@ async def warm_codebase(
         await post_chat(session, args.port, payload)
 
 
+async def run_case(
+    session: aiohttp.ClientSession,
+    args: argparse.Namespace,
+    tokenizer: Any,
+    case: dict[str, Any],
+) -> dict[str, Any]:
+    instance = case["instance"]
+    instance_id = instance["instance_id"]
+    segments = case["segments"]
+    if args.flush_cache_per_case:
+        if not await flush_cache(session, args.port):
+            raise RuntimeError(f"flush_cache failed before {instance_id}")
+    reset_repo_to_base(instance, PROJECT / "results" / "swebench_local_envs" / "repos" / instance_id)
+    await warm_codebase(session, args, tokenizer, instance_id, segments)
+
+    planner_messages = build_messages(
+        instance,
+        segments,
+        "planner warmup; cache code-base anchors",
+        "json-edit",
+    )
+    planner_payload = make_payload(
+        args,
+        tokenizer,
+        planner_messages,
+        segments,
+        "kvcomm_lossy_plus_codebase_prefetch",
+        f"planner:{instance_id}",
+    )
+    planner_payload["max_tokens"] = 32
+    await post_chat(session, args.port, planner_payload)
+
+    mode_rows = []
+    outputs: dict[str, str] = {}
+    for mode in MODES:
+        messages = build_messages(instance, segments, mode, "json-edit")
+        payload = make_payload(args, tokenizer, messages, segments, mode, f"target:{instance_id}:{mode}")
+        start = now_ms()
+        response = await post_chat(session, args.port, payload)
+        elapsed_ms = response["elapsed_ms"]
+        output = extract_text(response["body"]) or ""
+        outputs[mode] = output
+        meta = extract_lossy_meta(response["body"])
+        mode_rows.append(
+            {
+                "mode": mode,
+                "elapsed_ms": round(elapsed_ms, 2),
+                "cached_tokens": extract_cached_tokens(response["body"]),
+                "output_chars": len(output),
+                "lossy_match_reason": meta.get("lossy_first_match_reason")
+                or meta.get("lossy_final_match_reason")
+                or meta.get("lossy_anchor_match_used"),
+                "matched_content_signature": meta.get("lossy_first_matched_content_signature")
+                or meta.get("lossy_final_matched_content_signature")
+                or meta.get("lossy_anchor_match_content_signature"),
+                "codebase_prefetch_hint_count": meta.get("codebase_prefetch_hint_count", 0),
+                "codebase_prefetch_text_count": meta.get("codebase_prefetch_text_count", 0),
+                "codebase_prefetch_queued_tokens": meta.get("codebase_prefetch_queued_tokens", 0),
+                "codebase_prefetch_matched_tokens": meta.get("codebase_prefetch_matched_tokens", 0),
+                "codebase_prefetch_success_count": meta.get("codebase_prefetch_success_count", 0),
+                "codebase_prefetch_device_hit_count": meta.get("codebase_prefetch_device_hit_count", 0),
+                "agenttemplatekv_prefetch_hit_count": meta.get("agenttemplatekv_prefetch_hit_count", 0),
+                "agenttemplatekv_prefetch_miss_count": meta.get("agenttemplatekv_prefetch_miss_count", 0),
+                "agenttemplatekv_prefetch_protected_tokens": meta.get("agenttemplatekv_prefetch_protected_tokens", 0),
+                "agenttemplatekv_prefetch_newly_protected_tokens": meta.get("agenttemplatekv_prefetch_newly_protected_tokens", 0),
+                "agenttemplatekv_prefetch_consumed_count": meta.get("agenttemplatekv_prefetch_consumed_count", 0),
+                "agenttemplatekv_prefetch_expired_tokens": meta.get("agenttemplatekv_prefetch_expired_tokens", 0),
+                "agenttemplatekv_rejected_large_gap_count": meta.get("agenttemplatekv_rejected_large_gap_count", 0),
+                "raw_metadata": meta,
+                "request_start_ms": round(start, 2),
+            }
+        )
+
+    baseline_output = outputs.get("baseline_prefix_cache_only", "")
+    for row in mode_rows:
+        output = outputs.get(row["mode"], "")
+        row["output_exact_match_vs_baseline"] = output == baseline_output
+        row["output_token_f1_vs_baseline"] = round(token_f1(output, baseline_output), 4)
+
+    print(f"[case] {instance_id} done")
+    return {
+        "instance_id": instance_id,
+        "repo": instance["repo"],
+        "segments": [
+            {
+                "name": segment.name,
+                "chars": len(segment.text),
+                "signature": segment.signature,
+            }
+            for segment in segments
+        ],
+        "modes": mode_rows,
+    }
+
+
 async def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
     args.out_dir = args.out_dir if args.out_dir.is_absolute() else PROJECT / args.out_dir
     args.out_dir.mkdir(parents=True, exist_ok=True)
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+    if args.concurrent_clients > 1 and args.flush_cache_per_case:
+        raise ValueError("--flush-cache-per-case cannot be combined with --concurrent-clients > 1")
 
     cases = load_cases(args)
     kill_port(args.port)
@@ -285,93 +403,17 @@ async def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         if not await wait_ready(args.port, timeout_s=args.server_timeout):
             raise RuntimeError(f"server did not become ready; see {args.out_dir / 'sglang_server.log'}")
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=900)) as session:
-            for case in cases:
-                instance = case["instance"]
-                instance_id = instance["instance_id"]
-                segments = case["segments"]
-                reset_repo_to_base(instance, PROJECT / "results" / "swebench_local_envs" / "repos" / instance_id)
-                await warm_codebase(session, args, tokenizer, instance_id, segments)
+            if args.concurrent_clients <= 1:
+                for case in cases:
+                    results.append(await run_case(session, args, tokenizer, case))
+            else:
+                semaphore = asyncio.Semaphore(args.concurrent_clients)
 
-                planner_messages = build_messages(
-                    instance,
-                    segments,
-                    "planner warmup; cache code-base anchors",
-                    "json-edit",
-                )
-                planner_payload = make_payload(
-                    args,
-                    tokenizer,
-                    planner_messages,
-                    segments,
-                    "kvcomm_lossy_plus_codebase_prefetch",
-                    f"planner:{instance_id}",
-                )
-                planner_payload["max_tokens"] = 32
-                await post_chat(session, args.port, planner_payload)
+                async def guarded(case: dict[str, Any]) -> dict[str, Any]:
+                    async with semaphore:
+                        return await run_case(session, args, tokenizer, case)
 
-                mode_rows = []
-                outputs: dict[str, str] = {}
-                for mode in MODES:
-                    messages = build_messages(instance, segments, mode, "json-edit")
-                    payload = make_payload(args, tokenizer, messages, segments, mode, f"target:{instance_id}:{mode}")
-                    start = now_ms()
-                    response = await post_chat(session, args.port, payload)
-                    elapsed_ms = response["elapsed_ms"]
-                    output = extract_text(response["body"]) or ""
-                    outputs[mode] = output
-                    meta = extract_lossy_meta(response["body"])
-                    mode_rows.append(
-                        {
-                            "mode": mode,
-                            "elapsed_ms": round(elapsed_ms, 2),
-                            "cached_tokens": extract_cached_tokens(response["body"]),
-                            "output_chars": len(output),
-                            "lossy_match_reason": meta.get("lossy_first_match_reason")
-                            or meta.get("lossy_final_match_reason")
-                            or meta.get("lossy_anchor_match_used"),
-                            "matched_content_signature": meta.get("lossy_first_matched_content_signature")
-                            or meta.get("lossy_final_matched_content_signature")
-                            or meta.get("lossy_anchor_match_content_signature"),
-                            "codebase_prefetch_hint_count": meta.get("codebase_prefetch_hint_count", 0),
-                            "codebase_prefetch_text_count": meta.get("codebase_prefetch_text_count", 0),
-                            "codebase_prefetch_queued_tokens": meta.get("codebase_prefetch_queued_tokens", 0),
-                            "codebase_prefetch_matched_tokens": meta.get("codebase_prefetch_matched_tokens", 0),
-                            "codebase_prefetch_success_count": meta.get("codebase_prefetch_success_count", 0),
-                            "codebase_prefetch_device_hit_count": meta.get("codebase_prefetch_device_hit_count", 0),
-                            "agenttemplatekv_prefetch_hit_count": meta.get("agenttemplatekv_prefetch_hit_count", 0),
-                            "agenttemplatekv_prefetch_miss_count": meta.get("agenttemplatekv_prefetch_miss_count", 0),
-                            "agenttemplatekv_prefetch_protected_tokens": meta.get("agenttemplatekv_prefetch_protected_tokens", 0),
-                            "agenttemplatekv_prefetch_newly_protected_tokens": meta.get("agenttemplatekv_prefetch_newly_protected_tokens", 0),
-                            "agenttemplatekv_prefetch_consumed_count": meta.get("agenttemplatekv_prefetch_consumed_count", 0),
-                            "agenttemplatekv_prefetch_expired_tokens": meta.get("agenttemplatekv_prefetch_expired_tokens", 0),
-                            "agenttemplatekv_rejected_large_gap_count": meta.get("agenttemplatekv_rejected_large_gap_count", 0),
-                            "raw_metadata": meta,
-                            "request_start_ms": round(start, 2),
-                        }
-                    )
-
-                baseline_output = outputs.get("baseline_prefix_cache_only", "")
-                for row in mode_rows:
-                    output = outputs.get(row["mode"], "")
-                    row["output_exact_match_vs_baseline"] = output == baseline_output
-                    row["output_token_f1_vs_baseline"] = round(token_f1(output, baseline_output), 4)
-
-                results.append(
-                    {
-                        "instance_id": instance_id,
-                        "repo": instance["repo"],
-                        "segments": [
-                            {
-                                "name": segment.name,
-                                "chars": len(segment.text),
-                                "signature": segment.signature,
-                            }
-                            for segment in segments
-                        ],
-                        "modes": mode_rows,
-                    }
-                )
-                print(f"[case] {instance_id} done")
+                results.extend(await asyncio.gather(*(guarded(case) for case in cases)))
     except Exception as exc:
         failed_reason = f"{type(exc).__name__}: {exc}"
         raise
@@ -388,6 +430,14 @@ async def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
                 "dataset": str(args.dataset),
                 "manifest": str(args.manifest),
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "git_commit": git_commit(),
+                "command": " ".join(sys.argv),
+                "experiment": {
+                    "flush_cache_per_case": args.flush_cache_per_case,
+                    "concurrent_clients": args.concurrent_clients,
+                    "max_cases": args.max_cases,
+                    "start_index": args.start_index,
+                },
                 "hicache_storage_backend": args.hicache_storage_backend or "disabled",
                 "hierarchical_cache": not args.disable_hierarchical_cache,
                 "modes": MODES,
@@ -401,6 +451,14 @@ async def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         "dataset": str(args.dataset),
         "manifest": str(args.manifest),
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "git_commit": git_commit(),
+        "command": " ".join(sys.argv),
+        "experiment": {
+            "flush_cache_per_case": args.flush_cache_per_case,
+            "concurrent_clients": args.concurrent_clients,
+            "max_cases": args.max_cases,
+            "start_index": args.start_index,
+        },
         "hicache_storage_backend": args.hicache_storage_backend or "disabled",
         "hierarchical_cache": not args.disable_hierarchical_cache,
         "modes": MODES,
@@ -423,6 +481,9 @@ def summarize_mode(summary: dict[str, Any]) -> dict[str, dict[str, float]]:
             "n": len(rows),
             "avg_latency_ms": statistics.mean(float(r["elapsed_ms"]) for r in rows),
             "median_latency_ms": statistics.median(float(r["elapsed_ms"]) for r in rows),
+            "p90_latency_ms": percentile([float(r["elapsed_ms"]) for r in rows], 90),
+            "p99_latency_ms": percentile([float(r["elapsed_ms"]) for r in rows], 99),
+            "max_latency_ms": max(float(r["elapsed_ms"]) for r in rows),
             "avg_cached_tokens": statistics.mean(float(r["cached_tokens"]) for r in rows),
             "avg_prefetch_queued_tokens": statistics.mean(float(r["codebase_prefetch_queued_tokens"]) for r in rows),
             "avg_prefetch_matched_tokens": statistics.mean(float(r["codebase_prefetch_matched_tokens"]) for r in rows),
@@ -458,6 +519,19 @@ def summarize_mode(summary: dict[str, Any]) -> dict[str, dict[str, float]]:
             "avg_token_f1_vs_baseline": statistics.mean(float(r["output_token_f1_vs_baseline"]) for r in rows),
         }
     return stats
+
+
+def percentile(values: list[float], pct: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return ordered[0]
+    rank = (len(ordered) - 1) * pct / 100.0
+    lower = int(rank)
+    upper = min(lower + 1, len(ordered) - 1)
+    weight = rank - lower
+    return ordered[lower] * (1 - weight) + ordered[upper] * weight
 
 
 def write_artifacts(out_dir: Path, summary: dict[str, Any]) -> None:
@@ -520,19 +594,24 @@ def write_artifacts(out_dir: Path, summary: dict[str, Any]) -> None:
         f"- Model: `{summary['model']}`",
         f"- Dataset: `{summary['dataset']}`",
         f"- Cases: {len(summary['results'])}",
+        f"- Git commit: `{summary.get('git_commit', 'unknown')}`",
+        f"- Command: `{summary.get('command', '')}`",
+        f"- Flush cache per case: `{summary.get('experiment', {}).get('flush_cache_per_case', False)}`",
+        f"- Concurrent clients: `{summary.get('experiment', {}).get('concurrent_clients', 1)}`",
         f"- HiCache storage backend: `{summary.get('hicache_storage_backend', 'disabled')}`",
         f"- Hierarchical cache: `{summary.get('hierarchical_cache', True)}`",
         "- Safety rule: codebase prefetch may predict future code blocks, but AgentTemplateKV reuse still requires `exact_code_content_signature`.",
         "",
         "## Main Table",
         "",
-        "| mode | cases | avg latency ms | avg cached tokens | avg hints | avg prefetch queued | protected hit | protected toks | expired toks | large-gap rejects | exact-content hit | avg token F1 |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| mode | cases | avg latency ms | p50 | p90 | p99 | avg cached tokens | avg hints | avg prefetch queued | protected hit | protected toks | expired toks | large-gap rejects | exact-content hit | avg token F1 |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for mode in labels:
         item = stats[mode]
         report_lines.append(
             f"| {DISPLAY_MODE.get(mode, mode)} | {int(item['n'])} | {item['avg_latency_ms']:.1f} | "
+            f"{item['median_latency_ms']:.1f} | {item['p90_latency_ms']:.1f} | {item['p99_latency_ms']:.1f} | "
             f"{item['avg_cached_tokens']:.1f} | {item['avg_prefetch_hints']:.1f} | "
             f"{item['avg_prefetch_queued_tokens']:.1f} | "
             f"{item['agenttemplatekv_prefetch_hit_rate']:.2f} | "
@@ -598,6 +677,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--hicache-ratio", type=float, default=1.5)
     parser.add_argument("--hicache-storage-backend", default="")
     parser.add_argument("--disable-hierarchical-cache", action="store_true")
+    parser.add_argument("--flush-cache-per-case", action="store_true",
+                        help="POST /flush_cache before each case to measure true cold-cache behavior.")
+    parser.add_argument("--concurrent-clients", type=int, default=1,
+                        help="Number of cases to execute concurrently for serving smoke tests.")
     parser.add_argument("--server-timeout", type=int, default=180)
     parser.add_argument("--eval-timeout", type=int, default=1200)
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)

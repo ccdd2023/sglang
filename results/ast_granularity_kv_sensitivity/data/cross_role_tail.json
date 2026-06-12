@@ -1,0 +1,156 @@
+{
+  "file_prefix|pylint/checkers/base.py": {
+    "n_cells": 2,
+    "tail_cells": 2,
+    "tail_rate": 1.0,
+    "max_d_norm": 0.5462,
+    "max_role": "coder",
+    "max_span_tokens": 1994,
+    "max_start_line": 1,
+    "max_end_line": 120,
+    "repo": ""
+  },
+  "file_prefix|src/flask/scaffold.py": {
+    "n_cells": 2,
+    "tail_cells": 2,
+    "tail_rate": 1.0,
+    "max_d_norm": 0.5732,
+    "max_role": "coder",
+    "max_span_tokens": 2214,
+    "max_start_line": 1,
+    "max_end_line": 240,
+    "repo": ""
+  },
+  "class|lib/matplotlib/patches.py": {
+    "n_cells": 30,
+    "tail_cells": 6,
+    "tail_rate": 0.2,
+    "max_d_norm": 0.7696,
+    "max_role": "coder",
+    "max_span_tokens": 244,
+    "max_start_line": 3560,
+    "max_end_line": 3591,
+    "repo": ""
+  },
+  "class|pylint/checkers/base.py": {
+    "n_cells": 8,
+    "tail_cells": 5,
+    "tail_rate": 0.625,
+    "max_d_norm": 0.6583,
+    "max_role": "coder",
+    "max_span_tokens": 265,
+    "max_start_line": 84,
+    "max_end_line": 111,
+    "repo": ""
+  },
+  "class|requests/models.py": {
+    "n_cells": 2,
+    "tail_cells": 1,
+    "tail_rate": 0.5,
+    "max_d_norm": 0.536,
+    "max_role": "coder",
+    "max_span_tokens": 134,
+    "max_start_line": 136,
+    "max_end_line": 154,
+    "repo": ""
+  },
+  "method|sklearn/linear_model/coordinate_descent.py": {
+    "n_cells": 2,
+    "tail_cells": 2,
+    "tail_rate": 1.0,
+    "max_d_norm": 0.576,
+    "max_role": "coder",
+    "max_span_tokens": 215,
+    "max_start_line": 1564,
+    "max_end_line": 1584,
+    "repo": ""
+  },
+  "method|pylint/checkers/base.py": {
+    "n_cells": 10,
+    "tail_cells": 2,
+    "tail_rate": 0.2,
+    "max_d_norm": 0.5736,
+    "max_role": "coder",
+    "max_span_tokens": 223,
+    "max_start_line": 1849,
+    "max_end_line": 1875,
+    "repo": ""
+  },
+  "method|django/contrib/admin/options.py": {
+    "n_cells": 6,
+    "tail_cells": 1,
+    "tail_rate": 0.1667,
+    "max_d_norm": 0.5138,
+    "max_role": "coder",
+    "max_span_tokens": 224,
+    "max_start_line": 1487,
+    "max_end_line": 1503,
+    "repo": ""
+  },
+  "control_block|lib/matplotlib/axes/_base.py": {
+    "n_cells": 8,
+    "tail_cells": 2,
+    "tail_rate": 0.25,
+    "max_d_norm": 0.5851,
+    "max_role": "coder",
+    "max_span_tokens": 174,
+    "max_start_line": 1694,
+    "max_end_line": 1710,
+    "repo": ""
+  },
+  "control_block|seaborn/axisgrid.py": {
+    "n_cells": 2,
+    "tail_cells": 1,
+    "tail_rate": 0.5,
+    "max_d_norm": 0.546,
+    "max_role": "coder",
+    "max_span_tokens": 176,
+    "max_start_line": 2317,
+    "max_end_line": 2334,
+    "repo": ""
+  },
+  "control_block|lib/matplotlib/axes/_axes.py": {
+    "n_cells": 2,
+    "tail_cells": 2,
+    "tail_rate": 1.0,
+    "max_d_norm": 0.546,
+    "max_role": "coder",
+    "max_span_tokens": 172,
+    "max_start_line": 2373,
+    "max_end_line": 2394,
+    "repo": ""
+  },
+  "statement_window|lib/matplotlib/patches.py": {
+    "n_cells": 4,
+    "tail_cells": 2,
+    "tail_rate": 0.5,
+    "max_d_norm": 0.6267,
+    "max_role": "coder",
+    "max_span_tokens": 220,
+    "max_start_line": 2281,
+    "max_end_line": 2292,
+    "repo": ""
+  },
+  "statement_window|testing/python/metafunc.py": {
+    "n_cells": 4,
+    "tail_cells": 4,
+    "tail_rate": 1.0,
+    "max_d_norm": 0.6502,
+    "max_role": "coder",
+    "max_span_tokens": 154,
+    "max_start_line": 161,
+    "max_end_line": 172,
+    "repo": ""
+  },
+  "statement_window|lib/matplotlib/axes/_base.py": {
+    "n_cells": 4,
+    "tail_cells": 2,
+    "tail_rate": 0.5,
+    "max_d_norm": 0.7501,
+    "max_role": "coder",
+    "max_span_tokens": 137,
+    "max_start_line": 521,
+    "max_end_line": 532,
+    "repo": ""
+  }
+}

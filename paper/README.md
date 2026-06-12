@@ -1,11 +1,11 @@
-# CodeMAS EuroSys Draft
+# AgentTemplateKV EuroSys Draft
 
 This directory contains an anonymous EuroSys-style LaTeX paper draft for the
-current CodeMAS code-base segment reuse paper.
+current AgentTemplateKV code-base segment reuse paper.
 
 ## Current Handoff Status
 
-The current draft is framed around three CodeMAS contributions:
+The current draft is framed around three AgentTemplateKV contributions:
 
 1. Workflow Template Generation for coding MAS.
 2. Template-derived code-base segment hints for cache scheduling.
@@ -66,6 +66,31 @@ The script uses only Python standard-library modules and writes:
 Conceptual architecture PNGs are retained as bitmap backups. The paper body
 currently uses the TikZ versions for a more submission-style figure appearance.
 
+## Dataset and Artifact Retention
+
+The paper commits compact, claim-bearing artifacts only: generated tables,
+figures, summary JSON/CSV files, and the source scripts needed to regenerate
+them. Large raw manifests, model checkpoints, Hugging Face caches, server logs,
+and SWE-bench build workspaces are intentionally excluded.
+
+Current dataset sources:
+
+- SWE-bench Lite / Verified from Princeton NLP Hugging Face releases, consumed
+  through `results/repo_level_datasets/*.json` manifests and the local
+  SWE-bench harness.
+- Local source snapshots under `results/repo_level_datasets` for the AST,
+  code-graph, and codebase-segment studies.
+- Qwen2.5/Qwen3 model checkpoints from the local Hugging Face cache; checkpoint
+  files are not committed.
+
+The large `results/code_graph_kv_reuse/data/code_graph_precision_manifest.jsonl`
+is a derived manifest and is not part of the committed paper package. Regenerate
+it with:
+
+```bash
+python3 results/code_graph_kv_reuse/code_graph_bundle_analyzer.py --limit 30
+```
+
 ## Build
 
 The user's local environment can compile this paper with:
@@ -99,6 +124,9 @@ Keep these invariants in any future edits:
 - "Lossy" means cross-position RoPE-aligned KV reuse, not approximate code reuse.
 - SWE-bench pass@1 should be interpreted as lossless-vs-lossy delta evidence
   because the current 7B JSON-edit patch generator has low absolute pass@1.
+- TTFT should be phrased as bounded 8k single-segment stress evidence. The
+  16k/32k and multi-segment rows are fast-path diagnostics, not proof of robust
+  long-context acceleration.
 - Do not phrase KVFlow or KVCOMM as our contribution. Phrase them as prior work
   or as a baseline/reference design.
 

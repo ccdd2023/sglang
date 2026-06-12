@@ -6,10 +6,14 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from collections import defaultdict
 
 
 ROOT = Path("/home/gfy/CodeMAS_Project/sglang-kvflow")
 DATA = ROOT / "results" / "ast_granularity_kv_sensitivity" / "data"
+DEFAULT_INPUT = DATA / "ast_granularity_distance_7b_pool.json"
+if not DEFAULT_INPUT.exists():
+    DEFAULT_INPUT = DATA / "ast_granularity_distance_7b.json"
 
 
 ORDER = ["file_prefix", "class", "function", "method", "control_block", "statement_window"]
@@ -39,9 +43,60 @@ def table_for(bucket: dict, ordered: bool = False) -> list[str]:
     return lines
 
 
+def percentile(vals: list[float], q: float) -> float:
+    if not vals:
+        return 0.0
+    vals = sorted(vals)
+    return vals[min(len(vals) - 1, max(0, int(round((len(vals) - 1) * q))))]
+
+
+def cross_role_table(records: list[dict]) -> list[str]:
+    by_gran = defaultdict(list)
+    for row in records:
+        if row.get("agent_role") in {"coder", "reviewer"}:
+            by_gran[row["granularity"]].append(row)
+    lines = [
+        "| Granularity | spans | n | mean d_norm | p50 d_norm | p90 d_norm | max d_norm | tail >0.5 | retention toks |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for name in [key for key in ORDER if key in by_gran]:
+        rows = by_gran[name]
+        vals = [float(r["d_norm"]) for r in rows]
+        toks = {r["span_id"]: float(r["span_tokens"]) for r in rows}
+        tail = sum(1 for v in vals if v > 0.5) / max(1, len(vals))
+        lines.append(
+            f"| {name} | {len(toks)} | {len(rows)} | {fmt(sum(vals) / len(vals))} | "
+            f"{fmt(percentile(vals, 0.50))} | {fmt(percentile(vals, 0.90))} | "
+            f"{fmt(max(vals))} | {tail*100:.1f}% | {sum(toks.values()):.0f} |"
+        )
+    return lines
+
+
+def pool_table(records: list[dict]) -> list[str]:
+    rows = [r for r in records if r.get("agent_role") in {"coder", "reviewer"} and "own_anchor_rank" in r]
+    if not rows:
+        return [
+            "> Nearest-anchor pool diagnostics are unavailable in this artifact. Re-run `granularity_analyzer.py` with `--pool-diagnostics` to populate own-anchor rank, margin, and pool entropy.",
+        ]
+    by_gran = defaultdict(list)
+    for row in rows:
+        by_gran[row["granularity"]].append(row)
+    lines = [
+        "| Granularity | own-anchor top1 | mean margin | mean normalized entropy |",
+        "|---|---:|---:|---:|",
+    ]
+    for name in [key for key in ORDER if key in by_gran]:
+        bucket = by_gran[name]
+        top1 = sum(1 for r in bucket if r.get("own_anchor_top1")) / len(bucket)
+        margin = sum(float(r.get("nearest_anchor_margin", 0.0)) for r in bucket) / len(bucket)
+        entropy = sum(float(r.get("pool_entropy_norm", 0.0)) for r in bucket) / len(bucket)
+        lines.append(f"| {name} | {top1*100:.1f}% | {fmt(margin)} | {fmt(entropy)} |")
+    return lines
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", type=Path, default=DATA / "ast_granularity_distance_7b.json")
+    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
     parser.add_argument("--out", type=Path, default=ROOT / "results" / "ast_granularity_kv_sensitivity" / "report.md")
     args = parser.parse_args()
 
@@ -72,6 +127,16 @@ def main() -> None:
         "## By AST Granularity",
         "",
         *table_for(summary["by_granularity"], ordered=True),
+        "",
+        "## Cross-role-only AST Granularity",
+        "",
+        "This table excludes the planner self-comparison (`d_norm=0`) and keeps only coder/reviewer distances to the planner canonical span.",
+        "",
+        *cross_role_table(payload["records"]),
+        "",
+        "## KVCOMM-style Nearest-anchor Diagnostics",
+        "",
+        *pool_table(payload["records"]),
         "",
         "## By Token Bin",
         "",

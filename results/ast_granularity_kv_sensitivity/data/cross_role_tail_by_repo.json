@@ -1,0 +1,75 @@
+{
+  "threshold": 0.5,
+  "granularities": [
+    "class",
+    "statement_window"
+  ],
+  "repos": {
+    "astropy": {
+      "class_tail_cells": 0,
+      "statement_window_tail_cells": 0,
+      "class_cross_role_cells": 0,
+      "statement_window_cross_role_cells": 0
+    },
+    "django": {
+      "class_tail_cells": 0,
+      "statement_window_tail_cells": 0,
+      "class_cross_role_cells": 16,
+      "statement_window_cross_role_cells": 6
+    },
+    "flask": {
+      "class_tail_cells": 0,
+      "statement_window_tail_cells": 0,
+      "class_cross_role_cells": 2,
+      "statement_window_cross_role_cells": 2
+    },
+    "matplotlib": {
+      "class_tail_cells": 6,
+      "statement_window_tail_cells": 4,
+      "class_cross_role_cells": 30,
+      "statement_window_cross_role_cells": 12
+    },
+    "pylint": {
+      "class_tail_cells": 5,
+      "statement_window_tail_cells": 0,
+      "class_cross_role_cells": 10,
+      "statement_window_cross_role_cells": 2
+    },
+    "pytest": {
+      "class_tail_cells": 0,
+      "statement_window_tail_cells": 4,
+      "class_cross_role_cells": 0,
+      "statement_window_cross_role_cells": 6
+    },
+    "requests": {
+      "class_tail_cells": 1,
+      "statement_window_tail_cells": 0,
+      "class_cross_role_cells": 2,
+      "statement_window_cross_role_cells": 2
+    },
+    "scikit-learn": {
+      "class_tail_cells": 0,
+      "statement_window_tail_cells": 0,
+      "class_cross_role_cells": 0,
+      "statement_window_cross_role_cells": 18
+    },
+    "seaborn": {
+      "class_tail_cells": 0,
+      "statement_window_tail_cells": 0,
+      "class_cross_role_cells": 0,
+      "statement_window_cross_role_cells": 6
+    },
+    "xarray": {
+      "class_tail_cells": 0,
+      "statement_window_tail_cells": 0,
+      "class_cross_role_cells": 0,
+      "statement_window_cross_role_cells": 6
+    }
+  },
+  "zero_tail_repo_counts": {
+    "class": 7,
+    "statement_window": 8,
+    "combined_class_or_statement_window": 6
+  },
+  "unknown_paths": []
+}

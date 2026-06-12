@@ -37,6 +37,7 @@ def main() -> int:
     parser.add_argument("--max-fail-tests", type=int, default=1)
     parser.add_argument("--timeout", type=int, default=1200)
     parser.add_argument("--skip-existing-pass", action="store_true")
+    parser.add_argument("--recreate-env", action="store_true")
     parser.add_argument("--start-index", type=int, default=0)
     args = parser.parse_args()
 
@@ -71,6 +72,8 @@ def main() -> int:
             "--timeout",
             str(args.timeout),
         ]
+        if args.recreate_env:
+            cmd.append("--recreate-env")
         try:
             proc = run(cmd, timeout=args.timeout + 600)
             result = {

@@ -1,0 +1,106 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 420 300] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+6 0 obj
+<< /Length 2834 >>
+stream
+0.000 0.000 0.000 rg 0.000 0.000 0.000 RG
+BT /F2 12 Tf 18.0 278.0 Td (Near-match safety: false accepts) Tj ET
+0.820 0.840 0.860 rg 0.820 0.840 0.860 RG
+0.35 w 50.0 55.0 m 395.0 55.0 l S
+0.250 0.250 0.250 rg 0.250 0.250 0.250 RG
+BT /F1 7 Tf 8.0 52.0 Td (0) Tj ET
+0.820 0.840 0.860 rg 0.820 0.840 0.860 RG
+0.35 w 50.0 105.0 m 395.0 105.0 l S
+0.250 0.250 0.250 rg 0.250 0.250 0.250 RG
+BT /F1 7 Tf 8.0 102.0 Td (138) Tj ET
+0.820 0.840 0.860 rg 0.820 0.840 0.860 RG
+0.35 w 50.0 155.0 m 395.0 155.0 l S
+0.250 0.250 0.250 rg 0.250 0.250 0.250 RG
+BT /F1 7 Tf 8.0 152.0 Td (275) Tj ET
+0.820 0.840 0.860 rg 0.820 0.840 0.860 RG
+0.35 w 50.0 205.0 m 395.0 205.0 l S
+0.250 0.250 0.250 rg 0.250 0.250 0.250 RG
+BT /F1 7 Tf 8.0 202.0 Td (412) Tj ET
+0.820 0.840 0.860 rg 0.820 0.840 0.860 RG
+0.35 w 50.0 255.0 m 395.0 255.0 l S
+0.250 0.250 0.250 rg 0.250 0.250 0.250 RG
+BT /F1 7 Tf 8.0 252.0 Td (550) Tj ET
+0.820 0.840 0.860 rg 0.820 0.840 0.860 RG
+0.100 0.100 0.100 rg 0.100 0.100 0.100 RG
+0.80 w 50.0 55.0 m 50.0 255.0 l S
+0.80 w 50.0 55.0 m 395.0 55.0 l S
+0.220 0.450 0.700 rg 0.220 0.450 0.700 RG
+63.9 55.0 18.2 0.0 re f
+0.100 0.100 0.100 rg 0.100 0.100 0.100 RG
+BT /F1 7 Tf 61.9 59.0 Td (0) Tj ET
+0.220 0.450 0.700 rg 0.220 0.450 0.700 RG
+113.2 55.0 18.2 181.8 re f
+0.100 0.100 0.100 rg 0.100 0.100 0.100 RG
+BT /F1 7 Tf 111.2 240.8 Td (500) Tj ET
+0.220 0.450 0.700 rg 0.220 0.450 0.700 RG
+162.5 55.0 18.2 181.8 re f
+0.100 0.100 0.100 rg 0.100 0.100 0.100 RG
+BT /F1 7 Tf 160.5 240.8 Td (500) Tj ET
+0.220 0.450 0.700 rg 0.220 0.450 0.700 RG
+211.8 55.0 18.2 181.8 re f
+0.100 0.100 0.100 rg 0.100 0.100 0.100 RG
+BT /F1 7 Tf 209.8 240.8 Td (500) Tj ET
+0.220 0.450 0.700 rg 0.220 0.450 0.700 RG
+261.1 55.0 18.2 0.0 re f
+0.100 0.100 0.100 rg 0.100 0.100 0.100 RG
+BT /F1 7 Tf 259.1 59.0 Td (0) Tj ET
+0.220 0.450 0.700 rg 0.220 0.450 0.700 RG
+310.4 55.0 18.2 0.0 re f
+0.100 0.100 0.100 rg 0.100 0.100 0.100 RG
+BT /F1 7 Tf 308.4 59.0 Td (0) Tj ET
+0.220 0.450 0.700 rg 0.220 0.450 0.700 RG
+359.6 55.0 18.2 181.8 re f
+0.100 0.100 0.100 rg 0.100 0.100 0.100 RG
+BT /F1 7 Tf 357.6 240.8 Td (500) Tj ET
+0.220 0.450 0.700 rg 0.220 0.450 0.700 RG
+0.100 0.100 0.100 rg 0.100 0.100 0.100 RG
+BT /F1 6 Tf 53.0 36.0 Td (exact content ) Tj ET
+BT /F1 6 Tf 53.0 28.0 Td (gate) Tj ET
+BT /F1 6 Tf 102.3 36.0 Td (ast only) Tj ET
+BT /F1 6 Tf 151.6 36.0 Td (span overlap o) Tj ET
+BT /F1 6 Tf 151.6 28.0 Td (nly) Tj ET
+BT /F1 6 Tf 200.9 36.0 Td (path function ) Tj ET
+BT /F1 6 Tf 200.9 28.0 Td (name) Tj ET
+BT /F1 6 Tf 250.1 36.0 Td (content signat) Tj ET
+BT /F1 6 Tf 250.1 28.0 Td (ure) Tj ET
+BT /F1 6 Tf 299.4 36.0 Td (token text exa) Tj ET
+BT /F1 6 Tf 299.4 28.0 Td (ct) Tj ET
+BT /F1 6 Tf 348.7 36.0 Td (no gate) Tj ET
+0.220 0.450 0.700 rg 0.220 0.450 0.700 RG
+54.0 260.0 10.0 8.0 re f
+0.100 0.100 0.100 rg 0.100 0.100 0.100 RG
+BT /F1 8 Tf 68.0 260.0 Td (false accepts) Tj ET
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000251 00000 n 
+0000000321 00000 n 
+0000000396 00000 n 
+trailer << /Size 7 /Root 1 0 R >>
+startxref
+3282
+%%EOF

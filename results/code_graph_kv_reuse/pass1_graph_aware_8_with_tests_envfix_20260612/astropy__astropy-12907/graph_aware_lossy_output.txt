@@ -1,0 +1,1 @@
+{"edits":[{"path":"astropy/modeling/separable.py","search":"mat = np.zeros((noutp, model.n_inputs))","replace":"mat = np.zeros((noutp, model.n_inputs))\nif model.separable:\n    for i in range(model.n_inputs):\n        mat[i, i] = 1\n    if pos == 'right':\n        mat = np.roll(mat, (noutp - model.n_outputs))"}]}

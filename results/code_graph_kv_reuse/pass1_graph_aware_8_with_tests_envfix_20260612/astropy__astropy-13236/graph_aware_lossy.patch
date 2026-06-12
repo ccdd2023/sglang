@@ -1,0 +1,16 @@
+diff --git a/astropy/table/table.py b/astropy/table/table.py
+--- a/astropy/table/table.py
++++ b/astropy/table/table.py
+@@ -1240,6 +1240,12 @@
+                                 'did not return a valid mixin column')
+ 
+         # Structured ndarray gets viewed as a mixin unless already a valid
++        # Proposal: Add a FutureWarning and change behavior in 5.2.
++        # For now, keep the existing behavior.
++        if (not isinstance(data, Column) and not data_is_mixin
++                and isinstance(data, np.ndarray) and len(data.dtype) > 1):
++            data = data.view(NdarrayMixin)
++            data_is_mixin = True
+         # mixin class
+         if (not isinstance(data, Column) and not data_is_mixin
+                 and isinstance(data, np.ndarray) and len(data.dtype) > 1):

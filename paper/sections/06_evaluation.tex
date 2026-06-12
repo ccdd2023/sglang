@@ -4,7 +4,7 @@ We evaluate five research questions:
 \begin{description}[leftmargin=*]
 \item[RQ1] Does exact-content gating prevent unsafe reuse?
 \item[RQ2] How close is RoPE-aligned reused KV to fresh KV?
-\item[RQ3] Does coding-aware reuse improve cached tokens and latency?
+\item[RQ3] Does exact-content reuse improve TTFT in prefill-dominated coding-agent settings?
 \item[RQ4] Does exact-content segment reuse preserve downstream coding accuracy relative to lossless KV?
 \item[RQ5] How much repo-level reuse opportunity exists at larger scale?
 \end{description}
@@ -70,35 +70,40 @@ This experiment isolates the numerical part of segment reuse from patch-generati
 
 \input{tables/table_ttft_stress}
 
-\system's main performance question is whether exact-content code-segment reuse reduces prefill-dominated latency when long repository files recur across agents at non-prefix positions.
-Table~\ref{tab:ttft-stress} reports the KVCOMM-style stress experiment used for this purpose.
-The benchmark selects the longest repo-level code segments, measures streaming time-to-first-token (TTFT), and compares prefix-only caching against exact-content reuse with and without code-base hints.
-The stress workload uses short outputs so decode and HTTP overhead do not hide prefill savings.
-We additionally run a 32-token sanity setting to check that exact-content reuse preserves output token overlap against the prefix-only baseline.
+\system's main performance question is whether exact-content code-segment reuse reduces streaming time-to-first-token (TTFT) when the workload is dominated by repeated repository-file prefill rather than decode.
+Table~\ref{tab:ttft-stress} reports the 4090 TTFT-first micro/stress runs.
+The benchmark uses \texttt{max\_tokens=1}, varies code length and agent count, and compares prefix-only caching against exact-content reuse plus code-base hints.
+In the P0 sanity run, exact-content reuse plus hints reduces agent-level p50 TTFT from 246.9\,ms to 57.8\,ms, a 4.27$\times$ speedup; the corresponding p90 speedup is 6.44$\times$.
+In the P1 8k single-segment shards, the p50 speedup is 5.10$\times$ for two agents and 4.24$\times$ for three agents.
+These runs also keep output-token F1 at 1.0 against the prefix-only baseline.
+
+The same table deliberately includes harder boundary rows.
+With two 8k segments, or with 16k and 32k code blocks, exact-content signatures are still found, but the device-hit path is less stable and the p50/p90 TTFT gains shrink or disappear.
+We therefore treat the 8k single-segment result as the current positive TTFT evidence and the longer-context rows as implementation-limit diagnostics, not as a claim of robust acceleration for every long-context prompt.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figures/fig_ttft_speedup_by_length.pdf}
-  \caption{TTFT speedup by code length in the long-code stress workload.}
-  \Description{Bar chart showing exact-content reuse speedup over prefix-only caching for increasing code length buckets.}
+  \caption{Diagnostic p50 TTFT speedup across stress settings. The 8k single-segment case shows strong gains, while longer settings expose fast-path instability.}
+  \Description{Bar chart showing exact-content reuse p50 TTFT speedup over prefix-only caching for 8k, 16k, and 32k stress settings.}
   \label{fig:ttft-speedup}
 \end{figure}
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figures/fig_agent_scaling_speedup.pdf}
-  \caption{Cumulative workflow TTFT speedup as more downstream agents reuse the same exact code objects.}
-  \Description{Bar chart showing cumulative TTFT speedup for two, three, and five agent workflows.}
+  \caption{P50 TTFT speedup for 8k single-segment downstream-agent scaling.}
+  \Description{Bar chart showing p50 TTFT speedup for two-agent and three-agent 8k single-segment workflows.}
   \label{fig:agent-scaling}
 \end{figure}
 
 \input{tables/table_ablation}
 
-Table~\ref{tab:ablation} isolates the source of the TTFT speedup.
-The ``Hints only'' row injects code-base hint metadata without enabling exact-content segment reuse; it shows negligible speedup or cached-token gain over prefix-only, confirming that hint metadata alone does not drive the performance improvement.
-The ``Exact gate (no hints)'' row enables the anchor spans and exact-content match without agent-scheduling hints; it captures most of the speedup, indicating that the exact-content segment match is the primary mechanism.
-The ``Exact gate + RoPE $\delta$'' row adds the correct RoPE position delta on top of the exact gate, completing the full KVCOMM path.
-Together these rows demonstrate that the TTFT improvement comes from exact-content segment reuse, not from the hint scheduling layer or from prefix-cache coincidences.
+Table~\ref{tab:ablation} isolates the 8k two-agent single-segment setting.
+The ``Hints only'' row injects code-base hint metadata without enabling exact-content segment reuse and remains close to prefix-only.
+The exact-content rows are the ones that produce large p50 gains and high cached-token counts, indicating that the repeated code object, rather than hint metadata alone, drives the best-case TTFT improvement.
+However, the hints path still shows an incomplete consumed-counter signal: several requests report protected tokens or device hits without a matching consumed count.
+We therefore present this table as fast-path evidence plus an implementation caveat, not as proof that all serving metadata paths are fully closed.
 
 \input{tables/table_prefetch}
 
@@ -110,7 +115,7 @@ The current host storage backend is disabled in this run, so codebase prefetch q
 Even so, combining codebase hints with exact-content segment reuse raises average cached tokens from 1{,}582 to 2{,}593 (a 64\% increase) relative to the prefix-only baseline, and records an exact-content hit for 99 of 100 cases.
 Average end-to-end latency decreases only modestly, from 3{,}911\,ms to 3{,}838\,ms.
 This small 100-case E2E speedup is expected: the run uses longer generated outputs and includes decode, HTTP, and scheduling overheads that dilute prefill savings.
-We therefore use Table~\ref{tab:prefetch} as a realistic E2E serving sanity check, while Tables~\ref{tab:ttft-stress} and~\ref{tab:ablation} and Figures~\ref{fig:ttft-speedup} and~\ref{fig:agent-scaling} establish the primary prefill-dominated performance claim.
+We therefore use Table~\ref{tab:prefetch} as a realistic E2E serving sanity check, while Tables~\ref{tab:ttft-stress} and~\ref{tab:ablation} and Figures~\ref{fig:ttft-speedup} and~\ref{fig:agent-scaling} provide bounded TTFT-first evidence and expose the current fast-path limits.
 
 \input{tables/table_template_segments}
 
@@ -143,11 +148,12 @@ Lossless solves 3 cases; exact-content reuse solves 2.
 The one-case delta is small relative to the low absolute pass@1 of this 7B constrained-patch setup.
 Failure analysis shows many failures occur before task execution, in JSON edit extraction, patch synthesis, or clean apply, indicating that patch synthesis is a major bottleneck independent of KV reuse.
 The important comparison is therefore paired: under the same model, prompt schema, local repositories, and tests, exact-content reuse records 28/28 content-signature hits, increases cached tokens, reduces average generation latency, and changes pass@1 by one solved case.
+A follow-up seven-case environment-fixed shard with repair attempts improved JSON/diff/apply rates but solved 0/7 cases for both lossless and exact-content modes; we use that shard only as failure analysis for the constrained patch generator, not as a headline accuracy result.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figures/fig_passrate_main.pdf}
-  \caption{Lossless KV versus exact-content segment reuse on 28 discriminative SWE-bench cases. The reuse mode increases cached tokens and lowers latency with a one-case pass@1 delta.}
+  \caption{Lossless KV versus exact-content segment reuse on 28 discriminative SWE-bench cases. This is the official paired pass@1 comparison; harder-subset diagnostic figures are not used as the headline accuracy result.}
   \Description{Grouped bar chart comparing pass at one, clean apply, cached tokens, and latency for lossless and exact-content reuse modes.}
   \label{fig:passrate}
 \end{figure}

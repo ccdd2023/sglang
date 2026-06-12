@@ -64,6 +64,21 @@ def sha1_short(text: str) -> str:
     return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
 
 
+def git_commit() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(PROJECT),
+            text=True,
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
+        return result.stdout.strip() or "unknown"
+    except Exception:
+        return "unknown"
+
+
 def now_ms() -> float:
     return time.perf_counter() * 1000
 
@@ -275,10 +290,58 @@ def patch_paths(patch_text: str) -> list[str]:
     return paths
 
 
+def load_instance_id_filter(path: Path | None) -> set[str] | None:
+    if path is None:
+        return None
+    text = path.read_text(encoding="utf-8").strip()
+    if not text:
+        return set()
+    if text.startswith("["):
+        return {str(item) for item in json.loads(text)}
+    return {line.strip() for line in text.splitlines() if line.strip()}
+
+
+def load_graph_bundle_segments(args: argparse.Namespace) -> dict[str, list[CodeSegment]]:
+    """Load exact code graph bundles as optional patch-task code_base segments."""
+    if not args.enable_graph_aware_lossy or not args.code_graph_bundle_manifest.exists():
+        return {}
+
+    by_case: dict[str, list[CodeSegment]] = {}
+    seen: set[tuple[str, str, str]] = set()
+    for line in args.code_graph_bundle_manifest.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        if row.get("agent_role") != args.graph_bundle_role:
+            continue
+        if row.get("bundle_type") != args.graph_bundle_policy:
+            continue
+        instance_id = str(row.get("instance_id", ""))
+        target_file = str(row.get("target_file", "")).strip()
+        bundle_text = str(row.get("bundle_text", "")).rstrip()
+        if not instance_id or not target_file or not bundle_text:
+            continue
+        if args.max_graph_bundle_chars and len(bundle_text) > args.max_graph_bundle_chars:
+            bundle_text = bundle_text[: args.max_graph_bundle_chars].rstrip()
+        key = (instance_id, target_file, sha1_short(bundle_text))
+        if key in seen:
+            continue
+        seen.add(key)
+        by_case.setdefault(instance_id, []).append(CodeSegment(target_file, bundle_text))
+
+    for instance_id, segments in by_case.items():
+        by_case[instance_id] = segments[: args.graph_bundles_per_case]
+    return by_case
+
+
 def load_cases(args: argparse.Namespace) -> list[dict[str, Any]]:
     rows = json.loads(args.dataset.read_text(encoding="utf-8"))
+    instance_filter = load_instance_id_filter(args.instance_id_file)
+    if instance_filter is not None:
+        rows = [row for row in rows if row.get("instance_id") in instance_filter]
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     manifest_by_id = {row["instance_id"]: row for row in manifest["samples"]}
+    graph_segments_by_case = load_graph_bundle_segments(args)
     cases = []
     for row in rows[args.start_index : args.start_index + args.max_cases]:
         target_paths = patch_paths(row.get("patch", ""))
@@ -296,7 +359,15 @@ def load_cases(args: argparse.Namespace) -> list[dict[str, Any]]:
                 text = text[: args.max_file_chars]
             segments.append(CodeSegment(path, text.rstrip()))
         if segments:
-            cases.append({"instance": row, "segments": segments, "target_paths": target_paths})
+            graph_segments = graph_segments_by_case.get(row["instance_id"], [])
+            cases.append(
+                {
+                    "instance": row,
+                    "segments": segments,
+                    "graph_segments": graph_segments,
+                    "target_paths": target_paths,
+                }
+            )
     return cases
 
 
@@ -548,6 +619,7 @@ def synthesize_patch_from_json_edits(instance_id: str, text: str) -> tuple[str, 
         return "", {"ok": False, "error": "missing edits list", "edits": 0}
 
     before_after: dict[str, tuple[str, str]] = {}
+    seen_edits: set[tuple[str, str, str]] = set()
     for edit in edits:
         if not isinstance(edit, dict):
             return "", {"ok": False, "error": "edit is not an object", "edits": len(edits)}
@@ -565,6 +637,10 @@ def synthesize_patch_from_json_edits(instance_id: str, text: str) -> tuple[str, 
             return "", {"ok": False, "error": f"invalid edit fields for {path}", "edits": len(edits)}
         if "..." in replace and "..." not in search:
             return "", {"ok": False, "error": f"placeholder ellipsis in replacement for {path}", "edits": len(edits)}
+        edit_key = (path, search, replace)
+        if edit_key in seen_edits:
+            continue
+        seen_edits.add(edit_key)
         file_path = repo_dir / path
         if not file_path.exists():
             return "", {"ok": False, "error": f"file not found: {path}", "edits": len(edits)}
@@ -620,6 +696,8 @@ def evaluate_candidate(args: argparse.Namespace, instance_id: str, patch_path: P
         "--timeout",
         str(args.eval_timeout),
     ] + test_target_args(instance_id)
+    if args.recreate_candidate_env:
+        cmd.append("--recreate-env")
     result = run(cmd, cwd=PROJECT, timeout=args.eval_timeout + 120)
     return {
         "returncode": result.returncode,
@@ -664,6 +742,7 @@ async def run_benchmark(args: argparse.Namespace):
                 instance = case["instance"]
                 instance_id = instance["instance_id"]
                 segments = case["segments"]
+                graph_segments = case.get("graph_segments", [])
                 case_dir = OUT_DIR / instance_id
                 case_dir.mkdir(parents=True, exist_ok=True)
                 reset_repo_to_base(instance, PROJECT / "results" / "swebench_local_envs" / "repos" / instance_id)
@@ -689,16 +768,41 @@ async def run_benchmark(args: argparse.Namespace):
                         f"warm:{instance_id}",
                     ),
                 )
+                if args.enable_graph_aware_lossy and graph_segments:
+                    graph_warm_messages = build_messages(
+                        instance,
+                        graph_segments,
+                        f"planner graph-bundle warmup; policy={args.graph_bundle_policy}",
+                        args.output_schema,
+                        args.prompt_layout,
+                    )
+                    await post_chat(
+                        session,
+                        args.port,
+                        make_payload(
+                            args,
+                            tokenizer,
+                            graph_warm_messages,
+                            graph_segments,
+                            "lossless",
+                            True,
+                            False,
+                            f"graphwarm:{instance_id}:{args.graph_bundle_policy}",
+                        ),
+                    )
 
                 mode_results = []
-                for mode, reuse_mode, include_anchor, include_codebase_prefetch in [
-                    ("lossless", "lossless", False, False),
-                    ("lossy", "lossy", True, False),
-                    ("lossy_prefetch", "lossy", True, True),
-                ]:
+                mode_specs = [
+                    ("lossless", "lossless", False, False, segments),
+                    ("lossy", "lossy", True, False, segments),
+                    ("lossy_prefetch", "lossy", True, True, segments),
+                ]
+                if args.enable_graph_aware_lossy and graph_segments:
+                    mode_specs.append(("graph_aware_lossy", "lossy", True, False, graph_segments))
+                for mode, reuse_mode, include_anchor, include_codebase_prefetch, mode_segments in mode_specs:
                     messages = build_messages(
                         instance,
-                        segments,
+                        mode_segments,
                         mode,
                         args.output_schema,
                         args.prompt_layout,
@@ -713,7 +817,7 @@ async def run_benchmark(args: argparse.Namespace):
                                 args,
                                 tokenizer,
                                 messages,
-                                segments,
+                                mode_segments,
                                 reuse_mode,
                                 include_anchor,
                                 include_codebase_prefetch,
@@ -746,7 +850,7 @@ async def run_benchmark(args: argparse.Namespace):
                             repair_attempted = True
                             repair_messages = build_repair_messages(
                                 instance,
-                                segments,
+                                mode_segments,
                                 output,
                                 diff,
                                 apply_check.get("stderr_tail", ""),
@@ -761,7 +865,7 @@ async def run_benchmark(args: argparse.Namespace):
                                     args,
                                     tokenizer,
                                     repair_messages,
-                                    segments,
+                                    mode_segments,
                                     reuse_mode,
                                     include_anchor,
                                     include_codebase_prefetch,
@@ -795,6 +899,8 @@ async def run_benchmark(args: argparse.Namespace):
                                 "repair_elapsed_ms": repair_elapsed_ms,
                                 "cached_tokens": extract_cached_tokens(response["body"]),
                                 "lossy_meta": extract_lossy_meta(response["body"]),
+                                "segment_source": "code_graph_bundle" if mode_segments is graph_segments else "file_context",
+                                "segments": [{"name": s.name, "lines": len(s.text.splitlines())} for s in mode_segments],
                                 "raw_output_path": str(raw_path),
                                 "patch_path": str(patch_path),
                                 "diff_extracted": bool(diff.strip()),
@@ -818,6 +924,8 @@ async def run_benchmark(args: argparse.Namespace):
                                 "elapsed_ms": None,
                                 "cached_tokens": 0,
                                 "lossy_meta": {},
+                                "segment_source": "code_graph_bundle" if mode_segments is graph_segments else "file_context",
+                                "segments": [{"name": s.name, "lines": len(s.text.splitlines())} for s in mode_segments],
                                 "raw_output_path": str(raw_path),
                                 "patch_path": str(patch_path),
                                 "diff_extracted": False,
@@ -836,6 +944,7 @@ async def run_benchmark(args: argparse.Namespace):
                         "repo": instance["repo"],
                         "target_paths": case["target_paths"],
                         "segments": [{"name": s.name, "lines": len(s.text.splitlines())} for s in segments],
+                        "graph_segments": [{"name": s.name, "lines": len(s.text.splitlines())} for s in graph_segments],
                         "modes": mode_results,
                     }
                 )
@@ -847,19 +956,52 @@ async def run_benchmark(args: argparse.Namespace):
             proc.kill()
         kill_port(args.port)
 
-    for case in results:
-        for mode_result in case["modes"]:
-            patch_path = Path(mode_result["patch_path"])
-            if mode_result["diff_extracted"] and patch_path.read_text(encoding="utf-8").strip():
-                mode_result["candidate_test"] = evaluate_candidate(args, case["instance_id"], patch_path)
-            elif not mode_result.get("generation_error"):
+    if args.skip_candidate_tests:
+        for case in results:
+            for mode_result in case["modes"]:
                 mode_result["candidate_test"] = {
                     "returncode": None,
                     "stdout_tail": "",
-                    "stderr_tail": "no diff extracted",
+                    "stderr_tail": "skipped by --skip-candidate-tests",
                 }
+    else:
+        for case in results:
+            for mode_result in case["modes"]:
+                patch_path = Path(mode_result["patch_path"])
+                if mode_result["diff_extracted"] and patch_path.read_text(encoding="utf-8").strip():
+                    mode_result["candidate_test"] = evaluate_candidate(args, case["instance_id"], patch_path)
+                elif not mode_result.get("generation_error"):
+                    mode_result["candidate_test"] = {
+                        "returncode": None,
+                        "stdout_tail": "",
+                        "stderr_tail": "no diff extracted",
+                    }
 
-    summary = {"model": args.model, "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"), "results": results}
+    summary = {
+        "model": args.model,
+        "dataset": str(args.dataset),
+        "manifest": str(args.manifest),
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "git_commit": git_commit(),
+        "command": " ".join(sys.argv),
+        "experiment": {
+            "repair_attempts": args.repair_attempts,
+            "output_schema": args.output_schema,
+            "prompt_layout": args.prompt_layout,
+            "force_evict": args.force_evict,
+            "disable_overlap_schedule": args.disable_overlap_schedule,
+            "max_running_requests": args.max_running_requests,
+            "max_cases": args.max_cases,
+            "start_index": args.start_index,
+            "instance_id_file": str(args.instance_id_file) if args.instance_id_file else None,
+            "enable_graph_aware_lossy": args.enable_graph_aware_lossy,
+            "code_graph_bundle_manifest": str(args.code_graph_bundle_manifest),
+            "graph_bundle_policy": args.graph_bundle_policy,
+            "graph_bundle_role": args.graph_bundle_role,
+            "skip_candidate_tests": args.skip_candidate_tests,
+        },
+        "results": results,
+    }
     (OUT_DIR / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(json.dumps(summary, indent=2, ensure_ascii=False))
 
@@ -870,6 +1012,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--python", default=DEFAULT_PYTHON)
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument("--instance-id-file", type=Path, default=None,
+                        help="Optional JSON list or newline-delimited instance ids used to filter the dataset before start/max slicing.")
     parser.add_argument("--port", type=int, default=30000)
     parser.add_argument("--max-cases", type=int, default=3)
     parser.add_argument("--start-index", type=int, default=0)
@@ -893,10 +1037,28 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-running-requests", type=int, default=None,
                         help="Cap on the number of concurrent in-flight requests (SGLang --max-running-requests). Lower values reduce lock-pressure on radix-tree leaves between requests.")
     parser.add_argument("--eval-timeout", type=int, default=1200)
+    parser.add_argument("--skip-candidate-tests", action="store_true",
+                        help="Skip setup_swebench_local_env candidate execution and keep generation/apply-check diagnostics only.")
+    parser.add_argument("--recreate-candidate-env", action="store_true",
+                        help="Pass --recreate-env to setup_swebench_local_env.py for every candidate test run and record fresh env sanity in the candidate report.")
     parser.add_argument("--server-timeout", type=int, default=180)
     parser.add_argument("--repair-attempts", type=int, default=1)
     parser.add_argument("--output-schema", choices=["diff", "json-edit"], default="diff")
     parser.add_argument("--prompt-layout", choices=["agenttemplatekv", "legacy"], default="agenttemplatekv")
+    parser.add_argument("--enable-graph-aware-lossy", action="store_true",
+                        help="Add a graph_aware_lossy mode that warms and generates from exact code graph bundle segments.")
+    parser.add_argument("--code-graph-bundle-manifest", type=Path,
+                        default=PROJECT / "results" / "code_graph_kv_reuse" / "data" / "code_graph_precision_manifest.jsonl",
+                        help="JSONL manifest containing bundle_text records from the code graph precision census.")
+    parser.add_argument("--graph-bundle-policy", default="call_neighborhood_1hop",
+                        choices=["ast_function_only", "call_neighborhood_1hop", "reverse_callers_1hop", "import_dependency_bundle", "test_target_bundle"],
+                        help="Bundle type used for graph_aware_lossy.")
+    parser.add_argument("--graph-bundle-role", default="planner", choices=["planner", "coder", "reviewer"],
+                        help="Role row to read from the graph bundle manifest. Text is identical across roles; this keeps provenance explicit.")
+    parser.add_argument("--graph-bundles-per-case", type=int, default=3,
+                        help="Maximum number of graph bundle segments inserted into each graph_aware_lossy prompt.")
+    parser.add_argument("--max-graph-bundle-chars", type=int, default=22000,
+                        help="Optional per-bundle char cap before inserting graph bundle text into prompts. 0 disables truncation.")
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
     return parser.parse_args()
 

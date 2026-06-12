@@ -17,7 +17,7 @@
 \def\input@path{{./}{paper/}}
 \makeatother
 
-\newcommand{\system}{CodeMAS\xspace}
+\newcommand{\system}{AgentTemplateKV\xspace}
 \newcommand{\kvcomm}{KVCOMM\xspace}
 \newcommand{\exactgate}{\texttt{exact\_code\_content\_signature}\xspace}
 \newcommand{\prefetchhint}{\texttt{codebase\_prefetch\_hints}\xspace}
@@ -41,8 +41,10 @@ Third, an exact-content reuse policy uses AST and anchor metadata only to locate
 On SWE-bench Verified code-base-content workloads, \system identifies 58.8M reusable code tokens across 500 repo-level cases.
 In controlled safety tests, the exact-content gate has zero false accepts, while AST-only and span-only gates accept semantically changed code.
 In numerical ablations, correct RoPE delta alignment reaches 0.999 mean K cosine, 0.0147 next-token KL divergence, and 96.9\% top-1 token agreement.
-On a 30-case local SWE-bench pass@1 comparison with Qwen2.5-7B-Instruct, exact-content segment reuse preserves the lossless baseline within one solved case while increasing average cached tokens from 1253 to 2190 and reducing generation latency from 2052 ms to 1729 ms.
-These results suggest that coding-aware templates can turn repository repetition into safe serving-time KV reuse without allowing approximate or AST-only code substitution.
+On one RTX~4090, TTFT-first 8k stress runs show 4.27--5.10$\times$ p50 TTFT speedups in the current single-segment fast path, while longer and multi-segment settings expose remaining implementation limits.
+In a realistic 100-case serving check, exact-content reuse raises average cached tokens from 1582 to 2593 with 99/100 exact-content hits, but only modest end-to-end latency change.
+On a 28-case local SWE-bench pass@1 comparison with Qwen2.5-7B-Instruct, exact-content segment reuse stays within one solved case of the lossless baseline.
+These results suggest that coding-aware templates can turn repository repetition into safe serving-time KV reuse without claiming approximate code substitution or broad accuracy gains.
 \end{abstract}
 
 \begin{CCSXML}

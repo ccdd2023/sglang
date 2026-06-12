@@ -110,6 +110,67 @@ def d_norm(a: dict, b: dict) -> dict:
     }
 
 
+def pool_diagnostics(
+    current: dict,
+    span_id: str,
+    granularity: str,
+    canonical_pool: dict[str, dict],
+    spans: dict[str, dict],
+    own_d_norm: float,
+    temperature: float,
+) -> dict:
+    """KVCOMM-style nearest-anchor diagnostic within one AST granularity.
+
+    This does not relax the exact-content safety gate. It only asks whether the
+    correct exact span remains the nearest planner anchor among same-granularity
+    candidates after the role-specific prefix changes.
+    """
+    candidates = [
+        (sid, kv)
+        for sid, kv in canonical_pool.items()
+        if spans[sid]["granularity"] == granularity
+    ]
+    if len(candidates) <= 1:
+        return {
+            "pool_size": len(candidates),
+            "own_anchor_rank": 1,
+            "nearest_nonself_d_norm": 0.0,
+            "nearest_anchor_margin": 0.0,
+            "nearest_anchor_ratio": 0.0,
+            "pool_entropy_bits": 0.0,
+            "pool_entropy_norm": 0.0,
+            "own_anchor_top1": True,
+        }
+
+    distances = []
+    for sid, kv in candidates:
+        distances.append((sid, d_norm(current, kv)["d_norm"]))
+    distances.sort(key=lambda item: item[1])
+    rank = next((idx + 1 for idx, (sid, _) in enumerate(distances) if sid == span_id), len(distances))
+    nearest_nonself = next((dist for sid, dist in distances if sid != span_id), own_d_norm)
+    margin = nearest_nonself - own_d_norm
+    ratio = nearest_nonself / own_d_norm if own_d_norm > 0 else 0.0
+
+    temp = max(temperature, 1e-6)
+    shifted = [-(dist - distances[0][1]) / temp for _, dist in distances]
+    weights = [math.exp(max(-50.0, min(50.0, val))) for val in shifted]
+    total = sum(weights) or 1.0
+    probs = [w / total for w in weights]
+    entropy = -sum(p * math.log2(max(p, 1e-12)) for p in probs)
+    entropy_norm = entropy / math.log2(len(probs)) if len(probs) > 1 else 0.0
+
+    return {
+        "pool_size": len(candidates),
+        "own_anchor_rank": rank,
+        "nearest_nonself_d_norm": nearest_nonself,
+        "nearest_anchor_margin": margin,
+        "nearest_anchor_ratio": ratio,
+        "pool_entropy_bits": entropy,
+        "pool_entropy_norm": entropy_norm,
+        "own_anchor_top1": rank == 1,
+    }
+
+
 def stats(vals: list[float]) -> dict:
     if not vals:
         return {"count": 0}
@@ -181,6 +242,8 @@ def main() -> None:
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--max-seq-len", type=int, default=2048)
     parser.add_argument("--max-variations", type=int, default=-1)
+    parser.add_argument("--pool-diagnostics", action="store_true")
+    parser.add_argument("--pool-temperature", type=float, default=0.1)
     args = parser.parse_args()
 
     spans = {row["span_id"]: row for row in json.loads(args.spans.read_text(encoding="utf-8"))}
@@ -193,42 +256,65 @@ def main() -> None:
     for var in variations:
         by_span[var["span_id"]][var["agent_role"]] = var
 
+    canonical_pool: dict[str, dict] = {}
+    if args.pool_diagnostics:
+        for idx, (span_id, role_vars) in enumerate(by_span.items(), start=1):
+            if "planner" not in role_vars:
+                continue
+            canonical_pool[span_id] = capture_span_kv(
+                model, tokenizer, role_vars["planner"], args.device, args.max_seq_len
+            )
+            if idx % 30 == 0:
+                print(f"[ast_granularity] cached planner anchors {idx}/{len(by_span)}", flush=True)
+
     records = []
     captured = 0
     for span_id, role_vars in by_span.items():
         if "planner" not in role_vars:
             continue
         span = spans[span_id]
-        canonical = capture_span_kv(model, tokenizer, role_vars["planner"], args.device, args.max_seq_len)
+        canonical = canonical_pool.get(span_id) or capture_span_kv(model, tokenizer, role_vars["planner"], args.device, args.max_seq_len)
         for role in ("planner", "coder", "reviewer"):
             if role not in role_vars:
                 continue
             current = canonical if role == "planner" else capture_span_kv(model, tokenizer, role_vars[role], args.device, args.max_seq_len)
             dist = d_norm(current, canonical)
-            records.append(
-                {
-                    "span_id": span_id,
-                    "agent_role": role,
-                    "granularity": span["granularity"],
-                    "ast_type": span["ast_type"],
-                    "path": span["path"],
-                    "start_line": span["start_line"],
-                    "end_line": span["end_line"],
-                    "approx_tokens": span["approx_tokens"],
-                    "token_bin": token_bin(span["approx_tokens"]),
-                    "content_signature": span["content_signature"],
-                    **dist,
-                    "target_start": current["start"],
-                    "target_end": current["end"],
-                    "seq_len": current["seq_len"],
-                }
-            )
+            record = {
+                "span_id": span_id,
+                "agent_role": role,
+                "granularity": span["granularity"],
+                "ast_type": span["ast_type"],
+                "path": span["path"],
+                "start_line": span["start_line"],
+                "end_line": span["end_line"],
+                "approx_tokens": span["approx_tokens"],
+                "token_bin": token_bin(span["approx_tokens"]),
+                "content_signature": span["content_signature"],
+                **dist,
+                "target_start": current["start"],
+                "target_end": current["end"],
+                "seq_len": current["seq_len"],
+            }
+            if args.pool_diagnostics and role != "planner":
+                record.update(
+                    pool_diagnostics(
+                        current,
+                        span_id,
+                        span["granularity"],
+                        canonical_pool,
+                        spans,
+                        dist["d_norm"],
+                        args.pool_temperature,
+                    )
+                )
+            records.append(record)
             captured += 1
             if role != "planner":
                 del current
             if captured % 30 == 0:
                 print(f"[ast_granularity] captured {captured}/{len(variations)}", flush=True)
-        del canonical
+        if not args.pool_diagnostics:
+            del canonical
         if args.device.startswith("cuda"):
             torch.cuda.empty_cache()
 
@@ -240,6 +326,8 @@ def main() -> None:
             "n_spans": len(spans),
             "n_variations": len(variations),
             "max_seq_len": args.max_seq_len,
+            "pool_diagnostics": args.pool_diagnostics,
+            "pool_temperature": args.pool_temperature,
         },
         "summary": aggregate(records),
         "records": records,

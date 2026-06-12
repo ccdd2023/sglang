@@ -1,15 +1,15 @@
 \begin{table}[t]
 \centering
-\caption{KVCOMM performance ablation. Speedup is relative to prefix-only; cached-token gain is increase over prefix-only.}
+\caption{Mode ablation on the 8k, two-agent, single-segment TTFT shard. The row shows p50 gains and fast-path metadata; the consumed counter remains incomplete in the hints path.}
 \label{tab:ablation}
 \begin{tabular}{lrrrrr}
 \toprule
-Mode & P50 TTFT (ms) & Speedup & Cached gain & Exact hits & Output F1 \\
+Mode & P50 TTFT & Speedup & Cached gain & Exact hit & Device-hit \\
 \midrule
-Prefix only & 4156.3 & 1.00$\times$ & +0 & 0/20 & 1.000 \\
-Hints only & 4153.8 & 1.00$\times$ & +0 & 0/20 & 0.604 \\
-Exact gate (no hints) & 4142.4 & 1.00$\times$ & +1 & 13/20 & 0.757 \\
-Exact gate + RoPE $\delta$ & 4149.9 & 1.00$\times$ & -22 & 13/20 & 0.668 \\
+Prefix only & 334.7 & 1.00$\times$ & +0 & 0.0\% & 0.0\% \\
+Hints only & 338.2 & 0.99$\times$ & +80 & 0.0\% & 0.0\% \\
+Exact gate (no hints) & 65.4 & 5.11$\times$ & +1189 & 100.0\% & 50.0\% \\
+Exact gate + hints & 65.7 & 5.10$\times$ & +1666 & 100.0\% & 70.0\% \\
 \bottomrule
 \end{tabular}
 \end{table}

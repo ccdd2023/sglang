@@ -29,5 +29,5 @@ The contributions are:
 \item We identify code-base repetition as a distinct cache-reuse pattern in coding MAS: large exact code segments recur across agents but not necessarily at prompt prefixes.
 \item We design a template-derived code-base hint schema that exposes future code-base use through \prefetchhint while preserving a strict separation between scheduling hints and reuse safety gates.
 \item We implement a code-specific exact-content reuse policy on top of an SGLang/KVFlow-style prototype, combining candidate localization, content-signature gating, and RoPE delta alignment without claiming KVFlow or \kvcomm themselves as new contributions.
-\item We evaluate \system on SWE-bench Verified code-base workloads, controlled ablations, repo-level reuse experiments, and local pass@1 tests, showing zero false accepts for the full gate, near-lossless logit behavior, and cached-token/latency gains with small lossless-vs-lossy accuracy delta.
+\item We evaluate \system on SWE-bench Verified code-base workloads, controlled ablations, repo-level reuse experiments, TTFT-first 4090 stress runs, and local pass@1 tests, showing zero false accepts for the full gate, near-lossless logit behavior, bounded 8k TTFT gains, realistic cached-token increases, and a small lossless-vs-lossy accuracy delta.
 \end{itemize}
