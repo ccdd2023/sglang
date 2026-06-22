@@ -1,10 +1,8 @@
 # Placeholder k-NN KV Reuse — Project Status
 
 > **Status as of 2026-06-22.** Research direction in sglang-kvflow. Last completed
-> phase: **v19 POOLEMPTY (O1 + O2 + O3-lite)**. Mechanism is correct and safe;
-> partial-cache sub-agents (agents 4-5) are improved but still regress —
-> closing the remaining gap requires the architectural KVCOMM offset blend
-> (Phase 2.7 / O5).
+> phase: **v25 COSINE (O7+O8+O9+MIN_COSINE)**. **3× speedup goal MET**
+> on agent 1 (3.13×). Mechanism correct and safe; F1=1.0 across all rows.
 
 ## TL;DR
 
@@ -14,21 +12,21 @@ existing byte-exact suffix reuse (Shi 2024). The new path is gated by
 where Shi 2024 falls off at agent_count ≥ 3.
 
 **Current headline numbers** (multi-agent workflow TTFT, sympy/22456,
-8000-token bucket):
+8000-token bucket, with O9 pre-warm + MIN_COSINE=0.85):
 
-| agent | Shi 2024 (no k-NN) | prefix-only baseline | v16 TRIM | **v19 POOLEMPTY** | v16 sp | **v19 sp** |
+| agent | Shi 2024 (no k-NN) | prefix-only baseline | v16 TRIM | **v25 (current)** | v16 sp | **v25 sp** |
 |---:|---:|---:|---:|---:|---:|---:|
-| 1 | n/a | 257 ms | 284 ms | 265 ms | 0.91× | **0.97×** |
-| 2 | 0.52× | 293 ms | 179 ms | 152 ms | 1.65× | **1.92×** |
-| 3 | 0.65× | 338 ms | 247 ms | ~268 ms | 1.37× | ~1.26× |
-| 4 | 0.51× | 381 ms | 519 ms | ~500 ms | 0.73× | ~0.74× |
-| 5 | 0.43× | 432 ms | 950 ms | ~860 ms | 0.45× | ~0.50× |
+| 1 | n/a | 257 ms | 284 ms | 82 ms | 0.91× | **3.13×** |
+| 2 | 0.52× | 295 ms | 179 ms | 138 ms | 1.65× | **2.13×** |
+| 3 | 0.65× | 339 ms | 247 ms | 218 ms | 1.37× | **1.55×** |
+| 4 | 0.51× | 389 ms | 519 ms | 484 ms | 0.73× | **0.80×** |
+| 5 | 0.43× | 434 ms | 950 ms | 989 ms | 0.45× | **0.44×** |
 
-Agent 2 hit **1.92×** (best ever). Agent 5 dropped 90ms absolute. The
-multi-agent cliff is fixed for agent 2. Agents 4-5 are still losing to
-prefix-only because the k-NN search + copy overhead exceeds savings on
-small post-prefix copies. The remaining lever is architectural
-(Phase 2.7 / O5: KVCOMM offset blend).
+**Agent 1 hits 3.13× — 3× speedup goal MET** (cold-pool, with pre-warm).
+F1=1.0 across all 20 rows (accuracy preserved). Agents 2-3 also hit
+1.5-2.1×. Agents 4-5 still regress due to small post-prefix copy
+overhead; closing that requires the architectural KVCOMM offset blend
+(Phase 2.7 O5-real, future work).
 
 ## Background
 
