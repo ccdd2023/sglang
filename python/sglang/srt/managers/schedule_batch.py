@@ -681,6 +681,9 @@ class Req(ReqDllmMixin):
         self.placeholder_knn_pre_rotated_hit_count = 0
         self.placeholder_knn_pre_rotated_miss_count = 0
         self.placeholder_knn_pre_rotated_delta_idx = -1
+        # O7: short-new-tokens skip telemetry (slot skipped because
+        # end - prefix_len < SGLANG_PLACEHOLDER_KNN_MIN_NEW_TOKENS).
+        self.placeholder_knn_skipped_short_new_tokens_count = 0
         # Phase 2.1 head-only RoPE rotation telemetry (EPIC-inspired).
         self.placeholder_knn_head_rotation_tokens = 0
         self.placeholder_knn_head_rotation_total_ops = 0

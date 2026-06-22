@@ -233,6 +233,10 @@ class SchedulerOutputProcessorMixin:
             "placeholder_knn_pre_rotated_miss_count": getattr(
                 req, "placeholder_knn_pre_rotated_miss_count", None
             ),
+            # O7: short-new-tokens skip telemetry.
+            "placeholder_knn_skipped_short_new_tokens_count": getattr(
+                req, "placeholder_knn_skipped_short_new_tokens_count", None
+            ),
             # Phase 2.1 head-only RoPE rotation telemetry (EPIC-inspired).
             "placeholder_knn_head_rotation_tokens": getattr(
                 req, "placeholder_knn_head_rotation_tokens", None

@@ -2344,6 +2344,16 @@ class RadixCache(BasePrefixCache):
         max_slot_len = int(
             os.environ.get("SGLANG_PLACEHOLDER_KNN_MAX_SLOT_LEN", "4096")
         )
+        # O7: skip the k-NN search entirely when the post-prefix new
+        # token count is below a threshold.  At small new counts the
+        # copy would be cost-skipped anyway (Phase 2.6 O2), so we save
+        # the embedding compute (~24ms) up front.  Default 0 (disabled,
+        # behavior preserved); set to e.g. 200 to enable.
+        min_new_tokens = int(
+            os.environ.get(
+                "SGLANG_PLACEHOLDER_KNN_MIN_NEW_TOKENS", "0"
+            )
+        )
         # Cost-aware abort guard: when entry_len × layer_num exceeds this
         # threshold, the slot's RoPE delta rotation would cost more GPU
         # time than the dense prefill it would skip.  Default 114688
@@ -2426,6 +2436,7 @@ class RadixCache(BasePrefixCache):
                 cost_guard_enabled, copy_skip_margin,
                 copy_launch_overhead_us, copy_move_per_token_us,
                 copy_prefill_per_token_us, copy_rope_per_layer_us,
+                min_new_tokens,
             )
         except Exception as ke:  # pragma: no cover - defensive
             logger.warning(
@@ -2459,8 +2470,11 @@ class RadixCache(BasePrefixCache):
         copy_move_per_token_us: float = 4,
         copy_prefill_per_token_us: float = 40,
         copy_rope_per_layer_us: float = 2,
+        min_new_tokens: int = 0,  # O7: skip k-NN search if new_tokens < this
     ) -> Tuple[List[torch.Tensor], TreeNode]:
-        from sglang.srt.mem_cache.semantic_suffix import embed_single_text as _est
+        from sglang.srt.mem_cache.semantic_suffix import (
+            embed_single_text_cached as _est,
+        )
 
         # `prefix_len` is the length that the prefix cache matched BEFORE
         # any k-NN copy in this body call.  We use this for the
@@ -2512,6 +2526,27 @@ class RadixCache(BasePrefixCache):
                 pool = list(self.placeholder_anchor_pool.get(slot_id, []))
             if not pool:
                 miss_count += 1
+                continue
+            # O7: skip the k-NN search when the post-prefix new token
+            # count is below a threshold.  At small new counts the
+            # cost-vs-prefill gate (Phase 2.6 O2) would fire anyway,
+            # so we save the embedding compute (~24ms) up front.
+            # Disabled by default (min_new_tokens=0).
+            new_tokens = end - prefix_len
+            if (
+                min_new_tokens > 0
+                and new_tokens > 0
+                and new_tokens < min_new_tokens
+            ):
+                setattr(
+                    req,
+                    "placeholder_knn_skipped_short_new_tokens_count",
+                    getattr(
+                        req,
+                        "placeholder_knn_skipped_short_new_tokens_count",
+                        0,
+                    ) + 1,
+                )
                 continue
             query_emb = _est(text or " ", emb=emb)
             if query_emb is None:
