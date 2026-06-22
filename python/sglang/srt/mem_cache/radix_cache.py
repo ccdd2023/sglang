@@ -2346,14 +2346,18 @@ class RadixCache(BasePrefixCache):
             ):
                 skipped_invalid += 1
                 continue
-            query_emb = _est(text or " ", emb=emb)
-            if query_emb is None:
-                miss_count += 1
-                continue
-
+            # Phase 2.5+ optimization: short-circuit when the pool has no
+            # entries for this slot_id.  Saves the embedding compute
+            # (~24ms on agent 1 cold pool).  The pool is per-slot_id, so
+            # if there's nothing for this slot_id the k-NN search is
+            # guaranteed to return [].
             with self.placeholder_anchor_pool_lock:
                 pool = list(self.placeholder_anchor_pool.get(slot_id, []))
             if not pool:
+                miss_count += 1
+                continue
+            query_emb = _est(text or " ", emb=emb)
+            if query_emb is None:
                 miss_count += 1
                 continue
 
