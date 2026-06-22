@@ -2216,6 +2216,48 @@ class RadixCache(BasePrefixCache):
                 "SGLANG_PLACEHOLDER_KNN_MAX_OVERLAP_RATIO", "0.5"
             )
         )
+        # Phase 2.6: cost-vs-prefill gate (CacheBlend HKVD-style).  Skip
+        # the copy when alloc + move_kv + RoPE cost exceeds the prefill
+        # saving × margin.  Calibrated defaults from v16 per-agent cost
+        # analysis (see MULTI_AGENT_PLACEHOLDER_V16_TRIM_RESULTS.md):
+        #   - 20-30 ms per copy call (CPU dispatch + cuda sync dominates
+        #     for small copy_lens)
+        #   - ~4 μs/token move_kv_cache tiled kernel (28 layers)
+        #   - ~40 μs/token prefill on Qwen2.5-7B / RTX 4090
+        #   - ~2 μs/layer head-only RoPE for 2 tokens
+        # Set COPY_COST_GUARD_ENABLED=0 to disable and let the legacy
+        # max_rope_ops safety net alone.
+        cost_guard_enabled = (
+            os.environ.get(
+                "SGLANG_PLACEHOLDER_KNN_COPY_COST_GUARD_ENABLED", "1"
+            )
+            == "1"
+        )
+        copy_skip_margin = float(
+            os.environ.get(
+                "SGLANG_PLACEHOLDER_KNN_COPY_SKIP_MARGIN", "1.0"
+            )
+        )
+        copy_launch_overhead_us = float(
+            os.environ.get(
+                "SGLANG_PLACEHOLDER_KNN_COPY_LAUNCH_OVERHEAD_US", "20000"
+            )
+        )
+        copy_move_per_token_us = float(
+            os.environ.get(
+                "SGLANG_PLACEHOLDER_KNN_COPY_MOVE_PER_TOKEN_US", "4"
+            )
+        )
+        copy_prefill_per_token_us = float(
+            os.environ.get(
+                "SGLANG_PLACEHOLDER_KNN_COPY_PREFILL_PER_TOKEN_US", "40"
+            )
+        )
+        copy_rope_per_layer_us = float(
+            os.environ.get(
+                "SGLANG_PLACEHOLDER_KNN_COPY_ROPE_PER_LAYER_US", "2"
+            )
+        )
         # Wrap the rest in try/except so a single bad span cannot crash
         # the request pipeline.  Any exception becomes a "no-op" and
         # sets req.placeholder_anchor_pool_skipped_invalid_count.
@@ -2224,6 +2266,9 @@ class RadixCache(BasePrefixCache):
                 req, exact_values, exact_node, spans, emb,
                 top_k, min_cos, max_slot_len, max_rope_ops, head_tokens,
                 max_overlap_ratio,
+                cost_guard_enabled, copy_skip_margin,
+                copy_launch_overhead_us, copy_move_per_token_us,
+                copy_prefill_per_token_us, copy_rope_per_layer_us,
             )
         except Exception as ke:  # pragma: no cover - defensive
             logger.warning(
@@ -2247,6 +2292,16 @@ class RadixCache(BasePrefixCache):
         max_rope_ops: int = 0,
         head_tokens: int = 2,  # Phase 2.1: EPIC-inspired head-only RoPE
         max_overlap_ratio: float = 0.5,  # Phase 2.5: skip when overlap_ratio > this
+        # Phase 2.6: cost-vs-prefill gate (CacheBlend HKVD-style).
+        # Default False in the body signature so existing unit tests
+        # don't trip the new gate; production enables via env var
+        # SGLANG_PLACEHOLDER_KNN_COPY_COST_GUARD_ENABLED=1 in the wrapper.
+        cost_guard_enabled: bool = False,
+        copy_skip_margin: float = 1.0,
+        copy_launch_overhead_us: float = 20000,
+        copy_move_per_token_us: float = 4,
+        copy_prefill_per_token_us: float = 40,
+        copy_rope_per_layer_us: float = 2,
     ) -> Tuple[List[torch.Tensor], TreeNode]:
         from sglang.srt.mem_cache.semantic_suffix import embed_single_text as _est
 
@@ -2363,6 +2418,56 @@ class RadixCache(BasePrefixCache):
                     overlap_len, entry_len,
                 )
                 continue
+            # Phase 2.6: cost-vs-prefill gate (CacheBlend HKVD-style).
+            # The empirical per-copy cost is dominated by CPU dispatch +
+            # cuda sync (~20ms); the prefill saving scales with
+            # copy_len.  Below the crossover (small copy_len), the copy
+            # is net-negative; dense prefill handles the few new tokens
+            # cheaper.  Cost model is parameterized via env vars and
+            # can be calibrated per hardware/model.
+            if cost_guard_enabled and copy_len > 0:
+                try:
+                    layer_num = (
+                        self.token_to_kv_pool_allocator
+                        .get_kvcache().layer_num
+                    )
+                except Exception:  # pragma: no cover - defensive
+                    layer_num = 0
+                eff_head_tokens = (
+                    copy_len
+                    if head_tokens <= 0
+                    else min(head_tokens, copy_len)
+                )
+                rope_cost_us = (
+                    eff_head_tokens * layer_num * copy_rope_per_layer_us
+                    if layer_num > 0
+                    else 0
+                )
+                copy_cost_us = (
+                    copy_launch_overhead_us
+                    + copy_len * copy_move_per_token_us
+                    + rope_cost_us
+                )
+                prefill_saving_us = copy_len * copy_prefill_per_token_us
+                if copy_cost_us > prefill_saving_us * copy_skip_margin:
+                    setattr(
+                        req,
+                        "placeholder_anchor_pool_skipped_cost_count",
+                        getattr(
+                            req,
+                            "placeholder_anchor_pool_skipped_cost_count",
+                            0,
+                        ) + 1,
+                    )
+                    logger.info(
+                        "[placeholder_knn] rid=%s slot=%s skip-cost: "
+                        "copy_cost=%.1fus > prefill_saving=%.1fus × "
+                        "margin=%.2f (copy_len=%d head=%d layers=%d)",
+                        getattr(req, "rid", "?"), slot_id,
+                        copy_cost_us, prefill_saving_us, copy_skip_margin,
+                        copy_len, eff_head_tokens, layer_num,
+                    )
+                    continue
             if copy_len <= 0:
                 # Slot entirely within prefix region, or anchor shorter
                 # than overlap. Nothing useful to copy; fall back to the

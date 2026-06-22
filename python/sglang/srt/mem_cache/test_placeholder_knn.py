@@ -1303,5 +1303,234 @@ class PlaceholderHighOverlapSkipTests(unittest.TestCase):
         self.assertEqual(req.placeholder_knn_skipped_high_overlap_count, 0)
 
 
+class PlaceholderCostVsPrefillTests(unittest.TestCase):
+    """Phase 2.6: cost-vs-prefill gate (CacheBlend HKVD-style).  Skip
+    the copy when alloc + move + RoPE cost exceeds the prefill saving
+    × margin.  The cost model is parameterized and can be calibrated
+    per hardware/model.
+    """
+
+    def setUp(self):
+        from sglang.srt.mem_cache import semantic_suffix as ss
+        ss.reset_for_tests()
+        self._saved = {
+            k: os.environ.get(k)
+            for k in (
+                "SGLANG_PLACEHOLDER_KNN_HEAD_TOKENS",
+                "SGLANG_PLACEHOLDER_KNN_MAX_OVERLAP_RATIO",
+                "SGLANG_PLACEHOLDER_KNN_COPY_COST_GUARD_ENABLED",
+                "SGLANG_SEMANTIC_SUFFIX_ENABLED",
+            )
+        }
+        os.environ["SGLANG_PLACEHOLDER_KNN_HEAD_TOKENS"] = "2"
+        # Disable high-overlap skip so the cost-vs-prefill gate is the
+        # only thing firing.
+        os.environ["SGLANG_PLACEHOLDER_KNN_MAX_OVERLAP_RATIO"] = "1.0"
+        # Enable the cost guard for these tests.
+        os.environ["SGLANG_PLACEHOLDER_KNN_COPY_COST_GUARD_ENABLED"] = "1"
+        os.environ["SGLANG_SEMANTIC_SUFFIX_ENABLED"] = "1"
+        from sglang.srt.mem_cache import semantic_suffix as _ss
+        self._emb = _ss.load_embedder()
+        if self._emb is None:
+            self.skipTest("embedder unavailable on this host")
+
+    def tearDown(self):
+        from sglang.srt.mem_cache import semantic_suffix as ss
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        ss.reset_for_tests()
+
+    def _build_req(self, slot_text: str, start_token: int = 100,
+                   end_token: int = 3500) -> object:
+        req = type("R", (), {})()
+        req.placeholder_anchor_token_spans = [
+            {
+                "slot_id": "code_base1",
+                "label": "code_base1",
+                "start_token": start_token,
+                "end_token": end_token,
+                "content_signature": "fake_sig",
+                "text": slot_text,
+            }
+        ]
+        for f in (
+            "placeholder_anchor_pool_hit_count",
+            "placeholder_anchor_pool_miss_count",
+            "placeholder_kv_prefill_matched_slots",
+            "placeholder_kv_prefill_skipped_tokens",
+            "placeholder_anchor_pool_skipped_cost_count",
+            "placeholder_knn_skipped_high_overlap_count",
+            "placeholder_knn_head_rotation_tokens",
+            "placeholder_knn_head_rotation_total_ops",
+            "placeholder_kv_prefill_overlap_tokens",
+        ):
+            setattr(req, f, 0)
+        req.placeholder_knn_topk_similarity_mean = 0.0
+        req.placeholder_knn_copy_method = "none"
+        return req
+
+    def _populate_pool_with_anchor(self, rc, slot_id, n_tokens,
+                                    best_start_pos=0):
+        from sglang.srt.mem_cache.semantic_suffix import embed_single_text
+        entry = _make_entry(slot_id, start_pos=best_start_pos,
+                            n=n_tokens, embed_dim=384)
+        entry.pool_embedding = embed_single_text(
+            "fake anchor text for cost-vs-prefill test", emb=self._emb,
+        )
+        with rc.placeholder_anchor_pool_lock:
+            rc.placeholder_anchor_pool.setdefault(slot_id, []).append(entry)
+        return entry
+
+    def _run_body(self, rc, req, slot_start, slot_end, anchor_n_tokens,
+                  prefix_len=0,
+                  cost_guard_enabled=True,
+                  copy_skip_margin=1.0,
+                  copy_launch_overhead_us=20000,
+                  copy_move_per_token_us=4,
+                  copy_prefill_per_token_us=40,
+                  copy_rope_per_layer_us=2):
+        """Run body with monkey-patched _apply_rope_delta_to_head. Returns
+        captured RoPE calls.  Cost guard parameters default to the
+        production-calibrated values; tests override as needed.
+        """
+        from sglang.srt.mem_cache.radix_cache import RadixCache
+        captured = []
+
+        def spy_head(k_buffer, dst_slots, head_len, delta):
+            captured.append({
+                "dst_shape": tuple(dst_slots.shape),
+                "delta_value": int(delta),
+                "head_len": int(head_len),
+            })
+            return head_len
+
+        prev_head = getattr(rc, "_apply_rope_delta_to_head", None)
+        rc._apply_rope_delta_to_head = spy_head
+        try:
+            self._populate_pool_with_anchor(
+                rc, "code_base1", n_tokens=anchor_n_tokens,
+            )
+            rc.token_to_kv_pool_allocator.alloc = lambda n: torch.zeros(
+                n, dtype=torch.long,
+            )
+            fake_exact_values = (
+                [torch.zeros(prefix_len, dtype=torch.long)]
+                if prefix_len > 0 else []
+            )
+            RadixCache._try_placeholder_knn_lossy_match_body(
+                rc, req, fake_exact_values, None,
+                [{"slot_id": "code_base1", "start_token": slot_start,
+                  "end_token": slot_end,
+                  "content_signature": "fake_sig",
+                  "text": "fake anchor text"}],
+                self._emb, top_k=4, min_cos=0.0,
+                max_slot_len=4096, max_rope_ops=114688,
+                head_tokens=2,
+                max_overlap_ratio=1.0,  # disable O1 gate for these tests
+                cost_guard_enabled=cost_guard_enabled,
+                copy_skip_margin=copy_skip_margin,
+                copy_launch_overhead_us=copy_launch_overhead_us,
+                copy_move_per_token_us=copy_move_per_token_us,
+                copy_prefill_per_token_us=copy_prefill_per_token_us,
+                copy_rope_per_layer_us=copy_rope_per_layer_us,
+            )
+        finally:
+            if prev_head is not None:
+                rc._apply_rope_delta_to_head = prev_head
+            else:
+                delattr(rc, "_apply_rope_delta_to_head")
+        return captured
+
+    def test_skip_small_copy_when_cost_exceeds_saving(self):
+        """anchor_n_tokens=100, no trim (start >= prefix_len), entry_len=100,
+        copy_len=100.  copy_cost = 20000 + 100*4 + 2*28*2 = 20512 μs.
+        prefill_saving = 100 * 40 = 4000 μs.  20512 > 4000 → skip.
+        """
+        rc = _FakeRadixCacheWithBody(layer_num=28)
+        req = self._build_req("anchor text", start_token=200, end_token=4000)
+        captured = self._run_body(
+            rc, req,
+            slot_start=200, slot_end=4000,
+            anchor_n_tokens=100,
+            prefix_len=0,  # no trim
+        )
+        self.assertEqual(captured, [])
+        self.assertEqual(req.placeholder_anchor_pool_skipped_cost_count, 1)
+        self.assertEqual(req.placeholder_kv_prefill_matched_slots, 0)
+
+    def test_allow_large_copy_when_saving_exceeds_cost(self):
+        """anchor_n_tokens=2000, entry_len=2000, copy_len=2000.
+        copy_cost = 20000 + 2000*4 + 2*28*2 = 28112 μs.
+        prefill_saving = 2000 * 40 = 80000 μs.  28112 < 80000 → copy.
+        """
+        rc = _FakeRadixCacheWithBody(layer_num=28)
+        req = self._build_req("anchor text", start_token=200, end_token=4096)
+        captured = self._run_body(
+            rc, req,
+            slot_start=200, slot_end=4096,
+            anchor_n_tokens=2000,
+            prefix_len=0,
+        )
+        self.assertEqual(len(captured), 1)
+        self.assertEqual(req.placeholder_anchor_pool_skipped_cost_count, 0)
+        self.assertEqual(req.placeholder_kv_prefill_matched_slots, 1)
+
+    def test_disabled_with_cost_guard_enabled_false(self):
+        """With cost_guard_enabled=False, even a 50-token copy proceeds
+        (the gate is bypassed).
+        """
+        rc = _FakeRadixCacheWithBody(layer_num=28)
+        req = self._build_req("anchor text", start_token=200, end_token=4000)
+        captured = self._run_body(
+            rc, req,
+            slot_start=200, slot_end=4000,
+            anchor_n_tokens=50,
+            prefix_len=0,
+            cost_guard_enabled=False,
+        )
+        self.assertEqual(len(captured), 1)
+        self.assertEqual(req.placeholder_anchor_pool_skipped_cost_count, 0)
+
+    def test_margin_zero_is_more_aggressive(self):
+        """Setting copy_skip_margin=0.0 means even tiny copy_cost > 0
+        triggers skip.  Effectively always skip (unless cost is exactly 0).
+        """
+        rc = _FakeRadixCacheWithBody(layer_num=28)
+        req = self._build_req("anchor text", start_token=200, end_token=4096)
+        captured = self._run_body(
+            rc, req,
+            slot_start=200, slot_end=4096,
+            anchor_n_tokens=2000,  # would normally copy
+            prefix_len=0,
+            copy_skip_margin=0.0,
+        )
+        # Even a "should copy" slot is skipped with margin=0.
+        self.assertEqual(captured, [])
+        self.assertEqual(req.placeholder_anchor_pool_skipped_cost_count, 1)
+
+    def test_margin_relaxes_threshold(self):
+        """Setting copy_skip_margin=3.0 requires prefill_saving to be 3x
+        copy_cost.  A 200-token copy with margin=1.0 is skipped (cost~21ms,
+        saving~8ms).  With margin=3.0 the same copy proceeds because
+        20912 < 8000 × 3 = 24000.  This demonstrates the margin is a
+        knob that can be tuned per workload.
+        """
+        rc = _FakeRadixCacheWithBody(layer_num=28)
+        req = self._build_req("anchor text", start_token=200, end_token=4096)
+        captured = self._run_body(
+            rc, req,
+            slot_start=200, slot_end=4096,
+            anchor_n_tokens=200,
+            prefix_len=0,
+            copy_skip_margin=3.0,  # very lenient
+        )
+        # 200-token copy with margin=3: 20912 < 8000*3=24000 → proceed
+        self.assertEqual(len(captured), 1)
+        self.assertEqual(req.placeholder_anchor_pool_skipped_cost_count, 0)
+
+
 if __name__ == "__main__":
     unittest.main()
