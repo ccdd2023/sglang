@@ -2354,6 +2354,13 @@ class RadixCache(BasePrefixCache):
                 "SGLANG_PLACEHOLDER_KNN_MIN_NEW_TOKENS", "0"
             )
         )
+        # O8: skip the k-NN search when prefix cache already covers
+        # most of the slot (span-level).  Default 1.0 (disabled).
+        max_span_overlap_ratio = float(
+            os.environ.get(
+                "SGLANG_PLACEHOLDER_KNN_MAX_SPAN_OVERLAP_RATIO", "1.0"
+            )
+        )
         # Cost-aware abort guard: when entry_len × layer_num exceeds this
         # threshold, the slot's RoPE delta rotation would cost more GPU
         # time than the dense prefill it would skip.  Default 114688
@@ -2436,7 +2443,7 @@ class RadixCache(BasePrefixCache):
                 cost_guard_enabled, copy_skip_margin,
                 copy_launch_overhead_us, copy_move_per_token_us,
                 copy_prefill_per_token_us, copy_rope_per_layer_us,
-                min_new_tokens,
+                min_new_tokens, max_span_overlap_ratio,
             )
         except Exception as ke:  # pragma: no cover - defensive
             logger.warning(
@@ -2471,6 +2478,7 @@ class RadixCache(BasePrefixCache):
         copy_prefill_per_token_us: float = 40,
         copy_rope_per_layer_us: float = 2,
         min_new_tokens: int = 0,  # O7: skip k-NN search if new_tokens < this
+        max_span_overlap_ratio: float = 1.0,  # O8: skip if span overlap > this
     ) -> Tuple[List[torch.Tensor], TreeNode]:
         from sglang.srt.mem_cache.semantic_suffix import (
             embed_single_text_cached as _est,
@@ -2544,6 +2552,27 @@ class RadixCache(BasePrefixCache):
                     getattr(
                         req,
                         "placeholder_knn_skipped_short_new_tokens_count",
+                        0,
+                    ) + 1,
+                )
+                continue
+            # O8: skip the k-NN search when the prefix cache already
+            # covers most of the slot.  At high overlap_ratio, even a
+            # perfect copy can't recover more than (1-overlap_ratio) *
+            # entry_len tokens, which is bounded.  Default
+            # max_span_overlap_ratio=1.0 (disabled).
+            span_overlap = max(0, prefix_len - start)
+            if (
+                max_span_overlap_ratio < 1.0
+                and (end - start) > 0
+                and span_overlap / (end - start) > max_span_overlap_ratio
+            ):
+                setattr(
+                    req,
+                    "placeholder_knn_skipped_high_span_overlap_count",
+                    getattr(
+                        req,
+                        "placeholder_knn_skipped_high_span_overlap_count",
                         0,
                     ) + 1,
                 )

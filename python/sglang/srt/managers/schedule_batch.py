@@ -684,6 +684,9 @@ class Req(ReqDllmMixin):
         # O7: short-new-tokens skip telemetry (slot skipped because
         # end - prefix_len < SGLANG_PLACEHOLDER_KNN_MIN_NEW_TOKENS).
         self.placeholder_knn_skipped_short_new_tokens_count = 0
+        # O8: high-span-overlap skip telemetry (slot skipped because
+        # span-level overlap_ratio > SGLANG_PLACEHOLDER_KNN_MAX_SPAN_OVERLAP_RATIO).
+        self.placeholder_knn_skipped_high_span_overlap_count = 0
         # Phase 2.1 head-only RoPE rotation telemetry (EPIC-inspired).
         self.placeholder_knn_head_rotation_tokens = 0
         self.placeholder_knn_head_rotation_total_ops = 0
