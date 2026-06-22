@@ -677,6 +677,10 @@ class Req(ReqDllmMixin):
         # Phase 2.5 skip-high-overlap telemetry (slot skipped because
         # overlap_ratio exceeded SGLANG_PLACEHOLDER_KNN_MAX_OVERLAP_RATIO).
         self.placeholder_knn_skipped_high_overlap_count = 0
+        # Phase 2.7 / O5: pre-rotated head K hit/miss telemetry.
+        self.placeholder_knn_pre_rotated_hit_count = 0
+        self.placeholder_knn_pre_rotated_miss_count = 0
+        self.placeholder_knn_pre_rotated_delta_idx = -1
         # Phase 2.1 head-only RoPE rotation telemetry (EPIC-inspired).
         self.placeholder_knn_head_rotation_tokens = 0
         self.placeholder_knn_head_rotation_total_ops = 0

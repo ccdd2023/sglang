@@ -754,6 +754,9 @@ class OpenAIServingChat(OpenAIServingBase):
                                 "placeholder_anchor_pool_skipped_cost_count",
                                 # Phase 2.5: skip-high-overlap telemetry.
                                 "placeholder_knn_skipped_high_overlap_count",
+                                # Phase 2.7 / O5: pre-rotated head K telemetry.
+                                "placeholder_knn_pre_rotated_hit_count",
+                                "placeholder_knn_pre_rotated_miss_count",
                                 # Phase 2.1 head-only RoPE rotation.
                                 "placeholder_knn_head_rotation_tokens",
                                 "placeholder_knn_head_rotation_total_ops",
@@ -1210,6 +1213,9 @@ class OpenAIServingChat(OpenAIServingBase):
             "placeholder_anchor_pool_skipped_cost_count",
             # Phase 2.5: skip-high-overlap telemetry.
             "placeholder_knn_skipped_high_overlap_count",
+            # Phase 2.7 / O5: pre-rotated head K telemetry.
+            "placeholder_knn_pre_rotated_hit_count",
+            "placeholder_knn_pre_rotated_miss_count",
             # Phase 2.1 head-only RoPE rotation.
             "placeholder_knn_head_rotation_tokens",
             "placeholder_knn_head_rotation_total_ops",

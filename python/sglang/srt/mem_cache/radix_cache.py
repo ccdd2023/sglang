@@ -94,6 +94,17 @@ class AnchorKVEntry:
         self.pool_embedding = pool_embedding
         self.embedding_text = embedding_text
         self.last_access_time = last_access_time
+        # Phase 2.7 / O5: pre-rotated head K at multiple delta values,
+        # computed at write time when
+        # SGLANG_PLACEHOLDER_KNN_PRE_ROTATE_DELTAS is set.  Read path uses
+        # these to skip the per-layer rotation loop when delta_request
+        # matches a stored delta (exact or nearest).  Both default None
+        # for full backward compat with v19 anchors.
+        # pre_rotated_head_k[delta_idx][L] is the pre-rotated K for layer
+        # L at delta pre_rotated_deltas[delta_idx].  Shape per tensor:
+        # [head_tokens, H, D].
+        self.pre_rotated_head_k: Optional[List[List[torch.Tensor]]] = None
+        self.pre_rotated_deltas: Optional[List[int]] = None
 
     def __repr__(self):
         return (
@@ -1403,6 +1414,42 @@ class RadixCache(BasePrefixCache):
                 embedding_text=embed_target,
                 last_access_time=time.monotonic(),
             )
+            # Phase 2.7 / O5: pre-rotate head K at write time.  When
+            # SGLANG_PLACEHOLDER_KNN_PRE_ROTATE_DELTAS is set, compute
+            # the rotated head K at each requested delta and attach to
+            # the entry.  Read path uses these to skip the per-layer
+            # rotation loop when delta_request matches.  Empty env var
+            # disables (default).
+            try:
+                pre_rot_env = os.environ.get(
+                    "SGLANG_PLACEHOLDER_KNN_PRE_ROTATE_DELTAS", ""
+                ).strip()
+                if pre_rot_env:
+                    deltas = [
+                        int(x.strip())
+                        for x in pre_rot_env.split(",")
+                        if x.strip()
+                    ]
+                    head_tokens = int(os.environ.get(
+                        "SGLANG_PLACEHOLDER_KNN_HEAD_TOKENS", "2",
+                    ))
+                    try:
+                        kvcache = (
+                            self.token_to_kv_pool_allocator.get_kvcache()
+                        )
+                    except Exception:
+                        kvcache = None
+                    pre_k, pre_deltas = (
+                        self._compute_pre_rotated_head_k_for_entry(
+                            entry, kvcache, head_tokens, deltas,
+                        )
+                    )
+                    entry.pre_rotated_head_k = pre_k
+                    entry.pre_rotated_deltas = pre_deltas
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug(
+                    "[placeholder_knn] pre-rotate setup failed: %s", exc,
+                )
             with self.placeholder_anchor_pool_lock:
                 self.placeholder_anchor_pool.setdefault(slot_id, []).append(entry)
                 self._evict_placeholder_pool_slot_locked(slot_id)
@@ -1576,6 +1623,116 @@ class RadixCache(BasePrefixCache):
         )
         self._apply_rope_delta_to_keys(k_buffer, head_dst, delta_tensor)
         return head_len
+
+    def _compute_pre_rotated_head_k_for_entry(
+        self, entry: "AnchorKVEntry", kvcache, head_tokens: int,
+        deltas: List[int],
+    ) -> Tuple[Optional[List[List[torch.Tensor]]], Optional[List[int]]]:
+        """Phase 2.7 / O5: compute pre-rotated head K at each requested
+        delta, attach to entry.  Returns (per_delta_per_layer_rotated_k,
+        sorted_deltas) or (None, None) on any failure.  Used at write
+        time to amortize the per-layer rotation loop across many reads.
+        """
+        if not deltas or head_tokens <= 0:
+            return None, None
+        if getattr(self, "rope_rotary_dim", 0) <= 0:
+            return None, None
+        if kvcache is None:
+            return None, None
+        try:
+            k_buffer = kvcache.k_buffer
+            n_kv = len(entry.kv_indices)
+            actual_head = min(int(head_tokens), n_kv)
+            if actual_head <= 0:
+                return None, None
+            head_indices = entry.kv_indices[:actual_head].long().to(
+                device=k_buffer[0].device,
+            )
+            # Original (unrotated) head K: gather once across all layers.
+            # Shape per layer: [actual_head, num_kv_heads, head_dim].
+            orig_k_per_layer = [
+                k_cache.index_select(0, head_indices) for k_cache in k_buffer
+            ]
+            rotated_per_delta: List[List[torch.Tensor]] = []
+            for delta in sorted(deltas):
+                delta_t = torch.full(
+                    (actual_head,), int(delta), dtype=torch.long,
+                    device=head_indices.device,
+                )
+                cos, sin = self._compute_rope_cos_sin_for_delta(delta_t)
+                cos = cos.to(
+                    device=head_indices.device,
+                    dtype=orig_k_per_layer[0].dtype,
+                )
+                sin = sin.to(
+                    device=head_indices.device,
+                    dtype=orig_k_per_layer[0].dtype,
+                )
+                from sglang.srt.layers.rotary_embedding.utils import (
+                    apply_rotary_emb,
+                )
+                is_neox = getattr(self, "rope_is_neox_style", True)
+                rotated_layers = []
+                for L in range(len(k_buffer)):
+                    k_rot = apply_rotary_emb(
+                        orig_k_per_layer[L], cos, sin, is_neox,
+                    )
+                    rotated_layers.append(k_rot.contiguous())
+                rotated_per_delta.append(rotated_layers)
+            return rotated_per_delta, sorted(deltas)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug(
+                "[placeholder_knn] pre-rotate skipped: %s", exc,
+            )
+            return None, None
+
+    def _apply_pre_rotated_head_k(
+        self, k_buffer, dst_kv: torch.Tensor, entry: "AnchorKVEntry",
+        delta: int, head_tokens: int,
+    ) -> Optional[int]:
+        """Phase 2.7 / O5: if entry has pre_rotated_head_k and delta
+        matches a stored value (or the nearest within tolerance),
+        scatter the pre-rotated head K directly into dst_kv[:head_tokens]
+        for each layer.  Returns the delta_idx used (or None on miss).
+        The caller should fall back to _apply_rope_delta_to_head on None.
+        """
+        if entry.pre_rotated_head_k is None or entry.pre_rotated_deltas is None:
+            return None
+        deltas = entry.pre_rotated_deltas
+        if not deltas:
+            return None
+        # Exact match preferred.
+        if delta in deltas:
+            idx = deltas.index(delta)
+        else:
+            # Nearest within half the smallest gap between stored deltas.
+            nearest_idx = min(
+                range(len(deltas)),
+                key=lambda i: abs(deltas[i] - delta),
+            )
+            tolerance = (
+                max(1, abs(deltas[1] - deltas[0]) // 2)
+                if len(deltas) > 1
+                else 256
+            )
+            if abs(deltas[nearest_idx] - delta) > tolerance:
+                return None
+            idx = nearest_idx
+        rotated_layers = entry.pre_rotated_head_k[idx]
+        if rotated_layers is None or len(rotated_layers) != len(k_buffer):
+            return None
+        head_dst = dst_kv[:head_tokens].long().contiguous()
+        try:
+            for L, k_cache in enumerate(k_buffer):
+                k_cache[head_dst] = rotated_layers[L].to(
+                    device=k_cache.device, dtype=k_cache.dtype,
+                )
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug(
+                "[placeholder_knn] pre-rotated scatter failed: %s", exc,
+            )
+            return None
+        return idx
 
     def _try_lossy_fuzzy_match(
         self,
@@ -2606,9 +2763,63 @@ class RadixCache(BasePrefixCache):
                         )
                         rotated = copy_len
                     else:
-                        rotated = self._apply_rope_delta_to_head(
-                            kvcache.k_buffer, dst_kv, head_tokens, delta,
-                        )
+                        # Phase 2.7 / O5: try pre-rotated head K first.
+                        # If the anchor has pre_rotated_head_k and
+                        # delta matches a stored delta (exact or
+                        # nearest within tolerance), do a direct scatter
+                        # and skip the per-layer rotation loop.  Falls
+                        # through to the runtime call on miss.  Method
+                        # existence check is for test stubs that don't
+                        # inherit from RadixCache.
+                        pre_rot_idx = None
+                        if hasattr(self, "_apply_pre_rotated_head_k"):
+                            try:
+                                pre_rot_idx = self._apply_pre_rotated_head_k(
+                                    kvcache.k_buffer, dst_kv, best, delta,
+                                    head_tokens,
+                                )
+                            except Exception as pre_:  # pragma: no cover - defensive
+                                logger.debug(
+                                    "[placeholder_knn] pre-rotated scatter "
+                                    "failed: %s", pre_,
+                                )
+                                pre_rot_idx = None
+                        if pre_rot_idx is not None:
+                            rotated = head_tokens
+                            setattr(
+                                req,
+                                "placeholder_knn_pre_rotated_hit_count",
+                                getattr(
+                                    req,
+                                    "placeholder_knn_pre_rotated_hit_count",
+                                    0,
+                                ) + 1,
+                            )
+                            setattr(
+                                req,
+                                "placeholder_knn_pre_rotated_delta_idx",
+                                pre_rot_idx,
+                            )
+                        else:
+                            if (
+                                best.pre_rotated_head_k is not None
+                                and best.pre_rotated_deltas
+                            ):
+                                # Pool has pre-rotated but delta didn't
+                                # match → count as miss.
+                                setattr(
+                                    req,
+                                    "placeholder_knn_pre_rotated_miss_count",
+                                    getattr(
+                                        req,
+                                        "placeholder_knn_pre_rotated_miss_count",
+                                        0,
+                                    ) + 1,
+                                )
+                            rotated = self._apply_rope_delta_to_head(
+                                kvcache.k_buffer, dst_kv, head_tokens,
+                                delta,
+                            )
                 except Exception as re_:  # pragma: no cover - defensive
                     logger.debug(
                         "[placeholder_knn] rope delta skipped: %s", re_,

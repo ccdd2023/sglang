@@ -363,6 +363,13 @@ class _FakeRadixCacheWithBody(_FakeRadixCache):
         # args monkey-patch these via `_run_body`.
         self._apply_rope_delta_to_keys = _FakeRadixCacheWithBody._noop_apply_rope_keys
         self._apply_rope_delta_to_head = _FakeRadixCacheWithBody._noop_apply_rope_head
+        # Phase 2.7 / O5: stub for the new pre-rotated head K path so
+        # the body's hasattr() check finds it.  Tests that want to
+        # exercise the pre-rotated hit path monkey-patch this.
+        from sglang.srt.mem_cache.radix_cache import RadixCache
+        self._apply_pre_rotated_head_k = (
+            RadixCache._apply_pre_rotated_head_k.__get__(self)
+        )
 
     @staticmethod
     def _noop_apply_rope_keys(k_buffer, dst_slots, delta_positions):
@@ -1662,6 +1669,277 @@ class PlaceholderPoolEmptyShortCircuitTests(unittest.TestCase):
         # Body proceeded: matched_slots incremented.
         self.assertEqual(req.placeholder_anchor_pool_miss_count, 0)
         self.assertGreaterEqual(req.placeholder_kv_prefill_matched_slots, 1)
+
+
+class PlaceholderPreRotatedHeadKTests(unittest.TestCase):
+    """Phase 2.7 / O5: pre-rotated head K at multiple delta values.
+    At write time, the anchor stores the rotated head K for a small set
+    of representative deltas.  At read time, if delta_request matches a
+    stored delta (exact or nearest within tolerance), the body does a
+    single scatter per layer instead of the per-layer rotation loop.
+    """
+
+    def setUp(self):
+        from sglang.srt.mem_cache import semantic_suffix as ss
+        ss.reset_for_tests()
+        self._saved = {
+            k: os.environ.get(k)
+            for k in (
+                "SGLANG_PLACEHOLDER_KNN_HEAD_TOKENS",
+                "SGLANG_PLACEHOLDER_KNN_PRE_ROTATE_DELTAS",
+                "SGLANG_PLACEHOLDER_KNN_MAX_OVERLAP_RATIO",
+                "SGLANG_SEMANTIC_SUFFIX_ENABLED",
+            )
+        }
+        os.environ["SGLANG_PLACEHOLDER_KNN_HEAD_TOKENS"] = "2"
+        os.environ["SGLANG_PLACEHOLDER_KNN_PRE_ROTATE_DELTAS"] = "0,500,2000"
+        os.environ["SGLANG_PLACEHOLDER_KNN_MAX_OVERLAP_RATIO"] = "1.0"
+        os.environ["SGLANG_SEMANTIC_SUFFIX_ENABLED"] = "1"
+        from sglang.srt.mem_cache import semantic_suffix as _ss
+        self._emb = _ss.load_embedder()
+        if self._emb is None:
+            self.skipTest("embedder unavailable on this host")
+
+    def tearDown(self):
+        from sglang.srt.mem_cache import semantic_suffix as ss
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        ss.reset_for_tests()
+
+    def _make_kvcache_with_layers(self, n_layers=4, max_tokens=16,
+                                   n_kv=4, head_dim=8):
+        """Build a fake kvcache with enough room for indexing by head_tokens."""
+        class FakeKV:
+            layer_num = n_layers
+            def __init__(self):
+                self.k_buffer = [
+                    torch.zeros(max_tokens, n_kv, head_dim)
+                    for _ in range(n_layers)
+                ]
+                self.v_buffer = [
+                    torch.zeros(max_tokens, n_kv, head_dim)
+                    for _ in range(n_layers)
+                ]
+        return FakeKV()
+
+    def _make_entry_with_pre_rot(self, slot_id="code_base1", start_pos=0,
+                                  n=8, deltas=(0, 500, 2000), n_layers=4,
+                                  n_kv=4, head_dim=8):
+        """Construct a synthetic entry WITH pre-rotated head K."""
+        entry = _make_entry(slot_id, start_pos=start_pos, n=n)
+        from sglang.srt.mem_cache.semantic_suffix import embed_single_text
+        entry.pool_embedding = embed_single_text(
+            "fake anchor text", emb=self._emb,
+        )
+        head_tokens = 2
+        rotated_per_delta = []
+        for _ in deltas:
+            layers = [
+                torch.zeros(head_tokens, n_kv, head_dim)
+                for _ in range(n_layers)
+            ]
+            rotated_per_delta.append(layers)
+        entry.pre_rotated_head_k = rotated_per_delta
+        entry.pre_rotated_deltas = list(deltas)
+        return entry
+
+    def test_helper_returns_none_when_no_pre_rotation(self):
+        """If entry.pre_rotated_head_k is None (default, v19 anchor),
+        _apply_pre_rotated_head_k returns None → fall through to runtime.
+        """
+        from sglang.srt.mem_cache.radix_cache import RadixCache
+        rc = _FakeRadixCacheWithBody(layer_num=4)
+        kvcache = self._make_kvcache_with_layers(n_layers=4)
+        entry = _make_entry("code_base1", start_pos=0, n=8)
+        result = RadixCache._apply_pre_rotated_head_k(
+            rc, kvcache.k_buffer,
+            torch.zeros(8, dtype=torch.long), entry, delta=100,
+            head_tokens=2,
+        )
+        self.assertIsNone(result)
+
+    def test_helper_exact_match_returns_idx(self):
+        """Exact delta match returns the delta index."""
+        from sglang.srt.mem_cache.radix_cache import RadixCache
+        rc = _FakeRadixCacheWithBody(layer_num=4)
+        kvcache = self._make_kvcache_with_layers(n_layers=4)
+        entry = self._make_entry_with_pre_rot(deltas=(0, 500, 2000), n_layers=4)
+        result = RadixCache._apply_pre_rotated_head_k(
+            rc, kvcache.k_buffer,
+            torch.zeros(8, dtype=torch.long), entry, delta=500,
+            head_tokens=2,
+        )
+        self.assertEqual(result, 1)
+
+    def test_helper_nearest_within_tolerance(self):
+        """Delta near 500 (within half-gap tolerance=250) returns idx 1."""
+        from sglang.srt.mem_cache.radix_cache import RadixCache
+        rc = _FakeRadixCacheWithBody(layer_num=4)
+        kvcache = self._make_kvcache_with_layers(n_layers=4)
+        entry = self._make_entry_with_pre_rot(deltas=(0, 500, 2000), n_layers=4)
+        result = RadixCache._apply_pre_rotated_head_k(
+            rc, kvcache.k_buffer,
+            torch.zeros(8, dtype=torch.long), entry, delta=600,
+            head_tokens=2,
+        )
+        # 600 is 100 away from 500 (tolerance=250) → hit at idx 1.
+        self.assertEqual(result, 1)
+
+    def test_helper_far_miss_returns_none(self):
+        """Delta far from any stored value (outside tolerance) returns None."""
+        from sglang.srt.mem_cache.radix_cache import RadixCache
+        rc = _FakeRadixCacheWithBody(layer_num=4)
+        kvcache = self._make_kvcache_with_layers(n_layers=4)
+        entry = self._make_entry_with_pre_rot(deltas=(0, 500, 2000), n_layers=4)
+        result = RadixCache._apply_pre_rotated_head_k(
+            rc, kvcache.k_buffer,
+            torch.zeros(8, dtype=torch.long), entry, delta=1500,
+            head_tokens=2,
+        )
+        # Nearest is 2000 (500 away, tolerance=250) → outside tolerance → None.
+        self.assertIsNone(result)
+
+    def test_helper_zero_delta_returns_zero_idx(self):
+        """Delta=0 with stored [0, 500, 2000] hits idx 0."""
+        from sglang.srt.mem_cache.radix_cache import RadixCache
+        rc = _FakeRadixCacheWithBody(layer_num=4)
+        kvcache = self._make_kvcache_with_layers(n_layers=4)
+        entry = self._make_entry_with_pre_rot(deltas=(0, 500, 2000), n_layers=4)
+        result = RadixCache._apply_pre_rotated_head_k(
+            rc, kvcache.k_buffer,
+            torch.zeros(8, dtype=torch.long), entry, delta=0,
+            head_tokens=2,
+        )
+        self.assertEqual(result, 0)
+
+    def test_body_skips_runtime_when_pre_rotation_hits(self):
+        """End-to-end: when entry has matching pre-rotation, the body
+        does NOT call _apply_rope_delta_to_head. Verifies hit path is
+        taken and runtime fallback is bypassed.
+        """
+        from sglang.srt.mem_cache.radix_cache import RadixCache
+        rc = _FakeRadixCacheWithBody(layer_num=4)
+        # Manually populate with pre-rotated entry at delta=0 (so the
+        # request with start_token=200, prefix=0 produces delta=200,
+        # which is nearest to delta=0 within tolerance).
+        entry = self._make_entry_with_pre_rot(
+            start_pos=0, n=2000, deltas=(0, 500, 2000), n_layers=4,
+        )
+        with rc.placeholder_anchor_pool_lock:
+            rc.placeholder_anchor_pool.setdefault("code_base1", []).append(entry)
+        # Build req
+        req = type("R", (), {})()
+        req.placeholder_anchor_token_spans = [{
+            "slot_id": "code_base1", "label": "code_base1",
+            "start_token": 200, "end_token": 4096,
+            "content_signature": "fake_sig", "text": "fake anchor text"}]
+        for f in (
+            "placeholder_anchor_pool_hit_count",
+            "placeholder_anchor_pool_miss_count",
+            "placeholder_kv_prefill_matched_slots",
+            "placeholder_kv_prefill_skipped_tokens",
+            "placeholder_anchor_pool_skipped_cost_count",
+            "placeholder_knn_skipped_high_overlap_count",
+            "placeholder_knn_head_rotation_tokens",
+            "placeholder_knn_head_rotation_total_ops",
+            "placeholder_kv_prefill_overlap_tokens",
+            "placeholder_knn_pre_rotated_hit_count",
+            "placeholder_knn_pre_rotated_miss_count",
+        ):
+            setattr(req, f, 0)
+        req.placeholder_knn_topk_similarity_mean = 0.0
+        req.placeholder_knn_copy_method = "none"
+        # Spy on runtime call (should NOT fire if pre-rot hits)
+        runtime_calls = []
+        def spy_runtime(k_buffer, dst_slots, head_len, delta):
+            runtime_calls.append({"delta": int(delta)})
+            return head_len
+        rc._apply_rope_delta_to_head = spy_runtime
+        # Install kvcache with matching layer count + enough max_tokens
+        kvcache = self._make_kvcache_with_layers(n_layers=4, max_tokens=8192)
+        rc.token_to_kv_pool_allocator.get_kvcache = lambda: kvcache
+        # Force alloc
+        rc.token_to_kv_pool_allocator.alloc = lambda n: torch.zeros(
+            n, dtype=torch.long,
+        )
+        RadixCache._try_placeholder_knn_lossy_match_body(
+            rc, req, [], None,
+            [{"slot_id": "code_base1", "start_token": 200,
+              "end_token": 4096, "content_signature": "fake_sig",
+              "text": "fake anchor text"}],
+            self._emb, top_k=4, min_cos=0.0,
+            max_slot_len=4096, max_rope_ops=114688,
+            head_tokens=2,
+            max_overlap_ratio=1.0,
+            cost_guard_enabled=False,
+        )
+        # Body matched, hit the pre-rotated path, did NOT call runtime.
+        self.assertEqual(req.placeholder_kv_prefill_matched_slots, 1)
+        self.assertEqual(req.placeholder_knn_pre_rotated_hit_count, 1)
+        self.assertEqual(req.placeholder_knn_pre_rotated_miss_count, 0)
+        self.assertEqual(runtime_calls, [])
+
+    def test_body_falls_back_to_runtime_when_pre_rotation_misses(self):
+        """End-to-end: when entry has pre-rotation but delta is outside
+        tolerance, the body falls through to runtime _apply_rope_delta_to_head.
+        """
+        from sglang.srt.mem_cache.radix_cache import RadixCache
+        rc = _FakeRadixCacheWithBody(layer_num=4)
+        # Use [2000] only — delta=200 won't match (too far).
+        entry = self._make_entry_with_pre_rot(
+            start_pos=0, n=2000, deltas=(2000,), n_layers=4,
+        )
+        with rc.placeholder_anchor_pool_lock:
+            rc.placeholder_anchor_pool.setdefault("code_base1", []).append(entry)
+        req = type("R", (), {})()
+        req.placeholder_anchor_token_spans = [{
+            "slot_id": "code_base1", "label": "code_base1",
+            "start_token": 200, "end_token": 4096,
+            "content_signature": "fake_sig", "text": "fake anchor text"}]
+        for f in (
+            "placeholder_anchor_pool_hit_count",
+            "placeholder_anchor_pool_miss_count",
+            "placeholder_kv_prefill_matched_slots",
+            "placeholder_kv_prefill_skipped_tokens",
+            "placeholder_anchor_pool_skipped_cost_count",
+            "placeholder_knn_skipped_high_overlap_count",
+            "placeholder_knn_head_rotation_tokens",
+            "placeholder_knn_head_rotation_total_ops",
+            "placeholder_kv_prefill_overlap_tokens",
+            "placeholder_knn_pre_rotated_hit_count",
+            "placeholder_knn_pre_rotated_miss_count",
+        ):
+            setattr(req, f, 0)
+        req.placeholder_knn_topk_similarity_mean = 0.0
+        req.placeholder_knn_copy_method = "none"
+        runtime_calls = []
+        def spy_runtime(k_buffer, dst_slots, head_len, delta):
+            runtime_calls.append({"delta": int(delta)})
+            return head_len
+        rc._apply_rope_delta_to_head = spy_runtime
+        kvcache = self._make_kvcache_with_layers(n_layers=4, max_tokens=8192)
+        rc.token_to_kv_pool_allocator.get_kvcache = lambda: kvcache
+        rc.token_to_kv_pool_allocator.alloc = lambda n: torch.zeros(
+            n, dtype=torch.long,
+        )
+        RadixCache._try_placeholder_knn_lossy_match_body(
+            rc, req, [], None,
+            [{"slot_id": "code_base1", "start_token": 200,
+              "end_token": 4096, "content_signature": "fake_sig",
+              "text": "fake anchor text"}],
+            self._emb, top_k=4, min_cos=0.0,
+            max_slot_len=4096, max_rope_ops=114688,
+            head_tokens=2,
+            max_overlap_ratio=1.0,
+            cost_guard_enabled=False,
+        )
+        self.assertEqual(req.placeholder_kv_prefill_matched_slots, 1)
+        self.assertEqual(req.placeholder_knn_pre_rotated_hit_count, 0)
+        self.assertEqual(req.placeholder_knn_pre_rotated_miss_count, 1)
+        self.assertEqual(len(runtime_calls), 1)
 
 
 if __name__ == "__main__":

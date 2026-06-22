@@ -226,6 +226,13 @@ class SchedulerOutputProcessorMixin:
             "placeholder_knn_skipped_high_overlap_count": getattr(
                 req, "placeholder_knn_skipped_high_overlap_count", None
             ),
+            # Phase 2.7 / O5: pre-rotated head K hit/miss telemetry.
+            "placeholder_knn_pre_rotated_hit_count": getattr(
+                req, "placeholder_knn_pre_rotated_hit_count", None
+            ),
+            "placeholder_knn_pre_rotated_miss_count": getattr(
+                req, "placeholder_knn_pre_rotated_miss_count", None
+            ),
             # Phase 2.1 head-only RoPE rotation telemetry (EPIC-inspired).
             "placeholder_knn_head_rotation_tokens": getattr(
                 req, "placeholder_knn_head_rotation_tokens", None

@@ -715,6 +715,8 @@ def row_from_response(
     placeholder_skipped_low_f1 = int(meta.get("placeholder_anchor_store_skipped_low_f1_count") or 0)
     placeholder_skipped_cost = int(meta.get("placeholder_anchor_pool_skipped_cost_count") or 0)
     placeholder_skipped_high_overlap = int(meta.get("placeholder_knn_skipped_high_overlap_count") or 0)
+    placeholder_pre_rotated_hit = int(meta.get("placeholder_knn_pre_rotated_hit_count") or 0)
+    placeholder_pre_rotated_miss = int(meta.get("placeholder_knn_pre_rotated_miss_count") or 0)
     placeholder_head_rotation_tokens = int(meta.get("placeholder_knn_head_rotation_tokens") or 0)
     placeholder_head_rotation_total_ops = int(meta.get("placeholder_knn_head_rotation_total_ops") or 0)
     placeholder_overlap_tokens = int(meta.get("placeholder_kv_prefill_overlap_tokens") or 0)
@@ -790,6 +792,9 @@ def row_from_response(
         "placeholder_anchor_pool_skipped_cost_count": placeholder_skipped_cost,
         # Phase 2.5: skip-high-overlap telemetry.
         "placeholder_knn_skipped_high_overlap_count": placeholder_skipped_high_overlap,
+        # Phase 2.7 / O5: pre-rotated head K telemetry.
+        "placeholder_knn_pre_rotated_hit_count": placeholder_pre_rotated_hit,
+        "placeholder_knn_pre_rotated_miss_count": placeholder_pre_rotated_miss,
         # Phase 2.1 head-only RoPE rotation telemetry.
         "placeholder_knn_head_rotation_tokens": placeholder_head_rotation_tokens,
         "placeholder_knn_head_rotation_total_ops": placeholder_head_rotation_total_ops,
