@@ -649,6 +649,15 @@ async def warm_planner(
     max_file_chars: int,
     segment_count: int,
 ) -> None:
+    """Warmup the server with one planner request that populates BOTH
+    the byte-exact anchor pool (via exact_reuse_plus_code_hints mode) and
+    the placeholder k-NN anchor pool (via placeholder_knn_reuse mode,
+    issued right after with a salt prefix to avoid cache_salt collisions).
+
+    The placeholder warmup is what gives downstream agents (especially
+    agent 1) something to match in their placeholder_anchor_pool, since
+    the byte-exact warmup alone doesn't write to that pool.
+    """
     payload = make_payload(
         args,
         tokenizer,
@@ -661,6 +670,21 @@ async def warm_planner(
         agent_idx=0,
     )
     await post_chat(session, args.port, payload)
+    # O9: warm the placeholder k-NN anchor pool so downstream agents
+    # have something to match.  Uses placeholder_knn_reuse mode with
+    # the same planner prompt structure so the slot texts are the same.
+    placeholder_payload = make_payload(
+        args,
+        tokenizer,
+        case,
+        segments,
+        "placeholder_knn_reuse",
+        max_tokens=8,
+        salt=f"placeholder_warmup:{case['case_id']}:{max_file_chars}:{segment_count}",
+        role="implementer",
+        agent_idx=0,
+    )
+    await post_chat(session, args.port, placeholder_payload)
 
 
 def row_from_response(
