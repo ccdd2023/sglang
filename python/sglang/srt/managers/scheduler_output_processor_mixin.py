@@ -115,7 +115,25 @@ class SchedulerOutputProcessorMixin:
             "lossy_final_matched_node_id": getattr(req, "lossy_final_matched_node_id", None),
             "lossy_anchor_match_used": getattr(req, "lossy_anchor_match_used", None),
             "lossy_anchor_match_len": getattr(req, "lossy_anchor_match_len", None),
+            "lossy_anchor_multi_copy_count": getattr(req, "lossy_anchor_multi_copy_count", None),
             "lossy_anchor_match_gap_len": getattr(req, "lossy_anchor_match_gap_len", None),
+            "lossy_anchor_gap_recompute_len": getattr(req, "lossy_anchor_gap_recompute_len", None),
+            "lossy_anchor_suffix_copy_len": getattr(req, "lossy_anchor_suffix_copy_len", None),
+            "lossy_anchor_suffix_copy_planned_len": getattr(req, "lossy_anchor_suffix_copy_planned_len", None),
+            "lossy_anchor_suffix_copy_cap_len": getattr(req, "lossy_anchor_suffix_copy_cap_len", None),
+            "lossy_anchor_suffix_copy_truncated": getattr(req, "lossy_anchor_suffix_copy_truncated", None),
+            "lossy_anchor_suffix_copy_semantic_len": getattr(req, "lossy_anchor_suffix_copy_semantic_len", None),
+            "lossy_anchor_suffix_copy_semantic_min_cosine": getattr(req, "lossy_anchor_suffix_copy_semantic_min_cosine", None),
+            "lossy_anchor_suffix_copy_semantic_truncated": getattr(req, "lossy_anchor_suffix_copy_semantic_truncated", None),
+            "lossy_anchor_suffix_recompute_head_len": getattr(
+                req, "lossy_anchor_suffix_recompute_head_len", None
+            ),
+            "lossy_anchor_context_copy_ready": getattr(req, "lossy_anchor_context_copy_ready", None),
+            "lossy_anchor_context_aligned": getattr(req, "lossy_anchor_context_aligned", None),
+            "lossy_anchor_context_align_fail_reason": getattr(req, "lossy_anchor_context_align_fail_reason", None),
+            "lossy_anchor_context_align_stage": getattr(req, "lossy_anchor_context_align_stage", None),
+            "lossy_anchor_context_target_prefix_len": getattr(req, "lossy_anchor_context_target_prefix_len", None),
+            "lossy_anchor_context_prefix_signature_match": getattr(req, "lossy_anchor_context_prefix_signature_match", None),
             "lossy_anchor_match_signature": getattr(
                 req, "lossy_anchor_match_signature", None
             ),
@@ -123,6 +141,14 @@ class SchedulerOutputProcessorMixin:
                 req, "lossy_anchor_match_content_signature", None
             ),
             "lossy_anchor_rope_delta": getattr(req, "lossy_anchor_rope_delta", 0),
+            "lossy_anchor_store_entry_count": getattr(req, "lossy_anchor_store_entry_count", None),
+            "lossy_anchor_store_token_count": getattr(req, "lossy_anchor_store_token_count", None),
+            "lossy_anchor_store_lookup_entries": getattr(req, "lossy_anchor_store_lookup_entries", None),
+            "lossy_anchor_match_fail_reason": getattr(req, "lossy_anchor_match_fail_reason", None),
+            "lossy_anchor_token_mismatch_count": getattr(req, "lossy_anchor_token_mismatch_count", None),
+            "lossy_anchor_span_shape_mismatch_count": getattr(req, "lossy_anchor_span_shape_mismatch_count", None),
+            "lossy_anchor_prefix_covers_count": getattr(req, "lossy_anchor_prefix_covers_count", None),
+            "lossy_anchor_store_skipped_missing_token_spans": getattr(req, "lossy_anchor_store_skipped_missing_token_spans", None),
             # context_aware_confidence modifier telemetry (sglang-kvflow)
             "lossy_predicted_distance": getattr(req, "lossy_predicted_distance", None),
             "lossy_context_aware_confidence": getattr(req, "lossy_context_aware_confidence", None),
@@ -166,6 +192,54 @@ class SchedulerOutputProcessorMixin:
             "agenttemplatekv_rejected_large_gap_count": getattr(
                 req, "agenttemplatekv_rejected_large_gap_count", None
             ),
+            # Placeholder k-NN telemetry (PR 4 of placeholder plan).
+            "placeholder_anchor_pool_hit_count": getattr(
+                req, "placeholder_anchor_pool_hit_count", None
+            ),
+            "placeholder_anchor_pool_miss_count": getattr(
+                req, "placeholder_anchor_pool_miss_count", None
+            ),
+            "placeholder_kv_prefill_matched_slots": getattr(
+                req, "placeholder_kv_prefill_matched_slots", None
+            ),
+            "placeholder_kv_prefill_skipped_tokens": getattr(
+                req, "placeholder_kv_prefill_skipped_tokens", None
+            ),
+            # Phase 2.4: cumulative overlap (prefix_len - start per slot).
+            "placeholder_kv_prefill_overlap_tokens": getattr(
+                req, "placeholder_kv_prefill_overlap_tokens", None
+            ),
+            "placeholder_knn_topk_similarity_mean": getattr(
+                req, "placeholder_knn_topk_similarity_mean", None
+            ),
+            "placeholder_anchor_store_entry_count": getattr(
+                req, "placeholder_anchor_store_entry_count", None
+            ),
+            "placeholder_anchor_store_skipped_low_f1_count": getattr(
+                req, "placeholder_anchor_store_skipped_low_f1_count", None
+            ),
+            # Phase 2 cost-aware abort guard telemetry.
+            "placeholder_anchor_pool_skipped_cost_count": getattr(
+                req, "placeholder_anchor_pool_skipped_cost_count", None
+            ),
+            # Phase 2.5: skip-high-overlap telemetry.
+            "placeholder_knn_skipped_high_overlap_count": getattr(
+                req, "placeholder_knn_skipped_high_overlap_count", None
+            ),
+            # Phase 2.1 head-only RoPE rotation telemetry (EPIC-inspired).
+            "placeholder_knn_head_rotation_tokens": getattr(
+                req, "placeholder_knn_head_rotation_tokens", None
+            ),
+            "placeholder_knn_head_rotation_total_ops": getattr(
+                req, "placeholder_knn_head_rotation_total_ops", None
+            ),
+            # Phase 2.2 triton-tiled KV copy dispatcher telemetry.
+            "placeholder_knn_copy_method": getattr(
+                req, "placeholder_knn_copy_method", None
+            ),
+            "placeholder_anchor_pool_copy_error_count": getattr(
+                req, "placeholder_anchor_pool_copy_error_count", None
+            ),
         }
         for key, value in observability_fields.items():
             if key not in customized_info:
@@ -183,7 +257,7 @@ class SchedulerOutputProcessorMixin:
             req.check_finished()
             if req.finished():
                 req.time_stats.set_quick_finish_time()
-                release_kv_cache(req, self.tree_cache)
+                release_kv_cache(req, self.tree_cache, tokenizer=self.tokenizer)
 
         # Note: Logprobs should be handled on the prefill engine.
         self.stream_output(batch.reqs, batch.return_logprob)
@@ -268,7 +342,7 @@ class SchedulerOutputProcessorMixin:
 
                     if req.finished():
                         self.maybe_collect_routed_experts(req)
-                        release_kv_cache(req, self.tree_cache)
+                        release_kv_cache(req, self.tree_cache, tokenizer=self.tokenizer)
                         req.time_stats.set_completion_time()
                     elif not batch.decoding_reqs or req not in batch.decoding_reqs:
                         self.tree_cache.cache_unfinished_req(req)
@@ -391,7 +465,7 @@ class SchedulerOutputProcessorMixin:
                     req.check_finished()
 
                     if req.finished():
-                        release_kv_cache(req, self.tree_cache)
+                        release_kv_cache(req, self.tree_cache, tokenizer=self.tokenizer)
                         req.time_stats.set_completion_time()
                     else:
                         self.tree_cache.cache_unfinished_req(req)
@@ -544,7 +618,7 @@ class SchedulerOutputProcessorMixin:
                     if not self.decode_offload_manager.offload_kv_cache(req):
                         self.decode_offload_manager.finalize_release_on_finish(req)
                 else:
-                    release_kv_cache(req, self.tree_cache)
+                    release_kv_cache(req, self.tree_cache, tokenizer=self.tokenizer)
 
                 req.time_stats.set_completion_time()
 

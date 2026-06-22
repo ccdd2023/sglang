@@ -523,6 +523,8 @@ class Req(ReqDllmMixin):
         code_content_signature: Optional[str] = None,
         code_anchor_spans: Optional[List[Dict[str, Any]]] = None,
         code_anchor_token_spans: Optional[List[Dict[str, Any]]] = None,
+        # Per-placeholder k-NN anchor spans (Duke 2026 KVCOMM-style).
+        placeholder_anchor_token_spans: Optional[List[Dict[str, Any]]] = None,
         reuse_mode: Optional[str] = None,
         lossy_alignment_method: Optional[str] = None,
         template_task_family: Optional[str] = None,
@@ -660,6 +662,27 @@ class Req(ReqDllmMixin):
         self.code_content_signature = code_content_signature
         self.code_anchor_spans = code_anchor_spans or []
         self.code_anchor_token_spans = code_anchor_token_spans or []
+        # Per-placeholder k-NN anchor spans + telemetry (Duke 2026 KVCOMM).
+        self.placeholder_anchor_token_spans = placeholder_anchor_token_spans or []
+        self.placeholder_anchor_pool_hit_count = 0
+        self.placeholder_anchor_pool_miss_count = 0
+        self.placeholder_knn_topk_similarity_mean = 0.0
+        self.placeholder_kv_prefill_skipped_tokens = 0
+        self.placeholder_kv_prefill_matched_slots = 0
+        self.placeholder_anchor_store_entry_count = 0
+        # Phase 2.4 trim telemetry (cumulative overlap with prefix cache).
+        self.placeholder_kv_prefill_overlap_tokens = 0
+        # Phase 2 cost-aware abort guard telemetry.
+        self.placeholder_anchor_pool_skipped_cost_count = 0
+        # Phase 2.5 skip-high-overlap telemetry (slot skipped because
+        # overlap_ratio exceeded SGLANG_PLACEHOLDER_KNN_MAX_OVERLAP_RATIO).
+        self.placeholder_knn_skipped_high_overlap_count = 0
+        # Phase 2.1 head-only RoPE rotation telemetry (EPIC-inspired).
+        self.placeholder_knn_head_rotation_tokens = 0
+        self.placeholder_knn_head_rotation_total_ops = 0
+        # Phase 2.2 triton-tiled KV copy dispatcher telemetry.
+        self.placeholder_knn_copy_method = "none"
+        self.placeholder_anchor_pool_copy_error_count = 0
         self.reuse_mode = reuse_mode
         self.lossy_alignment_method = lossy_alignment_method
         self.template_task_family = template_task_family

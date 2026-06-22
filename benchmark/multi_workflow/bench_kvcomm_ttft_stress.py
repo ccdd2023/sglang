@@ -36,15 +36,25 @@ from mascoder.code_anchor import build_code_anchor_payload, compute_exact_conten
 DEFAULT_MODEL = "/home/gfy/models/Qwen2.5-7B-Instruct"
 DEFAULT_PYTHON = "/home/gfy/.conda/envs/sglang-kvflow/bin/python"
 DEFAULT_MANIFEST = PROJECT / "results" / "repo_level_datasets" / "manifest_500.json"
-OUT_DIR = PROJECT / "results" / "kvcomm_ttft_stress" / "qwen2_5_7b"
+OUT_DIR = PROJECT / "results" / "ttft_agenttemplatekv" / "qwen2_5_7b_micro"
 
 E6_MODES = [
     "no_reuse_fresh_salt",
     "prefix_cache_only",
     "exact_reuse_no_hints",
     "exact_reuse_plus_code_hints",
+    "hints_no_exact",
+    "placeholder_knn_reuse",
+    "placeholder_knn_plus_exact",
 ]
-E7_MODES = ["prefix_cache_only", "exact_reuse_plus_code_hints"]
+CORE_TTFT_MODES = [
+    "prefix_cache_only",
+    "exact_reuse_no_hints",
+    "exact_reuse_plus_code_hints",
+    "hints_no_exact",
+    "placeholder_knn_reuse",
+]
+E7_MODES = CORE_TTFT_MODES
 E8_MODES = [
     "ablation_exact_gate_rope",
     "ablation_exact_no_hints",
@@ -68,6 +78,21 @@ def sha1_short(text: str) -> str:
     import hashlib
 
     return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
+
+
+def git_commit() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=str(PROJECT),
+            text=True,
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
+        return result.stdout.strip() or "unknown"
+    except Exception:
+        return "unknown"
 
 
 def now_ms() -> float:
@@ -191,12 +216,13 @@ async def wait_ready(port: int, timeout_s: int = 180) -> bool:
     deadline = time.time() + timeout_s
     async with aiohttp.ClientSession() as session:
         while time.time() < deadline:
-            try:
-                async with session.get(f"http://127.0.0.1:{port}/health") as resp:
-                    if resp.status == 200:
-                        return True
-            except Exception:
-                pass
+            for endpoint in ("health_generate", "health"):
+                try:
+                    async with session.get(f"http://127.0.0.1:{port}/{endpoint}") as resp:
+                        if resp.status == 200:
+                            return True
+                except Exception:
+                    pass
             await asyncio.sleep(2)
     return False
 
@@ -227,6 +253,8 @@ def launch_server(args: argparse.Namespace) -> subprocess.Popen:
     env = dict(**os.environ)
     env["PYTHONPATH"] = str(PROJECT / "python")
     env["SGLANG_LOSSY_FUZZY_MATCH"] = "1"
+    env["SGLANG_LOSSY_SKIP_TOKEN_CHECK"] = "1"
+    env["SGLANG_LOSSY_MAX_ZERO_GAP"] = str(args.lossy_max_zero_gap)
     args.out_dir.mkdir(parents=True, exist_ok=True)
     log_path = args.out_dir / "sglang_server.log"
     cmd = [
@@ -367,6 +395,124 @@ def build_stress_messages(
     ]
 
 
+# ---------------------------------------------------------------------------
+# Placeholder slots (Duke 2026 KVCOMM-style).  A `PlaceholderSlot` is one
+# chunk of the prompt that semantically represents "this is the upstream
+# planner output", "this is the architecture context", etc.  The slot
+# taxonomy is keyed by `slot_id`; the server keeps a per-slot embedding
+# pool and uses k-NN to look up the nearest historical slot text.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class PlaceholderSlot:
+    """One named block of the prompt.  `slot_id` is the pool key."""
+
+    slot_id: str
+    label: str
+    text: str
+
+
+def build_slot_messages(
+    case: dict[str, Any],
+    segments: list[CodeSegment],
+    role: str,
+    agent_idx: int = 0,
+    extra_context: str = "",
+    placeholder_slots: list[PlaceholderSlot] | None = None,
+) -> tuple[list[dict[str, str]], list[PlaceholderSlot]]:
+    """Build a slot-decomposed user message (Duke 2026 KVCOMM-style).
+
+    Returns (messages, slots_used).  When `placeholder_slots` is None, falls
+    back to a default slot taxonomy: a single `extra_context` slot for the
+    upstream text plus one `code_base{N}` slot per code segment.  When
+    provided, only the supplied slots are rendered (caller controls the
+    taxonomy).
+    """
+    if placeholder_slots is not None:
+        slots = list(placeholder_slots)
+    else:
+        slots = []
+        # IMPORTANT: code_base slots come FIRST, extra_context LAST.
+        # This ensures extra_context's start_token is LARGE (after the
+        # code segments) and therefore > prefix_len.  The k-NN body's
+        # `start < prefix_len` guard requires this: when start < prefix_len,
+        # the slot overlaps with the prefix's pre-cached region and the
+        # flashinfer attention backend can't handle a discontinuous KV
+        # layout (it crashes with "q_indptr-35 o_indptr-0 should be non-
+        # negative" if we try).  See radix_cache.py `_try_placeholder_knn_
+        # lossy_match_body` for the guard.
+        for idx, segment in enumerate(segments, 1):
+            slots.append(
+                PlaceholderSlot(
+                    slot_id=f"code_base{idx}", label=f"code_base{idx}: {segment.name}",
+                    text=segment.text,
+                ),
+            )
+        if extra_context:
+            slots.append(
+                PlaceholderSlot(
+                    slot_id="extra_context", label="Upstream context",
+                    text=extra_context,
+                ),
+            )
+
+    body = [
+        f"## Agent role\n{role}",
+        f"## Case\n{case['case_id']}",
+        "## Instruction",
+        "Inspect the repeated repository code and answer with one concise implementation risk.",
+    ]
+    for slot in slots:
+        body += [f"## {slot.label}", slot.text]
+    body += [
+        "## Output",
+        f"Return exactly one short sentence for agent {agent_idx}.",
+    ]
+    return (
+        [
+            {"role": "system", "content": "You are a senior software engineering agent."},
+            {"role": "user", "content": "\n".join(body)},
+        ],
+        slots,
+    )
+
+
+def build_placeholder_anchor_fields(
+    tokenizer: Any,
+    messages: list[dict[str, str]],
+    slots: list[PlaceholderSlot],
+) -> dict[str, Any]:
+    """Compute per-slot `start_token` / `end_token` for the slot-decomposed
+    prompt.  Returns ``placeholder_anchor_token_spans`` ready to attach to
+    the OpenAI payload.  Slots whose text is not found in the rendered
+    prompt are silently dropped.
+    """
+    prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    spans: list[dict[str, Any]] = []
+    cursor = 0
+    for slot in slots:
+        if not slot.text:
+            continue
+        try:
+            start, end, cursor = token_bounds_for_text(
+                tokenizer, prompt, slot.text, char_start=cursor,
+            )
+        except ValueError:
+            continue
+        spans.append(
+            {
+                "slot_id": slot.slot_id,
+                "label": slot.label,
+                "start_token": start,
+                "end_token": end,
+                "content_signature": sha1_short(slot.slot_id + ":" + slot.text[:64]),
+                "text": slot.text,
+            },
+        )
+    return {"placeholder_anchor_token_spans": spans}
+
+
 def make_payload(
     args: argparse.Namespace,
     tokenizer: Any,
@@ -379,9 +525,20 @@ def make_payload(
     agent_idx: int = 0,
     extra_context: str = "",
 ) -> dict[str, Any]:
-    messages = build_stress_messages(case, segments, role, agent_idx, extra_context)
-    include_anchor = mode in {"exact_reuse_no_hints", "exact_reuse_plus_code_hints",
-                              "ablation_exact_gate_rope", "ablation_exact_no_hints"}
+    if mode in {"placeholder_knn_reuse", "placeholder_knn_plus_exact"}:
+        # Build the slot-decomposed prompt and the placeholder anchor spans.
+        # The byte-exact path (`+exact`) ALSO receives `code_anchor_token_spans`
+        # so both paths can run; the placeholder k-NN runs *after* byte-exact
+        # in `match_prefix`.
+        messages, slots = build_slot_messages(
+            case, segments, role, agent_idx, extra_context,
+        )
+        include_anchor = mode == "placeholder_knn_plus_exact"
+    else:
+        messages = build_stress_messages(case, segments, role, agent_idx, extra_context)
+        slots = []
+        include_anchor = mode in {"exact_reuse_no_hints", "exact_reuse_plus_code_hints",
+                                  "ablation_exact_gate_rope", "ablation_exact_no_hints"}
     payload: dict[str, Any] = {
         "model": args.model,
         "messages": messages,
@@ -395,12 +552,19 @@ def make_payload(
         "cache_salt": salt,
         "priority": 1,
     }
-    if mode in {"prefix_cache_only", "exact_reuse_no_hints", "exact_reuse_plus_code_hints"}:
+    if mode in {"prefix_cache_only", "exact_reuse_no_hints", "exact_reuse_plus_code_hints", "hints_no_exact"}:
         payload["next_agent_prefix"] = f"You are the {role}. Reuse the planner code context."
-    if mode == "exact_reuse_plus_code_hints":
+    if mode in {"exact_reuse_plus_code_hints", "hints_no_exact"}:
         payload["codebase_prefetch_hints"] = make_codebase_hints(segments, target_agent=role)
+    if mode == "hints_no_exact":
+        payload["reuse_mode"] = "lossless"
+        payload["lossy_alignment_method"] = ""
     if include_anchor:
         payload.update(build_anchor_fields(tokenizer, messages, segments))
+    # Placeholder k-NN: always attach the per-slot spans when in
+    # placeholder_knn_reuse or placeholder_knn_plus_exact mode.
+    if mode in {"placeholder_knn_reuse", "placeholder_knn_plus_exact"} and slots:
+        payload.update(build_placeholder_anchor_fields(tokenizer, messages, slots))
     # E8 ablation: selective field stripping to isolate each subsystem's contribution.
     if mode.startswith("ablation_"):
         if mode == "ablation_exact_gate_rope":
@@ -527,6 +691,58 @@ def row_from_response(
     text = response.get("text") or extract_text(response.get("body", {})) or ""
     cached = int(response.get("cached_tokens") or extract_cached_tokens(response.get("body", {})) or 0)
     prompt_tokens = int(response.get("prompt_tokens") or 0)
+    hint_count = int(meta.get("codebase_prefetch_hint_count") or 0)
+    matched_tokens = int(meta.get("codebase_prefetch_matched_tokens") or 0)
+    success_count = int(meta.get("codebase_prefetch_success_count") or 0)
+    device_hit_count = int(meta.get("codebase_prefetch_device_hit_count") or 0)
+    atkv_hit_count = int(meta.get("agenttemplatekv_prefetch_hit_count") or 0)
+    atkv_miss_count = int(meta.get("agenttemplatekv_prefetch_miss_count") or 0)
+    protected_tokens = int(meta.get("agenttemplatekv_prefetch_protected_tokens") or 0)
+    newly_protected_tokens = int(meta.get("agenttemplatekv_prefetch_newly_protected_tokens") or 0)
+    consumed_count = int(meta.get("agenttemplatekv_prefetch_consumed_count") or 0)
+    expired_tokens = int(meta.get("agenttemplatekv_prefetch_expired_tokens") or 0)
+    large_gap_rejections = int(meta.get("agenttemplatekv_rejected_large_gap_count") or 0)
+    anchor_used = bool(meta.get("lossy_anchor_match_used"))
+    anchor_gap_len = int(meta.get("lossy_anchor_match_gap_len") or 0)
+    anchor_rope_delta = int(meta.get("lossy_anchor_rope_delta") or 0)
+    # Placeholder k-NN reuse telemetry (PR 4 of placeholder plan).
+    placeholder_hits = int(meta.get("placeholder_anchor_pool_hit_count") or 0)
+    placeholder_misses = int(meta.get("placeholder_anchor_pool_miss_count") or 0)
+    placeholder_matched_slots = int(meta.get("placeholder_kv_prefill_matched_slots") or 0)
+    placeholder_skipped_tokens = int(meta.get("placeholder_kv_prefill_skipped_tokens") or 0)
+    placeholder_sim_mean = float(meta.get("placeholder_knn_topk_similarity_mean") or 0.0)
+    placeholder_stored = int(meta.get("placeholder_anchor_store_entry_count") or 0)
+    placeholder_skipped_low_f1 = int(meta.get("placeholder_anchor_store_skipped_low_f1_count") or 0)
+    placeholder_skipped_cost = int(meta.get("placeholder_anchor_pool_skipped_cost_count") or 0)
+    placeholder_skipped_high_overlap = int(meta.get("placeholder_knn_skipped_high_overlap_count") or 0)
+    placeholder_head_rotation_tokens = int(meta.get("placeholder_knn_head_rotation_tokens") or 0)
+    placeholder_head_rotation_total_ops = int(meta.get("placeholder_knn_head_rotation_total_ops") or 0)
+    placeholder_overlap_tokens = int(meta.get("placeholder_kv_prefill_overlap_tokens") or 0)
+    placeholder_copy_method = meta.get("placeholder_knn_copy_method") or "none"
+    placeholder_copy_errors = int(meta.get("placeholder_anchor_pool_copy_error_count") or 0)
+    if protected_tokens > 0 and consumed_count == 0 and device_hit_count > 0 and anchor_used:
+        fast_path_status = "anchor_reuse_device_hit_consumed_counter_gap"
+    elif protected_tokens > 0 and consumed_count == 0:
+        if expired_tokens > 0:
+            fast_path_status = "protected_not_consumed:ttl_or_steps_expired"
+        elif large_gap_rejections > 0:
+            fast_path_status = "protected_not_consumed:large_gap_rejected"
+        elif anchor_gap_len or anchor_rope_delta:
+            fast_path_status = "protected_not_consumed:position_mismatch"
+        elif not anchor_used:
+            fast_path_status = "protected_not_consumed:no_anchor_match"
+        elif cached and prompt_tokens and cached / max(prompt_tokens, 1) > 0.98:
+            fast_path_status = "protected_not_consumed:prefix_already_satisfied"
+        else:
+            fast_path_status = "protected_not_consumed:unknown"
+    elif hint_count > 0 and protected_tokens == 0 and atkv_miss_count > 0:
+        fast_path_status = "hint_text_mismatch_or_missing_entry"
+    elif consumed_count > 0:
+        fast_path_status = "consumed"
+    elif device_hit_count > 0 or atkv_hit_count > 0:
+        fast_path_status = "device_hit_without_consumed"
+    else:
+        fast_path_status = "no_fast_path"
     return {
         "experiment": experiment,
         "case_id": case["case_id"],
@@ -546,6 +762,41 @@ def row_from_response(
         "exact_hit": match_reason == "exact_code_content_signature",
         "match_reason": match_reason,
         "matched_content_signature": matched_sig,
+        "codebase_prefetch_hint_count": hint_count,
+        "codebase_prefetch_matched_tokens": matched_tokens,
+        "codebase_prefetch_success_count": success_count,
+        "codebase_prefetch_device_hit_count": device_hit_count,
+        "agenttemplatekv_prefetch_hit_count": atkv_hit_count,
+        "agenttemplatekv_prefetch_miss_count": atkv_miss_count,
+        "agenttemplatekv_prefetch_protected_tokens": protected_tokens,
+        "agenttemplatekv_prefetch_newly_protected_tokens": newly_protected_tokens,
+        "agenttemplatekv_prefetch_consumed_count": consumed_count,
+        "agenttemplatekv_prefetch_expired_tokens": expired_tokens,
+        "agenttemplatekv_rejected_large_gap_count": large_gap_rejections,
+        "lossy_anchor_match_used": anchor_used,
+        "lossy_anchor_match_gap_len": anchor_gap_len,
+        "lossy_anchor_rope_delta": anchor_rope_delta,
+        # Placeholder k-NN reuse telemetry (PR 4).
+        "placeholder_anchor_pool_hit_count": placeholder_hits,
+        "placeholder_anchor_pool_miss_count": placeholder_misses,
+        "placeholder_kv_prefill_matched_slots": placeholder_matched_slots,
+        "placeholder_kv_prefill_skipped_tokens": placeholder_skipped_tokens,
+        # Phase 2.4: cumulative trim overlap.
+        "placeholder_kv_prefill_overlap_tokens": placeholder_overlap_tokens,
+        "placeholder_knn_topk_similarity_mean": round(placeholder_sim_mean, 4),
+        "placeholder_anchor_store_entry_count": placeholder_stored,
+        "placeholder_anchor_store_skipped_low_f1_count": placeholder_skipped_low_f1,
+        # Phase 2 cost-aware abort guard telemetry.
+        "placeholder_anchor_pool_skipped_cost_count": placeholder_skipped_cost,
+        # Phase 2.5: skip-high-overlap telemetry.
+        "placeholder_knn_skipped_high_overlap_count": placeholder_skipped_high_overlap,
+        # Phase 2.1 head-only RoPE rotation telemetry.
+        "placeholder_knn_head_rotation_tokens": placeholder_head_rotation_tokens,
+        "placeholder_knn_head_rotation_total_ops": placeholder_head_rotation_total_ops,
+        # Phase 2.2 triton-tiled KV copy dispatcher telemetry.
+        "placeholder_knn_copy_method": placeholder_copy_method,
+        "placeholder_anchor_pool_copy_error_count": placeholder_copy_errors,
+        "fast_path_status": fast_path_status,
         "output_exact_match_vs_baseline": bool(baseline_text) and text == baseline_text,
         "output_token_f1_vs_baseline": round(token_f1(text, baseline_text), 4) if baseline_text else 1.0,
         "output_chars": len(text),
@@ -754,14 +1005,22 @@ def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
         ttft = [float(r["ttft_ms"]) for r in rs if r.get("agent_id") != "workflow" or r.get("experiment") == "agent_scaling_workflow"]
         cached = [float(r["cached_tokens"]) for r in rs]
         f1 = [float(r["output_token_f1_vs_baseline"]) for r in rs if str(r.get("output_token_f1_vs_baseline", "")) not in {"", "None"}]
+        device_hits = [1.0 if int(r.get("codebase_prefetch_device_hit_count") or 0) > 0 else 0.0 for r in rs]
+        consumed = [1.0 if int(r.get("agenttemplatekv_prefetch_consumed_count") or 0) > 0 else 0.0 for r in rs]
+        protected = [float(r.get("agenttemplatekv_prefetch_protected_tokens") or 0) for r in rs]
         summary["|".join(map(str, key))] = {
             "n": len(rs),
             "avg_ttft_ms": safe_mean(ttft),
             "p50_ttft_ms": percentile(ttft, 0.5),
             "p90_ttft_ms": percentile(ttft, 0.9),
+            "p99_ttft_ms": percentile(ttft, 0.99),
             "avg_cached_tokens": safe_mean(cached),
             "exact_hit_rate": safe_mean([1.0 if str(r.get("exact_hit")).lower() == "true" else 0.0 for r in rs]),
+            "device_hit_rate": safe_mean(device_hits),
+            "consumed_rate": safe_mean(consumed),
+            "avg_protected_tokens": safe_mean(protected),
             "avg_token_f1_vs_baseline": safe_mean(f1),
+            "fast_path_status_counts": dict(Counter(str(r.get("fast_path_status", "")) for r in rs)),
         }
     return summary
 
@@ -786,10 +1045,34 @@ def write_report(out_dir: Path, rows: list[dict[str, Any]], summary: dict[str, A
     for key, item in sorted(summary.items()):
         lines.append(
             f"- `{key}`: n={item['n']}, avg TTFT={item['avg_ttft_ms']:.1f} ms, "
-            f"p50={item['p50_ttft_ms']:.1f} ms, exact hit={item['exact_hit_rate']:.2f}, "
-            f"F1={item['avg_token_f1_vs_baseline']:.4f}"
+            f"p50={item['p50_ttft_ms']:.1f} ms, p90={item['p90_ttft_ms']:.1f} ms, "
+            f"exact hit={item['exact_hit_rate']:.2f}, device hit={item['device_hit_rate']:.2f}, "
+            f"consumed={item['consumed_rate']:.2f}, protected={item['avg_protected_tokens']:.1f}, "
+            f"F1={item['avg_token_f1_vs_baseline']:.4f}, status={item['fast_path_status_counts']}"
+        )
+    lines += ["", "## Exact-Reuse Speedup vs Prefix", ""]
+    by_dims: dict[tuple[str, str, str, str, str], dict[str, dict[str, Any]]] = defaultdict(dict)
+    for key, item in summary.items():
+        experiment, mode, max_file_chars, max_tokens, agent_count, segment_count = key.split("|", 5)
+        by_dims[(experiment, max_file_chars, max_tokens, agent_count, segment_count)][mode] = item
+    for dims, modes in sorted(by_dims.items()):
+        prefix = modes.get("prefix_cache_only")
+        exact = modes.get("exact_reuse_plus_code_hints")
+        if not prefix or not exact or float(exact["p50_ttft_ms"]) <= 0:
+            continue
+        p50_speedup = float(prefix["p50_ttft_ms"]) / float(exact["p50_ttft_ms"])
+        p90_speedup = (
+            float(prefix["p90_ttft_ms"]) / float(exact["p90_ttft_ms"])
+            if float(exact["p90_ttft_ms"]) > 0
+            else 0.0
+        )
+        lines.append(
+            f"- `{dims}`: p50={p50_speedup:.2f}x, p90={p90_speedup:.2f}x "
+            f"(prefix={prefix['p50_ttft_ms']:.1f}/{prefix['p90_ttft_ms']:.1f} ms, "
+            f"exact+hints={exact['p50_ttft_ms']:.1f}/{exact['p90_ttft_ms']:.1f} ms)"
         )
     (out_dir / "TTFT_STRESS_REPORT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (out_dir / "TTFT_REPORT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 async def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
@@ -805,6 +1088,7 @@ async def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
     await asyncio.sleep(1)
     proc = launch_server(args)
     rows: list[dict[str, Any]] = []
+    failed_reason = ""
     try:
         if not await wait_ready(args.port, timeout_s=args.server_timeout):
             raise RuntimeError(f"server did not become ready; see {args.out_dir / 'sglang_server.log'}")
@@ -815,6 +1099,9 @@ async def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
                 rows.extend(await run_e7(args, session, tokenizer))
             if not args.skip_e8:
                 rows.extend(await run_e8(args, session, tokenizer))
+    except Exception as exc:
+        failed_reason = f"{type(exc).__name__}: {exc}"
+        raise
     finally:
         proc.terminate()
         try:
@@ -822,22 +1109,66 @@ async def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         except subprocess.TimeoutExpired:
             proc.kill()
         kill_port(args.port)
+        if rows and failed_reason:
+            partial_summary = {
+                "model": args.model,
+                "manifest": str(args.manifest),
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "git_commit": git_commit(),
+                "command": " ".join(sys.argv),
+                "environment": {
+                    "python": args.python,
+                    "port": args.port,
+                    "mem_fraction_static": args.mem_fraction_static,
+                    "max_total_tokens": args.max_total_tokens,
+                    "lossy_max_zero_gap": args.lossy_max_zero_gap,
+                    "hierarchical_cache": not args.disable_hierarchical_cache,
+                    "hicache_storage_backend": args.hicache_storage_backend or "disabled",
+                    "gpu": "RTX 4090 24GB assumed",
+                },
+                "length_buckets": args.length_buckets,
+                "max_token_settings": args.max_token_settings,
+                "agent_counts": args.agent_counts,
+                "segment_counts": args.segment_counts,
+                "agent_length_buckets": args.agent_length_buckets,
+                "rows": rows,
+                "failed_reason": failed_reason,
+            }
+            partial_summary["group_summary"] = summarize_rows(rows)
+            (args.out_dir / "summary.json").write_text(json.dumps(partial_summary, indent=2), encoding="utf-8")
+            write_csv(args.out_dir / "ttft_stress_table.csv", rows)
+            write_csv(args.out_dir / "ttft_table.csv", rows)
+            write_report(args.out_dir, rows, partial_summary["group_summary"])
 
     summary = {
         "model": args.model,
         "manifest": str(args.manifest),
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "git_commit": git_commit(),
+        "command": " ".join(sys.argv),
+        "environment": {
+            "python": args.python,
+            "port": args.port,
+            "mem_fraction_static": args.mem_fraction_static,
+            "max_total_tokens": args.max_total_tokens,
+            "lossy_max_zero_gap": args.lossy_max_zero_gap,
+            "hierarchical_cache": not args.disable_hierarchical_cache,
+            "hicache_storage_backend": args.hicache_storage_backend or "disabled",
+            "gpu": "RTX 4090 24GB assumed",
+        },
         "length_buckets": args.length_buckets,
         "max_token_settings": args.max_token_settings,
         "agent_counts": args.agent_counts,
         "segment_counts": args.segment_counts,
         "agent_length_buckets": args.agent_length_buckets,
         "rows": rows,
+        "failed_reason": failed_reason,
     }
     group_summary = summarize_rows(rows)
     summary["group_summary"] = group_summary
     (args.out_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     write_csv(args.out_dir / "ttft_stress_table.csv", rows)
+    write_csv(args.out_dir / "ttft_table.csv", rows)
     write_report(args.out_dir, rows, group_summary)
     return summary
 
@@ -864,6 +1195,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--agent-max-tokens", type=int, default=1)
     parser.add_argument("--max-total-tokens", type=int, default=65536)
     parser.add_argument("--mem-fraction-static", type=float, default=0.78)
+    parser.add_argument("--lossy-max-zero-gap", type=int, default=512)
     parser.add_argument("--hicache-ratio", type=float, default=1.5)
     parser.add_argument("--hicache-storage-backend", default="")
     parser.add_argument("--disable-hierarchical-cache", action="store_true")

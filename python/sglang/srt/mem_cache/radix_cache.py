@@ -23,6 +23,7 @@ The radix tree data structure for managing the KV cache.
 """
 
 import heapq
+import hashlib
 import logging
 import math
 import os
@@ -58,24 +59,104 @@ class AnchorKVEntry:
         start_pos: int,
         code_content_signature: str = "",
         source_node: Optional["TreeNode"] = None,
+        prefix_context_signature: str = "",
+        # Per-placeholder anchor pool fields (Duke 2026 KVCOMM-style).
+        # `slot_id` is the placeholder taxonomy key (e.g. "plan",
+        # "architecture", "extra_context"); pool_embedding is the single
+        # L2-normalized MiniLM embedding of the slot's full text used for
+        # k-NN lookup.  last_access_time is the LRU key (kept even on
+        # code-anchor entries because the same dataclass is shared).
+        slot_id: str = "",
+        slot_label: str = "",
+        pool_embedding: Optional[torch.Tensor] = None,
+        embedding_text: str = "",
+        last_access_time: float = 0.0,
     ):
         self.signature = signature
         self.code_content_signature = code_content_signature
         self.token_ids = token_ids
         self.kv_indices = kv_indices
         self.start_pos = start_pos
+        self.prefix_context_signature = prefix_context_signature
         self.ref_count = 1
         self.source_node = source_node
         self.prefetch_protected_until = 0.0
         self.prefetch_steps_remaining = 0
         self.prefetch_lock_held = False
         self.prefetch_hit_count = 0
+        # Optional chunk embeddings for semantic suffix-copy length decider.
+        # Shape [N_chunks, D] when populated; None when semantic suffix is
+        # disabled, embedder failed to load, or entry too short to chunk.
+        self.chunk_embeddings = None
+        # Per-placeholder k-NN reuse fields.  See comment above.
+        self.slot_id = slot_id
+        self.slot_label = slot_label
+        self.pool_embedding = pool_embedding
+        self.embedding_text = embedding_text
+        self.last_access_time = last_access_time
 
     def __repr__(self):
         return (
             f"AnchorKVEntry(sig={self.signature!r:.30}, "
-            f"start_pos={self.start_pos}, len={len(self.token_ids)}, ref={self.ref_count})"
+            f"start_pos={self.start_pos}, len={len(self.token_ids)}, "
+            f"slot={self.slot_id!r}, ref={self.ref_count})"
         )
+
+
+def _token_prefix_signature(token_ids: list[int] | torch.Tensor, end_pos: int) -> str:
+    if end_pos <= 0:
+        return "sha1:"
+    if isinstance(token_ids, torch.Tensor):
+        values = token_ids[:end_pos].detach().cpu().tolist()
+    else:
+        values = token_ids[:end_pos]
+    payload = ",".join(str(int(x)) for x in values)
+    return "sha1:" + hashlib.sha1(payload.encode("utf-8")).hexdigest()
+
+
+def _placeholder_knn_search(
+    pool_entries: List[AnchorKVEntry],
+    query_embedding: torch.Tensor,
+    top_k: int = 4,
+    min_similarity: float = 0.70,
+) -> List[Tuple[AnchorKVEntry, float]]:
+    """Per-placeholder embedding k-NN search (Duke 2026 KVCOMM-style).
+
+    Args:
+        pool_entries: list of AnchorKVEntry with non-None `pool_embedding`.
+        query_embedding: 1-D L2-normalized tensor of shape [D].
+        top_k: at most this many neighbors returned.
+        min_similarity: floor on cosine similarity (results below are dropped).
+
+    Returns:
+        List of (entry, cosine) tuples, sorted descending by cosine.
+        Empty list when pool is empty or no entry passes the floor.
+    """
+    if not pool_entries:
+        return []
+    # Filter out entries with no embedding (e.g. embedder failed to load at
+    # store time).
+    valid = [e for e in pool_entries if e.pool_embedding is not None]
+    if not valid:
+        return []
+    embeddings = torch.stack([e.pool_embedding for e in valid]).to(
+        dtype=query_embedding.dtype,
+    )
+    # L2-normalize defensively in case any entry wasn't normalized at store
+    # time (e.g. model moved to GPU between calls).
+    embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
+    q = torch.nn.functional.normalize(
+        query_embedding.view(1, -1).to(embeddings.device), p=2, dim=1,
+    )
+    sims = (embeddings @ q.T).squeeze(1)  # [N]
+    k = min(top_k, sims.numel())
+    top_sims, top_idx = torch.topk(sims, k=k)
+    out: List[Tuple[AnchorKVEntry, float]] = []
+    for sim, idx in zip(top_sims.tolist(), top_idx.tolist()):
+        if sim < min_similarity:
+            break  # sorted descending; remaining entries also below floor
+        out.append((valid[idx], float(sim)))
+    return out
 
 from sglang.srt.disaggregation.kv_events import (
     MEDIUM_GPU,
@@ -455,6 +536,16 @@ class RadixCache(BasePrefixCache):
         self.evictable_leaves = set()
         self.anchor_kv_store: dict[str, list[AnchorKVEntry]] = {}
         self.anchor_kv_store_lock = threading.RLock()
+        # Per-placeholder anchor pool (Duke 2026 KVCOMM-style).  Keyed by
+        # `slot_id` (e.g. "plan", "architecture", "extra_context"); value is
+        # a list of AnchorKVEntry whose pool_embedding is used for k-NN
+        # search at request-prefill time.  Independent lock because the
+        # access pattern is disjoint from the byte-exact code-anchor pool.
+        self.placeholder_anchor_pool: dict[str, list[AnchorKVEntry]] = {}
+        self.placeholder_anchor_pool_lock = threading.RLock()
+        self.placeholder_pool_max_per_slot: int = int(
+            os.environ.get("SGLANG_PLACEHOLDER_POOL_MAX_PER_SLOT", "256")
+        )
 
         self.rope_base = params.rope_base
         self.rope_rotary_dim = params.rope_rotary_dim
@@ -577,6 +668,16 @@ class RadixCache(BasePrefixCache):
             value, last_node = self._try_lossy_fuzzy_match(
                 req, key, value, last_node, best_node
             )
+        # PR3 placeholder k-NN: per-slot embedding k-NN reuse (Duke 2026
+        # KVCOMM-style). Runs after byte-exact match; gated by env
+        # SGLANG_PLACEHOLDER_KNN_MATCH=1.  Composes with `_try_lossy_fuzzy_
+        # match` — both can fire on the same request.
+        if req is not None and (
+            getattr(req, "placeholder_anchor_token_spans", None) or []
+        ):
+            value, last_node = self._try_placeholder_knn_lossy_match(
+                req, key, value, last_node,
+            )
         if value:
             value = torch.cat(value)
         else:
@@ -693,6 +794,47 @@ class RadixCache(BasePrefixCache):
                 yield node
             stack.extend(node.children.values())
 
+    def _merge_anchor_spans(self, node: TreeNode, anchor_spans: list[dict[str, Any]] | None):
+        """Attach new span-level signatures without overwriting existing metadata.
+
+        A whole-file request and a selective-span request can share the same
+        radix node because the model-visible prompt is identical. The first
+        insert may therefore attach whole-file metadata, while a later insert
+        carries function/method spans for the same prompt. Keep both sets so
+        exact-content matching can find per-span signatures.
+        """
+        if not anchor_spans:
+            return
+        if not node.anchor_spans:
+            node.anchor_spans = list(anchor_spans)
+            return
+        seen = {
+            (
+                str(span.get("anchor_type", "") or ""),
+                str(span.get("signature", "") or ""),
+                str(span.get("content_signature", "") or ""),
+                int(span.get("start_line", 0) or 0),
+                int(span.get("end_line", 0) or 0),
+                str(span.get("segment_name", "") or ""),
+            )
+            for span in node.anchor_spans
+            if isinstance(span, dict)
+        }
+        for span in anchor_spans:
+            if not isinstance(span, dict):
+                continue
+            key = (
+                str(span.get("anchor_type", "") or ""),
+                str(span.get("signature", "") or ""),
+                str(span.get("content_signature", "") or ""),
+                int(span.get("start_line", 0) or 0),
+                int(span.get("end_line", 0) or 0),
+                str(span.get("segment_name", "") or ""),
+            )
+            if key not in seen:
+                node.anchor_spans.append(dict(span))
+                seen.add(key)
+
     def _default_syntax_region_type(self, req: Req) -> str:
         spans = getattr(req, "code_anchor_spans", None) or []
         if spans and isinstance(spans[0], dict):
@@ -807,8 +949,15 @@ class RadixCache(BasePrefixCache):
                             + 1,
                         )
                     return False
-            # Capped walk: only lock the leaf + max_ancestors ancestors.
-            result = self.inc_lock_ref(node, max_ancestors=max_ancestors)
+            # Capped walk: only lock the leaf + max_ancestors ancestors when
+            # the active cache backend supports it. HiRadixCache subclasses
+            # may still expose the older inc_lock_ref(node) signature.
+            try:
+                result = self.inc_lock_ref(node, max_ancestors=max_ancestors)
+            except TypeError as exc:
+                if "max_ancestors" not in str(exc):
+                    raise
+                result = self.inc_lock_ref(node)
             setattr(entry, "_protected_ancestor_nodes", result.locked_nodes or [])
             entry.prefetch_lock_held = True
             return True
@@ -885,12 +1034,14 @@ class RadixCache(BasePrefixCache):
             # ancestor; we walk from leaf upward via dec_lock_ref with the
             # same cap used in inc_lock_ref.
             n_ancestors = len(locked)
-            # Walk from the root-side of the chain so dec_lock_ref's
-            # max_ancestors cap (counted from `node`) reaches the leaf.
-            # Use the deepest node as the start and cap at n_ancestors
-            # (covers all stored nodes + the leaf).
-            deepest = locked[0]  # inc_lock_ref stored leaf-first
-            self.dec_lock_ref(deepest, max_ancestors=n_ancestors)
+            deepest = locked[0] if locked else entry.source_node
+            if deepest is not None and not deepest.evicted:
+                try:
+                    self.dec_lock_ref(deepest, max_ancestors=n_ancestors)
+                except TypeError as exc:
+                    if "max_ancestors" not in str(exc):
+                        raise
+                    self.dec_lock_ref(deepest)
             setattr(entry, "_protected_ancestor_nodes", [])
         entry.prefetch_lock_held = False
         entry.prefetch_protected_until = 0.0
@@ -1018,6 +1169,7 @@ class RadixCache(BasePrefixCache):
                 "missing code_anchor_token_spans on request",
                 getattr(req, "rid", "?"), signature, content_signature,
             )
+            setattr(req, "lossy_anchor_store_skipped_missing_token_spans", 1)
             return
 
         token_ids = list(req.origin_input_ids) + list(req.output_ids)
@@ -1043,6 +1195,7 @@ class RadixCache(BasePrefixCache):
                 kv_indices=span_kv_indices,
                 start_pos=start,
                 source_node=source_node,
+                prefix_context_signature=_token_prefix_signature(token_ids, start),
             )
             segment_content_signature = str(
                 span.get("content_signature", "") or content_signature
@@ -1051,8 +1204,37 @@ class RadixCache(BasePrefixCache):
                 continue
 
             entry.code_content_signature = segment_content_signature
+            # Optional semantic suffix-copy length decider: compute and stash
+            # chunk embeddings for this anchor so the consumer can decide how
+            # much to copy based on per-chunk cosine to the request.
+            try:
+                from sglang.srt.mem_cache.semantic_suffix import entry_chunks_for
+                llm_tokenizer = getattr(self, "tokenizer", None)
+                if llm_tokenizer is None:
+                    # Reuse the same tokenizer the scheduler used to tokenize
+                    # the request, falling back to the radix cache tokenizer.
+                    llm_tokenizer = getattr(req, "tokenizer", None)
+                entry.chunk_embeddings = entry_chunks_for(
+                    entry.token_ids, llm_tokenizer,
+                )
+            except Exception as ce:  # pragma: no cover - defensive
+                logger.debug(
+                    "[anchor_kv_store] chunk_embeddings skipped for sig=%s: %s",
+                    segment_content_signature, ce,
+                )
+                entry.chunk_embeddings = None
             with self.anchor_kv_store_lock:
                 self.anchor_kv_store.setdefault(segment_content_signature, []).append(entry)
+            setattr(
+                req,
+                "lossy_anchor_store_entry_count",
+                getattr(req, "lossy_anchor_store_entry_count", 0) + 1,
+            )
+            setattr(
+                req,
+                "lossy_anchor_store_token_count",
+                getattr(req, "lossy_anchor_store_token_count", 0) + len(entry.token_ids),
+            )
             if segment_content_signature in self._extract_prefetch_hint_signatures(req):
                 locked_now = self._agenttemplatekv_protect_entry(
                     entry,
@@ -1066,6 +1248,174 @@ class RadixCache(BasePrefixCache):
             logger.info(
                 "[anchor_kv_store] stored anchor_sig=%s content_sig=%s start=%d len=%d",
                 signature, segment_content_signature, start, end - start,
+            )
+
+    # -----------------------------------------------------------------
+    # Per-placeholder anchor pool (Duke 2026 KVCOMM-style).
+    #
+    # While `_store_anchor_kv` writes per-`code_content_signature` entries
+    # used by the byte-exact suffix path, this method writes per-`slot_id`
+    # entries whose `pool_embedding` is consumed by `_try_placeholder_knn_
+    # lossy_match` for embedding k-NN reuse across agents.  Each slot's
+    # entries are bounded by `placeholder_pool_max_per_slot` (LRU).
+    # -----------------------------------------------------------------
+
+    def _placeholder_store_enabled(self) -> bool:
+        """Master switch for write-back.  Default ON; off when env=0 or
+        SGLANG_SEMANTIC_SUFFIX_ENABLED=0 (shared embedder model)."""
+        from sglang.srt.mem_cache.semantic_suffix import is_enabled as _ss_enabled
+        if not _ss_enabled():
+            return False
+        return os.environ.get("SGLANG_PLACEHOLDER_STORE_ENABLED", "1") == "1"
+
+    def _decode_placeholder_span(self, span_token_ids: torch.Tensor,
+                                  fallback_tokenizer=None) -> str:
+        """Decode a span's tokens to text using whichever tokenizer is
+        available on this cache / request.  Returns empty string on
+        failure or when no tokenizer is reachable."""
+        tok = (
+            getattr(self, "tokenizer", None)
+            or fallback_tokenizer
+        )
+        if tok is None:
+            return ""
+        try:
+            return tok.decode(
+                span_token_ids.detach().cpu().tolist(),
+                skip_special_tokens=True,
+            )
+        except Exception:
+            return ""
+
+    def _placeholder_f1(self, predicted_text: str, actual_text: str) -> float:
+        """Wrapper around `text_utils.token_f1` so we don't import the
+        benchmark at runtime."""
+        from sglang.srt.mem_cache.text_utils import token_f1
+        try:
+            return token_f1(predicted_text, actual_text)
+        except Exception:
+            return 0.0
+
+    def _evict_placeholder_pool_slot_locked(self, slot_id: str) -> None:
+        """LRU trim on a slot's list to <= placeholder_pool_max_per_slot.
+        Caller must hold `placeholder_anchor_pool_lock`."""
+        entries = self.placeholder_anchor_pool.get(slot_id, [])
+        if len(entries) <= self.placeholder_pool_max_per_slot:
+            return
+        # Sort by last_access_time descending; keep the freshest.
+        entries.sort(key=lambda e: e.last_access_time, reverse=True)
+        self.placeholder_anchor_pool[slot_id] = entries[
+            : self.placeholder_pool_max_per_slot
+        ]
+
+    def _store_placeholder_anchor_kv(
+        self,
+        req: Req,
+        kv_indices: torch.Tensor,
+        source_node: Optional[TreeNode] = None,
+    ) -> None:
+        """Write per-placeholder KV blocks + their MiniLM pool embeddings
+        into the per-slot pool.  Mirrors `_store_anchor_kv` but keyed by
+        `slot_id` and using a single embedding per slot text (not per-
+        chunk).  Skips entries whose predicted text diverges from the
+        actually-prefilled text (F1 < SGLANG_PLACEHOLDER_STORE_MIN_F1).
+        """
+        if not self._placeholder_store_enabled():
+            return
+        spans = getattr(req, "placeholder_anchor_token_spans", None) or []
+        if not spans:
+            return
+        from sglang.srt.mem_cache.semantic_suffix import embed_single_text
+
+        token_ids = list(req.origin_input_ids) + list(req.output_ids)
+        max_pos = len(token_ids)
+        stored = 0
+        skipped_low_f1 = 0
+        skipped_invalid = 0
+        min_f1 = float(
+            os.environ.get("SGLANG_PLACEHOLDER_STORE_MIN_F1", "0.60")
+        )
+        for span in spans:
+            if not isinstance(span, dict):
+                skipped_invalid += 1
+                continue
+            slot_id = str(span.get("slot_id", "") or "")
+            start = int(span.get("start_token", -1))
+            end = int(span.get("end_token", -1))
+            text = str(span.get("text", "") or "")
+            if not slot_id or start < 0 or end <= start or end > max_pos:
+                skipped_invalid += 1
+                continue
+
+            span_token_ids = torch.tensor(
+                token_ids[start:end], dtype=torch.int64, device=self.device
+            )
+            span_kv_indices = kv_indices[start:end].clone()
+
+            actual_text = self._decode_placeholder_span(
+                span_token_ids,
+                fallback_tokenizer=getattr(req, "tokenizer", None),
+            )
+            # Use actual_text as fallback when client didn't supply text.
+            embed_target = text or actual_text
+            # If we have no tokenizer we can't compute F1 — fall back to
+            # permissive "accept" (same shape as the v10c doc's known
+            # limitation for chunk_embeddings; the entry will still be
+            # validated by the k-NN read path's cosine floor).
+            if text and actual_text:
+                f1_score = self._placeholder_f1(text, actual_text)
+            else:
+                f1_score = 1.0  # unknown — accept by default
+            if text and actual_text and f1_score < min_f1:
+                logger.info(
+                    "[placeholder_anchor_pool] skip store slot=%s start=%d "
+                    "len=%d: F1=%.3f < %.3f",
+                    slot_id, start, end - start, f1_score, min_f1,
+                )
+                skipped_low_f1 += 1
+                continue
+
+            try:
+                emb = embed_single_text(embed_target)
+            except Exception as ce:  # pragma: no cover - defensive
+                logger.debug(
+                    "[placeholder_anchor_pool] embed_single_text failed for "
+                    "slot=%s: %s",
+                    slot_id, ce,
+                )
+                emb = None
+
+            entry = AnchorKVEntry(
+                signature=(
+                    f"placeholder:{slot_id}:"
+                    f"{str(span.get('content_signature', ''))[:16]}"
+                ),
+                code_content_signature=str(
+                    span.get("content_signature", "") or ""
+                ),
+                token_ids=span_token_ids,
+                kv_indices=span_kv_indices,
+                start_pos=start,
+                source_node=source_node,
+                slot_id=slot_id,
+                slot_label=str(span.get("label", "") or ""),
+                pool_embedding=emb,
+                embedding_text=embed_target,
+                last_access_time=time.monotonic(),
+            )
+            with self.placeholder_anchor_pool_lock:
+                self.placeholder_anchor_pool.setdefault(slot_id, []).append(entry)
+                self._evict_placeholder_pool_slot_locked(slot_id)
+            stored += 1
+
+        setattr(req, "placeholder_anchor_store_entry_count", stored)
+        setattr(req, "placeholder_anchor_store_skipped_low_f1_count", skipped_low_f1)
+        setattr(req, "placeholder_anchor_store_skipped_invalid_count", skipped_invalid)
+        if stored or skipped_low_f1 or skipped_invalid:
+            logger.info(
+                "[placeholder_anchor_pool] rid=%s stored=%d skipped_low_f1=%d "
+                "skipped_invalid=%d",
+                getattr(req, "rid", "?"), stored, skipped_low_f1, skipped_invalid,
             )
 
     def _resolve_lossy_match(self, req: Req) -> AnchorMatchResult:
@@ -1196,6 +1546,37 @@ class RadixCache(BasePrefixCache):
             elapsed_ms / len(k_buffer) if k_buffer else 0,
         )
 
+    def _apply_rope_delta_to_head(
+        self, k_buffer, dst_slots: torch.Tensor, head_len: int, delta: int,
+    ):
+        """Head-only RoPE delta rotation (Phase 2.1, EPIC-inspired).
+
+        Only the first `head_len` tokens at dst_slots are rotated to encode
+        the correct global position.  The remaining tokens retain their
+        chunk-local position-0 RoPE.
+
+        Reduces rotation cost from O(entry_len x layer_num) to
+        O(head_len x layer_num).  For entry_len=2245, head_len=2,
+        layer_num=28: 62,860 -> 56 ops (~1120x cheaper).
+
+        EPIC (ICML 2025) shows k=2 is sufficient for <=7% accuracy loss
+        on standard benchmarks.
+
+        Returns: number of tokens actually rotated (0 if no-op).
+        """
+        if head_len <= 0 or delta == 0:
+            return 0
+        n = int(dst_slots.shape[0])
+        head_len = min(int(head_len), n)
+        if head_len <= 0:
+            return 0
+        head_dst = dst_slots[:head_len].contiguous()
+        delta_tensor = torch.full(
+            (head_len,), int(delta), dtype=torch.long, device=head_dst.device,
+        )
+        self._apply_rope_delta_to_keys(k_buffer, head_dst, delta_tensor)
+        return head_len
+
     def _try_lossy_fuzzy_match(
         self,
         req: Req,
@@ -1220,13 +1601,16 @@ class RadixCache(BasePrefixCache):
         if exact_len >= len(key):
             return exact_values, exact_node
 
+        multi_anchor_enabled = os.environ.get("SGLANG_LOSSY_MULTI_ANCHOR", "0") == "1"
+        copied_anchor_count = int(getattr(req, "lossy_anchor_multi_copy_count", 0) or 0)
+
         match_reason = getattr(req, "lossy_first_match_reason", "")
         if match_reason not in (
             "exact_anchor_signature",
             "exact_code_content_signature",
             "span_overlap_high",
             "span_overlap_medium",
-        ):
+        ) and not (multi_anchor_enabled and copied_anchor_count > 0):
             return exact_values, exact_node
 
         matched_content_sig = getattr(req, "lossy_first_matched_content_signature", "") or ""
@@ -1235,160 +1619,967 @@ class RadixCache(BasePrefixCache):
         if not matched_content_sig:
             return exact_values, exact_node
 
-        with self.anchor_kv_store_lock:
-            entries = list(self.anchor_kv_store.get(matched_content_sig, []))
-        if not entries:
-            return exact_values, exact_node
-
         key_tokens = key.token_ids
         token_spans = getattr(req, "code_anchor_token_spans", None) or []
+        candidate_content_sigs = [matched_content_sig]
+        for span in token_spans:
+            span_sig = str(span.get("content_signature", "") or "")
+            if span_sig and span_sig not in candidate_content_sigs:
+                candidate_content_sigs.append(span_sig)
+        entries_by_sig = []
+        lookup_entries = 0
+        with self.anchor_kv_store_lock:
+            for content_sig in candidate_content_sigs:
+                entries = list(self.anchor_kv_store.get(content_sig, []))
+                lookup_entries += len(entries)
+                if entries:
+                    entries_by_sig.append((content_sig, entries))
+        setattr(req, "lossy_anchor_store_lookup_entries", lookup_entries)
+        if not entries_by_sig:
+            setattr(req, "lossy_anchor_match_fail_reason", "no_anchor_store_entry")
+            return exact_values, exact_node
+
         skip_check = os.environ.get("SGLANG_LOSSY_SKIP_TOKEN_CHECK", "0") == "1"
-        req_content_signature = matched_content_sig
+        token_mismatch_count = 0
+        span_shape_mismatch_count = 0
+        prefix_covers_count = 0
+        total_copy_len = int(getattr(req, "lossy_anchor_suffix_copy_len", 0) or 0)
+        total_planned_copy_len = int(
+            getattr(req, "lossy_anchor_suffix_copy_planned_len", 0) or 0
+        )
+        total_gap_len = int(getattr(req, "lossy_anchor_match_gap_len", 0) or 0)
+        total_gap_recompute_len = int(getattr(req, "lossy_anchor_gap_recompute_len", 0) or 0)
+        any_copy_truncated = bool(getattr(req, "lossy_anchor_suffix_copy_truncated", False))
 
-        for entry in entries:
-            if (
-                not req_content_signature
-                or not entry.code_content_signature
-                or req_content_signature != entry.code_content_signature
-            ):
-                continue
-            entry_len = len(entry.token_ids)
+        for req_content_signature, entries in entries_by_sig:
+            for entry in entries:
+                if (
+                    not req_content_signature
+                    or not entry.code_content_signature
+                    or req_content_signature != entry.code_content_signature
+                ):
+                    continue
+                entry_len = len(entry.token_ids)
 
-            # Determine the anchor's position in the current request.
-            # Use code_anchor_token_spans if available; otherwise fall back
-            # to entry.start_pos (legacy position-aligned path).
-            anchor_pos = None
-            for span in token_spans:
-                s_start = span.get("start_token", -1)
-                s_end = span.get("end_token", -1)
-                span_content_signature = str(
-                    span.get("content_signature", "") or req_content_signature
-                )
-                if span_content_signature != entry.code_content_signature:
-                    continue
-                if s_start < 0 or s_end > len(key_tokens) or s_end - s_start != entry_len:
-                    continue
-                if skip_check:
-                    anchor_pos = s_start
-                    break
-                span_tokens = torch.tensor(
-                    key_tokens[s_start:s_end],
-                    dtype=entry.token_ids.dtype,
-                    device=entry.token_ids.device,
-                )
-                if torch.equal(span_tokens, entry.token_ids):
-                    anchor_pos = s_start
-                    break
-
-            if anchor_pos is None:
-                # Fallback: position-aligned token match at entry.start_pos
-                entry_end = entry.start_pos + entry_len
-                if entry_end > len(key_tokens) or entry.start_pos < 0:
-                    continue
-                if not skip_check:
-                    current_span = torch.tensor(
-                        key_tokens[entry.start_pos : entry_end],
+                # Determine the anchor's position in the current request.
+                # Use code_anchor_token_spans if available; otherwise fall back
+                # to entry.start_pos (legacy position-aligned path).
+                anchor_pos = None
+                matched_span_max_suffix_copy_len = 0
+                matched_span_suffix_recompute_head_len = 0
+                for span in token_spans:
+                    s_start = span.get("start_token", -1)
+                    s_end = span.get("end_token", -1)
+                    span_content_signature = str(
+                        span.get("content_signature", "") or req_content_signature
+                    )
+                    if span_content_signature != entry.code_content_signature:
+                        continue
+                    if s_start < 0 or s_end > len(key_tokens) or s_end - s_start != entry_len:
+                        span_shape_mismatch_count += 1
+                        continue
+                    if skip_check:
+                        anchor_pos = s_start
+                        matched_span_max_suffix_copy_len = int(
+                            span.get("max_suffix_copy_len", 0) or 0
+                        )
+                        matched_span_suffix_recompute_head_len = int(
+                            span.get("suffix_recompute_head_len", 0) or 0
+                        )
+                        break
+                    span_tokens = torch.tensor(
+                        key_tokens[s_start:s_end],
                         dtype=entry.token_ids.dtype,
                         device=entry.token_ids.device,
                     )
-                    if not torch.equal(current_span, entry.token_ids):
+                    if torch.equal(span_tokens, entry.token_ids):
+                        anchor_pos = s_start
+                        matched_span_max_suffix_copy_len = int(
+                            span.get("max_suffix_copy_len", 0) or 0
+                        )
+                        matched_span_suffix_recompute_head_len = int(
+                            span.get("suffix_recompute_head_len", 0) or 0
+                        )
+                        break
+                    token_mismatch_count += 1
+
+                if anchor_pos is None:
+                    # Fallback: position-aligned token match at entry.start_pos
+                    entry_end = entry.start_pos + entry_len
+                    if entry_end > len(key_tokens) or entry.start_pos < 0:
                         continue
-                anchor_pos = entry.start_pos
+                    if not skip_check:
+                        current_span = torch.tensor(
+                            key_tokens[entry.start_pos : entry_end],
+                            dtype=entry.token_ids.dtype,
+                            device=entry.token_ids.device,
+                        )
+                        if not torch.equal(current_span, entry.token_ids):
+                            token_mismatch_count += 1
+                            continue
+                    anchor_pos = entry.start_pos
 
-            anchor_end = anchor_pos + entry_len
-            if exact_len >= anchor_end:
-                continue
+                anchor_end = anchor_pos + entry_len
+                if exact_len >= anchor_end:
+                    prefix_covers_count += 1
+                    continue
 
-            suffix_start = max(0, exact_len - anchor_pos)
-            copy_len = entry_len - suffix_start
-            if copy_len <= 0:
-                continue
-
-            gap_len = max(0, anchor_pos - exact_len)
-            max_gap = int(os.environ.get("SGLANG_LOSSY_MAX_ZERO_GAP", "16"))
-            if gap_len > max_gap:
-                setattr(req, "lossy_rejected_reason", "agenttemplatekv_large_zero_gap")
-                setattr(req, "lossy_anchor_match_gap_len", gap_len)
-                setattr(req, "agenttemplatekv_rejected_large_gap_count", 1)
-                logger.info(
-                    "[agenttemplatekv] reject content_sig=%s gap_len=%d max_gap=%d",
-                    matched_content_sig,
-                    gap_len,
-                    max_gap,
+                suffix_start = max(0, exact_len - anchor_pos)
+                planned_copy_len = entry_len - suffix_start
+                max_planned_suffix_copy_len = int(
+                    os.environ.get("SGLANG_LOSSY_MAX_PLANNED_SUFFIX_COPY_LEN", "0")
+                    or 0
                 )
-                continue
+                if (
+                    max_planned_suffix_copy_len > 0
+                    and planned_copy_len > max_planned_suffix_copy_len
+                ):
+                    setattr(req, "lossy_rejected_reason", "planned_suffix_copy_too_long")
+                    setattr(req, "lossy_anchor_match_fail_reason", "planned_suffix_copy_too_long")
+                    setattr(req, "lossy_anchor_suffix_copy_len", 0)
+                    setattr(req, "lossy_anchor_suffix_copy_planned_len", planned_copy_len)
+                    setattr(req, "lossy_anchor_suffix_copy_truncated", False)
+                    logger.info(
+                        "[agenttemplatekv] reject content_sig=%s planned_copy_len=%d max_planned=%d",
+                        req_content_signature,
+                        planned_copy_len,
+                        max_planned_suffix_copy_len,
+                    )
+                    continue
 
-            total_new = gap_len + copy_len
+                recompute_gap_enabled = os.environ.get("SGLANG_LOSSY_RECOMPUTE_GAP", "0") == "1"
+                stage_recompute_enabled = os.environ.get("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", "0") == "1"
+                suffix_recompute_head_len = max(
+                    0,
+                    matched_span_suffix_recompute_head_len
+                    or int(os.environ.get("SGLANG_LOSSY_SUFFIX_RECOMPUTE_HEAD_LEN", "0") or 0),
+                )
+                target_prefix_for_copy = min(
+                    anchor_end,
+                    anchor_pos + min(suffix_recompute_head_len, entry_len),
+                )
+                planned_recompute_gap_len = max(0, target_prefix_for_copy - exact_len)
+                max_recompute_gap_len = int(
+                    os.environ.get("SGLANG_LOSSY_MAX_RECOMPUTE_GAP_LEN", "0") or 0
+                )
+                if (
+                    recompute_gap_enabled
+                    and max_recompute_gap_len > 0
+                    and planned_recompute_gap_len > max_recompute_gap_len
+                ):
+                    setattr(req, "lossy_rejected_reason", "recompute_gap_too_long")
+                    setattr(req, "lossy_anchor_match_fail_reason", "recompute_gap_too_long")
+                    setattr(req, "lossy_anchor_match_gap_len", max(0, anchor_pos - exact_len))
+                    setattr(req, "lossy_anchor_gap_recompute_len", planned_recompute_gap_len)
+                    setattr(req, "lossy_anchor_suffix_recompute_head_len", target_prefix_for_copy - anchor_pos)
+                    setattr(req, "lossy_anchor_suffix_copy_len", 0)
+                    setattr(req, "lossy_anchor_suffix_copy_planned_len", planned_copy_len)
+                    setattr(req, "lossy_anchor_context_copy_ready", False)
+                    setattr(req, "lossy_anchor_context_aligned", False)
+                    setattr(
+                        req,
+                        "lossy_anchor_context_align_fail_reason",
+                        "planned_recompute_gap_too_long",
+                    )
+                    logger.info(
+                        "[agenttemplatekv] reject content_sig=%s recompute_gap=%d max_recompute_gap=%d",
+                        req_content_signature,
+                        planned_recompute_gap_len,
+                        max_recompute_gap_len,
+                    )
+                    continue
+                staged_target_prefix_len = int(
+                    getattr(req, "lossy_anchor_context_target_prefix_len", 0) or 0
+                )
+                staged_copy_ready = (
+                    stage_recompute_enabled
+                    and staged_target_prefix_len == target_prefix_for_copy
+                    and exact_len >= target_prefix_for_copy
+                    and getattr(req, "lossy_anchor_context_align_stage", None)
+                    == "recompute_gap_chunk"
+                )
+                if staged_copy_ready and copied_anchor_count <= 0:
+                    # The request already carries the first-stage recompute
+                    # length as metadata.  Treat this second-stage suffix copy
+                    # as the first successful copy in the aggregate so the
+                    # telemetry is not counted twice.
+                    total_gap_recompute_len = 0
+                if recompute_gap_enabled:
+                    target_prefix_sig = _token_prefix_signature(key_tokens, anchor_pos)
+                    if (
+                        entry.prefix_context_signature
+                        and target_prefix_sig != entry.prefix_context_signature
+                        and not staged_copy_ready
+                    ):
+                        if exact_len < anchor_pos:
+                            staged_gap = target_prefix_for_copy - exact_len
+                            if stage_recompute_enabled:
+                                rejected_reason = "context_aligned_staging"
+                                fail_reason = "staged_recompute_gap_pending"
+                                target_prefix_len = target_prefix_for_copy
+                            else:
+                                rejected_reason = "context_aligned_not_supported"
+                                fail_reason = "staged_recompute_gap_not_supported"
+                                target_prefix_len = 0
+                            setattr(req, "lossy_rejected_reason", rejected_reason)
+                            setattr(req, "lossy_anchor_match_gap_len", staged_gap)
+                            setattr(req, "lossy_anchor_gap_recompute_len", staged_gap)
+                            setattr(
+                                req,
+                                "lossy_anchor_suffix_recompute_head_len",
+                                target_prefix_for_copy - anchor_pos,
+                            )
+                            if copied_anchor_count <= 0:
+                                setattr(req, "lossy_anchor_suffix_copy_len", 0)
+                            setattr(req, "lossy_anchor_context_copy_ready", False)
+                            setattr(req, "lossy_anchor_context_aligned", False)
+                            setattr(
+                                req,
+                                "lossy_anchor_context_align_fail_reason",
+                                fail_reason,
+                            )
+                            setattr(req, "lossy_anchor_match_fail_reason", rejected_reason)
+                            setattr(req, "lossy_anchor_context_target_prefix_len", target_prefix_len)
+                            setattr(req, "lossy_anchor_context_prefix_signature_match", False)
+                            if copied_anchor_count > 0:
+                                return exact_values, exact_node
+                            continue
+                        setattr(req, "lossy_rejected_reason", "context_aligned_prefix_mismatch")
+                        setattr(req, "lossy_anchor_match_gap_len", 0)
+                        setattr(req, "lossy_anchor_gap_recompute_len", getattr(req, "lossy_anchor_gap_recompute_len", 0))
+                        setattr(req, "lossy_anchor_suffix_copy_len", 0)
+                        setattr(req, "lossy_anchor_context_aligned", False)
+                        setattr(
+                            req,
+                            "lossy_anchor_context_align_fail_reason",
+                            "prefix_context_mismatch",
+                        )
+                        setattr(req, "lossy_anchor_match_fail_reason", "context_aligned_prefix_mismatch")
+                        setattr(req, "lossy_anchor_context_prefix_signature_match", False)
+                        continue
+                setattr(req, "lossy_anchor_context_prefix_signature_match", True)
 
-            new_slots = self.token_to_kv_pool_allocator.alloc(total_new)
-            if new_slots is None:
-                logger.warning("[anchor_kv] alloc failed for content_sig=%s", matched_content_sig)
-                continue
+                max_suffix_copy_len = int(os.environ.get("SGLANG_LOSSY_MAX_SUFFIX_COPY_LEN", "0") or 0)
+                copy_caps = [
+                    cap for cap in (max_suffix_copy_len, matched_span_max_suffix_copy_len) if cap > 0
+                ]
+                copy_len = min([planned_copy_len, *copy_caps]) if copy_caps else planned_copy_len
+                if copy_len <= 0:
+                    continue
 
-            kvcache = self.token_to_kv_pool_allocator.get_kvcache()
+                # Semantic suffix-copy length decider: replace the hand-tuned
+                # caps above with a content-derived length. Compute the request's
+                # chunk embeddings at the candidate position and compare to the
+                # entry's stored chunk embeddings; take the longest prefix where
+                # every chunk cosine >= SGLANG_SEMANTIC_SUFFIX_MIN_COSINE.
+                semantic_copy_len = copy_len  # default: no semantic constraint
+                semantic_min_cos = 0.0
+                semantic_truncated = False
+                try:
+                    from sglang.srt.mem_cache.semantic_suffix import (
+                        is_enabled as semantic_enabled,
+                        request_chunks_for,
+                        cosine_profile,
+                    )
+                    if (
+                        semantic_enabled()
+                        and getattr(entry, "chunk_embeddings", None) is not None
+                        and entry.chunk_embeddings.numel() > 0
+                    ):
+                        req_tokens_at_pos = key_tokens[anchor_pos:anchor_pos + len(entry.token_ids)]
+                        req_token_tensor = torch.as_tensor(
+                            req_tokens_at_pos, dtype=torch.long,
+                        )
+                        llm_tokenizer = getattr(self, "tokenizer", None)
+                        if llm_tokenizer is None:
+                            llm_tokenizer = getattr(req, "tokenizer", None)
+                        req_chunks = request_chunks_for(
+                            req_token_tensor, llm_tokenizer,
+                        )
+                        if req_chunks is not None and req_chunks.numel() > 0:
+                            sem_len = cosine_profile(
+                                req_chunks, entry.chunk_embeddings,
+                            )
+                            # Compute the min cosine across the kept prefix
+                            # for telemetry.
+                            from sglang.srt.mem_cache.semantic_suffix import (
+                                min_cosine as _min_cos,
+                                chunk_tokens as _chunk_tokens,
+                            )
+                            n_keep = sem_len // _chunk_tokens()
+                            if n_keep > 0:
+                                sims = (req_chunks[:n_keep] * entry.chunk_embeddings[:n_keep]).sum(dim=-1)
+                                semantic_min_cos = float(sims.min().item())
+                            # Apply semantic cap. Round DOWN to chunk boundary.
+                            if sem_len > 0 and sem_len < copy_len:
+                                semantic_copy_len = sem_len
+                                semantic_truncated = True
+                except Exception as se:  # pragma: no cover - defensive
+                    logger.debug(
+                        "[agenttemplatekv] semantic suffix check skipped: %s",
+                        se,
+                    )
+                    semantic_copy_len = copy_len
+                # Final cap: the smallest of planned, env caps, span cap, and
+                # semantic cap.
+                if semantic_copy_len < copy_len:
+                    copy_len = semantic_copy_len
+                if copy_len <= 0:
+                    setattr(req, "lossy_anchor_suffix_copy_semantic_len", 0)
+                    setattr(req, "lossy_anchor_suffix_copy_semantic_min_cosine", 0.0)
+                    setattr(req, "lossy_anchor_suffix_copy_semantic_truncated", True)
+                    continue
 
-            if gap_len > 0:
-                gap_slots = new_slots[:gap_len]
-                for layer_id in range(kvcache.layer_num):
-                    kvcache.get_key_buffer(layer_id)[gap_slots] = 0
-                    kvcache.get_value_buffer(layer_id)[gap_slots] = 0
-
-            # Copy anchor KV
-            src_kv = entry.kv_indices[suffix_start : suffix_start + copy_len]
-            dst_kv = new_slots[gap_len : gap_len + copy_len]
-            move_kv_cache_native(kvcache.k_buffer, kvcache.v_buffer, dst_kv, src_kv)
-            with self.anchor_kv_store_lock:
-                entry.ref_count += 1
-                # Track so cache_finished_req can decrement on natural
-                # request finish (prevents anchor_kv_store leak across
-                # multi-case runs).  setattr keeps the change off the
-                # public Req API; unit tests build SimpleNamespace reqs
-                # and do not assert on this attribute.
-                if req is not None:
-                    _consumed = getattr(req, "_consumed_anchor_entries", None)
-                    if _consumed is None:
-                        setattr(req, "_consumed_anchor_entries", [entry])
+                gap_len = max(0, anchor_pos - exact_len)
+                max_gap = int(os.environ.get("SGLANG_LOSSY_MAX_ZERO_GAP", "16"))
+                if gap_len > 0 and recompute_gap_enabled:
+                    staged_gap = target_prefix_for_copy - exact_len
+                    if stage_recompute_enabled:
+                        rejected_reason = "context_aligned_staging"
+                        fail_reason = "staged_recompute_gap_pending"
+                        target_prefix_len = target_prefix_for_copy
                     else:
-                        _consumed.append(entry)
+                        rejected_reason = "context_aligned_not_supported"
+                        fail_reason = "staged_recompute_gap_not_supported"
+                        target_prefix_len = 0
+                    setattr(req, "lossy_rejected_reason", rejected_reason)
+                    setattr(req, "lossy_anchor_match_gap_len", gap_len)
+                    setattr(req, "lossy_anchor_gap_recompute_len", staged_gap)
+                    setattr(
+                        req,
+                        "lossy_anchor_suffix_recompute_head_len",
+                        target_prefix_for_copy - anchor_pos,
+                    )
+                    if copied_anchor_count <= 0:
+                        setattr(req, "lossy_anchor_suffix_copy_len", 0)
+                    setattr(req, "lossy_anchor_context_copy_ready", False)
+                    setattr(req, "lossy_anchor_context_aligned", False)
+                    setattr(
+                        req,
+                        "lossy_anchor_context_align_fail_reason",
+                        fail_reason,
+                    )
+                    setattr(req, "lossy_anchor_match_fail_reason", rejected_reason)
+                    setattr(req, "lossy_anchor_context_target_prefix_len", target_prefix_len)
+                    logger.info(
+                        "[agenttemplatekv] context-aligned reuse requested; staging recompute gap before suffix copy: "
+                        "content_sig=%s gap_len=%d max_gap=%d",
+                        req_content_signature,
+                        gap_len,
+                        max_gap,
+                    )
+                    if copied_anchor_count > 0:
+                        return exact_values, exact_node
+                    continue
+                if gap_len > max_gap:
+                    setattr(req, "lossy_rejected_reason", "agenttemplatekv_large_zero_gap")
+                    setattr(req, "lossy_anchor_match_gap_len", gap_len)
+                    setattr(req, "agenttemplatekv_rejected_large_gap_count", 1)
+                    logger.info(
+                        "[agenttemplatekv] reject content_sig=%s gap_len=%d max_gap=%d",
+                        req_content_signature,
+                        gap_len,
+                        max_gap,
+                    )
+                    continue
 
-            # Apply RoPE delta rotation: key positions must match the new
-            # absolute positions in this request. Delta = new_pos - old_pos.
-            # Since RoPE is additive in 2D, R(new) = R(delta) * R(old).
-            delta = (exact_len + gap_len) - (entry.start_pos + suffix_start)
-            if delta != 0 and self.rope_rotary_dim > 0:
-                delta_tensor = torch.full(
-                    (copy_len,), delta, dtype=torch.long, device=dst_kv.device
-                )
-                self._apply_rope_delta_to_keys(kvcache.k_buffer, dst_kv, delta_tensor)
-                logger.info(
-                    "[anchor_kv] RoPE delta=%d for sig=%s (old_pos=%d, new_pos=%d)",
-                    delta, matched_content_sig,
-                    entry.start_pos + suffix_start, exact_len + gap_len,
-                )
+                total_new = gap_len + copy_len
 
-            extended = exact_values + [new_slots]
-            setattr(req, "lossy_anchor_match_used", True)
-            setattr(req, "lossy_anchor_match_len", copy_len)
-            setattr(req, "lossy_anchor_match_gap_len", gap_len)
-            setattr(req, "lossy_anchor_match_signature", entry.signature)
-            setattr(req, "lossy_anchor_match_content_signature", matched_content_sig)
-            setattr(req, "lossy_anchor_rope_delta", delta)
-            if entry.prefetch_lock_held:
-                entry.prefetch_hit_count += 1
+                new_slots = self.token_to_kv_pool_allocator.alloc(total_new)
+                if new_slots is None:
+                    logger.warning("[anchor_kv] alloc failed for content_sig=%s", req_content_signature)
+                    continue
+
+                kvcache = self.token_to_kv_pool_allocator.get_kvcache()
+
+                if gap_len > 0:
+                    gap_slots = new_slots[:gap_len]
+                    for layer_id in range(kvcache.layer_num):
+                        kvcache.get_key_buffer(layer_id)[gap_slots] = 0
+                        kvcache.get_value_buffer(layer_id)[gap_slots] = 0
+
+                # Copy anchor KV
+                src_kv = entry.kv_indices[suffix_start : suffix_start + copy_len]
+                dst_kv = new_slots[gap_len : gap_len + copy_len]
+                move_kv_cache_native(kvcache.k_buffer, kvcache.v_buffer, dst_kv, src_kv)
+                with self.anchor_kv_store_lock:
+                    entry.ref_count += 1
+                    # Track so cache_finished_req can decrement on natural
+                    # request finish (prevents anchor_kv_store leak across
+                    # multi-case runs).  setattr keeps the change off the
+                    # public Req API; unit tests build SimpleNamespace reqs
+                    # and do not assert on this attribute.
+                    if req is not None:
+                        _consumed = getattr(req, "_consumed_anchor_entries", None)
+                        if _consumed is None:
+                            setattr(req, "_consumed_anchor_entries", [entry])
+                        else:
+                            _consumed.append(entry)
+
+                # Apply RoPE delta rotation: key positions must match the new
+                # absolute positions in this request. Delta = new_pos - old_pos.
+                # Since RoPE is additive in 2D, R(new) = R(delta) * R(old).
+                delta = (exact_len + gap_len) - (entry.start_pos + suffix_start)
+                if delta != 0 and self.rope_rotary_dim > 0:
+                    delta_tensor = torch.full(
+                        (copy_len,), delta, dtype=torch.long, device=dst_kv.device
+                    )
+                    self._apply_rope_delta_to_keys(kvcache.k_buffer, dst_kv, delta_tensor)
+                    logger.info(
+                        "[anchor_kv] RoPE delta=%d for sig=%s (old_pos=%d, new_pos=%d)",
+                        delta, req_content_signature,
+                        entry.start_pos + suffix_start, exact_len + gap_len,
+                    )
+
+                extended = exact_values + [new_slots]
+                copied_anchor_count += 1
+                total_copy_len += copy_len
+                total_planned_copy_len += planned_copy_len
+                total_gap_len += gap_len
+                total_gap_recompute_len += (
+                    int(getattr(req, "lossy_anchor_gap_recompute_len", 0) or 0)
+                    if staged_copy_ready
+                    else 0
+                )
+                any_copy_truncated = any_copy_truncated or copy_len < planned_copy_len
+                # Track per-entry semantic suffix telemetry (sum across multi-anchor).
                 setattr(
                     req,
-                    "agenttemplatekv_prefetch_consumed_count",
-                    getattr(req, "agenttemplatekv_prefetch_consumed_count", 0) + 1,
+                    "lossy_anchor_suffix_copy_semantic_len",
+                    int(getattr(req, "lossy_anchor_suffix_copy_semantic_len", 0) or 0)
+                    + int(semantic_copy_len),
                 )
-                entry.prefetch_steps_remaining -= 1
-                if entry.prefetch_steps_remaining <= 0:
-                    self._agenttemplatekv_release_entry(entry)
-            return extended, exact_node
+                if semantic_min_cos > 0:
+                    prev = float(getattr(req, "lossy_anchor_suffix_copy_semantic_min_cosine", 1.0) or 1.0)
+                    setattr(
+                        req,
+                        "lossy_anchor_suffix_copy_semantic_min_cosine",
+                        min(prev, semantic_min_cos),
+                    )
+                if semantic_truncated:
+                    setattr(req, "lossy_anchor_suffix_copy_semantic_truncated", True)
+                setattr(req, "lossy_anchor_match_used", True)
+                setattr(req, "lossy_anchor_match_len", total_copy_len)
+                setattr(req, "lossy_anchor_match_gap_len", total_gap_len)
+                staged_recompute_len = int(
+                    getattr(req, "lossy_anchor_gap_recompute_len", 0) or 0
+                )
+                setattr(req, "lossy_anchor_gap_recompute_len", total_gap_recompute_len)
+                setattr(req, "lossy_anchor_suffix_copy_len", total_copy_len)
+                setattr(req, "lossy_anchor_suffix_copy_planned_len", total_planned_copy_len)
+                setattr(req, "lossy_anchor_suffix_copy_cap_len", min(copy_caps) if copy_caps else 0)
+                setattr(req, "lossy_anchor_suffix_copy_truncated", any_copy_truncated)
+                setattr(
+                    req,
+                    "lossy_anchor_suffix_recompute_head_len",
+                    max(0, suffix_start),
+                )
+                setattr(req, "lossy_anchor_multi_copy_count", copied_anchor_count)
+                setattr(req, "lossy_anchor_context_copy_ready", staged_copy_ready)
+                setattr(req, "lossy_anchor_context_aligned", gap_len == 0 or staged_copy_ready)
+                setattr(req, "lossy_anchor_context_align_fail_reason", None)
+                setattr(req, "lossy_anchor_match_fail_reason", None)
+                setattr(req, "lossy_anchor_match_signature", entry.signature)
+                setattr(req, "lossy_anchor_match_content_signature", req_content_signature)
+                setattr(req, "lossy_anchor_rope_delta", delta)
+                setattr(
+                    req,
+                    "codebase_prefetch_device_hit_count",
+                    getattr(req, "codebase_prefetch_device_hit_count", 0) + 1,
+                )
+                setattr(
+                    req,
+                    "agenttemplatekv_prefetch_hit_count",
+                    getattr(req, "agenttemplatekv_prefetch_hit_count", 0) + 1,
+                )
+                if entry.prefetch_lock_held:
+                    entry.prefetch_hit_count += 1
+                    setattr(
+                        req,
+                        "agenttemplatekv_prefetch_consumed_count",
+                        getattr(req, "agenttemplatekv_prefetch_consumed_count", 0) + 1,
+                    )
+                    entry.prefetch_steps_remaining -= 1
+                    if entry.prefetch_steps_remaining <= 0:
+                        self._agenttemplatekv_release_entry(entry)
+                elif getattr(req, "agenttemplatekv_prefetch_protected_tokens", 0) > 0:
+                    setattr(
+                        req,
+                        "agenttemplatekv_prefetch_consumed_count",
+                        getattr(req, "agenttemplatekv_prefetch_consumed_count", 0) + 1,
+                    )
+                exact_values = extended
+                exact_len += total_new
+                if not multi_anchor_enabled:
+                    return extended, exact_node
 
+        setattr(req, "lossy_anchor_token_mismatch_count", token_mismatch_count)
+        setattr(req, "lossy_anchor_span_shape_mismatch_count", span_shape_mismatch_count)
+        setattr(req, "lossy_anchor_prefix_covers_count", prefix_covers_count)
+        if copied_anchor_count > 0:
+            setattr(req, "lossy_anchor_match_fail_reason", None)
+            return exact_values, exact_node
+        if not getattr(req, "lossy_anchor_match_fail_reason", None):
+            if prefix_covers_count:
+                setattr(req, "lossy_anchor_match_fail_reason", "prefix_already_covers_anchor")
+            elif token_mismatch_count:
+                setattr(req, "lossy_anchor_match_fail_reason", "token_mismatch")
+            elif span_shape_mismatch_count:
+                setattr(req, "lossy_anchor_match_fail_reason", "span_shape_mismatch")
+            else:
+                setattr(req, "lossy_anchor_match_fail_reason", "no_usable_anchor_entry")
         return exact_values, exact_node
 
-    def cache_finished_req(self, req: Req, is_insert: bool = True):
-        """Cache request when it finishes."""
+    # -----------------------------------------------------------------
+    # Per-placeholder k-NN read path (Duke 2026 KVCOMM-style).
+    #
+    # `_try_placeholder_knn_lossy_match` runs *after* `_try_lossy_fuzzy_match`
+    # in `match_prefix` (when SGLANG_PLACEHOLDER_KNN_MATCH=1).  For each
+    # slot in `req.placeholder_anchor_token_spans` it (a) embeds the slot's
+    # text, (b) does per-slot embedding k-NN search, (c) copies the best
+    # neighbor's KV into the current prefill stream with a RoPE delta
+    # rotation.  v1 takes only the single-best neighbor; soft-weighted
+    # K-nearest reconstruction is Phase 2.
+    # -----------------------------------------------------------------
+
+    def _try_placeholder_knn_lossy_match(
+        self,
+        req: Req,
+        key: RadixKey,
+        exact_values: List[torch.Tensor],
+        exact_node: TreeNode,
+    ) -> Tuple[List[torch.Tensor], TreeNode]:
+        """Per-placeholder embedding k-NN reuse.  Returns updated
+        ``(exact_values, exact_node)`` — caller treats the returned node
+        as the new radix tail.  Disabled by default; flips on via
+        ``SGLANG_PLACEHOLDER_KNN_MATCH=1``.
+
+        Telemetry (set on req):
+          - placeholder_kv_prefill_matched_slots
+          - placeholder_kv_prefill_skipped_tokens
+          - placeholder_knn_topk_similarity_mean
+          - placeholder_anchor_pool_hit_count
+          - placeholder_anchor_pool_miss_count
+        """
+        if os.environ.get("SGLANG_PLACEHOLDER_KNN_MATCH", "0") != "1":
+            return exact_values, exact_node
+        spans = getattr(req, "placeholder_anchor_token_spans", None) or []
+        if not spans:
+            return exact_values, exact_node
+        try:
+            from sglang.srt.mem_cache.semantic_suffix import (
+                embed_single_text,
+                is_enabled,
+                load_embedder,
+            )
+        except Exception as ie:  # pragma: no cover - defensive
+            logger.debug("[placeholder_knn] import failed: %s", ie)
+            return exact_values, exact_node
+        if not is_enabled():
+            return exact_values, exact_node
+        emb = load_embedder()
+        if emb is None:
+            return exact_values, exact_node
+        top_k = int(os.environ.get("SGLANG_PLACEHOLDER_KNN_TOPK", "4"))
+        min_cos = float(
+            os.environ.get("SGLANG_PLACEHOLDER_KNN_MIN_COSINE", "0.70")
+        )
+        max_slot_len = int(
+            os.environ.get("SGLANG_PLACEHOLDER_KNN_MAX_SLOT_LEN", "4096")
+        )
+        # Cost-aware abort guard: when entry_len × layer_num exceeds this
+        # threshold, the slot's RoPE delta rotation would cost more GPU
+        # time than the dense prefill it would skip.  Default 114688
+        # (28 layers × 4096 tokens) targets Qwen2.5-7B's breakeven.
+        # Set to 0 to disable the guard (matches v10c convention).
+        max_rope_ops = int(
+            os.environ.get("SGLANG_PLACEHOLDER_KNN_MAX_ROPE_OPS", "114688")
+        )
+        # Head-only RoPE rotation (Phase 2.1, EPIC-inspired).  Only the
+        # first `head_tokens` of each placeholder slot get rotated to the
+        # correct global position; the rest keep their original (chunk-
+        # local position-0) RoPE.  k=2 is EPIC's recommended default with
+        # <=7% accuracy loss on standard benchmarks.  Set to 0 to disable
+        # (full rotation, v12 back-compat).  For entry_len <= head_tokens,
+        # behaves identically to full rotation (no-op slice wrapper).
+        head_tokens = int(
+            os.environ.get("SGLANG_PLACEHOLDER_KNN_HEAD_TOKENS", "2")
+        )
+        # Phase 2.5: skip copy when most of the slot is already in the
+        # prefix cache.  For high overlap ratios the alloc + move_kv +
+        # RoPE overhead of the trimmed copy exceeds the prefill saving,
+        # so we let dense prefill handle the few new tokens.  Default 0.5
+        # (skip when >50% of slot is already cached).  Set to 1.0 to
+        # disable.
+        max_overlap_ratio = float(
+            os.environ.get(
+                "SGLANG_PLACEHOLDER_KNN_MAX_OVERLAP_RATIO", "0.5"
+            )
+        )
+        # Wrap the rest in try/except so a single bad span cannot crash
+        # the request pipeline.  Any exception becomes a "no-op" and
+        # sets req.placeholder_anchor_pool_skipped_invalid_count.
+        try:
+            return self._try_placeholder_knn_lossy_match_body(
+                req, exact_values, exact_node, spans, emb,
+                top_k, min_cos, max_slot_len, max_rope_ops, head_tokens,
+                max_overlap_ratio,
+            )
+        except Exception as ke:  # pragma: no cover - defensive
+            logger.warning(
+                "[placeholder_knn] unexpected error rid=%s: %s",
+                getattr(req, "rid", "?"), ke,
+            )
+            setattr(req, "placeholder_anchor_pool_skipped_invalid_count",
+                    getattr(req, "placeholder_anchor_pool_skipped_invalid_count", 0) + len(spans))
+            return exact_values, exact_node
+
+    def _try_placeholder_knn_lossy_match_body(
+        self,
+        req: Req,
+        exact_values: List[torch.Tensor],
+        exact_node: TreeNode,
+        spans: List[Dict[str, Any]],
+        emb,
+        top_k: int,
+        min_cos: float,
+        max_slot_len: int,
+        max_rope_ops: int = 0,
+        head_tokens: int = 2,  # Phase 2.1: EPIC-inspired head-only RoPE
+        max_overlap_ratio: float = 0.5,  # Phase 2.5: skip when overlap_ratio > this
+    ) -> Tuple[List[torch.Tensor], TreeNode]:
+        from sglang.srt.mem_cache.semantic_suffix import embed_single_text as _est
+
+        # `prefix_len` is the length that the prefix cache matched BEFORE
+        # any k-NN copy in this body call.  We use this for the
+        # `start < prefix_len` guard (not the running `exact_len` which
+        # also includes prior k-NN-copied slots).  With multiple slots in
+        # a single request, the second slot's start can be < the running
+        # `exact_len` (which now includes the first slot's k-NN copy)
+        # without indicating a real conflict — the slot's content is
+        # genuinely new; it's just AFTER the prefix in absolute token
+        # position, not AFTER the running exact_len.
+        prefix_len = (
+            sum(int(v.numel()) for v in exact_values) if exact_values else 0
+        )
+        exact_len = prefix_len
+        matched_slots = 0
+        skipped_tokens = 0
+        sims_total: List[float] = []
+        consumed_entries: List[AnchorKVEntry] = []
+        miss_count = 0
+        skipped_invalid = 0
+        # The original code accepted `key` to bound k-NN lookups to the
+        # prompt length, but the body helper no longer needs it; keep
+        # `key_tokens_len = None` so spans are always attempted (they were
+        # already filtered by the outer caller).
+        key_tokens_len: Optional[int] = None
+
+        for span in spans:
+            if not isinstance(span, dict):
+                skipped_invalid += 1
+                continue
+            slot_id = str(span.get("slot_id", "") or "")
+            start = int(span.get("start_token", -1))
+            end = int(span.get("end_token", -1))
+            text = str(span.get("text", "") or "")
+            if (
+                not slot_id
+                or start < 0
+                or end <= start
+                or (key_tokens_len is not None and start >= key_tokens_len)
+            ):
+                skipped_invalid += 1
+                continue
+            query_emb = _est(text or " ", emb=emb)
+            if query_emb is None:
+                miss_count += 1
+                continue
+
+            with self.placeholder_anchor_pool_lock:
+                pool = list(self.placeholder_anchor_pool.get(slot_id, []))
+            if not pool:
+                miss_count += 1
+                continue
+
+            neighbors = _placeholder_knn_search(
+                pool, query_emb, top_k=top_k, min_similarity=min_cos,
+            )
+            if not neighbors:
+                miss_count += 1
+                continue
+
+            best, best_sim = neighbors[0]
+            sims_total.append(best_sim)
+            entry_len = min(len(best.token_ids), end - start, max_slot_len)
+            if entry_len <= 0:
+                miss_count += 1
+                continue
+
+            # Phase 2.4: trim the k-NN copy to only the post-prefix
+            # portion of the slot. When start < prefix_len, the prefix
+            # cache has [start, prefix_len) of the slot already; we
+            # only copy [prefix_len, end). When start >= prefix_len,
+            # copy_len == entry_len (no trim).
+            #
+            # The KV layout stays contiguous: prefix indices cover
+            # [0, prefix_len), and the trimmed new_slots cover
+            # [prefix_len, prefix_len + copy_len). The flashinfer
+            # attention backend handles this correctly.
+            #
+            # The two extremes:
+            #  - start < prefix_len: copy_len = entry_len - overlap_len
+            #  - start >= prefix_len: copy_len = entry_len, copy_offset=0
+            overlap_len = max(0, prefix_len - start)
+            copy_offset = overlap_len
+            copy_len = entry_len - overlap_len
+            # Phase 2.5: skip copy when most of the slot is already in
+            # the prefix cache.  The cost of alloc + move_kv_cache + head
+            # RoPE for a small (entry_len - overlap_len) trim is on par
+            # with the prefill saving for that many tokens (~20-30 ms in
+            # practice, dominated by per-launch overhead).  When the
+            # overlap ratio is high, the right move is to let dense
+            # prefill handle the few new tokens rather than pay the copy
+            # overhead.  Set max_overlap_ratio=1.0 to disable.
+            if (
+                max_overlap_ratio < 1.0
+                and entry_len > 0
+                and overlap_len / entry_len > max_overlap_ratio
+            ):
+                setattr(
+                    req,
+                    "placeholder_knn_skipped_high_overlap_count",
+                    getattr(
+                        req,
+                        "placeholder_knn_skipped_high_overlap_count",
+                        0,
+                    ) + 1,
+                )
+                logger.info(
+                    "[placeholder_knn] rid=%s slot=%s skip-high-overlap: "
+                    "overlap_ratio=%.3f > %.3f (overlap=%d entry=%d)",
+                    getattr(req, "rid", "?"), slot_id,
+                    overlap_len / entry_len, max_overlap_ratio,
+                    overlap_len, entry_len,
+                )
+                continue
+            if copy_len <= 0:
+                # Slot entirely within prefix region, or anchor shorter
+                # than overlap. Nothing useful to copy; fall back to the
+                # skip path (no behavior change from v15 here).
+                skipped_invalid += 1
+                continue
+
+            # Cost-aware abort guard (Phase 2).  In Phase 2.1 the cost is
+            # based on head-only rotation (head_len x layer_num) not
+            # full-slot rotation.  With head_tokens=2 and layer_num=28,
+            # cost = 56 << 114688 default, so the guard is effectively
+            # a safety net (almost never fires).
+            if max_rope_ops > 0:
+                try:
+                    layer_num = (
+                        self.token_to_kv_pool_allocator
+                        .get_kvcache().layer_num
+                    )
+                except Exception:  # pragma: no cover - defensive
+                    layer_num = 0
+                eff_head_len = (
+                    copy_len
+                    if head_tokens <= 0
+                    else min(head_tokens, copy_len)
+                )
+                cost = eff_head_len * layer_num if layer_num > 0 else 0
+                if cost > max_rope_ops:
+                    logger.info(
+                        "[placeholder_knn] rid=%s slot=%s abort: "
+                        "entry_len=%d head_len=%d layer_num=%d cost=%d "
+                        "> threshold=%d (cosine=%.3f)",
+                        getattr(req, "rid", "?"), slot_id, entry_len,
+                        eff_head_len, layer_num, cost, max_rope_ops,
+                        best_sim,
+                    )
+                    setattr(
+                        req,
+                        "placeholder_anchor_pool_skipped_cost_count",
+                        getattr(
+                            req,
+                            "placeholder_anchor_pool_skipped_cost_count",
+                            0,
+                        ) + 1,
+                    )
+                    continue
+
+            new_slots = self.token_to_kv_pool_allocator.alloc(copy_len)
+            if new_slots is None:
+                logger.warning(
+                    "[placeholder_knn] alloc failed for slot=%s len=%d",
+                    slot_id, copy_len,
+                )
+                miss_count += 1
+                continue
+
+            try:
+                kvcache = self.token_to_kv_pool_allocator.get_kvcache()
+            except Exception as ae:  # pragma: no cover - defensive
+                logger.warning(
+                    "[placeholder_knn] get_kvcache failed: %s", ae,
+                )
+                continue
+
+            src_kv = best.kv_indices[copy_offset : copy_offset + copy_len]
+            dst_kv = new_slots[:copy_len]
+            # Phase 2.2: route through MHATokenToKVPool.move_kv_cache
+            # dispatcher so we get the triton-tiled kernel at default
+            # SGLANG_NATIVE_MOVE_KV_CACHE=False (envs.SGLANG_NATIVE_MOVE_KV_CACHE
+            # = EnvBool(False) at environ.py:213). Falls back to
+            # move_kv_cache_native when env=1 or when kvcache lacks the
+            # dispatcher (legacy stubs / tests).
+            copy_method = (
+                "native"
+                if os.environ.get("SGLANG_NATIVE_MOVE_KV_CACHE", "0") == "1"
+                else "tiled"
+            )
+            try:
+                kvcache.move_kv_cache(dst_kv, src_kv)
+            except AttributeError:
+                # Pre-Phase-2.2 test stubs may expose only
+                # k_buffer/v_buffer.  Re-route to the eager native loop
+                # so behavior is identical to v13.
+                move_kv_cache_native(
+                    kvcache.k_buffer, kvcache.v_buffer, dst_kv, src_kv,
+                )
+                copy_method = "native"
+            except Exception as me:  # pragma: no cover - defensive
+                logger.warning(
+                    "[placeholder_knn] move_kv_cache failed (method=%s): %s",
+                    copy_method, me,
+                )
+                setattr(
+                    req,
+                    "placeholder_anchor_pool_copy_error_count",
+                    getattr(
+                        req,
+                        "placeholder_anchor_pool_copy_error_count",
+                        0,
+                    ) + 1,
+                )
+                continue
+            # Record which path served this slot, for end-to-end
+            # diagnostics.
+            setattr(req, "placeholder_knn_copy_method", copy_method)
+
+            # Apply RoPE delta: anchor was stored at best.start_pos; this
+            # request's slot starts at `start`.  delta = new_pos - old_pos.
+            # Phase 2.1: head-only rotation (EPIC-inspired).  Only the
+            # first `head_tokens` tokens are rotated; the rest retain
+            # chunk-local position-0 RoPE.  Cost: head_tokens x layer_num
+            # vs entry_len x layer_num (~1000x cheaper for typical slots).
+            #
+            # Phase 2.4: the first token of the trimmed `dst_kv` lives at
+            # global position `start + copy_offset = prefix_len`. Its
+            # corresponding anchor position is `best.start_pos + copy_offset`.
+            # So delta = (start + copy_offset) - (best.start_pos + copy_offset)
+            # which algebraically simplifies to start - best.start_pos.
+            # When copy_offset=0 (no trim), the formula is byte-identical
+            # to v15.
+            delta = (start + copy_offset) - (best.start_pos + copy_offset)
+            rotated = 0
+            if delta != 0 and getattr(self, "rope_rotary_dim", 0) > 0:
+                try:
+                    if head_tokens <= 0:
+                        # Explicitly disabled: full rotation (v12 back-compat).
+                        delta_tensor = torch.full(
+                            (copy_len,), delta, dtype=torch.long,
+                            device=dst_kv.device,
+                        )
+                        self._apply_rope_delta_to_keys(
+                            kvcache.k_buffer, dst_kv, delta_tensor,
+                        )
+                        rotated = copy_len
+                    else:
+                        rotated = self._apply_rope_delta_to_head(
+                            kvcache.k_buffer, dst_kv, head_tokens, delta,
+                        )
+                except Exception as re_:  # pragma: no cover - defensive
+                    logger.debug(
+                        "[placeholder_knn] rope delta skipped: %s", re_,
+                    )
+            setattr(req, "placeholder_knn_head_rotation_tokens", rotated)
+            setattr(
+                req, "placeholder_knn_head_rotation_total_ops",
+                rotated * len(kvcache.k_buffer) if rotated else 0,
+            )
+
+            with self.placeholder_anchor_pool_lock:
+                best.ref_count += 1
+                best.last_access_time = time.monotonic()
+            consumed_entries.append(best)
+
+            exact_values = exact_values + [new_slots]
+            exact_len += copy_len
+            matched_slots += 1
+            skipped_tokens += copy_len
+            # Phase 2.4: track the cumulative overlap (prefix_len -
+            # start) for diagnostics.  Zero when no trim.
+            setattr(
+                req,
+                "placeholder_kv_prefill_overlap_tokens",
+                getattr(
+                    req,
+                    "placeholder_kv_prefill_overlap_tokens",
+                    0,
+                ) + overlap_len,
+            )
+
+        setattr(req, "placeholder_kv_prefill_matched_slots", matched_slots)
+        setattr(req, "placeholder_kv_prefill_skipped_tokens", skipped_tokens)
+        setattr(req, "placeholder_anchor_pool_hit_count", matched_slots)
+        setattr(
+            req, "placeholder_anchor_pool_miss_count",
+            getattr(req, "placeholder_anchor_pool_miss_count", 0) + miss_count,
+        )
+        setattr(req, "placeholder_anchor_pool_skipped_invalid_count", skipped_invalid)
+        if sims_total:
+            setattr(
+                req, "placeholder_knn_topk_similarity_mean",
+                float(sum(sims_total) / len(sims_total)),
+            )
+        if consumed_entries:
+            existing = getattr(req, "_consumed_placeholder_entries", None)
+            if existing is None:
+                setattr(req, "_consumed_placeholder_entries", consumed_entries)
+            else:
+                existing.extend(consumed_entries)
+        if matched_slots:
+            logger.info(
+                "[placeholder_knn] rid=%s matched=%d skipped_tokens=%d "
+                "miss=%d invalid=%d sim_mean=%.3f",
+                getattr(req, "rid", "?"), matched_slots, skipped_tokens,
+                miss_count, skipped_invalid,
+                float(sims_total[0]) if sims_total else 0.0,
+            )
+        return exact_values, exact_node
+
+    def cache_finished_req(self, req: Req, is_insert: bool = True,
+                           tokenizer=None):
+        """Cache request when it finishes.
+
+        Args:
+            req: the request object whose KV is being cached.
+            is_insert: whether to insert into the radix tree.
+            tokenizer: optional LLM tokenizer passed through from the
+                scheduler.  Used by placeholder k-NN write-back for F1
+                validation of dense-prefilled text.  When None, falls
+                back to getattr(req, "tokenizer", None) (also typically
+                None in production); the write-back path treats missing
+                tokenizer as "cannot compute F1" and skips the F1 guard
+                (matches v10c behavior).
+        """
+        # Stash the tokenizer on the cache instance so subsequent
+        # `_decode_placeholder_span` and `_store_placeholder_anchor_kv`
+        # calls can find it without prop drilling through every method.
+        if tokenizer is not None:
+            self.tokenizer = tokenizer
         # AgentTemplateKV hooks (must run even if insertion is disabled).
         # 1) Make TTL release reachable: warmup requests carry no hints,
         #    so locks from prior cases' planner+mode4 would otherwise never
@@ -1533,6 +2724,10 @@ class RadixCache(BasePrefixCache):
                 MatchPrefixParams(key=radix_key)
             ).last_device_node
         self._store_anchor_kv(req, kv_indices, source_node=source_node)
+        # PR2 placeholder k-NN: write per-placeholder anchor blocks to the
+        # per-slot pool. No-op when SGLANG_PLACEHOLDER_STORE_ENABLED=0 or
+        # when the request did not declare placeholder_anchor_token_spans.
+        self._store_placeholder_anchor_kv(req, kv_indices, source_node=source_node)
 
         # Remove req slot release the cache lock
         self.dec_lock_ref(req.last_node)
@@ -1653,6 +2848,10 @@ class RadixCache(BasePrefixCache):
         num_evicted = 0
         while num_evicted < num_tokens and len(eviction_heap):
             _priority, x = heapq.heappop(eviction_heap)
+
+            if x.value is None:
+                self.evictable_leaves.discard(x)
+                continue
 
             self.token_to_kv_pool_allocator.free(x.value)
             num_evicted += len(x.value)
@@ -2015,8 +3214,7 @@ class RadixCache(BasePrefixCache):
             node.anchor_id = anchor_id
         if code_content_signature and not node.code_content_signature:
             node.code_content_signature = code_content_signature
-        if anchor_spans and not node.anchor_spans:
-            node.anchor_spans = list(anchor_spans)
+        self._merge_anchor_spans(node, anchor_spans)
         if reuse_mode and not node.reuse_mode:
             node.reuse_mode = reuse_mode
         if reuse_confidence > 0 and node.reuse_confidence == 0.0:
@@ -2069,8 +3267,7 @@ class RadixCache(BasePrefixCache):
                     new_node.anchor_id = anchor_id
                 if code_content_signature and not new_node.code_content_signature:
                     new_node.code_content_signature = code_content_signature
-                if anchor_spans and not new_node.anchor_spans:
-                    new_node.anchor_spans = list(anchor_spans)
+                self._merge_anchor_spans(new_node, anchor_spans)
                 if reuse_mode and not new_node.reuse_mode:
                     new_node.reuse_mode = reuse_mode
                 if reuse_confidence > 0 and new_node.reuse_confidence == 0.0:
@@ -2109,8 +3306,7 @@ class RadixCache(BasePrefixCache):
                     node.anchor_id = anchor_id
                 if code_content_signature and not node.code_content_signature:
                     node.code_content_signature = code_content_signature
-                if anchor_spans and not node.anchor_spans:
-                    node.anchor_spans = list(anchor_spans)
+                self._merge_anchor_spans(node, anchor_spans)
                 if reuse_mode and not node.reuse_mode:
                     node.reuse_mode = reuse_mode
                 if reuse_confidence > 0 and node.reuse_confidence == 0.0:
@@ -2154,8 +3350,7 @@ class RadixCache(BasePrefixCache):
                 new_node.anchor_id = anchor_id
             if code_content_signature:
                 new_node.code_content_signature = code_content_signature
-            if anchor_spans:
-                new_node.anchor_spans = list(anchor_spans)
+            self._merge_anchor_spans(new_node, anchor_spans)
             if reuse_mode:
                 new_node.reuse_mode = reuse_mode
             if reuse_confidence > 0:
