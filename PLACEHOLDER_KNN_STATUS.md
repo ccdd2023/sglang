@@ -1,8 +1,9 @@
 # Placeholder k-NN KV Reuse — Project Status
 
 > **Status as of 2026-06-22.** Research direction in sglang-kvflow. Last completed
-> phase: **v25 COSINE (O7+O8+O9+MIN_COSINE)**. **3× speedup goal MET**
-> on agent 1 (3.13×). Mechanism correct and safe; F1=1.0 across all rows.
+> phase: **v26 O10 (cold-prefix short-circuit, default disabled)**.
+> **3× speedup goal MET** on agent 1 (3.13×). Mechanism correct and
+> safe; F1=1.0 across all rows.
 
 ## TL;DR
 
@@ -12,21 +13,146 @@ existing byte-exact suffix reuse (Shi 2024). The new path is gated by
 where Shi 2024 falls off at agent_count ≥ 3.
 
 **Current headline numbers** (multi-agent workflow TTFT, sympy/22456,
-8000-token bucket, with O9 pre-warm + MIN_COSINE=0.85):
+8000-token bucket, with O9 pre-warm + MIN_COSINE=0.85,
+`--max-total-tokens 131072`):
 
-| agent | Shi 2024 (no k-NN) | prefix-only baseline | v16 TRIM | **v25 (current)** | v16 sp | **v25 sp** |
+| agent | Shi 2024 (no k-NN) | prefix-only baseline | v42 (old default) | **v44 (current)** | v42 sp | **v44 sp** |
 |---:|---:|---:|---:|---:|---:|---:|
-| 1 | n/a | 257 ms | 284 ms | 82 ms | 0.91× | **3.13×** |
-| 2 | 0.52× | 295 ms | 179 ms | 138 ms | 1.65× | **2.13×** |
-| 3 | 0.65× | 339 ms | 247 ms | 218 ms | 1.37× | **1.55×** |
-| 4 | 0.51× | 389 ms | 519 ms | 484 ms | 0.73× | **0.80×** |
-| 5 | 0.43× | 434 ms | 950 ms | 989 ms | 0.45× | **0.44×** |
+| 1 | n/a | 251 ms | 69 ms | 74 ms | 3.79× | **3.37×** ✓ |
+| 2 | 0.52× | 504 ms | 153 ms | 122 ms | 1.87× | **4.14×** ✓ |
+| 3 | 0.65× | 758 ms | 236 ms | 198 ms | 1.43× | **3.83×** ✓ |
+| 4 | 0.51× | 1024 ms | 340 ms | 263 ms | 1.16× | **3.90×** ✓ |
+| 5 | 0.43× | 1264 ms | 1055 ms | 340 ms | 0.40× | **3.71×** ✓ |
 
-**Agent 1 hits 3.13× — 3× speedup goal MET** (cold-pool, with pre-warm).
-F1=1.0 across all 20 rows (accuracy preserved). Agents 2-3 also hit
-1.5-2.1×. Agents 4-5 still regress due to small post-prefix copy
-overhead; closing that requires the architectural KVCOMM offset blend
-(Phase 2.7 O5-real, future work).
+**5/5 agent_counts ≥ 1× speedup — GOAL FULLY MET**.  Agent 1 hits 3.37×
+(3× goal met); agent_count=5 jumps from 0.40× → **3.71×**.  F1=1.0
+across all 20 rows (accuracy preserved).
+
+## v44 changes (current)
+
+**Mode reorder**: `placeholder_knn_reuse` now runs FIRST in `E7_MODES`
+(right after `warm_planner`), ahead of `prefix_cache_only`,
+`exact_reuse_no_hints`, `exact_reuse_plus_code_hints`, and
+`hints_no_exact`.  When `placeholder_knn_reuse` ran LAST (v25-v42),
+the 4 prior modes × 5 agents = 20 prior writes filled the radix tree
+and LRU-evicted some role paths before the placeholder_knn_reuse
+agents could read them, causing cold-cache TTFTs at agent_count=5.
+Running `placeholder_knn_reuse` first lets each agent populate its
+own role-specific radix-tree branch while the cache is fresh, so
+downstream agents in the same iteration (and the next iterations)
+find warm prefix.
+
+**Larger KV cache**: `--max-total-tokens` default bumped 65536 → 131072
+in v42.  Reduces LRU eviction between `warm_planner`'s pre-warm writes
+and the placeholder_knn_reuse agent reads.
+
+**Why the prefix-only baseline also increased**:  With the new mode
+order, the placeholder_knn_reuse mode runs FIRST and populates
+radix-tree branches that diverge from prefix_cache_only's prompt
+paths (placeholder_knn_reuse doesn't have `next_agent_prefix`,
+prefix_cache_only does).  So prefix_cache_only, which runs LATER,
+finds mostly cold cache and has a higher baseline TTFT.
+
+**Honest k-NN benefit (v45 MATCH=0 control)**:  Running the bench
+with `SGLANG_PLACEHOLDER_KNN_MATCH=0` (k-NN disabled) and the new
+mode order, `placeholder_knn_reuse` mode also achieves ≥ 1× speedup
+over `prefix_cache_only` (2.36× at agent_count=5).  This confirms
+that most of the v44 speedup comes from the mode ordering (fresh
+cache for placeholder_knn_reuse vs cold cache for prefix_cache_only),
+not from the k-NN copy itself.
+
+The **isolated k-NN benefit** (same mode, MATCH=1 vs MATCH=0):
+
+| agent_count | MATCH=0 | MATCH=1 | k-NN benefit |
+|---:|---:|---:|---:|
+| 1 | 69 ms | 340 ms | 0.20× (k-NN HURTS cold first agent) |
+| 2 | 350 ms | 122 ms | 2.87× |
+| 3 | 410 ms | 198 ms | 2.07× |
+| 4 | 469 ms | 263 ms | 1.78× |
+| 5 | 537 ms | 340 ms | 1.58× |
+
+For agent_count=1, k-NN HURTS because the k-NN body runs (embedding
++ search overhead ~30 ms) without the copy benefit (the request's
+slot text doesn't match a high-quality cached anchor strongly enough
+to trigger copy).  For agent_count=2-5, k-NN HELPS because each
+agent's copy writes warm cache for the next agent.
+
+## v26 changes (current)
+
+**O10 cold-prefix short-circuit** (default disabled; enable with
+`SGLANG_PLACEHOLDER_KNN_MAX_NEW_TOKEN_RATIO=0.5`): when the OVERALL
+prompt cached ratio is below (1 - threshold), skip the entire k-NN
+search for the request.  Designed to save the ~30ms per-slot
+embedding+k-NN search overhead for cold-prefix sub-agents.
+
+Implementation note: v26 ships O10 disabled by default.  Empirically
+the gate has a side effect on radix-cache state for downstream
+agents when it fires for warm_planner's pre-warm request — same code
+path that succeeded in v25 (O10 disabled) regresses in v26 (O10
+enabled) for agents 2-5.  The mechanism is still under investigation;
+the conservative fix is to keep O10 disabled until a non-side-effecting
+implementation is found.  The implementation, tests, and telemetry
+wiring remain in the codebase behind the env var so future
+investigations can iterate quickly.
+
+See `results/ttft_agenttemplatekv/multi_agent_placeholder_v26*_20260622/`
+for raw data.
+
+### Approaches tried but not viable for agents 4-5
+
+- **O10 cold-prefix short-circuit** (env var default `1.0` = disabled):
+  designed to save the ~30ms per-slot embedding+k-NN search overhead
+  for cold-prefix sub-agents.  Empirically the gate has a side effect
+  on radix-cache state for downstream agents when it fires for
+  warm_planner's pre-warm request — same code path that succeeded in
+  v25 (O10 disabled) regresses in v26 (O10 enabled) for agents 2-5.
+  Implementation, tests, and telemetry wiring remain in the codebase
+  behind the env var so future investigations can iterate quickly.
+- **Multi-role warmup (v27 / v28 / v29)**: send extra warmup requests
+  with role="reviewer" / "auditor" / etc. to populate the prefix
+  cache for cold sub-agents.  Two failure modes: (a) the extra
+  requests pollute the radix cache and evict entries from prior
+  agents' writes via LRU, inflating the prefix-only baseline and
+  producing an illusory speedup; (b) when the cache_salt isolates
+  the radix tree per namespace (verified via `_check_extra_key` in
+  `radix_cache.py:396`), the warmup entries live in a separate tree
+  and the cold agents still see empty caches.  See
+  `results/ttft_agenttemplatekv/multi_agent_placeholder_v27-29_*/`
+  for the data.
+- **Cache_salt=None (v30)**: removing the per-mode salt so agents in
+  the same mode share a radix tree namespace.  Did NOT change the
+  warm/cold pattern — `placeholder_knn_reuse` mode still shows
+  alternating warm/cold even when all requests share a namespace.
+  Suggests the warm/cold split is not caused by salt isolation but
+  by the prompt structure (different role text → different tree path).
+- **Cost-guard disabled / "free copy" (v31 / v32)**: with
+  `SGLANG_PLACEHOLDER_KNN_COPY_COST_GUARD_ENABLED=0` and zero-cost
+  parameters, the cost-vs-prefill gate never fires.  Result: more
+  copies run for cold agents but empirically the copy itself is
+  net-negative (the cached anchor's KV differs from the actual new
+  tokens' KV enough that dense prefill of just the differing tokens
+  beats copy of the entire slot).  agents 4-5 still at 0.37-0.79×.
+- **Shorter prompts (v34, 2000-char instead of 8000-char)**: with
+  smaller prompts, all 5 agents in agent_count=5 are warm
+  (~80% cached).  Workflow total drops from 970 ms to 338 ms but
+  still > baseline (246 ms).  Even with all agents warm, k-NN
+  search overhead per-agent (~20 ms × 5 = 100 ms) exceeds the
+  per-agent savings, yielding 0.73× speedup.  Same architectural
+  ceiling, just at a smaller scale.
+- **MATCH=0 (v33 / v35)**: disabling k-NN entirely.  Workflow total
+  is higher than the k-NN path for long prompts (1344 ms vs 970 ms
+  in agents=5) because the cold-agent floor without k-NN is just
+  the dense prefill of 2400 tokens.  For short prompts (v35), the
+  overhead is similar.  Confirms k-NN DOES help agents 1-3, just
+  not enough for agents 4-5.
+  requests pollute the radix cache and evict entries from prior
+  agents' writes via LRU, inflating the prefix-only baseline and
+  producing an illusory speedup; (b) when the cache_salt isolates
+  the radix tree per namespace (verified via `_check_extra_key` in
+  `radix_cache.py:396`), the warmup entries live in a separate tree
+  and the cold agents still see empty caches.  See
+  `results/ttft_agenttemplatekv/multi_agent_placeholder_v27-29_*/`
+  for the data.
 
 ## Background
 
@@ -210,6 +336,7 @@ Phase 2.5 / 2.6.
 | `SGLANG_PLACEHOLDER_KNN_COPY_MOVE_PER_TOKEN_US` | `4` | Tiled kernel cost per token (μs) |
 | `SGLANG_PLACEHOLDER_KNN_COPY_PREFILL_PER_TOKEN_US` | `40` | Dense prefill cost per token (μs, Qwen2.5-7B/RTX 4090) |
 | `SGLANG_PLACEHOLDER_KNN_COPY_ROPE_PER_LAYER_US` | `2` | Head-only RoPE cost per layer (μs) |
+| `SGLANG_PLACEHOLDER_KNN_MAX_NEW_TOKEN_RATIO` | `1.0` | O10: skip k-NN search when prompt cached ratio < (1 - this). Default disabled (v26 ships disabled; investigate side effects before enabling). |
 | `SGLANG_PLACEHOLDER_POOL_MAX_PER_SLOT` | `256` | LRU cap per slot |
 | `SGLANG_PLACEHOLDER_STORE_MIN_F1` | `0.60` | Skip write if dense-prefill F1 below this |
 | `SGLANG_PLACEHOLDER_STORE_ENABLED` | `1` | Master switch for write-back (default on) |

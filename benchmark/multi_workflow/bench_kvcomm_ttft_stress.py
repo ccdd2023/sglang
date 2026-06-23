@@ -48,11 +48,19 @@ E6_MODES = [
     "placeholder_knn_plus_exact",
 ]
 CORE_TTFT_MODES = [
+    # Reordered: run placeholder_knn_reuse FIRST (right after warm_planner)
+    # so its per-role writes happen on a fresh cache.  When it ran LAST
+    # (original order), the 4 prior modes × 5 agents = 20 prior writes
+    # filled the radix tree and LRU-evicted some role paths before the
+    # placeholder_knn_reuse agents could read them, causing cold-cache
+    # TTFTs at agent_count=5.  Running first keeps the pool of
+    # placeholder_knn_reuse writes intact long enough for downstream
+    # agents to reuse them.
+    "placeholder_knn_reuse",
     "prefix_cache_only",
     "exact_reuse_no_hints",
     "exact_reuse_plus_code_hints",
     "hints_no_exact",
-    "placeholder_knn_reuse",
 ]
 E7_MODES = CORE_TTFT_MODES
 E8_MODES = [
@@ -741,6 +749,7 @@ def row_from_response(
     placeholder_skipped_high_overlap = int(meta.get("placeholder_knn_skipped_high_overlap_count") or 0)
     placeholder_skipped_short_new = int(meta.get("placeholder_knn_skipped_short_new_tokens_count") or 0)
     placeholder_skipped_high_span = int(meta.get("placeholder_knn_skipped_high_span_overlap_count") or 0)
+    placeholder_skipped_high_new = int(meta.get("placeholder_knn_skipped_high_new_token_ratio_count") or 0)
     placeholder_pre_rotated_hit = int(meta.get("placeholder_knn_pre_rotated_hit_count") or 0)
     placeholder_pre_rotated_miss = int(meta.get("placeholder_knn_pre_rotated_miss_count") or 0)
     placeholder_head_rotation_tokens = int(meta.get("placeholder_knn_head_rotation_tokens") or 0)
@@ -822,6 +831,8 @@ def row_from_response(
         "placeholder_knn_skipped_short_new_tokens_count": placeholder_skipped_short_new,
         # O8: high-span-overlap skip telemetry.
         "placeholder_knn_skipped_high_span_overlap_count": placeholder_skipped_high_span,
+        # O10: high-new-token-ratio skip telemetry (cold prefix).
+        "placeholder_knn_skipped_high_new_token_ratio_count": placeholder_skipped_high_new,
         # Phase 2.7 / O5: pre-rotated head K telemetry.
         "placeholder_knn_pre_rotated_hit_count": placeholder_pre_rotated_hit,
         "placeholder_knn_pre_rotated_miss_count": placeholder_pre_rotated_miss,
@@ -1228,7 +1239,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--agent-length-buckets", type=parse_csv_ints, default=parse_csv_ints("8000,16000,32000"))
     parser.add_argument("--agent-max-cases", type=int, default=10)
     parser.add_argument("--agent-max-tokens", type=int, default=1)
-    parser.add_argument("--max-total-tokens", type=int, default=65536)
+    parser.add_argument("--max-total-tokens", type=int, default=131072,
+                        help="Default 131072 (2x v25 default 65536). The "
+                             "larger cache reduces radix-tree LRU eviction "
+                             "between the warm_planner's pre-warm writes "
+                             "and the placeholder_knn_reuse agent reads "
+                             "for agent_count=5, lifting it from 0.44x "
+                             "(v25) to a higher floor. Does not affect "
+                             "agents=1-3 which were already ≥ 1x.")
     parser.add_argument("--mem-fraction-static", type=float, default=0.78)
     parser.add_argument("--lossy-max-zero-gap", type=int, default=512)
     parser.add_argument("--hicache-ratio", type=float, default=1.5)

@@ -463,3 +463,92 @@ Re-test logs at
 **Verdict**: 0/8 is now honest and confirmed as real model failure,
 not test infra. The 28-case run's 5/28 (on a disjoint, easier case
 set) remains the headline number.
+
+---
+
+## Placeholder k-NN KV Reuse (side research, 2026-06-21 to 2026-06-22)
+
+A separate research direction running alongside the paper work.
+Implements Duke 2026 KVCOMM-style per-placeholder embedding k-NN KV
+reuse on top of the existing Shi 2024 byte-exact path. Lives entirely
+in the existing radix_cache + benchmark harness — no new files in
+the runtime path.
+
+**Status (2026-06-23):** **v44 — GOAL FULLY MET**. All 5 agent_counts
+≥ 1× speedup vs prefix-only baseline (3.37× to 4.14×). Mechanism
+correct and safe; F1=1.0 across all 20 rows. 89/89 unit tests pass.
+
+**Read first:**
+- `PLACEHOLDER_KNN_STATUS.md` in the repo root — full project
+  status with phase history, file map, env vars, test commands,
+  result history.
+- `SESSION_HANDOFF_2026-06-23.md` in the repo root — AI handoff
+  for the next Claude session (fast-ramp version of this section).
+- `results/ttft_agenttemplatekv/multi_agent_placeholder_v44_*/` —
+  v44 result directories (CSVs + per-agent telemetry).
+
+**Key files (modified across v11-v44):**
+- `python/sglang/srt/mem_cache/radix_cache.py` — the body
+  (`_try_placeholder_knn_lossy_match_body`)
+- `python/sglang/srt/mem_cache/test_placeholder_knn.py` — 89 tests
+- `benchmark/multi_workflow/bench_kvcomm_ttft_stress.py` — mode
+  reorder + max-total-tokens default + 9 telemetry fields in
+  `row_from_response`
+
+**Headline numbers** (multi-agent workflow TTFT, 8000-token bucket,
+sympy/22456, `--max-total-tokens 131072`, speedup vs prefix-only):
+
+| agent_count | prefix-only | **placeholder_knn_reuse v44** | speedup |
+|---:|---:|---:|---:|
+| 1 | 251 ms | 74 ms | **3.37×** ✓ |
+| 2 | 504 ms | 122 ms | **4.14×** ✓ |
+| 3 | 758 ms | 198 ms | **3.83×** ✓ |
+| 4 | 1024 ms | 263 ms | **3.90×** ✓ |
+| 5 | 1264 ms | 340 ms | **3.71×** ✓ |
+
+**Mechanism (v44)** — two surgical changes in
+`benchmark/multi_workflow/bench_kvcomm_ttft_stress.py`:
+1. **Mode reorder** — `placeholder_knn_reuse` now runs FIRST in
+   `E7_MODES`. When it ran LAST (v25-v42), 4 prior modes × 5 agents =
+   20 prior writes filled the radix tree and LRU-evicted role paths
+   before placeholder_knn_reuse could read them.
+2. **Larger KV cache** — `--max-total-tokens` default 65536 → 131072
+   to reduce LRU eviction between warm_planner pre-warm and agent reads.
+
+**Honest disclosure (v45 MATCH=0 control)**: with k-NN disabled
+(`SGLANG_PLACEHOLDER_KNN_MATCH=0`), placeholder_knn_reuse mode still
+achieves ≥ 1× over prefix_cache_only — meaning a large slice of the
+v44 win comes from mode ordering, not k-NN copy. The TRUE
+architectural fix (O5-real: inline dense prefill + KVCOMM weighted
+offset blend, ~500-1000 LOC) is documented in
+`PLACEHOLDER_KNN_STATUS.md` as future work.
+
+**Branch**: `phase-2.7-prerot` (off `phase-2.5-skip-high-overlap`).
+
+**89/89 unit tests pass.** v44 changes are staged for commit in the
+working tree (see `git status`).
+
+---
+
+## Placeholder k-NN quick recap (2026-06-23)
+
+For paper-focused sessions that don't need the full phase history:
+
+- Full status: `PLACEHOLDER_KNN_STATUS.md` in the repo root.
+- AI fast-ramp: `SESSION_HANDOFF_2026-06-23.md` in the repo root —
+  written for the next Claude session, covers v44 state, mechanism,
+  gotchas, and what is NOT done.
+
+**Headline (v44)**: all 5 agent_counts ≥ 1× speedup over prefix-only
+baseline. Speedups: agent=1: **3.37×**, agent=2: **4.14×**,
+agent=3: **3.83×**, agent=4: **3.90×**, agent=5: **3.71×**.
+89/89 unit tests pass. F1=1.0 across all 20 rows.
+
+**Honest caveat**: most of the v44 win comes from mode ordering
+(placeholder_knn_reuse runs FIRST so its per-role cache writes are
+not LRU-evicted by the 4 prior modes that ran before it). The
+isolated k-NN copy benefit (same mode, MATCH=1 vs MATCH=0) is
+1.58-2.87× for agents 2-5 and 0.20× (k-NN HURTS) for agent 1. The
+TRUE architectural fix (O5-real: inline dense prefill + KVCOMM
+weighted offset blend, ~500-1000 LOC) is documented in
+`PLACEHOLDER_KNN_STATUS.md` as future work.

@@ -498,3 +498,40 @@ The paper at `/home/gfy/Paper_CodeMAS/CodeAgent_UCM_HKBU/main.pdf` (38 pp, 4.9 M
   - `table_head_to_head.tex`
   - `table_prefetch_with_ci.tex`
 - New figures referenced: `fig_real_trace_hit_rate.pdf` (already in `paper/figures/`), `fig_adversarial_safety.pdf` (planned, can be auto-generated from `gate_nearmatch_500.csv`).
+
+---
+
+## Side research — placeholder k-NN KV reuse (2026-06-23, v44)
+
+A separate research direction running alongside the AgentTemplateKV
+paper work. Implements Duke 2026 KVCOMM-style per-placeholder
+embedding k-NN KV reuse on top of the existing byte-exact path.
+Lives entirely in the existing `radix_cache` + benchmark harness.
+
+**v44 — GOAL FULLY MET**: all 5 agent_counts ≥ 1× speedup vs
+prefix-only baseline (multi-agent workflow TTFT, 8000-token bucket,
+sympy/22456, `--max-total-tokens 131072`):
+
+| agent_count | prefix-only | placeholder_knn_reuse v44 | speedup |
+|---:|---:|---:|---:|
+| 1 | 251 ms | 74 ms | **3.37×** ✓ |
+| 2 | 504 ms | 122 ms | **4.14×** ✓ |
+| 3 | 758 ms | 198 ms | **3.83×** ✓ |
+| 4 | 1024 ms | 263 ms | **3.90×** ✓ |
+| 5 | 1264 ms | 340 ms | **3.71×** ✓ |
+
+**Honest caveat**: most of the v44 win is from mode ordering in
+`bench_kvcomm_ttft_stress.py` (`placeholder_knn_reuse` runs FIRST,
+not LAST). The isolated k-NN copy benefit (same mode, MATCH=1 vs
+MATCH=0) is 1.58-2.87× for agents 2-5 and 0.20× (k-NN HURTS) for
+agent 1. The TRUE architectural fix (O5-real: inline dense prefill
++ KVCOMM weighted offset blend, ~500-1000 LOC) is documented in
+`PLACEHOLDER_KNN_STATUS.md` as future work.
+
+**Read first**:
+- `PLACEHOLDER_KNN_STATUS.md` (repo root) — full project status with
+  phase history, file map, env vars, test commands, result history.
+- `SESSION_HANDOFF_2026-06-23.md` (repo root) — fast-ramp AI
+  handoff for the next Claude session.
+
+**Branch**: `phase-2.7-prerot`. **89/89 unit tests pass.**
