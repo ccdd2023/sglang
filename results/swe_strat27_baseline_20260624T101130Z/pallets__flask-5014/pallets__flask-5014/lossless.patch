@@ -1,0 +1,16 @@
+diff --git a/src/flask/blueprints.py b/src/flask/blueprints.py
+--- a/src/flask/blueprints.py
++++ b/src/flask/blueprints.py
+@@ -104,6 +104,11 @@ def make_setup_state(self, app: Flask, options: dict, first_registration: bool = F
+         return BlueprintSetupState(self, app, options, first_registration)
+ 
+ 
++    def _check_setup_finished(self, f_name: str) -> None:
++        if self._got_registered_once:
++            raise AssertionError(f"The setup method '{f_name}' can no longer be called on the blueprint '{self.name}'.")
++        if not self.name:
++            raise ValueError("Blueprint name cannot be empty.")
++
+     @setupmethod
+     def record(self, func: Callable) -> None:
+         """Registers a function that is called when the blueprint is registered on the application. This function is called with the state as argument as returned by the :meth:`make_setup_state` method."""

@@ -1,0 +1,145 @@
+{
+  "policy_name": "mixed_windows_p8000_safe_multicap",
+  "mode": "hybrid_code_aware_lossy",
+  "diagnostic_only": true,
+  "default_action": "reject",
+  "default_reason": "no_mixed_safe_rule",
+  "rules": [
+    {
+      "name": "mixed_safe_psf__requests-1142",
+      "action": "cap",
+      "max_suffix_copy_len": 4432,
+      "reason": "mixed_windows_p8000_safe_cap_calibration",
+      "source_case": "psf__requests-1142",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 1966,
+        "max_estimated_reused_tokens": 2173,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-657$"
+        ]
+      }
+    },
+    {
+      "name": "mixed_safe_psf__requests-1724",
+      "action": "cap",
+      "max_suffix_copy_len": 3500,
+      "reason": "mixed_windows_p8000_safe_cap_calibration",
+      "source_case": "psf__requests-1724",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 2385,
+        "max_estimated_reused_tokens": 2636,
+        "selected_anchor_name_any_regex": [
+          "^requests/packages/urllib3/connectionpool\\.py:bridge_prefix:file_start:1\\-674$"
+        ]
+      }
+    },
+    {
+      "name": "mixed_safe_psf__requests-1766",
+      "action": "cap",
+      "max_suffix_copy_len": 5208,
+      "reason": "mixed_windows_p8000_safe_cap_calibration",
+      "source_case": "psf__requests-1766",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 2323,
+        "max_estimated_reused_tokens": 2568,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-770$"
+        ]
+      }
+    },
+    {
+      "name": "mixed_safe_psf__requests-2931",
+      "action": "cap",
+      "max_suffix_copy_len": 6244,
+      "reason": "mixed_windows_p8000_safe_cap_calibration",
+      "source_case": "psf__requests-2931",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 2848,
+        "max_estimated_reused_tokens": 3147,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-848$"
+        ]
+      }
+    },
+    {
+      "name": "mixed_safe_psf__requests-5414",
+      "action": "cap",
+      "max_suffix_copy_len": 7541,
+      "reason": "mixed_windows_p8000_safe_cap_calibration",
+      "source_case": "psf__requests-5414",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 3536,
+        "max_estimated_reused_tokens": 3909,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-973$"
+        ]
+      }
+    },
+    {
+      "name": "mixed_safe_pytest-dev__pytest-5787",
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "mixed_windows_p8000_safe_cap_calibration",
+      "source_case": "pytest-dev__pytest-5787",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 1769,
+        "max_estimated_reused_tokens": 1956,
+        "selected_anchor_name_any_regex": [
+          "^src/_pytest/python\\.py:bridge_prefix:file_start:1\\-585$"
+        ]
+      }
+    },
+    {
+      "name": "mixed_safe_pytest-dev__pytest-7236",
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "mixed_windows_p8000_safe_cap_calibration",
+      "source_case": "pytest-dev__pytest-7236",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 1828,
+        "max_estimated_reused_tokens": 2021,
+        "selected_anchor_name_any_regex": [
+          "^src/_pytest/python\\.py:bridge_prefix:file_start:1\\-583$"
+        ]
+      }
+    },
+    {
+      "name": "mixed_safe_pytest-dev__pytest-7432",
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "mixed_windows_p8000_safe_cap_calibration",
+      "source_case": "pytest-dev__pytest-7432",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 1710,
+        "max_estimated_reused_tokens": 1890,
+        "selected_anchor_name_any_regex": [
+          "^testing/python/metafunc\\.py:bridge_prefix:file_start:1\\-648$"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "label": "cap_relax_7324_1163_20260619",
+  "schema_version": "selective_wholefile_manifest_v1",
+  "source_manifest": "results/repo_level_datasets/manifest_500.json",
+  "source_dataset": "results/repo_level_datasets/swe_verified_500_instances.json",
+  "policy": "benchmark/multi_workflow/selective_reuse_policy_extended.json",
+  "case_count": 1,
+  "file_count": 1,
+  "selective_span_count": 2117,
+  "avg_chars_per_file": 49967.71,
+  "repo_distribution": {
+    "pallets/flask": 1,
+    "psf/requests": 8,
+    "pytest-dev/pytest": 19
+  },
+  "rejected_no_eligible_file": 0,
+  "selection_rule": "single-case cap1163 probe for pytest-dev__pytest-7324",
+  "samples": [
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "pytest-dev__pytest-7324",
+      "repo": "pytest-dev/pytest",
+      "version": "5.4",
+      "difficulty": "15 min - 1 hour",
+      "repo_key": "pytest-dev__pytest",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pytest-dev__pytest-7324",
+      "files": [
+        {
+          "path": "src/_pytest/mark/expression.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7324/src/_pytest/mark/expression.py",
+          "content_hash": "b2073e0bb0cc978fb9e5f6cb939036fc72f084dc99307b8afba6945d3752eea0",
+          "lines": 218,
+          "chars": 6195,
+          "selection_source": "patch_file_candidate_batch_20260619"
+        }
+      ],
+      "selective_wholefile_rule": {
+        "selection": "patch files for high-TTFT graph bridge candidate batch",
+        "source_manifest": "results/selective_ast_reuse/data/combined_11live_plus_pytest7490_patchfile_20260618/manifest.json",
+        "candidate_probe": true
+      }
+    }
+  ],
+  "candidate_probe_note": "Adds patch-file prompt contexts for high-TTFT no-copy pytest candidates with local files present."
+}

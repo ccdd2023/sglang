@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/axes/_axes.py",
+      "search": "def _make_inset_locator(bounds, trans, parent):",
+      "replace": "def _make_inset_locator(bounds, trans, parent):\n    _bounds = mtransforms.Bbox.from_bounds(*bounds)\n    _trans = trans\n    _parent = parent\n\n    def inset_locator(ax, renderer):\n        bbox = _bounds\n        bb = mtransforms.TransformedBbox(bbox, _trans)\n        tr = _parent.figure.transFigure.inverted()\n        bb = mtransforms.TransformedBbox(bb, tr)\n        return bb\n\n    return inset_locator"
+    }
+  ]
+}
+```

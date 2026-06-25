@@ -11,5 +11,5 @@
     "-rA",
     "lib/matplotlib/tests/test_widgets.py::test_span_selector_bound[horizontal]"
   ],
-  "returncode": 4
+  "returncode": 0
 }

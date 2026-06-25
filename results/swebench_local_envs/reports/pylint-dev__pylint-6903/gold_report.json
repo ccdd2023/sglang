@@ -1,0 +1,15 @@
+{
+  "instance_id": "pylint-dev__pylint-6903",
+  "repo": "pylint-dev/pylint",
+  "version": "2.15",
+  "mode": "gold",
+  "env_name": "swe_pylint_dev_pylint_6903_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-6903",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "tests/test_pylint_runners.py::test_pylint_run_jobs_equal_zero_dont_crash_with_cpu_fraction"
+  ],
+  "returncode": 4
+}

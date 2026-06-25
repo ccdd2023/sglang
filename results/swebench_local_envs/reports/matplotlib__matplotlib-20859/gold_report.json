@@ -11,5 +11,5 @@
     "-rA",
     "lib/matplotlib/tests/test_legend.py::test_subfigure_legend"
   ],
-  "returncode": 4
+  "returncode": 0
 }

@@ -1,0 +1,300 @@
+{
+  "git_commit": "5fb934751",
+  "model": "/home/gfy/models/Qwen2.5-7B-Instruct",
+  "policy": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/selective_ast_reuse/data/selective_reuse_policy.json",
+  "modes": [
+    "lossless_full_prefill",
+    "whole_file_reuse_all",
+    "selective_function_method_reuse",
+    "selective_oracle_low_dnorm"
+  ],
+  "summary": {
+    "lossless_full_prefill": {
+      "n": 1,
+      "avg_elapsed_ms": 570.53,
+      "p50_elapsed_ms": 570.53,
+      "avg_cached_tokens": 4621.0,
+      "avg_estimated_reused_tokens": 0.0,
+      "avg_estimated_recomputed_tokens": 5783.0,
+      "exact_hit_rate": 0.0,
+      "avg_token_f1_vs_lossless": 1.0
+    },
+    "whole_file_reuse_all": {
+      "n": 1,
+      "avg_elapsed_ms": 1002.31,
+      "p50_elapsed_ms": 1002.31,
+      "avg_cached_tokens": 0.0,
+      "avg_estimated_reused_tokens": 642.0,
+      "avg_estimated_recomputed_tokens": 5141.0,
+      "exact_hit_rate": 1.0,
+      "avg_token_f1_vs_lossless": 1.0
+    },
+    "selective_function_method_reuse": {
+      "n": 1,
+      "avg_elapsed_ms": 572.58,
+      "p50_elapsed_ms": 572.58,
+      "avg_cached_tokens": 4621.0,
+      "avg_estimated_reused_tokens": 1766.0,
+      "avg_estimated_recomputed_tokens": 4017.0,
+      "exact_hit_rate": 1.0,
+      "avg_token_f1_vs_lossless": 1.0
+    },
+    "selective_oracle_low_dnorm": {
+      "n": 1,
+      "avg_elapsed_ms": 579.02,
+      "p50_elapsed_ms": 579.02,
+      "avg_cached_tokens": 4622.0,
+      "avg_estimated_reused_tokens": 1766.0,
+      "avg_estimated_recomputed_tokens": 4017.0,
+      "exact_hit_rate": 1.0,
+      "avg_token_f1_vs_lossless": 1.0
+    }
+  },
+  "cases": [
+    {
+      "instance_id": "psf__requests-1142",
+      "repo": "psf/requests",
+      "rows": [
+        {
+          "instance_id": "psf__requests-1142",
+          "repo": "psf/requests",
+          "mode": "lossless_full_prefill",
+          "elapsed_ms": 570.53,
+          "cached_tokens": 4621,
+          "output_chars": 139,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "request_start_ms": 1332361905.41,
+          "span_count": 117,
+          "selected_span_count": 0,
+          "span_count_by_granularity": {
+            "file_prefix": 1,
+            "class": 5,
+            "method": 33,
+            "control_block": 78
+          },
+          "selected_span_count_by_granularity": {},
+          "estimated_reused_tokens": 0,
+          "estimated_recomputed_tokens": 5783,
+          "decision_reason_counts": {
+            "granularity_risk": 84,
+            "default_function_method_low_p90": 33
+          },
+          "raw_metadata": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "output_exact_match_vs_lossless": true,
+          "output_token_f1_vs_lossless": 1.0
+        },
+        {
+          "instance_id": "psf__requests-1142",
+          "repo": "psf/requests",
+          "mode": "whole_file_reuse_all",
+          "elapsed_ms": 1002.31,
+          "cached_tokens": 0,
+          "output_chars": 139,
+          "lossy_match_reason": "exact_code_content_signature",
+          "matched_content_signature": "4bbaae4efa5f15af",
+          "request_start_ms": 1332362501.84,
+          "span_count": 117,
+          "selected_span_count": 1,
+          "span_count_by_granularity": {
+            "file_prefix": 1,
+            "class": 5,
+            "method": 33,
+            "control_block": 78
+          },
+          "selected_span_count_by_granularity": {
+            "file_prefix": 1
+          },
+          "estimated_reused_tokens": 642,
+          "estimated_recomputed_tokens": 5141,
+          "decision_reason_counts": {
+            "reuse:granularity_risk": 1,
+            "granularity_risk": 83,
+            "default_function_method_low_p90": 33
+          },
+          "raw_metadata": {
+            "lossy_candidate_count": 5,
+            "lossy_first_match_reason": "",
+            "lossy_first_rejected_reason": "code_content_signature_mismatch",
+            "lossy_first_reuse_allowed": false,
+            "lossy_first_reuse_confidence": 0.0,
+            "lossy_first_matched_anchor_signature": "",
+            "lossy_first_matched_content_signature": "",
+            "lossy_first_syntax_region_type": "",
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "f14a67b737b2de4f",
+            "lossy_final_matched_content_signature": "4bbaae4efa5f15af",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 10,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "output_exact_match_vs_lossless": true,
+          "output_token_f1_vs_lossless": 1.0
+        },
+        {
+          "instance_id": "psf__requests-1142",
+          "repo": "psf/requests",
+          "mode": "selective_function_method_reuse",
+          "elapsed_ms": 572.58,
+          "cached_tokens": 4621,
+          "output_chars": 139,
+          "lossy_match_reason": "exact_code_content_signature",
+          "matched_content_signature": "0938d4d4e8fb1a10dd4234529847f36d",
+          "request_start_ms": 1332363825.59,
+          "span_count": 117,
+          "selected_span_count": 32,
+          "span_count_by_granularity": {
+            "file_prefix": 1,
+            "class": 5,
+            "method": 33,
+            "control_block": 78
+          },
+          "selected_span_count_by_granularity": {
+            "method": 32
+          },
+          "estimated_reused_tokens": 1766,
+          "estimated_recomputed_tokens": 4017,
+          "decision_reason_counts": {
+            "granularity_risk": 84,
+            "reuse:default_function_method_low_p90": 32,
+            "default_function_method_low_p90": 1
+          },
+          "raw_metadata": {
+            "lossy_candidate_count": 7,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "b1f8b2c0fb937d0d",
+            "lossy_first_matched_content_signature": "0938d4d4e8fb1a10dd4234529847f36d",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 7,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "b1f8b2c0fb937d0d",
+            "lossy_final_matched_content_signature": "0938d4d4e8fb1a10dd4234529847f36d",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 7,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "output_exact_match_vs_lossless": true,
+          "output_token_f1_vs_lossless": 1.0
+        },
+        {
+          "instance_id": "psf__requests-1142",
+          "repo": "psf/requests",
+          "mode": "selective_oracle_low_dnorm",
+          "elapsed_ms": 579.02,
+          "cached_tokens": 4622,
+          "output_chars": 139,
+          "lossy_match_reason": "exact_code_content_signature",
+          "matched_content_signature": "0938d4d4e8fb1a10dd4234529847f36d",
+          "request_start_ms": 1332364714.7,
+          "span_count": 117,
+          "selected_span_count": 32,
+          "span_count_by_granularity": {
+            "file_prefix": 1,
+            "class": 5,
+            "method": 33,
+            "control_block": 78
+          },
+          "selected_span_count_by_granularity": {
+            "method": 32
+          },
+          "estimated_reused_tokens": 1766,
+          "estimated_recomputed_tokens": 4017,
+          "decision_reason_counts": {
+            "granularity_risk": 84,
+            "reuse:default_function_method_low_p90": 32,
+            "default_function_method_low_p90": 1
+          },
+          "raw_metadata": {
+            "lossy_candidate_count": 10,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "b1f8b2c0fb937d0d",
+            "lossy_first_matched_content_signature": "0938d4d4e8fb1a10dd4234529847f36d",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 7,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "b1f8b2c0fb937d0d",
+            "lossy_final_matched_content_signature": "0938d4d4e8fb1a10dd4234529847f36d",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 7,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "output_exact_match_vs_lossless": true,
+          "output_token_f1_vs_lossless": 1.0
+        }
+      ]
+    }
+  ]
+}

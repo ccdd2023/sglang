@@ -1,0 +1,47 @@
+{
+  "label": "single_1766_graphfile_auth_20260619",
+  "schema_version": "selective_wholefile_manifest_v1",
+  "source_manifest": "results/repo_level_datasets/manifest_500.json",
+  "source_dataset": "results/repo_level_datasets/swe_verified_500_instances.json",
+  "policy": "benchmark/multi_workflow/selective_reuse_policy_extended.json",
+  "case_count": 1,
+  "file_count": 1,
+  "selective_span_count": 2117,
+  "avg_chars_per_file": 49967.71,
+  "repo_distribution": {
+    "pallets/flask": 1,
+    "psf/requests": 8,
+    "pytest-dev/pytest": 19
+  },
+  "rejected_no_eligible_file": 0,
+  "selection_rule": "combined_plus_patchfile_batch_candidates with psf__requests-1766 switched to graph target requests/auth.py",
+  "samples": [
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "psf__requests-1766",
+      "repo": "psf/requests",
+      "version": "2.0",
+      "difficulty": "<15 min fix",
+      "repo_key": "psf__requests",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-1766",
+      "files": [
+        {
+          "path": "requests/auth.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-1766/requests/auth.py",
+          "content_hash": "e9ac12db8dfb81a4abe59e5e3b1764e01fe1f04dbdc5f57dc7deb7a47695087c",
+          "lines": 195,
+          "chars": 6063,
+          "selection_source": "graph_target_file_singlecase_20260619"
+        }
+      ],
+      "selective_wholefile_rule": {
+        "source_manifest": "results/selective_ast_reuse/data/combined_plus_patchfile_batch_candidates_20260619/manifest.json",
+        "selection": "single-case graph target file replacement",
+        "replaced_from": "requests/models.py",
+        "reason": "prefer-graph-target probe showed acceptable F1 with real suffix copy"
+      }
+    }
+  ],
+  "candidate_probe_note": "Adds patch-file prompt contexts for high-TTFT no-copy pytest candidates with local files present."
+}

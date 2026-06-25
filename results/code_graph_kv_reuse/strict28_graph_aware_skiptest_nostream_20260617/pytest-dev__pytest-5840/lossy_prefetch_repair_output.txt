@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "src/_pytest/config/__init__.py",
+      "search": "unique_path(conf)",
+      "replace": "conf"
+    }
+  ]
+}
+```

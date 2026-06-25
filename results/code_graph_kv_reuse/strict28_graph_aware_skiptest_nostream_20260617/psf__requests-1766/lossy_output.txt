@@ -1,0 +1,3 @@
+```json
+{"edits":[{"path":"requests/auth.py","search":"qop", "replace":"\"qop\""}]}
+```

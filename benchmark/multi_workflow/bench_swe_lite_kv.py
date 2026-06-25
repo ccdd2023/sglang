@@ -88,6 +88,55 @@ async def req(sess,base,payload):
     total_ms=(time.perf_counter()-s)*1000
     return {"total_ms":total_ms,"body":b}
 
+async def req_stream(sess, base, payload):
+    """Streaming variant of req() that records TTFT (time-to-first-token).
+
+    Returns dict with total_ms, ttft_ms, body, text.
+    """
+    import json as _json
+    s = time.perf_counter()
+    ttft_ms = None
+    text = ""
+    final_body = {}
+    try:
+        async with sess.post(
+            f"{base}/v1/chat/completions",
+            json={**payload, "stream": True, "stream_options": {"include_usage": True}},
+            timeout=aiohttp.ClientTimeout(total=180),
+        ) as r:
+            async for raw in r.content:
+                line = raw.decode(errors="ignore").strip()
+                if not line or line == "data: [DONE]":
+                    continue
+                if not line.startswith("data: "):
+                    continue
+                try:
+                    chunk = _json.loads(line[6:])
+                except _json.JSONDecodeError:
+                    continue
+                final_body = chunk
+                choices = chunk.get("choices", [])
+                if choices:
+                    delta = choices[0].get("delta", {})
+                    content = delta.get("content") or ""
+                    if content and ttft_ms is None:
+                        ttft_ms = (time.perf_counter() - s) * 1000
+                    text += content
+    except Exception:
+        final_body = await _fallback_non_stream(sess, base, payload)
+    total_ms = (time.perf_counter() - s) * 1000
+    if ttft_ms is None:
+        ttft_ms = total_ms
+    return {"total_ms": total_ms, "ttft_ms": ttft_ms, "body": final_body, "text": text}
+
+
+async def _fallback_non_stream(sess, base, payload):
+    try:
+        async with sess.post(f"{base}/v1/chat/completions", json=payload, timeout=aiohttp.ClientTimeout(total=180)) as r:
+            return await r.json()
+    except Exception as exc:
+        return {"error": repr(exc)}
+
 def get_text(b):
     try: return b["choices"][0]["message"]["content"]
     except: return ""
@@ -156,6 +205,22 @@ async def run_task(task,base,model,mt,ns=2):
         for _ in range(ns):
             ly_results.append(await req(sess,base,pld(model,at,post_sig,mt,"lossy",0.7)))
             lr_results.append(await req(sess,base,pld(model,at,post_sig,mt,"lossless",0.7)))
+
+    # Optional: re-run a single lossy+lossless pair with streaming for TTFT
+    ttft_stats = None
+    if args.emit_ttft:
+        ly_ttft_results = []; lr_ttft_results = []
+        for _ in range(ns):
+            ly_ttft_results.append(await req_stream(sess, base, pld(model, at, post_sig, mt, "lossy", 0.7)))
+            lr_ttft_results.append(await req_stream(sess, base, pld(model, at, post_sig, mt, "lossless", 0.7)))
+        def agg_ttft(rs):
+            vals = [r["ttft_ms"] for r in rs if r.get("ttft_ms") is not None]
+            return {
+                "n": len(vals),
+                "avg_ttft_ms": (sum(vals) / len(vals)) if vals else 0.0,
+                "p50_ttft_ms": (sorted(vals)[len(vals) // 2] if vals else 0.0),
+            }
+        ttft_stats = {"lossy": agg_ttft(ly_ttft_results), "lossless": agg_ttft(lr_ttft_results)}
 
     # Aggregate
     def agg(rs):
@@ -264,6 +329,8 @@ def pa():
     p=argparse.ArgumentParser()
     p.add_argument("--model",default=MODEL); p.add_argument("--max-tokens",type=int,default=200)
     p.add_argument("--n",type=int,default=50); p.add_argument("--output-dir",default="/tmp/swe_latency")
+    p.add_argument("--emit-ttft", action="store_true",
+                   help="Run an extra streaming pass on lossy+lossless to record TTFT stats.")
     return p.parse_args()
 
 if __name__=="__main__": asyncio.run(main(pa()))

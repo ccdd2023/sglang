@@ -1,0 +1,81 @@
+{
+  "policy_name": "hybrid_prompt_fair_shape_token_window_calibrated",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 0.9,
+  "min_speedup": 1.05,
+  "diagnostic_only": true,
+  "not_instance_id_matched": true,
+  "default_action": "reject",
+  "default_reason": "no_shape_token_window_rule",
+  "rule_token_margin_ratio": 0.15,
+  "reject_cap_sensitive": true,
+  "notes": "Generated from existing prompt-fair runs. Rules match only observable selection shape, estimated reused-token windows, and optional task-anchor overlap; evaluate on held-out cases before reporting.",
+  "runs": [
+    "main_p5500=results/selective_ast_reuse/prompt_fair_pareto_f090_hybrid_p5500_riskgate_maxtotal9000_28case_20260618/summary.json",
+    "miduncap=results/selective_ast_reuse/prompt_fair_pareto_f090_hybrid_tokenfilter_miduncap_p5500_28case_20260618/summary.json",
+    "cap3500_requests8=results/selective_ast_reuse/prompt_fair_pareto_f090_hybrid_cap3500_requests8_20260618/summary.json",
+    "pytest7432_cap3500=results/selective_ast_reuse/prompt_fair_pareto_f090_hybrid_pytest7432_cap3500_20260618/summary.json",
+    "pytest5262_cap3500=results/selective_ast_reuse/prompt_fair_pareto_f090_hybrid_pytest5262_cap3500_20260618/summary.json"
+  ],
+  "rules": [
+    {
+      "name": "calibrated_psf__requests-5414",
+      "action": "cap",
+      "max_suffix_copy_len": 4750,
+      "reason": "shape_token_window_calibration",
+      "source_case": "psf__requests-5414",
+      "source_run": "miduncap",
+      "source_speedup": 6.3622,
+      "source_token_f1": 0.9739,
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 1927,
+        "max_estimated_reused_tokens": 2609,
+        "require_anchor_path_mentioned": true
+      }
+    }
+  ],
+  "skipped_conflicting_rules": [
+    {
+      "source_case": "psf__requests-1142",
+      "conflicts": [
+        "psf__requests-6028",
+        "pytest-dev__pytest-7432"
+      ],
+      "shape": {
+        "bridge_prefix": 1
+      },
+      "min_estimated_reused_tokens": 1759,
+      "max_estimated_reused_tokens": 2381,
+      "require_anchor_path_mentioned": false
+    },
+    {
+      "source_case": "pytest-dev__pytest-7205",
+      "conflicts": [
+        "pytest-dev__pytest-5262",
+        "pytest-dev__pytest-7432"
+      ],
+      "shape": {
+        "bridge_prefix": 1
+      },
+      "min_estimated_reused_tokens": 1527,
+      "max_estimated_reused_tokens": 2067,
+      "require_anchor_path_mentioned": false
+    },
+    {
+      "source_case": "pytest-dev__pytest-7324",
+      "conflicts": [
+        "pytest-dev__pytest-5262",
+        "pytest-dev__pytest-7432"
+      ],
+      "shape": {
+        "bridge_prefix": 1
+      },
+      "min_estimated_reused_tokens": 1530,
+      "max_estimated_reused_tokens": 2070,
+      "require_anchor_path_mentioned": false
+    }
+  ]
+}

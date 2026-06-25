@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "requests/models.py",
+      "search": "self.headers['Content-Length'] = '0'",
+      "replace": "if self.method not in ['GET', 'HEAD']: self.headers['Content-Length'] = '0'"
+    }
+  ]
+}
+```

@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "src/_pytest/unittest.py",
+      "search": "if self.config.getoption(\"usepdb\")",
+      "replace": "if self.config.getoption(\"usepdb\") and not self._expecting_failure(self._testcase):"
+    }
+  ]
+}
+```

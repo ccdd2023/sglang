@@ -65,6 +65,16 @@ def compute_mode_summary(results: list[dict[str, Any]]) -> dict[str, Any]:
             ),
             "avg_token_f1_vs_baseline": statistics.mean(f1s),
         }
+        ttft_rows = [r for r in rows if r.get("ttft_ms") is not None]
+        if ttft_rows:
+            ttft_values = [float(r["ttft_ms"]) for r in ttft_rows]
+            stats[mode]["avg_ttft_ms"] = statistics.mean(ttft_values)
+            stats[mode]["median_ttft_ms"] = statistics.median(ttft_values)
+            stats[mode]["p90_ttft_ms"] = (
+                sorted(ttft_values)[int(len(ttft_values) * 0.9)]
+                if len(ttft_values) >= 10
+                else max(ttft_values)
+            )
     return stats
 
 

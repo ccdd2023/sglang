@@ -1,0 +1,1267 @@
+{
+  "model": "/home/gfy/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/c03e6d358207e414f1eca0bb1891e29f1db0e242",
+  "dataset": "results/repo_level_datasets/swe_verified_7_discriminative_after_envfix_s0.json",
+  "manifest": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/manifest.json",
+  "timestamp": "2026-06-09 14:06:33",
+  "git_commit": "3d709f3ce",
+  "command": "benchmark/multi_workflow/bench_swe_generated_patch_kvcomm.py --model /home/gfy/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/c03e6d358207e414f1eca0bb1891e29f1db0e242 --dataset results/repo_level_datasets/swe_verified_7_discriminative_after_envfix_s0.json --out-dir results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0 --max-cases 7 --start-index 0 --output-schema json-edit --repair-attempts 0 --force-evict --disable-overlap-schedule --max-running-requests 1",
+  "experiment": {
+    "repair_attempts": 0,
+    "output_schema": "json-edit",
+    "prompt_layout": "agenttemplatekv",
+    "force_evict": true,
+    "disable_overlap_schedule": true,
+    "max_running_requests": 1,
+    "max_cases": 7,
+    "start_index": 0
+  },
+  "results": [
+    {
+      "instance_id": "astropy__astropy-12907",
+      "repo": "astropy/astropy",
+      "target_paths": [
+        "astropy/modeling/separable.py"
+      ],
+      "segments": [
+        {
+          "name": "astropy/modeling/separable.py",
+          "lines": 317
+        },
+        {
+          "name": "astropy/modeling/core.py",
+          "lines": 555
+        },
+        {
+          "name": "astropy/table/table.py",
+          "lines": 622
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 2375.74,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 12985,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-12907/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-12907/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 4,
+            "stdout_tail": "ench_local_envs/repos/astropy__astropy-12907/astropy/modeling/separable.py\\\", line 106\\nE       return separable_matrix\\nE       ^\\nE   SyntaxError: 'return' outside function\\n__________ ERROR collecting astropy/modeling/tests/test_separable.py ___________\\n/home/gfy/miniconda3/envs/swe_astropy_astropy_12907_candidate/lib/python3.9/site-packages/_pytest/python.py:617: in _importtestmodule\\n    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)\\n/home/gfy/miniconda3/envs/swe_astropy_astropy_12907_candidate/lib/python3.9/site-packages/_pytest/pathlib.py:565: in import_path\\n    importlib.import_module(module_name)\\n/home/gfy/miniconda3/envs/swe_astropy_astropy_12907_candidate/lib/python3.9/importlib/__init__.py:127: in import_module\\n    return _bootstrap._gcd_import(name[level:], package, level)\\n<frozen importlib._bootstrap>:1030: in _gcd_import\\n    ???\\n<frozen importlib._bootstrap>:1007: in _find_and_load\\n    ???\\n<frozen importlib._bootstrap>:972: in _find_and_load_unlocked\\n    ???\\n<frozen importlib._bootstrap>:228: in _call_with_frames_removed\\n    ???\\n<frozen importlib._bootstrap>:1030: in _gcd_import\\n    ???\\n<frozen importlib._bootstrap>:1007: in _find_and_load\\n    ???\\n<frozen importlib._bootstrap>:972: in _find_and_load_unlocked\\n    ???\\n<frozen importlib._bootstrap>:228: in _call_with_frames_removed\\n    ???\\n<frozen importlib._bootstrap>:1030: in _gcd_import\\n    ???\\n<frozen importlib._bootstrap>:1007: in _find_and_load\\n    ???\\n<frozen importlib._bootstrap>:986: in _find_and_load_unlocked\\n    ???\\n<frozen importlib._bootstrap>:680: in _load_unlocked\\n    ???\\n<frozen importlib._bootstrap_external>:850: in exec_module\\n    ???\\n<frozen importlib._bootstrap>:228: in _call_with_frames_removed\\n    ???\\nastropy/modeling/__init__.py:14: in <module>\\n    from .separable import *\\nE     File \\\"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/separable.py\\\", line 106\\nE       return separable_matrix\\nE       ^\\nE   SyntaxError: 'return' outside function\\n=========================== short test summary info ============================\\nERROR astropy/modeling/tests/test_separable.py -   File \\\"/home/gfy/CodeMAS_Pr...\\nERROR astropy/modeling/tests/test_separable.py\\nERROR astropy/modeling/tests/test_separable.py -   File \\\"/home/gfy/CodeMAS_Pr...\\nERROR astropy/modeling/tests/test_separable.py\\n============================== 4 errors in 0.34s ===============================\\n\\n\",\n  \"stderr_tail\": \"<frozen importlib._bootstrap>:228: RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 80 from C header, got 96 from PyObject\\nERROR: not found: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6]\\n(no name '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6]' in any of [<DocTestModulePlus astropy/modeling/tests/test_separable.py>, <Module astropy/modeling/tests/test_separable.py>])\\n\\nERROR: not found: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]\\n(no name '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]' in any of [<DocTestModulePlus astropy/modeling/tests/test_separable.py>, <Module astropy/modeling/tests/test_separable.py>])\\n\\n\\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6] astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]` failed. (See above for error)\\n\"\n}\n",
+            "stderr_tail": "dist-info/RECORD'\n  /tmp/pip-build-env-d0wjjhca/overlay/lib/python3.9/site-packages/setuptools/command/editable_wheel.py:348: InformationOnly: Editable installation.\n  !!\n\n          ********************************************************************************\n          Please be careful with folders in your working directory with the same\n          name as your package as they may take precedence during imports.\n          ********************************************************************************\n\n  !!\n    wheel_obj.write_files(unpacked)\n\n<frozen importlib._bootstrap>:228: RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 80 from C header, got 96 from PyObject\nERROR: not found: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6]\n(no name '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6]' in any of [<DocTestModulePlus astropy/modeling/tests/test_separable.py>, <Module astropy/modeling/tests/test_separable.py>])\n\nERROR: not found: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]\n(no name '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]' in any of [<DocTestModulePlus astropy/modeling/tests/test_separable.py>, <Module astropy/modeling/tests/test_separable.py>])\n\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6] astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 2327.8,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 12986,
+          "lossy_meta": {
+            "lossy_candidate_count": 7,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_first_matched_content_signature": "260dd44a073c0f66",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 5,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_final_matched_content_signature": "260dd44a073c0f66",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 5,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-12907/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-12907/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 4,
+            "stdout_tail": "ench_local_envs/repos/astropy__astropy-12907/astropy/modeling/separable.py\\\", line 106\\nE       return separable_matrix\\nE       ^\\nE   SyntaxError: 'return' outside function\\n__________ ERROR collecting astropy/modeling/tests/test_separable.py ___________\\n/home/gfy/miniconda3/envs/swe_astropy_astropy_12907_candidate/lib/python3.9/site-packages/_pytest/python.py:617: in _importtestmodule\\n    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)\\n/home/gfy/miniconda3/envs/swe_astropy_astropy_12907_candidate/lib/python3.9/site-packages/_pytest/pathlib.py:565: in import_path\\n    importlib.import_module(module_name)\\n/home/gfy/miniconda3/envs/swe_astropy_astropy_12907_candidate/lib/python3.9/importlib/__init__.py:127: in import_module\\n    return _bootstrap._gcd_import(name[level:], package, level)\\n<frozen importlib._bootstrap>:1030: in _gcd_import\\n    ???\\n<frozen importlib._bootstrap>:1007: in _find_and_load\\n    ???\\n<frozen importlib._bootstrap>:972: in _find_and_load_unlocked\\n    ???\\n<frozen importlib._bootstrap>:228: in _call_with_frames_removed\\n    ???\\n<frozen importlib._bootstrap>:1030: in _gcd_import\\n    ???\\n<frozen importlib._bootstrap>:1007: in _find_and_load\\n    ???\\n<frozen importlib._bootstrap>:972: in _find_and_load_unlocked\\n    ???\\n<frozen importlib._bootstrap>:228: in _call_with_frames_removed\\n    ???\\n<frozen importlib._bootstrap>:1030: in _gcd_import\\n    ???\\n<frozen importlib._bootstrap>:1007: in _find_and_load\\n    ???\\n<frozen importlib._bootstrap>:986: in _find_and_load_unlocked\\n    ???\\n<frozen importlib._bootstrap>:680: in _load_unlocked\\n    ???\\n<frozen importlib._bootstrap_external>:850: in exec_module\\n    ???\\n<frozen importlib._bootstrap>:228: in _call_with_frames_removed\\n    ???\\nastropy/modeling/__init__.py:14: in <module>\\n    from .separable import *\\nE     File \\\"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/separable.py\\\", line 106\\nE       return separable_matrix\\nE       ^\\nE   SyntaxError: 'return' outside function\\n=========================== short test summary info ============================\\nERROR astropy/modeling/tests/test_separable.py -   File \\\"/home/gfy/CodeMAS_Pr...\\nERROR astropy/modeling/tests/test_separable.py\\nERROR astropy/modeling/tests/test_separable.py -   File \\\"/home/gfy/CodeMAS_Pr...\\nERROR astropy/modeling/tests/test_separable.py\\n============================== 4 errors in 0.34s ===============================\\n\\n\",\n  \"stderr_tail\": \"<frozen importlib._bootstrap>:228: RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 80 from C header, got 96 from PyObject\\nERROR: not found: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6]\\n(no name '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6]' in any of [<DocTestModulePlus astropy/modeling/tests/test_separable.py>, <Module astropy/modeling/tests/test_separable.py>])\\n\\nERROR: not found: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]\\n(no name '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]' in any of [<DocTestModulePlus astropy/modeling/tests/test_separable.py>, <Module astropy/modeling/tests/test_separable.py>])\\n\\n\\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6] astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]` failed. (See above for error)\\n\"\n}\n",
+            "stderr_tail": "dist-info/RECORD'\n  /tmp/pip-build-env-jqt2t4p3/overlay/lib/python3.9/site-packages/setuptools/command/editable_wheel.py:348: InformationOnly: Editable installation.\n  !!\n\n          ********************************************************************************\n          Please be careful with folders in your working directory with the same\n          name as your package as they may take precedence during imports.\n          ********************************************************************************\n\n  !!\n    wheel_obj.write_files(unpacked)\n\n<frozen importlib._bootstrap>:228: RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 80 from C header, got 96 from PyObject\nERROR: not found: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6]\n(no name '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6]' in any of [<DocTestModulePlus astropy/modeling/tests/test_separable.py>, <Module astropy/modeling/tests/test_separable.py>])\n\nERROR: not found: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]\n(no name '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]' in any of [<DocTestModulePlus astropy/modeling/tests/test_separable.py>, <Module astropy/modeling/tests/test_separable.py>])\n\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6] astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 2345.9,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 12987,
+          "lossy_meta": {
+            "lossy_candidate_count": 10,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_first_matched_content_signature": "260dd44a073c0f66",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 5,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_final_matched_content_signature": "260dd44a073c0f66",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 5,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 11829,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 11829,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-12907/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-12907/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 4,
+            "stdout_tail": "ench_local_envs/repos/astropy__astropy-12907/astropy/modeling/separable.py\\\", line 106\\nE       return separable_matrix\\nE       ^\\nE   SyntaxError: 'return' outside function\\n__________ ERROR collecting astropy/modeling/tests/test_separable.py ___________\\n/home/gfy/miniconda3/envs/swe_astropy_astropy_12907_candidate/lib/python3.9/site-packages/_pytest/python.py:617: in _importtestmodule\\n    mod = import_path(self.path, mode=importmode, root=self.config.rootpath)\\n/home/gfy/miniconda3/envs/swe_astropy_astropy_12907_candidate/lib/python3.9/site-packages/_pytest/pathlib.py:565: in import_path\\n    importlib.import_module(module_name)\\n/home/gfy/miniconda3/envs/swe_astropy_astropy_12907_candidate/lib/python3.9/importlib/__init__.py:127: in import_module\\n    return _bootstrap._gcd_import(name[level:], package, level)\\n<frozen importlib._bootstrap>:1030: in _gcd_import\\n    ???\\n<frozen importlib._bootstrap>:1007: in _find_and_load\\n    ???\\n<frozen importlib._bootstrap>:972: in _find_and_load_unlocked\\n    ???\\n<frozen importlib._bootstrap>:228: in _call_with_frames_removed\\n    ???\\n<frozen importlib._bootstrap>:1030: in _gcd_import\\n    ???\\n<frozen importlib._bootstrap>:1007: in _find_and_load\\n    ???\\n<frozen importlib._bootstrap>:972: in _find_and_load_unlocked\\n    ???\\n<frozen importlib._bootstrap>:228: in _call_with_frames_removed\\n    ???\\n<frozen importlib._bootstrap>:1030: in _gcd_import\\n    ???\\n<frozen importlib._bootstrap>:1007: in _find_and_load\\n    ???\\n<frozen importlib._bootstrap>:986: in _find_and_load_unlocked\\n    ???\\n<frozen importlib._bootstrap>:680: in _load_unlocked\\n    ???\\n<frozen importlib._bootstrap_external>:850: in exec_module\\n    ???\\n<frozen importlib._bootstrap>:228: in _call_with_frames_removed\\n    ???\\nastropy/modeling/__init__.py:14: in <module>\\n    from .separable import *\\nE     File \\\"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/separable.py\\\", line 106\\nE       return separable_matrix\\nE       ^\\nE   SyntaxError: 'return' outside function\\n=========================== short test summary info ============================\\nERROR astropy/modeling/tests/test_separable.py -   File \\\"/home/gfy/CodeMAS_Pr...\\nERROR astropy/modeling/tests/test_separable.py\\nERROR astropy/modeling/tests/test_separable.py -   File \\\"/home/gfy/CodeMAS_Pr...\\nERROR astropy/modeling/tests/test_separable.py\\n============================== 4 errors in 0.38s ===============================\\n\\n\",\n  \"stderr_tail\": \"<frozen importlib._bootstrap>:228: RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 80 from C header, got 96 from PyObject\\nERROR: not found: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6]\\n(no name '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6]' in any of [<DocTestModulePlus astropy/modeling/tests/test_separable.py>, <Module astropy/modeling/tests/test_separable.py>])\\n\\nERROR: not found: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]\\n(no name '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]' in any of [<DocTestModulePlus astropy/modeling/tests/test_separable.py>, <Module astropy/modeling/tests/test_separable.py>])\\n\\n\\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6] astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]` failed. (See above for error)\\n\"\n}\n",
+            "stderr_tail": "dist-info/RECORD'\n  /tmp/pip-build-env-0cmw0_dd/overlay/lib/python3.9/site-packages/setuptools/command/editable_wheel.py:348: InformationOnly: Editable installation.\n  !!\n\n          ********************************************************************************\n          Please be careful with folders in your working directory with the same\n          name as your package as they may take precedence during imports.\n          ********************************************************************************\n\n  !!\n    wheel_obj.write_files(unpacked)\n\n<frozen importlib._bootstrap>:228: RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 80 from C header, got 96 from PyObject\nERROR: not found: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6]\n(no name '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6]' in any of [<DocTestModulePlus astropy/modeling/tests/test_separable.py>, <Module astropy/modeling/tests/test_separable.py>])\n\nERROR: not found: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]\n(no name '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907/astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]' in any of [<DocTestModulePlus astropy/modeling/tests/test_separable.py>, <Module astropy/modeling/tests/test_separable.py>])\n\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6] astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]` failed. (See above for error)\n"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "astropy__astropy-13033",
+      "repo": "astropy/astropy",
+      "target_paths": [
+        "astropy/timeseries/core.py"
+      ],
+      "segments": [
+        {
+          "name": "astropy/timeseries/core.py",
+          "lines": 92
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1083.7,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 1928,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13033/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13033/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in astropy/timeseries/core.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1093.16,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 1929,
+          "lossy_meta": {
+            "lossy_candidate_count": 17,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "e0c79d09d330e714",
+            "lossy_first_matched_content_signature": "702d70e233c4b6be7689a88f4edc44f4",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 20,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "e0c79d09d330e714",
+            "lossy_final_matched_content_signature": "702d70e233c4b6be7689a88f4edc44f4",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 20,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13033/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13033/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in astropy/timeseries/core.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1117.77,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 1930,
+          "lossy_meta": {
+            "lossy_candidate_count": 20,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "e0c79d09d330e714",
+            "lossy_first_matched_content_signature": "702d70e233c4b6be7689a88f4edc44f4",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 20,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "e0c79d09d330e714",
+            "lossy_final_matched_content_signature": "702d70e233c4b6be7689a88f4edc44f4",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 20,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 1,
+            "codebase_prefetch_text_count": 1,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 647,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 647,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13033/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13033/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in astropy/timeseries/core.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "astropy__astropy-13236",
+      "repo": "astropy/astropy",
+      "target_paths": [
+        "astropy/table/table.py"
+      ],
+      "segments": [
+        {
+          "name": "astropy/table/table.py",
+          "lines": 622
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 2513.04,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 6893,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13236/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13236/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in astropy/table/table.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 2574.03,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 6894,
+          "lossy_meta": {
+            "lossy_candidate_count": 26,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "8b7ebde2ad60e4c5",
+            "lossy_first_matched_content_signature": "430ab0c69418a18c",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 31,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "8b7ebde2ad60e4c5",
+            "lossy_final_matched_content_signature": "430ab0c69418a18c",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 31,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13236/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13236/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in astropy/table/table.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 2576.83,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 6895,
+          "lossy_meta": {
+            "lossy_candidate_count": 29,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "8b7ebde2ad60e4c5",
+            "lossy_first_matched_content_signature": "430ab0c69418a18c",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 31,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "8b7ebde2ad60e4c5",
+            "lossy_final_matched_content_signature": "430ab0c69418a18c",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 31,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 1,
+            "codebase_prefetch_text_count": 1,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 4819,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 4819,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13236/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13236/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in astropy/table/table.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "astropy__astropy-13453",
+      "repo": "astropy/astropy",
+      "target_paths": [
+        "astropy/io/ascii/html.py"
+      ],
+      "segments": [
+        {
+          "name": "astropy/io/ascii/html.py",
+          "lines": 477
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 17421.09,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 6585,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13453/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13453/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Expecting ',' delimiter: line 117 column 6 (char 3578)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 17406.11,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 6586,
+          "lossy_meta": {
+            "lossy_candidate_count": 35,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "7cd94ab001cd0b06",
+            "lossy_first_matched_content_signature": "af59d162c52ffd9a",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 42,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "7cd94ab001cd0b06",
+            "lossy_final_matched_content_signature": "af59d162c52ffd9a",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 42,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 12476,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13453/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13453/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Expecting ',' delimiter: line 117 column 6 (char 3578)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 17406.58,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 6587,
+          "lossy_meta": {
+            "lossy_candidate_count": 38,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "7cd94ab001cd0b06",
+            "lossy_first_matched_content_signature": "af59d162c52ffd9a",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 42,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "7cd94ab001cd0b06",
+            "lossy_final_matched_content_signature": "af59d162c52ffd9a",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 42,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 1,
+            "codebase_prefetch_text_count": 1,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 3544,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 3544,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 4819,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13453/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13453/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Expecting ',' delimiter: line 117 column 6 (char 3578)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "astropy__astropy-13579",
+      "repo": "astropy/astropy",
+      "target_paths": [
+        "astropy/wcs/wcsapi/wrappers/sliced_wcs.py"
+      ],
+      "segments": [
+        {
+          "name": "astropy/wcs/wcsapi/wrappers/sliced_wcs.py",
+          "lines": 308
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1532.79,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 4909,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13579/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13579/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 4,
+            "stdout_tail": "ackages (from pytest-xdist->astropy==5.2.dev362+g0df94ff70.d20260609) (2.0.2)\nRequirement already satisfied: sortedcontainers<3.0.0,>=2.1.0 in /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/lib/python3.9/site-packages (from hypothesis>=5.1->pytest-astropy>=0.10->astropy==5.2.dev362+g0df94ff70.d20260609) (2.4.0)\nRequirement already satisfied: coverage>=5.2.1 in /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/lib/python3.9/site-packages (from coverage[toml]>=5.2.1->pytest-cov>=2.3.1->pytest-astropy>=0.10->astropy==5.2.dev362+g0df94ff70.d20260609) (7.10.7)\nRequirement already satisfied: psutil in /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/lib/python3.9/site-packages (from pytest-openfiles>=0.3.1->pytest-astropy>=0.10->astropy==5.2.dev362+g0df94ff70.d20260609) (5.9.5)\nBuilding wheels for collected packages: astropy\n  Building editable for astropy (pyproject.toml): started\n  Building editable for astropy (pyproject.toml): finished with status 'done'\n  Created wheel for astropy: filename=astropy-5.2.dev362+g0df94ff70.d20260609-0.editable-cp39-cp39-linux_x86_64.whl size=6821 sha256=11a492f9c433c91f918e8ae079c04ae9268cc604e0a8ab5442e3536b6dc06fac\n  Stored in directory: /tmp/pip-ephem-wheel-cache-p_h33ado/wheels/3d/f8/a4/0f48e248cc8ba1b5f4d360675966ebd2fd4b85ab31769c5f2b\nSuccessfully built astropy\nInstalling collected packages: astropy\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fits2bitmap to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fitscheck to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fitsdiff to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fitsheader to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fitsinfo to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/samp_hub to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/showtable to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/volint to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/wcslint to 755\nSuccessfully installed astropy-5.2.dev362+g0df94ff70.d20260609\n\n$ /home/gfy/miniconda3/bin/conda run -n swe_astropy_astropy_13579_candidate pytest -rA astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py::test_coupled_world_slicing\n{\n  \"instance_id\": \"astropy__astropy-13579\",\n  \"repo\": \"astropy/astropy\",\n  \"version\": \"5.0\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_astropy_astropy_13579_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13579\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py::test_coupled_world_slicing\"\n  ],\n  \"returncode\": 4,\n  \"stdout_tail\": \"\",\n  \"stderr_tail\": \"ImportError while loading conftest '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13579/astropy/wcs/wcsapi/conftest.py'.\\nastropy/wcs/__init__.py:26: in <module>\\n    from .wcs import *\\nastropy/wcs/wcs.py:57: in <module>\\n    from .wcsapi.fitswcs import FITSWCSAPIMixin, SlicedFITSWCS\\nastropy/wcs/wcsapi/__init__.py:5: in <module>\\n    from .wrappers import *  # noqa\\nastropy/wcs/wcsapi/wrappers/__init__.py:1: in <module>\\n    from .sliced_wcs import *  # noqa\\nE     File \\\"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13579/astropy/wcs/wcsapi/wrappers/sliced_wcs.py\\\", line 230\\nE       def pixel_to_world_values(self, *pixel_arrays):\\nE   IndentationError: unexpected indent\\n\\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py::test_coupled_world_slicing` failed. (See above for error)\\n\"\n}\n",
+            "stderr_tail": "tmp/tmpwiy8kj2yastropy-5.2.dev362+g0df94ff70.d20260609-0.editable-cp39-cp39-linux_x86_64.whl' to it\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/LICENSE.rst'\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/METADATA'\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/WHEEL'\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/entry_points.txt'\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/top_level.txt'\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/RECORD'\n  /tmp/pip-build-env-40zoefho/overlay/lib/python3.9/site-packages/setuptools/command/editable_wheel.py:348: InformationOnly: Editable installation.\n  !!\n\n          ********************************************************************************\n          Please be careful with folders in your working directory with the same\n          name as your package as they may take precedence during imports.\n          ********************************************************************************\n\n  !!\n    wheel_obj.write_files(unpacked)\n\nImportError while loading conftest '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13579/astropy/wcs/wcsapi/conftest.py'.\nastropy/wcs/__init__.py:26: in <module>\n    from .wcs import *\nastropy/wcs/wcs.py:57: in <module>\n    from .wcsapi.fitswcs import FITSWCSAPIMixin, SlicedFITSWCS\nastropy/wcs/wcsapi/__init__.py:5: in <module>\n    from .wrappers import *  # noqa\nastropy/wcs/wcsapi/wrappers/__init__.py:1: in <module>\n    from .sliced_wcs import *  # noqa\nE     File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13579/astropy/wcs/wcsapi/wrappers/sliced_wcs.py\", line 230\nE       def pixel_to_world_values(self, *pixel_arrays):\nE   IndentationError: unexpected indent\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py::test_coupled_world_slicing` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1532.43,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 4910,
+          "lossy_meta": {
+            "lossy_candidate_count": 44,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "a1fb794cca7b08a4",
+            "lossy_first_matched_content_signature": "4b443af781e6fb58c8786f787ce76c84",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 53,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "a1fb794cca7b08a4",
+            "lossy_final_matched_content_signature": "4b443af781e6fb58c8786f787ce76c84",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 53,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13579/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13579/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 4,
+            "stdout_tail": "stropy_13579_candidate/bin/fitsheader\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fitsinfo\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/samp_hub\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/showtable\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/volint\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/wcslint\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/lib/python3.9/site-packages/__editable__.astropy-5.2.dev362+g0df94ff70.d20260609.pth\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/lib/python3.9/site-packages/__editable___astropy_5_2_dev362_g0df94ff70_d20260609_finder.py\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/lib/python3.9/site-packages/__pycache__/__editable___astropy_5_2_dev362_g0df94ff70_d20260609_finder.cpython-39.pyc\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/lib/python3.9/site-packages/astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/\n      Successfully uninstalled astropy-5.2.dev362+g0df94ff70.d20260609\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fits2bitmap to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fitscheck to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fitsdiff to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fitsheader to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fitsinfo to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/samp_hub to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/showtable to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/volint to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/wcslint to 755\nSuccessfully installed astropy-5.2.dev362+g0df94ff70.d20260609\n\n$ /home/gfy/miniconda3/bin/conda run -n swe_astropy_astropy_13579_candidate pytest -rA astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py::test_coupled_world_slicing\n{\n  \"instance_id\": \"astropy__astropy-13579\",\n  \"repo\": \"astropy/astropy\",\n  \"version\": \"5.0\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_astropy_astropy_13579_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13579\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py::test_coupled_world_slicing\"\n  ],\n  \"returncode\": 4,\n  \"stdout_tail\": \"\",\n  \"stderr_tail\": \"ImportError while loading conftest '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13579/astropy/wcs/wcsapi/conftest.py'.\\nastropy/wcs/__init__.py:26: in <module>\\n    from .wcs import *\\nastropy/wcs/wcs.py:57: in <module>\\n    from .wcsapi.fitswcs import FITSWCSAPIMixin, SlicedFITSWCS\\nastropy/wcs/wcsapi/__init__.py:5: in <module>\\n    from .wrappers import *  # noqa\\nastropy/wcs/wcsapi/wrappers/__init__.py:1: in <module>\\n    from .sliced_wcs import *  # noqa\\nE     File \\\"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13579/astropy/wcs/wcsapi/wrappers/sliced_wcs.py\\\", line 230\\nE       def pixel_to_world_values(self, *pixel_arrays):\\nE   IndentationError: unexpected indent\\n\\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py::test_coupled_world_slicing` failed. (See above for error)\\n\"\n}\n",
+            "stderr_tail": "tmp/tmpe9rab6cnastropy-5.2.dev362+g0df94ff70.d20260609-0.editable-cp39-cp39-linux_x86_64.whl' to it\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/LICENSE.rst'\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/METADATA'\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/WHEEL'\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/entry_points.txt'\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/top_level.txt'\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/RECORD'\n  /tmp/pip-build-env-jvvsm0mt/overlay/lib/python3.9/site-packages/setuptools/command/editable_wheel.py:348: InformationOnly: Editable installation.\n  !!\n\n          ********************************************************************************\n          Please be careful with folders in your working directory with the same\n          name as your package as they may take precedence during imports.\n          ********************************************************************************\n\n  !!\n    wheel_obj.write_files(unpacked)\n\nImportError while loading conftest '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13579/astropy/wcs/wcsapi/conftest.py'.\nastropy/wcs/__init__.py:26: in <module>\n    from .wcs import *\nastropy/wcs/wcs.py:57: in <module>\n    from .wcsapi.fitswcs import FITSWCSAPIMixin, SlicedFITSWCS\nastropy/wcs/wcsapi/__init__.py:5: in <module>\n    from .wrappers import *  # noqa\nastropy/wcs/wcsapi/wrappers/__init__.py:1: in <module>\n    from .sliced_wcs import *  # noqa\nE     File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13579/astropy/wcs/wcsapi/wrappers/sliced_wcs.py\", line 230\nE       def pixel_to_world_values(self, *pixel_arrays):\nE   IndentationError: unexpected indent\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py::test_coupled_world_slicing` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1534.77,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 4911,
+          "lossy_meta": {
+            "lossy_candidate_count": 47,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "a1fb794cca7b08a4",
+            "lossy_first_matched_content_signature": "4b443af781e6fb58c8786f787ce76c84",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 53,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "a1fb794cca7b08a4",
+            "lossy_final_matched_content_signature": "4b443af781e6fb58c8786f787ce76c84",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 53,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 1,
+            "codebase_prefetch_text_count": 1,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 2537,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 2537,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13579/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13579/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 4,
+            "stdout_tail": "stropy_13579_candidate/bin/fitsheader\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fitsinfo\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/samp_hub\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/showtable\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/volint\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/wcslint\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/lib/python3.9/site-packages/__editable__.astropy-5.2.dev362+g0df94ff70.d20260609.pth\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/lib/python3.9/site-packages/__editable___astropy_5_2_dev362_g0df94ff70_d20260609_finder.py\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/lib/python3.9/site-packages/__pycache__/__editable___astropy_5_2_dev362_g0df94ff70_d20260609_finder.cpython-39.pyc\n      Removing file or directory /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/lib/python3.9/site-packages/astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/\n      Successfully uninstalled astropy-5.2.dev362+g0df94ff70.d20260609\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fits2bitmap to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fitscheck to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fitsdiff to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fitsheader to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/fitsinfo to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/samp_hub to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/showtable to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/volint to 755\n  changing mode of /home/gfy/miniconda3/envs/swe_astropy_astropy_13579_candidate/bin/wcslint to 755\nSuccessfully installed astropy-5.2.dev362+g0df94ff70.d20260609\n\n$ /home/gfy/miniconda3/bin/conda run -n swe_astropy_astropy_13579_candidate pytest -rA astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py::test_coupled_world_slicing\n{\n  \"instance_id\": \"astropy__astropy-13579\",\n  \"repo\": \"astropy/astropy\",\n  \"version\": \"5.0\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_astropy_astropy_13579_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13579\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py::test_coupled_world_slicing\"\n  ],\n  \"returncode\": 4,\n  \"stdout_tail\": \"\",\n  \"stderr_tail\": \"ImportError while loading conftest '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13579/astropy/wcs/wcsapi/conftest.py'.\\nastropy/wcs/__init__.py:26: in <module>\\n    from .wcs import *\\nastropy/wcs/wcs.py:57: in <module>\\n    from .wcsapi.fitswcs import FITSWCSAPIMixin, SlicedFITSWCS\\nastropy/wcs/wcsapi/__init__.py:5: in <module>\\n    from .wrappers import *  # noqa\\nastropy/wcs/wcsapi/wrappers/__init__.py:1: in <module>\\n    from .sliced_wcs import *  # noqa\\nE     File \\\"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13579/astropy/wcs/wcsapi/wrappers/sliced_wcs.py\\\", line 230\\nE       def pixel_to_world_values(self, *pixel_arrays):\\nE   IndentationError: unexpected indent\\n\\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py::test_coupled_world_slicing` failed. (See above for error)\\n\"\n}\n",
+            "stderr_tail": "tmp/tmph5f0x98bastropy-5.2.dev362+g0df94ff70.d20260609-0.editable-cp39-cp39-linux_x86_64.whl' to it\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/LICENSE.rst'\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/METADATA'\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/WHEEL'\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/entry_points.txt'\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/top_level.txt'\n  adding 'astropy-5.2.dev362+g0df94ff70.d20260609.dist-info/RECORD'\n  /tmp/pip-build-env-r8dggnod/overlay/lib/python3.9/site-packages/setuptools/command/editable_wheel.py:348: InformationOnly: Editable installation.\n  !!\n\n          ********************************************************************************\n          Please be careful with folders in your working directory with the same\n          name as your package as they may take precedence during imports.\n          ********************************************************************************\n\n  !!\n    wheel_obj.write_files(unpacked)\n\nImportError while loading conftest '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13579/astropy/wcs/wcsapi/conftest.py'.\nastropy/wcs/__init__.py:26: in <module>\n    from .wcs import *\nastropy/wcs/wcs.py:57: in <module>\n    from .wcsapi.fitswcs import FITSWCSAPIMixin, SlicedFITSWCS\nastropy/wcs/wcsapi/__init__.py:5: in <module>\n    from .wrappers import *  # noqa\nastropy/wcs/wcsapi/wrappers/__init__.py:1: in <module>\n    from .sliced_wcs import *  # noqa\nE     File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13579/astropy/wcs/wcsapi/wrappers/sliced_wcs.py\", line 230\nE       def pixel_to_world_values(self, *pixel_arrays):\nE   IndentationError: unexpected indent\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/wcs/wcsapi/wrappers/tests/test_sliced_wcs.py::test_coupled_world_slicing` failed. (See above for error)\n"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "astropy__astropy-13977",
+      "repo": "astropy/astropy",
+      "target_paths": [
+        "astropy/units/quantity.py"
+      ],
+      "segments": [
+        {
+          "name": "astropy/units/quantity.py",
+          "lines": 602
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 860.56,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 8186,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13977/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13977/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "urnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-add]\\u001b[0m - astropy.units.core.UnitTypeError: Cannot store quantity with dimension resu...\\n\\u001b[31mFAILED\\u001b[0m astropy/units/tests/test_quantity_ufuncs.py::\\u001b[1mTestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-multiply]\\u001b[0m - astropy.units.core.UnitTypeError: Cannot store quantity with dimension resu...\\n\\u001b[31mFAILED\\u001b[0m astropy/units/tests/test_quantity_ufuncs.py::\\u001b[1mTestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-less]\\u001b[0m - ValueError: Value not scalar compatible or convertible to an int, float, or...\\n\\u001b[31m============================== \\u001b[31m\\u001b[1m20 failed\\u001b[0m\\u001b[31m in 1.48s\\u001b[0m\\u001b[31m ==============================\\u001b[0m\\n\\n\",\n  \"stderr_tail\": \"<frozen importlib._bootstrap>:228: RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 80 from C header, got 96 from PyObject\\n\\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity0-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity0-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity0-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity0-quantity1-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity1-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-less]` failed. (See above for error)\\n\"\n}\n",
+            "stderr_tail": "ntity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity1-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-less]` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 864.42,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 8187,
+          "lossy_meta": {
+            "lossy_candidate_count": 53,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "5da5691e0c4c19ef",
+            "lossy_first_matched_content_signature": "4dd25a7b79f4629e",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 64,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "5da5691e0c4c19ef",
+            "lossy_final_matched_content_signature": "4dd25a7b79f4629e",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 64,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13977/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13977/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "urnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-add]\\u001b[0m - astropy.units.core.UnitTypeError: Cannot store quantity with dimension resu...\\n\\u001b[31mFAILED\\u001b[0m astropy/units/tests/test_quantity_ufuncs.py::\\u001b[1mTestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-multiply]\\u001b[0m - astropy.units.core.UnitTypeError: Cannot store quantity with dimension resu...\\n\\u001b[31mFAILED\\u001b[0m astropy/units/tests/test_quantity_ufuncs.py::\\u001b[1mTestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-less]\\u001b[0m - ValueError: Value not scalar compatible or convertible to an int, float, or...\\n\\u001b[31m============================== \\u001b[31m\\u001b[1m20 failed\\u001b[0m\\u001b[31m in 1.49s\\u001b[0m\\u001b[31m ==============================\\u001b[0m\\n\\n\",\n  \"stderr_tail\": \"<frozen importlib._bootstrap>:228: RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 80 from C header, got 96 from PyObject\\n\\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity0-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity0-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity0-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity0-quantity1-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity1-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-less]` failed. (See above for error)\\n\"\n}\n",
+            "stderr_tail": "ntity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity1-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-less]` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 851.01,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 8188,
+          "lossy_meta": {
+            "lossy_candidate_count": 56,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "5da5691e0c4c19ef",
+            "lossy_first_matched_content_signature": "4dd25a7b79f4629e",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 64,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "5da5691e0c4c19ef",
+            "lossy_final_matched_content_signature": "4dd25a7b79f4629e",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 64,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 1,
+            "codebase_prefetch_text_count": 1,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 4792,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 4792,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13977/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-13977/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "urnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-add]\\u001b[0m - astropy.units.core.UnitTypeError: Cannot store quantity with dimension resu...\\n\\u001b[31mFAILED\\u001b[0m astropy/units/tests/test_quantity_ufuncs.py::\\u001b[1mTestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-multiply]\\u001b[0m - astropy.units.core.UnitTypeError: Cannot store quantity with dimension resu...\\n\\u001b[31mFAILED\\u001b[0m astropy/units/tests/test_quantity_ufuncs.py::\\u001b[1mTestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-less]\\u001b[0m - ValueError: Value not scalar compatible or convertible to an int, float, or...\\n\\u001b[31m============================== \\u001b[31m\\u001b[1m20 failed\\u001b[0m\\u001b[31m in 1.50s\\u001b[0m\\u001b[31m ==============================\\u001b[0m\\n\\n\",\n  \"stderr_tail\": \"<frozen importlib._bootstrap>:228: RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 80 from C header, got 96 from PyObject\\n\\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity0-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity0-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity0-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity0-quantity1-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity1-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-less]` failed. (See above for error)\\n\"\n}\n",
+            "stderr_tail": "ntity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity1-quantity1-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity0-quantity1-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity0-less] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-add] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-multiply] astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[empty-duck_quantity1-quantity1-less]` failed. (See above for error)\n"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "astropy__astropy-14096",
+      "repo": "astropy/astropy",
+      "target_paths": [
+        "astropy/coordinates/sky_coordinate.py"
+      ],
+      "segments": [
+        {
+          "name": "astropy/coordinates/sky_coordinate.py",
+          "lines": 531
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1521.69,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 5803,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-14096/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-14096/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Invalid \\escape: line 6 column 160 (char 278)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1526.62,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 5804,
+          "lossy_meta": {
+            "lossy_candidate_count": 63,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "d31d1783879045b8",
+            "lossy_first_matched_content_signature": "2d5e6360c6f8011a5b776d87c94af839",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 76,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "d31d1783879045b8",
+            "lossy_final_matched_content_signature": "2d5e6360c6f8011a5b776d87c94af839",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 76,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-14096/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-14096/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Invalid \\escape: line 6 column 160 (char 278)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1240.0,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 5805,
+          "lossy_meta": {
+            "lossy_candidate_count": 66,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "d31d1783879045b8",
+            "lossy_first_matched_content_signature": "2d5e6360c6f8011a5b776d87c94af839",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 76,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "d31d1783879045b8",
+            "lossy_final_matched_content_signature": "2d5e6360c6f8011a5b776d87c94af839",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 76,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 1,
+            "codebase_prefetch_text_count": 1,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 4910,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 4910,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-14096/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_7_after_envfix_s0_repair0/astropy__astropy-14096/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in astropy/coordinates/sky_coordinate.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        }
+      ]
+    }
+  ]
+}

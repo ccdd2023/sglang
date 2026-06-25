@@ -1,0 +1,3999 @@
+{
+  "model": "/home/gfy/models/Qwen2.5-7B-Instruct",
+  "dataset": "results/repo_level_datasets/swe_verified_100_instances.json",
+  "manifest": "results/repo_level_datasets/manifest_100.json",
+  "timestamp": "2026-06-11 12:47:02",
+  "git_commit": "3d709f3ce",
+  "command": "benchmark/multi_workflow/bench_swe_generated_patch_kvcomm.py --model /home/gfy/models/Qwen2.5-7B-Instruct --dataset results/repo_level_datasets/swe_verified_100_instances.json --manifest results/repo_level_datasets/manifest_100.json --instance-id-file results/code_graph_kv_reuse/data/graph_pass1_overlap_cases.json --enable-graph-aware-lossy --graph-bundle-policy call_neighborhood_1hop --max-cases 13 --files-per-case 3 --max-file-chars 22000 --output-schema json-edit --prompt-layout agenttemplatekv --force-evict --disable-overlap-schedule --max-running-requests 1 --repair-attempts 1 --skip-candidate-tests --max-tokens 768 --max-total-tokens 65536 --chunked-prefill-size 8192 --max-prefill-tokens 16384 --mem-fraction-static 0.82 --out-dir results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest",
+  "experiment": {
+    "repair_attempts": 1,
+    "output_schema": "json-edit",
+    "prompt_layout": "agenttemplatekv",
+    "force_evict": true,
+    "disable_overlap_schedule": true,
+    "max_running_requests": 1,
+    "max_cases": 13,
+    "start_index": 0,
+    "instance_id_file": "results/code_graph_kv_reuse/data/graph_pass1_overlap_cases.json",
+    "enable_graph_aware_lossy": true,
+    "code_graph_bundle_manifest": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/data/code_graph_precision_manifest.jsonl",
+    "graph_bundle_policy": "call_neighborhood_1hop",
+    "graph_bundle_role": "planner",
+    "skip_candidate_tests": true
+  },
+  "results": [
+    {
+      "instance_id": "astropy__astropy-12907",
+      "repo": "astropy/astropy",
+      "target_paths": [
+        "astropy/modeling/separable.py"
+      ],
+      "segments": [
+        {
+          "name": "astropy/modeling/separable.py",
+          "lines": 317
+        },
+        {
+          "name": "astropy/modeling/core.py",
+          "lines": 555
+        },
+        {
+          "name": "astropy/table/table.py",
+          "lines": 622
+        }
+      ],
+      "graph_segments": [
+        {
+          "name": "astropy/modeling/separable.py",
+          "lines": 100
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 3099.26,
+          "repair_elapsed_ms": 4320.61,
+          "cached_tokens": 12985,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "astropy/modeling/separable.py",
+              "lines": 317
+            },
+            {
+              "name": "astropy/modeling/core.py",
+              "lines": 555
+            },
+            {
+              "name": "astropy/table/table.py",
+              "lines": 622
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-12907/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-12907/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1134.82,
+          "repair_elapsed_ms": 1119.04,
+          "cached_tokens": 12986,
+          "lossy_meta": {
+            "lossy_candidate_count": 11,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_first_matched_content_signature": "260dd44a073c0f66",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 5,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_final_matched_content_signature": "260dd44a073c0f66",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 5,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "astropy/modeling/separable.py",
+              "lines": 317
+            },
+            {
+              "name": "astropy/modeling/core.py",
+              "lines": 555
+            },
+            {
+              "name": "astropy/table/table.py",
+              "lines": 622
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-12907/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-12907/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in astropy/modeling/separable.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1124.34,
+          "repair_elapsed_ms": 1134.28,
+          "cached_tokens": 12987,
+          "lossy_meta": {
+            "lossy_candidate_count": 18,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_first_matched_content_signature": "260dd44a073c0f66",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 15,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_final_matched_content_signature": "260dd44a073c0f66",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 15,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 11829,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 11829,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "astropy/modeling/separable.py",
+              "lines": 317
+            },
+            {
+              "name": "astropy/modeling/core.py",
+              "lines": 555
+            },
+            {
+              "name": "astropy/table/table.py",
+              "lines": 622
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-12907/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-12907/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in astropy/modeling/separable.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "graph_aware_lossy",
+          "elapsed_ms": 1755.53,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 1843,
+          "lossy_meta": {
+            "lossy_candidate_count": 24,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "ac4b500237218fab",
+            "lossy_first_matched_content_signature": "32bcd162e4543604",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 9,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "ac4b500237218fab",
+            "lossy_final_matched_content_signature": "32bcd162e4543604",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 30,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "code_graph_bundle",
+          "segments": [
+            {
+              "name": "astropy/modeling/separable.py",
+              "lines": 100
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-12907/graph_aware_lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-12907/graph_aware_lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "astropy__astropy-13033",
+      "repo": "astropy/astropy",
+      "target_paths": [
+        "astropy/timeseries/core.py"
+      ],
+      "segments": [
+        {
+          "name": "astropy/timeseries/core.py",
+          "lines": 92
+        },
+        {
+          "name": "astropy/modeling/core.py",
+          "lines": 553
+        },
+        {
+          "name": "astropy/table/table.py",
+          "lines": 622
+        }
+      ],
+      "graph_segments": [
+        {
+          "name": "astropy/timeseries/core.py",
+          "lines": 35
+        },
+        {
+          "name": "astropy/timeseries/core.py",
+          "lines": 29
+        },
+        {
+          "name": "astropy/timeseries/core.py",
+          "lines": 77
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1635.72,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 11401,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "astropy/timeseries/core.py",
+              "lines": 92
+            },
+            {
+              "name": "astropy/modeling/core.py",
+              "lines": 553
+            },
+            {
+              "name": "astropy/table/table.py",
+              "lines": 622
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13033/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13033/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1663.49,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 11402,
+          "lossy_meta": {
+            "lossy_candidate_count": 35,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_first_matched_content_signature": "c2fcd93b717e9d059169b1454b25e12b",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 15,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_final_matched_content_signature": "c2fcd93b717e9d059169b1454b25e12b",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 15,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "astropy/timeseries/core.py",
+              "lines": 92
+            },
+            {
+              "name": "astropy/modeling/core.py",
+              "lines": 553
+            },
+            {
+              "name": "astropy/table/table.py",
+              "lines": 622
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13033/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13033/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1655.6,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 11403,
+          "lossy_meta": {
+            "lossy_candidate_count": 38,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_first_matched_content_signature": "c2fcd93b717e9d059169b1454b25e12b",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 15,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_final_matched_content_signature": "c2fcd93b717e9d059169b1454b25e12b",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 15,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 10071,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 10071,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "astropy/timeseries/core.py",
+              "lines": 92
+            },
+            {
+              "name": "astropy/modeling/core.py",
+              "lines": 553
+            },
+            {
+              "name": "astropy/table/table.py",
+              "lines": 622
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13033/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13033/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "graph_aware_lossy",
+          "elapsed_ms": 1198.04,
+          "repair_elapsed_ms": 1380.12,
+          "cached_tokens": 2459,
+          "lossy_meta": {
+            "lossy_candidate_count": 41,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "79735cdba838c9a7",
+            "lossy_first_matched_content_signature": "32ecfe0dac62aa7b",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 38,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "79735cdba838c9a7",
+            "lossy_final_matched_content_signature": "32ecfe0dac62aa7b",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 49,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "code_graph_bundle",
+          "segments": [
+            {
+              "name": "astropy/timeseries/core.py",
+              "lines": 35
+            },
+            {
+              "name": "astropy/timeseries/core.py",
+              "lines": 29
+            },
+            {
+              "name": "astropy/timeseries/core.py",
+              "lines": 77
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13033/graph_aware_lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13033/graph_aware_lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in astropy/timeseries/core.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "astropy__astropy-13236",
+      "repo": "astropy/astropy",
+      "target_paths": [
+        "astropy/table/table.py"
+      ],
+      "segments": [
+        {
+          "name": "astropy/table/table.py",
+          "lines": 622
+        },
+        {
+          "name": "astropy/modeling/core.py",
+          "lines": 554
+        },
+        {
+          "name": "astropy/io/votable/tree.py",
+          "lines": 749
+        }
+      ],
+      "graph_segments": [
+        {
+          "name": "astropy/table/table.py",
+          "lines": 9
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 2982.87,
+          "repair_elapsed_ms": 4593.22,
+          "cached_tokens": 16908,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "astropy/table/table.py",
+              "lines": 622
+            },
+            {
+              "name": "astropy/modeling/core.py",
+              "lines": 554
+            },
+            {
+              "name": "astropy/io/votable/tree.py",
+              "lines": 749
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13236/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13236/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in astropy/table/table.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 3853.22,
+          "repair_elapsed_ms": 3674.4,
+          "cached_tokens": 8243,
+          "lossy_meta": {
+            "lossy_candidate_count": 20,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "706e3fe4409ba03a",
+            "lossy_first_matched_content_signature": "2a1b459a12ae21a9",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 55,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "706e3fe4409ba03a",
+            "lossy_final_matched_content_signature": "2a1b459a12ae21a9",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 68,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "astropy/table/table.py",
+              "lines": 622
+            },
+            {
+              "name": "astropy/modeling/core.py",
+              "lines": 554
+            },
+            {
+              "name": "astropy/io/votable/tree.py",
+              "lines": 749
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13236/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13236/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in astropy/table/table.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 3906.22,
+          "repair_elapsed_ms": 3701.08,
+          "cached_tokens": 8243,
+          "lossy_meta": {
+            "lossy_candidate_count": 21,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "706e3fe4409ba03a",
+            "lossy_first_matched_content_signature": "2a1b459a12ae21a9",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 65,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "706e3fe4409ba03a",
+            "lossy_final_matched_content_signature": "2a1b459a12ae21a9",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 65,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14779,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14779,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "astropy/table/table.py",
+              "lines": 622
+            },
+            {
+              "name": "astropy/modeling/core.py",
+              "lines": 554
+            },
+            {
+              "name": "astropy/io/votable/tree.py",
+              "lines": 749
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13236/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13236/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in astropy/table/table.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "graph_aware_lossy",
+          "elapsed_ms": 2449.7,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 0,
+          "lossy_meta": {
+            "lossy_candidate_count": 15,
+            "lossy_first_match_reason": "",
+            "lossy_first_rejected_reason": "code_content_signature_mismatch",
+            "lossy_first_reuse_allowed": false,
+            "lossy_first_reuse_confidence": 0.0,
+            "lossy_first_matched_anchor_signature": "",
+            "lossy_first_matched_content_signature": "",
+            "lossy_first_syntax_region_type": "",
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "1f760259bbf2947c",
+            "lossy_final_matched_content_signature": "e85a9c2504524b1a3945a3ca7957a3f8",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 78,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "code_graph_bundle",
+          "segments": [
+            {
+              "name": "astropy/table/table.py",
+              "lines": 9
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13236/graph_aware_lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/astropy__astropy-13236/graph_aware_lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "django__django-10554",
+      "repo": "django/django",
+      "target_paths": [
+        "django/db/models/sql/compiler.py",
+        "django/db/models/sql/query.py"
+      ],
+      "segments": [
+        {
+          "name": "django/db/models/sql/compiler.py",
+          "lines": 476
+        },
+        {
+          "name": "django/db/models/sql/query.py",
+          "lines": 543
+        },
+        {
+          "name": "django/db/models/fields/__init__.py",
+          "lines": 574
+        }
+      ],
+      "graph_segments": [
+        {
+          "name": "django/db/models/sql/compiler.py",
+          "lines": 225
+        },
+        {
+          "name": "django/db/models/sql/compiler.py",
+          "lines": 466
+        },
+        {
+          "name": "django/db/models/sql/query.py",
+          "lines": 3
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1147.19,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15127,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "django/db/models/sql/compiler.py",
+              "lines": 476
+            },
+            {
+              "name": "django/db/models/sql/query.py",
+              "lines": 543
+            },
+            {
+              "name": "django/db/models/fields/__init__.py",
+              "lines": 574
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10554/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10554/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 599.56,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15128,
+          "lossy_meta": {
+            "lossy_candidate_count": 21,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "9f062e0a92910a58",
+            "lossy_first_matched_content_signature": "38223b7db5b04e545e691cb56cb03968",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 81,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "9f062e0a92910a58",
+            "lossy_final_matched_content_signature": "38223b7db5b04e545e691cb56cb03968",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 81,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "django/db/models/sql/compiler.py",
+              "lines": 476
+            },
+            {
+              "name": "django/db/models/sql/query.py",
+              "lines": 543
+            },
+            {
+              "name": "django/db/models/fields/__init__.py",
+              "lines": 574
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10554/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10554/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1178.36,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15129,
+          "lossy_meta": {
+            "lossy_candidate_count": 24,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "9f062e0a92910a58",
+            "lossy_first_matched_content_signature": "38223b7db5b04e545e691cb56cb03968",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 81,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "9f062e0a92910a58",
+            "lossy_final_matched_content_signature": "38223b7db5b04e545e691cb56cb03968",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 81,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 13342,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 13342,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "django/db/models/sql/compiler.py",
+              "lines": 476
+            },
+            {
+              "name": "django/db/models/sql/query.py",
+              "lines": 543
+            },
+            {
+              "name": "django/db/models/fields/__init__.py",
+              "lines": 574
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10554/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10554/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "graph_aware_lossy",
+          "elapsed_ms": 993.85,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 8223,
+          "lossy_meta": {
+            "lossy_candidate_count": 27,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "99a38eff8b47abdc",
+            "lossy_first_matched_content_signature": "21b4f13b83834ec1dcc1980c8e7cce84",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 85,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "99a38eff8b47abdc",
+            "lossy_final_matched_content_signature": "21b4f13b83834ec1dcc1980c8e7cce84",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 96,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "code_graph_bundle",
+          "segments": [
+            {
+              "name": "django/db/models/sql/compiler.py",
+              "lines": 225
+            },
+            {
+              "name": "django/db/models/sql/compiler.py",
+              "lines": 466
+            },
+            {
+              "name": "django/db/models/sql/query.py",
+              "lines": 3
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10554/graph_aware_lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10554/graph_aware_lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "django__django-10880",
+      "repo": "django/django",
+      "target_paths": [
+        "django/db/models/aggregates.py"
+      ],
+      "segments": [
+        {
+          "name": "django/db/models/aggregates.py",
+          "lines": 155
+        },
+        {
+          "name": "django/db/models/fields/__init__.py",
+          "lines": 573
+        },
+        {
+          "name": "django/db/models/sql/query.py",
+          "lines": 546
+        }
+      ],
+      "graph_segments": [
+        {
+          "name": "django/db/models/aggregates.py",
+          "lines": 29
+        },
+        {
+          "name": "django/db/models/aggregates.py",
+          "lines": 162
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1569.0,
+          "repair_elapsed_ms": 2604.74,
+          "cached_tokens": 10972,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "django/db/models/aggregates.py",
+              "lines": 155
+            },
+            {
+              "name": "django/db/models/fields/__init__.py",
+              "lines": 573
+            },
+            {
+              "name": "django/db/models/sql/query.py",
+              "lines": 546
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10880/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10880/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Invalid \\escape: line 5 column 23 (char 91)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1224.86,
+          "repair_elapsed_ms": 1225.79,
+          "cached_tokens": 10973,
+          "lossy_meta": {
+            "lossy_candidate_count": 35,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "7d69f0ed1010941f",
+            "lossy_first_matched_content_signature": "50c69d550283d00621950a6c5aa89e16",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 100,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "7d69f0ed1010941f",
+            "lossy_final_matched_content_signature": "50c69d550283d00621950a6c5aa89e16",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 100,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "django/db/models/aggregates.py",
+              "lines": 155
+            },
+            {
+              "name": "django/db/models/fields/__init__.py",
+              "lines": 573
+            },
+            {
+              "name": "django/db/models/sql/query.py",
+              "lines": 546
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10880/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10880/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in django/db/models/aggregates.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1226.44,
+          "repair_elapsed_ms": 1244.22,
+          "cached_tokens": 10974,
+          "lossy_meta": {
+            "lossy_candidate_count": 42,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "7d69f0ed1010941f",
+            "lossy_first_matched_content_signature": "50c69d550283d00621950a6c5aa89e16",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 110,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "7d69f0ed1010941f",
+            "lossy_final_matched_content_signature": "50c69d550283d00621950a6c5aa89e16",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 110,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 10294,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 10294,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "django/db/models/aggregates.py",
+              "lines": 155
+            },
+            {
+              "name": "django/db/models/fields/__init__.py",
+              "lines": 573
+            },
+            {
+              "name": "django/db/models/sql/query.py",
+              "lines": 546
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10880/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10880/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in django/db/models/aggregates.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "graph_aware_lossy",
+          "elapsed_ms": 1714.24,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 2559,
+          "lossy_meta": {
+            "lossy_candidate_count": 48,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "6ba6be3f1b93486c",
+            "lossy_first_matched_content_signature": "33db14e1a5337af2",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 104,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "6ba6be3f1b93486c",
+            "lossy_final_matched_content_signature": "33db14e1a5337af2",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 125,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "code_graph_bundle",
+          "segments": [
+            {
+              "name": "django/db/models/aggregates.py",
+              "lines": 29
+            },
+            {
+              "name": "django/db/models/aggregates.py",
+              "lines": 162
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10880/graph_aware_lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/django__django-10880/graph_aware_lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-13989",
+      "repo": "matplotlib/matplotlib",
+      "target_paths": [
+        "lib/matplotlib/axes/_axes.py"
+      ],
+      "segments": [
+        {
+          "name": "lib/matplotlib/axes/_axes.py",
+          "lines": 674
+        },
+        {
+          "name": "lib/matplotlib/patches.py",
+          "lines": 697
+        },
+        {
+          "name": "lib/matplotlib/axes/_base.py",
+          "lines": 586
+        }
+      ],
+      "graph_segments": [
+        {
+          "name": "lib/matplotlib/axes/_axes.py",
+          "lines": 552
+        },
+        {
+          "name": "lib/matplotlib/axes/_axes.py",
+          "lines": 668
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 3257.43,
+          "repair_elapsed_ms": 3634.74,
+          "cached_tokens": 8241,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "lib/matplotlib/axes/_axes.py",
+              "lines": 674
+            },
+            {
+              "name": "lib/matplotlib/patches.py",
+              "lines": 697
+            },
+            {
+              "name": "lib/matplotlib/axes/_base.py",
+              "lines": 586
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-13989/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-13989/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 7190.75,
+          "repair_elapsed_ms": 7252.41,
+          "cached_tokens": 61,
+          "lossy_meta": {
+            "lossy_candidate_count": 27,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "dd60ceadff99572d",
+            "lossy_first_matched_content_signature": "26c5f2a1b20df71c9be029f7076feba6",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 131,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "dd60ceadff99572d",
+            "lossy_final_matched_content_signature": "26c5f2a1b20df71c9be029f7076feba6",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 140,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "lib/matplotlib/axes/_axes.py",
+              "lines": 674
+            },
+            {
+              "name": "lib/matplotlib/patches.py",
+              "lines": 697
+            },
+            {
+              "name": "lib/matplotlib/axes/_base.py",
+              "lines": 586
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-13989/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-13989/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Expecting ',' delimiter: line 1 column 313 (char 312)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 4471.17,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 61,
+          "lossy_meta": {
+            "lossy_candidate_count": 27,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "dd60ceadff99572d",
+            "lossy_first_matched_content_signature": "26c5f2a1b20df71c9be029f7076feba6",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 143,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "dd60ceadff99572d",
+            "lossy_final_matched_content_signature": "26c5f2a1b20df71c9be029f7076feba6",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 146,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14782,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14782,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 13342,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "lib/matplotlib/axes/_axes.py",
+              "lines": 674
+            },
+            {
+              "name": "lib/matplotlib/patches.py",
+              "lines": 697
+            },
+            {
+              "name": "lib/matplotlib/axes/_base.py",
+              "lines": 586
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-13989/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-13989/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "graph_aware_lossy",
+          "elapsed_ms": 1787.43,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 0,
+          "lossy_meta": {
+            "lossy_candidate_count": 24,
+            "lossy_first_match_reason": "",
+            "lossy_first_rejected_reason": "code_content_signature_mismatch",
+            "lossy_first_reuse_allowed": false,
+            "lossy_first_reuse_confidence": 0.0,
+            "lossy_first_matched_anchor_signature": "",
+            "lossy_first_matched_content_signature": "",
+            "lossy_first_syntax_region_type": "",
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "d2b40f05fd0eb423",
+            "lossy_final_matched_content_signature": "232e89f8bc1f5d098e38ab74ba37a989",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 149,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "code_graph_bundle",
+          "segments": [
+            {
+              "name": "lib/matplotlib/axes/_axes.py",
+              "lines": 552
+            },
+            {
+              "name": "lib/matplotlib/axes/_axes.py",
+              "lines": 668
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-13989/graph_aware_lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-13989/graph_aware_lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-14623",
+      "repo": "matplotlib/matplotlib",
+      "target_paths": [
+        "lib/matplotlib/axes/_base.py",
+        "lib/matplotlib/ticker.py",
+        "lib/mpl_toolkits/mplot3d/axes3d.py"
+      ],
+      "segments": [
+        {
+          "name": "lib/matplotlib/axes/_base.py",
+          "lines": 581
+        },
+        {
+          "name": "lib/matplotlib/ticker.py",
+          "lines": 708
+        },
+        {
+          "name": "lib/mpl_toolkits/mplot3d/axes3d.py",
+          "lines": 638
+        }
+      ],
+      "graph_segments": [
+        {
+          "name": "lib/matplotlib/axes/_base.py",
+          "lines": 280
+        },
+        {
+          "name": "lib/matplotlib/axes/_base.py",
+          "lines": 281
+        },
+        {
+          "name": "lib/matplotlib/axes/_base.py",
+          "lines": 585
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1764.68,
+          "repair_elapsed_ms": 2916.72,
+          "cached_tokens": 8247,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 10294,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "lib/matplotlib/axes/_base.py",
+              "lines": 581
+            },
+            {
+              "name": "lib/matplotlib/ticker.py",
+              "lines": 708
+            },
+            {
+              "name": "lib/mpl_toolkits/mplot3d/axes3d.py",
+              "lines": 638
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-14623/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-14623/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in lib/matplotlib/axes/_base.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1956.41,
+          "repair_elapsed_ms": 1902.32,
+          "cached_tokens": 10358,
+          "lossy_meta": {
+            "lossy_candidate_count": 14,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "0a82b467e409aa88",
+            "lossy_first_matched_content_signature": "616dd510595cc66d0d04097c7124bac1",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 153,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "0a82b467e409aa88",
+            "lossy_final_matched_content_signature": "616dd510595cc66d0d04097c7124bac1",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 167,
+            "lossy_anchor_match_used": true,
+            "lossy_anchor_match_len": 2111,
+            "lossy_anchor_match_gap_len": 0,
+            "lossy_anchor_match_signature": "0a82b467e409aa88",
+            "lossy_anchor_match_content_signature": "616dd510595cc66d0d04097c7124bac1",
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 1,
+            "agenttemplatekv_prefetch_hit_count": 1,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "lib/matplotlib/axes/_base.py",
+              "lines": 581
+            },
+            {
+              "name": "lib/matplotlib/ticker.py",
+              "lines": 708
+            },
+            {
+              "name": "lib/mpl_toolkits/mplot3d/axes3d.py",
+              "lines": 638
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-14623/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-14623/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in lib/matplotlib/axes/_base.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1205.31,
+          "repair_elapsed_ms": 1208.88,
+          "cached_tokens": 16516,
+          "lossy_meta": {
+            "lossy_candidate_count": 18,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "0a82b467e409aa88",
+            "lossy_first_matched_content_signature": "616dd510595cc66d0d04097c7124bac1",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 167,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "0a82b467e409aa88",
+            "lossy_final_matched_content_signature": "616dd510595cc66d0d04097c7124bac1",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 171,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 15593,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 15593,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "lib/matplotlib/axes/_base.py",
+              "lines": 581
+            },
+            {
+              "name": "lib/matplotlib/ticker.py",
+              "lines": 708
+            },
+            {
+              "name": "lib/mpl_toolkits/mplot3d/axes3d.py",
+              "lines": 638
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-14623/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-14623/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in lib/matplotlib/axes/_base.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "graph_aware_lossy",
+          "elapsed_ms": 2327.94,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 0,
+          "lossy_meta": {
+            "lossy_candidate_count": 21,
+            "lossy_first_match_reason": "",
+            "lossy_first_rejected_reason": "code_content_signature_mismatch",
+            "lossy_first_reuse_allowed": false,
+            "lossy_first_reuse_confidence": 0.0,
+            "lossy_first_matched_anchor_signature": "",
+            "lossy_first_matched_content_signature": "",
+            "lossy_first_syntax_region_type": "",
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "5f904d6930c987c3",
+            "lossy_final_matched_content_signature": "16949c5d9b78bb0a46ba879f56fc8a79",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 177,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "code_graph_bundle",
+          "segments": [
+            {
+              "name": "lib/matplotlib/axes/_base.py",
+              "lines": 280
+            },
+            {
+              "name": "lib/matplotlib/axes/_base.py",
+              "lines": 281
+            },
+            {
+              "name": "lib/matplotlib/axes/_base.py",
+              "lines": 585
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-14623/graph_aware_lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-14623/graph_aware_lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-20488",
+      "repo": "matplotlib/matplotlib",
+      "target_paths": [
+        "lib/matplotlib/image.py"
+      ],
+      "segments": [
+        {
+          "name": "lib/matplotlib/image.py",
+          "lines": 542
+        },
+        {
+          "name": "lib/matplotlib/axes/_axes.py",
+          "lines": 636
+        },
+        {
+          "name": "lib/matplotlib/axes/_base.py",
+          "lines": 571
+        }
+      ],
+      "graph_segments": [
+        {
+          "name": "lib/matplotlib/image.py",
+          "lines": 545
+        },
+        {
+          "name": "lib/matplotlib/image.py",
+          "lines": 500
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 787.86,
+          "repair_elapsed_ms": 2808.4,
+          "cached_tokens": 16221,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "lib/matplotlib/image.py",
+              "lines": 542
+            },
+            {
+              "name": "lib/matplotlib/axes/_axes.py",
+              "lines": 636
+            },
+            {
+              "name": "lib/matplotlib/axes/_base.py",
+              "lines": 571
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-20488/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-20488/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in lib/matplotlib/image.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 777.07,
+          "repair_elapsed_ms": 1165.16,
+          "cached_tokens": 16222,
+          "lossy_meta": {
+            "lossy_candidate_count": 16,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "30c1340267beaf37",
+            "lossy_first_matched_content_signature": "46a443a41dddf6fe1efb8cd0fe3e6b5c",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 181,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "30c1340267beaf37",
+            "lossy_final_matched_content_signature": "46a443a41dddf6fe1efb8cd0fe3e6b5c",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 181,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "lib/matplotlib/image.py",
+              "lines": 542
+            },
+            {
+              "name": "lib/matplotlib/axes/_axes.py",
+              "lines": 636
+            },
+            {
+              "name": "lib/matplotlib/axes/_base.py",
+              "lines": 571
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-20488/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-20488/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in lib/matplotlib/image.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 777.64,
+          "repair_elapsed_ms": 1171.09,
+          "cached_tokens": 16223,
+          "lossy_meta": {
+            "lossy_candidate_count": 23,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "30c1340267beaf37",
+            "lossy_first_matched_content_signature": "46a443a41dddf6fe1efb8cd0fe3e6b5c",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 192,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "30c1340267beaf37",
+            "lossy_final_matched_content_signature": "46a443a41dddf6fe1efb8cd0fe3e6b5c",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 192,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14848,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14848,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "lib/matplotlib/image.py",
+              "lines": 542
+            },
+            {
+              "name": "lib/matplotlib/axes/_axes.py",
+              "lines": 636
+            },
+            {
+              "name": "lib/matplotlib/axes/_base.py",
+              "lines": 571
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-20488/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-20488/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in lib/matplotlib/image.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "graph_aware_lossy",
+          "elapsed_ms": 2539.5,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 0,
+          "lossy_meta": {
+            "lossy_candidate_count": 25,
+            "lossy_first_match_reason": "",
+            "lossy_first_rejected_reason": "code_content_signature_mismatch",
+            "lossy_first_reuse_allowed": false,
+            "lossy_first_reuse_confidence": 0.0,
+            "lossy_first_matched_anchor_signature": "",
+            "lossy_first_matched_content_signature": "",
+            "lossy_first_syntax_region_type": "",
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "e6e3fbe35532045f",
+            "lossy_final_matched_content_signature": "433d888cf7e0016dfde9612b7b396ba0",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 207,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "code_graph_bundle",
+          "segments": [
+            {
+              "name": "lib/matplotlib/image.py",
+              "lines": 545
+            },
+            {
+              "name": "lib/matplotlib/image.py",
+              "lines": 500
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-20488/graph_aware_lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/matplotlib__matplotlib-20488/graph_aware_lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "mwaskom__seaborn-3069",
+      "repo": "mwaskom/seaborn",
+      "target_paths": [
+        "seaborn/_core/plot.py"
+      ],
+      "segments": [
+        {
+          "name": "seaborn/_core/plot.py",
+          "lines": 627
+        },
+        {
+          "name": "seaborn/categorical.py",
+          "lines": 570
+        },
+        {
+          "name": "seaborn/distributions.py",
+          "lines": 600
+        }
+      ],
+      "graph_segments": [
+        {
+          "name": "seaborn/_core/plot.py",
+          "lines": 66
+        },
+        {
+          "name": "seaborn/_core/plot.py",
+          "lines": 539
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 901.98,
+          "repair_elapsed_ms": 2410.76,
+          "cached_tokens": 15169,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "seaborn/_core/plot.py",
+              "lines": 627
+            },
+            {
+              "name": "seaborn/categorical.py",
+              "lines": 570
+            },
+            {
+              "name": "seaborn/distributions.py",
+              "lines": 600
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3069/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3069/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in seaborn/_core/plot.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1687.94,
+          "repair_elapsed_ms": 2031.73,
+          "cached_tokens": 8241,
+          "lossy_meta": {
+            "lossy_candidate_count": 21,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "73cafa195b8d0210",
+            "lossy_first_matched_content_signature": "5ecde2b8fc53b66821118da77e204353",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 210,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "73cafa195b8d0210",
+            "lossy_final_matched_content_signature": "5ecde2b8fc53b66821118da77e204353",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 210,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "seaborn/_core/plot.py",
+              "lines": 627
+            },
+            {
+              "name": "seaborn/categorical.py",
+              "lines": 570
+            },
+            {
+              "name": "seaborn/distributions.py",
+              "lines": 600
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3069/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3069/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in seaborn/_core/plot.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 2003.64,
+          "repair_elapsed_ms": 2334.23,
+          "cached_tokens": 4949,
+          "lossy_meta": {
+            "lossy_candidate_count": 21,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "73cafa195b8d0210",
+            "lossy_first_matched_content_signature": "5ecde2b8fc53b66821118da77e204353",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 224,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "73cafa195b8d0210",
+            "lossy_final_matched_content_signature": "5ecde2b8fc53b66821118da77e204353",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 227,
+            "lossy_anchor_match_used": true,
+            "lossy_anchor_match_len": 4890,
+            "lossy_anchor_match_gap_len": 0,
+            "lossy_anchor_match_signature": "73cafa195b8d0210",
+            "lossy_anchor_match_content_signature": "5ecde2b8fc53b66821118da77e204353",
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 1,
+            "agenttemplatekv_prefetch_hit_count": 1,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14171,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14171,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "seaborn/_core/plot.py",
+              "lines": 627
+            },
+            {
+              "name": "seaborn/categorical.py",
+              "lines": 570
+            },
+            {
+              "name": "seaborn/distributions.py",
+              "lines": 600
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3069/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3069/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in seaborn/_core/plot.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "graph_aware_lossy",
+          "elapsed_ms": 2976.32,
+          "repair_elapsed_ms": 2791.51,
+          "cached_tokens": 0,
+          "lossy_meta": {
+            "lossy_candidate_count": 20,
+            "lossy_first_match_reason": "",
+            "lossy_first_rejected_reason": "code_content_signature_mismatch",
+            "lossy_first_reuse_allowed": false,
+            "lossy_first_reuse_confidence": 0.0,
+            "lossy_first_matched_anchor_signature": "",
+            "lossy_first_matched_content_signature": "",
+            "lossy_first_syntax_region_type": "",
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "737aa23ebf504bcd",
+            "lossy_final_matched_content_signature": "5dcc37e6f9a25eef",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 233,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "code_graph_bundle",
+          "segments": [
+            {
+              "name": "seaborn/_core/plot.py",
+              "lines": 66
+            },
+            {
+              "name": "seaborn/_core/plot.py",
+              "lines": 539
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3069/graph_aware_lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3069/graph_aware_lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Expecting ',' delimiter: line 1 column 65 (char 64)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "mwaskom__seaborn-3187",
+      "repo": "mwaskom/seaborn",
+      "target_paths": [
+        "seaborn/_core/scales.py",
+        "seaborn/utils.py"
+      ],
+      "segments": [
+        {
+          "name": "seaborn/_core/scales.py",
+          "lines": 686
+        },
+        {
+          "name": "seaborn/utils.py",
+          "lines": 680
+        },
+        {
+          "name": "seaborn/categorical.py",
+          "lines": 570
+        }
+      ],
+      "graph_segments": [
+        {
+          "name": "seaborn/_core/scales.py",
+          "lines": 121
+        },
+        {
+          "name": "seaborn/_core/scales.py",
+          "lines": 576
+        },
+        {
+          "name": "seaborn/_core/scales.py",
+          "lines": 648
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 14009.47,
+          "repair_elapsed_ms": 15735.4,
+          "cached_tokens": 15746,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "seaborn/_core/scales.py",
+              "lines": 686
+            },
+            {
+              "name": "seaborn/utils.py",
+              "lines": 680
+            },
+            {
+              "name": "seaborn/categorical.py",
+              "lines": 570
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3187/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3187/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Expecting ',' delimiter: line 57 column 6 (char 2475)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 14009.56,
+          "repair_elapsed_ms": 14142.87,
+          "cached_tokens": 15747,
+          "lossy_meta": {
+            "lossy_candidate_count": 16,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "73cafa195b8d0210",
+            "lossy_first_matched_content_signature": "fd19529e22f9af8418addabd87c6a9db",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 230,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "73cafa195b8d0210",
+            "lossy_final_matched_content_signature": "fd19529e22f9af8418addabd87c6a9db",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 230,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 14171,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "seaborn/_core/scales.py",
+              "lines": 686
+            },
+            {
+              "name": "seaborn/utils.py",
+              "lines": 680
+            },
+            {
+              "name": "seaborn/categorical.py",
+              "lines": 570
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3187/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3187/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Expecting ',' delimiter: line 57 column 6 (char 2475)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 14024.07,
+          "repair_elapsed_ms": 14137.17,
+          "cached_tokens": 15748,
+          "lossy_meta": {
+            "lossy_candidate_count": 23,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "73cafa195b8d0210",
+            "lossy_first_matched_content_signature": "fd19529e22f9af8418addabd87c6a9db",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 230,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "73cafa195b8d0210",
+            "lossy_final_matched_content_signature": "fd19529e22f9af8418addabd87c6a9db",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 230,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14582,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14582,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "seaborn/_core/scales.py",
+              "lines": 686
+            },
+            {
+              "name": "seaborn/utils.py",
+              "lines": 680
+            },
+            {
+              "name": "seaborn/categorical.py",
+              "lines": 570
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3187/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3187/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Expecting ',' delimiter: line 62 column 6 (char 2562)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "graph_aware_lossy",
+          "elapsed_ms": 14855.21,
+          "repair_elapsed_ms": 6132.94,
+          "cached_tokens": 0,
+          "lossy_meta": {
+            "lossy_candidate_count": 26,
+            "lossy_first_match_reason": "",
+            "lossy_first_rejected_reason": "code_content_signature_mismatch",
+            "lossy_first_reuse_allowed": false,
+            "lossy_first_reuse_confidence": 0.0,
+            "lossy_first_matched_anchor_signature": "",
+            "lossy_first_matched_content_signature": "",
+            "lossy_first_syntax_region_type": "",
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "0ed2fb5a9dbc10c0",
+            "lossy_final_matched_content_signature": "b62cefb9f9029ee1a857146a9f279900",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 265,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "code_graph_bundle",
+          "segments": [
+            {
+              "name": "seaborn/_core/scales.py",
+              "lines": 121
+            },
+            {
+              "name": "seaborn/_core/scales.py",
+              "lines": 576
+            },
+            {
+              "name": "seaborn/_core/scales.py",
+              "lines": 648
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3187/graph_aware_lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/mwaskom__seaborn-3187/graph_aware_lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Invalid \\escape: line 1 column 559 (char 558)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "pallets__flask-5014",
+      "repo": "pallets/flask",
+      "target_paths": [
+        "src/flask/blueprints.py"
+      ],
+      "segments": [
+        {
+          "name": "src/flask/blueprints.py",
+          "lines": 558
+        },
+        {
+          "name": "src/flask/app.py",
+          "lines": 530
+        },
+        {
+          "name": "src/flask/cli.py",
+          "lines": 657
+        }
+      ],
+      "graph_segments": [
+        {
+          "name": "src/flask/blueprints.py",
+          "lines": 81
+        },
+        {
+          "name": "src/flask/blueprints.py",
+          "lines": 570
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 6211.17,
+          "repair_elapsed_ms": 6741.6,
+          "cached_tokens": 15015,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "src/flask/blueprints.py",
+              "lines": 558
+            },
+            {
+              "name": "src/flask/app.py",
+              "lines": 530
+            },
+            {
+              "name": "src/flask/cli.py",
+              "lines": 657
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/pallets__flask-5014/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/pallets__flask-5014/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in src/flask/blueprints.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 7679.86,
+          "repair_elapsed_ms": 6770.69,
+          "cached_tokens": 59,
+          "lossy_meta": {
+            "lossy_candidate_count": 22,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "28dc580b3acabeea",
+            "lossy_first_matched_content_signature": "04f8fe2bc1edf43ff35d522d9612feff",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 275,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "28dc580b3acabeea",
+            "lossy_final_matched_content_signature": "04f8fe2bc1edf43ff35d522d9612feff",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 284,
+            "lossy_anchor_match_gap_len": 9554,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 1
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "src/flask/blueprints.py",
+              "lines": 558
+            },
+            {
+              "name": "src/flask/app.py",
+              "lines": 530
+            },
+            {
+              "name": "src/flask/cli.py",
+              "lines": 657
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/pallets__flask-5014/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/pallets__flask-5014/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in src/flask/blueprints.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 7778.9,
+          "repair_elapsed_ms": 6814.43,
+          "cached_tokens": 59,
+          "lossy_meta": {
+            "lossy_candidate_count": 19,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "28dc580b3acabeea",
+            "lossy_first_matched_content_signature": "04f8fe2bc1edf43ff35d522d9612feff",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 287,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "28dc580b3acabeea",
+            "lossy_final_matched_content_signature": "04f8fe2bc1edf43ff35d522d9612feff",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 290,
+            "lossy_anchor_match_gap_len": 9554,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14475,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14475,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 14582,
+            "agenttemplatekv_rejected_large_gap_count": 1
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "src/flask/blueprints.py",
+              "lines": 558
+            },
+            {
+              "name": "src/flask/app.py",
+              "lines": 530
+            },
+            {
+              "name": "src/flask/cli.py",
+              "lines": 657
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/pallets__flask-5014/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/pallets__flask-5014/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in src/flask/blueprints.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "graph_aware_lossy",
+          "elapsed_ms": 1172.38,
+          "repair_elapsed_ms": 1084.88,
+          "cached_tokens": 0,
+          "lossy_meta": {
+            "lossy_candidate_count": 21,
+            "lossy_first_match_reason": "",
+            "lossy_first_rejected_reason": "code_content_signature_mismatch",
+            "lossy_first_reuse_allowed": false,
+            "lossy_first_reuse_confidence": 0.0,
+            "lossy_first_matched_anchor_signature": "",
+            "lossy_first_matched_content_signature": "",
+            "lossy_first_syntax_region_type": "",
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "269c8f6ee87cd0a2",
+            "lossy_final_matched_content_signature": "03ecff0c201aa99c1e670b7ca71c5ad7",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 296,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "code_graph_bundle",
+          "segments": [
+            {
+              "name": "src/flask/blueprints.py",
+              "lines": 81
+            },
+            {
+              "name": "src/flask/blueprints.py",
+              "lines": 570
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/pallets__flask-5014/graph_aware_lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/pallets__flask-5014/graph_aware_lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Expecting ',' delimiter: line 1 column 59 (char 58)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "psf__requests-1142",
+      "repo": "psf/requests",
+      "target_paths": [
+        "requests/models.py"
+      ],
+      "segments": [
+        {
+          "name": "requests/models.py",
+          "lines": 657
+        },
+        {
+          "name": "requests/packages/charade/big5freq.py",
+          "lines": 279
+        },
+        {
+          "name": "requests/packages/charade/euckrfreq.py",
+          "lines": 298
+        }
+      ],
+      "graph_segments": [
+        {
+          "name": "requests/models.py",
+          "lines": 8
+        },
+        {
+          "name": "requests/models.py",
+          "lines": 416
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": null,
+          "cached_tokens": 0,
+          "lossy_meta": {},
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "requests/models.py",
+              "lines": 657
+            },
+            {
+              "name": "requests/packages/charade/big5freq.py",
+              "lines": 279
+            },
+            {
+              "name": "requests/packages/charade/euckrfreq.py",
+              "lines": 298
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1142/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1142/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "generation failed",
+            "edits": null
+          },
+          "generation_error": "TypeError(\"expected string or bytes-like object, got 'NoneType'\")",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": null,
+          "cached_tokens": 0,
+          "lossy_meta": {},
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "requests/models.py",
+              "lines": 657
+            },
+            {
+              "name": "requests/packages/charade/big5freq.py",
+              "lines": 279
+            },
+            {
+              "name": "requests/packages/charade/euckrfreq.py",
+              "lines": 298
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1142/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1142/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "generation failed",
+            "edits": null
+          },
+          "generation_error": "TypeError(\"expected string or bytes-like object, got 'NoneType'\")",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": null,
+          "cached_tokens": 0,
+          "lossy_meta": {},
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "requests/models.py",
+              "lines": 657
+            },
+            {
+              "name": "requests/packages/charade/big5freq.py",
+              "lines": 279
+            },
+            {
+              "name": "requests/packages/charade/euckrfreq.py",
+              "lines": 298
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1142/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1142/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "generation failed",
+            "edits": null
+          },
+          "generation_error": "TypeError(\"expected string or bytes-like object, got 'NoneType'\")",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "graph_aware_lossy",
+          "elapsed_ms": 860.3,
+          "repair_elapsed_ms": 1508.02,
+          "cached_tokens": 3700,
+          "lossy_meta": {
+            "lossy_candidate_count": 20,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "f56515cc5d950cb8",
+            "lossy_first_matched_content_signature": "574e946cf0925a3186555bcca1970323",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 306,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "f56515cc5d950cb8",
+            "lossy_final_matched_content_signature": "574e946cf0925a3186555bcca1970323",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 309,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "code_graph_bundle",
+          "segments": [
+            {
+              "name": "requests/models.py",
+              "lines": 8
+            },
+            {
+              "name": "requests/models.py",
+              "lines": 416
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1142/graph_aware_lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1142/graph_aware_lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "psf__requests-1724",
+      "repo": "psf/requests",
+      "target_paths": [
+        "requests/sessions.py"
+      ],
+      "segments": [
+        {
+          "name": "requests/sessions.py",
+          "lines": 531
+        },
+        {
+          "name": "requests/packages/charade/big5freq.py",
+          "lines": 279
+        },
+        {
+          "name": "requests/models.py",
+          "lines": 680
+        }
+      ],
+      "graph_segments": [
+        {
+          "name": "requests/sessions.py",
+          "lines": 380
+        },
+        {
+          "name": "requests/sessions.py",
+          "lines": 591
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 764.58,
+          "repair_elapsed_ms": 5096.25,
+          "cached_tokens": 31906,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "requests/sessions.py",
+              "lines": 531
+            },
+            {
+              "name": "requests/packages/charade/big5freq.py",
+              "lines": 279
+            },
+            {
+              "name": "requests/models.py",
+              "lines": 680
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1724/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1724/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in requests/sessions.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 3019.92,
+          "repair_elapsed_ms": 3351.84,
+          "cached_tokens": 16434,
+          "lossy_meta": {
+            "lossy_candidate_count": 12,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "17ce16b415eeeb8a",
+            "lossy_first_matched_content_signature": "61d54354715e0563",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 316,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "17ce16b415eeeb8a",
+            "lossy_final_matched_content_signature": "61d54354715e0563",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 316,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "requests/sessions.py",
+              "lines": 531
+            },
+            {
+              "name": "requests/packages/charade/big5freq.py",
+              "lines": 279
+            },
+            {
+              "name": "requests/models.py",
+              "lines": 680
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1724/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1724/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in requests/sessions.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 3018.41,
+          "repair_elapsed_ms": 3369.49,
+          "cached_tokens": 16434,
+          "lossy_meta": {
+            "lossy_candidate_count": 14,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "17ce16b415eeeb8a",
+            "lossy_first_matched_content_signature": "61d54354715e0563",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 328,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "17ce16b415eeeb8a",
+            "lossy_final_matched_content_signature": "61d54354715e0563",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 328,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 3,
+            "agenttemplatekv_prefetch_protected_tokens": 29159,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "requests/sessions.py",
+              "lines": 531
+            },
+            {
+              "name": "requests/packages/charade/big5freq.py",
+              "lines": 279
+            },
+            {
+              "name": "requests/models.py",
+              "lines": 680
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1724/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1724/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in requests/sessions.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        },
+        {
+          "mode": "graph_aware_lossy",
+          "elapsed_ms": 2061.8,
+          "repair_elapsed_ms": 2003.24,
+          "cached_tokens": 0,
+          "lossy_meta": {
+            "lossy_candidate_count": 16,
+            "lossy_first_match_reason": "",
+            "lossy_first_rejected_reason": "code_content_signature_mismatch",
+            "lossy_first_reuse_allowed": false,
+            "lossy_first_reuse_confidence": 0.0,
+            "lossy_first_matched_anchor_signature": "",
+            "lossy_first_matched_content_signature": "",
+            "lossy_first_syntax_region_type": "",
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "3f6347451519edbe",
+            "lossy_final_matched_content_signature": "489d06232dc745d34374ce985b63bd85",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 345,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "code_graph_bundle",
+          "segments": [
+            {
+              "name": "requests/sessions.py",
+              "lines": 380
+            },
+            {
+              "name": "requests/sessions.py",
+              "lines": 591
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1724/graph_aware_lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_13_skiptest/psf__requests-1724/graph_aware_lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in requests/sessions.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          }
+        }
+      ]
+    }
+  ]
+}

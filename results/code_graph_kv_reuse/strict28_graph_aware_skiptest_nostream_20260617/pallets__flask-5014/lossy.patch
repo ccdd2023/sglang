@@ -1,0 +1,12 @@
+diff --git a/src/flask/blueprints.py b/src/flask/blueprints.py
+--- a/src/flask/blueprints.py
++++ b/src/flask/blueprints.py
+@@ -207,7 +207,7 @@
+ 
+     def _check_setup_finished(self, f_name: str) -> None:
+         if self._got_registered_once:
+-            raise AssertionError(
++            raise ValueError(
+                 f"The setup method '{f_name}' can no longer be called on the blueprint"
+                 f" '{self.name}'. It has already been registered at least once, any"
+                 " changes will not be applied consistently.\n"

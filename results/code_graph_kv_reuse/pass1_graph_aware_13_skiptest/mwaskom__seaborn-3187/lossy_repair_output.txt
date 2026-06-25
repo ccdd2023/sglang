@@ -1,0 +1,61 @@
+```json
+{
+  "edits": [
+    {
+      "path": "seaborn/_core/scales.py",
+      "search": "def _get_formatter(self, locator, formatter):",
+      "replace": "def _get_formatter(self, locator, formatter, use_offset):"
+    },
+    {
+      "path": "seaborn/_generated/utils.py",
+      "search": "def _default_color(method, hue, color, kws):",
+      "replace": "def _default_color(method, hue, color, kws, use_offset: bool = False):"
+    },
+    {
+      "path": "seaborn/_generated/utils.py",
+      "search": "def _get_gray(self, colors):",
+      "replace": "def _get_gray(self, colors, use_offset: bool = False):"
+    },
+    {
+      "path": "seaborn/_generated/utils.py",
+      "search": "def _kde_support(data, bw, gridsize, cut, clip):",
+      "replace": "def _kde_support(data, bw, gridsize, cut, clip, use_offset: bool = False):"
+    },
+    {
+      "path": "seaborn/_generated/utils.py",
+      "search": "def _log_scaled(self, var):",
+      "replace": "def _log_scaled(self, var, use_offset: bool = False):"
+    },
+    {
+      "path": "seaborn/_generated/utils.py",
+      "search": "def _normalize_kwargs(self, cls, **kws):",
+      "replace": "def _normalize_kwargs(self, cls, use_offset: bool = False, **kws):"
+    },
+    {
+      "path": "seaborn/_generated/utils.py",
+      "search": "def _parse_for_log_params(self, trans):",
+      "replace": "def _parse_for_log_params(self, trans, use_offset: bool = False):"
+    },
+    {
+      "path": "seaborn/_generated/utils.py",
+      "search": "def _redundant_hue(self, color, palette, hue_order, force_hue=False):",
+      "replace": "def _reduant_hue(self, color, palette, hue_order, force_hue: bool = False, use_offset: bool = False):"
+    },
+    {
+      "path": "seaborn/_generated/utils.py",
+      "search": "def _reduant_hue(self, color,palette, hue_order, force_hue=False):",
+      "replace": "def _reduant_hue(self, color,palette, hue_order, force_hue: bool = False, use_offset: bool = False):"
+    },
+    {
+      "path": "seaborn/_generated/utils.py",
+      "search": "def _reduant_hue(self, color,palette, hue_order, force_hue=False):",
+      "replace": "def _reduant_hue(self, color,palette, hue_order, force_hue: bool = False, use_offset: bool = False):"
+    },
+    {
+      "path": "seaborn/_generated/utils.py",
+      "search": "def _reduant_hue(self, color,palette, hue_order, force_hue=False):",
+      "replace": "def _reduant_hue(self, color,palette, hue_order, force_hue: bool = False, use_offset: bool = False):"
+    },
+    {
+      "path": "seaborn/_generated/utils.py",
+      "search": "def _reduant_hue(self, color

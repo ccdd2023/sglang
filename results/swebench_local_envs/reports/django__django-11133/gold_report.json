@@ -1,0 +1,19 @@
+{
+  "instance_id": "django__django-11133",
+  "repo": "django/django",
+  "version": "3.0",
+  "mode": "gold",
+  "env_name": "swe_django_django_11133_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-11133",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "./tests/runtests.py",
+    "--verbosity",
+    "2",
+    "--settings=test_sqlite",
+    "--parallel",
+    "1",
+    "httpwrappers.tests.HttpResponseTests.test_memoryview_content"
+  ],
+  "returncode": 1
+}

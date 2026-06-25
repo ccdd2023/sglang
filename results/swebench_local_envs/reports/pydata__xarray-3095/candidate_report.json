@@ -1,0 +1,15 @@
+{
+  "instance_id": "pydata__xarray-3095",
+  "repo": "pydata/xarray",
+  "version": "0.12",
+  "mode": "candidate",
+  "env_name": "swe_pydata_xarray_3095_candidate",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]"
+  ],
+  "returncode": 4
+}

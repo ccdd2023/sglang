@@ -1,0 +1,11 @@
+```json
+{
+    "edits": [
+        {
+            "path": "src/_pytest/mark/structures.py",
+            "search": "normalize_mark_list(mark_list: Iterable[Union[Mark, MarkDecorator]]) -> Iterable[Mark]:",
+            "replace": "normalize_mark_list(mark_list: Iterable[Union[Mark, MarkDecorator]], consider_mro: bool = True) -> Iterable[Mark]:\n    if consider_mro:\n        return _merge_marks(mark_list)\n    else:\n        return normalize_mark_list(mark_list)"
+        }
+    ]
+}
+```

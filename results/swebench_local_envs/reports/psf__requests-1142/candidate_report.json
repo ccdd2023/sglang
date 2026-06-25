@@ -11,5 +11,44 @@
     "-rA",
     "test_requests.py::RequestsTestCase::test_no_content_length"
   ],
-  "returncode": 0
+  "returncode": 0,
+  "stdout_tail": "============================= test session starts ==============================\nplatform linux -- Python 3.9.25, pytest-7.4.4, pluggy-1.6.0\nrootdir: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-1142\ncollected 1 item\n\ntest_requests.py .                                                       [100%]\n\n=============================== warnings summary ===============================\nrequests/packages/urllib3/_collections.py:7\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-1142/requests/packages/urllib3/_collections.py:7: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    from collections import MutableMapping\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n==================================== PASSES ====================================\n=========================== short test summary info ============================\nPASSED test_requests.py::RequestsTestCase::test_no_content_length\n========================= 1 passed, 1 warning in 0.03s =========================\n\n",
+  "stderr_tail": "",
+  "env_sanity": {
+    "python_version": {
+      "returncode": 0,
+      "stdout_tail": "Python 3.9.25\n\n",
+      "stderr_tail": ""
+    },
+    "python_executable": {
+      "returncode": 0,
+      "stdout_tail": "/home/gfy/miniconda3/envs/swe_psf_requests_1142_candidate/bin/python\n\n",
+      "stderr_tail": ""
+    },
+    "pip_version": {
+      "returncode": 0,
+      "stdout_tail": "pip 24.2 from /home/gfy/miniconda3/envs/swe_psf_requests_1142_candidate/lib/python3.9/site-packages/pip (python 3.9)\n\n",
+      "stderr_tail": ""
+    },
+    "pytest_version": {
+      "returncode": 0,
+      "stdout_tail": "7.4.4\n\n",
+      "stderr_tail": ""
+    },
+    "numpy_version": {
+      "returncode": 1,
+      "stdout_tail": "",
+      "stderr_tail": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\nModuleNotFoundError: No module named 'numpy'\n\nERROR conda.cli.main_run:execute(125): `conda run python -c import numpy; print(numpy.__version__)` failed. (See above for error)\n"
+    },
+    "setuptools_version": {
+      "returncode": 0,
+      "stdout_tail": "80.9.0\n\n",
+      "stderr_tail": ""
+    },
+    "pip_freeze_head": {
+      "returncode": 0,
+      "stdout_tail": "exceptiongroup==1.3.1\niniconfig==2.1.0\npackaging==26.2\npluggy==1.6.0\npytest==7.4.4\nrequests @ file:///home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-1142\ntomli==2.4.1\ntyping_extensions==4.15.0\n",
+      "stderr_tail": ""
+    }
+  }
 }

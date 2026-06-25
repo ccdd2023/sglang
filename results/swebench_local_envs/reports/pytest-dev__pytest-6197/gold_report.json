@@ -1,0 +1,15 @@
+{
+  "instance_id": "pytest-dev__pytest-6197",
+  "repo": "pytest-dev/pytest",
+  "version": "5.2",
+  "mode": "gold",
+  "env_name": "swe_pytest_dev_pytest_6197_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-6197",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "testing/test_collection.py::test_does_not_eagerly_collect_packages"
+  ],
+  "returncode": 1
+}

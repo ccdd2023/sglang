@@ -1,0 +1,94 @@
+diff --git a/sklearn/linear_model/ridge.py b/sklearn/linear_model/ridge.py
+--- a/sklearn/linear_model/ridge.py
++++ b/sklearn/linear_model/ridge.py
+@@ -100,6 +100,7 @@ def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
+             self.store_cv_values = store_cv_values
+             self._store_cv_values = store_cv_values
+             self._store_cv_values_ = store_cv_values
++            self.cv_values_ = None
+             self._cv_values_ = None
+ 
+         self._fit_coef = None
+@@ -110,6 +111,7 @@ def fit(self, X, y, sample_weight=None):
+         self._fit_coef = coef
+         self.n_iter_ = n_iter_
+         self.intercept_ = intercept_
++        self.cv_values_ = cv_values_
+         return self
+ 
+     def _fit_coef(self, X, y, coef_init, sample_weight, alpha, fit_intercept,
+@@ -120,6 +122,7 @@ def _fit_coef(self, X, y, coef_init, sample_weight, alpha, fit_intercept,
+         return coef
+     self._fit_coef = _fit_coef
+ 
++    self._store_cv_values_ = False
+     self._store_cv_values = False
+     self._cv_values_ = None
+ 
+@@ -130,6 +133,7 @@ def _fit_coef(self, X, y, coef_init, sample_weight, alpha, fit_intercept,
+         return coef
+     self._fit_coef = _fit_coef
+ 
++    self._store_cv_values_ = store_cv_values
+     self._store_cv_values = store_cv_values
+     self._cv_values_ = None
+ 
+@@ -140,6 +144,7 @@ def _fit_coef(self, X, y, coef_init, sample_weight, alpha, fit_intercept,
+         return coef
+     self._fit_coef = _fit_coef
+ 
++    self._store_cv_values_ = store_cv_values
+     self._store_cv_values = store_cv_values
+     self._cv_values_ = None
+ 
+@@ -150,6 +155,7 @@ def _fit_coef(self, X, y, coef_init, sample_weight, alpha, fit_intercept,
+         return coef
+     self._fit_coef = _fit_coef
+ 
++    self._store_cv_values_ = store_cv_values
+     self._store_cv_values = store_cv_values
+     self._cv_values_ = None
+ 
+@@ -160,6 +166,7 @@ def _fit_coef(self, X, y, coef_init, sample_weight, alpha, fit_intercept,
+         return coef
+     self._fit_coef = _fit_coef
+ 
++    self._store_cv_values_ = store_cv_values
+     self._store_cv_values = store_cv_values
+     self._cv_values_ = None
+ 
+@@ -170,6 +177,7 @@ def _fit_coef(self, X, y, coef_init, sample_weight, alpha, fit_intercept,
+         return coef
+     self._fit_coef = _fit_coef
+ 
++    self._store_cv_values_ = store_cv_values
+     self._store_cv_values = store_cv_values
+     self._cv_values_ = None
+ 
+@@ -180,6 +188,7 @@ def _fit_coef(self, X, y, coef_init, sample_weight, alpha, fit_intercept,
+         return coef
+     self._fit_coef = _fit_coef
+ 
++    self._store_cv_values_ = store_cv_values
+     self._store_cv_values = store_cv_values
+     self._cv_values_ = None
+ 
+@@ -190,6 +199,7 @@ def _fit_coef(self, X, y, coef_init, sample_weight, alpha, fit_intercept,
+         return coef
+     self._fit_coef = _fit_coef
+ 
++    self._store_cv_values_ = store_cv_values
+     self._store_cv_values = store_cv_values
+     self._cv_values_ = None
+ 
+@@ -200,6 +209,7 @@ def _fit_coef(self, X, y, coef_init, sample_weight, alpha, fit_intercept,
+         return coef
+     self._fit_coef = _fit_coef
+ 
++
++    self.cv_values_ = None
++
+ 
+     def _fit_coef(self, X, y, coef_init, sample_weight, alpha, fit_intercept,
+                   normalize, precompute, copy_X, coef, intercept, Xy, Xty,
+@@ -210,6 +210,7 @@ def _fit_coef(self, X, y, coef_init, sample_weight, alpha

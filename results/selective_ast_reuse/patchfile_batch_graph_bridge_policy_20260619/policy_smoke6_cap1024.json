@@ -1,0 +1,66 @@
+{
+  "policy_name": "patchfile_batch_graph_bridge_smoke6_cap1024_20260619",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 0.9,
+  "diagnostic_only": true,
+  "notes": [
+    "Smoke-only cap1024 policy for patch-file graph bridge candidates."
+  ],
+  "cases": {
+    "pytest-dev__pytest-10081": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "required_selected_span_count_by_granularity": {
+        "bridge_window": 1,
+        "method": 1
+      },
+      "reason": "patchfile_batch_graph_bridge_cap1024_smoke_shape"
+    },
+    "pytest-dev__pytest-5631": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "required_selected_span_count_by_granularity": {
+        "bridge_window": 1,
+        "function": 2
+      },
+      "reason": "patchfile_batch_graph_bridge_cap1024_smoke_shape"
+    },
+    "pytest-dev__pytest-5809": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "required_selected_span_count_by_granularity": {
+        "bridge_window": 1,
+        "function": 1
+      },
+      "reason": "patchfile_batch_graph_bridge_cap1024_smoke_shape"
+    },
+    "pytest-dev__pytest-6202": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "required_selected_span_count_by_granularity": {
+        "bridge_window": 1,
+        "method": 1
+      },
+      "reason": "patchfile_batch_graph_bridge_cap1024_smoke_shape"
+    },
+    "pytest-dev__pytest-7205": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "required_selected_span_count_by_granularity": {
+        "bridge_window": 1,
+        "function": 1
+      },
+      "reason": "patchfile_batch_graph_bridge_cap1024_smoke_shape"
+    },
+    "pytest-dev__pytest-7324": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "required_selected_span_count_by_granularity": {
+        "bridge_window": 1,
+        "function": 1,
+        "method": 1
+      },
+      "reason": "patchfile_batch_graph_bridge_cap1024_smoke_shape"
+    }
+  }
+}

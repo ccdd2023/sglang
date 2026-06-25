@@ -1,0 +1,3 @@
+```json
+{"edits":[{"path":"src/_pytest/skipping.py","search":"raise exc_info.value","replace":"raise exc_info.value from None"}]}
+```

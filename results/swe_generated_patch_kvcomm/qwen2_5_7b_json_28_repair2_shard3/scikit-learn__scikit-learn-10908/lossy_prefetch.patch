@@ -1,0 +1,14 @@
+diff --git a/sklearn/feature_extraction/text.py b/sklearn/feature_extraction/text.py
+--- a/sklearn/feature_extraction/text.py
++++ b/sklearn/feature_extraction/text.py
+@@ -992,6 +992,10 @@
+                 for i in range(n_samples)]
+ 
+     def get_feature_names(self):
++        if self.fixed_vocabulary_ and self.vocabulary_ is None:
++            raise NotFittedError("CountVectorizer - Vocabulary wasn't fitted.")
++        return [self.vocabulary_[i] for i in xrange(len(self.vocabulary_))]
++
+         """Array mapping from feature integer indices to feature name"""
+         self._check_vocabulary()
+ 

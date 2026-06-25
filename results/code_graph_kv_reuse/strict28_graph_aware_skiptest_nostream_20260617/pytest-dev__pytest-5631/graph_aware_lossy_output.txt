@@ -1,0 +1,1 @@
+{"edits":[{"path":"src/_pytest/compat.py","search":"p.new in sentinels","replace":"np.issubdtype(type(p.new), np.number) or p.new in sentinels"}]}

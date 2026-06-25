@@ -1,0 +1,11 @@
+diff --git a/django/db/models/aggregates.py b/django/db/models/aggregates.py
+--- a/django/db/models/aggregates.py
++++ b/django/db/models/aggregates.py
+@@ -104,6 +104,7 @@ def resolve_expression(self, query=None, allow_joins=True, reuse=None, summarize=False,
+         c.filter = c.filter and c.filter.resolve_expression(query, allow_joins, reuse, summarize)
+         if not summarize:
+             # Call Aggregate.get_source_expressions() to avoid
++            if c.filter:
+                 return c
+
+         c.filter = c.filter and c.filter.resolve_expression(query, allow_joins, reuse, summarize)

@@ -1,0 +1,147 @@
+{
+  "policy_name": "manual_taskaware_p8000_exact_anchor_cap4750",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 0.9,
+  "diagnostic_only": true,
+  "not_instance_id_matched": true,
+  "default_action": "reject",
+  "default_reason": "no_exact_anchor_cap_sweep_rule",
+  "rules": [
+    {
+      "name": "cap4750_psf__requests-1142",
+      "action": "cap",
+      "max_suffix_copy_len": 4750,
+      "reason": "manual_cap_sweep_4750",
+      "source_case": "psf__requests-1142",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 1966,
+        "max_estimated_reused_tokens": 2173,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-657$"
+        ]
+      }
+    },
+    {
+      "name": "cap4750_psf__requests-1724",
+      "action": "cap",
+      "max_suffix_copy_len": 4750,
+      "reason": "manual_cap_sweep_4750",
+      "source_case": "psf__requests-1724",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 2385,
+        "max_estimated_reused_tokens": 2636,
+        "selected_anchor_name_any_regex": [
+          "^requests/packages/urllib3/connectionpool\\.py:bridge_prefix:file_start:1\\-674$"
+        ]
+      }
+    },
+    {
+      "name": "cap4750_psf__requests-1766",
+      "action": "cap",
+      "max_suffix_copy_len": 4750,
+      "reason": "manual_cap_sweep_4750",
+      "source_case": "psf__requests-1766",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 2323,
+        "max_estimated_reused_tokens": 2568,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-770$"
+        ]
+      }
+    },
+    {
+      "name": "cap4750_psf__requests-1921",
+      "action": "cap",
+      "max_suffix_copy_len": 4750,
+      "reason": "manual_cap_sweep_4750",
+      "source_case": "psf__requests-1921",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 2506,
+        "max_estimated_reused_tokens": 2769,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-800$"
+        ]
+      }
+    },
+    {
+      "name": "cap4750_psf__requests-2317",
+      "action": "cap",
+      "max_suffix_copy_len": 4750,
+      "reason": "manual_cap_sweep_4750",
+      "source_case": "psf__requests-2317",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 2684,
+        "max_estimated_reused_tokens": 2967,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-837$"
+        ]
+      }
+    },
+    {
+      "name": "cap4750_psf__requests-2931",
+      "action": "cap",
+      "max_suffix_copy_len": 4750,
+      "reason": "manual_cap_sweep_4750",
+      "source_case": "psf__requests-2931",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 2848,
+        "max_estimated_reused_tokens": 3147,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-848$"
+        ]
+      }
+    },
+    {
+      "name": "cap4750_psf__requests-5414",
+      "action": "cap",
+      "max_suffix_copy_len": 4750,
+      "reason": "manual_cap_sweep_4750",
+      "source_case": "psf__requests-5414",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 3536,
+        "max_estimated_reused_tokens": 3909,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-973$"
+        ]
+      }
+    },
+    {
+      "name": "cap4750_psf__requests-6028",
+      "action": "cap",
+      "max_suffix_copy_len": 4750,
+      "reason": "manual_cap_sweep_4750",
+      "source_case": "psf__requests-6028",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 3460,
+        "max_estimated_reused_tokens": 3825,
+        "selected_anchor_name_any_regex": [
+          "^requests/utils\\.py:bridge_prefix:file_start:1\\-1056$"
+        ]
+      }
+    }
+  ]
+}

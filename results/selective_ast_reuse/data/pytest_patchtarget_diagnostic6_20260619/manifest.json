@@ -1,0 +1,133 @@
+{
+  "label": "pytest_patchtarget_diagnostic6_20260619",
+  "schema_version": "selective_wholefile_manifest_v1",
+  "case_count": 6,
+  "file_count": 14,
+  "selection_rule": "patch/test target files from closest local pytest checkout for prompt-fair KV diagnostic",
+  "samples": [
+    {
+      "instance_id": "pytest-dev__pytest-7521",
+      "repo": "pytest-dev/pytest",
+      "version": "6.0",
+      "base_commit": "41d211c24a6781843b174379d6d6538f5c17adb9",
+      "files": [
+        {
+          "path": "src/_pytest/capture.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/capture.py",
+          "source_instance_id": "pytest-dev__pytest-7490"
+        },
+        {
+          "path": "testing/test_capture.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-7490/testing/test_capture.py",
+          "source_instance_id": "pytest-dev__pytest-7490"
+        }
+      ],
+      "selection_note": "patch-target diagnostic manifest using closest available local pytest checkout; prompt-fair within each case"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7571",
+      "repo": "pytest-dev/pytest",
+      "version": "6.0",
+      "base_commit": "422685d0bdc110547535036c1ff398b5e1c44145",
+      "files": [
+        {
+          "path": "src/_pytest/logging.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/logging.py",
+          "source_instance_id": "pytest-dev__pytest-7490"
+        },
+        {
+          "path": "testing/logging/test_fixture.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-7490/testing/logging/test_fixture.py",
+          "source_instance_id": "pytest-dev__pytest-7490"
+        }
+      ],
+      "selection_note": "patch-target diagnostic manifest using closest available local pytest checkout; prompt-fair within each case"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7982",
+      "repo": "pytest-dev/pytest",
+      "version": "6.2",
+      "base_commit": "a7e38c5c61928033a2dc1915cbee8caa8544a4d0",
+      "files": [
+        {
+          "path": "src/_pytest/pathlib.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-10356/src/_pytest/pathlib.py",
+          "source_instance_id": "pytest-dev__pytest-10356"
+        },
+        {
+          "path": "testing/test_collection.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-10356/testing/test_collection.py",
+          "source_instance_id": "pytest-dev__pytest-10356"
+        }
+      ],
+      "selection_note": "patch-target diagnostic manifest using closest available local pytest checkout; prompt-fair within each case"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-8399",
+      "repo": "pytest-dev/pytest",
+      "version": "6.3",
+      "base_commit": "6e7dc8bac831cd8cf7a53b08efa366bd84f0c0fe",
+      "files": [
+        {
+          "path": "src/_pytest/unittest.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-10356/src/_pytest/unittest.py",
+          "source_instance_id": "pytest-dev__pytest-10356"
+        },
+        {
+          "path": "src/_pytest/python.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-10356/src/_pytest/python.py",
+          "source_instance_id": "pytest-dev__pytest-10356"
+        },
+        {
+          "path": "testing/test_unittest.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-10356/testing/test_unittest.py",
+          "source_instance_id": "pytest-dev__pytest-10356"
+        }
+      ],
+      "selection_note": "patch-target diagnostic manifest using closest available local pytest checkout; prompt-fair within each case"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-6197",
+      "repo": "pytest-dev/pytest",
+      "version": "5.2",
+      "base_commit": "e856638ba086fcf5bebf1bebea32d5cf78de87b4",
+      "files": [
+        {
+          "path": "src/_pytest/python.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-6197/src/_pytest/python.py",
+          "source_instance_id": "pytest-dev__pytest-6197"
+        },
+        {
+          "path": "testing/test_collection.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-6197/testing/test_collection.py",
+          "source_instance_id": "pytest-dev__pytest-6197"
+        }
+      ],
+      "selection_note": "patch-target diagnostic manifest using closest available local pytest checkout; prompt-fair within each case"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5840",
+      "repo": "pytest-dev/pytest",
+      "version": "5.1",
+      "base_commit": "73c5b7f4b11a81e971f7d1bb18072e06a87060f4",
+      "files": [
+        {
+          "path": "src/_pytest/config/__init__.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-5840/src/_pytest/config/__init__.py",
+          "source_instance_id": "pytest-dev__pytest-5840"
+        },
+        {
+          "path": "src/_pytest/pathlib.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-5840/src/_pytest/pathlib.py",
+          "source_instance_id": "pytest-dev__pytest-5840"
+        },
+        {
+          "path": "testing/test_conftest.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-5840/testing/test_conftest.py",
+          "source_instance_id": "pytest-dev__pytest-5840"
+        }
+      ],
+      "selection_note": "patch-target diagnostic manifest using closest available local pytest checkout; prompt-fair within each case"
+    }
+  ]
+}

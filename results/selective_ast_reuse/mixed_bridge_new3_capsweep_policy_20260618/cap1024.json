@@ -1,0 +1,36 @@
+{
+  "policy_name": "mixed_bridge_new3_cap1024_policy",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 0.9,
+  "min_speedup": 1.0,
+  "diagnostic_only": true,
+  "notes": [
+    "Cap=1024 low-risk diagnostic for new mixed-window single bridge candidates."
+  ],
+  "cases": {
+    "pallets__flask-5014": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1
+      },
+      "reason": "mixed_window_new_bridge_candidate_cap1024"
+    },
+    "psf__requests-1921": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1
+      },
+      "reason": "mixed_window_new_bridge_candidate_cap1024"
+    },
+    "psf__requests-2317": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1
+      },
+      "reason": "mixed_window_new_bridge_candidate_cap1024"
+    }
+  }
+}

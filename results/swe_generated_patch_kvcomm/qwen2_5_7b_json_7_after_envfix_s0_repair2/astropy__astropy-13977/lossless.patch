@@ -1,0 +1,12 @@
+diff --git a/astropy/units/quantity.py b/astropy/units/quantity.py
+--- a/astropy/units/quantity.py
++++ b/astropy/units/quantity.py
+@@ -1425,7 +1425,7 @@
+         formats["latex_inline"] = formats["latex"]
+ 
+         if format not in formats:
+-            raise ValueError(f"Unknown format '{format}'")
++            return NotImplemented(f"Unknown format '{format}'")
+         elif format is None:
+             if precision is None:
+                 # Use default formatting settings

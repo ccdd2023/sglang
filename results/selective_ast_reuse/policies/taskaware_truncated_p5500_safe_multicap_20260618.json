@@ -1,0 +1,94 @@
+{
+  "policy_name": "taskaware_truncated_p5500_safe_multicap",
+  "mode": "hybrid_code_aware_lossy",
+  "diagnostic_only": true,
+  "default_action": "reject",
+  "default_reason": "no_taskaware_truncated_safe_rule",
+  "rules": [
+    {
+      "name": "taskaware_trunc_safe_psf__requests-1142",
+      "action": "cap",
+      "max_suffix_copy_len": 4432,
+      "reason": "taskaware_truncated_p5500_safe_cap_calibration",
+      "source_case": "psf__requests-1142",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 1966,
+        "max_estimated_reused_tokens": 2173,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-657$"
+        ]
+      }
+    },
+    {
+      "name": "taskaware_trunc_safe_psf__requests-5414",
+      "action": "cap",
+      "max_suffix_copy_len": 4750,
+      "reason": "taskaware_truncated_p5500_safe_cap_calibration",
+      "source_case": "psf__requests-5414",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 2154,
+        "max_estimated_reused_tokens": 2381,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-625$"
+        ]
+      }
+    },
+    {
+      "name": "taskaware_trunc_safe_pytest-dev__pytest-5787",
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "taskaware_truncated_p5500_safe_cap_calibration",
+      "source_case": "pytest-dev__pytest-5787",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 1769,
+        "max_estimated_reused_tokens": 1956,
+        "selected_anchor_name_any_regex": [
+          "^src/_pytest/python\\.py:bridge_prefix:file_start:1\\-585$"
+        ]
+      }
+    },
+    {
+      "name": "taskaware_trunc_safe_pytest-dev__pytest-7236",
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "taskaware_truncated_p5500_safe_cap_calibration",
+      "source_case": "pytest-dev__pytest-7236",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 1828,
+        "max_estimated_reused_tokens": 2021,
+        "selected_anchor_name_any_regex": [
+          "^src/_pytest/python\\.py:bridge_prefix:file_start:1\\-583$"
+        ]
+      }
+    },
+    {
+      "name": "taskaware_trunc_safe_pytest-dev__pytest-7432",
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "taskaware_truncated_p5500_safe_cap_calibration",
+      "source_case": "pytest-dev__pytest-7432",
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 1710,
+        "max_estimated_reused_tokens": 1890,
+        "selected_anchor_name_any_regex": [
+          "^testing/python/metafunc\\.py:bridge_prefix:file_start:1\\-648$"
+        ]
+      }
+    }
+  ]
+}

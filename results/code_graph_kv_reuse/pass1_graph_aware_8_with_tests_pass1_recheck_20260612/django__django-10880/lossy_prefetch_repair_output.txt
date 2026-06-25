@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "django/db/models/aggregates.py",
+      "search": "template = '%(function)s(%(distinct)s%(expressions)s)'",
+      "replace": "template = '%(function)s%(distinct)s%(expressions)s'"
+    }
+  ]
+}
+```

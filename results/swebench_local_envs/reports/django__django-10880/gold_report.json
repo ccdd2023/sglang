@@ -15,5 +15,5 @@
     "1",
     "aggregation.tests.AggregateTestCase.test_count_distinct_expression"
   ],
-  "returncode": 0
+  "returncode": 1
 }

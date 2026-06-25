@@ -1,0 +1,134 @@
+{
+  "selector_snapshot": {
+    "git_commit": "5fb934751",
+    "policy": "results/selective_ast_reuse/data/selective_reuse_policy_extended.json",
+    "policy_sha1": "f256dd7fa88d1ee1e4a0a117a9877eaa00bd4246",
+    "dataset": "results/selective_ast_reuse/data/swe_selective_wholefile_68k_1file_taskaware_instances.json",
+    "dataset_sha1": "18d34837f6869d669bcf354ee5ca899ea1455658",
+    "manifest": "results/selective_ast_reuse/data/combined_plus1766_graphfile_auth_20260619/manifest.json",
+    "manifest_sha1": "879cea9077beb1ea3ce456f18767a96c7f10aee9",
+    "max_file_chars": 22000,
+    "max_complete_file_chars": 60000,
+    "server_random_seed": 42,
+    "target_modes": [
+      "lossless_full_prefill",
+      "hybrid_code_aware_lossy"
+    ],
+    "enable_graph_aware_lossy": false,
+    "load_graph_bundles_for_selection": true,
+    "enable_hybrid_code_aware_lossy": true,
+    "hybrid_min_bridge_tokens": 0,
+    "hybrid_max_bridge_tokens": 8000,
+    "hybrid_bridge_anchor_max_tokens": 0,
+    "hybrid_bridge_max_count_per_file": 0,
+    "include_hybrid_bridge_seed_spans": true,
+    "hybrid_bridge_source": "function_then_extended",
+    "hybrid_task_ast_top_k": 5,
+    "hybrid_risk_large_bridge_min_tokens": 0,
+    "hybrid_risk_max_large_bridge_count": 0,
+    "hybrid_risk_max_graph_tokens_for_large_bridge": 0,
+    "enable_bridge_prefix_anchors": false,
+    "bridge_anchor_max_tokens": 0,
+    "disable_graph_bridge_prefix_anchors": false,
+    "selection_min_estimated_reused_tokens": 0,
+    "selective_anchor_min_span_tokens": 0,
+    "selective_anchor_max_span_tokens": 0,
+    "selective_anchor_max_start_token": 0,
+    "anchor_min_total_tokens": 0,
+    "anchor_max_total_tokens": 12000,
+    "anchor_max_total_policy": "reject",
+    "exclude_anchor_granularities": "",
+    "graph_anchor_token_budget": 1600,
+    "graph_anchor_max_span_tokens": 900,
+    "lossy_max_planned_suffix_copy_len": 8000,
+    "case_selector_overrides": "",
+    "case_selector_override_cases": 0
+  },
+  "dataset": "results/selective_ast_reuse/data/swe_selective_wholefile_68k_1file_taskaware_instances.json",
+  "manifest": "results/selective_ast_reuse/data/combined_plus1766_graphfile_auth_20260619/manifest.json",
+  "modes": [
+    "lossless_full_prefill",
+    "hybrid_code_aware_lossy"
+  ],
+  "hybrid_calibration_policy": "",
+  "hybrid_calibration_policy_cases": 0,
+  "hybrid_calibration_policy_rules": 0,
+  "rows": [
+    {
+      "instance_id": "psf__requests-6028",
+      "repo": "psf/requests",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 2,
+      "selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "file_prefix": 1
+      },
+      "estimated_reused_tokens": 1412,
+      "estimated_recomputed_tokens": 1006,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 1,
+        "reuse:hybrid_bridge_seed_span": 1
+      },
+      "selected_anchor_names": [
+        "requests/utils.py:bridge_prefix:file_start:1-200",
+        "requests/utils.py:file_prefix:utils.py:1-200"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "requests/utils.py:bridge_prefix:file_start:1-200",
+          "path": "requests/utils.py",
+          "granularity": "bridge_prefix",
+          "symbol": "file_start",
+          "line_range": "1-200"
+        },
+        {
+          "name": "requests/utils.py:file_prefix:utils.py:1-200",
+          "path": "requests/utils.py",
+          "granularity": "file_prefix",
+          "symbol": "utils.py",
+          "line_range": "1-200"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "requests/utils.py:bridge_prefix:file_start:1-200",
+          "path": "requests/utils.py",
+          "granularity": "bridge_prefix",
+          "symbol": "file_start",
+          "line_range": "1-200",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "requests/utils.py:file_prefix:utils.py:1-200",
+          "path": "requests/utils.py",
+          "granularity": "file_prefix",
+          "symbol": "utils.py",
+          "line_range": "1-200",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 3
+        }
+      ],
+      "max_anchor_lexical_overlap": 3,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": true,
+      "max_anchor_symbol_overlap": 1,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    }
+  ]
+}

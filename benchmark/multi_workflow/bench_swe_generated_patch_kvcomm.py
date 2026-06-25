@@ -121,6 +121,17 @@ def launch_server(args: argparse.Namespace) -> subprocess.Popen:
     # python/sglang/srt/mem_cache/allocator.py:173.
     if args.kv_allocator_defrag:
         env["SGLANG_KV_ALLOCATOR_DEFRAG"] = "1"
+    if args.enable_placeholder_knn:
+        # v44 placeholder k-NN body: opt-in via env var, default off.
+        # When on, the server-side `_try_placeholder_knn_lossy_match_body`
+        # fires for high-similarity anchors (cosine >= SGLANG_PLACEHOLDER_KNN_MIN_COSINE,
+        # top-K from SGLANG_PLACEHOLDER_KNN_TOPK) and copies head KV segments
+        # instead of forcing dense prefill.
+        # See python/sglang/srt/mem_cache/radix_cache.py:2340-2342.
+        env["SGLANG_PLACEHOLDER_KNN_MATCH"] = "1"
+        env["SGLANG_PLACEHOLDER_KNN_PRE_ROTATE_DELTAS"] = "1"
+        env["SGLANG_PLACEHOLDER_KNN_TOPK"] = str(args.placeholder_knn_topk)
+        env["SGLANG_PLACEHOLDER_KNN_MIN_COSINE"] = str(args.placeholder_knn_min_cosine)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     log_path = OUT_DIR / "sglang_server.log"
     cmd = [
@@ -195,6 +206,97 @@ async def post_chat(session: aiohttp.ClientSession, port: int, payload: dict[str
     return {"elapsed_ms": now_ms() - start, "body": body}
 
 
+async def post_chat_stream(session: aiohttp.ClientSession, port: int, payload: dict[str, Any]) -> dict[str, Any]:
+    """Streaming variant of post_chat that records TTFT (time-to-first-token).
+
+    Returns:
+        dict with elapsed_ms (E2E), e2e_ms (alias of elapsed_ms), ttft_ms
+        (first content delta in ms; falls back to e2e_ms if no stream delta),
+        text, cached_tokens, prompt_tokens, body (last chunk), metadata.
+    """
+    start = now_ms()
+    ttft_ms: float | None = None
+    text = ""
+    final_body: dict[str, Any] = {}
+    cached_tokens = 0
+    prompt_tokens = int(payload.get("prompt_tokens_local", 0) or 0)
+    meta: dict[str, Any] = {}
+    try:
+        async with session.post(
+            f"http://127.0.0.1:{port}/v1/chat/completions",
+            json={**payload, "stream": True, "stream_options": {"include_usage": True}},
+            timeout=aiohttp.ClientTimeout(total=600),
+        ) as resp:
+            async for raw in resp.content:
+                line = raw.decode(errors="ignore").strip()
+                if not line or line == "data: [DONE]":
+                    continue
+                if not line.startswith("data: "):
+                    continue
+                try:
+                    chunk = json.loads(line[6:])
+                except json.JSONDecodeError:
+                    continue
+                final_body = chunk
+                choices = chunk.get("choices", [])
+                if choices:
+                    delta = choices[0].get("delta", {})
+                    content = delta.get("content") or ""
+                    if content and ttft_ms is None:
+                        ttft_ms = now_ms() - start
+                    text += content
+                usage = chunk.get("usage") or {}
+                if usage:
+                    prompt_tokens = int(usage.get("prompt_tokens", prompt_tokens) or 0)
+                    details = usage.get("prompt_tokens_details") or {}
+                    cached_tokens = int(details.get("cached_tokens", cached_tokens) or 0)
+                chunk_meta = chunk.get("metadata") or {}
+                if chunk_meta.get("lossy_reuse"):
+                    meta = dict(chunk_meta["lossy_reuse"])
+    except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+        # Fall back to non-streaming call so the benchmark can still record
+        # a row instead of dropping the case.
+        try:
+            async with session.post(
+                f"http://127.0.0.1:{port}/v1/chat/completions",
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=600),
+            ) as resp:
+                final_body = await resp.json()
+        except Exception:
+            final_body = {"error": repr(exc)}
+    e2e_ms = now_ms() - start
+    if ttft_ms is None:
+        ttft_ms = e2e_ms
+    return {
+        "elapsed_ms": round(e2e_ms, 2),
+        "e2e_ms": round(e2e_ms, 2),
+        "ttft_ms": round(ttft_ms, 2),
+        "text": text,
+        "cached_tokens": cached_tokens,
+        "prompt_tokens": prompt_tokens,
+        "body": final_body,
+        "metadata": {"lossy_reuse": meta} if meta else {},
+    }
+
+
+async def post_chat_optional_stream(
+    session: aiohttp.ClientSession,
+    port: int,
+    payload: dict[str, Any],
+    emit_ttft: bool,
+) -> dict[str, Any]:
+    """Dispatch to post_chat or post_chat_stream based on the --emit-ttft flag.
+
+    When emit_ttft is False, behavior is identical to the original post_chat
+    (elapsed_ms only, body only). When emit_ttft is True, returns the streaming
+    payload which also carries ttft_ms and e2e_ms.
+    """
+    if emit_ttft:
+        return await post_chat_stream(session, port, payload)
+    return await post_chat(session, port, payload)
+
+
 def extract_text(body: dict[str, Any]) -> str:
     try:
         return body["choices"][0]["message"]["content"]
@@ -263,6 +365,71 @@ def build_anchor_fields(tokenizer: Any, messages: list[dict[str, str]], segments
     }
 
 
+def prompt_telemetry(tokenizer: Any, messages: list[dict[str, str]]) -> dict[str, Any]:
+    prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    return {
+        "target_prompt_sha1": sha1_short(prompt),
+        "target_prompt_chars": len(prompt),
+    }
+
+
+def graph_reuse_segments_in_prompt(
+    prompt_segments: list[CodeSegment],
+    graph_segments: list[CodeSegment],
+) -> list[CodeSegment]:
+    """Map graph-selected evidence back to text already present in the prompt.
+
+    This keeps the graph-aware mode prompt-fair: the prompt still contains the
+    same whole-file code_base as lossless/lossy; graph evidence only selects
+    which prompt-resident anchors are exposed to the reuse runtime.
+    """
+    if not graph_segments:
+        return []
+    selected: list[CodeSegment] = []
+    seen: set[tuple[str, str]] = set()
+    for graph_segment in graph_segments:
+        graph_path, _, _ = parse_graph_segment_name(graph_segment.name)
+        graph_text = graph_segment.text.strip()
+        for prompt_segment in prompt_segments:
+            key = (prompt_segment.name, prompt_segment.signature)
+            if key in seen or prompt_segment.name != graph_path:
+                continue
+            if graph_text and (graph_text in prompt_segment.text or prompt_segment.text in graph_text):
+                selected.append(prompt_segment)
+                seen.add(key)
+                break
+    if selected:
+        return selected
+    graph_paths = {parse_graph_segment_name(segment.name)[0] for segment in graph_segments}
+    for prompt_segment in prompt_segments:
+        key = (prompt_segment.name, prompt_segment.signature)
+        if prompt_segment.name in graph_paths and key not in seen:
+            selected.append(prompt_segment)
+            seen.add(key)
+    return selected
+
+
+GRAPH_SEGMENT_MARKER = "::graph::"
+
+
+def encode_graph_segment_name(path: str, target_symbol: str, bundle_type: str) -> str:
+    symbol = str(target_symbol or "").replace("::", ".").strip()
+    bundle = str(bundle_type or "").replace("::", "_").strip()
+    if not symbol and not bundle:
+        return path
+    return f"{path}{GRAPH_SEGMENT_MARKER}{symbol}::{bundle}"
+
+
+def parse_graph_segment_name(name: str) -> tuple[str, str, str]:
+    if GRAPH_SEGMENT_MARKER not in name:
+        return name, "", ""
+    path, rest = name.split(GRAPH_SEGMENT_MARKER, 1)
+    parts = rest.rsplit("::", 1)
+    if len(parts) == 1:
+        return path, parts[0], ""
+    return path, parts[0], parts[1]
+
+
 def build_codebase_prefetch_hints(segments: list[CodeSegment], target_agent: str = "implementer") -> list[dict[str, Any]]:
     hints = []
     for idx, segment in enumerate(segments, 1):
@@ -318,6 +485,8 @@ def load_graph_bundle_segments(args: argparse.Namespace) -> dict[str, list[CodeS
             continue
         instance_id = str(row.get("instance_id", ""))
         target_file = str(row.get("target_file", "")).strip()
+        target_symbol = str(row.get("target_symbol", "")).strip()
+        bundle_type = str(row.get("bundle_type", "")).strip()
         bundle_text = str(row.get("bundle_text", "")).rstrip()
         if not instance_id or not target_file or not bundle_text:
             continue
@@ -327,7 +496,8 @@ def load_graph_bundle_segments(args: argparse.Namespace) -> dict[str, list[CodeS
         if key in seen:
             continue
         seen.add(key)
-        by_case.setdefault(instance_id, []).append(CodeSegment(target_file, bundle_text))
+        segment_name = encode_graph_segment_name(target_file, target_symbol, bundle_type)
+        by_case.setdefault(instance_id, []).append(CodeSegment(segment_name, bundle_text))
 
     for instance_id, segments in by_case.items():
         by_case[instance_id] = segments[: args.graph_bundles_per_case]
@@ -754,7 +924,7 @@ async def run_benchmark(args: argparse.Namespace):
                     args.output_schema,
                     args.prompt_layout,
                 )
-                await post_chat(
+                await post_chat_optional_stream(
                     session,
                     args.port,
                     make_payload(
@@ -767,62 +937,76 @@ async def run_benchmark(args: argparse.Namespace):
                         False,
                         f"warm:{instance_id}",
                     ),
+                    args.emit_ttft,
                 )
                 if args.enable_graph_aware_lossy and graph_segments:
+                    graph_anchor_segments = graph_reuse_segments_in_prompt(segments, graph_segments)
                     graph_warm_messages = build_messages(
                         instance,
-                        graph_segments,
-                        f"planner graph-bundle warmup; policy={args.graph_bundle_policy}",
+                        segments,
+                        "planner warmup; identify files and reusable code bases",
                         args.output_schema,
                         args.prompt_layout,
                     )
-                    await post_chat(
-                        session,
-                        args.port,
-                        make_payload(
-                            args,
-                            tokenizer,
-                            graph_warm_messages,
-                            graph_segments,
-                            "lossless",
-                            True,
-                            False,
-                            f"graphwarm:{instance_id}:{args.graph_bundle_policy}",
-                        ),
-                    )
+                    if graph_anchor_segments:
+                        await post_chat_optional_stream(
+                            session,
+                            args.port,
+                            make_payload(
+                                args,
+                                tokenizer,
+                                graph_warm_messages,
+                                graph_anchor_segments,
+                                "lossless",
+                                True,
+                                False,
+                                f"graphwarm:{instance_id}:{args.graph_bundle_policy}",
+                            ),
+                            args.emit_ttft,
+                        )
 
                 mode_results = []
                 mode_specs = [
-                    ("lossless", "lossless", False, False, segments),
-                    ("lossy", "lossy", True, False, segments),
-                    ("lossy_prefetch", "lossy", True, True, segments),
+                    ("lossless", "lossless", False, False, segments, segments, "file_context"),
+                    ("lossy", "lossy", True, False, segments, segments, "file_context"),
+                    ("lossy_prefetch", "lossy", True, True, segments, segments, "file_context"),
                 ]
+                if args.enable_placeholder_knn:
+                    # v44 placeholder k-NN body: same anchor payload as lossy,
+                    # server-side SGLANG_PLACEHOLDER_KNN_MATCH=1 makes the body
+                    # fire for high-sim anchors instead of forcing dense prefill.
+                    mode_specs.append(("placeholder_knn_lossy", "lossy", True, False, segments, segments, "file_context"))
                 if args.enable_graph_aware_lossy and graph_segments:
-                    mode_specs.append(("graph_aware_lossy", "lossy", True, False, graph_segments))
-                for mode, reuse_mode, include_anchor, include_codebase_prefetch, mode_segments in mode_specs:
+                    graph_anchor_segments = graph_reuse_segments_in_prompt(segments, graph_segments)
+                    mode_specs.append(("graph_aware_lossy", "lossy", True, False, segments, graph_anchor_segments, "code_graph_bundle"))
+                for mode, reuse_mode, include_anchor, include_codebase_prefetch, prompt_segments, anchor_segments, reuse_selection_source in mode_specs:
                     messages = build_messages(
                         instance,
-                        mode_segments,
-                        mode,
+                        prompt_segments,
+                        "implementation target",
                         args.output_schema,
                         args.prompt_layout,
                     )
+                    target_prompt_meta = prompt_telemetry(tokenizer, messages)
                     raw_path = case_dir / f"{mode}_output.txt"
                     patch_path = case_dir / f"{mode}.patch"
                     try:
-                        response = await post_chat(
+                        if include_anchor and not anchor_segments:
+                            raise ValueError("no prompt-resident anchor segments for mode")
+                        response = await post_chat_optional_stream(
                             session,
                             args.port,
                             make_payload(
                                 args,
                                 tokenizer,
                                 messages,
-                                mode_segments,
+                                anchor_segments,
                                 reuse_mode,
                                 include_anchor,
                                 include_codebase_prefetch,
                                 f"gen:{instance_id}:{mode}",
                             ),
+                            args.emit_ttft,
                         )
                         output = extract_text(response["body"])
                         if args.output_schema == "json-edit":
@@ -843,6 +1027,7 @@ async def run_benchmark(args: argparse.Namespace):
                         )
                         repair_attempted = False
                         repair_elapsed_ms = None
+                        repair_ttft_ms = None
                         if (
                             args.repair_attempts > 0
                             and (not diff.strip() or apply_check.get("returncode") not in (0, None))
@@ -850,27 +1035,28 @@ async def run_benchmark(args: argparse.Namespace):
                             repair_attempted = True
                             repair_messages = build_repair_messages(
                                 instance,
-                                mode_segments,
+                                prompt_segments,
                                 output,
                                 diff,
                                 apply_check.get("stderr_tail", ""),
-                                mode,
+                                "implementation target",
                                 args.output_schema,
                                 args.prompt_layout,
                             )
-                            repair_response = await post_chat(
+                            repair_response = await post_chat_optional_stream(
                                 session,
                                 args.port,
                                 make_payload(
                                     args,
                                     tokenizer,
                                     repair_messages,
-                                    mode_segments,
+                                    anchor_segments,
                                     reuse_mode,
                                     include_anchor,
                                     include_codebase_prefetch,
                                     f"repair:{instance_id}:{mode}",
                                 ),
+                                args.emit_ttft,
                             )
                             repair_output = extract_text(repair_response["body"])
                             if args.output_schema == "json-edit":
@@ -892,15 +1078,30 @@ async def run_benchmark(args: argparse.Namespace):
                                 patch_path.write_text(diff, encoding="utf-8")
                                 apply_check = check_patch_apply(instance_id, patch_path)
                             repair_elapsed_ms = round(repair_response["elapsed_ms"], 2)
+                            repair_ttft_ms = (
+                                round(repair_response["ttft_ms"], 2)
+                                if "ttft_ms" in repair_response
+                                else None
+                            )
                         mode_results.append(
                             {
                                 "mode": mode,
                                 "elapsed_ms": round(response["elapsed_ms"], 2),
+                                "ttft_ms": (
+                                    round(response["ttft_ms"], 2)
+                                    if "ttft_ms" in response
+                                    else None
+                                ),
                                 "repair_elapsed_ms": repair_elapsed_ms,
+                                "repair_ttft_ms": repair_ttft_ms,
                                 "cached_tokens": extract_cached_tokens(response["body"]),
                                 "lossy_meta": extract_lossy_meta(response["body"]),
-                                "segment_source": "code_graph_bundle" if mode_segments is graph_segments else "file_context",
-                                "segments": [{"name": s.name, "lines": len(s.text.splitlines())} for s in mode_segments],
+                                "segment_source": "file_context",
+                                "segment_source_for_prompt": "file_context",
+                                "reuse_selection_source": reuse_selection_source,
+                                "segments": [{"name": s.name, "lines": len(s.text.splitlines())} for s in prompt_segments],
+                                "reuse_segments": [{"name": s.name, "lines": len(s.text.splitlines())} for s in anchor_segments],
+                                **target_prompt_meta,
                                 "raw_output_path": str(raw_path),
                                 "patch_path": str(patch_path),
                                 "diff_extracted": bool(diff.strip()),
@@ -924,8 +1125,12 @@ async def run_benchmark(args: argparse.Namespace):
                                 "elapsed_ms": None,
                                 "cached_tokens": 0,
                                 "lossy_meta": {},
-                                "segment_source": "code_graph_bundle" if mode_segments is graph_segments else "file_context",
-                                "segments": [{"name": s.name, "lines": len(s.text.splitlines())} for s in mode_segments],
+                                "segment_source": "file_context",
+                                "segment_source_for_prompt": "file_context",
+                                "reuse_selection_source": reuse_selection_source,
+                                "segments": [{"name": s.name, "lines": len(s.text.splitlines())} for s in prompt_segments],
+                                "reuse_segments": [{"name": s.name, "lines": len(s.text.splitlines())} for s in anchor_segments],
+                                **target_prompt_meta,
                                 "raw_output_path": str(raw_path),
                                 "patch_path": str(patch_path),
                                 "diff_extracted": False,
@@ -938,6 +1143,14 @@ async def run_benchmark(args: argparse.Namespace):
                                 },
                             }
                         )
+                target_hashes = {
+                    mode_result.get("target_prompt_sha1")
+                    for mode_result in mode_results
+                    if mode_result.get("target_prompt_sha1")
+                }
+                prompt_fair_ok = len(target_hashes) <= 1
+                for mode_result in mode_results:
+                    mode_result["prompt_fair_ok"] = prompt_fair_ok
                 results.append(
                     {
                         "instance_id": instance_id,
@@ -945,6 +1158,8 @@ async def run_benchmark(args: argparse.Namespace):
                         "target_paths": case["target_paths"],
                         "segments": [{"name": s.name, "lines": len(s.text.splitlines())} for s in segments],
                         "graph_segments": [{"name": s.name, "lines": len(s.text.splitlines())} for s in graph_segments],
+                        "prompt_fair_ok": prompt_fair_ok,
+                        "target_prompt_sha1_set": sorted(target_hashes),
                         "modes": mode_results,
                     }
                 )
@@ -999,6 +1214,12 @@ async def run_benchmark(args: argparse.Namespace):
             "graph_bundle_policy": args.graph_bundle_policy,
             "graph_bundle_role": args.graph_bundle_role,
             "skip_candidate_tests": args.skip_candidate_tests,
+            "prompt_fair_cases": sum(1 for case in results if case.get("prompt_fair_ok") is not False),
+            "prompt_unfair_cases": [
+                case.get("instance_id")
+                for case in results
+                if case.get("prompt_fair_ok") is False
+            ],
         },
         "results": results,
     }
@@ -1045,8 +1266,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repair-attempts", type=int, default=1)
     parser.add_argument("--output-schema", choices=["diff", "json-edit"], default="diff")
     parser.add_argument("--prompt-layout", choices=["agenttemplatekv", "legacy"], default="agenttemplatekv")
+    parser.add_argument("--enable-placeholder-knn", action="store_true",
+                        help="Opt-in: enable v44 placeholder_knn_reuse body via SGLANG_PLACEHOLDER_KNN_MATCH=1. "
+                             "Default off; use --enable-placeholder-knn to compare against lossless/lossy baselines. "
+                             "O5-lite pre-rotated head-K is also enabled when this is on.")
+    parser.add_argument("--placeholder-knn-min-cosine", type=float, default=0.70,
+                        help="Override SGLANG_PLACEHOLDER_KNN_MIN_COSINE (default 0.70). "
+                             "Phase 3 safety-boundary sweep: 0.85/0.90/0.95/0.97/0.99/1.00.")
+    parser.add_argument("--placeholder-knn-topk", type=int, default=4,
+                        help="Override SGLANG_PLACEHOLDER_KNN_TOPK (default 4). "
+                             "Phase 3 K sweep: 1/3/5.")
     parser.add_argument("--enable-graph-aware-lossy", action="store_true",
-                        help="Add a graph_aware_lossy mode that warms and generates from exact code graph bundle segments.")
+                        help="Add a prompt-fair graph_aware_lossy mode. Target prompts remain whole-file; graph bundles only select prompt-resident reuse anchors.")
     parser.add_argument("--code-graph-bundle-manifest", type=Path,
                         default=PROJECT / "results" / "code_graph_kv_reuse" / "data" / "code_graph_precision_manifest.jsonl",
                         help="JSONL manifest containing bundle_text records from the code graph precision census.")
@@ -1056,9 +1287,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--graph-bundle-role", default="planner", choices=["planner", "coder", "reviewer"],
                         help="Role row to read from the graph bundle manifest. Text is identical across roles; this keeps provenance explicit.")
     parser.add_argument("--graph-bundles-per-case", type=int, default=3,
-                        help="Maximum number of graph bundle segments inserted into each graph_aware_lossy prompt.")
+                        help="Maximum number of graph bundle records loaded per case for internal graph-aware reuse selection.")
     parser.add_argument("--max-graph-bundle-chars", type=int, default=22000,
-                        help="Optional per-bundle char cap before inserting graph bundle text into prompts. 0 disables truncation.")
+                        help="Optional per-bundle char cap before mapping graph bundles to prompt-resident anchors. 0 disables truncation.")
+    parser.add_argument("--emit-ttft", action="store_true",
+                        help="Use streaming post_chat_stream and record per-mode ttft_ms in the result rows.")
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
     return parser.parse_args()
 

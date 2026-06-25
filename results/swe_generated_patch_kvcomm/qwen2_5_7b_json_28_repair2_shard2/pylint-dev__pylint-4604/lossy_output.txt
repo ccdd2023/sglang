@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "pylint/checkers/variables.py",
+      "search": "def _infer_name_module(node, name):",
+      "replace": "def _infer_name_module(node, name):\n    context = astroid.context.InferenceContext()\n    context.lookupname = name\n    inferred = node.infer(context, asname=False)\n    if inferred and isinstance(inferred, astroid.Instance):\n        return inferred\n    return None"
+    }
+  ]
+}
+```

@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "astropy/timeseries/core.py",
+      "search": "self._check_required_columns()",
+      "replace": "self._check_required_columns(required_columns)"
+    }
+  ]
+}
+```

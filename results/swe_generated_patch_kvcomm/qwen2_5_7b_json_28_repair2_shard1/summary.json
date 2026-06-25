@@ -1,0 +1,1216 @@
+{
+  "model": "/home/gfy/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/c03e6d358207e414f1eca0bb1891e29f1db0e242",
+  "dataset": "results/repo_level_datasets/swe_verified_30_instances.json",
+  "manifest": "results/repo_level_datasets/manifest_30.json",
+  "timestamp": "2026-06-09 12:11:57",
+  "git_commit": "3d709f3ce",
+  "command": "benchmark/multi_workflow/bench_swe_generated_patch_kvcomm.py --model /home/gfy/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/c03e6d358207e414f1eca0bb1891e29f1db0e242 --dataset results/repo_level_datasets/swe_verified_30_instances.json --manifest results/repo_level_datasets/manifest_30.json --start-index 7 --max-cases 7 --port 31311 --output-schema json-edit --server-timeout 600 --repair-attempts 2 --force-evict --disable-overlap-schedule --max-running-requests 1 --out-dir results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1",
+  "experiment": {
+    "repair_attempts": 2,
+    "output_schema": "json-edit",
+    "prompt_layout": "agenttemplatekv",
+    "force_evict": true,
+    "disable_overlap_schedule": true,
+    "max_running_requests": 1,
+    "max_cases": 7,
+    "start_index": 7
+  },
+  "results": [
+    {
+      "instance_id": "matplotlib__matplotlib-14623",
+      "repo": "matplotlib/matplotlib",
+      "target_paths": [
+        "lib/matplotlib/axes/_base.py",
+        "lib/matplotlib/ticker.py",
+        "lib/mpl_toolkits/mplot3d/axes3d.py"
+      ],
+      "segments": [
+        {
+          "name": "lib/matplotlib/axes/_base.py",
+          "lines": 581
+        },
+        {
+          "name": "lib/matplotlib/ticker.py",
+          "lines": 708
+        },
+        {
+          "name": "lib/mpl_toolkits/mplot3d/axes3d.py",
+          "lines": 638
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1520.03,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 16514,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/matplotlib__matplotlib-14623/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/matplotlib__matplotlib-14623/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "_.py:200\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-14623/lib/matplotlib/__init__.py:200: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(module.__version__) < minver:\n\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n  /home/gfy/miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    other = LooseVersion(other)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED lib/matplotlib/tests/test_axes.py::test_inverted_limits - assert (1.0,...\n======================== 1 failed, 10 warnings in 0.97s ========================\n\n$ git fetch --all --tags\n$ git checkout --force d65c9ca20ddf81ef91199e6d819f9d3506ef477c\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_14623_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_14623_candidate freetype=2.10.4 pkg-config qhull libpng\nSkipping root-only pre_install on local fallback: apt-get -y update && apt-get -y upgrade && DEBIAN_FRONTEND=noninteractive apt-get install -y imagemagick ffmpeg libfreetype6-dev pkg-config texlive texlive-latex-extra texlive-fonts-recommended texlive-xetex texlive-luatex cm-super\nSkipping root-only pre_install on local fallback: QHULL_URL=\"http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_TAR=\"/tmp/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_BUILD_DIR=\"/testbed/build\"\nSkipping root-only pre_install on local fallback: wget -O \"$QHULL_TAR\" \"$QHULL_URL\"\nSkipping root-only pre_install on local fallback: mkdir -p \"$QHULL_BUILD_DIR\"\nSkipping root-only pre_install on local fallback: tar -xvzf \"$QHULL_TAR\" -C \"$QHULL_BUILD_DIR\"\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_14623_candidate python -m pip install pytest ipython\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_14623_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/matplotlib__matplotlib-14623/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/matplotlib__matplotlib-14623/lossless.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_14623_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_14623_candidate pytest -rA lib/matplotlib/tests/test_axes.py::test_inverted_limits\n{\n  \"instance_id\": \"matplotlib__matplotlib-14623\",\n  \"repo\": \"matplotlib/matplotlib\",\n  \"version\": \"3.1\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_matplotlib_matplotlib_14623_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-14623\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"lib/matplotlib/tests/test_axes.py::test_inverted_limits\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "HEAD is now at d65c9ca20d Merge pull request #14621 from meeseeksmachine/auto-backport-of-pr-14613-on-v3.1.x\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n  DEPRECATION: Legacy editable install of matplotlib==3.1.0+257.gd65c9ca20d.dirty from file:///home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-14623 (setup.py develop) is deprecated. pip 25.0 will enforce this behaviour change. A possible replacement is to add a pyproject.toml or enable --use-pep517, and use setuptools >= 64. If the resulting installation is not behaving as expected, try using --config-settings editable_mode=compat. Please consult the setuptools documentation for more information. Discussion can be found at https://github.com/pypa/pip/issues/11457\n\nMatplotlib is not built with the correct FreeType version to run tests.  Set local_freetype=True in setup.cfg and rebuild. Expect many image comparison failures below. Expected freetype version 2.6.1. Found freetype version 2.10.4. Freetype build type is not local\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA lib/matplotlib/tests/test_axes.py::test_inverted_limits` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1506.92,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 16515,
+          "lossy_meta": {
+            "lossy_candidate_count": 8,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "0a82b467e409aa88",
+            "lossy_first_matched_content_signature": "616dd510595cc66d0d04097c7124bac1",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 5,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "0a82b467e409aa88",
+            "lossy_final_matched_content_signature": "616dd510595cc66d0d04097c7124bac1",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 5,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/matplotlib__matplotlib-14623/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/matplotlib__matplotlib-14623/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "it__.py:200\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-14623/lib/matplotlib/__init__.py:200: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(module.__version__) < minver:\n\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n  /home/gfy/miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    other = LooseVersion(other)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED lib/matplotlib/tests/test_axes.py::test_inverted_limits - assert (1.0,...\n======================== 1 failed, 10 warnings in 0.97s ========================\n\n$ git fetch --all --tags\n$ git checkout --force d65c9ca20ddf81ef91199e6d819f9d3506ef477c\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_14623_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_14623_candidate freetype=2.10.4 pkg-config qhull libpng\nSkipping root-only pre_install on local fallback: apt-get -y update && apt-get -y upgrade && DEBIAN_FRONTEND=noninteractive apt-get install -y imagemagick ffmpeg libfreetype6-dev pkg-config texlive texlive-latex-extra texlive-fonts-recommended texlive-xetex texlive-luatex cm-super\nSkipping root-only pre_install on local fallback: QHULL_URL=\"http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_TAR=\"/tmp/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_BUILD_DIR=\"/testbed/build\"\nSkipping root-only pre_install on local fallback: wget -O \"$QHULL_TAR\" \"$QHULL_URL\"\nSkipping root-only pre_install on local fallback: mkdir -p \"$QHULL_BUILD_DIR\"\nSkipping root-only pre_install on local fallback: tar -xvzf \"$QHULL_TAR\" -C \"$QHULL_BUILD_DIR\"\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_14623_candidate python -m pip install pytest ipython\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_14623_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/matplotlib__matplotlib-14623/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/matplotlib__matplotlib-14623/lossy.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_14623_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_14623_candidate pytest -rA lib/matplotlib/tests/test_axes.py::test_inverted_limits\n{\n  \"instance_id\": \"matplotlib__matplotlib-14623\",\n  \"repo\": \"matplotlib/matplotlib\",\n  \"version\": \"3.1\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_matplotlib_matplotlib_14623_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-14623\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"lib/matplotlib/tests/test_axes.py::test_inverted_limits\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "HEAD is now at d65c9ca20d Merge pull request #14621 from meeseeksmachine/auto-backport-of-pr-14613-on-v3.1.x\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n  DEPRECATION: Legacy editable install of matplotlib==3.1.0+257.gd65c9ca20d.dirty from file:///home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-14623 (setup.py develop) is deprecated. pip 25.0 will enforce this behaviour change. A possible replacement is to add a pyproject.toml or enable --use-pep517, and use setuptools >= 64. If the resulting installation is not behaving as expected, try using --config-settings editable_mode=compat. Please consult the setuptools documentation for more information. Discussion can be found at https://github.com/pypa/pip/issues/11457\n\nMatplotlib is not built with the correct FreeType version to run tests.  Set local_freetype=True in setup.cfg and rebuild. Expect many image comparison failures below. Expected freetype version 2.6.1. Found freetype version 2.10.4. Freetype build type is not local\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA lib/matplotlib/tests/test_axes.py::test_inverted_limits` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1497.77,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 16516,
+          "lossy_meta": {
+            "lossy_candidate_count": 11,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "0a82b467e409aa88",
+            "lossy_first_matched_content_signature": "616dd510595cc66d0d04097c7124bac1",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 5,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "0a82b467e409aa88",
+            "lossy_final_matched_content_signature": "616dd510595cc66d0d04097c7124bac1",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 5,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 15593,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 15593,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/matplotlib__matplotlib-14623/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/matplotlib__matplotlib-14623/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "00\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-14623/lib/matplotlib/__init__.py:200: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(module.__version__) < minver:\n\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n  /home/gfy/miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    other = LooseVersion(other)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED lib/matplotlib/tests/test_axes.py::test_inverted_limits - assert (1.0,...\n======================== 1 failed, 10 warnings in 0.97s ========================\n\n$ git fetch --all --tags\n$ git checkout --force d65c9ca20ddf81ef91199e6d819f9d3506ef477c\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_14623_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_14623_candidate freetype=2.10.4 pkg-config qhull libpng\nSkipping root-only pre_install on local fallback: apt-get -y update && apt-get -y upgrade && DEBIAN_FRONTEND=noninteractive apt-get install -y imagemagick ffmpeg libfreetype6-dev pkg-config texlive texlive-latex-extra texlive-fonts-recommended texlive-xetex texlive-luatex cm-super\nSkipping root-only pre_install on local fallback: QHULL_URL=\"http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_TAR=\"/tmp/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_BUILD_DIR=\"/testbed/build\"\nSkipping root-only pre_install on local fallback: wget -O \"$QHULL_TAR\" \"$QHULL_URL\"\nSkipping root-only pre_install on local fallback: mkdir -p \"$QHULL_BUILD_DIR\"\nSkipping root-only pre_install on local fallback: tar -xvzf \"$QHULL_TAR\" -C \"$QHULL_BUILD_DIR\"\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_14623_candidate python -m pip install pytest ipython\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_14623_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/matplotlib__matplotlib-14623/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/matplotlib__matplotlib-14623/lossy_prefetch.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_14623_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_14623_candidate pytest -rA lib/matplotlib/tests/test_axes.py::test_inverted_limits\n{\n  \"instance_id\": \"matplotlib__matplotlib-14623\",\n  \"repo\": \"matplotlib/matplotlib\",\n  \"version\": \"3.1\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_matplotlib_matplotlib_14623_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-14623\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"lib/matplotlib/tests/test_axes.py::test_inverted_limits\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "HEAD is now at d65c9ca20d Merge pull request #14621 from meeseeksmachine/auto-backport-of-pr-14613-on-v3.1.x\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n  DEPRECATION: Legacy editable install of matplotlib==3.1.0+257.gd65c9ca20d.dirty from file:///home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-14623 (setup.py develop) is deprecated. pip 25.0 will enforce this behaviour change. A possible replacement is to add a pyproject.toml or enable --use-pep517, and use setuptools >= 64. If the resulting installation is not behaving as expected, try using --config-settings editable_mode=compat. Please consult the setuptools documentation for more information. Discussion can be found at https://github.com/pypa/pip/issues/11457\n\nMatplotlib is not built with the correct FreeType version to run tests.  Set local_freetype=True in setup.cfg and rebuild. Expect many image comparison failures below. Expected freetype version 2.6.1. Found freetype version 2.10.4. Freetype build type is not local\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA lib/matplotlib/tests/test_axes.py::test_inverted_limits` failed. (See above for error)\n"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-20488",
+      "repo": "matplotlib/matplotlib",
+      "target_paths": [
+        "lib/matplotlib/image.py"
+      ],
+      "segments": [
+        {
+          "name": "lib/matplotlib/image.py",
+          "lines": 542
+        },
+        {
+          "name": "lib/matplotlib/axes/_axes.py",
+          "lines": 636
+        },
+        {
+          "name": "lib/matplotlib/axes/_base.py",
+          "lines": 571
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1540.38,
+          "repair_elapsed_ms": 3152.11,
+          "cached_tokens": 16221,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/matplotlib__matplotlib-20488/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/matplotlib__matplotlib-20488/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in lib/matplotlib/image.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1518.0,
+          "repair_elapsed_ms": 1519.98,
+          "cached_tokens": 16222,
+          "lossy_meta": {
+            "lossy_candidate_count": 20,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "30c1340267beaf37",
+            "lossy_first_matched_content_signature": "46a443a41dddf6fe1efb8cd0fe3e6b5c",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 19,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "30c1340267beaf37",
+            "lossy_final_matched_content_signature": "46a443a41dddf6fe1efb8cd0fe3e6b5c",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 19,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/matplotlib__matplotlib-20488/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/matplotlib__matplotlib-20488/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in lib/matplotlib/image.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1149.47,
+          "repair_elapsed_ms": 1154.1,
+          "cached_tokens": 16223,
+          "lossy_meta": {
+            "lossy_candidate_count": 27,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "30c1340267beaf37",
+            "lossy_first_matched_content_signature": "46a443a41dddf6fe1efb8cd0fe3e6b5c",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 26,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "30c1340267beaf37",
+            "lossy_final_matched_content_signature": "46a443a41dddf6fe1efb8cd0fe3e6b5c",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 26,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14848,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14848,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/matplotlib__matplotlib-20488/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/matplotlib__matplotlib-20488/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in lib/matplotlib/image.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "mwaskom__seaborn-3069",
+      "repo": "mwaskom/seaborn",
+      "target_paths": [
+        "seaborn/_core/plot.py"
+      ],
+      "segments": [
+        {
+          "name": "seaborn/_core/plot.py",
+          "lines": 627
+        },
+        {
+          "name": "seaborn/categorical.py",
+          "lines": 570
+        },
+        {
+          "name": "seaborn/distributions.py",
+          "lines": 600
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 5938.15,
+          "repair_elapsed_ms": 7500.39,
+          "cached_tokens": 15169,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/mwaskom__seaborn-3069/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/mwaskom__seaborn-3069/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in seaborn/_core/plot.py",
+            "edits": 6
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 7500.93,
+          "repair_elapsed_ms": 7491.04,
+          "cached_tokens": 0,
+          "lossy_meta": {
+            "lossy_candidate_count": 25,
+            "lossy_first_match_reason": "",
+            "lossy_first_rejected_reason": "code_content_signature_mismatch",
+            "lossy_first_reuse_allowed": false,
+            "lossy_first_reuse_confidence": 0.0,
+            "lossy_first_matched_anchor_signature": "",
+            "lossy_first_matched_content_signature": "",
+            "lossy_first_syntax_region_type": "",
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "73cafa195b8d0210",
+            "lossy_final_matched_content_signature": "5ecde2b8fc53b66821118da77e204353",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 52,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/mwaskom__seaborn-3069/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/mwaskom__seaborn-3069/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in seaborn/_core/plot.py",
+            "edits": 6
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 7507.71,
+          "repair_elapsed_ms": 7488.1,
+          "cached_tokens": 49,
+          "lossy_meta": {
+            "lossy_candidate_count": 25,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "73cafa195b8d0210",
+            "lossy_first_matched_content_signature": "5ecde2b8fc53b66821118da77e204353",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 55,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "73cafa195b8d0210",
+            "lossy_final_matched_content_signature": "5ecde2b8fc53b66821118da77e204353",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 58,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14171,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14171,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/mwaskom__seaborn-3069/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/mwaskom__seaborn-3069/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in seaborn/_core/plot.py",
+            "edits": 6
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "mwaskom__seaborn-3187",
+      "repo": "mwaskom/seaborn",
+      "target_paths": [
+        "seaborn/_core/scales.py",
+        "seaborn/utils.py"
+      ],
+      "segments": [
+        {
+          "name": "seaborn/_core/scales.py",
+          "lines": 686
+        },
+        {
+          "name": "seaborn/utils.py",
+          "lines": 680
+        },
+        {
+          "name": "seaborn/categorical.py",
+          "lines": 570
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1134.72,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15746,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/mwaskom__seaborn-3187/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/mwaskom__seaborn-3187/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "ionError\n_______________ TestRelationalPlotter.test_legend_has_no_offset ________________\n\nself = <tests.test_relational.TestRelationalPlotter object at 0x7fcbd64b8e50>\nlong_df =      x         y         z  a  b  ...  s    f a_cat  s_cat  s_str\n0   12  0.449243  6.611886  b  p  ...  2  0.2     b ...  8  0.3     a      8      8\n99  15  0.073484  1.036343  c  p  ...  8  0.2     c      8      8\n\n[100 rows x 13 columns]\n\n    def test_legend_has_no_offset(self, long_df):\n    \n        g = relplot(data=long_df, x=\"x\", y=\"y\", hue=long_df[\"z\"] + 1e8)\n        for text in g.legend.texts:\n>           assert float(text.get_text()) > 1e7\nE           AssertionError: assert 2.5 > 10000000.0\nE            +  where 2.5 = float('2.5')\nE            +    where '2.5' = get_text()\nE            +      where get_text = Text(0, 0, '2.5').get_text\n\ntests/test_relational.py:682: AssertionError\n=============================== warnings summary ===============================\ntests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset\n  /home/gfy/miniconda3/envs/swe_mwaskom_seaborn_3187_candidate/lib/python3.9/site-packages/pandas/core/dtypes/cast.py:1429: DeprecationWarning: np.find_common_type is deprecated.  Please use `np.result_type` or `np.promote_types`.\n  See https://numpy.org/devdocs/release/1.25.0-notes.html and the docs for more information.  (Deprecated NumPy 1.25)\n    return np.find_common_type(types, [])\n\ntests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/mwaskom__seaborn-3187/seaborn/axisgrid.py:118: UserWarning: The figure layout has changed to tight\n    self._figure.tight_layout(*args, **kwargs)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED tests/_core/test_plot.py::TestLegend::test_legend_has_no_offset - Asse...\nFAILED tests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset\n======================== 2 failed, 2 warnings in 1.56s =========================\n\n$ git fetch --all --tags\n$ git checkout --force 22cdfb0c93f8ec78492d87edb810f10cb7f57a31\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_mwaskom_seaborn_3187_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_mwaskom_seaborn_3187_candidate python -m pip install contourpy==1.1.0 cycler==0.11.0 fonttools==4.42.1 importlib-resources==6.0.1 kiwisolver==1.4.5 matplotlib==3.7.2 numpy==1.25.2 packaging==23.1 pandas==2.0.0 pillow==10.0.0 pyparsing==3.0.9 pytest python-dateutil==2.8.2 pytz==2023.3.post1 scipy==1.11.2 six==1.16.0 tzdata==2023.1 zipp==3.16.2\n$ /home/gfy/miniconda3/bin/conda run -n swe_mwaskom_seaborn_3187_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/mwaskom__seaborn-3187/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/mwaskom__seaborn-3187/lossless.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_mwaskom_seaborn_3187_candidate bash -lc 'python -m pip install -e .[dev]'\n$ /home/gfy/miniconda3/bin/conda run -n swe_mwaskom_seaborn_3187_candidate pytest --no-header -rA tests/_core/test_plot.py::TestLegend::test_legend_has_no_offset tests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset\n{\n  \"instance_id\": \"mwaskom__seaborn-3187\",\n  \"repo\": \"mwaskom/seaborn\",\n  \"version\": \"0.12\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_mwaskom_seaborn_3187_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/mwaskom__seaborn-3187\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"--no-header\",\n    \"-rA\",\n    \"tests/_core/test_plot.py::TestLegend::test_legend_has_no_offset\",\n    \"tests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "HEAD is now at 22cdfb0c Fix inner axis visibility in relplot with unshared axes (#3180)\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\nERROR conda.cli.main_run:execute(125): `conda run pytest --no-header -rA tests/_core/test_plot.py::TestLegend::test_legend_has_no_offset tests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1111.43,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15747,
+          "lossy_meta": {
+            "lossy_candidate_count": 20,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "73cafa195b8d0210",
+            "lossy_first_matched_content_signature": "fd19529e22f9af8418addabd87c6a9db",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 61,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "73cafa195b8d0210",
+            "lossy_final_matched_content_signature": "fd19529e22f9af8418addabd87c6a9db",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 61,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/mwaskom__seaborn-3187/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/mwaskom__seaborn-3187/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "ertionError\n_______________ TestRelationalPlotter.test_legend_has_no_offset ________________\n\nself = <tests.test_relational.TestRelationalPlotter object at 0x7f585e985070>\nlong_df =      x         y         z  a  b  ...  s    f a_cat  s_cat  s_str\n0   12  0.449243  6.611886  b  p  ...  2  0.2     b ...  8  0.3     a      8      8\n99  15  0.073484  1.036343  c  p  ...  8  0.2     c      8      8\n\n[100 rows x 13 columns]\n\n    def test_legend_has_no_offset(self, long_df):\n    \n        g = relplot(data=long_df, x=\"x\", y=\"y\", hue=long_df[\"z\"] + 1e8)\n        for text in g.legend.texts:\n>           assert float(text.get_text()) > 1e7\nE           AssertionError: assert 2.5 > 10000000.0\nE            +  where 2.5 = float('2.5')\nE            +    where '2.5' = get_text()\nE            +      where get_text = Text(0, 0, '2.5').get_text\n\ntests/test_relational.py:682: AssertionError\n=============================== warnings summary ===============================\ntests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset\n  /home/gfy/miniconda3/envs/swe_mwaskom_seaborn_3187_candidate/lib/python3.9/site-packages/pandas/core/dtypes/cast.py:1429: DeprecationWarning: np.find_common_type is deprecated.  Please use `np.result_type` or `np.promote_types`.\n  See https://numpy.org/devdocs/release/1.25.0-notes.html and the docs for more information.  (Deprecated NumPy 1.25)\n    return np.find_common_type(types, [])\n\ntests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/mwaskom__seaborn-3187/seaborn/axisgrid.py:118: UserWarning: The figure layout has changed to tight\n    self._figure.tight_layout(*args, **kwargs)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED tests/_core/test_plot.py::TestLegend::test_legend_has_no_offset - Asse...\nFAILED tests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset\n======================== 2 failed, 2 warnings in 1.53s =========================\n\n$ git fetch --all --tags\n$ git checkout --force 22cdfb0c93f8ec78492d87edb810f10cb7f57a31\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_mwaskom_seaborn_3187_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_mwaskom_seaborn_3187_candidate python -m pip install contourpy==1.1.0 cycler==0.11.0 fonttools==4.42.1 importlib-resources==6.0.1 kiwisolver==1.4.5 matplotlib==3.7.2 numpy==1.25.2 packaging==23.1 pandas==2.0.0 pillow==10.0.0 pyparsing==3.0.9 pytest python-dateutil==2.8.2 pytz==2023.3.post1 scipy==1.11.2 six==1.16.0 tzdata==2023.1 zipp==3.16.2\n$ /home/gfy/miniconda3/bin/conda run -n swe_mwaskom_seaborn_3187_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/mwaskom__seaborn-3187/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/mwaskom__seaborn-3187/lossy.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_mwaskom_seaborn_3187_candidate bash -lc 'python -m pip install -e .[dev]'\n$ /home/gfy/miniconda3/bin/conda run -n swe_mwaskom_seaborn_3187_candidate pytest --no-header -rA tests/_core/test_plot.py::TestLegend::test_legend_has_no_offset tests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset\n{\n  \"instance_id\": \"mwaskom__seaborn-3187\",\n  \"repo\": \"mwaskom/seaborn\",\n  \"version\": \"0.12\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_mwaskom_seaborn_3187_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/mwaskom__seaborn-3187\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"--no-header\",\n    \"-rA\",\n    \"tests/_core/test_plot.py::TestLegend::test_legend_has_no_offset\",\n    \"tests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "HEAD is now at 22cdfb0c Fix inner axis visibility in relplot with unshared axes (#3180)\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\nERROR conda.cli.main_run:execute(125): `conda run pytest --no-header -rA tests/_core/test_plot.py::TestLegend::test_legend_has_no_offset tests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1130.04,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15748,
+          "lossy_meta": {
+            "lossy_candidate_count": 23,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "73cafa195b8d0210",
+            "lossy_first_matched_content_signature": "fd19529e22f9af8418addabd87c6a9db",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 61,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "73cafa195b8d0210",
+            "lossy_final_matched_content_signature": "fd19529e22f9af8418addabd87c6a9db",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 61,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14582,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14582,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/mwaskom__seaborn-3187/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/mwaskom__seaborn-3187/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "or\n_______________ TestRelationalPlotter.test_legend_has_no_offset ________________\n\nself = <tests.test_relational.TestRelationalPlotter object at 0x7f557b06a3a0>\nlong_df =      x         y         z  a  b  ...  s    f a_cat  s_cat  s_str\n0   12  0.449243  6.611886  b  p  ...  2  0.2     b ...  8  0.3     a      8      8\n99  15  0.073484  1.036343  c  p  ...  8  0.2     c      8      8\n\n[100 rows x 13 columns]\n\n    def test_legend_has_no_offset(self, long_df):\n    \n        g = relplot(data=long_df, x=\"x\", y=\"y\", hue=long_df[\"z\"] + 1e8)\n        for text in g.legend.texts:\n>           assert float(text.get_text()) > 1e7\nE           AssertionError: assert 2.5 > 10000000.0\nE            +  where 2.5 = float('2.5')\nE            +    where '2.5' = get_text()\nE            +      where get_text = Text(0, 0, '2.5').get_text\n\ntests/test_relational.py:682: AssertionError\n=============================== warnings summary ===============================\ntests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset\n  /home/gfy/miniconda3/envs/swe_mwaskom_seaborn_3187_candidate/lib/python3.9/site-packages/pandas/core/dtypes/cast.py:1429: DeprecationWarning: np.find_common_type is deprecated.  Please use `np.result_type` or `np.promote_types`.\n  See https://numpy.org/devdocs/release/1.25.0-notes.html and the docs for more information.  (Deprecated NumPy 1.25)\n    return np.find_common_type(types, [])\n\ntests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/mwaskom__seaborn-3187/seaborn/axisgrid.py:118: UserWarning: The figure layout has changed to tight\n    self._figure.tight_layout(*args, **kwargs)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED tests/_core/test_plot.py::TestLegend::test_legend_has_no_offset - Asse...\nFAILED tests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset\n======================== 2 failed, 2 warnings in 1.57s =========================\n\n$ git fetch --all --tags\n$ git checkout --force 22cdfb0c93f8ec78492d87edb810f10cb7f57a31\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_mwaskom_seaborn_3187_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_mwaskom_seaborn_3187_candidate python -m pip install contourpy==1.1.0 cycler==0.11.0 fonttools==4.42.1 importlib-resources==6.0.1 kiwisolver==1.4.5 matplotlib==3.7.2 numpy==1.25.2 packaging==23.1 pandas==2.0.0 pillow==10.0.0 pyparsing==3.0.9 pytest python-dateutil==2.8.2 pytz==2023.3.post1 scipy==1.11.2 six==1.16.0 tzdata==2023.1 zipp==3.16.2\n$ /home/gfy/miniconda3/bin/conda run -n swe_mwaskom_seaborn_3187_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/mwaskom__seaborn-3187/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/mwaskom__seaborn-3187/lossy_prefetch.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_mwaskom_seaborn_3187_candidate bash -lc 'python -m pip install -e .[dev]'\n$ /home/gfy/miniconda3/bin/conda run -n swe_mwaskom_seaborn_3187_candidate pytest --no-header -rA tests/_core/test_plot.py::TestLegend::test_legend_has_no_offset tests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset\n{\n  \"instance_id\": \"mwaskom__seaborn-3187\",\n  \"repo\": \"mwaskom/seaborn\",\n  \"version\": \"0.12\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_mwaskom_seaborn_3187_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/mwaskom__seaborn-3187\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"--no-header\",\n    \"-rA\",\n    \"tests/_core/test_plot.py::TestLegend::test_legend_has_no_offset\",\n    \"tests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "HEAD is now at 22cdfb0c Fix inner axis visibility in relplot with unshared axes (#3180)\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\nERROR conda.cli.main_run:execute(125): `conda run pytest --no-header -rA tests/_core/test_plot.py::TestLegend::test_legend_has_no_offset tests/test_relational.py::TestRelationalPlotter::test_legend_has_no_offset` failed. (See above for error)\n"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "pallets__flask-5014",
+      "repo": "pallets/flask",
+      "target_paths": [
+        "src/flask/blueprints.py"
+      ],
+      "segments": [
+        {
+          "name": "src/flask/blueprints.py",
+          "lines": 558
+        },
+        {
+          "name": "src/flask/app.py",
+          "lines": 530
+        },
+        {
+          "name": "src/flask/cli.py",
+          "lines": 657
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1070.14,
+          "repair_elapsed_ms": 2580.65,
+          "cached_tokens": 15015,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/pallets__flask-5014/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/pallets__flask-5014/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in src/flask/blueprints.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1049.83,
+          "repair_elapsed_ms": 1054.36,
+          "cached_tokens": 15016,
+          "lossy_meta": {
+            "lossy_candidate_count": 24,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "28dc580b3acabeea",
+            "lossy_first_matched_content_signature": "04f8fe2bc1edf43ff35d522d9612feff",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 77,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "28dc580b3acabeea",
+            "lossy_final_matched_content_signature": "04f8fe2bc1edf43ff35d522d9612feff",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 77,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/pallets__flask-5014/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/pallets__flask-5014/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in src/flask/blueprints.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1054.81,
+          "repair_elapsed_ms": 1059.85,
+          "cached_tokens": 15017,
+          "lossy_meta": {
+            "lossy_candidate_count": 31,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "28dc580b3acabeea",
+            "lossy_first_matched_content_signature": "04f8fe2bc1edf43ff35d522d9612feff",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 83,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "28dc580b3acabeea",
+            "lossy_final_matched_content_signature": "04f8fe2bc1edf43ff35d522d9612feff",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 83,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14475,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14475,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/pallets__flask-5014/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/pallets__flask-5014/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in src/flask/blueprints.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "psf__requests-1142",
+      "repo": "psf/requests",
+      "target_paths": [
+        "requests/models.py"
+      ],
+      "segments": [
+        {
+          "name": "requests/models.py",
+          "lines": 657
+        },
+        {
+          "name": "requests/packages/charade/big5freq.py",
+          "lines": 279
+        },
+        {
+          "name": "requests/packages/charade/euckrfreq.py",
+          "lines": 298
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": null,
+          "cached_tokens": 0,
+          "lossy_meta": {},
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/psf__requests-1142/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/psf__requests-1142/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "generation failed",
+            "edits": null
+          },
+          "generation_error": "TypeError(\"expected string or bytes-like object, got 'NoneType'\")",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "generation failed"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": null,
+          "cached_tokens": 0,
+          "lossy_meta": {},
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/psf__requests-1142/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/psf__requests-1142/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "generation failed",
+            "edits": null
+          },
+          "generation_error": "TypeError(\"expected string or bytes-like object, got 'NoneType'\")",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "generation failed"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": null,
+          "cached_tokens": 0,
+          "lossy_meta": {},
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/psf__requests-1142/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/psf__requests-1142/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "generation failed",
+            "edits": null
+          },
+          "generation_error": "TypeError(\"expected string or bytes-like object, got 'NoneType'\")",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "generation failed"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "psf__requests-1724",
+      "repo": "psf/requests",
+      "target_paths": [
+        "requests/sessions.py"
+      ],
+      "segments": [
+        {
+          "name": "requests/sessions.py",
+          "lines": 531
+        },
+        {
+          "name": "requests/packages/charade/big5freq.py",
+          "lines": 279
+        },
+        {
+          "name": "requests/models.py",
+          "lines": 680
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1180.55,
+          "repair_elapsed_ms": 5103.19,
+          "cached_tokens": 31906,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/psf__requests-1724/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/psf__requests-1724/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in requests/sessions.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1171.37,
+          "repair_elapsed_ms": 1176.05,
+          "cached_tokens": 31907,
+          "lossy_meta": {
+            "lossy_candidate_count": 13,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "17ce16b415eeeb8a",
+            "lossy_first_matched_content_signature": "61d54354715e0563",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 104,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "17ce16b415eeeb8a",
+            "lossy_final_matched_content_signature": "61d54354715e0563",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 104,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/psf__requests-1724/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/psf__requests-1724/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in requests/sessions.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1174.09,
+          "repair_elapsed_ms": 1199.17,
+          "cached_tokens": 31908,
+          "lossy_meta": {
+            "lossy_candidate_count": 22,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "17ce16b415eeeb8a",
+            "lossy_first_matched_content_signature": "61d54354715e0563",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 112,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "17ce16b415eeeb8a",
+            "lossy_final_matched_content_signature": "61d54354715e0563",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 112,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 3,
+            "agenttemplatekv_prefetch_protected_tokens": 29159,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/psf__requests-1724/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard1/psf__requests-1724/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in requests/sessions.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -97,6 +97,15 @@ This protocol deliberately separates two forms of correctness.
 Content correctness is discrete: either the normalized code signature matches or the cache entry is unusable.
 Positional correctness is numerical: the same code content can be reused at a different position only after alignment.
 The evaluation therefore tests both parts separately, using gate ablations for content safety and RoPE/logit ablations for numerical behavior.
+Figure~\ref{fig:graph-bundle-method} shows how the graph-aware extension changes candidate selection: the target span is expanded to a bounded one-hop code neighborhood before lookup, while the final exact-content gate is unchanged.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.98\textwidth]{figures/fig_graph_bundle_method.png}
+  \caption{Graph-aware bundle selection. The code graph expands a target span to a one-hop call neighborhood before candidate lookup, but the exact-content signature remains the final reuse gate.}
+  \Description{A target code span is expanded to caller, callee, test, and import neighbors in a one-hop graph bundle; a two-hop node is excluded; the bundle then passes through an exact-content gate and RoPE delta alignment before KV reuse.}
+  \label{fig:graph-bundle-method}
+\end{figure*}
 
 \begin{figure}[t]
   \centering

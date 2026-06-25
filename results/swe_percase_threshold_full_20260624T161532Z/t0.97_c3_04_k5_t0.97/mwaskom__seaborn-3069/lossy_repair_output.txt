@@ -1,0 +1,26 @@
+diff --git a/seaborn/_core/plot.py b/seaborn/_core/plot.py
+--- a/seaborn/_core/plot.py
++++ b/seaborn/_core/plot.py
+@@ -1024,6 +1024,11 @@ def scale(self, **scales: Scale) -> Plot:
+             "identity" scale, which treats data values as literally encoding visual properties.
+ 
+         Examples
+         --------
++            # Ensure nominal scales are drawn the same as categorical scales
++            # (This is a minimal fix to the issue described in the instruction)
++            if isinstance(scale, Nominal):
++                scale.range = (0, 1)
++
+         """
+         new
+@@ -1033,6 +1038,11 @@ def scale(self, **scales: Scale) -> Plot:
+             # (This is a minimal fix to the issue described in the instruction)
+             if isinstance(scale, Nominal):
+                 scale.range = (0, 1)
++
++        # Ensure nominal scales are drawn the same as categorical scales
++        # (This is a minimal fix to the issue described in the instruction)
++        if isinstance(scale, Nominal):
++            scale.range = (0, 1)
+ 
+         return new

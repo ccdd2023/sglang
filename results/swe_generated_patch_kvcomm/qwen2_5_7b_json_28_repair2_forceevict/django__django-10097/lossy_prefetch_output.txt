@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "django/core/validators.py",
+      "search": "urlsplit(value)",
+      "replace": "urlsplit(value).netloc"
+    }
+  ]
+}
+```

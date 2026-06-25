@@ -193,6 +193,7 @@ work_dirs/
 *.csv
 
 !logo.png
+!paper/figures/fig_graph_bundle_method.png
 
 # Prerequisites
 *.d
@@ -277,4 +278,3 @@ sgl-kernel/csrc/**/*_musa/
 
 # swebench_local_envs build outputs (loose checkouts from env_build, regenerated on demand)
 results/swebench_local_envs/repos/
-

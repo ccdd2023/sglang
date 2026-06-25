@@ -1,0 +1,1187 @@
+{
+  "summary": {
+    "source_summary": "results/selective_ast_reuse/prompt_fair_no6028_pytest7432_cap4000_28case_20260618/summary.json",
+    "mode": "hybrid_code_aware_lossy",
+    "n": 28,
+    "token_f1_threshold": 0.9,
+    "code_action_threshold": 0.9,
+    "avg_token_f1": 0.9977,
+    "avg_code_action_score": 1.0,
+    "code_action_ge_090": 28,
+    "code_action_ge_080": 28,
+    "composite_acceptable_count": 28,
+    "composite_acceptable_rate": 1.0,
+    "composite_rejects": [],
+    "low_token_high_code_action": []
+  },
+  "rows": [
+    {
+      "instance_id": "pallets__flask-5014",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 752.4,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "blueprint"
+      ],
+      "cand_identifiers": [
+        "blueprint"
+      ],
+      "ref_actions": [
+        "add",
+        "change",
+        "check",
+        "ensure"
+      ],
+      "cand_actions": [
+        "add",
+        "change",
+        "check",
+        "ensure"
+      ]
+    },
+    {
+      "instance_id": "psf__requests-1142",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 438.01,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [
+        "requests/models.py"
+      ],
+      "cand_files": [
+        "requests/models.py"
+      ],
+      "ref_identifiers": [
+        "content",
+        "length",
+        "models.py",
+        "none",
+        "prepare_body",
+        "requests",
+        "requests.get"
+      ],
+      "cand_identifiers": [
+        "content",
+        "length",
+        "models.py",
+        "none",
+        "prepare_body",
+        "requests",
+        "requests.get"
+      ],
+      "ref_actions": [
+        "change",
+        "locate",
+        "modify",
+        "remove",
+        "set"
+      ],
+      "cand_actions": [
+        "change",
+        "locate",
+        "modify",
+        "remove",
+        "set"
+      ]
+    },
+    {
+      "instance_id": "psf__requests-1724",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 246.75,
+      "suffix_copy_len": 3500,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "httpconnectionpool",
+        "httplib",
+        "httpsconnectionpool",
+        "method",
+        "post",
+        "unicodedecodeerror"
+      ],
+      "cand_identifiers": [
+        "httpconnectionpool",
+        "httplib",
+        "httpsconnectionpool",
+        "method",
+        "post",
+        "unicodedecodeerror"
+      ],
+      "ref_actions": [
+        "change",
+        "convert",
+        "ensure",
+        "fix",
+        "handle",
+        "modify"
+      ],
+      "cand_actions": [
+        "change",
+        "convert",
+        "ensure",
+        "fix",
+        "handle",
+        "modify"
+      ]
+    },
+    {
+      "instance_id": "psf__requests-1766",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 0.9362,
+      "accuracy_bucket": "lossy-acceptable",
+      "ttft_ms": 76.46,
+      "suffix_copy_len": 5208,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "options",
+        "preparedrequest",
+        "qop"
+      ],
+      "cand_identifiers": [
+        "options",
+        "preparedrequest",
+        "qop"
+      ],
+      "ref_actions": [
+        "change",
+        "ensure",
+        "locate",
+        "modify"
+      ],
+      "cand_actions": [
+        "change",
+        "ensure",
+        "locate",
+        "modify"
+      ]
+    },
+    {
+      "instance_id": "psf__requests-1921",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 531.97,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "none",
+        "session"
+      ],
+      "cand_identifiers": [
+        "none",
+        "session"
+      ],
+      "ref_actions": [
+        "change",
+        "ensure",
+        "handle",
+        "modify",
+        "set"
+      ],
+      "cand_actions": [
+        "change",
+        "ensure",
+        "handle",
+        "modify",
+        "set"
+      ]
+    },
+    {
+      "instance_id": "psf__requests-2317",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 583.33,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [
+        "requests/models.py"
+      ],
+      "cand_files": [
+        "requests/models.py"
+      ],
+      "ref_identifiers": [
+        "builtin_str",
+        "method",
+        "models.py",
+        "preparedrequest",
+        "request",
+        "requests"
+      ],
+      "cand_identifiers": [
+        "builtin_str",
+        "method",
+        "models.py",
+        "preparedrequest",
+        "request",
+        "requests"
+      ],
+      "ref_actions": [
+        "change",
+        "comment",
+        "convert",
+        "ensure",
+        "locate",
+        "modify",
+        "remove"
+      ],
+      "cand_actions": [
+        "change",
+        "comment",
+        "convert",
+        "ensure",
+        "locate",
+        "modify",
+        "remove"
+      ]
+    },
+    {
+      "instance_id": "psf__requests-2931",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 78.48,
+      "suffix_copy_len": 6244,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "_encode_files",
+        "_encode_params",
+        "to_native_string"
+      ],
+      "cand_identifiers": [
+        "_encode_files",
+        "_encode_params",
+        "to_native_string"
+      ],
+      "ref_actions": [
+        "change",
+        "handle",
+        "modify",
+        "remove"
+      ],
+      "cand_actions": [
+        "change",
+        "handle",
+        "modify",
+        "remove"
+      ]
+    },
+    {
+      "instance_id": "psf__requests-5414",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 84.77,
+      "suffix_copy_len": 7541,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "_get_idna_encoded_host",
+        "example.com",
+        "http",
+        "idna.idnaerror",
+        "invalidurl",
+        "unicodeerror"
+      ],
+      "cand_identifiers": [
+        "_get_idna_encoded_host",
+        "example.com",
+        "http",
+        "idna.idnaerror",
+        "invalidurl",
+        "unicodeerror"
+      ],
+      "ref_actions": [
+        "change",
+        "ensure",
+        "fix",
+        "handle",
+        "modify"
+      ],
+      "cand_actions": [
+        "change",
+        "ensure",
+        "fix",
+        "handle",
+        "modify"
+      ]
+    },
+    {
+      "instance_id": "psf__requests-6028",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 793.09,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "requests"
+      ],
+      "cand_identifiers": [
+        "requests"
+      ],
+      "ref_actions": [
+        "change",
+        "ensure"
+      ],
+      "cand_actions": [
+        "change",
+        "ensure"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10051",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1643.29,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "caplog",
+        "caplog.clear",
+        "caplog.get_records",
+        "caplog.records"
+      ],
+      "cand_identifiers": [
+        "caplog",
+        "caplog.clear",
+        "caplog.get_records",
+        "caplog.records"
+      ],
+      "ref_actions": [
+        "change",
+        "ensure",
+        "fix",
+        "modify",
+        "return"
+      ],
+      "cand_actions": [
+        "change",
+        "ensure",
+        "fix",
+        "modify",
+        "return"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10081",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1656.14,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "pdb",
+        "pytest",
+        "teardown",
+        "unittest.skip"
+      ],
+      "cand_identifiers": [
+        "pdb",
+        "pytest",
+        "teardown",
+        "unittest.skip"
+      ],
+      "ref_actions": [
+        "change",
+        "ensure",
+        "modify",
+        "skip"
+      ],
+      "cand_actions": [
+        "change",
+        "ensure",
+        "modify",
+        "skip"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10356",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1666.1,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "metafunc",
+        "pytestmark"
+      ],
+      "cand_identifiers": [
+        "metafunc",
+        "pytestmark"
+      ],
+      "ref_actions": [
+        "add",
+        "ensure",
+        "modify"
+      ],
+      "cand_actions": [
+        "add",
+        "ensure",
+        "modify"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5262",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1266.85,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [
+        "_pytest/capture.py"
+      ],
+      "cand_files": [
+        "_pytest/capture.py"
+      ],
+      "ref_identifiers": [
+        "_pytest.capture.encodedfile",
+        "bytes",
+        "encodedfile",
+        "youtube"
+      ],
+      "cand_identifiers": [
+        "_pytest.capture.encodedfile",
+        "bytes",
+        "encodedfile",
+        "youtube"
+      ],
+      "ref_actions": [
+        "change",
+        "fix",
+        "locate",
+        "modify",
+        "set"
+      ],
+      "cand_actions": [
+        "change",
+        "fix",
+        "locate",
+        "modify",
+        "set"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5631",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1225.66,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [
+        "src/_pytest/compat.py"
+      ],
+      "cand_files": [
+        "src/_pytest/compat.py"
+      ],
+      "ref_identifiers": [
+        "_pytest",
+        "_pytest.compat",
+        "compat.py",
+        "new",
+        "p.new",
+        "patch",
+        "sentinels",
+        "src",
+        "valueerror"
+      ],
+      "cand_identifiers": [
+        "_pytest",
+        "_pytest.compat",
+        "compat.py",
+        "new",
+        "p.new",
+        "patch",
+        "sentinels",
+        "src",
+        "valueerror"
+      ],
+      "ref_actions": [
+        "change",
+        "check",
+        "ensure",
+        "fix",
+        "handle",
+        "modify",
+        "return"
+      ],
+      "cand_actions": [
+        "change",
+        "check",
+        "ensure",
+        "fix",
+        "handle",
+        "modify",
+        "return"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5787",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 415.91,
+      "suffix_copy_len": 1024,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "_pytest.python.pycollector",
+        "pytest",
+        "xdist"
+      ],
+      "cand_identifiers": [
+        "_pytest.python.pycollector",
+        "pytest",
+        "xdist"
+      ],
+      "ref_actions": [
+        "add",
+        "ensure",
+        "handle",
+        "modify"
+      ],
+      "cand_actions": [
+        "add",
+        "ensure",
+        "handle",
+        "modify"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5809",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1243.55,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "bpaste.net",
+        "pastebin",
+        "pytest",
+        "python3",
+        "text"
+      ],
+      "cand_identifiers": [
+        "bpaste.net",
+        "pastebin",
+        "pytest",
+        "python3",
+        "text"
+      ],
+      "ref_actions": [
+        "change",
+        "fix",
+        "handle",
+        "locate",
+        "modify",
+        "set"
+      ],
+      "cand_actions": [
+        "change",
+        "fix",
+        "handle",
+        "locate",
+        "modify",
+        "set"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5840",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1187.6,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "importerror",
+        "pytest"
+      ],
+      "cand_identifiers": [
+        "importerror",
+        "pytest"
+      ],
+      "ref_actions": [
+        "change",
+        "ensure",
+        "modify"
+      ],
+      "cand_actions": [
+        "change",
+        "ensure",
+        "modify"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-6197",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1465.95,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [
+        "__init__.py"
+      ],
+      "cand_files": [
+        "__init__.py"
+      ],
+      "ref_identifiers": [
+        "__init__.py",
+        "pytest_collect_file"
+      ],
+      "cand_identifiers": [
+        "__init__.py",
+        "pytest_collect_file"
+      ],
+      "ref_actions": [
+        "add",
+        "change",
+        "modify"
+      ],
+      "cand_actions": [
+        "add",
+        "change",
+        "modify"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-6202",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1464.21,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [
+        "pytest/_pytest/python.py"
+      ],
+      "cand_files": [
+        "pytest/_pytest/python.py"
+      ],
+      "ref_identifiers": [
+        "_pytest",
+        "pytest",
+        "python.py",
+        "s.replace"
+      ],
+      "cand_identifiers": [
+        "_pytest",
+        "pytest",
+        "python.py",
+        "s.replace"
+      ],
+      "ref_actions": [
+        "change",
+        "comment",
+        "locate",
+        "remove",
+        "replace",
+        "return"
+      ],
+      "cand_actions": [
+        "change",
+        "comment",
+        "locate",
+        "remove",
+        "replace",
+        "return"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7205",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1390.7,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "_idval",
+        "bytes",
+        "byteswarning",
+        "functiondefinition",
+        "saferepr",
+        "setup",
+        "show"
+      ],
+      "cand_identifiers": [
+        "_idval",
+        "bytes",
+        "byteswarning",
+        "functiondefinition",
+        "saferepr",
+        "setup",
+        "show"
+      ],
+      "ref_actions": [
+        "change",
+        "convert",
+        "handle",
+        "modify",
+        "update"
+      ],
+      "cand_actions": [
+        "change",
+        "convert",
+        "handle",
+        "modify",
+        "update"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7236",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 414.61,
+      "suffix_copy_len": 1024,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "_pytest.python.pycollector",
+        "pdb",
+        "teardown"
+      ],
+      "cand_identifiers": [
+        "_pytest.python.pycollector",
+        "pdb",
+        "teardown"
+      ],
+      "ref_actions": [
+        "add",
+        "check",
+        "ensure",
+        "locate",
+        "modify",
+        "skip"
+      ],
+      "cand_actions": [
+        "add",
+        "check",
+        "ensure",
+        "locate",
+        "modify",
+        "skip"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7324",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1603.74,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "expression.compile",
+        "false",
+        "none",
+        "true"
+      ],
+      "cand_identifiers": [
+        "expression.compile",
+        "false",
+        "none",
+        "true"
+      ],
+      "ref_actions": [
+        "change",
+        "check",
+        "handle",
+        "locate",
+        "modify",
+        "skip"
+      ],
+      "cand_actions": [
+        "change",
+        "check",
+        "handle",
+        "locate",
+        "modify",
+        "skip"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7432",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 222.53,
+      "suffix_copy_len": 4000,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [
+        "src/_pytest/skipping.py"
+      ],
+      "cand_files": [
+        "src/_pytest/skipping.py"
+      ],
+      "ref_identifiers": [
+        "_pytest",
+        "pytest_runtest_makereport",
+        "runxfail",
+        "skipping.py",
+        "src"
+      ],
+      "cand_identifiers": [
+        "_pytest",
+        "pytest_runtest_makereport",
+        "runxfail",
+        "skipping.py",
+        "src"
+      ],
+      "ref_actions": [
+        "change",
+        "ensure",
+        "fix",
+        "locate",
+        "modify",
+        "skip"
+      ],
+      "cand_actions": [
+        "change",
+        "ensure",
+        "fix",
+        "locate",
+        "modify",
+        "skip"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7490",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1607.21,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "xfail"
+      ],
+      "cand_identifiers": [
+        "xfail"
+      ],
+      "ref_actions": [
+        "add",
+        "change",
+        "ensure",
+        "ignore"
+      ],
+      "cand_actions": [
+        "add",
+        "change",
+        "ensure",
+        "ignore"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7521",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1619.97,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "capfd.readouterr"
+      ],
+      "cand_identifiers": [
+        "capfd.readouterr"
+      ],
+      "ref_actions": [
+        "change",
+        "check",
+        "convert",
+        "handle",
+        "modify",
+        "return",
+        "update"
+      ],
+      "cand_actions": [
+        "change",
+        "check",
+        "convert",
+        "handle",
+        "modify",
+        "return",
+        "update"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7571",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1580.77,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [],
+      "cand_files": [],
+      "ref_identifiers": [
+        "caplog",
+        "caplog.clear",
+        "caplog.set_level",
+        "logging.notset",
+        "test_foo"
+      ],
+      "cand_identifiers": [
+        "caplog",
+        "caplog.clear",
+        "caplog.set_level",
+        "logging.notset",
+        "test_foo"
+      ],
+      "ref_actions": [
+        "add",
+        "change",
+        "ensure",
+        "fix"
+      ],
+      "cand_actions": [
+        "add",
+        "change",
+        "ensure",
+        "fix"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7982",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1692.66,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [
+        "_pytest/main.py"
+      ],
+      "cand_files": [
+        "_pytest/main.py"
+      ],
+      "ref_identifiers": [
+        "_pytest",
+        "false",
+        "follow_symlinks",
+        "main.py",
+        "pytest_collect_directory",
+        "true"
+      ],
+      "cand_identifiers": [
+        "_pytest",
+        "false",
+        "follow_symlinks",
+        "main.py",
+        "pytest_collect_directory",
+        "true"
+      ],
+      "ref_actions": [
+        "change",
+        "fix",
+        "locate",
+        "modify"
+      ],
+      "cand_actions": [
+        "change",
+        "fix",
+        "locate",
+        "modify"
+      ]
+    },
+    {
+      "instance_id": "pytest-dev__pytest-8399",
+      "mode": "hybrid_code_aware_lossy",
+      "token_f1": 1.0,
+      "accuracy_bucket": "strict-safe",
+      "ttft_ms": 1592.52,
+      "suffix_copy_len": null,
+      "file_containment": 1.0,
+      "identifier_containment": 1.0,
+      "action_containment": 1.0,
+      "backtick_containment": 1.0,
+      "code_action_score": 1.0,
+      "ref_files": [
+        "_pytest/unittest.py"
+      ],
+      "cand_files": [
+        "_pytest/unittest.py"
+      ],
+      "ref_identifiers": [
+        "_pytest",
+        "fixtures",
+        "pytest",
+        "setupclass",
+        "teardownclass",
+        "unittest.py"
+      ],
+      "cand_identifiers": [
+        "_pytest",
+        "fixtures",
+        "pytest",
+        "setupclass",
+        "teardownclass",
+        "unittest.py"
+      ],
+      "ref_actions": [
+        "locate",
+        "modify"
+      ],
+      "cand_actions": [
+        "locate",
+        "modify"
+      ]
+    }
+  ]
+}

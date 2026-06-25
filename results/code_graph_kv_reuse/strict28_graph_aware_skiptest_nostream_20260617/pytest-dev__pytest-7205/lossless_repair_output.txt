@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "src/_pytest/setuponly.py",
+      "search": "tw.write\\(\\[\\]",
+      "replace": "tw.write('[{}]'.format(saferepr(fixturedef.cached_param)))"
+    }
+  ]
+}
+```

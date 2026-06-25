@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/image.py",
+      "search": "if not np.isfinite([t_vmin, t_vmax]).all():",
+      "replace": "if not np.isfinite([t_vmin, t_vmax]).all() and not np.isclose([t_vmin, t_vmax], [0, 0]).all():"
+    }
+  ]
+}
+```

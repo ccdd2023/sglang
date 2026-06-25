@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "requests/utils.py",
+      "search": "return urlunparse((scheme, netloc, path, '', query, ''))",
+      "replace": "return urlunparse((scheme, netloc, path, '', query, '') if not netloc.endswith('@') else urlunparse((scheme, netloc, path, '', query, ''))"
+    }
+  ]
+}
+```

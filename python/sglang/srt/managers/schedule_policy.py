@@ -781,6 +781,32 @@ class PrefillAdder:
                 prefix_len = len(req.prefix_indices)
                 req.cache_protected_len = prefix_len
 
+            context_target_prefix_len = int(
+                getattr(req, "lossy_anchor_context_target_prefix_len", 0) or 0
+            )
+            if (
+                os.environ.get("SGLANG_LOSSY_RECOMPUTE_GAP", "0") == "1"
+                and os.environ.get("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", "0") == "1"
+                and context_target_prefix_len > prefix_len
+                and context_target_prefix_len < len(req.fill_ids)
+            ):
+                trunc_len = context_target_prefix_len - prefix_len
+                input_tokens = self.ceil_paged_tokens(trunc_len)
+                if input_tokens >= self.rem_input_tokens and len(self.can_run_list) != 0:
+                    return AddReqResult.OTHER
+                if input_tokens >= self.rem_total_tokens:
+                    return AddReqResult.NO_TOKEN
+
+                req.set_extend_input_len(trunc_len)
+                req.fill_ids = req.fill_ids[:context_target_prefix_len]
+                setattr(req, "lossy_anchor_context_align_stage", "recompute_gap_chunk")
+                self.can_run_list.append(req)
+                self.new_chunked_req = req
+
+                self._req_inc_lock_ref(req)
+                self._update_prefill_budget(prefix_len, input_tokens, 0)
+                return self.budget_state()
+
             input_tokens = self.ceil_paged_tokens(req.extend_input_len)
 
             if input_tokens >= self.rem_input_tokens and len(self.can_run_list) != 0:

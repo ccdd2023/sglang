@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "requests/sessions.py",
+      "search": "prepared_request.headers = merge_setting(request.headers, self.headers, dict_class=CaseInsensitiveDict)",
+      "replace": "prepared_request.headers = {k: v for k, v in merge_setting(request.headers, self.headers, dict_class=CaseInsensitiveDict).items() if v is not None}"
+    }
+  ]
+}
+```

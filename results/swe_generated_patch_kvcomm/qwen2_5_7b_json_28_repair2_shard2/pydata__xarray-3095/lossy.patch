@@ -1,0 +1,12 @@
+diff --git a/xarray/core/variable.py b/xarray/core/variable.py
+--- a/xarray/core/variable.py
++++ b/xarray/core/variable.py
+@@ -259,6 +259,8 @@
+             unrecognized encoding items.
+         """
+         self._data = as_compatible_data(data, fastpath=fastpath)
++if isinstance(data, IndexVariable) and data.dtype.kind == 'U':
++    data = data.astype(str)
+         self._dims = self._parse_dimensions(dims)
+         self._attrs = None
+         self._encoding = None

@@ -1,0 +1,1 @@
+{"edits":[{"path":"requests/sessions.py","search":"method = builtin_str(method)","replace":"method = method.decode('latin1')"}]}

@@ -1,0 +1,50 @@
+diff --git a/django/core/validators.py b/django/core/validators.py
+--- a/django/core/validators.py
++++ b/django/core/validators.py
+@@ -104,6 +104,11 @@ def __call__(self, value):
+             raise ValidationError(self.message, code=self.code)
+
+     def __eq__(self, other):
++        if not isinstance(other, URLValidator):
++            return False
++        if self.schemes != other.schemes:
++            return False
++        return super().__eq__(other)
++
+         return (
+             isinstance(other, self.__class__) and
+             self.regex.pattern == other.regex.pattern and
+
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -1044,6 +1044,11 @@ def __call__(self, value):
+             raise ValidationError(self.message, code=self.code)
+
+     def __eq__(self, other):
++        if not isinstance(other, URLValidator):
++            return False
++        if self.schemes != other.schemes:
++            return False
++        return super().__eq__(other)
++
+         return (
+             isinstance(other, self.__class__) and
+             self.regex.pattern == other.regex.pattern and
+
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -1044,6 +1044,11 @@ def __call__(self, value):
+             raise ValidationError(self.message, code=self.code)
+
+     def __eq__(self, other):
++        if not isinstance(other, URLValidator):
++            return False
++        if self.schemes != other.schemes:
++            return False
++        return super().__eq__(other)
++
+         return (
+             isinstance(other, self.__class__) and
+             self.regex.pattern == other.regex.pattern and

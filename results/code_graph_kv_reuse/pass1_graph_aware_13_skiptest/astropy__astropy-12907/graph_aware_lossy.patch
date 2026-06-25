@@ -1,0 +1,15 @@
+diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
+--- a/astropy/modeling/separable.py
++++ b/astropy/modeling/separable.py
+@@ -194,6 +194,11 @@
+             axes.append(axis)
+         m = np.vstack(axes)
+         mat = np.zeros((noutp, model.n_inputs))
++if model.separable:
++    for i in range(model.n_inputs):
++        mat[i, i] = 1
++    if pos == 'right':
++        mat = np.roll(mat, (noutp - model.n_outputs))
+         if pos == 'left':
+             mat[: model.n_outputs, :model.n_inputs] = m
+         else:

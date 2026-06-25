@@ -1,0 +1,15 @@
+{
+  "instance_id": "pytest-dev__pytest-7324",
+  "repo": "pytest-dev/pytest",
+  "version": "5.4",
+  "mode": "gold",
+  "env_name": "swe_pytest_dev_pytest_7324_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7324",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "testing/test_mark_expression.py::test_valid_idents[True]"
+  ],
+  "returncode": 1
+}

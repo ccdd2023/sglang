@@ -15,5 +15,5 @@
     "1",
     "auth_tests.test_validators.UsernameValidatorsTests.test_ascii_validator"
   ],
-  "returncode": 0
+  "returncode": 1
 }

@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "requests/models.py",
+      "search": "if not host:",
+      "replace": "if not host or host.startswith(u'*'):"
+    }
+  ]
+}
+```

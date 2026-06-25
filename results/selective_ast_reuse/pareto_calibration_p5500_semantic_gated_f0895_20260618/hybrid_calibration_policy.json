@@ -1,0 +1,264 @@
+{
+  "policy_name": "hybrid_prompt_fair_pareto_calibrated_diagnostic",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 0.895,
+  "min_speedup": 1.01,
+  "diagnostic_only": true,
+  "reject_cap_sensitive": false,
+  "cap_sensitive_allowlist": [],
+  "notes": "Generated from existing prompt-fair runs. Use only as calibration/upper diagnostic; do not report as held-out generalization.",
+  "runs": [
+    "p5500=results/selective_ast_reuse/prompt_fair_pareto_f090_hybrid_p5500_riskgate_maxtotal9000_28case_20260618/summary.json"
+  ],
+  "cases": {
+    "pallets__flask-5014": {
+      "action": "reject",
+      "source_run": "p5500",
+      "source_speedup": 1.0085,
+      "source_token_f1": 1.0,
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "psf__requests-1142": {
+      "action": "reject",
+      "source_run": "",
+      "source_speedup": 0.0,
+      "source_token_f1": "",
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "psf__requests-1724": {
+      "action": "cap",
+      "max_suffix_copy_len": 4001,
+      "source_run": "p5500",
+      "source_speedup": 1.5252,
+      "source_token_f1": 0.9421,
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 1
+      },
+      "reason": "best_acceptable_prompt_fair_calibration"
+    },
+    "psf__requests-1766": {
+      "action": "cap",
+      "max_suffix_copy_len": 743,
+      "source_run": "p5500",
+      "source_speedup": 1.1746,
+      "source_token_f1": 1.0,
+      "required_selected_span_count_by_granularity": {
+        "method": 1
+      },
+      "reason": "best_acceptable_prompt_fair_calibration"
+    },
+    "psf__requests-1921": {
+      "action": "reject",
+      "source_run": "",
+      "source_speedup": 0.0,
+      "source_token_f1": "",
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "psf__requests-2317": {
+      "action": "cap",
+      "max_suffix_copy_len": 4623,
+      "source_run": "p5500",
+      "source_speedup": 1.674,
+      "source_token_f1": 0.8992,
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 1
+      },
+      "reason": "best_acceptable_prompt_fair_calibration"
+    },
+    "psf__requests-2931": {
+      "action": "reject",
+      "source_run": "p5500",
+      "source_speedup": 0.9894,
+      "source_token_f1": 1.0,
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "psf__requests-5414": {
+      "action": "cap",
+      "max_suffix_copy_len": 4750,
+      "source_run": "p5500",
+      "source_speedup": 6.2437,
+      "source_token_f1": 0.9739,
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 1
+      },
+      "reason": "best_acceptable_prompt_fair_calibration"
+    },
+    "psf__requests-6028": {
+      "action": "cap",
+      "max_suffix_copy_len": 4755,
+      "source_run": "p5500",
+      "source_speedup": 1.7898,
+      "source_token_f1": 0.9323,
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1
+      },
+      "reason": "best_acceptable_prompt_fair_calibration"
+    },
+    "pytest-dev__pytest-10051": {
+      "action": "cap",
+      "max_suffix_copy_len": 4702,
+      "source_run": "p5500",
+      "source_speedup": 1.6512,
+      "source_token_f1": 0.963,
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 2
+      },
+      "reason": "best_acceptable_prompt_fair_calibration"
+    },
+    "pytest-dev__pytest-10081": {
+      "action": "reject",
+      "source_run": "p5500",
+      "source_speedup": 1.027,
+      "source_token_f1": 1.0,
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "pytest-dev__pytest-10356": {
+      "action": "cap",
+      "max_suffix_copy_len": 4550,
+      "source_run": "p5500",
+      "source_speedup": 1.5944,
+      "source_token_f1": 1.0,
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 11,
+        "function": 1
+      },
+      "reason": "best_acceptable_prompt_fair_calibration"
+    },
+    "pytest-dev__pytest-5262": {
+      "action": "reject",
+      "source_run": "p5500",
+      "source_speedup": 1.003,
+      "source_token_f1": 1.0,
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "pytest-dev__pytest-5631": {
+      "action": "cap",
+      "max_suffix_copy_len": 128,
+      "source_run": "p5500",
+      "source_speedup": 1.039,
+      "source_token_f1": 1.0,
+      "required_selected_span_count_by_granularity": {
+        "function": 2
+      },
+      "reason": "best_acceptable_prompt_fair_calibration"
+    },
+    "pytest-dev__pytest-5787": {
+      "action": "cap",
+      "max_suffix_copy_len": 256,
+      "source_run": "p5500",
+      "source_speedup": 1.0362,
+      "source_token_f1": 1.0,
+      "required_selected_span_count_by_granularity": {
+        "method": 7
+      },
+      "reason": "best_acceptable_prompt_fair_calibration"
+    },
+    "pytest-dev__pytest-5809": {
+      "action": "reject",
+      "source_run": "p5500",
+      "source_speedup": 1.0148,
+      "source_token_f1": 1.0,
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "pytest-dev__pytest-5840": {
+      "action": "reject",
+      "source_run": "p5500",
+      "source_speedup": 1.0087,
+      "source_token_f1": 1.0,
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "pytest-dev__pytest-6197": {
+      "action": "reject",
+      "source_run": "p5500",
+      "source_speedup": 1.0132,
+      "source_token_f1": 1.0,
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "pytest-dev__pytest-6202": {
+      "action": "cap",
+      "max_suffix_copy_len": 4682,
+      "source_run": "p5500",
+      "source_speedup": 1.5771,
+      "source_token_f1": 0.9851,
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 1
+      },
+      "reason": "best_acceptable_prompt_fair_calibration"
+    },
+    "pytest-dev__pytest-7205": {
+      "action": "reject",
+      "source_run": "",
+      "source_speedup": 0.0,
+      "source_token_f1": "",
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "pytest-dev__pytest-7236": {
+      "action": "reject",
+      "source_run": "p5500",
+      "source_speedup": 1.0044,
+      "source_token_f1": 1.0,
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "pytest-dev__pytest-7324": {
+      "action": "cap",
+      "max_suffix_copy_len": 5426,
+      "source_run": "p5500",
+      "source_speedup": 3.4766,
+      "source_token_f1": 0.973,
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "function": 1,
+        "method": 1
+      },
+      "reason": "best_acceptable_prompt_fair_calibration"
+    },
+    "pytest-dev__pytest-7432": {
+      "action": "reject",
+      "source_run": "p5500",
+      "source_speedup": 1.0045,
+      "source_token_f1": 1.0,
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "pytest-dev__pytest-7490": {
+      "action": "reject",
+      "source_run": "p5500",
+      "source_speedup": 1.0162,
+      "source_token_f1": 1.0,
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "pytest-dev__pytest-7521": {
+      "action": "reject",
+      "source_run": "p5500",
+      "source_speedup": 0.9993,
+      "source_token_f1": 1.0,
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "pytest-dev__pytest-7571": {
+      "action": "reject",
+      "source_run": "p5500",
+      "source_speedup": 1.0098,
+      "source_token_f1": 1.0,
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "pytest-dev__pytest-7982": {
+      "action": "reject",
+      "source_run": "p5500",
+      "source_speedup": 1.0016,
+      "source_token_f1": 1.0,
+      "reason": "no_calibrated_safe_speedup"
+    },
+    "pytest-dev__pytest-8399": {
+      "action": "reject",
+      "source_run": "p5500",
+      "source_speedup": 1.0015,
+      "source_token_f1": 1.0,
+      "reason": "no_calibrated_safe_speedup"
+    }
+  }
+}

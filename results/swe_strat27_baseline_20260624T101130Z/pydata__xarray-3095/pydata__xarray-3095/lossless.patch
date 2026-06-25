@@ -1,0 +1,22 @@
+diff --git a/xarray/core/variable.py b/xarray/core/variable.py
+--- a/xarray/core/variable.py
++++ b/xarray/core/variable.py
+@@ -104,7 +104,7 @@ def _validate_indexers(self, key):
+             raise IndexError(
+                 "Boolean indexer should be unlabeled or on the same dimension to the indexed array. Indexer is "
+                 "on {0:s} but the target dimension is {1:s}.".format(str(k.dims), dim))
+ 
+-    def _broadcast_indexes_outer(self, key):
++    def _broadcast_indexes_outer(self, key, allow_object=False):
+         dims = tuple(k.dims[0] if isinstance(k, Variable) else dim
+                      for k, dim in zip(key, self.dims)
+                      if not isinstance(k, integer_types))
+@@ -113,7 +113,7 @@ def _broadcast_indexes_outer(self, key):
+         new_key = []
+         for k in key:
+             if isinstance(k, Variable):
+-                k = k.data
++                k = k.data if allow_object else k.data.astype(object)
+                 if k.dtype.kind == 'b':  # boolean indexing case
+                     (k,) = np.nonzero(k)
+             new_key.append(k)

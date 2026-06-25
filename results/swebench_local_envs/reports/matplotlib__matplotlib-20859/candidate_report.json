@@ -1,0 +1,15 @@
+{
+  "instance_id": "matplotlib__matplotlib-20859",
+  "repo": "matplotlib/matplotlib",
+  "version": "3.4",
+  "mode": "candidate",
+  "env_name": "swe_matplotlib_matplotlib_20859_candidate",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-20859",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "lib/matplotlib/tests/test_legend.py::test_subfigure_legend"
+  ],
+  "returncode": 1
+}

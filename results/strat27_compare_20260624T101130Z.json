@@ -1,0 +1,2004 @@
+{
+  "baseline": {
+    "astropy__astropy-12907": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3868,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 2239,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 2239,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "astropy__astropy-13033": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1233,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1233,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1233,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "astropy__astropy-13236": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3030,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3030,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3030,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "django__django-10097": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 2433,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1823,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1823,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "django__django-10554": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3942,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 624,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 624,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "django__django-10880": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 601,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 601,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 601,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "matplotlib__matplotlib-13989": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 4330,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1241,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1241,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "matplotlib__matplotlib-14623": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1800,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 0,
+        "patch_bytes": 701,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 0,
+        "patch_bytes": 701,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "matplotlib__matplotlib-20488": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 2098,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 2098,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 2098,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "mwaskom__seaborn-3069": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1061,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3690,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3690,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "mwaskom__seaborn-3187": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1357,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1357,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1357,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pallets__flask-5014": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 893,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 904,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 904,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "psf__requests-1142": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 438,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 0,
+        "patch_bytes": 431,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 0,
+        "patch_bytes": 431,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "psf__requests-1724": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 581,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 581,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 581,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "psf__requests-1766": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1050,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1050,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1050,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pydata__xarray-2905": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 697,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 779,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 779,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pydata__xarray-3095": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1094,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 491,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 491,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pydata__xarray-3151": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1682,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3827,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3827,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pylint-dev__pylint-4551": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3248,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3937,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3937,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pylint-dev__pylint-4604": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1146,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1784,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1784,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pylint-dev__pylint-4661": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3323,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3337,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3337,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pytest-dev__pytest-10051": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 694,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 694,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 694,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pytest-dev__pytest-10081": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 2684,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 2684,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 2684,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pytest-dev__pytest-10356": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1745,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1274,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1274,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "scikit-learn__scikit-learn-10297": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3365,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 2767,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 2767,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "scikit-learn__scikit-learn-10844": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1083,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1083,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1083,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "scikit-learn__scikit-learn-10908": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 4044,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 4044,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 4044,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    }
+  },
+  "v44": {
+    "astropy__astropy-12907": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3868,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 2239,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 2239,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 2239,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "astropy__astropy-13033": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1233,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1233,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1233,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1233,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "astropy__astropy-13236": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3030,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3030,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3030,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3030,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "django__django-10097": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 2433,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1823,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1823,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1823,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "django__django-10554": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3942,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 624,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 624,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 624,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "django__django-10880": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 601,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 601,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 601,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 601,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "matplotlib__matplotlib-13989": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 4330,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1241,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1241,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1241,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "matplotlib__matplotlib-14623": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1800,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 0,
+        "patch_bytes": 701,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 0,
+        "patch_bytes": 701,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 0,
+        "patch_bytes": 701,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "matplotlib__matplotlib-20488": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 2098,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 2098,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 2098,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 2098,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "mwaskom__seaborn-3069": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1061,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3690,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3690,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3690,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "mwaskom__seaborn-3187": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1357,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1357,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1357,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1357,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pallets__flask-5014": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 893,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 904,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 904,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 904,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "psf__requests-1142": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 438,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 0,
+        "patch_bytes": 431,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 0,
+        "patch_bytes": 431,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 0,
+        "patch_bytes": 431,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "psf__requests-1724": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 581,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 581,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 581,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 581,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "psf__requests-1766": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1050,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1050,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1050,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1050,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pydata__xarray-2905": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 697,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 779,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 779,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 779,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pydata__xarray-3095": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1094,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 491,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 491,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 491,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pydata__xarray-3151": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1682,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3827,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3827,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3827,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pylint-dev__pylint-4551": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3248,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3937,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3937,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3937,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pylint-dev__pylint-4604": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1146,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1784,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1784,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1784,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pylint-dev__pylint-4661": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3323,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3337,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3337,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3337,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pytest-dev__pytest-10051": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 694,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 694,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 694,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 694,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pytest-dev__pytest-10081": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 2684,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 2684,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 2684,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 2684,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "pytest-dev__pytest-10356": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1745,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1274,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1274,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 1274,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "scikit-learn__scikit-learn-10297": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 3365,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 2767,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 2767,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 1,
+        "patch_bytes": 2767,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "scikit-learn__scikit-learn-10844": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1083,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1083,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1083,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 1083,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    },
+    "scikit-learn__scikit-learn-10908": {
+      "lossless": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 4044,
+        "first_match_reason": "",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 4044,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "lossy_prefetch": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 4044,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      },
+      "placeholder_knn_lossy": {
+        "diff_extracted": true,
+        "synth_ok": true,
+        "apply_rc": 128,
+        "patch_bytes": 4044,
+        "first_match_reason": "exact_code_content_signature",
+        "topk_sim": 0.0,
+        "copy_method": "none",
+        "candidate_test_rc": null
+      }
+    }
+  }
+}

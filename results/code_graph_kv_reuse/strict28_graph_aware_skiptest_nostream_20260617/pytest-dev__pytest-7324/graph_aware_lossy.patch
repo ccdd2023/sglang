@@ -1,0 +1,12 @@
+diff --git a/src/_pytest/mark/expression.py b/src/_pytest/mark/expression.py
+--- a/src/_pytest/mark/expression.py
++++ b/src/_pytest/mark/expression.py
+@@ -175,7 +175,7 @@
+         return self.matcher(key)
+ 
+     def __iter__(self) -> Iterator[str]:
+-        raise NotImplementedError()
++        raise ValueError("Unsupported literal: None")
+ 
+     def __len__(self) -> int:
+         raise NotImplementedError()

@@ -1,0 +1,12 @@
+diff --git a/requests/sessions.py b/requests/sessions.py
+--- a/requests/sessions.py
++++ b/requests/sessions.py
+@@ -285,7 +285,7 @@
+         scheme = urlparse(prepared_request.url).scheme
+         new_proxies = resolve_proxies(prepared_request, proxies, self.trust_env)
+ 
+-        if 'Proxy-Authorization' in headers:
++        if 'Proxy-Authorization' in headers and not (url.startswith('http://') and url.split('//')[1].split(':')[0] == 'user'):
+             del headers['Proxy-Authorization']
+ 
+         try:

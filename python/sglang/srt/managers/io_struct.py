@@ -217,6 +217,8 @@ class GenerateReqInput(BaseReq):
     code_content_signature: Optional[str] = None
     code_anchor_spans: Optional[List[Dict[str, Any]]] = None
     code_anchor_token_spans: Optional[List[Dict[str, Any]]] = None
+    # Per-placeholder k-NN anchor spans (Duke 2026 KVCOMM-style).
+    placeholder_anchor_token_spans: Optional[List[Dict[str, Any]]] = None
     reuse_mode: Optional[str] = None
     lossy_alignment_method: Optional[str] = None
     template_task_family: Optional[str] = None
@@ -675,6 +677,7 @@ class GenerateReqInput(BaseReq):
             code_content_signature=self.code_content_signature,
             code_anchor_spans=self.code_anchor_spans,
             code_anchor_token_spans=self.code_anchor_token_spans,
+            placeholder_anchor_token_spans=self.placeholder_anchor_token_spans,
             reuse_mode=self.reuse_mode,
             lossy_alignment_method=self.lossy_alignment_method,
             template_task_family=self.template_task_family,
@@ -765,6 +768,8 @@ class TokenizedGenerateReqInput(BaseReq):
     code_content_signature: Optional[str] = None
     code_anchor_spans: Optional[List[Dict[str, Any]]] = None
     code_anchor_token_spans: Optional[List[Dict[str, Any]]] = None
+    # Per-placeholder k-NN anchor spans (Duke 2026 KVCOMM-style).
+    placeholder_anchor_token_spans: Optional[List[Dict[str, Any]]] = None
     reuse_mode: Optional[str] = None
     lossy_alignment_method: Optional[str] = None
     template_task_family: Optional[str] = None

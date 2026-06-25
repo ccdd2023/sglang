@@ -15,5 +15,5 @@
     "1",
     "queries.test_qs_combinators.QuerySetSetOperationTests.test_union_with_values_list_and_order"
   ],
-  "returncode": 0
+  "returncode": 1
 }

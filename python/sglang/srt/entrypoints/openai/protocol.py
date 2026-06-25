@@ -649,6 +649,11 @@ class ChatCompletionRequest(BaseModel):
     code_anchor_spans: Optional[List[Dict[str, Any]]] = None
     # Token-level spans for the anchor block: [{"start_token": int, "end_token": int}]
     code_anchor_token_spans: Optional[List[Dict[str, Any]]] = None
+    # Per-placeholder k-NN anchor spans (Duke 2026 KVCOMM-style).  Each
+    # entry: {"slot_id": str, "label": str, "start_token": int,
+    #          "end_token": int, "content_signature": str, "text": str}.
+    # Server uses embedding k-NN over per-slot anchor pool to skip prefill.
+    placeholder_anchor_token_spans: Optional[List[Dict[str, Any]]] = None
     reuse_mode: Optional[str] = None
     lossy_alignment_method: Optional[str] = None
     template_task_family: Optional[str] = None

@@ -1690,6 +1690,7 @@ class Scheduler(
                 code_content_signature=recv_req.code_content_signature,
                 code_anchor_spans=recv_req.code_anchor_spans,
                 code_anchor_token_spans=recv_req.code_anchor_token_spans,
+                placeholder_anchor_token_spans=recv_req.placeholder_anchor_token_spans,
                 reuse_mode=recv_req.reuse_mode,
                 lossy_alignment_method=recv_req.lossy_alignment_method,
                 template_task_family=recv_req.template_task_family,
@@ -1947,6 +1948,11 @@ class Scheduler(
 
         if isinstance(self.tree_cache, AgentTemplateKVCache):
             self.tree_cache.prefetch_codebases(
+                req,
+                tokenizer=self.tokenizer,
+            )
+        elif hasattr(self.tree_cache, "agenttemplatekv_prefetch_codebases"):
+            self.tree_cache.agenttemplatekv_prefetch_codebases(
                 req,
                 tokenizer=self.tokenizer,
             )
@@ -2439,7 +2445,24 @@ class Scheduler(
         )
 
         if self.chunked_req is not None:
-            self.chunked_req.init_next_round_input()
+            if (
+                os.environ.get("SGLANG_LOSSY_RECOMPUTE_GAP", "0") == "1"
+                and os.environ.get("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", "0") == "1"
+                and getattr(self.chunked_req, "lossy_anchor_context_align_stage", None)
+                == "recompute_gap_chunk"
+                and int(
+                    getattr(
+                        self.chunked_req,
+                        "lossy_anchor_context_target_prefix_len",
+                        0,
+                    )
+                    or 0
+                )
+                > 0
+            ):
+                self.chunked_req.init_next_round_input(self.tree_cache)
+            else:
+                self.chunked_req.init_next_round_input()
             self.chunked_req = adder.add_chunked_req(self.chunked_req)
 
         if self.enable_lora:

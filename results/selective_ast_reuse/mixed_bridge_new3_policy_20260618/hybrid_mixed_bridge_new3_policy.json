@@ -1,0 +1,36 @@
+{
+  "policy_name": "mixed_bridge_new3_smoke_policy",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 0.9,
+  "min_speedup": 1.0,
+  "diagnostic_only": false,
+  "notes": [
+    "Smoke new mixed-window bridge candidates before merging with no6028 mainline."
+  ],
+  "cases": {
+    "pallets__flask-5014": {
+      "action": "cap",
+      "max_suffix_copy_len": 5500,
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1
+      },
+      "reason": "mixed_window_new_bridge_candidate_smoke"
+    },
+    "psf__requests-1921": {
+      "action": "cap",
+      "max_suffix_copy_len": 5500,
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1
+      },
+      "reason": "mixed_window_new_bridge_candidate_smoke"
+    },
+    "psf__requests-2317": {
+      "action": "cap",
+      "max_suffix_copy_len": 5500,
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1
+      },
+      "reason": "mixed_window_new_bridge_candidate_smoke"
+    }
+  }
+}

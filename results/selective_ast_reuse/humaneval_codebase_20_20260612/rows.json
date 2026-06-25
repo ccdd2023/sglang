@@ -1,0 +1,1482 @@
+[
+  {
+    "task_id": "HumanEval/0",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 979.771390914917,
+    "cached_tokens": 279,
+    "completion": "    numbers.sort()\n    for i in range(1, len(numbers)):\n        if numbers[i] - numbers[i - 1] < threshold:\n            return True\n    return False\n",
+    "model_output": "```python\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\n    numbers.sort()\n    for i in range(1, len(numbers)):\n        if numbers[i] - numbers[i - 1] < threshold:\n            return True\n    return False\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 173,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/0",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 992.541002035141,
+    "cached_tokens": 0,
+    "completion": "    numbers.sort()\n    for i in range(1, len(numbers)):\n        if numbers[i] - numbers[i - 1] < threshold:\n            return True\n    return False\n",
+    "model_output": "```python\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\n    numbers.sort()\n    for i in range(1, len(numbers)):\n        if numbers[i] - numbers[i - 1] < threshold:\n            return True\n    return False\n```",
+    "lossy_match_reason": "",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 84,
+    "estimated_recomputed_tokens": 89,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/0",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 979.6095290184021,
+    "cached_tokens": 279,
+    "completion": "    numbers.sort()\n    for i in range(1, len(numbers)):\n        if numbers[i] - numbers[i - 1] < threshold:\n            return True\n    return False\n",
+    "model_output": "```python\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\n    numbers.sort()\n    for i in range(1, len(numbers)):\n        if numbers[i] - numbers[i - 1] < threshold:\n            return True\n    return False\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 73,
+    "estimated_recomputed_tokens": 100,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/1",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 1706.0774600505829,
+    "cached_tokens": 270,
+    "completion": "    paren_string = paren_string.replace(\" \", \"\")\n    stack = []\n    groups = []\n    start = 0\n    \n    for i, char in enumerate(paren_string):\n        if char == '(':\n            if not stack:\n                start = i\n            stack.append(char)\n        elif char == ')':\n            stack.pop()\n            if not stack:\n                groups.append(paren_string[start:i+1])\n    \n    return groups\n",
+    "model_output": "```python\ndef separate_paren_groups(paren_string: str) -> List[str]:\n    paren_string = paren_string.replace(\" \", \"\")\n    stack = []\n    groups = []\n    start = 0\n    \n    for i, char in enumerate(paren_string):\n        if char == '(':\n            if not stack:\n                start = i\n            stack.append(char)\n        elif char == ')':\n            stack.pop()\n            if not stack:\n                groups.append(paren_string[start:i+1])\n    \n    return groups\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 229,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/1",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 1710.3182458877563,
+    "cached_tokens": 270,
+    "completion": "    paren_string = paren_string.replace(\" \", \"\")\n    stack = []\n    groups = []\n    start = 0\n    \n    for i, char in enumerate(paren_string):\n        if char == '(':\n            if not stack:\n                start = i\n            stack.append(char)\n        elif char == ')':\n            stack.pop()\n            if not stack:\n                groups.append(paren_string[start:i+1])\n    \n    return groups\n",
+    "model_output": "```python\ndef separate_paren_groups(paren_string: str) -> List[str]:\n    paren_string = paren_string.replace(\" \", \"\")\n    stack = []\n    groups = []\n    start = 0\n    \n    for i, char in enumerate(paren_string):\n        if char == '(':\n            if not stack:\n                start = i\n            stack.append(char)\n        elif char == ')':\n            stack.pop()\n            if not stack:\n                groups.append(paren_string[start:i+1])\n    \n    return groups\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 112,
+    "estimated_recomputed_tokens": 117,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/1",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 1709.2828619480133,
+    "cached_tokens": 270,
+    "completion": "    paren_string = paren_string.replace(\" \", \"\")\n    stack = []\n    groups = []\n    start = 0\n    \n    for i, char in enumerate(paren_string):\n        if char == '(':\n            if not stack:\n                start = i\n            stack.append(char)\n        elif char == ')':\n            stack.pop()\n            if not stack:\n                groups.append(paren_string[start:i+1])\n    \n    return groups\n",
+    "model_output": "```python\ndef separate_paren_groups(paren_string: str) -> List[str]:\n    paren_string = paren_string.replace(\" \", \"\")\n    stack = []\n    groups = []\n    start = 0\n    \n    for i, char in enumerate(paren_string):\n        if char == '(':\n            if not stack:\n                start = i\n            stack.append(char)\n        elif char == ')':\n            stack.pop()\n            if not stack:\n                groups.append(paren_string[start:i+1])\n    \n    return groups\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 101,
+    "estimated_recomputed_tokens": 128,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/2",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 568.3808350563049,
+    "cached_tokens": 240,
+    "completion": "    integer_part, decimal_part = divmod(number, 1)\n    return decimal_part\n",
+    "model_output": "```python\ndef truncate_number(number: float) -> float:\n    integer_part, decimal_part = divmod(number, 1)\n    return decimal_part\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 175,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/2",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 573.2837030887604,
+    "cached_tokens": 240,
+    "completion": "    integer_part, decimal_part = divmod(number, 1)\n    return decimal_part\n",
+    "model_output": "```python\ndef truncate_number(number: float) -> float:\n    integer_part, decimal_part = divmod(number, 1)\n    return decimal_part\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 83,
+    "estimated_recomputed_tokens": 92,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/2",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 572.6766901016235,
+    "cached_tokens": 240,
+    "completion": "    integer_part, decimal_part = divmod(number, 1)\n    return decimal_part\n",
+    "model_output": "```python\ndef truncate_number(number: float) -> float:\n    integer_part, decimal_part = divmod(number, 1)\n    return decimal_part\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 76,
+    "estimated_recomputed_tokens": 99,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/3",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 571.9078230857849,
+    "cached_tokens": 274,
+    "completion": "    balance = 0\n    for op in operations:\n    balance += op\n    if balance < 0:\n        return True\n    return False\n",
+    "model_output": "```python\nbalance = 0\nfor op in operations:\n    balance += op\n    if balance < 0:\n        return True\nreturn False\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 219,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/3",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 571.133829832077,
+    "cached_tokens": 274,
+    "completion": "    balance = 0\n    for op in operations:\n    balance += op\n    if balance < 0:\n        return True\n    return False\n",
+    "model_output": "```python\nbalance = 0\nfor op in operations:\n    balance += op\n    if balance < 0:\n        return True\nreturn False\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 107,
+    "estimated_recomputed_tokens": 112,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/3",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 576.285483121872,
+    "cached_tokens": 274,
+    "completion": "    balance = 0\n    for op in operations:\n    balance += op\n    if balance < 0:\n        return True\n    return False\n",
+    "model_output": "```python\nbalance = 0\nfor op in operations:\n    balance += op\n    if balance < 0:\n        return True\nreturn False\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 96,
+    "estimated_recomputed_tokens": 123,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/4",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 863.2440679073334,
+    "cached_tokens": 272,
+    "completion": "    mean_val = sum(numbers) / len(numbers)\n    mad = sum(abs(x - mean_val) for x in numbers) / len(numbers)\n    return mad\n",
+    "model_output": "```python\ndef mean_absolute_deviation(numbers: List[float]) -> float:\n    mean_val = sum(numbers) / len(numbers)\n    mad = sum(abs(x - mean_val) for x in numbers) / len(numbers)\n    return mad\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 201,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/4",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 865.4259598255157,
+    "cached_tokens": 272,
+    "completion": "    mean_val = sum(numbers) / len(numbers)\n    mad = sum(abs(x - mean_val) for x in numbers) / len(numbers)\n    return mad\n",
+    "model_output": "```python\ndef mean_absolute_deviation(numbers: List[float]) -> float:\n    mean_val = sum(numbers) / len(numbers)\n    mad = sum(abs(x - mean_val) for x in numbers) / len(numbers)\n    return mad\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 98,
+    "estimated_recomputed_tokens": 103,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/4",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 866.0307750701904,
+    "cached_tokens": 272,
+    "completion": "    mean_val = sum(numbers) / len(numbers)\n    mad = sum(abs(x - mean_val) for x in numbers) / len(numbers)\n    return mad\n",
+    "model_output": "```python\ndef mean_absolute_deviation(numbers: List[float]) -> float:\n    mean_val = sum(numbers) / len(numbers)\n    mad = sum(abs(x - mean_val) for x in numbers) / len(numbers)\n    return mad\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 87,
+    "estimated_recomputed_tokens": 114,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/5",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 1008.9779262542725,
+    "cached_tokens": 247,
+    "completion": "    return [numbers[i] for i in range(len(numbers)) for _ in range(2)] if len(numbers) <= 1 else [numbers[i] if i % 2 == 0 else delimeter for i in range(len(numbers) * 2 - 1)]\n",
+    "model_output": "```python\nreturn [numbers[i] for i in range(len(numbers)) for _ in range(2)] if len(numbers) <= 1 else [numbers[i] if i % 2 == 0 else delimeter for i in range(len(numbers) * 2 - 1)]\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 161,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/5",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 1010.2814981937408,
+    "cached_tokens": 247,
+    "completion": "    return [numbers[i] for i in range(len(numbers)) for _ in range(2)] if len(numbers) <= 1 else [numbers[i] if i % 2 == 0 else delimeter for i in range(len(numbers) * 2 - 1)]\n",
+    "model_output": "```python\nreturn [numbers[i] for i in range(len(numbers)) for _ in range(2)] if len(numbers) <= 1 else [numbers[i] if i % 2 == 0 else delimeter for i in range(len(numbers) * 2 - 1)]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 78,
+    "estimated_recomputed_tokens": 83,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/5",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 1013.4868068695068,
+    "cached_tokens": 247,
+    "completion": "    return [numbers[i] for i in range(len(numbers)) for _ in range(2)] if len(numbers) <= 1 else [numbers[i] if i % 2 == 0 else delimeter for i in range(len(numbers) * 2 - 1)]\n",
+    "model_output": "```python\nreturn [numbers[i] for i in range(len(numbers)) for _ in range(2)] if len(numbers) <= 1 else [numbers[i] if i % 2 == 0 else delimeter for i in range(len(numbers) * 2 - 1)]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 67,
+    "estimated_recomputed_tokens": 94,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/6",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 2076.214021921158,
+    "cached_tokens": 267,
+    "completion": "    depths = []\n    current_depth = 0\n    max_depth = 0\n    for char in paren_string:\n        if char == '(':\n            current_depth += 1\n            max_depth = max(max_depth, current_depth)\n        elif char == ')':\n            current_depth -= 1\n        elif char == ' ':\n            depths.append(max_depth)\n            max_depth = 0\n            current_depth = 0\n    if max_depth > 0:\n        depths.append(max_depth)\n    return depths\n",
+    "model_output": "```python\ndef parse_nested_parens(paren_string: str) -> List[int]:\n    depths = []\n    current_depth = 0\n    max_depth = 0\n    for char in paren_string:\n        if char == '(':\n            current_depth += 1\n            max_depth = max(max_depth, current_depth)\n        elif char == ')':\n            current_depth -= 1\n        elif char == ' ':\n            depths.append(max_depth)\n            max_depth = 0\n            current_depth = 0\n    if max_depth > 0:\n        depths.append(max_depth)\n    return depths\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 203,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/6",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 2079.3529460430145,
+    "cached_tokens": 267,
+    "completion": "    depths = []\n    current_depth = 0\n    max_depth = 0\n    for char in paren_string:\n        if char == '(':\n            current_depth += 1\n            max_depth = max(max_depth, current_depth)\n        elif char == ')':\n            current_depth -= 1\n        elif char == ' ':\n            depths.append(max_depth)\n            max_depth = 0\n            current_depth = 0\n    if max_depth > 0:\n        depths.append(max_depth)\n    return depths\n",
+    "model_output": "```python\ndef parse_nested_parens(paren_string: str) -> List[int]:\n    depths = []\n    current_depth = 0\n    max_depth = 0\n    for char in paren_string:\n        if char == '(':\n            current_depth += 1\n            max_depth = max(max_depth, current_depth)\n        elif char == ')':\n            current_depth -= 1\n        elif char == ' ':\n            depths.append(max_depth)\n            max_depth = 0\n            current_depth = 0\n    if max_depth > 0:\n        depths.append(max_depth)\n    return depths\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 99,
+    "estimated_recomputed_tokens": 104,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/6",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 2096.2163093090057,
+    "cached_tokens": 267,
+    "completion": "    depths = []\n    current_depth = 0\n    max_depth = 0\n    for char in paren_string:\n        if char == '(':\n            current_depth += 1\n            max_depth = max(max_depth, current_depth)\n        elif char == ')':\n            current_depth -= 1\n        elif char == ' ':\n            depths.append(max_depth)\n            max_depth = 0\n            current_depth = 0\n    if max_depth > 0:\n        depths.append(max_depth)\n    return depths\n",
+    "model_output": "```python\ndef parse_nested_parens(paren_string: str) -> List[int]:\n    depths = []\n    current_depth = 0\n    max_depth = 0\n    for char in paren_string:\n        if char == '(':\n            current_depth += 1\n            max_depth = max(max_depth, current_depth)\n        elif char == ')':\n            current_depth -= 1\n        elif char == ' ':\n            depths.append(max_depth)\n            max_depth = 0\n            current_depth = 0\n    if max_depth > 0:\n        depths.append(max_depth)\n    return depths\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 88,
+    "estimated_recomputed_tokens": 115,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/7",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 296.4134430885315,
+    "cached_tokens": 248,
+    "completion": "    return [s for s in strings if substring in s]\n",
+    "model_output": "```python\nreturn [s for s in strings if substring in s]\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 159,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/7",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 299.0479598045349,
+    "cached_tokens": 248,
+    "completion": "    return [s for s in strings if substring in s]\n",
+    "model_output": "```python\nreturn [s for s in strings if substring in s]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 77,
+    "estimated_recomputed_tokens": 82,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/7",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 302.89048171043396,
+    "cached_tokens": 248,
+    "completion": "    return [s for s in strings if substring in s]\n",
+    "model_output": "```python\nreturn [s for s in strings if substring in s]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 66,
+    "estimated_recomputed_tokens": 93,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/8",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 1088.408499956131,
+    "cached_tokens": 267,
+    "completion": "    if not numbers:\n        return 0, 1\n    total_sum = sum(numbers)\n    total_product = 1\n    for number in numbers:\n        total_product *= number\n    return total_sum, total_product\n",
+    "model_output": "```python\ndef sum_product(numbers: List[int]) -> Tuple[int, int]:\n    if not numbers:\n        return 0, 1\n    total_sum = sum(numbers)\n    total_product = 1\n    for number in numbers:\n        total_product *= number\n    return total_sum, total_product\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 204,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/8",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 1091.2314627170563,
+    "cached_tokens": 267,
+    "completion": "    if not numbers:\n        return 0, 1\n    total_sum = sum(numbers)\n    total_product = 1\n    for number in numbers:\n        total_product *= number\n    return total_sum, total_product\n",
+    "model_output": "```python\ndef sum_product(numbers: List[int]) -> Tuple[int, int]:\n    if not numbers:\n        return 0, 1\n    total_sum = sum(numbers)\n    total_product = 1\n    for number in numbers:\n        total_product *= number\n    return total_sum, total_product\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 100,
+    "estimated_recomputed_tokens": 104,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/8",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 1096.4743378162384,
+    "cached_tokens": 267,
+    "completion": "    if not numbers:\n        return 0, 1\n    total_sum = sum(numbers)\n    total_product = 1\n    for number in numbers:\n        total_product *= number\n    return total_sum, total_product\n",
+    "model_output": "```python\ndef sum_product(numbers: List[int]) -> Tuple[int, int]:\n    if not numbers:\n        return 0, 1\n    total_sum = sum(numbers)\n    total_product = 1\n    for number in numbers:\n        total_product *= number\n    return total_sum, total_product\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 88,
+    "estimated_recomputed_tokens": 116,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/9",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 829.5405809879303,
+    "cached_tokens": 255,
+    "completion": "    max_so_far = numbers[0]\n    return [max_so_far := max(max_so_far, num) for num in numbers]\n",
+    "model_output": "```python\nfrom typing import List\n\ndef rolling_max(numbers: List[int]) -> List[int]:\n    max_so_far = numbers[0]\n    return [max_so_far := max(max_so_far, num) for num in numbers]\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 174,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/9",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 836.7420320510864,
+    "cached_tokens": 255,
+    "completion": "    max_so_far = numbers[0]\n    return [max_so_far := max(max_so_far, num) for num in numbers]\n",
+    "model_output": "```python\nfrom typing import List\n\ndef rolling_max(numbers: List[int]) -> List[int]:\n    max_so_far = numbers[0]\n    return [max_so_far := max(max_so_far, num) for num in numbers]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 85,
+    "estimated_recomputed_tokens": 89,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/9",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 841.9563691616058,
+    "cached_tokens": 255,
+    "completion": "    max_so_far = numbers[0]\n    return [max_so_far := max(max_so_far, num) for num in numbers]\n",
+    "model_output": "```python\nfrom typing import List\n\ndef rolling_max(numbers: List[int]) -> List[int]:\n    max_so_far = numbers[0]\n    return [max_so_far := max(max_so_far, num) for num in numbers]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 73,
+    "estimated_recomputed_tokens": 101,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/10",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 991.9341938495636,
+    "cached_tokens": 297,
+    "completion": "    if not string:\n        return ''\n    for i in range(len(string)):\n        if is_palindrome(string[i:]):\n            return string + string[:i][::-1]\n    return string + string[::-1]\n",
+    "model_output": "```python\ndef make_palindrome(string: str) -> str:\n    if not string:\n        return ''\n    for i in range(len(string)):\n        if is_palindrome(string[i:]):\n            return string + string[:i][::-1]\n    return string + string[::-1]\n```",
+    "lossy_match_reason": null,
+    "span_count": 9,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 5,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 243,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 5
+    }
+  },
+  {
+    "task_id": "HumanEval/10",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 997.2692108154297,
+    "cached_tokens": 297,
+    "completion": "    if not string:\n        return ''\n    for i in range(len(string)):\n        if is_palindrome(string[i:]):\n            return string + string[:i][::-1]\n    return string + string[::-1]\n",
+    "model_output": "```python\ndef make_palindrome(string: str) -> str:\n    if not string:\n        return ''\n    for i in range(len(string)):\n        if is_palindrome(string[i:]):\n            return string + string[:i][::-1]\n    return string + string[::-1]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 9,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 5,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 117,
+    "estimated_recomputed_tokens": 126,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 5,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/10",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 1004.4812240600586,
+    "cached_tokens": 297,
+    "completion": "    if not string:\n        return ''\n    for i in range(len(string)):\n        if is_palindrome(string[i:]):\n            return string + string[:i][::-1]\n    return string + string[::-1]\n",
+    "model_output": "```python\ndef make_palindrome(string: str) -> str:\n    if not string:\n        return ''\n    for i in range(len(string)):\n        if is_palindrome(string[i:]):\n            return string + string[:i][::-1]\n    return string + string[::-1]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 9,
+    "selected_span_count": 5,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 5,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 5
+    },
+    "estimated_reused_tokens": 110,
+    "estimated_recomputed_tokens": 133,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 5
+    }
+  },
+  {
+    "task_id": "HumanEval/11",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 651.8061501979828,
+    "cached_tokens": 237,
+    "completion": "    return ''.join(str(int(a[i] != b[i]) for i in range(len(a))))\n",
+    "model_output": "```python\ndef string_xor(a: str, b: str) -> str:\n    return ''.join(str(int(a[i] != b[i]) for i in range(len(a))))\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 167,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/11",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 656.1959879398346,
+    "cached_tokens": 237,
+    "completion": "    return ''.join(str(int(a[i] != b[i]) for i in range(len(a))))\n",
+    "model_output": "```python\ndef string_xor(a: str, b: str) -> str:\n    return ''.join(str(int(a[i] != b[i]) for i in range(len(a))))\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 81,
+    "estimated_recomputed_tokens": 86,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/11",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 662.1239721775055,
+    "cached_tokens": 237,
+    "completion": "    return ''.join(str(int(a[i] != b[i]) for i in range(len(a))))\n",
+    "model_output": "```python\ndef string_xor(a: str, b: str) -> str:\n    return ''.join(str(int(a[i] != b[i]) for i in range(len(a))))\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 70,
+    "estimated_recomputed_tokens": 97,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/12",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 346.13443398475647,
+    "cached_tokens": 257,
+    "completion": "    if not strings:\n    return None\n    return max(strings, key=len)\n",
+    "model_output": "```python\nif not strings:\n    return None\nreturn max(strings, key=len)\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 190,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/12",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 350.4701659679413,
+    "cached_tokens": 257,
+    "completion": "    if not strings:\n    return None\n    return max(strings, key=len)\n",
+    "model_output": "```python\nif not strings:\n    return None\nreturn max(strings, key=len)\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 93,
+    "estimated_recomputed_tokens": 97,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/12",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 360.1001329421997,
+    "cached_tokens": 257,
+    "completion": "    if not strings:\n    return None\n    return max(strings, key=len)\n",
+    "model_output": "```python\nif not strings:\n    return None\nreturn max(strings, key=len)\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 81,
+    "estimated_recomputed_tokens": 109,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/13",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 668.634773015976,
+    "cached_tokens": 227,
+    "completion": "    while b:\n        a, b = b, a % b\n    return a\n",
+    "model_output": "```python\ndef greatest_common_divisor(a: int, b: int) -> int:\n    while b:\n        a, b = b, a % b\n    return a\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 141,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/13",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 673.5922431945801,
+    "cached_tokens": 227,
+    "completion": "    while b:\n        a, b = b, a % b\n    return a\n",
+    "model_output": "```python\ndef greatest_common_divisor(a: int, b: int) -> int:\n    while b:\n        a, b = b, a % b\n    return a\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 66,
+    "estimated_recomputed_tokens": 75,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/13",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 679.4637641906738,
+    "cached_tokens": 227,
+    "completion": "    while b:\n        a, b = b, a % b\n    return a\n",
+    "model_output": "```python\ndef greatest_common_divisor(a: int, b: int) -> int:\n    while b:\n        a, b = b, a % b\n    return a\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 59,
+    "estimated_recomputed_tokens": 82,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/14",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 637.0808410644531,
+    "cached_tokens": 214,
+    "completion": "    return [string[:i] for i in range(1, len(string) + 1)]\n",
+    "model_output": "```python\ndef all_prefixes(string: str) -> List[str]:\n    return [string[:i] for i in range(1, len(string) + 1)]\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 139,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/14",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 641.0647308826447,
+    "cached_tokens": 214,
+    "completion": "    return [string[:i] for i in range(1, len(string) + 1)]\n",
+    "model_output": "```python\ndef all_prefixes(string: str) -> List[str]:\n    return [string[:i] for i in range(1, len(string) + 1)]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 67,
+    "estimated_recomputed_tokens": 72,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/14",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 651.8912098407745,
+    "cached_tokens": 214,
+    "completion": "    return [string[:i] for i in range(1, len(string) + 1)]\n",
+    "model_output": "```python\ndef all_prefixes(string: str) -> List[str]:\n    return [string[:i] for i in range(1, len(string) + 1)]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 56,
+    "estimated_recomputed_tokens": 83,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/15",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 313.048654794693,
+    "cached_tokens": 223,
+    "completion": "    return ' '.join(map(str, range(n + 1)))\n",
+    "model_output": "```python\nreturn ' '.join(map(str, range(n + 1)))\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 145,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/15",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 317.8850758075714,
+    "cached_tokens": 223,
+    "completion": "    return ' '.join(map(str, range(n + 1)))\n",
+    "model_output": "```python\nreturn ' '.join(map(str, range(n + 1)))\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 68,
+    "estimated_recomputed_tokens": 77,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/15",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 330.23837995529175,
+    "cached_tokens": 223,
+    "completion": "    return ' '.join(map(str, range(n + 1)))\n",
+    "model_output": "```python\nreturn ' '.join(map(str, range(n + 1)))\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 61,
+    "estimated_recomputed_tokens": 84,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/16",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 199.18145489692688,
+    "cached_tokens": 225,
+    "completion": "    return len(set(string.lower()))\n",
+    "model_output": "```python\nreturn len(set(string.lower()))\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 143,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/16",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 204.34375095367432,
+    "cached_tokens": 225,
+    "completion": "    return len(set(string.lower()))\n",
+    "model_output": "```python\nreturn len(set(string.lower()))\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 67,
+    "estimated_recomputed_tokens": 76,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/16",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 217.50782203674316,
+    "cached_tokens": 225,
+    "completion": "    return len(set(string.lower()))\n",
+    "model_output": "```python\nreturn len(set(string.lower()))\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 60,
+    "estimated_recomputed_tokens": 83,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/17",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 895.952978849411,
+    "cached_tokens": 327,
+    "completion": "    mapping = {'o': 4, 'o|': 2, '.|': 1}\n    return [mapping[note] for note in music_string.split()]\n",
+    "model_output": "```python\ndef parse_music(music_string: str) -> List[int]:\n    mapping = {'o': 4, 'o|': 2, '.|': 1}\n    return [mapping[note] for note in music_string.split()]\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 271,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/17",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 899.599484205246,
+    "cached_tokens": 327,
+    "completion": "    mapping = {'o': 4, 'o|': 2, '.|': 1}\n    return [mapping[note] for note in music_string.split()]\n",
+    "model_output": "```python\ndef parse_music(music_string: str) -> List[int]:\n    mapping = {'o': 4, 'o|': 2, '.|': 1}\n    return [mapping[note] for note in music_string.split()]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 133,
+    "estimated_recomputed_tokens": 138,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/17",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 915.3506517410278,
+    "cached_tokens": 327,
+    "completion": "    mapping = {'o': 4, 'o|': 2, '.|': 1}\n    return [mapping[note] for note in music_string.split()]\n",
+    "model_output": "```python\ndef parse_music(music_string: str) -> List[int]:\n    mapping = {'o': 4, 'o|': 2, '.|': 1}\n    return [mapping[note] for note in music_string.split()]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 122,
+    "estimated_recomputed_tokens": 149,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/18",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 1316.0755240917206,
+    "cached_tokens": 243,
+    "completion": "    count = 0\n    start = 0\n    while start < len(string):\n        pos = string.find(substring, start)\n        if pos != -1:\n            count += 1\n            start = pos + 1\n        else:\n            break\n    return count\n",
+    "model_output": "```python\ndef how_many_times(string: str, substring: str) -> int:\n    count = 0\n    start = 0\n    while start < len(string):\n        pos = string.find(substring, start)\n        if pos != -1:\n            count += 1\n            start = pos + 1\n        else:\n            break\n    return count\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 161,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/18",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 1319.9152448177338,
+    "cached_tokens": 243,
+    "completion": "    count = 0\n    start = 0\n    while start < len(string):\n        pos = string.find(substring, start)\n        if pos != -1:\n            count += 1\n            start = pos + 1\n        else:\n            break\n    return count\n",
+    "model_output": "```python\ndef how_many_times(string: str, substring: str) -> int:\n    count = 0\n    start = 0\n    while start < len(string):\n        pos = string.find(substring, start)\n        if pos != -1:\n            count += 1\n            start = pos + 1\n        else:\n            break\n    return count\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 76,
+    "estimated_recomputed_tokens": 85,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/18",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 1335.9045979976654,
+    "cached_tokens": 243,
+    "completion": "    count = 0\n    start = 0\n    while start < len(string):\n        pos = string.find(substring, start)\n        if pos != -1:\n            count += 1\n            start = pos + 1\n        else:\n            break\n    return count\n",
+    "model_output": "```python\ndef how_many_times(string: str, substring: str) -> int:\n    count = 0\n    start = 0\n    while start < len(string):\n        pos = string.find(substring, start)\n        if pos != -1:\n            count += 1\n            start = pos + 1\n        else:\n            break\n    return count\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 69,
+    "estimated_recomputed_tokens": 92,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/19",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 1992.9373559951782,
+    "cached_tokens": 260,
+    "completion": "    numeral_map = {\n        'zero': 0,\n        'one': 1,\n        'two': 2,\n        'three': 3,\n        'four': 4,\n        'five': 5,\n        'six': 6,\n        'seven': 7,\n        'eight': 8,\n        'nine': 9\n    }\n    \n    nums = numbers.split()\n    sorted_nums = sorted(nums, key=lambda x: numeral_map[x])\n    return ' '.join(sorted_nums)\n",
+    "model_output": "```python\ndef sort_numbers(numbers: str) -> str:\n    numeral_map = {\n        'zero': 0,\n        'one': 1,\n        'two': 2,\n        'three': 3,\n        'four': 4,\n        'five': 5,\n        'six': 6,\n        'seven': 7,\n        'eight': 8,\n        'nine': 9\n    }\n    \n    nums = numbers.split()\n    sorted_nums = sorted(nums, key=lambda x: numeral_map[x])\n    return ' '.join(sorted_nums)\n```",
+    "lossy_match_reason": null,
+    "span_count": 8,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 187,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 4
+    }
+  },
+  {
+    "task_id": "HumanEval/19",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 2004.051539182663,
+    "cached_tokens": 260,
+    "completion": "    numeral_map = {\n        'zero': 0,\n        'one': 1,\n        'two': 2,\n        'three': 3,\n        'four': 4,\n        'five': 5,\n        'six': 6,\n        'seven': 7,\n        'eight': 8,\n        'nine': 9\n    }\n    \n    nums = numbers.split()\n    sorted_nums = sorted(nums, key=lambda x: numeral_map[x])\n    return ' '.join(sorted_nums)\n",
+    "model_output": "```python\ndef sort_numbers(numbers: str) -> str:\n    numeral_map = {\n        'zero': 0,\n        'one': 1,\n        'two': 2,\n        'three': 3,\n        'four': 4,\n        'five': 5,\n        'six': 6,\n        'seven': 7,\n        'eight': 8,\n        'nine': 9\n    }\n    \n    nums = numbers.split()\n    sorted_nums = sorted(nums, key=lambda x: numeral_map[x])\n    return ' '.join(sorted_nums)\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 91,
+    "estimated_recomputed_tokens": 96,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 4,
+      "granularity_risk": 2
+    }
+  },
+  {
+    "task_id": "HumanEval/19",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 2013.2149443626404,
+    "cached_tokens": 260,
+    "completion": "    numeral_map = {\n        'zero': 0,\n        'one': 1,\n        'two': 2,\n        'three': 3,\n        'four': 4,\n        'five': 5,\n        'six': 6,\n        'seven': 7,\n        'eight': 8,\n        'nine': 9\n    }\n    \n    nums = numbers.split()\n    sorted_nums = sorted(nums, key=lambda x: numeral_map[x])\n    return ' '.join(sorted_nums)\n",
+    "model_output": "```python\ndef sort_numbers(numbers: str) -> str:\n    numeral_map = {\n        'zero': 0,\n        'one': 1,\n        'two': 2,\n        'three': 3,\n        'four': 4,\n        'five': 5,\n        'six': 6,\n        'seven': 7,\n        'eight': 8,\n        'nine': 9\n    }\n    \n    nums = numbers.split()\n    sorted_nums = sorted(nums, key=lambda x: numeral_map[x])\n    return ' '.join(sorted_nums)\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 8,
+    "selected_span_count": 4,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 4,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 4
+    },
+    "estimated_reused_tokens": 80,
+    "estimated_recomputed_tokens": 107,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 4
+    }
+  }
+]

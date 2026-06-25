@@ -1,0 +1,3698 @@
+{
+  "selector_snapshot": {
+    "git_commit": "5fb934751",
+    "policy": "results/selective_ast_reuse/data/selective_reuse_policy_extended.json",
+    "policy_sha1": "f256dd7fa88d1ee1e4a0a117a9877eaa00bd4246",
+    "dataset": "results/selective_ast_reuse/data/swe_selective_wholefile_68k_1file_taskaware_instances.json",
+    "dataset_sha1": "18d34837f6869d669bcf354ee5ca899ea1455658",
+    "manifest": "results/selective_ast_reuse/data/combined_plus1766_graphfile_auth_20260619/manifest.json",
+    "manifest_sha1": "879cea9077beb1ea3ce456f18767a96c7f10aee9",
+    "max_file_chars": 22000,
+    "max_complete_file_chars": 60000,
+    "server_random_seed": 42,
+    "target_modes": [
+      "lossless_full_prefill",
+      "hybrid_code_aware_lossy"
+    ],
+    "enable_graph_aware_lossy": false,
+    "load_graph_bundles_for_selection": true,
+    "enable_hybrid_code_aware_lossy": true,
+    "hybrid_min_bridge_tokens": 200,
+    "hybrid_max_bridge_tokens": 8000,
+    "hybrid_bridge_anchor_max_tokens": 1600,
+    "hybrid_bridge_max_count_per_file": 0,
+    "include_hybrid_bridge_seed_spans": true,
+    "hybrid_bridge_source": "task_ast",
+    "hybrid_task_ast_top_k": 3,
+    "hybrid_risk_large_bridge_min_tokens": 0,
+    "hybrid_risk_max_large_bridge_count": 0,
+    "hybrid_risk_max_graph_tokens_for_large_bridge": 0,
+    "enable_bridge_prefix_anchors": false,
+    "bridge_anchor_max_tokens": 0,
+    "disable_graph_bridge_prefix_anchors": false,
+    "selection_min_estimated_reused_tokens": 0,
+    "selective_anchor_min_span_tokens": 200,
+    "selective_anchor_max_span_tokens": 0,
+    "selective_anchor_max_start_token": 0,
+    "anchor_min_total_tokens": 0,
+    "anchor_max_total_tokens": 12000,
+    "anchor_max_total_policy": "reject",
+    "exclude_anchor_granularities": "",
+    "graph_anchor_token_budget": 1600,
+    "graph_anchor_max_span_tokens": 900,
+    "lossy_max_planned_suffix_copy_len": 8000,
+    "case_selector_overrides": "results/selective_ast_reuse/highcost_pytest_fullfile_selector_overrides_20260620.json",
+    "case_selector_override_cases": 4
+  },
+  "dataset": "results/selective_ast_reuse/data/swe_selective_wholefile_68k_1file_taskaware_instances.json",
+  "manifest": "results/selective_ast_reuse/data/combined_plus1766_graphfile_auth_20260619/manifest.json",
+  "modes": [
+    "lossless_full_prefill",
+    "hybrid_code_aware_lossy"
+  ],
+  "hybrid_calibration_policy": "",
+  "hybrid_calibration_policy_cases": 0,
+  "hybrid_calibration_policy_rules": 0,
+  "rows": [
+    {
+      "instance_id": "pallets__flask-5014",
+      "repo": "pallets/flask",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 0,
+      "selected_span_count_by_granularity": {},
+      "estimated_reused_tokens": 0,
+      "estimated_recomputed_tokens": 4470,
+      "decision_reason_counts": {},
+      "selected_anchor_names": [],
+      "selected_anchor_features": [],
+      "selected_anchor_task_features": [],
+      "max_anchor_lexical_overlap": 0,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 0,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "psf__requests-1142",
+      "repo": "psf/requests",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 7,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "method": 2,
+        "class": 2
+      },
+      "estimated_reused_tokens": 5905,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_graph_mapped_ast_span": 1,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "requests/models.py:bridge_window:bounded:161-657",
+        "requests/models.py:bridge_window:bounded:1-470",
+        "requests/models.py:bridge_window:bounded:1-429",
+        "requests/models.py:method:prepare_content_length:388-395",
+        "requests/models.py:class:Response:432-657",
+        "requests/models.py:method:__init__:437-470",
+        "requests/models.py:class:PreparedRequest:234-429"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "requests/models.py:bridge_window:bounded:161-657",
+          "path": "requests/models.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "161-657"
+        },
+        {
+          "name": "requests/models.py:bridge_window:bounded:1-470",
+          "path": "requests/models.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-470"
+        },
+        {
+          "name": "requests/models.py:bridge_window:bounded:1-429",
+          "path": "requests/models.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-429"
+        },
+        {
+          "name": "requests/models.py:method:prepare_content_length:388-395",
+          "path": "requests/models.py",
+          "granularity": "method",
+          "symbol": "prepare_content_length",
+          "line_range": "388-395"
+        },
+        {
+          "name": "requests/models.py:class:Response:432-657",
+          "path": "requests/models.py",
+          "granularity": "class",
+          "symbol": "Response",
+          "line_range": "432-657"
+        },
+        {
+          "name": "requests/models.py:method:__init__:437-470",
+          "path": "requests/models.py",
+          "granularity": "method",
+          "symbol": "__init__",
+          "line_range": "437-470"
+        },
+        {
+          "name": "requests/models.py:class:PreparedRequest:234-429",
+          "path": "requests/models.py",
+          "granularity": "class",
+          "symbol": "PreparedRequest",
+          "line_range": "234-429"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "requests/models.py:bridge_window:bounded:161-657",
+          "path": "requests/models.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "161-657",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "requests/models.py:bridge_window:bounded:1-470",
+          "path": "requests/models.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-470",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "requests/models.py:bridge_window:bounded:1-429",
+          "path": "requests/models.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-429",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "requests/models.py:method:prepare_content_length:388-395",
+          "path": "requests/models.py",
+          "granularity": "method",
+          "symbol": "prepare_content_length",
+          "line_range": "388-395",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "requests/models.py:class:Response:432-657",
+          "path": "requests/models.py",
+          "granularity": "class",
+          "symbol": "Response",
+          "line_range": "432-657",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "requests/models.py:method:__init__:437-470",
+          "path": "requests/models.py",
+          "granularity": "method",
+          "symbol": "__init__",
+          "line_range": "437-470",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "requests/models.py:class:PreparedRequest:234-429",
+          "path": "requests/models.py",
+          "granularity": "class",
+          "symbol": "PreparedRequest",
+          "line_range": "234-429",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        }
+      ],
+      "max_anchor_lexical_overlap": 0,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 0,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "psf__requests-1724",
+      "repo": "psf/requests",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 0,
+      "selected_span_count_by_granularity": {},
+      "estimated_reused_tokens": 0,
+      "estimated_recomputed_tokens": 2255,
+      "decision_reason_counts": {},
+      "selected_anchor_names": [],
+      "selected_anchor_features": [],
+      "selected_anchor_task_features": [],
+      "max_anchor_lexical_overlap": 0,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 0,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "psf__requests-1766",
+      "repo": "psf/requests",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "method": 1,
+        "class": 1,
+        "control_block": 1
+      },
+      "estimated_reused_tokens": 2350,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "requests/auth.py:bridge_window:bounded:1-183",
+        "requests/auth.py:bridge_window:bounded:1-194",
+        "requests/auth.py:bridge_window:bounded:1-180",
+        "requests/auth.py:method:handle_401:151-183",
+        "requests/auth.py:class:HTTPDigestAuth:58-194",
+        "requests/auth.py:control_block:if:161-180"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "requests/auth.py:bridge_window:bounded:1-183",
+          "path": "requests/auth.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-183"
+        },
+        {
+          "name": "requests/auth.py:bridge_window:bounded:1-194",
+          "path": "requests/auth.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-194"
+        },
+        {
+          "name": "requests/auth.py:bridge_window:bounded:1-180",
+          "path": "requests/auth.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-180"
+        },
+        {
+          "name": "requests/auth.py:method:handle_401:151-183",
+          "path": "requests/auth.py",
+          "granularity": "method",
+          "symbol": "handle_401",
+          "line_range": "151-183"
+        },
+        {
+          "name": "requests/auth.py:class:HTTPDigestAuth:58-194",
+          "path": "requests/auth.py",
+          "granularity": "class",
+          "symbol": "HTTPDigestAuth",
+          "line_range": "58-194"
+        },
+        {
+          "name": "requests/auth.py:control_block:if:161-180",
+          "path": "requests/auth.py",
+          "granularity": "control_block",
+          "symbol": "if",
+          "line_range": "161-180"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "requests/auth.py:bridge_window:bounded:1-183",
+          "path": "requests/auth.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-183",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "requests/auth.py:bridge_window:bounded:1-194",
+          "path": "requests/auth.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-194",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "requests/auth.py:bridge_window:bounded:1-180",
+          "path": "requests/auth.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-180",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "requests/auth.py:method:handle_401:151-183",
+          "path": "requests/auth.py",
+          "granularity": "method",
+          "symbol": "handle_401",
+          "line_range": "151-183",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "requests/auth.py:class:HTTPDigestAuth:58-194",
+          "path": "requests/auth.py",
+          "granularity": "class",
+          "symbol": "HTTPDigestAuth",
+          "line_range": "58-194",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 1,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "requests/auth.py:control_block:if:161-180",
+          "path": "requests/auth.py",
+          "granularity": "control_block",
+          "symbol": "if",
+          "line_range": "161-180",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        }
+      ],
+      "max_anchor_lexical_overlap": 2,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 1,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "psf__requests-1921",
+      "repo": "psf/requests",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 5,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 2,
+        "class": 2,
+        "method": 1
+      },
+      "estimated_reused_tokens": 4115,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 2,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "requests/sessions.py:bridge_window:bounded:1-182",
+        "requests/sessions.py:bridge_window:bounded:95-563",
+        "requests/sessions.py:class:SessionRedirectMixin:81-182",
+        "requests/sessions.py:class:Session:185-563",
+        "requests/sessions.py:method:resolve_redirects:82-182"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "requests/sessions.py:bridge_window:bounded:1-182",
+          "path": "requests/sessions.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-182"
+        },
+        {
+          "name": "requests/sessions.py:bridge_window:bounded:95-563",
+          "path": "requests/sessions.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "95-563"
+        },
+        {
+          "name": "requests/sessions.py:class:SessionRedirectMixin:81-182",
+          "path": "requests/sessions.py",
+          "granularity": "class",
+          "symbol": "SessionRedirectMixin",
+          "line_range": "81-182"
+        },
+        {
+          "name": "requests/sessions.py:class:Session:185-563",
+          "path": "requests/sessions.py",
+          "granularity": "class",
+          "symbol": "Session",
+          "line_range": "185-563"
+        },
+        {
+          "name": "requests/sessions.py:method:resolve_redirects:82-182",
+          "path": "requests/sessions.py",
+          "granularity": "method",
+          "symbol": "resolve_redirects",
+          "line_range": "82-182"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "requests/sessions.py:bridge_window:bounded:1-182",
+          "path": "requests/sessions.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-182",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "requests/sessions.py:bridge_window:bounded:95-563",
+          "path": "requests/sessions.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "95-563",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "requests/sessions.py:class:SessionRedirectMixin:81-182",
+          "path": "requests/sessions.py",
+          "granularity": "class",
+          "symbol": "SessionRedirectMixin",
+          "line_range": "81-182",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "requests/sessions.py:class:Session:185-563",
+          "path": "requests/sessions.py",
+          "granularity": "class",
+          "symbol": "Session",
+          "line_range": "185-563",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 1,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "requests/sessions.py:method:resolve_redirects:82-182",
+          "path": "requests/sessions.py",
+          "granularity": "method",
+          "symbol": "resolve_redirects",
+          "line_range": "82-182",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        }
+      ],
+      "max_anchor_lexical_overlap": 1,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 1,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "psf__requests-2317",
+      "repo": "psf/requests",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "method": 3
+      },
+      "estimated_reused_tokens": 4501,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "requests/sessions.py:bridge_window:bounded:1-459",
+        "requests/sessions.py:bridge_window:bounded:140-608",
+        "requests/sessions.py:bridge_window:bounded:1-220",
+        "requests/sessions.py:method:request:378-459",
+        "requests/sessions.py:method:send:531-608",
+        "requests/sessions.py:method:rebuild_auth:197-220"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "requests/sessions.py:bridge_window:bounded:1-459",
+          "path": "requests/sessions.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-459"
+        },
+        {
+          "name": "requests/sessions.py:bridge_window:bounded:140-608",
+          "path": "requests/sessions.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "140-608"
+        },
+        {
+          "name": "requests/sessions.py:bridge_window:bounded:1-220",
+          "path": "requests/sessions.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-220"
+        },
+        {
+          "name": "requests/sessions.py:method:request:378-459",
+          "path": "requests/sessions.py",
+          "granularity": "method",
+          "symbol": "request",
+          "line_range": "378-459"
+        },
+        {
+          "name": "requests/sessions.py:method:send:531-608",
+          "path": "requests/sessions.py",
+          "granularity": "method",
+          "symbol": "send",
+          "line_range": "531-608"
+        },
+        {
+          "name": "requests/sessions.py:method:rebuild_auth:197-220",
+          "path": "requests/sessions.py",
+          "granularity": "method",
+          "symbol": "rebuild_auth",
+          "line_range": "197-220"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "requests/sessions.py:bridge_window:bounded:1-459",
+          "path": "requests/sessions.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-459",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "requests/sessions.py:bridge_window:bounded:140-608",
+          "path": "requests/sessions.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "140-608",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "requests/sessions.py:bridge_window:bounded:1-220",
+          "path": "requests/sessions.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-220",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "requests/sessions.py:method:request:378-459",
+          "path": "requests/sessions.py",
+          "granularity": "method",
+          "symbol": "request",
+          "line_range": "378-459",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 4
+        },
+        {
+          "name": "requests/sessions.py:method:send:531-608",
+          "path": "requests/sessions.py",
+          "granularity": "method",
+          "symbol": "send",
+          "line_range": "531-608",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 4
+        },
+        {
+          "name": "requests/sessions.py:method:rebuild_auth:197-220",
+          "path": "requests/sessions.py",
+          "granularity": "method",
+          "symbol": "rebuild_auth",
+          "line_range": "197-220",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        }
+      ],
+      "max_anchor_lexical_overlap": 4,
+      "any_anchor_path_mentioned": true,
+      "any_anchor_basename_mentioned": true,
+      "max_anchor_symbol_overlap": 1,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "psf__requests-2931",
+      "repo": "psf/requests",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 0,
+      "selected_span_count_by_granularity": {},
+      "estimated_reused_tokens": 0,
+      "estimated_recomputed_tokens": 2254,
+      "decision_reason_counts": {},
+      "selected_anchor_names": [],
+      "selected_anchor_features": [],
+      "selected_anchor_task_features": [],
+      "max_anchor_lexical_overlap": 0,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 0,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "psf__requests-5414",
+      "repo": "psf/requests",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "method": 1,
+        "control_block": 2
+      },
+      "estimated_reused_tokens": 4885,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "requests/models.py:bridge_window:bounded:1-444",
+        "requests/models.py:bridge_window:bounded:1-405",
+        "requests/models.py:bridge_window:bounded:1-407",
+        "requests/models.py:method:prepare_url:360-444",
+        "requests/models.py:control_block:try:402-405",
+        "requests/models.py:control_block:if:401-407"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "requests/models.py:bridge_window:bounded:1-444",
+          "path": "requests/models.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-444"
+        },
+        {
+          "name": "requests/models.py:bridge_window:bounded:1-405",
+          "path": "requests/models.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-405"
+        },
+        {
+          "name": "requests/models.py:bridge_window:bounded:1-407",
+          "path": "requests/models.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-407"
+        },
+        {
+          "name": "requests/models.py:method:prepare_url:360-444",
+          "path": "requests/models.py",
+          "granularity": "method",
+          "symbol": "prepare_url",
+          "line_range": "360-444"
+        },
+        {
+          "name": "requests/models.py:control_block:try:402-405",
+          "path": "requests/models.py",
+          "granularity": "control_block",
+          "symbol": "try",
+          "line_range": "402-405"
+        },
+        {
+          "name": "requests/models.py:control_block:if:401-407",
+          "path": "requests/models.py",
+          "granularity": "control_block",
+          "symbol": "if",
+          "line_range": "401-407"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "requests/models.py:bridge_window:bounded:1-444",
+          "path": "requests/models.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-444",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "requests/models.py:bridge_window:bounded:1-405",
+          "path": "requests/models.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-405",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "requests/models.py:bridge_window:bounded:1-407",
+          "path": "requests/models.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-407",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "requests/models.py:method:prepare_url:360-444",
+          "path": "requests/models.py",
+          "granularity": "method",
+          "symbol": "prepare_url",
+          "line_range": "360-444",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "requests/models.py:control_block:try:402-405",
+          "path": "requests/models.py",
+          "granularity": "control_block",
+          "symbol": "try",
+          "line_range": "402-405",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 4
+        },
+        {
+          "name": "requests/models.py:control_block:if:401-407",
+          "path": "requests/models.py",
+          "granularity": "control_block",
+          "symbol": "if",
+          "line_range": "401-407",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 4
+        }
+      ],
+      "max_anchor_lexical_overlap": 4,
+      "any_anchor_path_mentioned": true,
+      "any_anchor_basename_mentioned": true,
+      "max_anchor_symbol_overlap": 1,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "psf__requests-6028",
+      "repo": "psf/requests",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 0,
+      "selected_span_count_by_granularity": {},
+      "estimated_reused_tokens": 0,
+      "estimated_recomputed_tokens": 2418,
+      "decision_reason_counts": {},
+      "selected_anchor_names": [],
+      "selected_anchor_features": [],
+      "selected_anchor_task_features": [],
+      "max_anchor_lexical_overlap": 0,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 0,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10051",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "class": 1,
+        "method": 1,
+        "function": 1
+      },
+      "estimated_reused_tokens": 5101,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "src/_pytest/logging.py:bridge_window:bounded:12-483",
+        "src/_pytest/logging.py:bridge_window:bounded:1-399",
+        "src/_pytest/logging.py:bridge_window:bounded:31-500",
+        "src/_pytest/logging.py:class:LogCaptureFixture:358-483",
+        "src/_pytest/logging.py:method:get_records:388-399",
+        "src/_pytest/logging.py:function:caplog:487-500"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "src/_pytest/logging.py:bridge_window:bounded:12-483",
+          "path": "src/_pytest/logging.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "12-483"
+        },
+        {
+          "name": "src/_pytest/logging.py:bridge_window:bounded:1-399",
+          "path": "src/_pytest/logging.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-399"
+        },
+        {
+          "name": "src/_pytest/logging.py:bridge_window:bounded:31-500",
+          "path": "src/_pytest/logging.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "31-500"
+        },
+        {
+          "name": "src/_pytest/logging.py:class:LogCaptureFixture:358-483",
+          "path": "src/_pytest/logging.py",
+          "granularity": "class",
+          "symbol": "LogCaptureFixture",
+          "line_range": "358-483"
+        },
+        {
+          "name": "src/_pytest/logging.py:method:get_records:388-399",
+          "path": "src/_pytest/logging.py",
+          "granularity": "method",
+          "symbol": "get_records",
+          "line_range": "388-399"
+        },
+        {
+          "name": "src/_pytest/logging.py:function:caplog:487-500",
+          "path": "src/_pytest/logging.py",
+          "granularity": "function",
+          "symbol": "caplog",
+          "line_range": "487-500"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "src/_pytest/logging.py:bridge_window:bounded:12-483",
+          "path": "src/_pytest/logging.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "12-483",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/logging.py:bridge_window:bounded:1-399",
+          "path": "src/_pytest/logging.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-399",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/logging.py:bridge_window:bounded:31-500",
+          "path": "src/_pytest/logging.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "31-500",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/logging.py:class:LogCaptureFixture:358-483",
+          "path": "src/_pytest/logging.py",
+          "granularity": "class",
+          "symbol": "LogCaptureFixture",
+          "line_range": "358-483",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/logging.py:method:get_records:388-399",
+          "path": "src/_pytest/logging.py",
+          "granularity": "method",
+          "symbol": "get_records",
+          "line_range": "388-399",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 4
+        },
+        {
+          "name": "src/_pytest/logging.py:function:caplog:487-500",
+          "path": "src/_pytest/logging.py",
+          "granularity": "function",
+          "symbol": "caplog",
+          "line_range": "487-500",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 4
+        }
+      ],
+      "max_anchor_lexical_overlap": 4,
+      "any_anchor_path_mentioned": true,
+      "any_anchor_basename_mentioned": true,
+      "max_anchor_symbol_overlap": 1,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10081",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 5,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 2,
+        "method": 1,
+        "class": 1,
+        "control_block": 1
+      },
+      "estimated_reused_tokens": 2830,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 2,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "src/_pytest/unittest.py:bridge_window:bounded:1-329",
+        "src/_pytest/unittest.py:bridge_window:bounded:1-339",
+        "src/_pytest/unittest.py:method:runtest:301-329",
+        "src/_pytest/unittest.py:class:TestCaseFunction:183-339",
+        "src/_pytest/unittest.py:control_block:if:309-329"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "src/_pytest/unittest.py:bridge_window:bounded:1-329",
+          "path": "src/_pytest/unittest.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-329"
+        },
+        {
+          "name": "src/_pytest/unittest.py:bridge_window:bounded:1-339",
+          "path": "src/_pytest/unittest.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-339"
+        },
+        {
+          "name": "src/_pytest/unittest.py:method:runtest:301-329",
+          "path": "src/_pytest/unittest.py",
+          "granularity": "method",
+          "symbol": "runtest",
+          "line_range": "301-329"
+        },
+        {
+          "name": "src/_pytest/unittest.py:class:TestCaseFunction:183-339",
+          "path": "src/_pytest/unittest.py",
+          "granularity": "class",
+          "symbol": "TestCaseFunction",
+          "line_range": "183-339"
+        },
+        {
+          "name": "src/_pytest/unittest.py:control_block:if:309-329",
+          "path": "src/_pytest/unittest.py",
+          "granularity": "control_block",
+          "symbol": "if",
+          "line_range": "309-329"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "src/_pytest/unittest.py:bridge_window:bounded:1-329",
+          "path": "src/_pytest/unittest.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-329",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/unittest.py:bridge_window:bounded:1-339",
+          "path": "src/_pytest/unittest.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-339",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/unittest.py:method:runtest:301-329",
+          "path": "src/_pytest/unittest.py",
+          "granularity": "method",
+          "symbol": "runtest",
+          "line_range": "301-329",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/unittest.py:class:TestCaseFunction:183-339",
+          "path": "src/_pytest/unittest.py",
+          "granularity": "class",
+          "symbol": "TestCaseFunction",
+          "line_range": "183-339",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/unittest.py:control_block:if:309-329",
+          "path": "src/_pytest/unittest.py",
+          "granularity": "control_block",
+          "symbol": "if",
+          "line_range": "309-329",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        }
+      ],
+      "max_anchor_lexical_overlap": 3,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": true,
+      "max_anchor_symbol_overlap": 0,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10356",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "class": 1,
+        "method": 2
+      },
+      "estimated_reused_tokens": 4120,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "src/_pytest/mark/structures.py:bridge_window:bounded:137-590",
+        "src/_pytest/mark/structures.py:bridge_window:bounded:80-529",
+        "src/_pytest/mark/structures.py:bridge_window:bounded:1-125",
+        "src/_pytest/mark/structures.py:class:NodeKeywords:536-590",
+        "src/_pytest/mark/structures.py:method:__getattr__:490-529",
+        "src/_pytest/mark/structures.py:method:extract_from:99-125"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "src/_pytest/mark/structures.py:bridge_window:bounded:137-590",
+          "path": "src/_pytest/mark/structures.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "137-590"
+        },
+        {
+          "name": "src/_pytest/mark/structures.py:bridge_window:bounded:80-529",
+          "path": "src/_pytest/mark/structures.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "80-529"
+        },
+        {
+          "name": "src/_pytest/mark/structures.py:bridge_window:bounded:1-125",
+          "path": "src/_pytest/mark/structures.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-125"
+        },
+        {
+          "name": "src/_pytest/mark/structures.py:class:NodeKeywords:536-590",
+          "path": "src/_pytest/mark/structures.py",
+          "granularity": "class",
+          "symbol": "NodeKeywords",
+          "line_range": "536-590"
+        },
+        {
+          "name": "src/_pytest/mark/structures.py:method:__getattr__:490-529",
+          "path": "src/_pytest/mark/structures.py",
+          "granularity": "method",
+          "symbol": "__getattr__",
+          "line_range": "490-529"
+        },
+        {
+          "name": "src/_pytest/mark/structures.py:method:extract_from:99-125",
+          "path": "src/_pytest/mark/structures.py",
+          "granularity": "method",
+          "symbol": "extract_from",
+          "line_range": "99-125"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "src/_pytest/mark/structures.py:bridge_window:bounded:137-590",
+          "path": "src/_pytest/mark/structures.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "137-590",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/mark/structures.py:bridge_window:bounded:80-529",
+          "path": "src/_pytest/mark/structures.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "80-529",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/mark/structures.py:bridge_window:bounded:1-125",
+          "path": "src/_pytest/mark/structures.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-125",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/mark/structures.py:class:NodeKeywords:536-590",
+          "path": "src/_pytest/mark/structures.py",
+          "granularity": "class",
+          "symbol": "NodeKeywords",
+          "line_range": "536-590",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/mark/structures.py:method:__getattr__:490-529",
+          "path": "src/_pytest/mark/structures.py",
+          "granularity": "method",
+          "symbol": "__getattr__",
+          "line_range": "490-529",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/mark/structures.py:method:extract_from:99-125",
+          "path": "src/_pytest/mark/structures.py",
+          "granularity": "method",
+          "symbol": "extract_from",
+          "line_range": "99-125",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        }
+      ],
+      "max_anchor_lexical_overlap": 1,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 0,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5262",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "class": 1,
+        "method": 1,
+        "control_block": 1
+      },
+      "estimated_reused_tokens": 4201,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "src/_pytest/capture.py:bridge_window:bounded:1-451",
+        "src/_pytest/capture.py:bridge_window:bounded:1-439",
+        "src/_pytest/capture.py:bridge_window:bounded:1-438",
+        "src/_pytest/capture.py:class:EncodedFile:425-451",
+        "src/_pytest/capture.py:method:write:432-439",
+        "src/_pytest/capture.py:control_block:if:433-438"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "src/_pytest/capture.py:bridge_window:bounded:1-451",
+          "path": "src/_pytest/capture.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-451"
+        },
+        {
+          "name": "src/_pytest/capture.py:bridge_window:bounded:1-439",
+          "path": "src/_pytest/capture.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-439"
+        },
+        {
+          "name": "src/_pytest/capture.py:bridge_window:bounded:1-438",
+          "path": "src/_pytest/capture.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-438"
+        },
+        {
+          "name": "src/_pytest/capture.py:class:EncodedFile:425-451",
+          "path": "src/_pytest/capture.py",
+          "granularity": "class",
+          "symbol": "EncodedFile",
+          "line_range": "425-451"
+        },
+        {
+          "name": "src/_pytest/capture.py:method:write:432-439",
+          "path": "src/_pytest/capture.py",
+          "granularity": "method",
+          "symbol": "write",
+          "line_range": "432-439"
+        },
+        {
+          "name": "src/_pytest/capture.py:control_block:if:433-438",
+          "path": "src/_pytest/capture.py",
+          "granularity": "control_block",
+          "symbol": "if",
+          "line_range": "433-438"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "src/_pytest/capture.py:bridge_window:bounded:1-451",
+          "path": "src/_pytest/capture.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-451",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/capture.py:bridge_window:bounded:1-439",
+          "path": "src/_pytest/capture.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-439",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/capture.py:bridge_window:bounded:1-438",
+          "path": "src/_pytest/capture.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-438",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/capture.py:class:EncodedFile:425-451",
+          "path": "src/_pytest/capture.py",
+          "granularity": "class",
+          "symbol": "EncodedFile",
+          "line_range": "425-451",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/capture.py:method:write:432-439",
+          "path": "src/_pytest/capture.py",
+          "granularity": "method",
+          "symbol": "write",
+          "line_range": "432-439",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/capture.py:control_block:if:433-438",
+          "path": "src/_pytest/capture.py",
+          "granularity": "control_block",
+          "symbol": "if",
+          "line_range": "433-438",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        }
+      ],
+      "max_anchor_lexical_overlap": 3,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": true,
+      "max_anchor_symbol_overlap": 1,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5631",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "function": 3
+      },
+      "estimated_reused_tokens": 1976,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "src/_pytest/compat.py:bridge_window:bounded:1-73",
+        "src/_pytest/compat.py:bridge_window:bounded:1-126",
+        "src/_pytest/compat.py:bridge_window:bounded:1-232",
+        "src/_pytest/compat.py:function:num_mock_patch_args:62-73",
+        "src/_pytest/compat.py:function:getfuncargnames:76-126",
+        "src/_pytest/compat.py:function:get_real_func:207-232"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "src/_pytest/compat.py:bridge_window:bounded:1-73",
+          "path": "src/_pytest/compat.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-73"
+        },
+        {
+          "name": "src/_pytest/compat.py:bridge_window:bounded:1-126",
+          "path": "src/_pytest/compat.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-126"
+        },
+        {
+          "name": "src/_pytest/compat.py:bridge_window:bounded:1-232",
+          "path": "src/_pytest/compat.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-232"
+        },
+        {
+          "name": "src/_pytest/compat.py:function:num_mock_patch_args:62-73",
+          "path": "src/_pytest/compat.py",
+          "granularity": "function",
+          "symbol": "num_mock_patch_args",
+          "line_range": "62-73"
+        },
+        {
+          "name": "src/_pytest/compat.py:function:getfuncargnames:76-126",
+          "path": "src/_pytest/compat.py",
+          "granularity": "function",
+          "symbol": "getfuncargnames",
+          "line_range": "76-126"
+        },
+        {
+          "name": "src/_pytest/compat.py:function:get_real_func:207-232",
+          "path": "src/_pytest/compat.py",
+          "granularity": "function",
+          "symbol": "get_real_func",
+          "line_range": "207-232"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "src/_pytest/compat.py:bridge_window:bounded:1-73",
+          "path": "src/_pytest/compat.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-73",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/compat.py:bridge_window:bounded:1-126",
+          "path": "src/_pytest/compat.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-126",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/compat.py:bridge_window:bounded:1-232",
+          "path": "src/_pytest/compat.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-232",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/compat.py:function:num_mock_patch_args:62-73",
+          "path": "src/_pytest/compat.py",
+          "granularity": "function",
+          "symbol": "num_mock_patch_args",
+          "line_range": "62-73",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/compat.py:function:getfuncargnames:76-126",
+          "path": "src/_pytest/compat.py",
+          "granularity": "function",
+          "symbol": "getfuncargnames",
+          "line_range": "76-126",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/compat.py:function:get_real_func:207-232",
+          "path": "src/_pytest/compat.py",
+          "granularity": "function",
+          "symbol": "get_real_func",
+          "line_range": "207-232",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        }
+      ],
+      "max_anchor_lexical_overlap": 3,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": true,
+      "max_anchor_symbol_overlap": 1,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5787",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "method": 1,
+        "control_block": 2
+      },
+      "estimated_reused_tokens": 4421,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "src/_pytest/python.py:bridge_window:bounded:46-545",
+        "src/_pytest/python.py:bridge_window:bounded:44-543",
+        "src/_pytest/python.py:bridge_window:bounded:1-235",
+        "src/_pytest/python.py:method:_importtestmodule:497-545",
+        "src/_pytest/python.py:control_block:try:500-543",
+        "src/_pytest/python.py:control_block:if:209-235"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:46-545",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "46-545"
+        },
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:44-543",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "44-543"
+        },
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:1-235",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-235"
+        },
+        {
+          "name": "src/_pytest/python.py:method:_importtestmodule:497-545",
+          "path": "src/_pytest/python.py",
+          "granularity": "method",
+          "symbol": "_importtestmodule",
+          "line_range": "497-545"
+        },
+        {
+          "name": "src/_pytest/python.py:control_block:try:500-543",
+          "path": "src/_pytest/python.py",
+          "granularity": "control_block",
+          "symbol": "try",
+          "line_range": "500-543"
+        },
+        {
+          "name": "src/_pytest/python.py:control_block:if:209-235",
+          "path": "src/_pytest/python.py",
+          "granularity": "control_block",
+          "symbol": "if",
+          "line_range": "209-235"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:46-545",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "46-545",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:44-543",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "44-543",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:1-235",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-235",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/python.py:method:_importtestmodule:497-545",
+          "path": "src/_pytest/python.py",
+          "granularity": "method",
+          "symbol": "_importtestmodule",
+          "line_range": "497-545",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/python.py:control_block:try:500-543",
+          "path": "src/_pytest/python.py",
+          "granularity": "control_block",
+          "symbol": "try",
+          "line_range": "500-543",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 1,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/python.py:control_block:if:209-235",
+          "path": "src/_pytest/python.py",
+          "granularity": "control_block",
+          "symbol": "if",
+          "line_range": "209-235",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        }
+      ],
+      "max_anchor_lexical_overlap": 2,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 1,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5809",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "function": 3
+      },
+      "estimated_reused_tokens": 948,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "src/_pytest/pastebin.py:bridge_window:bounded:1-91",
+        "src/_pytest/pastebin.py:bridge_window:bounded:1-114",
+        "src/_pytest/pastebin.py:bridge_window:bounded:1-46",
+        "src/_pytest/pastebin.py:function:create_new_paste:65-91",
+        "src/_pytest/pastebin.py:function:pytest_terminal_summary:94-114",
+        "src/_pytest/pastebin.py:function:pytest_configure:29-46"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "src/_pytest/pastebin.py:bridge_window:bounded:1-91",
+          "path": "src/_pytest/pastebin.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-91"
+        },
+        {
+          "name": "src/_pytest/pastebin.py:bridge_window:bounded:1-114",
+          "path": "src/_pytest/pastebin.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-114"
+        },
+        {
+          "name": "src/_pytest/pastebin.py:bridge_window:bounded:1-46",
+          "path": "src/_pytest/pastebin.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-46"
+        },
+        {
+          "name": "src/_pytest/pastebin.py:function:create_new_paste:65-91",
+          "path": "src/_pytest/pastebin.py",
+          "granularity": "function",
+          "symbol": "create_new_paste",
+          "line_range": "65-91"
+        },
+        {
+          "name": "src/_pytest/pastebin.py:function:pytest_terminal_summary:94-114",
+          "path": "src/_pytest/pastebin.py",
+          "granularity": "function",
+          "symbol": "pytest_terminal_summary",
+          "line_range": "94-114"
+        },
+        {
+          "name": "src/_pytest/pastebin.py:function:pytest_configure:29-46",
+          "path": "src/_pytest/pastebin.py",
+          "granularity": "function",
+          "symbol": "pytest_configure",
+          "line_range": "29-46"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "src/_pytest/pastebin.py:bridge_window:bounded:1-91",
+          "path": "src/_pytest/pastebin.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-91",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/pastebin.py:bridge_window:bounded:1-114",
+          "path": "src/_pytest/pastebin.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-114",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/pastebin.py:bridge_window:bounded:1-46",
+          "path": "src/_pytest/pastebin.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-46",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/pastebin.py:function:create_new_paste:65-91",
+          "path": "src/_pytest/pastebin.py",
+          "granularity": "function",
+          "symbol": "create_new_paste",
+          "line_range": "65-91",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 4
+        },
+        {
+          "name": "src/_pytest/pastebin.py:function:pytest_terminal_summary:94-114",
+          "path": "src/_pytest/pastebin.py",
+          "granularity": "function",
+          "symbol": "pytest_terminal_summary",
+          "line_range": "94-114",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/pastebin.py:function:pytest_configure:29-46",
+          "path": "src/_pytest/pastebin.py",
+          "granularity": "function",
+          "symbol": "pytest_configure",
+          "line_range": "29-46",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        }
+      ],
+      "max_anchor_lexical_overlap": 4,
+      "any_anchor_path_mentioned": true,
+      "any_anchor_basename_mentioned": true,
+      "max_anchor_symbol_overlap": 1,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5840",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "function": 3
+      },
+      "estimated_reused_tokens": 3067,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "src/_pytest/pathlib.py:bridge_window:bounded:1-332",
+        "src/_pytest/pathlib.py:bridge_window:bounded:1-346",
+        "src/_pytest/pathlib.py:bridge_window:bounded:1-218",
+        "src/_pytest/pathlib.py:function:fnmatch_ex:300-332",
+        "src/_pytest/pathlib.py:function:unique_path:340-346",
+        "src/_pytest/pathlib.py:function:maybe_delete_a_numbered_dir:195-218"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "src/_pytest/pathlib.py:bridge_window:bounded:1-332",
+          "path": "src/_pytest/pathlib.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-332"
+        },
+        {
+          "name": "src/_pytest/pathlib.py:bridge_window:bounded:1-346",
+          "path": "src/_pytest/pathlib.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-346"
+        },
+        {
+          "name": "src/_pytest/pathlib.py:bridge_window:bounded:1-218",
+          "path": "src/_pytest/pathlib.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-218"
+        },
+        {
+          "name": "src/_pytest/pathlib.py:function:fnmatch_ex:300-332",
+          "path": "src/_pytest/pathlib.py",
+          "granularity": "function",
+          "symbol": "fnmatch_ex",
+          "line_range": "300-332"
+        },
+        {
+          "name": "src/_pytest/pathlib.py:function:unique_path:340-346",
+          "path": "src/_pytest/pathlib.py",
+          "granularity": "function",
+          "symbol": "unique_path",
+          "line_range": "340-346"
+        },
+        {
+          "name": "src/_pytest/pathlib.py:function:maybe_delete_a_numbered_dir:195-218",
+          "path": "src/_pytest/pathlib.py",
+          "granularity": "function",
+          "symbol": "maybe_delete_a_numbered_dir",
+          "line_range": "195-218"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "src/_pytest/pathlib.py:bridge_window:bounded:1-332",
+          "path": "src/_pytest/pathlib.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-332",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/pathlib.py:bridge_window:bounded:1-346",
+          "path": "src/_pytest/pathlib.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-346",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/pathlib.py:bridge_window:bounded:1-218",
+          "path": "src/_pytest/pathlib.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-218",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/pathlib.py:function:fnmatch_ex:300-332",
+          "path": "src/_pytest/pathlib.py",
+          "granularity": "function",
+          "symbol": "fnmatch_ex",
+          "line_range": "300-332",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/pathlib.py:function:unique_path:340-346",
+          "path": "src/_pytest/pathlib.py",
+          "granularity": "function",
+          "symbol": "unique_path",
+          "line_range": "340-346",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 1,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/pathlib.py:function:maybe_delete_a_numbered_dir:195-218",
+          "path": "src/_pytest/pathlib.py",
+          "granularity": "function",
+          "symbol": "maybe_delete_a_numbered_dir",
+          "line_range": "195-218",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        }
+      ],
+      "max_anchor_lexical_overlap": 2,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 1,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-6197",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "method": 2,
+        "class": 1
+      },
+      "estimated_reused_tokens": 5588,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "testing/python/metafunc.py:bridge_window:bounded:717-1474",
+        "testing/python/metafunc.py:bridge_window:bounded:59-683",
+        "testing/python/metafunc.py:bridge_window:bounded:1042-1799",
+        "testing/python/metafunc.py:method:test_parametrize_some_arguments_auto_scope:1443-1474",
+        "testing/python/metafunc.py:method:test_parametrize_uses_no_fixture_error_indirect_false:665-683",
+        "testing/python/metafunc.py:class:TestMarkersWithParametrization:1511-1799"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:717-1474",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "717-1474"
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:59-683",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "59-683"
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:1042-1799",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1042-1799"
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_some_arguments_auto_scope:1443-1474",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_some_arguments_auto_scope",
+          "line_range": "1443-1474"
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_uses_no_fixture_error_indirect_false:665-683",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_uses_no_fixture_error_indirect_false",
+          "line_range": "665-683"
+        },
+        {
+          "name": "testing/python/metafunc.py:class:TestMarkersWithParametrization:1511-1799",
+          "path": "testing/python/metafunc.py",
+          "granularity": "class",
+          "symbol": "TestMarkersWithParametrization",
+          "line_range": "1511-1799"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:717-1474",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "717-1474",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:59-683",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "59-683",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:1042-1799",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1042-1799",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_some_arguments_auto_scope:1443-1474",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_some_arguments_auto_scope",
+          "line_range": "1443-1474",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_uses_no_fixture_error_indirect_false:665-683",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_uses_no_fixture_error_indirect_false",
+          "line_range": "665-683",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:class:TestMarkersWithParametrization:1511-1799",
+          "path": "testing/python/metafunc.py",
+          "granularity": "class",
+          "symbol": "TestMarkersWithParametrization",
+          "line_range": "1511-1799",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        }
+      ],
+      "max_anchor_lexical_overlap": 0,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 0,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-6202",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "function": 1,
+        "method": 2
+      },
+      "estimated_reused_tokens": 2536,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "src/_pytest/python.py:bridge_window:bounded:1-149",
+        "src/_pytest/python.py:bridge_window:bounded:1-305",
+        "src/_pytest/python.py:bridge_window:bounded:1-289",
+        "src/_pytest/python.py:function:pytest_configure:132-149",
+        "src/_pytest/python.py:method:reportinfo:291-305",
+        "src/_pytest/python.py:method:getmodpath:271-289"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:1-149",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-149"
+        },
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:1-305",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-305"
+        },
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:1-289",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-289"
+        },
+        {
+          "name": "src/_pytest/python.py:function:pytest_configure:132-149",
+          "path": "src/_pytest/python.py",
+          "granularity": "function",
+          "symbol": "pytest_configure",
+          "line_range": "132-149"
+        },
+        {
+          "name": "src/_pytest/python.py:method:reportinfo:291-305",
+          "path": "src/_pytest/python.py",
+          "granularity": "method",
+          "symbol": "reportinfo",
+          "line_range": "291-305"
+        },
+        {
+          "name": "src/_pytest/python.py:method:getmodpath:271-289",
+          "path": "src/_pytest/python.py",
+          "granularity": "method",
+          "symbol": "getmodpath",
+          "line_range": "271-289"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:1-149",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-149",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:1-305",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-305",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:1-289",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-289",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/python.py:function:pytest_configure:132-149",
+          "path": "src/_pytest/python.py",
+          "granularity": "function",
+          "symbol": "pytest_configure",
+          "line_range": "132-149",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/python.py:method:reportinfo:291-305",
+          "path": "src/_pytest/python.py",
+          "granularity": "method",
+          "symbol": "reportinfo",
+          "line_range": "291-305",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 4
+        },
+        {
+          "name": "src/_pytest/python.py:method:getmodpath:271-289",
+          "path": "src/_pytest/python.py",
+          "granularity": "method",
+          "symbol": "getmodpath",
+          "line_range": "271-289",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 4
+        }
+      ],
+      "max_anchor_lexical_overlap": 4,
+      "any_anchor_path_mentioned": true,
+      "any_anchor_basename_mentioned": true,
+      "max_anchor_symbol_overlap": 1,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7205",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "function": 3
+      },
+      "estimated_reused_tokens": 469,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "src/_pytest/setuponly.py:bridge_window:bounded:1-74",
+        "src/_pytest/setuponly.py:bridge_window:bounded:1-34",
+        "src/_pytest/setuponly.py:bridge_window:bounded:1-43",
+        "src/_pytest/setuponly.py:function:_show_fixture_action:46-74",
+        "src/_pytest/setuponly.py:function:pytest_fixture_setup:21-34",
+        "src/_pytest/setuponly.py:function:pytest_fixture_post_finalizer:37-43"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "src/_pytest/setuponly.py:bridge_window:bounded:1-74",
+          "path": "src/_pytest/setuponly.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-74"
+        },
+        {
+          "name": "src/_pytest/setuponly.py:bridge_window:bounded:1-34",
+          "path": "src/_pytest/setuponly.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-34"
+        },
+        {
+          "name": "src/_pytest/setuponly.py:bridge_window:bounded:1-43",
+          "path": "src/_pytest/setuponly.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-43"
+        },
+        {
+          "name": "src/_pytest/setuponly.py:function:_show_fixture_action:46-74",
+          "path": "src/_pytest/setuponly.py",
+          "granularity": "function",
+          "symbol": "_show_fixture_action",
+          "line_range": "46-74"
+        },
+        {
+          "name": "src/_pytest/setuponly.py:function:pytest_fixture_setup:21-34",
+          "path": "src/_pytest/setuponly.py",
+          "granularity": "function",
+          "symbol": "pytest_fixture_setup",
+          "line_range": "21-34"
+        },
+        {
+          "name": "src/_pytest/setuponly.py:function:pytest_fixture_post_finalizer:37-43",
+          "path": "src/_pytest/setuponly.py",
+          "granularity": "function",
+          "symbol": "pytest_fixture_post_finalizer",
+          "line_range": "37-43"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "src/_pytest/setuponly.py:bridge_window:bounded:1-74",
+          "path": "src/_pytest/setuponly.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-74",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/setuponly.py:bridge_window:bounded:1-34",
+          "path": "src/_pytest/setuponly.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-34",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/setuponly.py:bridge_window:bounded:1-43",
+          "path": "src/_pytest/setuponly.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-43",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "src/_pytest/setuponly.py:function:_show_fixture_action:46-74",
+          "path": "src/_pytest/setuponly.py",
+          "granularity": "function",
+          "symbol": "_show_fixture_action",
+          "line_range": "46-74",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 4
+        },
+        {
+          "name": "src/_pytest/setuponly.py:function:pytest_fixture_setup:21-34",
+          "path": "src/_pytest/setuponly.py",
+          "granularity": "function",
+          "symbol": "pytest_fixture_setup",
+          "line_range": "21-34",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 4
+        },
+        {
+          "name": "src/_pytest/setuponly.py:function:pytest_fixture_post_finalizer:37-43",
+          "path": "src/_pytest/setuponly.py",
+          "granularity": "function",
+          "symbol": "pytest_fixture_post_finalizer",
+          "line_range": "37-43",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        }
+      ],
+      "max_anchor_lexical_overlap": 4,
+      "any_anchor_path_mentioned": true,
+      "any_anchor_basename_mentioned": true,
+      "max_anchor_symbol_overlap": 1,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7236",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "method": 3
+      },
+      "estimated_reused_tokens": 4391,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "src/_pytest/python.py:bridge_window:bounded:1-394",
+        "src/_pytest/python.py:bridge_window:bounded:1-362",
+        "src/_pytest/python.py:bridge_window:bounded:1-481",
+        "src/_pytest/python.py:method:collect:364-394",
+        "src/_pytest/python.py:method:_matches_prefix_or_glob_option:347-362",
+        "src/_pytest/python.py:method:_inject_setup_module_fixture:456-481"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:1-394",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-394"
+        },
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:1-362",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-362"
+        },
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:1-481",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-481"
+        },
+        {
+          "name": "src/_pytest/python.py:method:collect:364-394",
+          "path": "src/_pytest/python.py",
+          "granularity": "method",
+          "symbol": "collect",
+          "line_range": "364-394"
+        },
+        {
+          "name": "src/_pytest/python.py:method:_matches_prefix_or_glob_option:347-362",
+          "path": "src/_pytest/python.py",
+          "granularity": "method",
+          "symbol": "_matches_prefix_or_glob_option",
+          "line_range": "347-362"
+        },
+        {
+          "name": "src/_pytest/python.py:method:_inject_setup_module_fixture:456-481",
+          "path": "src/_pytest/python.py",
+          "granularity": "method",
+          "symbol": "_inject_setup_module_fixture",
+          "line_range": "456-481"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:1-394",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-394",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:1-362",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-362",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/python.py:bridge_window:bounded:1-481",
+          "path": "src/_pytest/python.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-481",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/python.py:method:collect:364-394",
+          "path": "src/_pytest/python.py",
+          "granularity": "method",
+          "symbol": "collect",
+          "line_range": "364-394",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 1,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/python.py:method:_matches_prefix_or_glob_option:347-362",
+          "path": "src/_pytest/python.py",
+          "granularity": "method",
+          "symbol": "_matches_prefix_or_glob_option",
+          "line_range": "347-362",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        },
+        {
+          "name": "src/_pytest/python.py:method:_inject_setup_module_fixture:456-481",
+          "path": "src/_pytest/python.py",
+          "granularity": "method",
+          "symbol": "_inject_setup_module_fixture",
+          "line_range": "456-481",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 1
+        }
+      ],
+      "max_anchor_lexical_overlap": 2,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 1,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7324",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "class": 1,
+        "method": 1,
+        "function": 1
+      },
+      "estimated_reused_tokens": 885,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "src/_pytest/mark/expression.py:bridge_window:bounded:1-71",
+        "src/_pytest/mark/expression.py:bridge_window:bounded:1-68",
+        "src/_pytest/mark/expression.py:bridge_window:bounded:1-136",
+        "src/_pytest/mark/expression.py:class:ParseError:59-71",
+        "src/_pytest/mark/expression.py:method:__init__:66-68",
+        "src/_pytest/mark/expression.py:function:expression:130-136"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "src/_pytest/mark/expression.py:bridge_window:bounded:1-71",
+          "path": "src/_pytest/mark/expression.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-71"
+        },
+        {
+          "name": "src/_pytest/mark/expression.py:bridge_window:bounded:1-68",
+          "path": "src/_pytest/mark/expression.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-68"
+        },
+        {
+          "name": "src/_pytest/mark/expression.py:bridge_window:bounded:1-136",
+          "path": "src/_pytest/mark/expression.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-136"
+        },
+        {
+          "name": "src/_pytest/mark/expression.py:class:ParseError:59-71",
+          "path": "src/_pytest/mark/expression.py",
+          "granularity": "class",
+          "symbol": "ParseError",
+          "line_range": "59-71"
+        },
+        {
+          "name": "src/_pytest/mark/expression.py:method:__init__:66-68",
+          "path": "src/_pytest/mark/expression.py",
+          "granularity": "method",
+          "symbol": "__init__",
+          "line_range": "66-68"
+        },
+        {
+          "name": "src/_pytest/mark/expression.py:function:expression:130-136",
+          "path": "src/_pytest/mark/expression.py",
+          "granularity": "function",
+          "symbol": "expression",
+          "line_range": "130-136"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "src/_pytest/mark/expression.py:bridge_window:bounded:1-71",
+          "path": "src/_pytest/mark/expression.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-71",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/mark/expression.py:bridge_window:bounded:1-68",
+          "path": "src/_pytest/mark/expression.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-68",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/mark/expression.py:bridge_window:bounded:1-136",
+          "path": "src/_pytest/mark/expression.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-136",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/mark/expression.py:class:ParseError:59-71",
+          "path": "src/_pytest/mark/expression.py",
+          "granularity": "class",
+          "symbol": "ParseError",
+          "line_range": "59-71",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/mark/expression.py:method:__init__:66-68",
+          "path": "src/_pytest/mark/expression.py",
+          "granularity": "method",
+          "symbol": "__init__",
+          "line_range": "66-68",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/mark/expression.py:function:expression:130-136",
+          "path": "src/_pytest/mark/expression.py",
+          "granularity": "function",
+          "symbol": "expression",
+          "line_range": "130-136",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 1,
+          "lexical_overlap": 3
+        }
+      ],
+      "max_anchor_lexical_overlap": 3,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": true,
+      "max_anchor_symbol_overlap": 1,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7432",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "method": 3
+      },
+      "estimated_reused_tokens": 3749,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "testing/python/metafunc.py:bridge_window:bounded:27-607",
+        "testing/python/metafunc.py:bridge_window:bounded:9-579",
+        "testing/python/metafunc.py:bridge_window:bounded:1-105",
+        "testing/python/metafunc.py:method:test_parametrize_ids_returns_non_string:581-607",
+        "testing/python/metafunc.py:method:test_parametrize_ids_exception:556-579",
+        "testing/python/metafunc.py:method:test_parametrize_error_iterator:77-105"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:27-607",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "27-607"
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:9-579",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "9-579"
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:1-105",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-105"
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_ids_returns_non_string:581-607",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_ids_returns_non_string",
+          "line_range": "581-607"
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_ids_exception:556-579",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_ids_exception",
+          "line_range": "556-579"
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_error_iterator:77-105",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_error_iterator",
+          "line_range": "77-105"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:27-607",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "27-607",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:9-579",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "9-579",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:1-105",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-105",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_ids_returns_non_string:581-607",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_ids_returns_non_string",
+          "line_range": "581-607",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_ids_exception:556-579",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_ids_exception",
+          "line_range": "556-579",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_error_iterator:77-105",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_error_iterator",
+          "line_range": "77-105",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        }
+      ],
+      "max_anchor_lexical_overlap": 0,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 0,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7490",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "function": 3
+      },
+      "estimated_reused_tokens": 2551,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "src/_pytest/skipping.py:bridge_window:bounded:1-84",
+        "src/_pytest/skipping.py:bridge_window:bounded:1-306",
+        "src/_pytest/skipping.py:bridge_window:bounded:1-244",
+        "src/_pytest/skipping.py:function:pytest_configure:48-84",
+        "src/_pytest/skipping.py:function:pytest_runtest_makereport:261-306",
+        "src/_pytest/skipping.py:function:pytest_runtest_setup:233-244"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "src/_pytest/skipping.py:bridge_window:bounded:1-84",
+          "path": "src/_pytest/skipping.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-84"
+        },
+        {
+          "name": "src/_pytest/skipping.py:bridge_window:bounded:1-306",
+          "path": "src/_pytest/skipping.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-306"
+        },
+        {
+          "name": "src/_pytest/skipping.py:bridge_window:bounded:1-244",
+          "path": "src/_pytest/skipping.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-244"
+        },
+        {
+          "name": "src/_pytest/skipping.py:function:pytest_configure:48-84",
+          "path": "src/_pytest/skipping.py",
+          "granularity": "function",
+          "symbol": "pytest_configure",
+          "line_range": "48-84"
+        },
+        {
+          "name": "src/_pytest/skipping.py:function:pytest_runtest_makereport:261-306",
+          "path": "src/_pytest/skipping.py",
+          "granularity": "function",
+          "symbol": "pytest_runtest_makereport",
+          "line_range": "261-306"
+        },
+        {
+          "name": "src/_pytest/skipping.py:function:pytest_runtest_setup:233-244",
+          "path": "src/_pytest/skipping.py",
+          "granularity": "function",
+          "symbol": "pytest_runtest_setup",
+          "line_range": "233-244"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "src/_pytest/skipping.py:bridge_window:bounded:1-84",
+          "path": "src/_pytest/skipping.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-84",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/skipping.py:bridge_window:bounded:1-306",
+          "path": "src/_pytest/skipping.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-306",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/skipping.py:bridge_window:bounded:1-244",
+          "path": "src/_pytest/skipping.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1-244",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/skipping.py:function:pytest_configure:48-84",
+          "path": "src/_pytest/skipping.py",
+          "granularity": "function",
+          "symbol": "pytest_configure",
+          "line_range": "48-84",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/skipping.py:function:pytest_runtest_makereport:261-306",
+          "path": "src/_pytest/skipping.py",
+          "granularity": "function",
+          "symbol": "pytest_runtest_makereport",
+          "line_range": "261-306",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        },
+        {
+          "name": "src/_pytest/skipping.py:function:pytest_runtest_setup:233-244",
+          "path": "src/_pytest/skipping.py",
+          "granularity": "function",
+          "symbol": "pytest_runtest_setup",
+          "line_range": "233-244",
+          "path_mentioned": false,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 2
+        }
+      ],
+      "max_anchor_lexical_overlap": 2,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": true,
+      "max_anchor_symbol_overlap": 0,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7521",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "method": 3
+      },
+      "estimated_reused_tokens": 4988,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "testing/python/metafunc.py:bridge_window:bounded:644-1315",
+        "testing/python/metafunc.py:bridge_window:bounded:1031-1728",
+        "testing/python/metafunc.py:bridge_window:bounded:1100-1794",
+        "testing/python/metafunc.py:method:test_parametrize_scope_overrides:1290-1315",
+        "testing/python/metafunc.py:method:test_xfail_passing_is_xpass:1709-1728",
+        "testing/python/metafunc.py:method:test_parametrize_marked_value:1772-1794"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:644-1315",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "644-1315"
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:1031-1728",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1031-1728"
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:1100-1794",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1100-1794"
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_scope_overrides:1290-1315",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_scope_overrides",
+          "line_range": "1290-1315"
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_xfail_passing_is_xpass:1709-1728",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_xfail_passing_is_xpass",
+          "line_range": "1709-1728"
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_marked_value:1772-1794",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_marked_value",
+          "line_range": "1772-1794"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:644-1315",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "644-1315",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:1031-1728",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1031-1728",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:1100-1794",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "1100-1794",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_scope_overrides:1290-1315",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_scope_overrides",
+          "line_range": "1290-1315",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_xfail_passing_is_xpass:1709-1728",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_xfail_passing_is_xpass",
+          "line_range": "1709-1728",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_marked_value:1772-1794",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_marked_value",
+          "line_range": "1772-1794",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        }
+      ],
+      "max_anchor_lexical_overlap": 0,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 0,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7571",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "method": 3
+      },
+      "estimated_reused_tokens": 5027,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "testing/python/metafunc.py:bridge_window:bounded:849-1547",
+        "testing/python/metafunc.py:bridge_window:bounded:153-739",
+        "testing/python/metafunc.py:bridge_window:bounded:874-1581",
+        "testing/python/metafunc.py:method:test_parametrize_some_arguments_auto_scope:1514-1547",
+        "testing/python/metafunc.py:method:test_parametrize_uses_no_fixture_error_indirect_false:719-739",
+        "testing/python/metafunc.py:method:test_parametrize_issue634:1549-1581"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:849-1547",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "849-1547"
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:153-739",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "153-739"
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:874-1581",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "874-1581"
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_some_arguments_auto_scope:1514-1547",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_some_arguments_auto_scope",
+          "line_range": "1514-1547"
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_uses_no_fixture_error_indirect_false:719-739",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_uses_no_fixture_error_indirect_false",
+          "line_range": "719-739"
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_issue634:1549-1581",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_issue634",
+          "line_range": "1549-1581"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:849-1547",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "849-1547",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:153-739",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "153-739",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:874-1581",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "874-1581",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_some_arguments_auto_scope:1514-1547",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_some_arguments_auto_scope",
+          "line_range": "1514-1547",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_uses_no_fixture_error_indirect_false:719-739",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_uses_no_fixture_error_indirect_false",
+          "line_range": "719-739",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_issue634:1549-1581",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_issue634",
+          "line_range": "1549-1581",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        }
+      ],
+      "max_anchor_lexical_overlap": 0,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 0,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7982",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 0,
+      "selected_span_count_by_granularity": {},
+      "estimated_reused_tokens": 0,
+      "estimated_recomputed_tokens": 2118,
+      "decision_reason_counts": {},
+      "selected_anchor_names": [],
+      "selected_anchor_features": [],
+      "selected_anchor_task_features": [],
+      "max_anchor_lexical_overlap": 0,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 0,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    },
+    {
+      "instance_id": "pytest-dev__pytest-8399",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 6,
+      "selected_span_count_by_granularity": {
+        "bridge_window": 3,
+        "method": 3
+      },
+      "estimated_reused_tokens": 4960,
+      "estimated_recomputed_tokens": 0,
+      "decision_reason_counts": {
+        "reuse:hybrid_large_function_bridge": 3,
+        "reuse:hybrid_bridge_seed_span": 3
+      },
+      "selected_anchor_names": [
+        "testing/python/metafunc.py:bridge_window:bounded:861-1559",
+        "testing/python/metafunc.py:bridge_window:bounded:201-829",
+        "testing/python/metafunc.py:bridge_window:bounded:500-1164",
+        "testing/python/metafunc.py:method:test_parametrize_some_arguments_auto_scope:1526-1559",
+        "testing/python/metafunc.py:method:test_parametrize_argument_not_in_indirect_list:812-829",
+        "testing/python/metafunc.py:method:test_parametrize_on_setup_arg:1143-1164"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:861-1559",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "861-1559"
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:201-829",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "201-829"
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:500-1164",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "500-1164"
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_some_arguments_auto_scope:1526-1559",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_some_arguments_auto_scope",
+          "line_range": "1526-1559"
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_argument_not_in_indirect_list:812-829",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_argument_not_in_indirect_list",
+          "line_range": "812-829"
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_on_setup_arg:1143-1164",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_on_setup_arg",
+          "line_range": "1143-1164"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:861-1559",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "861-1559",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:201-829",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "201-829",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:bridge_window:bounded:500-1164",
+          "path": "testing/python/metafunc.py",
+          "granularity": "bridge_window",
+          "symbol": "bounded",
+          "line_range": "500-1164",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_some_arguments_auto_scope:1526-1559",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_some_arguments_auto_scope",
+          "line_range": "1526-1559",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_argument_not_in_indirect_list:812-829",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_argument_not_in_indirect_list",
+          "line_range": "812-829",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        },
+        {
+          "name": "testing/python/metafunc.py:method:test_parametrize_on_setup_arg:1143-1164",
+          "path": "testing/python/metafunc.py",
+          "granularity": "method",
+          "symbol": "test_parametrize_on_setup_arg",
+          "line_range": "1143-1164",
+          "path_mentioned": false,
+          "basename_mentioned": false,
+          "symbol_overlap": 0,
+          "lexical_overlap": 0
+        }
+      ],
+      "max_anchor_lexical_overlap": 0,
+      "any_anchor_path_mentioned": false,
+      "any_anchor_basename_mentioned": false,
+      "max_anchor_symbol_overlap": 0,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_bridge_window_synthesized": null,
+      "hybrid_calibration_bridge_window_max_tokens": "",
+      "hybrid_calibration_bridge_window_seed_count": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "src/_pytest/skipping.py",
+      "search": "if not rep.skipped and xfailed:",
+      "replace": "if not rep.skipped and xfailed and not item._store.get('runxfail', False):"
+    }
+  ]
+}
+```

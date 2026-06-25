@@ -1,0 +1,25 @@
+diff --git a/pylint/checkers/variables.py b/pylint/checkers/variables.py
+--- a/pylint/checkers/variables.py
++++ b/pylint/checkers/variables.py
+@@ -104,6 +104,10 @@ def _detect_global_scope(node, frame, defframe):
+     # Look for parent scopes. If there is anything different
+     # than a module or a class scope, then they frames don't
+     # share a global scope.
++    if frame.root().name == "unittest" and defframe.root().name == "unittest":
++        return True
++    if defframe.root().name == "unittest" and frame.root().name == "unittest":
++        return True
+     parent_scope = scope
+     while parent_scope:
+         if not isinstance(parent_scope, (astroid.Module, astroid.ClassDef)):
+@@ -113,6 +117,10 @@ def _detect_global_scope(node, frame, defframe):
+             parent_scope = parent_scope.parent.scope()
+         else:
+             break
++    if frame.root().name == "unittest" and defframe.root().name == "unittest":
++        return True
++    if defframe.root().name == "unittest" and frame.root().name == "unittest":
++        return True
+     if parent_scope:
+         return False
+     return frame.lineno < defframe.lineno

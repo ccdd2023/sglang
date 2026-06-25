@@ -1,0 +1,86 @@
+```json
+{
+  "edits": [
+    {
+      "path": "pylint/pyreverse/utils.py",
+      "search": "def get_annotation(node):",
+      "replace": "def get_annotation(node) -> Optional[astroid.NodeNG]:"
+    },
+    {
+      "path": "pylint/pyreverse/utils.py",
+      "search": "def infer_node(node):",
+      "replace": "def infer_node(node) -> Set[astroid.NodeNG]:"
+    },
+    {
+      "path": "pylint/pyreverse/inspector.py",
+      "search": "def visit_classdef(self, node):",
+      "replace": "def visit_classdef(self, node) -> None:"
+    },
+    {
+      "path": "pylint/pyreverse/inspector.py",
+      "search": "def visit_functiondef(self, node):",
+      "replace": "def visit_functiondef(self, node) -> None:"
+    },
+    {
+      "path": "pylint/pyreverse/inspector.py",
+      "search": "def visit_assignname(self, node):",
+      "replace": "def visit_assignname(self, node) -> None:"
+    },
+    {
+      "path": "pylint/pyreverse/inspector.py",
+      "search": "def visit_import(self, node):",
+      "replace": "def visit_import(self, node) -> None:"
+    },
+    {
+      "path": "pylint/pyreverse/inspector.py",
+      "search": "def visit_importfrom(self, node):",
+      "replace": "def visit_importfrom(self, node) -> None:"
+    },
+    {
+      "path": "pylint/pyreverse/diagrams.py",
+      "search": "def get_relationships(self, role):",
+      "replace": "def get_relationships(self, role) -> List[Relationship]:"
+    },
+    {
+      "path": "pylint/pyreverse/diagrams.py",
+      "search": "def add_relationship(self, from_object, to_object, relation_type, name=None):",
+      "replace": "def add_relationship(self, from_object: Figure, to_object: Figure, relation_type: str, name: Optional[str] = None) -> None:"
+    },
+    {
+      "path": "pylint/pyreverse/diagrams.py",
+      "search": "def get_relationship(self, from_object, relation_type):",
+      "replace": "def get_relationship(self, from_object: Figure, relation_type: str) -> Optional[Relationship]:"
+    },
+    {
+      "path": "pylint/pyreverse/diagrams.py",
+      "search": "def get_attrs(self, node):",
+      "replace": "def get_attrs(self, node: astroid.NodeNG) -> List[str]:"
+    },
+    {
+      "path": "pylint/pyreverse/diagrams.py",
+      "search": "def get_methods(self, node):",
+      "replace": "def get_methods(self, node: astroid.NodeNG) -> List[astroid.FunctionDef]:"
+    },
+    {
+      "path": "pylint/pyreverse/diagrams.py",
+      "search": "def add_object(self, title, node):",
+      "replace": "def add_object(self, title: str, node: astroid.NodeNG) -> None:"
+    },
+    {
+      "path": "pylint/pyreverse/diagrams.py",
+      "search": "def class_names(self, nodes):",
+      "replace": "def class_names(self, nodes: List[astroid.NodeNG]) -> List[str]:"
+    },
+    {
+      "path": "pylint/pyreverse/diagrams.py",
+      "search": "def extract_relationships(self):",
+      "replace": "def extract_relationships(self) -> None:"
+    },
+    {
+      "path": "pylint/pyreverse/diagrams.py",
+      "search": "def extract_relationships(self):",
+      "replace": "def extract_relationships(self) -> None:"
+    }
+  ]
+}
+```

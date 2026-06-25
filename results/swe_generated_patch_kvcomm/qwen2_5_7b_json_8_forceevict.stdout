@@ -1,0 +1,1557 @@
+$ git checkout --force c84b91b7603e488f7171fdff8f08368ef3d6b856
+$ git clean -fdx
+$ git checkout --force e245046bb6e8b32360aa48b8a41fb7050f0fc730
+$ git clean -fdx
+$ git checkout --force 6786f437df54ca7780a047203cbcfaa1db8dc542
+$ git clean -fdx
+$ git checkout --force 64619e53e9d0ed417daba287ac0d3a06943a54d5
+$ git clean -fdx
+$ git checkout --force f0632c0fc7339f68e992ed63ae4cfac76cd41aad
+$ git clean -fdx
+$ git checkout --force 39d0fdd9096f7dceccbc8f82e1eda7dd64717a8e
+$ git clean -fdx
+$ git checkout --force 0192aac24123735b3eaf9b08df46429bb770c283
+$ git clean -fdx
+$ git checkout --force 1f8c4d9eb185c16a2c1d881c054f015e1c2eb334
+$ git clean -fdx
+$ git checkout --force c84b91b7603e488f7171fdff8f08368ef3d6b856
+$ git clean -fdx
+$ git checkout --force e245046bb6e8b32360aa48b8a41fb7050f0fc730
+$ git clean -fdx
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11149/lossless.patch
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11149/lossy.patch
+$ git checkout --force 6786f437df54ca7780a047203cbcfaa1db8dc542
+$ git clean -fdx
+$ git checkout --force 64619e53e9d0ed417daba287ac0d3a06943a54d5
+$ git clean -fdx
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20859/lossless.patch
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20859/lossy.patch
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20859/lossy_prefetch.patch
+$ git checkout --force f0632c0fc7339f68e992ed63ae4cfac76cd41aad
+$ git clean -fdx
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-21568/lossless.patch
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-21568/lossy.patch
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-21568/lossy_prefetch.patch
+$ git checkout --force 39d0fdd9096f7dceccbc8f82e1eda7dd64717a8e
+$ git clean -fdx
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-5414/lossless.patch
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-5414/lossy.patch
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-5414/lossy_prefetch.patch
+$ git checkout --force 0192aac24123735b3eaf9b08df46429bb770c283
+$ git clean -fdx
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-6028/lossless.patch
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-6028/lossy.patch
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-6028/lossy_prefetch.patch
+$ git checkout --force 1f8c4d9eb185c16a2c1d881c054f015e1c2eb334
+$ git clean -fdx
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/pylint-dev__pylint-8898/lossless.patch
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/pylint-dev__pylint-8898/lossy.patch
+$ git apply --check /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/pylint-dev__pylint-8898/lossy_prefetch.patch
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id django__django-11149 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11149/lossless.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id django__django-11149 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11149/lossy.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id matplotlib__matplotlib-20859 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20859/lossless.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id matplotlib__matplotlib-20859 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20859/lossy.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id matplotlib__matplotlib-20859 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20859/lossy_prefetch.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id matplotlib__matplotlib-21568 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-21568/lossless.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id matplotlib__matplotlib-21568 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-21568/lossy.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id matplotlib__matplotlib-21568 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-21568/lossy_prefetch.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id psf__requests-5414 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-5414/lossless.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id psf__requests-5414 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-5414/lossy.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id psf__requests-5414 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-5414/lossy_prefetch.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id psf__requests-6028 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-6028/lossless.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id psf__requests-6028 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-6028/lossy.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id psf__requests-6028 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-6028/lossy_prefetch.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id pylint-dev__pylint-8898 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/pylint-dev__pylint-8898/lossless.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id pylint-dev__pylint-8898 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/pylint-dev__pylint-8898/lossy.patch --timeout 1200
+$ /home/gfy/.conda/envs/sglang-kvflow/bin/python /home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/setup_swebench_local_env.py --dataset results/repo_level_datasets/swe_verified_8_discriminative.json --instance-id pylint-dev__pylint-8898 --mode candidate --candidate-patch /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/pylint-dev__pylint-8898/lossy_prefetch.patch --timeout 1200
+{
+  "model": "/home/gfy/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/c03e6d358207e414f1eca0bb1891e29f1db0e242",
+  "timestamp": "2026-06-09 04:52:37",
+  "results": [
+    {
+      "instance_id": "django__django-11138",
+      "repo": "django/django",
+      "target_paths": [
+        "django/db/backends/mysql/operations.py",
+        "django/db/backends/oracle/operations.py",
+        "django/db/backends/sqlite3/base.py",
+        "django/db/backends/sqlite3/operations.py"
+      ],
+      "segments": [
+        {
+          "name": "django/db/backends/mysql/operations.py",
+          "lines": 306
+        },
+        {
+          "name": "django/db/backends/oracle/operations.py",
+          "lines": 517
+        },
+        {
+          "name": "django/db/backends/sqlite3/base.py",
+          "lines": 514
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 3512.45,
+          "repair_elapsed_ms": 4945.85,
+          "cached_tokens": 15266,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11138/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11138/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in django/db/backends/sqlite3/base.py",
+            "edits": 3
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 5054.86,
+          "repair_elapsed_ms": 5059.91,
+          "cached_tokens": 15267,
+          "lossy_meta": {
+            "lossy_candidate_count": 8,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "6e2f3773be4071a0",
+            "lossy_first_matched_content_signature": "37907603b563181a7c86e64d00f81911",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 5,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "6e2f3773be4071a0",
+            "lossy_final_matched_content_signature": "37907603b563181a7c86e64d00f81911",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 5,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11138/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11138/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Expecting ',' delimiter: line 5 column 61 (char 149)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 3406.39,
+          "repair_elapsed_ms": 3416.02,
+          "cached_tokens": 15268,
+          "lossy_meta": {
+            "lossy_candidate_count": 15,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "6e2f3773be4071a0",
+            "lossy_first_matched_content_signature": "37907603b563181a7c86e64d00f81911",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 12,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "6e2f3773be4071a0",
+            "lossy_final_matched_content_signature": "37907603b563181a7c86e64d00f81911",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 12,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 12978,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 12978,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11138/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11138/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Expecting ',' delimiter: line 5 column 55 (char 131)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "django__django-11149",
+      "repo": "django/django",
+      "target_paths": [
+        "django/contrib/admin/options.py"
+      ],
+      "segments": [
+        {
+          "name": "django/contrib/admin/options.py",
+          "lines": 521
+        },
+        {
+          "name": "django/db/models/fields/__init__.py",
+          "lines": 574
+        },
+        {
+          "name": "django/db/models/sql/query.py",
+          "lines": 542
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 2031.93,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15210,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11149/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11149/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "Fetching origin\nChannels:\n - defaults\nPlatform: linux-64\nCollecting package metadata (repodata.json): - \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\bdone\nSolving environment: / \b\bdone\n\n# All requested packages already installed.\n\nObtaining file:///home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-11149\n  Installing build dependencies: started\n  Installing build dependencies: finished with status 'done'\n  Checking if build backend supports build_editable: started\n  Checking if build backend supports build_editable: finished with status 'done'\n  Getting requirements to build editable: started\n  Getting requirements to build editable: finished with status 'done'\n  Preparing editable metadata (pyproject.toml): started\n  Preparing editable metadata (pyproject.toml): finished with status 'done'\nRequirement already satisfied: pytz in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from Django==3.0.dev20190330165530) (2026.2)\nRequirement already satisfied: sqlparse in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from Django==3.0.dev20190330165530) (0.5.5)\nBuilding wheels for collected packages: Django\n  Building editable for Django (pyproject.toml): started\n  Building editable for Django (pyproject.toml): finished with status 'done'\n  Created wheel for Django: filename=django-3.0.dev20190330165530-0.editable-py3-none-any.whl size=6022 sha256=cffd4659b3e3a27690b507704903680a1999903da0f771a90e837bbf7f3c6080\n  Stored in directory: /tmp/pip-ephem-wheel-cache-xr0klrwa/wheels/52/2d/b9/e4cf75f07287cd7d56aabed96fb0beb3e8a908eb74ceeaac3d\nSuccessfully built Django\nInstalling collected packages: Django\n  Attempting uninstall: Django\n    Found existing installation: Django 3.1\n    Uninstalling Django-3.1:\n      Successfully uninstalled Django-3.1\nSuccessfully installed Django-3.0.dev20190330165530\n\n$ git fetch --all --tags\n$ git checkout --force e245046bb6e8b32360aa48b8a41fb7050f0fc730\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_django_django_11149_candidate 'pip<25' wheel\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/django__django-11149/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11149/lossless.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_django_django_11149_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_django_django_11149_candidate ./tests/runtests.py --verbosity 2 --settings=test_sqlite --parallel 1 admin_inlines.tests.TestInlinePermissions.test_inline_add_m2m_view_only_perm admin_inlines.tests.TestInlinePermissions.test_inline_change_m2m_view_only_perm\n{\n  \"instance_id\": \"django__django-11149\",\n  \"repo\": \"django/django\",\n  \"version\": \"3.0\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_django_django_11149_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-11149\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"./tests/runtests.py\",\n    \"--verbosity\",\n    \"2\",\n    \"--settings=test_sqlite\",\n    \"--parallel\",\n    \"1\",\n    \"admin_inlines.tests.TestInlinePermissions.test_inline_add_m2m_view_only_perm\",\n    \"admin_inlines.tests.TestInlinePermissions.test_inline_change_m2m_view_only_perm\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "HEAD is now at e245046bb6 Added stub 2.1.8 release notes.\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: pip3.12 install --upgrade pip\n\nTraceback (most recent call last):\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-11149/./tests/runtests.py\", line 21, in <module>\n    from django.utils.deprecation import (\nImportError: cannot import name 'RemovedInDjango40Warning' from 'django.utils.deprecation' (/home/gfy/KVCOMM/.venv/lib/python3.12/site-packages/Django-2.2.dev20180625180104-py3.12.egg/django/utils/deprecation.py). Did you mean: 'RemovedInDjango30Warning'?\n\nERROR conda.cli.main_run:execute(125): `conda run ./tests/runtests.py --verbosity 2 --settings=test_sqlite --parallel 1 admin_inlines.tests.TestInlinePermissions.test_inline_add_m2m_view_only_perm admin_inlines.tests.TestInlinePermissions.test_inline_change_m2m_view_only_perm` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 2014.81,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15211,
+          "lossy_meta": {
+            "lossy_candidate_count": 26,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "fdaf8d0f218c00bd",
+            "lossy_first_matched_content_signature": "9f785cb47ad6b36006e3f299b430c92a",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 28,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "fdaf8d0f218c00bd",
+            "lossy_final_matched_content_signature": "9f785cb47ad6b36006e3f299b430c92a",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 28,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11149/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11149/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "Fetching origin\nRemoving Django.egg-info/\nRemoving django/__pycache__/\nRemoving django/utils/__pycache__/\nChannels:\n - defaults\nPlatform: linux-64\nCollecting package metadata (repodata.json): - \b\b\\ \b\b| \b\bdone\nSolving environment: - \b\bdone\n\n# All requested packages already installed.\n\nObtaining file:///home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-11149\n  Installing build dependencies: started\n  Installing build dependencies: finished with status 'done'\n  Checking if build backend supports build_editable: started\n  Checking if build backend supports build_editable: finished with status 'done'\n  Getting requirements to build editable: started\n  Getting requirements to build editable: finished with status 'done'\n  Preparing editable metadata (pyproject.toml): started\n  Preparing editable metadata (pyproject.toml): finished with status 'done'\nRequirement already satisfied: pytz in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from Django==3.0.dev20190330165530) (2026.2)\nRequirement already satisfied: sqlparse in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from Django==3.0.dev20190330165530) (0.5.5)\nBuilding wheels for collected packages: Django\n  Building editable for Django (pyproject.toml): started\n  Building editable for Django (pyproject.toml): finished with status 'done'\n  Created wheel for Django: filename=django-3.0.dev20190330165530-0.editable-py3-none-any.whl size=6022 sha256=1f39eda5f9b0e9680ffc134ba8f5ba6dd49487f6c82f98d28a0f976b1d9ee003\n  Stored in directory: /tmp/pip-ephem-wheel-cache-c6y9sv_l/wheels/52/2d/b9/e4cf75f07287cd7d56aabed96fb0beb3e8a908eb74ceeaac3d\nSuccessfully built Django\nInstalling collected packages: Django\n  Attempting uninstall: Django\n    Found existing installation: Django 3.0.dev20190330165530\n    Uninstalling Django-3.0.dev20190330165530:\n      Successfully uninstalled Django-3.0.dev20190330165530\nSuccessfully installed Django-3.0.dev20190330165530\n\n$ git fetch --all --tags\n$ git checkout --force e245046bb6e8b32360aa48b8a41fb7050f0fc730\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_django_django_11149_candidate 'pip<25' wheel\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/django__django-11149/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11149/lossy.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_django_django_11149_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_django_django_11149_candidate ./tests/runtests.py --verbosity 2 --settings=test_sqlite --parallel 1 admin_inlines.tests.TestInlinePermissions.test_inline_add_m2m_view_only_perm admin_inlines.tests.TestInlinePermissions.test_inline_change_m2m_view_only_perm\n{\n  \"instance_id\": \"django__django-11149\",\n  \"repo\": \"django/django\",\n  \"version\": \"3.0\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_django_django_11149_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-11149\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"./tests/runtests.py\",\n    \"--verbosity\",\n    \"2\",\n    \"--settings=test_sqlite\",\n    \"--parallel\",\n    \"1\",\n    \"admin_inlines.tests.TestInlinePermissions.test_inline_add_m2m_view_only_perm\",\n    \"admin_inlines.tests.TestInlinePermissions.test_inline_change_m2m_view_only_perm\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "HEAD is now at e245046bb6 Added stub 2.1.8 release notes.\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: pip3.12 install --upgrade pip\n\nTraceback (most recent call last):\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-11149/./tests/runtests.py\", line 21, in <module>\n    from django.utils.deprecation import (\nImportError: cannot import name 'RemovedInDjango40Warning' from 'django.utils.deprecation' (/home/gfy/KVCOMM/.venv/lib/python3.12/site-packages/Django-2.2.dev20180625180104-py3.12.egg/django/utils/deprecation.py). Did you mean: 'RemovedInDjango30Warning'?\n\nERROR conda.cli.main_run:execute(125): `conda run ./tests/runtests.py --verbosity 2 --settings=test_sqlite --parallel 1 admin_inlines.tests.TestInlinePermissions.test_inline_add_m2m_view_only_perm admin_inlines.tests.TestInlinePermissions.test_inline_change_m2m_view_only_perm` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1639.74,
+          "repair_elapsed_ms": 3061.09,
+          "cached_tokens": 15212,
+          "lossy_meta": {
+            "lossy_candidate_count": 29,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "fdaf8d0f218c00bd",
+            "lossy_first_matched_content_signature": "9f785cb47ad6b36006e3f299b430c92a",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 28,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "fdaf8d0f218c00bd",
+            "lossy_final_matched_content_signature": "9f785cb47ad6b36006e3f299b430c92a",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 28,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 13391,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 13391,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11149/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/django__django-11149/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in django/contrib/admin/options.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-20676",
+      "repo": "matplotlib/matplotlib",
+      "target_paths": [
+        "lib/matplotlib/widgets.py"
+      ],
+      "segments": [
+        {
+          "name": "lib/matplotlib/widgets.py",
+          "lines": 646
+        },
+        {
+          "name": "lib/matplotlib/axes/_axes.py",
+          "lines": 636
+        },
+        {
+          "name": "lib/matplotlib/axes/_base.py",
+          "lines": 570
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1227.26,
+          "repair_elapsed_ms": 2799.04,
+          "cached_tokens": 15829,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20676/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20676/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in lib/matplotlib/widgets.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1216.29,
+          "repair_elapsed_ms": 1235.23,
+          "cached_tokens": 15830,
+          "lossy_meta": {
+            "lossy_candidate_count": 21,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "df28d2326507ebce",
+            "lossy_first_matched_content_signature": "037dfcc04b4d03f889528c2648a386ae",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 45,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "df28d2326507ebce",
+            "lossy_final_matched_content_signature": "037dfcc04b4d03f889528c2648a386ae",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 45,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20676/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20676/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in lib/matplotlib/widgets.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1224.71,
+          "repair_elapsed_ms": 1235.11,
+          "cached_tokens": 15831,
+          "lossy_meta": {
+            "lossy_candidate_count": 28,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "df28d2326507ebce",
+            "lossy_first_matched_content_signature": "037dfcc04b4d03f889528c2648a386ae",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 52,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "df28d2326507ebce",
+            "lossy_final_matched_content_signature": "037dfcc04b4d03f889528c2648a386ae",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 52,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14615,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14615,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20676/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20676/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in lib/matplotlib/widgets.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-20859",
+      "repo": "matplotlib/matplotlib",
+      "target_paths": [
+        "lib/matplotlib/legend.py"
+      ],
+      "segments": [
+        {
+          "name": "lib/matplotlib/legend.py",
+          "lines": 538
+        },
+        {
+          "name": "lib/matplotlib/axes/_axes.py",
+          "lines": 636
+        },
+        {
+          "name": "lib/matplotlib/axes/_base.py",
+          "lines": 570
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1092.89,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 16050,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20859/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20859/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "rement already satisfied: six>=1.5 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from python-dateutil>=2.7->matplotlib==3.5.0.dev1716+g64619e53e.d20260609) (1.16.0)\nRequirement already satisfied: vcs-versioning>=1.0.0.dev0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from setuptools_scm>=4->matplotlib==3.5.0.dev1716+g64619e53e.d20260609) (1.1.1)\nRequirement already satisfied: setuptools in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from setuptools_scm>=4->matplotlib==3.5.0.dev1716+g64619e53e.d20260609) (68.0.0)\nBuilding wheels for collected packages: matplotlib\n  Building editable for matplotlib (pyproject.toml): started\n  Building editable for matplotlib (pyproject.toml): finished with status 'done'\n  Created wheel for matplotlib: filename=matplotlib-3.5.0.dev1716+g64619e53e.d20260609-0.editable-cp312-cp312-linux_x86_64.whl size=4855 sha256=5982952e11c51feee241eaebf6695b063dcd22d2f5c6644ccbb4eb2bbc5177a3\n  Stored in directory: /tmp/pip-ephem-wheel-cache-0pkgmcjj/wheels/06/18/d7/7b13128d559e547d163b429cd6d86fcd98b3eccf96a29be8f4\nSuccessfully built matplotlib\nInstalling collected packages: matplotlib\n  Attempting uninstall: matplotlib\n    Found existing installation: matplotlib 3.5.0.dev1716+g64619e53e.d20260609\n    Uninstalling matplotlib-3.5.0.dev1716+g64619e53e.d20260609:\n      Successfully uninstalled matplotlib-3.5.0.dev1716+g64619e53e.d20260609\nSuccessfully installed matplotlib-3.5.0.dev1716+g64619e53e.d20260609\n\n$ git fetch --all --tags\n$ git checkout --force 64619e53e9d0ed417daba287ac0d3a06943a54d5\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda create -y -n swe_matplotlib_matplotlib_20859_candidate python=3.8\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_20859_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_20859_candidate freetype=2.10.4 pkg-config qhull libpng\nSkipping root-only pre_install on local fallback: apt-get -y update && apt-get -y upgrade && DEBIAN_FRONTEND=noninteractive apt-get install -y imagemagick ffmpeg libfreetype6-dev pkg-config texlive texlive-latex-extra texlive-fonts-recommended texlive-xetex texlive-luatex cm-super\nSkipping root-only pre_install on local fallback: QHULL_URL=\"http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_TAR=\"/tmp/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_BUILD_DIR=\"/testbed/build\"\nSkipping root-only pre_install on local fallback: wget -O \"$QHULL_TAR\" \"$QHULL_URL\"\nSkipping root-only pre_install on local fallback: mkdir -p \"$QHULL_BUILD_DIR\"\nSkipping root-only pre_install on local fallback: tar -xvzf \"$QHULL_TAR\" -C \"$QHULL_BUILD_DIR\"\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_20859_candidate python -m pip install pytest ipython\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_20859_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/matplotlib__matplotlib-20859/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20859/lossless.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_20859_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_20859_candidate pytest -rA lib/matplotlib/tests/test_legend.py::test_subfigure_legend\n{\n  \"instance_id\": \"matplotlib__matplotlib-20859\",\n  \"repo\": \"matplotlib/matplotlib\",\n  \"version\": \"3.4\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_matplotlib_matplotlib_20859_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-20859\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"lib/matplotlib/tests/test_legend.py::test_subfigure_legend\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "lf.pluginmanager.load_setuptools_entrypoints(\"pytest11\")\n  File \"/home/gfy/KVCOMM/.venv/lib/python3.12/site-packages/pluggy/manager.py\", line 299, in load_setuptools_entrypoints\n    plugin = ep.load()\n             ^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/metadata/__init__.py\", line 205, in load\n    module = import_module(match.group('module'))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/__init__.py\", line 90, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1310, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 161, in exec_module\n    source_stat, co = _rewrite_test(fn, self.config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 360, in _rewrite_test\n    co = compile(tree, fn_, \"exec\", dont_inherit=True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: required field \"lineno\" missing from alias\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA lib/matplotlib/tests/test_legend.py::test_subfigure_legend` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1083.59,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 16051,
+          "lossy_meta": {
+            "lossy_candidate_count": 33,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "df28d2326507ebce",
+            "lossy_first_matched_content_signature": "037dfcc04b4d03f889528c2648a386ae",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 52,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "df28d2326507ebce",
+            "lossy_final_matched_content_signature": "037dfcc04b4d03f889528c2648a386ae",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 52,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20859/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20859/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "venv/lib/python3.12/site-packages (from matplotlib==3.5.0.dev1716+g64619e53e.d20260609) (10.0.5)\nRequirement already satisfied: six>=1.5 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from python-dateutil>=2.7->matplotlib==3.5.0.dev1716+g64619e53e.d20260609) (1.16.0)\nRequirement already satisfied: vcs-versioning>=1.0.0.dev0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from setuptools_scm>=4->matplotlib==3.5.0.dev1716+g64619e53e.d20260609) (1.1.1)\nRequirement already satisfied: setuptools in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from setuptools_scm>=4->matplotlib==3.5.0.dev1716+g64619e53e.d20260609) (68.0.0)\nBuilding wheels for collected packages: matplotlib\n  Building editable for matplotlib (pyproject.toml): started\n  Building editable for matplotlib (pyproject.toml): finished with status 'done'\n  Created wheel for matplotlib: filename=matplotlib-3.5.0.dev1716+g64619e53e.d20260609-0.editable-cp312-cp312-linux_x86_64.whl size=4855 sha256=52c125bd0d04b396ebe901387fd6b3d5ab7f0f85d5f28fd909f5377fd837b461\n  Stored in directory: /tmp/pip-ephem-wheel-cache-ynp3lfe0/wheels/06/18/d7/7b13128d559e547d163b429cd6d86fcd98b3eccf96a29be8f4\nSuccessfully built matplotlib\nInstalling collected packages: matplotlib\n  Attempting uninstall: matplotlib\n    Found existing installation: matplotlib 3.5.0.dev1716+g64619e53e.d20260609\n    Uninstalling matplotlib-3.5.0.dev1716+g64619e53e.d20260609:\n      Successfully uninstalled matplotlib-3.5.0.dev1716+g64619e53e.d20260609\nSuccessfully installed matplotlib-3.5.0.dev1716+g64619e53e.d20260609\n\n$ git fetch --all --tags\n$ git checkout --force 64619e53e9d0ed417daba287ac0d3a06943a54d5\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_20859_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_20859_candidate freetype=2.10.4 pkg-config qhull libpng\nSkipping root-only pre_install on local fallback: apt-get -y update && apt-get -y upgrade && DEBIAN_FRONTEND=noninteractive apt-get install -y imagemagick ffmpeg libfreetype6-dev pkg-config texlive texlive-latex-extra texlive-fonts-recommended texlive-xetex texlive-luatex cm-super\nSkipping root-only pre_install on local fallback: QHULL_URL=\"http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_TAR=\"/tmp/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_BUILD_DIR=\"/testbed/build\"\nSkipping root-only pre_install on local fallback: wget -O \"$QHULL_TAR\" \"$QHULL_URL\"\nSkipping root-only pre_install on local fallback: mkdir -p \"$QHULL_BUILD_DIR\"\nSkipping root-only pre_install on local fallback: tar -xvzf \"$QHULL_TAR\" -C \"$QHULL_BUILD_DIR\"\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_20859_candidate python -m pip install pytest ipython\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_20859_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/matplotlib__matplotlib-20859/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20859/lossy.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_20859_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_20859_candidate pytest -rA lib/matplotlib/tests/test_legend.py::test_subfigure_legend\n{\n  \"instance_id\": \"matplotlib__matplotlib-20859\",\n  \"repo\": \"matplotlib/matplotlib\",\n  \"version\": \"3.4\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_matplotlib_matplotlib_20859_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-20859\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"lib/matplotlib/tests/test_legend.py::test_subfigure_legend\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "lf.pluginmanager.load_setuptools_entrypoints(\"pytest11\")\n  File \"/home/gfy/KVCOMM/.venv/lib/python3.12/site-packages/pluggy/manager.py\", line 299, in load_setuptools_entrypoints\n    plugin = ep.load()\n             ^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/metadata/__init__.py\", line 205, in load\n    module = import_module(match.group('module'))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/__init__.py\", line 90, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1310, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 161, in exec_module\n    source_stat, co = _rewrite_test(fn, self.config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 360, in _rewrite_test\n    co = compile(tree, fn_, \"exec\", dont_inherit=True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: required field \"lineno\" missing from alias\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA lib/matplotlib/tests/test_legend.py::test_subfigure_legend` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1090.61,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 16052,
+          "lossy_meta": {
+            "lossy_candidate_count": 36,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "df28d2326507ebce",
+            "lossy_first_matched_content_signature": "037dfcc04b4d03f889528c2648a386ae",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 52,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "df28d2326507ebce",
+            "lossy_final_matched_content_signature": "037dfcc04b4d03f889528c2648a386ae",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 52,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14801,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14801,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20859/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20859/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "python3.12/site-packages (from matplotlib==3.5.0.dev1716+g64619e53e.d20260609) (10.0.5)\nRequirement already satisfied: six>=1.5 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from python-dateutil>=2.7->matplotlib==3.5.0.dev1716+g64619e53e.d20260609) (1.16.0)\nRequirement already satisfied: vcs-versioning>=1.0.0.dev0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from setuptools_scm>=4->matplotlib==3.5.0.dev1716+g64619e53e.d20260609) (1.1.1)\nRequirement already satisfied: setuptools in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from setuptools_scm>=4->matplotlib==3.5.0.dev1716+g64619e53e.d20260609) (68.0.0)\nBuilding wheels for collected packages: matplotlib\n  Building editable for matplotlib (pyproject.toml): started\n  Building editable for matplotlib (pyproject.toml): finished with status 'done'\n  Created wheel for matplotlib: filename=matplotlib-3.5.0.dev1716+g64619e53e.d20260609-0.editable-cp312-cp312-linux_x86_64.whl size=4855 sha256=03cd67c75a639a002aa7dd95ede0f1801760dde7fa483b2a18206d8725ab5283\n  Stored in directory: /tmp/pip-ephem-wheel-cache-regbyozm/wheels/06/18/d7/7b13128d559e547d163b429cd6d86fcd98b3eccf96a29be8f4\nSuccessfully built matplotlib\nInstalling collected packages: matplotlib\n  Attempting uninstall: matplotlib\n    Found existing installation: matplotlib 3.5.0.dev1716+g64619e53e.d20260609\n    Uninstalling matplotlib-3.5.0.dev1716+g64619e53e.d20260609:\n      Successfully uninstalled matplotlib-3.5.0.dev1716+g64619e53e.d20260609\nSuccessfully installed matplotlib-3.5.0.dev1716+g64619e53e.d20260609\n\n$ git fetch --all --tags\n$ git checkout --force 64619e53e9d0ed417daba287ac0d3a06943a54d5\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_20859_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_20859_candidate freetype=2.10.4 pkg-config qhull libpng\nSkipping root-only pre_install on local fallback: apt-get -y update && apt-get -y upgrade && DEBIAN_FRONTEND=noninteractive apt-get install -y imagemagick ffmpeg libfreetype6-dev pkg-config texlive texlive-latex-extra texlive-fonts-recommended texlive-xetex texlive-luatex cm-super\nSkipping root-only pre_install on local fallback: QHULL_URL=\"http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_TAR=\"/tmp/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_BUILD_DIR=\"/testbed/build\"\nSkipping root-only pre_install on local fallback: wget -O \"$QHULL_TAR\" \"$QHULL_URL\"\nSkipping root-only pre_install on local fallback: mkdir -p \"$QHULL_BUILD_DIR\"\nSkipping root-only pre_install on local fallback: tar -xvzf \"$QHULL_TAR\" -C \"$QHULL_BUILD_DIR\"\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_20859_candidate python -m pip install pytest ipython\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_20859_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/matplotlib__matplotlib-20859/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-20859/lossy_prefetch.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_20859_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_20859_candidate pytest -rA lib/matplotlib/tests/test_legend.py::test_subfigure_legend\n{\n  \"instance_id\": \"matplotlib__matplotlib-20859\",\n  \"repo\": \"matplotlib/matplotlib\",\n  \"version\": \"3.4\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_matplotlib_matplotlib_20859_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-20859\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"lib/matplotlib/tests/test_legend.py::test_subfigure_legend\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "lf.pluginmanager.load_setuptools_entrypoints(\"pytest11\")\n  File \"/home/gfy/KVCOMM/.venv/lib/python3.12/site-packages/pluggy/manager.py\", line 299, in load_setuptools_entrypoints\n    plugin = ep.load()\n             ^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/metadata/__init__.py\", line 205, in load\n    module = import_module(match.group('module'))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/__init__.py\", line 90, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1310, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 161, in exec_module\n    source_stat, co = _rewrite_test(fn, self.config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 360, in _rewrite_test\n    co = compile(tree, fn_, \"exec\", dont_inherit=True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: required field \"lineno\" missing from alias\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA lib/matplotlib/tests/test_legend.py::test_subfigure_legend` failed. (See above for error)\n"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-21568",
+      "repo": "matplotlib/matplotlib",
+      "target_paths": [
+        "lib/matplotlib/dates.py"
+      ],
+      "segments": [
+        {
+          "name": "lib/matplotlib/dates.py",
+          "lines": 680
+        },
+        {
+          "name": "lib/matplotlib/axes/_axes.py",
+          "lines": 635
+        },
+        {
+          "name": "lib/matplotlib/patches.py",
+          "lines": 680
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1306.86,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 17462,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-21568/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-21568/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "s_scm>=4->matplotlib==3.5.0.dev2475+gf0632c0fc.d20260609) (68.0.0)\nBuilding wheels for collected packages: matplotlib\n  Building editable for matplotlib (pyproject.toml): started\n  Building editable for matplotlib (pyproject.toml): finished with status 'done'\n  Created wheel for matplotlib: filename=matplotlib-3.5.0.dev2475+gf0632c0fc.d20260609-0.editable-cp312-cp312-linux_x86_64.whl size=23313 sha256=f0a5ccbbe72c08615bba3ea90d4277dd884438098fc59b015802095334ddf678\n  Stored in directory: /tmp/pip-ephem-wheel-cache-xm4i3smi/wheels/ee/96/83/226f0f2b040f1f2e654610ec37036eae81336ea7d6883a79eb\nSuccessfully built matplotlib\nInstalling collected packages: matplotlib\n  Attempting uninstall: matplotlib\n    Found existing installation: matplotlib 3.5.0.dev1716+g64619e53e.d20260609\n    Uninstalling matplotlib-3.5.0.dev1716+g64619e53e.d20260609:\n      Successfully uninstalled matplotlib-3.5.0.dev1716+g64619e53e.d20260609\nSuccessfully installed matplotlib-3.5.0.dev2475+gf0632c0fc.d20260609\n\n$ git fetch --all --tags\n$ git checkout --force f0632c0fc7339f68e992ed63ae4cfac76cd41aad\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_21568_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_21568_candidate freetype=2.10.4 pkg-config qhull libpng\nSkipping root-only pre_install on local fallback: apt-get -y update && apt-get -y upgrade && DEBIAN_FRONTEND=noninteractive apt-get install -y imagemagick ffmpeg libfreetype6-dev pkg-config texlive texlive-latex-extra texlive-fonts-recommended texlive-xetex texlive-luatex cm-super\nSkipping root-only pre_install on local fallback: QHULL_URL=\"http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_TAR=\"/tmp/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_BUILD_DIR=\"/testbed/build\"\nSkipping root-only pre_install on local fallback: wget -O \"$QHULL_TAR\" \"$QHULL_URL\"\nSkipping root-only pre_install on local fallback: mkdir -p \"$QHULL_BUILD_DIR\"\nSkipping root-only pre_install on local fallback: tar -xvzf \"$QHULL_TAR\" -C \"$QHULL_BUILD_DIR\"\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_21568_candidate python -m pip install pytest ipython\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_21568_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/matplotlib__matplotlib-21568/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-21568/lossless.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_21568_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_21568_candidate pytest -rA 'lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta2-expected2]' 'lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta3-expected3]' 'lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta2-expected2]' 'lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta3-expected3]'\n{\n  \"instance_id\": \"matplotlib__matplotlib-21568\",\n  \"repo\": \"matplotlib/matplotlib\",\n  \"version\": \"3.4\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_matplotlib_matplotlib_21568_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-21568\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta2-expected2]\",\n    \"lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta3-expected3]\",\n    \"lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta2-expected2]\",\n    \"lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta3-expected3]\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "hon3.12/importlib/metadata/__init__.py\", line 205, in load\n    module = import_module(match.group('module'))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/__init__.py\", line 90, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1310, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 161, in exec_module\n    source_stat, co = _rewrite_test(fn, self.config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 360, in _rewrite_test\n    co = compile(tree, fn_, \"exec\", dont_inherit=True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: required field \"lineno\" missing from alias\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta2-expected2] lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta3-expected3] lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta2-expected2] lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta3-expected3]` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1088.06,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 17463,
+          "lossy_meta": {
+            "lossy_candidate_count": 37,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "ab8bab903226a2b9",
+            "lossy_first_matched_content_signature": "060d3dc6bf8c5f12f5db9b7c2c5992e1",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 80,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "ab8bab903226a2b9",
+            "lossy_final_matched_content_signature": "060d3dc6bf8c5f12f5db9b7c2c5992e1",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 80,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-21568/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-21568/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "ools_scm>=4->matplotlib==3.5.0.dev2475+gf0632c0fc.d20260609) (68.0.0)\nBuilding wheels for collected packages: matplotlib\n  Building editable for matplotlib (pyproject.toml): started\n  Building editable for matplotlib (pyproject.toml): finished with status 'done'\n  Created wheel for matplotlib: filename=matplotlib-3.5.0.dev2475+gf0632c0fc.d20260609-0.editable-cp312-cp312-linux_x86_64.whl size=23313 sha256=08751b62d52d2d0fd8062db15b491e2e5270f2d92d0e8248677a41cdbf3670d4\n  Stored in directory: /tmp/pip-ephem-wheel-cache-lalykybt/wheels/ee/96/83/226f0f2b040f1f2e654610ec37036eae81336ea7d6883a79eb\nSuccessfully built matplotlib\nInstalling collected packages: matplotlib\n  Attempting uninstall: matplotlib\n    Found existing installation: matplotlib 3.5.0.dev2475+gf0632c0fc.d20260609\n    Uninstalling matplotlib-3.5.0.dev2475+gf0632c0fc.d20260609:\n      Successfully uninstalled matplotlib-3.5.0.dev2475+gf0632c0fc.d20260609\nSuccessfully installed matplotlib-3.5.0.dev2475+gf0632c0fc.d20260609\n\n$ git fetch --all --tags\n$ git checkout --force f0632c0fc7339f68e992ed63ae4cfac76cd41aad\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_21568_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_21568_candidate freetype=2.10.4 pkg-config qhull libpng\nSkipping root-only pre_install on local fallback: apt-get -y update && apt-get -y upgrade && DEBIAN_FRONTEND=noninteractive apt-get install -y imagemagick ffmpeg libfreetype6-dev pkg-config texlive texlive-latex-extra texlive-fonts-recommended texlive-xetex texlive-luatex cm-super\nSkipping root-only pre_install on local fallback: QHULL_URL=\"http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_TAR=\"/tmp/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_BUILD_DIR=\"/testbed/build\"\nSkipping root-only pre_install on local fallback: wget -O \"$QHULL_TAR\" \"$QHULL_URL\"\nSkipping root-only pre_install on local fallback: mkdir -p \"$QHULL_BUILD_DIR\"\nSkipping root-only pre_install on local fallback: tar -xvzf \"$QHULL_TAR\" -C \"$QHULL_BUILD_DIR\"\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_21568_candidate python -m pip install pytest ipython\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_21568_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/matplotlib__matplotlib-21568/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-21568/lossy.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_21568_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_21568_candidate pytest -rA 'lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta2-expected2]' 'lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta3-expected3]' 'lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta2-expected2]' 'lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta3-expected3]'\n{\n  \"instance_id\": \"matplotlib__matplotlib-21568\",\n  \"repo\": \"matplotlib/matplotlib\",\n  \"version\": \"3.4\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_matplotlib_matplotlib_21568_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-21568\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta2-expected2]\",\n    \"lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta3-expected3]\",\n    \"lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta2-expected2]\",\n    \"lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta3-expected3]\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "hon3.12/importlib/metadata/__init__.py\", line 205, in load\n    module = import_module(match.group('module'))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/__init__.py\", line 90, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1310, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 161, in exec_module\n    source_stat, co = _rewrite_test(fn, self.config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 360, in _rewrite_test\n    co = compile(tree, fn_, \"exec\", dont_inherit=True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: required field \"lineno\" missing from alias\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta2-expected2] lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta3-expected3] lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta2-expected2] lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta3-expected3]` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1103.78,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 17464,
+          "lossy_meta": {
+            "lossy_candidate_count": 39,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "ab8bab903226a2b9",
+            "lossy_first_matched_content_signature": "060d3dc6bf8c5f12f5db9b7c2c5992e1",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 80,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "ab8bab903226a2b9",
+            "lossy_final_matched_content_signature": "060d3dc6bf8c5f12f5db9b7c2c5992e1",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 80,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 15582,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 15582,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-21568/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-21568/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "=4->matplotlib==3.5.0.dev2475+gf0632c0fc.d20260609) (68.0.0)\nBuilding wheels for collected packages: matplotlib\n  Building editable for matplotlib (pyproject.toml): started\n  Building editable for matplotlib (pyproject.toml): finished with status 'done'\n  Created wheel for matplotlib: filename=matplotlib-3.5.0.dev2475+gf0632c0fc.d20260609-0.editable-cp312-cp312-linux_x86_64.whl size=23313 sha256=3b39d3d9c931bb9e9d2cc52b03554344f25ff386b4d619b312e686c66fbacd65\n  Stored in directory: /tmp/pip-ephem-wheel-cache-vf7kjmba/wheels/ee/96/83/226f0f2b040f1f2e654610ec37036eae81336ea7d6883a79eb\nSuccessfully built matplotlib\nInstalling collected packages: matplotlib\n  Attempting uninstall: matplotlib\n    Found existing installation: matplotlib 3.5.0.dev2475+gf0632c0fc.d20260609\n    Uninstalling matplotlib-3.5.0.dev2475+gf0632c0fc.d20260609:\n      Successfully uninstalled matplotlib-3.5.0.dev2475+gf0632c0fc.d20260609\nSuccessfully installed matplotlib-3.5.0.dev2475+gf0632c0fc.d20260609\n\n$ git fetch --all --tags\n$ git checkout --force f0632c0fc7339f68e992ed63ae4cfac76cd41aad\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_21568_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_matplotlib_matplotlib_21568_candidate freetype=2.10.4 pkg-config qhull libpng\nSkipping root-only pre_install on local fallback: apt-get -y update && apt-get -y upgrade && DEBIAN_FRONTEND=noninteractive apt-get install -y imagemagick ffmpeg libfreetype6-dev pkg-config texlive texlive-latex-extra texlive-fonts-recommended texlive-xetex texlive-luatex cm-super\nSkipping root-only pre_install on local fallback: QHULL_URL=\"http://www.qhull.org/download/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_TAR=\"/tmp/qhull-2020-src-8.0.2.tgz\"\nSkipping root-only pre_install on local fallback: QHULL_BUILD_DIR=\"/testbed/build\"\nSkipping root-only pre_install on local fallback: wget -O \"$QHULL_TAR\" \"$QHULL_URL\"\nSkipping root-only pre_install on local fallback: mkdir -p \"$QHULL_BUILD_DIR\"\nSkipping root-only pre_install on local fallback: tar -xvzf \"$QHULL_TAR\" -C \"$QHULL_BUILD_DIR\"\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_21568_candidate python -m pip install pytest ipython\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_21568_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/matplotlib__matplotlib-21568/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/matplotlib__matplotlib-21568/lossy_prefetch.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_21568_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_matplotlib_matplotlib_21568_candidate pytest -rA 'lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta2-expected2]' 'lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta3-expected3]' 'lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta2-expected2]' 'lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta3-expected3]'\n{\n  \"instance_id\": \"matplotlib__matplotlib-21568\",\n  \"repo\": \"matplotlib/matplotlib\",\n  \"version\": \"3.4\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_matplotlib_matplotlib_21568_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-21568\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta2-expected2]\",\n    \"lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta3-expected3]\",\n    \"lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta2-expected2]\",\n    \"lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta3-expected3]\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "hon3.12/importlib/metadata/__init__.py\", line 205, in load\n    module = import_module(match.group('module'))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/__init__.py\", line 90, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1310, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 161, in exec_module\n    source_stat, co = _rewrite_test(fn, self.config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 360, in _rewrite_test\n    co = compile(tree, fn_, \"exec\", dont_inherit=True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: required field \"lineno\" missing from alias\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta2-expected2] lib/matplotlib/tests/test_dates.py::test_date_formatter_usetex[delta3-expected3] lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta2-expected2] lib/matplotlib/tests/test_dates.py::test_concise_formatter_usetex[t_delta3-expected3]` failed. (See above for error)\n"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "psf__requests-5414",
+      "repo": "psf/requests",
+      "target_paths": [
+        "requests/models.py"
+      ],
+      "segments": [
+        {
+          "name": "requests/models.py",
+          "lines": 625
+        },
+        {
+          "name": "requests/utils.py",
+          "lines": 686
+        },
+        {
+          "name": "requests/sessions.py",
+          "lines": 553
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 966.87,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15469,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-5414/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-5414/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "\bdone\n\n# All requested packages already installed.\n\nRequirement already satisfied: pytest in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (6.0.0rc2.dev33+g7f7a36478.d20260609)\nRequirement already satisfied: attrs>=17.4.0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (23.1.0)\nRequirement already satisfied: iniconfig in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (2.0.0)\nRequirement already satisfied: more-itertools>=4.0.0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (10.1.0)\nRequirement already satisfied: packaging in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (23.1)\nRequirement already satisfied: pluggy<1.0,>=0.12 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (0.13.1)\nRequirement already satisfied: py>=1.8.2 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (1.11.0)\nRequirement already satisfied: toml in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from pytest) (0.10.2)\n\nProcessing ./.\n  Installing build dependencies: started\n  Installing build dependencies: finished with status 'done'\n  Getting requirements to build wheel: started\n  Getting requirements to build wheel: finished with status 'done'\n  Preparing metadata (pyproject.toml): started\n  Preparing metadata (pyproject.toml): finished with status 'done'\nRequirement already satisfied: charset_normalizer~=2.0.0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from requests==2.26.0) (2.0.12)\nRequirement already satisfied: idna<4,>=2.5 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from requests==2.26.0) (3.15)\nRequirement already satisfied: urllib3<1.27,>=1.21.1 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from requests==2.26.0) (1.26.20)\nRequirement already satisfied: certifi>=2017.4.17 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from requests==2.26.0) (2026.4.22)\nBuilding wheels for collected packages: requests\n  Building wheel for requests (pyproject.toml): started\n  Building wheel for requests (pyproject.toml): finished with status 'done'\n  Created wheel for requests: filename=requests-2.26.0-py2.py3-none-any.whl size=63025 sha256=7dff1e230ef265b4200734ee99a2bd5b867de1260f600b0ae236d8e436760a66\n  Stored in directory: /home/gfy/.cache/pip/wheels/47/99/96/636d36a5f72facd508cdcd258d818fc6c173e7e7e4392f5076\nSuccessfully built requests\nInstalling collected packages: requests\n  Attempting uninstall: requests\n    Found existing installation: requests 2.9.0\n    Uninstalling requests-2.9.0:\n      Successfully uninstalled requests-2.9.0\nSuccessfully installed requests-2.26.0\n\n$ git fetch --all --tags\n$ git checkout --force 39d0fdd9096f7dceccbc8f82e1eda7dd64717a8e\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_psf_requests_5414_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_5414_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/psf__requests-5414/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-5414/lossless.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_5414_candidate bash -lc 'python -m pip install .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_5414_candidate pytest -rA 'tests/test_requests.py::TestRequests::test_invalid_url[InvalidURL-http://.example.com]'\n{\n  \"instance_id\": \"psf__requests-5414\",\n  \"repo\": \"psf/requests\",\n  \"version\": \"2.26\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_psf_requests_5414_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-5414\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"tests/test_requests.py::TestRequests::test_invalid_url[InvalidURL-http://.example.com]\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "ools_entrypoints(\"pytest11\")\n  File \"/home/gfy/KVCOMM/.venv/lib/python3.12/site-packages/pluggy/manager.py\", line 299, in load_setuptools_entrypoints\n    plugin = ep.load()\n             ^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/metadata/__init__.py\", line 205, in load\n    module = import_module(match.group('module'))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/__init__.py\", line 90, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1310, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 161, in exec_module\n    source_stat, co = _rewrite_test(fn, self.config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 360, in _rewrite_test\n    co = compile(tree, fn_, \"exec\", dont_inherit=True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: required field \"lineno\" missing from alias\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA tests/test_requests.py::TestRequests::test_invalid_url[InvalidURL-http://.example.com]` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 971.21,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15470,
+          "lossy_meta": {
+            "lossy_candidate_count": 24,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "c57c321d8f6ff462",
+            "lossy_first_matched_content_signature": "0f04e4f3ff0d06d0eb8d7a844761cb69",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 93,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "c57c321d8f6ff462",
+            "lossy_final_matched_content_signature": "0f04e4f3ff0d06d0eb8d7a844761cb69",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 93,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-5414/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-5414/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "\bdone\n\n# All requested packages already installed.\n\nRequirement already satisfied: pytest in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (6.0.0rc2.dev33+g7f7a36478.d20260609)\nRequirement already satisfied: attrs>=17.4.0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (23.1.0)\nRequirement already satisfied: iniconfig in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (2.0.0)\nRequirement already satisfied: more-itertools>=4.0.0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (10.1.0)\nRequirement already satisfied: packaging in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (23.1)\nRequirement already satisfied: pluggy<1.0,>=0.12 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (0.13.1)\nRequirement already satisfied: py>=1.8.2 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (1.11.0)\nRequirement already satisfied: toml in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from pytest) (0.10.2)\n\nProcessing ./.\n  Installing build dependencies: started\n  Installing build dependencies: finished with status 'done'\n  Getting requirements to build wheel: started\n  Getting requirements to build wheel: finished with status 'done'\n  Preparing metadata (pyproject.toml): started\n  Preparing metadata (pyproject.toml): finished with status 'done'\nRequirement already satisfied: charset_normalizer~=2.0.0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from requests==2.26.0) (2.0.12)\nRequirement already satisfied: idna<4,>=2.5 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from requests==2.26.0) (3.15)\nRequirement already satisfied: urllib3<1.27,>=1.21.1 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from requests==2.26.0) (1.26.20)\nRequirement already satisfied: certifi>=2017.4.17 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from requests==2.26.0) (2026.4.22)\nBuilding wheels for collected packages: requests\n  Building wheel for requests (pyproject.toml): started\n  Building wheel for requests (pyproject.toml): finished with status 'done'\n  Created wheel for requests: filename=requests-2.26.0-py2.py3-none-any.whl size=63025 sha256=b09b261ed480b544e79f4913b983d2498063af5d8a8c61d2c3a60ddc87d05a7a\n  Stored in directory: /home/gfy/.cache/pip/wheels/47/99/96/636d36a5f72facd508cdcd258d818fc6c173e7e7e4392f5076\nSuccessfully built requests\nInstalling collected packages: requests\n  Attempting uninstall: requests\n    Found existing installation: requests 2.26.0\n    Uninstalling requests-2.26.0:\n      Successfully uninstalled requests-2.26.0\nSuccessfully installed requests-2.26.0\n\n$ git fetch --all --tags\n$ git checkout --force 39d0fdd9096f7dceccbc8f82e1eda7dd64717a8e\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_psf_requests_5414_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_5414_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/psf__requests-5414/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-5414/lossy.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_5414_candidate bash -lc 'python -m pip install .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_5414_candidate pytest -rA 'tests/test_requests.py::TestRequests::test_invalid_url[InvalidURL-http://.example.com]'\n{\n  \"instance_id\": \"psf__requests-5414\",\n  \"repo\": \"psf/requests\",\n  \"version\": \"2.26\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_psf_requests_5414_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-5414\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"tests/test_requests.py::TestRequests::test_invalid_url[InvalidURL-http://.example.com]\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "ools_entrypoints(\"pytest11\")\n  File \"/home/gfy/KVCOMM/.venv/lib/python3.12/site-packages/pluggy/manager.py\", line 299, in load_setuptools_entrypoints\n    plugin = ep.load()\n             ^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/metadata/__init__.py\", line 205, in load\n    module = import_module(match.group('module'))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/__init__.py\", line 90, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1310, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 161, in exec_module\n    source_stat, co = _rewrite_test(fn, self.config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 360, in _rewrite_test\n    co = compile(tree, fn_, \"exec\", dont_inherit=True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: required field \"lineno\" missing from alias\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA tests/test_requests.py::TestRequests::test_invalid_url[InvalidURL-http://.example.com]` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 973.68,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15471,
+          "lossy_meta": {
+            "lossy_candidate_count": 27,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "c57c321d8f6ff462",
+            "lossy_first_matched_content_signature": "0f04e4f3ff0d06d0eb8d7a844761cb69",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 93,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "c57c321d8f6ff462",
+            "lossy_final_matched_content_signature": "0f04e4f3ff0d06d0eb8d7a844761cb69",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 93,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14509,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14509,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-5414/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-5414/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "All requested packages already installed.\n\nRequirement already satisfied: pytest in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (6.0.0rc2.dev33+g7f7a36478.d20260609)\nRequirement already satisfied: attrs>=17.4.0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (23.1.0)\nRequirement already satisfied: iniconfig in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (2.0.0)\nRequirement already satisfied: more-itertools>=4.0.0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (10.1.0)\nRequirement already satisfied: packaging in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (23.1)\nRequirement already satisfied: pluggy<1.0,>=0.12 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (0.13.1)\nRequirement already satisfied: py>=1.8.2 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (1.11.0)\nRequirement already satisfied: toml in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from pytest) (0.10.2)\n\nProcessing ./.\n  Installing build dependencies: started\n  Installing build dependencies: finished with status 'done'\n  Getting requirements to build wheel: started\n  Getting requirements to build wheel: finished with status 'done'\n  Preparing metadata (pyproject.toml): started\n  Preparing metadata (pyproject.toml): finished with status 'done'\nRequirement already satisfied: charset_normalizer~=2.0.0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from requests==2.26.0) (2.0.12)\nRequirement already satisfied: idna<4,>=2.5 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from requests==2.26.0) (3.15)\nRequirement already satisfied: urllib3<1.27,>=1.21.1 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from requests==2.26.0) (1.26.20)\nRequirement already satisfied: certifi>=2017.4.17 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from requests==2.26.0) (2026.4.22)\nBuilding wheels for collected packages: requests\n  Building wheel for requests (pyproject.toml): started\n  Building wheel for requests (pyproject.toml): finished with status 'done'\n  Created wheel for requests: filename=requests-2.26.0-py2.py3-none-any.whl size=63025 sha256=2918c9b74ce28b3e77ab1f2b62bbf25caa071ccf78513c3a64bbd27f3bcba79b\n  Stored in directory: /home/gfy/.cache/pip/wheels/47/99/96/636d36a5f72facd508cdcd258d818fc6c173e7e7e4392f5076\nSuccessfully built requests\nInstalling collected packages: requests\n  Attempting uninstall: requests\n    Found existing installation: requests 2.26.0\n    Uninstalling requests-2.26.0:\n      Successfully uninstalled requests-2.26.0\nSuccessfully installed requests-2.26.0\n\n$ git fetch --all --tags\n$ git checkout --force 39d0fdd9096f7dceccbc8f82e1eda7dd64717a8e\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_psf_requests_5414_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_5414_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/psf__requests-5414/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-5414/lossy_prefetch.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_5414_candidate bash -lc 'python -m pip install .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_5414_candidate pytest -rA 'tests/test_requests.py::TestRequests::test_invalid_url[InvalidURL-http://.example.com]'\n{\n  \"instance_id\": \"psf__requests-5414\",\n  \"repo\": \"psf/requests\",\n  \"version\": \"2.26\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_psf_requests_5414_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-5414\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"tests/test_requests.py::TestRequests::test_invalid_url[InvalidURL-http://.example.com]\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "ools_entrypoints(\"pytest11\")\n  File \"/home/gfy/KVCOMM/.venv/lib/python3.12/site-packages/pluggy/manager.py\", line 299, in load_setuptools_entrypoints\n    plugin = ep.load()\n             ^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/metadata/__init__.py\", line 205, in load\n    module = import_module(match.group('module'))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/__init__.py\", line 90, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1310, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 161, in exec_module\n    source_stat, co = _rewrite_test(fn, self.config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 360, in _rewrite_test\n    co = compile(tree, fn_, \"exec\", dont_inherit=True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: required field \"lineno\" missing from alias\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA tests/test_requests.py::TestRequests::test_invalid_url[InvalidURL-http://.example.com]` failed. (See above for error)\n"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "psf__requests-6028",
+      "repo": "psf/requests",
+      "target_paths": [
+        "requests/utils.py"
+      ],
+      "segments": [
+        {
+          "name": "requests/utils.py",
+          "lines": 686
+        },
+        {
+          "name": "requests/models.py",
+          "lines": 625
+        },
+        {
+          "name": "requests/sessions.py",
+          "lines": 553
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1504.02,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15501,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-6028/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-6028/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": " in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (2.0.0)\nRequirement already satisfied: more-itertools>=4.0.0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (10.1.0)\nRequirement already satisfied: packaging in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (23.1)\nRequirement already satisfied: pluggy<1.0,>=0.12 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (0.13.1)\nRequirement already satisfied: py>=1.8.2 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (1.11.0)\nRequirement already satisfied: toml in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from pytest) (0.10.2)\n\nProcessing ./.\n  Installing build dependencies: started\n  Installing build dependencies: finished with status 'done'\n  Getting requirements to build wheel: started\n  Getting requirements to build wheel: finished with status 'done'\n  Preparing metadata (pyproject.toml): started\n  Preparing metadata (pyproject.toml): finished with status 'done'\nRequirement already satisfied: charset_normalizer~=2.0.0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from requests==2.27.0) (2.0.12)\nRequirement already satisfied: idna<4,>=2.5 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from requests==2.27.0) (3.15)\nRequirement already satisfied: urllib3<1.27,>=1.21.1 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from requests==2.27.0) (1.26.20)\nRequirement already satisfied: certifi>=2017.4.17 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from requests==2.27.0) (2026.4.22)\nBuilding wheels for collected packages: requests\n  Building wheel for requests (pyproject.toml): started\n  Building wheel for requests (pyproject.toml): finished with status 'done'\n  Created wheel for requests: filename=requests-2.27.0-py2.py3-none-any.whl size=63190 sha256=14b47955d8173a0792c8dfb50746f3ab0769fa771591d1f9649e6f9c25f64949\n  Stored in directory: /home/gfy/.cache/pip/wheels/8a/a6/c1/1c137384b90a29af861d9bea900b5269d7c08c53a02be0a5e3\nSuccessfully built requests\nInstalling collected packages: requests\n  Attempting uninstall: requests\n    Found existing installation: requests 2.26.0\n    Uninstalling requests-2.26.0:\n      Successfully uninstalled requests-2.26.0\nSuccessfully installed requests-2.27.0\n\n$ git fetch --all --tags\n$ git checkout --force 0192aac24123735b3eaf9b08df46429bb770c283\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_psf_requests_6028_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_6028_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/psf__requests-6028/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-6028/lossless.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_6028_candidate bash -lc 'python -m pip install .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_6028_candidate pytest -rA 'tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]' 'tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]'\n{\n  \"instance_id\": \"psf__requests-6028\",\n  \"repo\": \"psf/requests\",\n  \"version\": \"2.27\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_psf_requests_6028_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-6028\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\",\n    \"tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "oad()\n             ^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/metadata/__init__.py\", line 205, in load\n    module = import_module(match.group('module'))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/__init__.py\", line 90, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1310, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 161, in exec_module\n    source_stat, co = _rewrite_test(fn, self.config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 360, in _rewrite_test\n    co = compile(tree, fn_, \"exec\", dont_inherit=True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: required field \"lineno\" missing from alias\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query] tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1303.89,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15502,
+          "lossy_meta": {
+            "lossy_candidate_count": 24,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "66ebe6d8b9a52428",
+            "lossy_first_matched_content_signature": "97c7a82db0c9b54e",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 106,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "66ebe6d8b9a52428",
+            "lossy_final_matched_content_signature": "97c7a82db0c9b54e",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 106,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-6028/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-6028/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "fig in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (2.0.0)\nRequirement already satisfied: more-itertools>=4.0.0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (10.1.0)\nRequirement already satisfied: packaging in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (23.1)\nRequirement already satisfied: pluggy<1.0,>=0.12 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (0.13.1)\nRequirement already satisfied: py>=1.8.2 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (1.11.0)\nRequirement already satisfied: toml in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from pytest) (0.10.2)\n\nProcessing ./.\n  Installing build dependencies: started\n  Installing build dependencies: finished with status 'done'\n  Getting requirements to build wheel: started\n  Getting requirements to build wheel: finished with status 'done'\n  Preparing metadata (pyproject.toml): started\n  Preparing metadata (pyproject.toml): finished with status 'done'\nRequirement already satisfied: charset_normalizer~=2.0.0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from requests==2.27.0) (2.0.12)\nRequirement already satisfied: idna<4,>=2.5 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from requests==2.27.0) (3.15)\nRequirement already satisfied: urllib3<1.27,>=1.21.1 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from requests==2.27.0) (1.26.20)\nRequirement already satisfied: certifi>=2017.4.17 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from requests==2.27.0) (2026.4.22)\nBuilding wheels for collected packages: requests\n  Building wheel for requests (pyproject.toml): started\n  Building wheel for requests (pyproject.toml): finished with status 'done'\n  Created wheel for requests: filename=requests-2.27.0-py2.py3-none-any.whl size=63171 sha256=12359a777f921943f1775cd09dd13e53494daf35545234320605822b6c8d8da3\n  Stored in directory: /home/gfy/.cache/pip/wheels/8a/a6/c1/1c137384b90a29af861d9bea900b5269d7c08c53a02be0a5e3\nSuccessfully built requests\nInstalling collected packages: requests\n  Attempting uninstall: requests\n    Found existing installation: requests 2.27.0\n    Uninstalling requests-2.27.0:\n      Successfully uninstalled requests-2.27.0\nSuccessfully installed requests-2.27.0\n\n$ git fetch --all --tags\n$ git checkout --force 0192aac24123735b3eaf9b08df46429bb770c283\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_psf_requests_6028_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_6028_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/psf__requests-6028/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-6028/lossy.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_6028_candidate bash -lc 'python -m pip install .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_6028_candidate pytest -rA 'tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]' 'tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]'\n{\n  \"instance_id\": \"psf__requests-6028\",\n  \"repo\": \"psf/requests\",\n  \"version\": \"2.27\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_psf_requests_6028_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-6028\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\",\n    \"tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "oad()\n             ^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/metadata/__init__.py\", line 205, in load\n    module = import_module(match.group('module'))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/__init__.py\", line 90, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1310, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 161, in exec_module\n    source_stat, co = _rewrite_test(fn, self.config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 360, in _rewrite_test\n    co = compile(tree, fn_, \"exec\", dont_inherit=True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: required field \"lineno\" missing from alias\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query] tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1299.02,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15503,
+          "lossy_meta": {
+            "lossy_candidate_count": 27,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "66ebe6d8b9a52428",
+            "lossy_first_matched_content_signature": "97c7a82db0c9b54e",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 106,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "66ebe6d8b9a52428",
+            "lossy_final_matched_content_signature": "97c7a82db0c9b54e",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 106,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14512,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14512,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-6028/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-6028/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "ome/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (2.0.0)\nRequirement already satisfied: more-itertools>=4.0.0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (10.1.0)\nRequirement already satisfied: packaging in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (23.1)\nRequirement already satisfied: pluggy<1.0,>=0.12 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (0.13.1)\nRequirement already satisfied: py>=1.8.2 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pytest) (1.11.0)\nRequirement already satisfied: toml in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from pytest) (0.10.2)\n\nProcessing ./.\n  Installing build dependencies: started\n  Installing build dependencies: finished with status 'done'\n  Getting requirements to build wheel: started\n  Getting requirements to build wheel: finished with status 'done'\n  Preparing metadata (pyproject.toml): started\n  Preparing metadata (pyproject.toml): finished with status 'done'\nRequirement already satisfied: charset_normalizer~=2.0.0 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from requests==2.27.0) (2.0.12)\nRequirement already satisfied: idna<4,>=2.5 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from requests==2.27.0) (3.15)\nRequirement already satisfied: urllib3<1.27,>=1.21.1 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from requests==2.27.0) (1.26.20)\nRequirement already satisfied: certifi>=2017.4.17 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from requests==2.27.0) (2026.4.22)\nBuilding wheels for collected packages: requests\n  Building wheel for requests (pyproject.toml): started\n  Building wheel for requests (pyproject.toml): finished with status 'done'\n  Created wheel for requests: filename=requests-2.27.0-py2.py3-none-any.whl size=63162 sha256=844f7be79cf1d3860422637a6bb7bbdf61eff360d1ffcac226d4db43195a710f\n  Stored in directory: /home/gfy/.cache/pip/wheels/8a/a6/c1/1c137384b90a29af861d9bea900b5269d7c08c53a02be0a5e3\nSuccessfully built requests\nInstalling collected packages: requests\n  Attempting uninstall: requests\n    Found existing installation: requests 2.27.0\n    Uninstalling requests-2.27.0:\n      Successfully uninstalled requests-2.27.0\nSuccessfully installed requests-2.27.0\n\n$ git fetch --all --tags\n$ git checkout --force 0192aac24123735b3eaf9b08df46429bb770c283\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_psf_requests_6028_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_6028_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/psf__requests-6028/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/psf__requests-6028/lossy_prefetch.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_6028_candidate bash -lc 'python -m pip install .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_6028_candidate pytest -rA 'tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]' 'tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]'\n{\n  \"instance_id\": \"psf__requests-6028\",\n  \"repo\": \"psf/requests\",\n  \"version\": \"2.27\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_psf_requests_6028_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-6028\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query]\",\n    \"tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "oad()\n             ^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/metadata/__init__.py\", line 205, in load\n    module = import_module(match.group('module'))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/__init__.py\", line 90, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1310, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 161, in exec_module\n    source_stat, co = _rewrite_test(fn, self.config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 360, in _rewrite_test\n    co = compile(tree, fn_, \"exec\", dont_inherit=True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: required field \"lineno\" missing from alias\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA tests/test_utils.py::test_prepend_scheme_if_needed[http://user:pass@example.com/path?query-http://user:pass@example.com/path?query] tests/test_utils.py::test_prepend_scheme_if_needed[http://user@example.com/path?query-http://user@example.com/path?query]` failed. (See above for error)\n"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "pylint-dev__pylint-8898",
+      "repo": "pylint-dev/pylint",
+      "target_paths": [
+        "pylint/config/argument.py",
+        "pylint/utils/__init__.py",
+        "pylint/utils/utils.py"
+      ],
+      "segments": [
+        {
+          "name": "pylint/config/argument.py",
+          "lines": 502
+        },
+        {
+          "name": "pylint/utils/__init__.py",
+          "lines": 51
+        },
+        {
+          "name": "pylint/utils/utils.py",
+          "lines": 362
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 2680.23,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 8251,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/pylint-dev__pylint-8898/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/pylint-dev__pylint-8898/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "l in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from pytest) (0.10.2)\n\nObtaining file:///home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-8898\n  Installing build dependencies: started\n  Installing build dependencies: finished with status 'done'\n  Checking if build backend supports build_editable: started\n  Checking if build backend supports build_editable: finished with status 'done'\n  Getting requirements to build editable: started\n  Getting requirements to build editable: finished with status 'done'\n  Preparing editable metadata (pyproject.toml): started\n  Preparing editable metadata (pyproject.toml): finished with status 'done'\nRequirement already satisfied: platformdirs>=2.2.0 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from pylint==3.0.0b1) (4.9.6)\nCollecting astroid<=3.1.0-dev0,>=3.0.0a8 (from pylint==3.0.0b1)\n  Using cached astroid-3.0.3-py3-none-any.whl.metadata (4.5 kB)\nRequirement already satisfied: isort<6,>=4.2.5 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pylint==3.0.0b1) (5.13.2)\nRequirement already satisfied: mccabe<0.8,>=0.6 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pylint==3.0.0b1) (0.6.1)\nRequirement already satisfied: tomlkit>=0.10.1 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pylint==3.0.0b1) (0.14.0)\nRequirement already satisfied: dill>=0.3.6 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from pylint==3.0.0b1) (0.3.8)\nUsing cached astroid-3.0.3-py3-none-any.whl (275 kB)\nBuilding wheels for collected packages: pylint\n  Building editable for pylint (pyproject.toml): started\n  Building editable for pylint (pyproject.toml): finished with status 'done'\n  Created wheel for pylint: filename=pylint-3.0.0b1-0.editable-py3-none-any.whl size=25553 sha256=6abf63cc1c668fc8043476ededd400126cdb508124838642101212653ffa76b4\n  Stored in directory: /tmp/pip-ephem-wheel-cache-7mb5ohln/wheels/00/0a/5c/267b7271153079dbe65f6d0fe5ffeae65b982340cbd0dd261f\nSuccessfully built pylint\nInstalling collected packages: astroid, pylint\n  Attempting uninstall: astroid\n    Found existing installation: astroid 3.0.0a6\n    Uninstalling astroid-3.0.0a6:\n      Successfully uninstalled astroid-3.0.0a6\n  Attempting uninstall: pylint\n    Found existing installation: pylint 3.0.0b1\n    Uninstalling pylint-3.0.0b1:\n      Successfully uninstalled pylint-3.0.0b1\n\nSuccessfully installed astroid-3.0.3 pylint-3.0.0b1\n\n$ git fetch --all --tags\n$ git checkout --force 1f8c4d9eb185c16a2c1d881c054f015e1c2eb334\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda create -y -n swe_pylint_dev_pylint_8898_candidate python=3.9\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_pylint_dev_pylint_8898_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_8898_candidate python -m pip install astroid==3.0.0a6 setuptools\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_8898_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/pylint-dev__pylint-8898/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/pylint-dev__pylint-8898/lossless.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_8898_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_8898_candidate pytest -rA tests/config/test_config.py::test_csv_regex_error\n{\n  \"instance_id\": \"pylint-dev__pylint-8898\",\n  \"repo\": \"pylint-dev/pylint\",\n  \"version\": \"3.0\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_pylint_dev_pylint_8898_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-8898\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"tests/config/test_config.py::test_csv_regex_error\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "se\n    self.pluginmanager.load_setuptools_entrypoints(\"pytest11\")\n  File \"/home/gfy/KVCOMM/.venv/lib/python3.12/site-packages/pluggy/manager.py\", line 299, in load_setuptools_entrypoints\n    plugin = ep.load()\n             ^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/metadata/__init__.py\", line 205, in load\n    module = import_module(match.group('module'))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/__init__.py\", line 90, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1310, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 161, in exec_module\n    source_stat, co = _rewrite_test(fn, self.config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 360, in _rewrite_test\n    co = compile(tree, fn_, \"exec\", dont_inherit=True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: required field \"lineno\" missing from alias\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA tests/config/test_config.py::test_csv_regex_error` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 2686.16,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 8252,
+          "lossy_meta": {
+            "lossy_candidate_count": 22,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "16510dc4ba3c4c95",
+            "lossy_first_matched_content_signature": "5ab83fa2dd3aea7eedc1a983ee2d680e",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 118,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "16510dc4ba3c4c95",
+            "lossy_final_matched_content_signature": "5ab83fa2dd3aea7eedc1a983ee2d680e",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 118,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/pylint-dev__pylint-8898/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/pylint-dev__pylint-8898/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "COMM/.venv/lib/python3.12/site-packages (from pytest) (1.11.0)\nRequirement already satisfied: toml in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from pytest) (0.10.2)\n\nObtaining file:///home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-8898\n  Installing build dependencies: started\n  Installing build dependencies: finished with status 'done'\n  Checking if build backend supports build_editable: started\n  Checking if build backend supports build_editable: finished with status 'done'\n  Getting requirements to build editable: started\n  Getting requirements to build editable: finished with status 'done'\n  Preparing editable metadata (pyproject.toml): started\n  Preparing editable metadata (pyproject.toml): finished with status 'done'\nRequirement already satisfied: platformdirs>=2.2.0 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from pylint==3.0.0b1) (4.9.6)\nCollecting astroid<=3.1.0-dev0,>=3.0.0a8 (from pylint==3.0.0b1)\n  Using cached astroid-3.0.3-py3-none-any.whl.metadata (4.5 kB)\nRequirement already satisfied: isort<6,>=4.2.5 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pylint==3.0.0b1) (5.13.2)\nRequirement already satisfied: mccabe<0.8,>=0.6 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pylint==3.0.0b1) (0.6.1)\nRequirement already satisfied: tomlkit>=0.10.1 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pylint==3.0.0b1) (0.14.0)\nRequirement already satisfied: dill>=0.3.6 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from pylint==3.0.0b1) (0.3.8)\nUsing cached astroid-3.0.3-py3-none-any.whl (275 kB)\nBuilding wheels for collected packages: pylint\n  Building editable for pylint (pyproject.toml): started\n  Building editable for pylint (pyproject.toml): finished with status 'done'\n  Created wheel for pylint: filename=pylint-3.0.0b1-0.editable-py3-none-any.whl size=25553 sha256=015ac5e4adb794890d0ed36cfe43178ce740e1e6b58e73f90b0fdb06987c541b\n  Stored in directory: /tmp/pip-ephem-wheel-cache-y1x3f1dd/wheels/00/0a/5c/267b7271153079dbe65f6d0fe5ffeae65b982340cbd0dd261f\nSuccessfully built pylint\nInstalling collected packages: astroid, pylint\n  Attempting uninstall: astroid\n    Found existing installation: astroid 3.0.0a6\n    Uninstalling astroid-3.0.0a6:\n      Successfully uninstalled astroid-3.0.0a6\n  Attempting uninstall: pylint\n    Found existing installation: pylint 3.0.0b1\n    Uninstalling pylint-3.0.0b1:\n      Successfully uninstalled pylint-3.0.0b1\n\nSuccessfully installed astroid-3.0.3 pylint-3.0.0b1\n\n$ git fetch --all --tags\n$ git checkout --force 1f8c4d9eb185c16a2c1d881c054f015e1c2eb334\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_pylint_dev_pylint_8898_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_8898_candidate python -m pip install astroid==3.0.0a6 setuptools\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_8898_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/pylint-dev__pylint-8898/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/pylint-dev__pylint-8898/lossy.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_8898_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_8898_candidate pytest -rA tests/config/test_config.py::test_csv_regex_error\n{\n  \"instance_id\": \"pylint-dev__pylint-8898\",\n  \"repo\": \"pylint-dev/pylint\",\n  \"version\": \"3.0\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_pylint_dev_pylint_8898_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-8898\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"tests/config/test_config.py::test_csv_regex_error\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "se\n    self.pluginmanager.load_setuptools_entrypoints(\"pytest11\")\n  File \"/home/gfy/KVCOMM/.venv/lib/python3.12/site-packages/pluggy/manager.py\", line 299, in load_setuptools_entrypoints\n    plugin = ep.load()\n             ^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/metadata/__init__.py\", line 205, in load\n    module = import_module(match.group('module'))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/__init__.py\", line 90, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1310, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 161, in exec_module\n    source_stat, co = _rewrite_test(fn, self.config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 360, in _rewrite_test\n    co = compile(tree, fn_, \"exec\", dont_inherit=True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: required field \"lineno\" missing from alias\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA tests/config/test_config.py::test_csv_regex_error` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 2686.21,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 8253,
+          "lossy_meta": {
+            "lossy_candidate_count": 25,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "16510dc4ba3c4c95",
+            "lossy_first_matched_content_signature": "5ab83fa2dd3aea7eedc1a983ee2d680e",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 118,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "16510dc4ba3c4c95",
+            "lossy_final_matched_content_signature": "5ab83fa2dd3aea7eedc1a983ee2d680e",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 118,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 6281,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 6281,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/pylint-dev__pylint-8898/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/pylint-dev__pylint-8898/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "v/lib/python3.12/site-packages (from pytest) (1.11.0)\nRequirement already satisfied: toml in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from pytest) (0.10.2)\n\nObtaining file:///home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-8898\n  Installing build dependencies: started\n  Installing build dependencies: finished with status 'done'\n  Checking if build backend supports build_editable: started\n  Checking if build backend supports build_editable: finished with status 'done'\n  Getting requirements to build editable: started\n  Getting requirements to build editable: finished with status 'done'\n  Preparing editable metadata (pyproject.toml): started\n  Preparing editable metadata (pyproject.toml): finished with status 'done'\nRequirement already satisfied: platformdirs>=2.2.0 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from pylint==3.0.0b1) (4.9.6)\nCollecting astroid<=3.1.0-dev0,>=3.0.0a8 (from pylint==3.0.0b1)\n  Using cached astroid-3.0.3-py3-none-any.whl.metadata (4.5 kB)\nRequirement already satisfied: isort<6,>=4.2.5 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pylint==3.0.0b1) (5.13.2)\nRequirement already satisfied: mccabe<0.8,>=0.6 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pylint==3.0.0b1) (0.6.1)\nRequirement already satisfied: tomlkit>=0.10.1 in /home/gfy/KVCOMM/.venv/lib/python3.12/site-packages (from pylint==3.0.0b1) (0.14.0)\nRequirement already satisfied: dill>=0.3.6 in /home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/site-packages (from pylint==3.0.0b1) (0.3.8)\nUsing cached astroid-3.0.3-py3-none-any.whl (275 kB)\nBuilding wheels for collected packages: pylint\n  Building editable for pylint (pyproject.toml): started\n  Building editable for pylint (pyproject.toml): finished with status 'done'\n  Created wheel for pylint: filename=pylint-3.0.0b1-0.editable-py3-none-any.whl size=25553 sha256=ec5a0e9cb201fd448e58f7057688b50e324f760439728c8b849f28019d913432\n  Stored in directory: /tmp/pip-ephem-wheel-cache-hudzvb4x/wheels/00/0a/5c/267b7271153079dbe65f6d0fe5ffeae65b982340cbd0dd261f\nSuccessfully built pylint\nInstalling collected packages: astroid, pylint\n  Attempting uninstall: astroid\n    Found existing installation: astroid 3.0.0a6\n    Uninstalling astroid-3.0.0a6:\n      Successfully uninstalled astroid-3.0.0a6\n  Attempting uninstall: pylint\n    Found existing installation: pylint 3.0.0b1\n    Uninstalling pylint-3.0.0b1:\n      Successfully uninstalled pylint-3.0.0b1\n\nSuccessfully installed astroid-3.0.3 pylint-3.0.0b1\n\n$ git fetch --all --tags\n$ git checkout --force 1f8c4d9eb185c16a2c1d881c054f015e1c2eb334\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_pylint_dev_pylint_8898_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_8898_candidate python -m pip install astroid==3.0.0a6 setuptools\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_8898_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/pylint-dev__pylint-8898/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_8_forceevict/pylint-dev__pylint-8898/lossy_prefetch.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_8898_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_8898_candidate pytest -rA tests/config/test_config.py::test_csv_regex_error\n{\n  \"instance_id\": \"pylint-dev__pylint-8898\",\n  \"repo\": \"pylint-dev/pylint\",\n  \"version\": \"3.0\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_pylint_dev_pylint_8898_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-8898\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"tests/config/test_config.py::test_csv_regex_error\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "se\n    self.pluginmanager.load_setuptools_entrypoints(\"pytest11\")\n  File \"/home/gfy/KVCOMM/.venv/lib/python3.12/site-packages/pluggy/manager.py\", line 299, in load_setuptools_entrypoints\n    plugin = ep.load()\n             ^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/metadata/__init__.py\", line 205, in load\n    module = import_module(match.group('module'))\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/.conda/envs/sglang-kvflow/lib/python3.12/importlib/__init__.py\", line 90, in import_module\n    return _bootstrap._gcd_import(name[level:], package, level)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1310, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n  File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n  File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n  File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n  File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 161, in exec_module\n    source_stat, co = _rewrite_test(fn, self.config)\n                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/assertion/rewrite.py\", line 360, in _rewrite_test\n    co = compile(tree, fn_, \"exec\", dont_inherit=True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: required field \"lineno\" missing from alias\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA tests/config/test_config.py::test_csv_regex_error` failed. (See above for error)\n"
+          }
+        }
+      ]
+    }
+  ]
+}

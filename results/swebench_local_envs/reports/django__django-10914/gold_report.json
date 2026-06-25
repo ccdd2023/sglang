@@ -1,0 +1,19 @@
+{
+  "instance_id": "django__django-10914",
+  "repo": "django/django",
+  "version": "3.0",
+  "mode": "gold",
+  "env_name": "swe_django_django_10914_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10914",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "./tests/runtests.py",
+    "--verbosity",
+    "2",
+    "--settings=test_sqlite",
+    "--parallel",
+    "1",
+    "test_utils.tests.OverrideSettingsTests.test_override_file_upload_permissions"
+  ],
+  "returncode": 1
+}

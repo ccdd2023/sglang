@@ -1,0 +1,83 @@
+diff --git a/xarray/core/combine.py b/xarray/core/combine.py
+--- a/xarray/core/combine.py
++++ b/xarray/core/combine.py
+@@ -104,6 +104,10 @@ def _infer_concat_order_from_coords(datasets):
+     return combined_ids, concat_dims
+ 
+ 
++def _check_coords_monotonic(combined_ids, concat_dims):
++    for dim, coords in zip(concat_dims, combined_ids.keys()):
++        if not coords[1:].is_monotonic_increasing:
++            raise ValueError("Resulting object does not have monotonic global indexes along dimension {}".format(dim))
++
+ def _combine_nd(combined_ids, concat_dims, data_vars='all', coords='different',
+                 compat='no_conflicts', fill_value=dtypes.NA):
+     """
+@@ -112,6 +116,10 @@ def _combine_nd(combined_ids, concat_dims, data_vars='all', coords='different',
+     No checks are performed on the consistency of the datasets, concat_dims or
+     tile_IDs, because it is assumed that this has already been done.
+ 
++    Check that the inferred coordinates are monotonic along each concat_dim
++    before combining
++    """
++
+     n_dims = len(concat_dims)
+     if len(concat_dims) != n_dims:
+         raise ValueError("concat_dims has length {} but the datasets "
+@@ -120,6 +128,10 @@ def _combine_nd(combined_ids, concat_dims, data_vars='all', coords='different',
+     # Each iteration of this loop reduces the length of the tile_ids tuples
+     # by one. It always combines along the first dimension, removing the first
+     # element of the tuple
++    _check_coords_monotonic(combined_ids, concat_dims)
++
+     for concat_dim in concat_dims:
+         combined_ids = _combine_all_along_first_dim(combined_ids,
+                                                     dim=concat_dim,
+@@ -130,6 +142,10 @@ def _combine_all_along_first_dim(combined_ids, dim, data_vars, coords, compat,
+     # Combine all of these datasets along dim
+     new_combined_ids = {}
+     for new_id, group in grouped:
++        _check_coords_monotonic(new_combined_ids, concat_dims)
++
+         combined_ids = OrderedDict(sorted(group))
+         datasets = combined_ids.values()
+         new_combined_ids[new_id] = _combine_1d(datasets, dim, compat,
+@@ -140,6 +156,10 @@ def _combine_1d(datasets, concat_dim, compat, data_vars, coords, fill_value):
+     # Apply series of concatenate or merge operations along each dimension
+     combined = _combine_nd(combined_ids, concat_dims, compat=compat,
+                           data_vars=data_vars, coords=coords,
++                          fill_value=fill_value)
++    _check_coords_monotonic(combined_ids, concat_dims)
++
+     return combined
+ 
+
+diff --git a/xarray/tests/test_combine.py b/xarray/tests/test_combine.py
+--- a/xarray/tests/test_combine.py
++++ b/xarray/tests/test_combine.py
+@@ -581,6 +581,25 @@ def test_infer_order_from_coords(self):
+         expected = data
+         assert expected.broadcast_equals(actual)
+ 
++    def test_combine_leaving_bystander_dimensions(self):
++        # Check non-monotonic bystander dimension coord doesn't raise
++        # ValueError on combine (https://github.com/pydata/xarray/issues/3150)
++        ycoord = ['a', 'c', 'b']
++
++        data = np.random.rand(7, 3)
++
++        ds1 = Dataset(data_vars=dict(data=(['x', 'y'], data[:3, :])),
++                      coords=dict(x=[1, 2, 3], y=ycoord))
++
++        ds2 = Dataset(data_vars=dict(data=(['x', 'y'], data[3:, :])),
++                      coords=dict(x=[4, 5, 6, 7], y=ycoord))
++
++        expected = Dataset(data_vars=dict(data=(['x', 'y'], data)),
++                           coords=dict(x=[1, 2, 3, 4, 5, 6, 7], y=ycoord))
++
++        actual = combine_by_coords((ds1, ds2))
++        assert_identical(expected, actual)
++
+     def test_combine_by_coords_previously_failed(self):
+         # In the above scenario, one file is missing, containing the data for
+         # one year's data for one variable.

@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "src/_pytest/capture.py",
+      "search": "mode=\"wb+\"",
+      "replace": "mode=\"w\""
+    }
+  ]
+}
+```

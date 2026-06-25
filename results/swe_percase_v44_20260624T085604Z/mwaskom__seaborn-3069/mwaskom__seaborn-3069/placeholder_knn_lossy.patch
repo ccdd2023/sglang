@@ -1,0 +1,81 @@
+diff --git a/seaborn/_core/plot.py b/seaborn/_core/plot.py
+--- a/seaborn/_core/plot.py
++++ b/seaborn/_core/plot.py
+@@ -1042,6 +1042,11 @@ def scale(self, **scales: Scale) -> Plot:
+             "identity" scale, which treats data values as literally encoding visual properties.
+ 
+         Examples
+         --------
++            # Ensure nominal scales are drawn the same as categorical scales
++            # on the x-axis
++            p = Plot(x=["a", "b", "c"], y=[1, 2, 3])
++            assert p.plot()._figure.axes[0].get_xlim() == (-.5, 2.5)
++
+             # Ensure nominal scales are drawn the same as categorical scales
+             # on the y-axis
+             p = Plot(x=[1, 2, 3], y=["a", "b", "c"])
+@@ -1050,6 +1055,11 @@ def scale(self, **scales: Scale) -> Plot:
+             assert p.plot()._figure.axes[0].get_ylim() == (2.5, -.5)
+ 
+         """
++        if isinstance(scales, Nominal):
++            # Ensure nominal scales are drawn the same as categorical scales
++            # on the x-axis
++            self._figure.axes[0].set_xlim(-.5, 2.5)
++            self._figure.axes[0].get_xaxis().get_gridlines().set_visible(False)
++
+             # Ensure nominal scales are drawn the same as categorical scales
+             # on the y-axis
+             self._figure.axes[0].set_ylim(2.5, -.5)
+@@ -1058,6 +1068,11 @@ def scale(self, **scales: Scale) -> Plot:
+             self._figure.axes[0].get_yaxis().get_gridlines().set_visible(False)
+ 
+         """
++        if isinstance(scales, Nominal):
++            # Ensure nominal scales are drawn the same as categorical scales
++            # on the x-axis
++            self._figure.axes[0].set_xlim(-.5, 2.5)
++            self._figure.axes[0].get_xaxis().get_gridlines().set_visible(False)
++
+             # Ensure nominal scales are drawn the same as categorical scales
+             # on the y-axis
+             self._figure.axes[0].set_ylim(2.5, -.5)
+@@ -1066,6 +1081,11 @@ def scale(self, **scales: Scale) -> Plot:
+             self._figure.axes[0].get_yaxis().get_gridlines().set_visible(False)
+ 
+         """
++        if isinstance(scales, Nominal):
++            # Ensure nominal scales are drawn the same as categorical scales
++            # on the x-axis
++            self._figure.axes[0].set_xlim(-.5, 2.5)
++            self._figure.axes[0].get_xaxis().get_gridlines().set_visible(False)
++
+             # Ensure nominal scales are drawn the same as categorical scales
+             # on the y-axis
+             self._figure.axes[0].set_ylim(2.5, -.5)
+@@ -1074,6 +1094,11 @@ def scale(self, **scales: Scale) -> Plot:
+             self._figure.axes[0].get_yaxis().get_gridlines().set_visible(False)
+ 
+         """
++        if isinstance(scales, Nominal):
++            # Ensure nominal scales are drawn the same as categorical scales
++            # on the x-axis
++            self._figure.axes[0].set_xlim(-.5, 2.5)
++            self._figure.axes[0].get_xaxis().get_gridlines().set_visible(False)
++
+             # Ensure nominal scales are drawn the same as categorical scales
+             # on the y-axis
+             self._figure.axes[0].set_ylim(2.5, -.5)
+@@ -1082,6 +1107,11 @@ def scale(self, **scales: Scale) -> Plot:
+             self._figure.axes[0].get_yaxis().get_gridlines().set_visible(False)
+ 
+         """
++        if isinstance(scales, Nominal):
++            # Ensure nominal scales are drawn the same as categorical scales
++            # on the x-axis
++            self._figure.axes[0].set_xlim(-.5, 2.5)
++            self._figure.axes[0].get_xaxis().get_gridlines().set_visible(False)
++
+             # Ensure nominal scales are drawn the same as categorical scales
+             # on the y-axis
+             self._

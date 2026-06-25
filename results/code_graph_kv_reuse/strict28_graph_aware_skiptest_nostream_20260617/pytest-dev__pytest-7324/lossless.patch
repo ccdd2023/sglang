@@ -1,0 +1,12 @@
+diff --git a/src/_pytest/mark/expression.py b/src/_pytest/mark/expression.py
+--- a/src/_pytest/mark/expression.py
++++ b/src/_pytest/mark/expression.py
+@@ -11,7 +11,7 @@
+ 
+ The semantics are:
+ 
+-- Empty expression evaluates to False.
++- Empty expression evaluates to ast.NameConstant(False).
+ - ident evaluates to True of False according to a provided matcher function.
+ - or/and/not evaluate according to the usual boolean semantics.
+ """

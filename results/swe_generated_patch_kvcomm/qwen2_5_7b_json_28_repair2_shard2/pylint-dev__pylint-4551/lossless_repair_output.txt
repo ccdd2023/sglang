@@ -1,0 +1,66 @@
+```json
+{
+  "edits": [
+    {
+      "path": "pylint/pyreverse/diagrams.py",
+      "search": "def get_attrs(self, node):",
+      "replace": "def get_attrs(self, node) -> List[str]:"
+    },
+    {
+      "path": "pylint/pyreverse/diagrams.py",
+      "search": "def get_methods(self, node):",
+      "replace": "def get_methods(self, node) -> List[astroid.FunctionDef]:"
+    },
+    {
+      "path": "pylint/pyreverse/diagrams.py",
+      "search": "def add_object(self, title, node):",
+      "replace": "def add_object(self, title: str, node: astroid.NodeNG):"
+    },
+    {
+      "path": "pylint/pyreverse/diagrams.py",
+      "search": "def add_relationship(self, from_object, to_object, relation_type, name=None):",
+      "replace": "def add_relationship(self, from_object: Figure, to_object: Figure, relation_type: str, name: Optional[str] = None):"
+    },
+    {
+      "path": "pylint/pyreverse/diagrams.py",
+      "search": "def get_relationship(self, from_object, relation_type):",
+      "replace": "def get_relationship(self, from_object: Figure, relation_type: str) -> Optional[Relationship]:"
+    },
+    {
+      "path": "pylint/pyreverse/diagrams.py",
+      "search": "def extract_relationships(self):",
+      "replace": "def extract_relationships(self) -> None:"
+    },
+    {
+      "path": "pylint/pyreverse/inspector.py",
+      "search": "def visit_classdef(self, node):",
+      "replace": "def visit_classdef(self, node: astroid.ClassDef):"
+    },
+    {
+      "path": "pylint/pyreverse/inspector.py",
+      "search": "def visit_functiondef(self, node):",
+      "replace": "def visit_functiondef(self, node: astroid.FunctionDef):"
+    },
+    {
+      "path": "pylint/pyreverse/inspector.py",
+      "search": "def visit_assignname(self, node):",
+      "replace": "def visit_assignname(self, node: astroid.AssignName):"
+    },
+    {
+      "path": "pylint/pyreverse/inspector.py",
+      "search": "def visit_import(self, node):",
+      "replace": "def visit_import(self, node: astroid.Import):"
+    },
+    {
+      "path": "pylint/pyreverse/inspector.py",
+      "search": "def visit_importfrom(self, node):",
+      "replace": "def visit_importfrom(self, node: astroid.ImportFrom):"
+    },
+    {
+      "path": "pylint/pyreverse/inspector.py",
+      "search": "def project_from_files(files, func_wrapper=_astroid_wrapper, project_name=\"no name\", black_list=(\"CVS\",)):",
+      "replace": "def project_from_files(files: List[str], func_wrapper: Callable[[Callable[[str], astroid.AstroidNode], str], astroid.AstroidNode], project_name: str = \"no name\", black_list: Tuple[str, ...] = (\"CVS\",)) -> Project:"
+    }
+  ]
+}
+```

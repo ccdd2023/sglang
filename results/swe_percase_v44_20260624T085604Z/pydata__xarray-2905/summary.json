@@ -1,0 +1,428 @@
+{
+  "model": "/home/gfy/models/Qwen2.5-3B-Instruct",
+  "dataset": "results/repo_level_datasets/swe_verified_10_instances.json",
+  "manifest": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/manifest.json",
+  "timestamp": "2026-06-24 09:27:33",
+  "git_commit": "003782eb8",
+  "command": "/home/gfy/CodeMAS_Project/sglang-kvflow/benchmark/multi_workflow/bench_swe_generated_patch_kvcomm.py --dataset results/repo_level_datasets/swe_verified_10_instances.json --instance-id-file results/swe_percase_v44_20260624T085604Z/pydata__xarray-2905/_ids.txt --max-cases 1 --out-dir results/swe_percase_v44_20260624T085604Z/pydata__xarray-2905 --server-timeout 240 --eval-timeout 300 --skip-candidate-tests --enable-placeholder-knn",
+  "experiment": {
+    "repair_attempts": 1,
+    "output_schema": "diff",
+    "prompt_layout": "agenttemplatekv",
+    "force_evict": false,
+    "disable_overlap_schedule": false,
+    "max_running_requests": null,
+    "max_cases": 1,
+    "start_index": 0,
+    "instance_id_file": "results/swe_percase_v44_20260624T085604Z/pydata__xarray-2905/_ids.txt",
+    "enable_graph_aware_lossy": false,
+    "code_graph_bundle_manifest": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/data/code_graph_precision_manifest.jsonl",
+    "graph_bundle_policy": "call_neighborhood_1hop",
+    "graph_bundle_role": "planner",
+    "skip_candidate_tests": true,
+    "prompt_fair_cases": 1,
+    "prompt_unfair_cases": []
+  },
+  "results": [
+    {
+      "instance_id": "pydata__xarray-2905",
+      "repo": "pydata/xarray",
+      "target_paths": [
+        "xarray/core/variable.py"
+      ],
+      "segments": [
+        {
+          "name": "xarray/core/variable.py",
+          "lines": 638
+        }
+      ],
+      "graph_segments": [],
+      "prompt_fair_ok": true,
+      "target_prompt_sha1_set": [
+        "29223ef746852f8e"
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 2587.61,
+          "ttft_ms": null,
+          "repair_elapsed_ms": 2749.28,
+          "repair_ttft_ms": null,
+          "cached_tokens": 6075,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0,
+            "placeholder_anchor_pool_hit_count": 0,
+            "placeholder_anchor_pool_miss_count": 0,
+            "placeholder_kv_prefill_matched_slots": 0,
+            "placeholder_kv_prefill_skipped_tokens": 0,
+            "placeholder_kv_prefill_overlap_tokens": 0,
+            "placeholder_knn_topk_similarity_mean": 0.0,
+            "placeholder_anchor_store_entry_count": 0,
+            "placeholder_anchor_pool_skipped_cost_count": 0,
+            "placeholder_knn_skipped_high_overlap_count": 0,
+            "placeholder_knn_skipped_short_new_tokens_count": 0,
+            "placeholder_knn_skipped_high_span_overlap_count": 0,
+            "placeholder_knn_skipped_high_new_token_ratio_count": 0,
+            "placeholder_knn_pre_rotated_hit_count": 0,
+            "placeholder_knn_pre_rotated_miss_count": 0,
+            "placeholder_knn_head_rotation_tokens": 0,
+            "placeholder_knn_head_rotation_total_ops": 0,
+            "placeholder_knn_copy_method": "none",
+            "placeholder_anchor_pool_copy_error_count": 0
+          },
+          "segment_source": "file_context",
+          "segment_source_for_prompt": "file_context",
+          "reuse_selection_source": "file_context",
+          "segments": [
+            {
+              "name": "xarray/core/variable.py",
+              "lines": 638
+            }
+          ],
+          "reuse_segments": [
+            {
+              "name": "xarray/core/variable.py",
+              "lines": 638
+            }
+          ],
+          "target_prompt_sha1": "29223ef746852f8e",
+          "target_prompt_chars": 26631,
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_percase_v44_20260624T085604Z/pydata__xarray-2905/pydata__xarray-2905/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_percase_v44_20260624T085604Z/pydata__xarray-2905/pydata__xarray-2905/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": null
+          },
+          "apply_check": {
+            "returncode": 128,
+            "stdout_tail": "",
+            "stderr_tail": "error: corrupt patch at line 17\n"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          },
+          "prompt_fair_ok": true
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 2842.02,
+          "ttft_ms": null,
+          "repair_elapsed_ms": 2874.17,
+          "repair_ttft_ms": null,
+          "cached_tokens": 6082,
+          "lossy_meta": {
+            "lossy_candidate_count": 7,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "1015a5e2279ca12b",
+            "lossy_first_matched_content_signature": "7862171c7a75ca13",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 7,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "1015a5e2279ca12b",
+            "lossy_final_matched_content_signature": "7862171c7a75ca13",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 7,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_anchor_store_entry_count": 1,
+            "lossy_anchor_store_token_count": 4829,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0,
+            "placeholder_anchor_pool_hit_count": 0,
+            "placeholder_anchor_pool_miss_count": 0,
+            "placeholder_kv_prefill_matched_slots": 0,
+            "placeholder_kv_prefill_skipped_tokens": 0,
+            "placeholder_kv_prefill_overlap_tokens": 0,
+            "placeholder_knn_topk_similarity_mean": 0.0,
+            "placeholder_anchor_store_entry_count": 0,
+            "placeholder_anchor_pool_skipped_cost_count": 0,
+            "placeholder_knn_skipped_high_overlap_count": 0,
+            "placeholder_knn_skipped_short_new_tokens_count": 0,
+            "placeholder_knn_skipped_high_span_overlap_count": 0,
+            "placeholder_knn_skipped_high_new_token_ratio_count": 0,
+            "placeholder_knn_pre_rotated_hit_count": 0,
+            "placeholder_knn_pre_rotated_miss_count": 0,
+            "placeholder_knn_head_rotation_tokens": 0,
+            "placeholder_knn_head_rotation_total_ops": 0,
+            "placeholder_knn_copy_method": "none",
+            "placeholder_anchor_pool_copy_error_count": 0
+          },
+          "segment_source": "file_context",
+          "segment_source_for_prompt": "file_context",
+          "reuse_selection_source": "file_context",
+          "segments": [
+            {
+              "name": "xarray/core/variable.py",
+              "lines": 638
+            }
+          ],
+          "reuse_segments": [
+            {
+              "name": "xarray/core/variable.py",
+              "lines": 638
+            }
+          ],
+          "target_prompt_sha1": "29223ef746852f8e",
+          "target_prompt_chars": 26631,
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_percase_v44_20260624T085604Z/pydata__xarray-2905/pydata__xarray-2905/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_percase_v44_20260624T085604Z/pydata__xarray-2905/pydata__xarray-2905/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": null
+          },
+          "apply_check": {
+            "returncode": 1,
+            "stdout_tail": "",
+            "stderr_tail": "error: patch failed: xarray/core/variable.py:641\nerror: xarray/core/variable.py: patch does not apply\n"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          },
+          "prompt_fair_ok": true
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 2863.5,
+          "ttft_ms": null,
+          "repair_elapsed_ms": 2864.18,
+          "repair_ttft_ms": null,
+          "cached_tokens": 6082,
+          "lossy_meta": {
+            "lossy_candidate_count": 12,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "1015a5e2279ca12b",
+            "lossy_first_matched_content_signature": "7862171c7a75ca13",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 7,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "1015a5e2279ca12b",
+            "lossy_final_matched_content_signature": "7862171c7a75ca13",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 7,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_anchor_store_entry_count": 1,
+            "lossy_anchor_store_token_count": 4829,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 1,
+            "codebase_prefetch_text_count": 1,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 4829,
+            "codebase_prefetch_success_count": 1,
+            "codebase_prefetch_device_hit_count": 1,
+            "agenttemplatekv_prefetch_hit_count": 1,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 9658,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 9658,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0,
+            "placeholder_anchor_pool_hit_count": 0,
+            "placeholder_anchor_pool_miss_count": 0,
+            "placeholder_kv_prefill_matched_slots": 0,
+            "placeholder_kv_prefill_skipped_tokens": 0,
+            "placeholder_kv_prefill_overlap_tokens": 0,
+            "placeholder_knn_topk_similarity_mean": 0.0,
+            "placeholder_anchor_store_entry_count": 0,
+            "placeholder_anchor_pool_skipped_cost_count": 0,
+            "placeholder_knn_skipped_high_overlap_count": 0,
+            "placeholder_knn_skipped_short_new_tokens_count": 0,
+            "placeholder_knn_skipped_high_span_overlap_count": 0,
+            "placeholder_knn_skipped_high_new_token_ratio_count": 0,
+            "placeholder_knn_pre_rotated_hit_count": 0,
+            "placeholder_knn_pre_rotated_miss_count": 0,
+            "placeholder_knn_head_rotation_tokens": 0,
+            "placeholder_knn_head_rotation_total_ops": 0,
+            "placeholder_knn_copy_method": "none",
+            "placeholder_anchor_pool_copy_error_count": 0
+          },
+          "segment_source": "file_context",
+          "segment_source_for_prompt": "file_context",
+          "reuse_selection_source": "file_context",
+          "segments": [
+            {
+              "name": "xarray/core/variable.py",
+              "lines": 638
+            }
+          ],
+          "reuse_segments": [
+            {
+              "name": "xarray/core/variable.py",
+              "lines": 638
+            }
+          ],
+          "target_prompt_sha1": "29223ef746852f8e",
+          "target_prompt_chars": 26631,
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_percase_v44_20260624T085604Z/pydata__xarray-2905/pydata__xarray-2905/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_percase_v44_20260624T085604Z/pydata__xarray-2905/pydata__xarray-2905/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": null
+          },
+          "apply_check": {
+            "returncode": 1,
+            "stdout_tail": "",
+            "stderr_tail": "error: patch failed: xarray/core/variable.py:641\nerror: xarray/core/variable.py: patch does not apply\n"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          },
+          "prompt_fair_ok": true
+        },
+        {
+          "mode": "placeholder_knn_lossy",
+          "elapsed_ms": 2836.21,
+          "ttft_ms": null,
+          "repair_elapsed_ms": 2871.05,
+          "repair_ttft_ms": null,
+          "cached_tokens": 6082,
+          "lossy_meta": {
+            "lossy_candidate_count": 13,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "1015a5e2279ca12b",
+            "lossy_first_matched_content_signature": "7862171c7a75ca13",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 7,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "1015a5e2279ca12b",
+            "lossy_final_matched_content_signature": "7862171c7a75ca13",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 7,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_anchor_store_entry_count": 1,
+            "lossy_anchor_store_token_count": 4829,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0,
+            "placeholder_anchor_pool_hit_count": 0,
+            "placeholder_anchor_pool_miss_count": 0,
+            "placeholder_kv_prefill_matched_slots": 0,
+            "placeholder_kv_prefill_skipped_tokens": 0,
+            "placeholder_kv_prefill_overlap_tokens": 0,
+            "placeholder_knn_topk_similarity_mean": 0.0,
+            "placeholder_anchor_store_entry_count": 0,
+            "placeholder_anchor_pool_skipped_cost_count": 0,
+            "placeholder_knn_skipped_high_overlap_count": 0,
+            "placeholder_knn_skipped_short_new_tokens_count": 0,
+            "placeholder_knn_skipped_high_span_overlap_count": 0,
+            "placeholder_knn_skipped_high_new_token_ratio_count": 0,
+            "placeholder_knn_pre_rotated_hit_count": 0,
+            "placeholder_knn_pre_rotated_miss_count": 0,
+            "placeholder_knn_head_rotation_tokens": 0,
+            "placeholder_knn_head_rotation_total_ops": 0,
+            "placeholder_knn_copy_method": "none",
+            "placeholder_anchor_pool_copy_error_count": 0
+          },
+          "segment_source": "file_context",
+          "segment_source_for_prompt": "file_context",
+          "reuse_selection_source": "file_context",
+          "segments": [
+            {
+              "name": "xarray/core/variable.py",
+              "lines": 638
+            }
+          ],
+          "reuse_segments": [
+            {
+              "name": "xarray/core/variable.py",
+              "lines": 638
+            }
+          ],
+          "target_prompt_sha1": "29223ef746852f8e",
+          "target_prompt_chars": 26631,
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_percase_v44_20260624T085604Z/pydata__xarray-2905/pydata__xarray-2905/placeholder_knn_lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_percase_v44_20260624T085604Z/pydata__xarray-2905/pydata__xarray-2905/placeholder_knn_lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": null
+          },
+          "apply_check": {
+            "returncode": 1,
+            "stdout_tail": "",
+            "stderr_tail": "error: patch failed: xarray/core/variable.py:641\nerror: xarray/core/variable.py: patch does not apply\n"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "skipped by --skip-candidate-tests"
+          },
+          "prompt_fair_ok": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "lossless_full_prefill": {
+    "pass@1": 0.7073170731707317
+  },
+  "whole_file_reuse_all": {
+    "pass@1": 0.7073170731707317
+  },
+  "selective_function_method_reuse": {
+    "pass@1": 0.7073170731707317
+  }
+}

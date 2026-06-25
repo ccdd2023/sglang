@@ -1,0 +1,114 @@
+{
+  "label": "retention_reject_caprescue3_20260619",
+  "schema_version": "selective_wholefile_manifest_v1",
+  "source_manifest": "results/repo_level_datasets/manifest_500.json",
+  "source_dataset": "results/repo_level_datasets/swe_verified_500_instances.json",
+  "policy": "benchmark/multi_workflow/selective_reuse_policy_extended.json",
+  "case_count": 3,
+  "file_count": 28,
+  "selective_span_count": 2117,
+  "avg_chars_per_file": 49967.71,
+  "repo_distribution": {
+    "pallets/flask": 1,
+    "psf/requests": 8,
+    "pytest-dev/pytest": 19
+  },
+  "rejected_no_eligible_file": 0,
+  "selection_rule": "mixed-window baseline; original 1-file window for validated expanded bridge-safe cases",
+  "samples": [
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "psf__requests-1724",
+      "repo": "psf/requests",
+      "version": "2.0",
+      "difficulty": "<15 min fix",
+      "repo_key": "psf__requests",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-1724",
+      "files": [
+        {
+          "path": "requests/packages/urllib3/connectionpool.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-1724/requests/packages/urllib3/connectionpool.py",
+          "content_hash": "577ac6a8c7d848d1c07bf05a88c045091a947918ce80429f471c000b8eef8e98",
+          "lines": 674,
+          "chars": 25029,
+          "selective_span_count": 15,
+          "selective_granularities": [
+            "function",
+            "method"
+          ],
+          "task_file_score": 1520
+        }
+      ],
+      "selective_wholefile_rule": {
+        "source_manifest": "results/repo_level_datasets/manifest_500.json",
+        "max_file_chars": 68000,
+        "files_per_case": 1,
+        "required_mode": "selective_function_method_reuse",
+        "requires_full_file": true,
+        "selection": "task_aware"
+      }
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "psf__requests-1766",
+      "repo": "psf/requests",
+      "version": "2.0",
+      "difficulty": "<15 min fix",
+      "repo_key": "psf__requests",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-1766",
+      "files": [
+        {
+          "path": "requests/models.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-1766/requests/models.py",
+          "content_hash": "d67cf75ca48670f07fbebfb53637f338111603fd41f58de87aaa4da2ff4c3d2e",
+          "lines": 770,
+          "chars": 24714,
+          "selective_span_count": 37,
+          "selective_granularities": [
+            "method"
+          ],
+          "task_file_score": 25
+        }
+      ],
+      "selective_wholefile_rule": {
+        "source_manifest": "results/repo_level_datasets/manifest_500.json",
+        "max_file_chars": 68000,
+        "files_per_case": 1,
+        "required_mode": "selective_function_method_reuse",
+        "requires_full_file": true,
+        "selection": "task_aware"
+      }
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "pytest-dev__pytest-10356",
+      "repo": "pytest-dev/pytest",
+      "version": "7.2",
+      "difficulty": "1-4 hours",
+      "repo_key": "pytest-dev__pytest",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pytest-dev__pytest-10356",
+      "files": [
+        {
+          "path": "testing/python/metafunc.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-10356/testing/python/metafunc.py"
+        },
+        {
+          "path": "src/_pytest/mark/structures.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-10356/src/_pytest/mark/structures.py"
+        }
+      ],
+      "selective_wholefile_rule": {
+        "source_manifest": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/manifest_500.json",
+        "max_file_chars": 68000,
+        "files_per_case": 1,
+        "required_mode": "selective_function_method_reuse",
+        "requires_full_file": true,
+        "selection": "top files by selected function/method span count, then smaller file"
+      }
+    }
+  ],
+  "candidate_probe_note": "Adds pytest-dev__pytest-7490 patch-file context after prompt-fair smoke F1=0.9867 and speedup=1.38x."
+}

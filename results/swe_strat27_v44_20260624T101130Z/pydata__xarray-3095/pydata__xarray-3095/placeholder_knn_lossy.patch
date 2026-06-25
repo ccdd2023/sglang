@@ -1,0 +1,12 @@
+diff --git a/xarray/core/variable.py b/xarray/core/variable.py
+--- a/xarray/core/variable.py
++++ b/xarray/core/variable.py
+@@ -104,7 +104,7 @@ def _broadcast_indexes_outer(self, key):
+         new_key = []
+         for k in key:
+             if isinstance(k, Variable):
+-                k = k.data
++                k = k.data.values
+             if not isinstance(k, BASIC_INDEXING_TYPES):
+                 k = np.asarray(k)
+                 if k.dtype.kind == 'b':  # boolean indexing case

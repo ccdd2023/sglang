@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "src/_pytest/unittest.py",
+      "search": "if self.config.getoption(\"usepdb\")",
+      "replace": "if self.config.getoption(\"usepdb\") or getattr(self, \"__unittest_skip__\", False):"
+    }
+  ]
+}
+```

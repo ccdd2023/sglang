@@ -1,0 +1,302 @@
+{
+  "git_commit": "5fb934751",
+  "model": "/home/gfy/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/c03e6d358207e414f1eca0bb1891e29f1db0e242",
+  "policy": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/selective_ast_reuse/data/selective_reuse_policy.json",
+  "dataset": "results/selective_ast_reuse/data/swe_selective_wholefile_68k_1file_instances.json",
+  "manifest": "results/selective_ast_reuse/data/swe_selective_wholefile_68k_1file_manifest.json",
+  "all_cases": false,
+  "expected_case_count": 1,
+  "modes": [
+    "lossless_full_prefill",
+    "whole_file_reuse_all",
+    "selective_function_method_reuse",
+    "selective_oracle_low_dnorm"
+  ],
+  "summary": {
+    "lossless_full_prefill": {
+      "n": 1,
+      "avg_elapsed_ms": 1761.12,
+      "p50_elapsed_ms": 1761.12,
+      "avg_cached_tokens": 15131.0,
+      "avg_estimated_reused_tokens": 0.0,
+      "avg_estimated_recomputed_tokens": 10337.0,
+      "exact_hit_rate": 0.0,
+      "avg_token_f1_vs_lossless": 1.0
+    },
+    "whole_file_reuse_all": {
+      "n": 1,
+      "avg_elapsed_ms": 1753.47,
+      "p50_elapsed_ms": 1753.47,
+      "avg_cached_tokens": 15131.0,
+      "avg_estimated_reused_tokens": 4686.0,
+      "avg_estimated_recomputed_tokens": 0.0,
+      "exact_hit_rate": 1.0,
+      "avg_token_f1_vs_lossless": 1.0
+    },
+    "selective_function_method_reuse": {
+      "n": 1,
+      "avg_elapsed_ms": 1780.72,
+      "p50_elapsed_ms": 1780.72,
+      "avg_cached_tokens": 15131.0,
+      "avg_estimated_reused_tokens": 4541.0,
+      "avg_estimated_recomputed_tokens": 5796.0,
+      "exact_hit_rate": 1.0,
+      "avg_token_f1_vs_lossless": 1.0
+    },
+    "selective_oracle_low_dnorm": {
+      "n": 1,
+      "avg_elapsed_ms": 1758.05,
+      "p50_elapsed_ms": 1758.05,
+      "avg_cached_tokens": 15131.0,
+      "avg_estimated_reused_tokens": 4541.0,
+      "avg_estimated_recomputed_tokens": 5796.0,
+      "exact_hit_rate": 1.0,
+      "avg_token_f1_vs_lossless": 1.0
+    }
+  },
+  "cases": [
+    {
+      "instance_id": "pytest-dev__pytest-8399",
+      "repo": "pytest-dev/pytest",
+      "rows": [
+        {
+          "instance_id": "pytest-dev__pytest-8399",
+          "repo": "pytest-dev/pytest",
+          "mode": "lossless_full_prefill",
+          "elapsed_ms": 1761.12,
+          "cached_tokens": 15131,
+          "output_chars": 486,
+          "lossy_match_reason": null,
+          "matched_content_signature": null,
+          "request_start_ms": 1408336946.38,
+          "span_count": 174,
+          "selected_span_count": 0,
+          "span_count_by_granularity": {
+            "file_prefix": 1,
+            "class": 14,
+            "method": 143,
+            "control_block": 16
+          },
+          "selected_span_count_by_granularity": {},
+          "estimated_reused_tokens": 0,
+          "estimated_recomputed_tokens": 10337,
+          "decision_reason_counts": {
+            "granularity_risk": 31,
+            "default_function_method_low_p90": 143
+          },
+          "raw_metadata": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "output_exact_match_vs_lossless": true,
+          "output_token_f1_vs_lossless": 1.0
+        },
+        {
+          "instance_id": "pytest-dev__pytest-8399",
+          "repo": "pytest-dev/pytest",
+          "mode": "whole_file_reuse_all",
+          "elapsed_ms": 1753.47,
+          "cached_tokens": 15131,
+          "output_chars": 486,
+          "lossy_match_reason": "exact_code_content_signature",
+          "matched_content_signature": "0ae2905ceb42cd08539fdf9abf4c2ccb",
+          "request_start_ms": 1408338790.58,
+          "span_count": 174,
+          "selected_span_count": 1,
+          "span_count_by_granularity": {
+            "file_prefix": 1,
+            "class": 14,
+            "method": 143,
+            "control_block": 16
+          },
+          "selected_span_count_by_granularity": {
+            "whole_file": 1
+          },
+          "estimated_reused_tokens": 4686,
+          "estimated_recomputed_tokens": 0,
+          "decision_reason_counts": {
+            "reuse:whole_file_diagnostic": 1
+          },
+          "raw_metadata": {
+            "lossy_candidate_count": 5,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "ef9c0bad5223eb86",
+            "lossy_first_matched_content_signature": "0ae2905ceb42cd08539fdf9abf4c2ccb",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 6,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "ef9c0bad5223eb86",
+            "lossy_final_matched_content_signature": "0ae2905ceb42cd08539fdf9abf4c2ccb",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 6,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "output_exact_match_vs_lossless": true,
+          "output_token_f1_vs_lossless": 1.0
+        },
+        {
+          "instance_id": "pytest-dev__pytest-8399",
+          "repo": "pytest-dev/pytest",
+          "mode": "selective_function_method_reuse",
+          "elapsed_ms": 1780.72,
+          "cached_tokens": 15131,
+          "output_chars": 486,
+          "lossy_match_reason": "exact_code_content_signature",
+          "matched_content_signature": "035253d1270decac9286f5ffee019371",
+          "request_start_ms": 1408343188.31,
+          "span_count": 174,
+          "selected_span_count": 99,
+          "span_count_by_granularity": {
+            "file_prefix": 1,
+            "class": 14,
+            "method": 143,
+            "control_block": 16
+          },
+          "selected_span_count_by_granularity": {
+            "method": 99
+          },
+          "estimated_reused_tokens": 4541,
+          "estimated_recomputed_tokens": 5796,
+          "decision_reason_counts": {
+            "granularity_risk": 31,
+            "reuse:default_function_method_low_p90": 99,
+            "default_function_method_low_p90": 44
+          },
+          "raw_metadata": {
+            "lossy_candidate_count": 6,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "ef9c0bad5223eb86",
+            "lossy_first_matched_content_signature": "035253d1270decac9286f5ffee019371",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 6,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "ef9c0bad5223eb86",
+            "lossy_final_matched_content_signature": "035253d1270decac9286f5ffee019371",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 6,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "output_exact_match_vs_lossless": true,
+          "output_token_f1_vs_lossless": 1.0
+        },
+        {
+          "instance_id": "pytest-dev__pytest-8399",
+          "repo": "pytest-dev/pytest",
+          "mode": "selective_oracle_low_dnorm",
+          "elapsed_ms": 1758.05,
+          "cached_tokens": 15131,
+          "output_chars": 486,
+          "lossy_match_reason": "exact_code_content_signature",
+          "matched_content_signature": "035253d1270decac9286f5ffee019371",
+          "request_start_ms": 1408347672.79,
+          "span_count": 174,
+          "selected_span_count": 99,
+          "span_count_by_granularity": {
+            "file_prefix": 1,
+            "class": 14,
+            "method": 143,
+            "control_block": 16
+          },
+          "selected_span_count_by_granularity": {
+            "method": 99
+          },
+          "estimated_reused_tokens": 4541,
+          "estimated_recomputed_tokens": 5796,
+          "decision_reason_counts": {
+            "granularity_risk": 31,
+            "reuse:default_function_method_low_p90": 99,
+            "default_function_method_low_p90": 44
+          },
+          "raw_metadata": {
+            "lossy_candidate_count": 6,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "ef9c0bad5223eb86",
+            "lossy_first_matched_content_signature": "035253d1270decac9286f5ffee019371",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 6,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "ef9c0bad5223eb86",
+            "lossy_final_matched_content_signature": "035253d1270decac9286f5ffee019371",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 6,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "output_exact_match_vs_lossless": true,
+          "output_token_f1_vs_lossless": 1.0
+        }
+      ]
+    }
+  ]
+}

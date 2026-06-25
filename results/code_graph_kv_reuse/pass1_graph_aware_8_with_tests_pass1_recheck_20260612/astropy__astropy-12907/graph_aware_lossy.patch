@@ -1,0 +1,12 @@
+diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
+--- a/astropy/modeling/separable.py
++++ b/astropy/modeling/separable.py
+@@ -186,7 +186,7 @@
+         is a left or right child.
+ 
+     """
+-    if isinstance(model, Mapping):
++    if isinstance(model, Mapping) or isinstance(model, CompoundModel):
+         axes = []
+         for i in model.mapping:
+             axis = np.zeros((model.n_inputs,))

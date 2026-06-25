@@ -8,6 +8,7 @@ import asyncio
 import csv
 import json
 import os
+import shlex
 import statistics
 import subprocess
 import sys
@@ -16,7 +17,12 @@ from pathlib import Path
 from typing import Any
 
 import aiohttp
-import matplotlib.pyplot as plt
+
+sys.path = [entry for entry in sys.path if "swebench_local_envs/repos" not in entry]
+try:
+    import matplotlib.pyplot as plt
+except Exception:
+    plt = None
 from transformers import AutoTokenizer
 
 PROJECT = Path(__file__).resolve().parents[2]
@@ -37,6 +43,7 @@ from benchmark.multi_workflow.bench_swe_generated_patch_kvcomm import (  # noqa:
     load_cases as load_patch_cases,
     now_ms,
     post_chat,
+    post_chat_optional_stream,
     reset_repo_to_base,
     sha1_short,
     wait_ready,
@@ -46,6 +53,8 @@ DEFAULT_MODEL = "/home/gfy/models/Qwen2.5-7B-Instruct"
 DEFAULT_DATASET = PROJECT / "results" / "repo_level_datasets" / "swe_verified_10_instances.json"
 DEFAULT_MANIFEST = PROJECT / "results" / "repo_level_datasets" / "manifest_10.json"
 OUT_DIR = PROJECT / "results" / "coding_kvflow_prefetch"
+DEFAULT_LMCACHE_CONFIG = PROJECT / "python" / "sglang" / "srt" / "mem_cache" / "storage" / "lmcache" / "example_config.yaml"
+DEFAULT_SERVER_PYTHON = sys.executable or DEFAULT_PYTHON
 
 MODES = [
     "baseline_prefix_cache_only",
@@ -77,14 +86,64 @@ def git_commit() -> str:
         return "unknown"
 
 
-def launch_server(args: argparse.Namespace) -> subprocess.Popen:
+def resolve_server_profile(args: argparse.Namespace) -> tuple[list[str], Path | None, str]:
+    extra_server_args = shlex.split(args.server_extra_args or "")
+    lmcache_config = args.lmcache_config
+    baseline_profile = getattr(args, "baseline_profile", "agenttemplatekv")
+
+    if baseline_profile == "lmcache":
+        if "--enable-hierarchical-cache" in extra_server_args or "--enable-hicache-prefetch" in extra_server_args:
+            raise ValueError("--baseline-profile lmcache cannot be combined with explicit HiCache flags")
+        if "--enable-lmcache" not in extra_server_args:
+            extra_server_args.append("--enable-lmcache")
+        if lmcache_config is None:
+            lmcache_config = DEFAULT_LMCACHE_CONFIG
+    return extra_server_args, lmcache_config, baseline_profile
+
+
+def check_external_backend_dependencies(args: argparse.Namespace) -> dict[str, Any]:
+    extra_server_args, lmcache_config, baseline_profile = resolve_server_profile(args)
+    checks: dict[str, Any] = {
+        "baseline_profile": baseline_profile,
+        "lmcache_requested": "--enable-lmcache" in extra_server_args or lmcache_config is not None,
+        "lmcache_config": str(lmcache_config.resolve()) if lmcache_config else "",
+        "lmcache_import_ok": None,
+        "lmcache_import_error": "",
+    }
+    if checks["lmcache_requested"]:
+        try:
+            import lmcache  # type: ignore
+
+            checks["lmcache_import_ok"] = True
+            checks["lmcache_version"] = getattr(lmcache, "__version__", "unknown")
+        except Exception as exc:
+            checks["lmcache_import_ok"] = False
+            checks["lmcache_import_error"] = f"{type(exc).__name__}: {exc}"
+    return checks
+
+
+def build_server_command(args: argparse.Namespace) -> tuple[list[str], dict[str, str], dict[str, Any]]:
     env = dict(**os.environ)
     env["PYTHONPATH"] = str(PROJECT / "python")
     env["SGLANG_LOSSY_FUZZY_MATCH"] = "1"
+    extra_server_args, lmcache_config, baseline_profile = resolve_server_profile(args)
+    lmcache_requested = "--enable-lmcache" in extra_server_args
+    if lmcache_config:
+        env["LMCACHE_USE_EXPERIMENTAL"] = "True"
+        env["LMCACHE_CONFIG_FILE"] = str(lmcache_config.resolve())
+        lmcache_requested = True
+    elif lmcache_requested:
+        env.setdefault("LMCACHE_USE_EXPERIMENTAL", "True")
     if args.hicache_storage_backend:
         env["SGLANG_HICACHE_FILE_BACKEND_STORAGE_DIR"] = str(args.out_dir / "hicache_file_storage")
-    args.out_dir.mkdir(parents=True, exist_ok=True)
-    log_path = args.out_dir / "sglang_server.log"
+    if args.enable_placeholder_knn:
+        # v44 placeholder k-NN body: opt-in via env var, default off.
+        # See python/sglang/srt/mem_cache/radix_cache.py:2340-2342 for the
+        # actual env-var names consumed by the body.
+        env["SGLANG_PLACEHOLDER_KNN_MATCH"] = "1"
+        env["SGLANG_PLACEHOLDER_KNN_PRE_ROTATE_DELTAS"] = "1"
+        env["SGLANG_PLACEHOLDER_KNN_TOPK"] = str(args.placeholder_knn_topk)
+        env["SGLANG_PLACEHOLDER_KNN_MIN_COSINE"] = str(args.placeholder_knn_min_cosine)
     cmd = [
         args.python,
         "-m",
@@ -108,7 +167,7 @@ def launch_server(args: argparse.Namespace) -> subprocess.Popen:
         "--log-level",
         "error",
     ]
-    if not args.disable_hierarchical_cache:
+    if not args.disable_hierarchical_cache and not lmcache_requested:
         cmd.extend(
             [
                 "--radix-eviction-policy",
@@ -130,6 +189,55 @@ def launch_server(args: argparse.Namespace) -> subprocess.Popen:
                 "best_effort",
             ]
         )
+    if extra_server_args:
+        cmd.extend(extra_server_args)
+    manifest = {
+        "cmd": cmd,
+        "baseline_profile": baseline_profile,
+        "server_extra_args": args.server_extra_args,
+        "resolved_server_extra_args": " ".join(extra_server_args),
+        "lmcache_requested": lmcache_requested,
+        "lmcache_config": str(lmcache_config.resolve()) if lmcache_config else "",
+        "lmcache_use_experimental": env.get("LMCACHE_USE_EXPERIMENTAL", ""),
+        "lmcache_config_file": env.get("LMCACHE_CONFIG_FILE", ""),
+        "hicache_storage_backend": args.hicache_storage_backend or "",
+        "hierarchical_cache": (not args.disable_hierarchical_cache and not lmcache_requested),
+        "hierarchical_cache_suppressed_for_lmcache": lmcache_requested and not args.disable_hierarchical_cache,
+        "model": args.model,
+        "port": args.port,
+        "max_total_tokens": args.max_total_tokens,
+        "mem_fraction_static": args.mem_fraction_static,
+    }
+    return cmd, env, manifest
+
+
+def write_server_command_manifest(args: argparse.Namespace, manifest: dict[str, Any]) -> None:
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    (args.out_dir / "server_command.json").write_text(
+        json.dumps(manifest, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def backend_summary_config(args: argparse.Namespace) -> dict[str, Any]:
+    _, _, manifest = build_server_command(args)
+    return {
+        "baseline_profile": manifest["baseline_profile"],
+        "hicache_storage_backend": manifest["hicache_storage_backend"] or "disabled",
+        "hierarchical_cache": manifest["hierarchical_cache"],
+        "server_extra_args": manifest["server_extra_args"],
+        "resolved_server_extra_args": manifest["resolved_server_extra_args"],
+        "lmcache_requested": manifest["lmcache_requested"],
+        "lmcache_config": manifest["lmcache_config"],
+        "hierarchical_cache_suppressed_for_lmcache": manifest["hierarchical_cache_suppressed_for_lmcache"],
+    }
+
+
+def launch_server(args: argparse.Namespace) -> subprocess.Popen:
+    cmd, env, manifest = build_server_command(args)
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    write_server_command_manifest(args, manifest)
+    log_path = args.out_dir / "sglang_server.log"
     return subprocess.Popen(
         cmd,
         cwd=str(PROJECT),
@@ -286,7 +394,7 @@ async def warm_codebase(
             "priority": 1,
         }
         payload.update(build_anchor_fields(tokenizer, messages, [segment]))
-        await post_chat(session, args.port, payload)
+        await post_chat_optional_stream(session, args.port, payload, args.emit_ttft)
 
 
 async def run_case(
@@ -319,7 +427,7 @@ async def run_case(
         f"planner:{instance_id}",
     )
     planner_payload["max_tokens"] = 32
-    await post_chat(session, args.port, planner_payload)
+    await post_chat_optional_stream(session, args.port, planner_payload, args.emit_ttft)
 
     mode_rows = []
     outputs: dict[str, str] = {}
@@ -327,8 +435,9 @@ async def run_case(
         messages = build_messages(instance, segments, mode, "json-edit")
         payload = make_payload(args, tokenizer, messages, segments, mode, f"target:{instance_id}:{mode}")
         start = now_ms()
-        response = await post_chat(session, args.port, payload)
+        response = await post_chat_optional_stream(session, args.port, payload, args.emit_ttft)
         elapsed_ms = response["elapsed_ms"]
+        ttft_ms = response.get("ttft_ms")
         output = extract_text(response["body"]) or ""
         outputs[mode] = output
         meta = extract_lossy_meta(response["body"])
@@ -336,6 +445,7 @@ async def run_case(
             {
                 "mode": mode,
                 "elapsed_ms": round(elapsed_ms, 2),
+                "ttft_ms": round(ttft_ms, 2) if ttft_ms is not None else None,
                 "cached_tokens": extract_cached_tokens(response["body"]),
                 "output_chars": len(output),
                 "lossy_match_reason": meta.get("lossy_first_match_reason")
@@ -387,6 +497,41 @@ async def run_case(
 async def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
     args.out_dir = args.out_dir if args.out_dir.is_absolute() else PROJECT / args.out_dir
     args.out_dir.mkdir(parents=True, exist_ok=True)
+    if args.dry_run_server_command:
+        _, _, manifest = build_server_command(args)
+        manifest.update(
+            {
+                "dry_run": True,
+                "dataset": str(args.dataset),
+                "manifest": str(args.manifest),
+                "command": " ".join(sys.argv),
+                "note": "Server command generated without launching the model. Use this to verify external-baseline flags before a GPU run.",
+            }
+        )
+        write_server_command_manifest(args, manifest)
+        (args.out_dir / "DRY_RUN_SERVER_COMMAND.md").write_text(
+            "\n".join(
+                [
+                    "# Server Command Dry Run",
+                    "",
+                    "No model server was launched.",
+                    "",
+                    "```bash",
+                    " ".join(shlex.quote(part) for part in manifest["cmd"]),
+                    "```",
+                    "",
+                    f"- Baseline profile: `{manifest.get('baseline_profile', '')}`",
+                    f"- LMCache config: `{manifest.get('lmcache_config', '')}`",
+                    f"- LMCACHE_USE_EXPERIMENTAL: `{manifest.get('lmcache_use_experimental', '')}`",
+                    f"- HiCache storage backend: `{manifest.get('hicache_storage_backend', '')}`",
+                    f"- Hierarchical cache enabled: `{manifest.get('hierarchical_cache', '')}`",
+                    f"- Hierarchical cache suppressed for LMCache: `{manifest.get('hierarchical_cache_suppressed_for_lmcache', '')}`",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return manifest
     tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -394,14 +539,20 @@ async def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError("--flush-cache-per-case cannot be combined with --concurrent-clients > 1")
 
     cases = load_cases(args)
-    kill_port(args.port)
-    await asyncio.sleep(1)
-    proc = launch_server(args)
+    proc: subprocess.Popen | None = None
+    if args.reuse_server:
+        if not await wait_ready(args.port, timeout_s=10):
+            raise RuntimeError(f"--reuse-server: no server ready on port {args.port}")
+    else:
+        kill_port(args.port)
+        await asyncio.sleep(1)
+        proc = launch_server(args)
     results: list[dict[str, Any]] = []
     failed_reason = ""
     try:
-        if not await wait_ready(args.port, timeout_s=args.server_timeout):
-            raise RuntimeError(f"server did not become ready; see {args.out_dir / 'sglang_server.log'}")
+        if not args.reuse_server:
+            if not await wait_ready(args.port, timeout_s=args.server_timeout):
+                raise RuntimeError(f"server did not become ready; see {args.out_dir / 'sglang_server.log'}")
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=900)) as session:
             if args.concurrent_clients <= 1:
                 for case in cases:
@@ -418,12 +569,13 @@ async def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
         failed_reason = f"{type(exc).__name__}: {exc}"
         raise
     finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=15)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-        kill_port(args.port)
+        if proc is not None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+            kill_port(args.port)
         if results:
             summary = {
                 "model": args.model,
@@ -438,8 +590,7 @@ async def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
                     "max_cases": args.max_cases,
                     "start_index": args.start_index,
                 },
-                "hicache_storage_backend": args.hicache_storage_backend or "disabled",
-                "hierarchical_cache": not args.disable_hierarchical_cache,
+                **backend_summary_config(args),
                 "modes": MODES,
                 "results": results,
                 "failed_reason": failed_reason,
@@ -459,8 +610,7 @@ async def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
             "max_cases": args.max_cases,
             "start_index": args.start_index,
         },
-        "hicache_storage_backend": args.hicache_storage_backend or "disabled",
-        "hierarchical_cache": not args.disable_hierarchical_cache,
+        **backend_summary_config(args),
         "modes": MODES,
         "results": results,
     }
@@ -518,6 +668,13 @@ def summarize_mode(summary: dict[str, Any]) -> dict[str, dict[str, float]]:
             ),
             "avg_token_f1_vs_baseline": statistics.mean(float(r["output_token_f1_vs_baseline"]) for r in rows),
         }
+        ttft_rows = [r for r in rows if r.get("ttft_ms") is not None]
+        if ttft_rows:
+            stats[mode]["avg_ttft_ms"] = statistics.mean(float(r["ttft_ms"]) for r in ttft_rows)
+            stats[mode]["median_ttft_ms"] = statistics.median(float(r["ttft_ms"]) for r in ttft_rows)
+            stats[mode]["p90_ttft_ms"] = percentile([float(r["ttft_ms"]) for r in ttft_rows], 90)
+            stats[mode]["p99_ttft_ms"] = percentile([float(r["ttft_ms"]) for r in ttft_rows], 99)
+            stats[mode]["max_ttft_ms"] = max(float(r["ttft_ms"]) for r in ttft_rows)
     return stats
 
 
@@ -558,7 +715,7 @@ def write_artifacts(out_dir: Path, summary: dict[str, Any]) -> None:
         writer.writerows(rows)
 
     labels = list(stats)
-    if labels:
+    if labels and plt is not None:
         plt.figure(figsize=(9, 4.5))
         plt.bar(labels, [stats[m]["avg_latency_ms"] for m in labels])
         plt.xticks(rotation=20, ha="right")
@@ -598,8 +755,12 @@ def write_artifacts(out_dir: Path, summary: dict[str, Any]) -> None:
         f"- Command: `{summary.get('command', '')}`",
         f"- Flush cache per case: `{summary.get('experiment', {}).get('flush_cache_per_case', False)}`",
         f"- Concurrent clients: `{summary.get('experiment', {}).get('concurrent_clients', 1)}`",
+        f"- Baseline profile: `{summary.get('baseline_profile', 'agenttemplatekv')}`",
         f"- HiCache storage backend: `{summary.get('hicache_storage_backend', 'disabled')}`",
         f"- Hierarchical cache: `{summary.get('hierarchical_cache', True)}`",
+        f"- Server extra args: `{summary.get('server_extra_args', '')}`",
+        f"- Resolved server extra args: `{summary.get('resolved_server_extra_args', '')}`",
+        f"- LMCache config: `{summary.get('lmcache_config', '')}`",
         "- Safety rule: codebase prefetch may predict future code blocks, but AgentTemplateKV reuse still requires `exact_code_content_signature`.",
         "",
         "## Main Table",
@@ -621,17 +782,27 @@ def write_artifacts(out_dir: Path, summary: dict[str, Any]) -> None:
             f"{item['exact_content_hit_rate']:.2f} | "
             f"{item['avg_token_f1_vs_baseline']:.4f} |"
         )
+    report_lines.extend(["", "## Figures", ""])
+    if labels and plt is not None:
+        report_lines.extend(
+            [
+                f"![Latency]({(out_dir / 'fig_latency.png').resolve()})",
+                "",
+                f"![Cached tokens]({(out_dir / 'fig_cached_tokens.png').resolve()})",
+                "",
+                f"![Prefetch tokens]({(out_dir / 'fig_prefetch_tokens.png').resolve()})",
+                "",
+            ]
+        )
+    else:
+        report_lines.extend(
+            [
+                "Figure generation skipped because a clean `matplotlib` import is unavailable in this environment.",
+                "",
+            ]
+        )
     report_lines.extend(
         [
-            "",
-            "## Figures",
-            "",
-            f"![Latency]({(out_dir / 'fig_latency.png').resolve()})",
-            "",
-            f"![Cached tokens]({(out_dir / 'fig_cached_tokens.png').resolve()})",
-            "",
-            f"![Prefetch tokens]({(out_dir / 'fig_prefetch_tokens.png').resolve()})",
-            "",
             "## Per-Case Table",
             "",
             "| instance_id | mode | latency ms | cached | protected hit | protected toks | expired toks | large-gap rejects | match reason | token F1 |",
@@ -663,7 +834,7 @@ def write_artifacts(out_dir: Path, summary: dict[str, Any]) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default=DEFAULT_MODEL)
-    parser.add_argument("--python", default=DEFAULT_PYTHON)
+    parser.add_argument("--python", default=DEFAULT_SERVER_PYTHON)
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--port", type=int, default=30000)
@@ -676,6 +847,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mem-fraction-static", type=float, default=0.78)
     parser.add_argument("--hicache-ratio", type=float, default=1.5)
     parser.add_argument("--hicache-storage-backend", default="")
+    parser.add_argument(
+        "--baseline-profile",
+        choices=["agenttemplatekv", "lmcache"],
+        default="agenttemplatekv",
+        help="Server backend profile. `lmcache` enables SGLang's LMCache connector and suppresses HiCache flags.",
+    )
+    parser.add_argument(
+        "--server-extra-args",
+        default="",
+        help="Extra arguments appended verbatim to `python -m sglang.launch_server`, e.g. '--enable-lmcache'.",
+    )
+    parser.add_argument(
+        "--lmcache-config",
+        type=Path,
+        default=None,
+        help="Optional LMCache YAML config. Also sets LMCACHE_USE_EXPERIMENTAL=True and LMCACHE_CONFIG_FILE.",
+    )
     parser.add_argument("--disable-hierarchical-cache", action="store_true")
     parser.add_argument("--flush-cache-per-case", action="store_true",
                         help="POST /flush_cache before each case to measure true cold-cache behavior.")
@@ -683,7 +871,23 @@ def parse_args() -> argparse.Namespace:
                         help="Number of cases to execute concurrently for serving smoke tests.")
     parser.add_argument("--server-timeout", type=int, default=180)
     parser.add_argument("--eval-timeout", type=int, default=1200)
+    parser.add_argument(
+        "--dry-run-server-command",
+        action="store_true",
+        help="Write server_command.json and exit before loading the tokenizer or launching the model.",
+    )
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
+    parser.add_argument("--emit-ttft", action="store_true",
+                        help="Use streaming post_chat_stream and record per-mode ttft_ms in result rows and summary.")
+    parser.add_argument("--reuse-server", action="store_true",
+                        help="Skip launch_server and connect to the existing SGLang server on --port. Use when a server is already running.")
+    parser.add_argument("--enable-placeholder-knn", action="store_true",
+                        help="Opt-in: enable v44 placeholder_knn_reuse body via SGLANG_PLACEHOLDER_KNN_MATCH=1. "
+                             "Default off; pairs with Phase 1.1 bench_swe plumbing for cross-bench consistency.")
+    parser.add_argument("--placeholder-knn-min-cosine", type=float, default=0.70,
+                        help="Override SGLANG_PLACEHOLDER_KNN_MIN_COSINE (default 0.70). Phase 3 sweep: 0.85/0.90/0.95/0.97/0.99/1.00.")
+    parser.add_argument("--placeholder-knn-topk", type=int, default=4,
+                        help="Override SGLANG_PLACEHOLDER_KNN_TOPK (default 4). Phase 3 K sweep: 1/3/5.")
     return parser.parse_args()
 
 

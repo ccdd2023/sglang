@@ -1,0 +1,327 @@
+{
+  "label": "raw_symbol_shape_rules_cap10_20260620",
+  "schema_version": "selective_wholefile_manifest_v1",
+  "source_manifest": "results/repo_level_datasets/manifest_500.json",
+  "source_dataset": "results/repo_level_datasets/swe_verified_500_instances.json",
+  "policy": "benchmark/multi_workflow/selective_reuse_policy_extended.json",
+  "case_count": 10,
+  "file_count": 14,
+  "selective_span_count": 2117,
+  "avg_chars_per_file": 49967.71,
+  "repo_distribution": {
+    "pallets/flask": 1,
+    "psf/requests": 8,
+    "pytest-dev/pytest": 19
+  },
+  "rejected_no_eligible_file": 0,
+  "selection_rule": "cases matched by raw_symbol_shape_rule_policy_20260620 dry-run",
+  "samples": [
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "pallets__flask-5014",
+      "repo": "pallets/flask",
+      "version": "2.3",
+      "difficulty": "<15 min fix",
+      "repo_key": "pallets__flask",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pallets__flask-5014",
+      "files": [
+        {
+          "path": "src/flask/scaffold.py",
+          "local_path": "results/swebench_local_envs/repos/pallets__flask-5014/src/flask/scaffold.py"
+        },
+        {
+          "path": "src/flask/blueprints.py",
+          "local_path": "results/swebench_local_envs/repos/pallets__flask-5014/src/flask/blueprints.py"
+        }
+      ],
+      "selective_wholefile_rule": {
+        "source_manifest": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/manifest_500.json",
+        "max_file_chars": 68000,
+        "files_per_case": 1,
+        "required_mode": "selective_function_method_reuse",
+        "requires_full_file": true,
+        "selection": "top files by selected function/method span count, then smaller file"
+      }
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "psf__requests-1766",
+      "repo": "psf/requests",
+      "version": "2.0",
+      "difficulty": "<15 min fix",
+      "repo_key": "psf__requests",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-1766",
+      "files": [
+        {
+          "path": "requests/auth.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-1766/requests/auth.py",
+          "content_hash": "e9ac12db8dfb81a4abe59e5e3b1764e01fe1f04dbdc5f57dc7deb7a47695087c",
+          "lines": 195,
+          "chars": 6063,
+          "selection_source": "graph_target_file_singlecase_20260619"
+        }
+      ],
+      "selective_wholefile_rule": {
+        "source_manifest": "results/selective_ast_reuse/data/combined_plus_patchfile_batch_candidates_20260619/manifest.json",
+        "selection": "single-case graph target file replacement",
+        "replaced_from": "requests/models.py",
+        "reason": "prefer-graph-target probe showed acceptable F1 with real suffix copy"
+      }
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "psf__requests-1921",
+      "repo": "psf/requests",
+      "version": "2.3",
+      "difficulty": "<15 min fix",
+      "repo_key": "psf__requests",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-1921",
+      "files": [
+        {
+          "path": "requests/models.py",
+          "local_path": "results/swebench_local_envs/repos/psf__requests-1921/requests/models.py"
+        },
+        {
+          "path": "requests/sessions.py",
+          "local_path": "results/swebench_local_envs/repos/psf__requests-1921/requests/sessions.py"
+        }
+      ],
+      "selective_wholefile_rule": {
+        "source_manifest": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/manifest_500.json",
+        "max_file_chars": 68000,
+        "files_per_case": 1,
+        "required_mode": "selective_function_method_reuse",
+        "requires_full_file": true,
+        "selection": "top files by selected function/method span count, then smaller file"
+      }
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "psf__requests-2317",
+      "repo": "psf/requests",
+      "version": "2.4",
+      "difficulty": "<15 min fix",
+      "repo_key": "psf__requests",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-2317",
+      "files": [
+        {
+          "path": "requests/models.py",
+          "local_path": "results/swebench_local_envs/repos/psf__requests-2317/requests/models.py"
+        },
+        {
+          "path": "requests/sessions.py",
+          "local_path": "results/swebench_local_envs/repos/psf__requests-2317/requests/sessions.py"
+        }
+      ],
+      "selective_wholefile_rule": {
+        "source_manifest": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/manifest_500.json",
+        "max_file_chars": 68000,
+        "files_per_case": 1,
+        "required_mode": "selective_function_method_reuse",
+        "requires_full_file": true,
+        "selection": "top files by selected function/method span count, then smaller file"
+      }
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "psf__requests-2931",
+      "repo": "psf/requests",
+      "version": "2.9",
+      "difficulty": "15 min - 1 hour",
+      "repo_key": "psf__requests",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-2931",
+      "files": [
+        {
+          "path": "requests/models.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-2931/requests/models.py",
+          "content_hash": "a57e766a29b120c372e3bd236c80db1b2d696d96593cddb38c4fe150c41285ed",
+          "lines": 848,
+          "chars": 29202,
+          "selective_span_count": 39,
+          "selective_granularities": [
+            "method"
+          ],
+          "task_file_score": 25
+        }
+      ],
+      "selective_wholefile_rule": {
+        "source_manifest": "results/repo_level_datasets/manifest_500.json",
+        "max_file_chars": 68000,
+        "files_per_case": 1,
+        "required_mode": "selective_function_method_reuse",
+        "requires_full_file": true,
+        "selection": "task_aware"
+      }
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "psf__requests-5414",
+      "repo": "psf/requests",
+      "version": "2.26",
+      "difficulty": "<15 min fix",
+      "repo_key": "psf__requests",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-5414",
+      "files": [
+        {
+          "path": "requests/models.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/psf__requests-5414/requests/models.py",
+          "content_hash": "c51202c76971a02910dd004688a4586ee1973ae3c354bf856a2c4575ebd1a888",
+          "lines": 973,
+          "chars": 35042,
+          "selective_span_count": 43,
+          "selective_granularities": [
+            "method"
+          ],
+          "task_file_score": 1470
+        }
+      ],
+      "selective_wholefile_rule": {
+        "source_manifest": "results/repo_level_datasets/manifest_500.json",
+        "max_file_chars": 68000,
+        "files_per_case": 1,
+        "required_mode": "selective_function_method_reuse",
+        "requires_full_file": true,
+        "selection": "task_aware"
+      }
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "pytest-dev__pytest-10356",
+      "repo": "pytest-dev/pytest",
+      "version": "7.2",
+      "difficulty": "1-4 hours",
+      "repo_key": "pytest-dev__pytest",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pytest-dev__pytest-10356",
+      "files": [
+        {
+          "path": "testing/python/metafunc.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-10356/testing/python/metafunc.py"
+        },
+        {
+          "path": "src/_pytest/mark/structures.py",
+          "local_path": "results/swebench_local_envs/repos/pytest-dev__pytest-10356/src/_pytest/mark/structures.py"
+        }
+      ],
+      "selective_wholefile_rule": {
+        "source_manifest": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/manifest_500.json",
+        "max_file_chars": 68000,
+        "files_per_case": 1,
+        "required_mode": "selective_function_method_reuse",
+        "requires_full_file": true,
+        "selection": "top files by selected function/method span count, then smaller file"
+      }
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "pytest-dev__pytest-5787",
+      "repo": "pytest-dev/pytest",
+      "version": "5.1",
+      "difficulty": "1-4 hours",
+      "repo_key": "pytest-dev__pytest",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pytest-dev__pytest-5787",
+      "files": [
+        {
+          "path": "src/_pytest/python.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pytest-dev__pytest-5787/src/_pytest/python.py",
+          "content_hash": "ea5d41c51e43d730ac37b5321be7aae52c17d03559e3a897077697ba91498517",
+          "lines": 1439,
+          "chars": 53459,
+          "selective_span_count": 79,
+          "selective_granularities": [
+            "function",
+            "method"
+          ],
+          "task_file_score": 145,
+          "max_file_chars": 22000,
+          "window_reason": "pytest_safe_truncated_p5500_cap1024"
+        }
+      ],
+      "selective_wholefile_rule": {
+        "source_manifest": "results/repo_level_datasets/manifest_500.json",
+        "max_file_chars": 68000,
+        "files_per_case": 1,
+        "required_mode": "selective_function_method_reuse",
+        "requires_full_file": true,
+        "selection": "task_aware"
+      }
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "pytest-dev__pytest-7236",
+      "repo": "pytest-dev/pytest",
+      "version": "5.4",
+      "difficulty": "15 min - 1 hour",
+      "repo_key": "pytest-dev__pytest",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pytest-dev__pytest-7236",
+      "files": [
+        {
+          "path": "src/_pytest/python.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pytest-dev__pytest-7236/src/_pytest/python.py",
+          "content_hash": "44b3667a241abe36f30e2878b451fce9ade985cc1d18aa6ae05c333f9636a5e0",
+          "lines": 1545,
+          "chars": 57651,
+          "selective_span_count": 83,
+          "selective_granularities": [
+            "function",
+            "method"
+          ],
+          "task_file_score": 145,
+          "max_file_chars": 22000,
+          "window_reason": "pytest_safe_truncated_p5500_cap1024"
+        }
+      ],
+      "selective_wholefile_rule": {
+        "source_manifest": "results/repo_level_datasets/manifest_500.json",
+        "max_file_chars": 68000,
+        "files_per_case": 1,
+        "required_mode": "selective_function_method_reuse",
+        "requires_full_file": true,
+        "selection": "task_aware"
+      }
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "pytest-dev__pytest-7432",
+      "repo": "pytest-dev/pytest",
+      "version": "5.4",
+      "difficulty": "<15 min fix",
+      "repo_key": "pytest-dev__pytest",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pytest-dev__pytest-7432",
+      "files": [
+        {
+          "path": "testing/python/metafunc.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pytest-dev__pytest-7432/testing/python/metafunc.py",
+          "content_hash": "fbc918e3e7bf0bc14de44e6de61e8f884de1a6761b3909d9f4250f580a5ce439",
+          "lines": 1901,
+          "chars": 63048,
+          "selective_span_count": 98,
+          "selective_granularities": [
+            "method"
+          ],
+          "task_file_score": 25,
+          "max_file_chars": 22000,
+          "window_reason": "pytest_safe_truncated_p5500_cap1024"
+        }
+      ],
+      "selective_wholefile_rule": {
+        "source_manifest": "results/repo_level_datasets/manifest_500.json",
+        "max_file_chars": 68000,
+        "files_per_case": 1,
+        "required_mode": "selective_function_method_reuse",
+        "requires_full_file": true,
+        "selection": "task_aware"
+      }
+    }
+  ],
+  "candidate_probe_note": "Adds patch-file prompt contexts for high-TTFT no-copy pytest candidates with local files present."
+}

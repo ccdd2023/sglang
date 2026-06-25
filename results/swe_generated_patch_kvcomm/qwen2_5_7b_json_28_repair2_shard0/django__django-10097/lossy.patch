@@ -1,0 +1,12 @@
+diff --git a/django/core/validators.py b/django/core/validators.py
+--- a/django/core/validators.py
++++ b/django/core/validators.py
+@@ -127,7 +127,7 @@
+                     netloc = netloc.encode('idna').decode('ascii')  # IDN -> ACE
+                 except UnicodeError:  # invalid domain part
+                     raise e
+-                url = urlunsplit((scheme, netloc, path, query, fragment))
++                url = urlunsplit((scheme, netloc, path, query, fragment)).replace(':', '%3A')
+                 super().__call__(url)
+             else:
+                 raise

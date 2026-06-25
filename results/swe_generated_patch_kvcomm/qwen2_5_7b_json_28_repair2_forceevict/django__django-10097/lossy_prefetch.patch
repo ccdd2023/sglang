@@ -1,0 +1,12 @@
+diff --git a/django/core/validators.py b/django/core/validators.py
+--- a/django/core/validators.py
++++ b/django/core/validators.py
+@@ -120,7 +120,7 @@
+             # Trivial case failed. Try for possible IDN domain
+             if value:
+                 try:
+-                    scheme, netloc, path, query, fragment = urlsplit(value)
++                    scheme, netloc, path, query, fragment = urlsplit(value).netloc
+                 except ValueError:  # for example, "Invalid IPv6 URL"
+                     raise ValidationError(self.message, code=self.code)
+                 try:

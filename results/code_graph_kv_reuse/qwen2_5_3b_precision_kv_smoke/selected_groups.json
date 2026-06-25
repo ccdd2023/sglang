@@ -1,0 +1,98 @@
+[
+  {
+    "key": [
+      "astropy__astropy-12907",
+      "astropy/modeling/separable.py",
+      "_cstack",
+      "ast_function_only",
+      "b3a06cbba2400860"
+    ],
+    "repo": "astropy/astropy",
+    "task_family": "model_or_query_logic",
+    "scope_tokens": 217
+  },
+  {
+    "key": [
+      "astropy__astropy-12907",
+      "astropy/modeling/separable.py",
+      "_cstack",
+      "call_neighborhood_1hop",
+      "2b965c773667a6a5"
+    ],
+    "repo": "astropy/astropy",
+    "task_family": "model_or_query_logic",
+    "scope_tokens": 700
+  },
+  {
+    "key": [
+      "astropy__astropy-12907",
+      "astropy/modeling/separable.py",
+      "_cstack",
+      "import_dependency_bundle",
+      "a273f59ff05cb753"
+    ],
+    "repo": "astropy/astropy",
+    "task_family": "model_or_query_logic",
+    "scope_tokens": 235
+  },
+  {
+    "key": [
+      "astropy__astropy-12907",
+      "astropy/modeling/separable.py",
+      "_cstack",
+      "test_target_bundle",
+      "51bd50d949619544"
+    ],
+    "repo": "astropy/astropy",
+    "task_family": "test_aligned",
+    "scope_tokens": 788
+  },
+  {
+    "key": [
+      "django__django-10097",
+      "django/core/validators.py",
+      "URLValidator",
+      "ast_function_only",
+      "f666da3487739539"
+    ],
+    "repo": "django/django",
+    "task_family": "validation",
+    "scope_tokens": 942
+  },
+  {
+    "key": [
+      "django__django-10097",
+      "django/core/validators.py",
+      "URLValidator",
+      "call_neighborhood_1hop",
+      "0177a2415705fd97"
+    ],
+    "repo": "django/django",
+    "task_family": "validation",
+    "scope_tokens": 2521
+  },
+  {
+    "key": [
+      "django__django-10097",
+      "django/core/validators.py",
+      "URLValidator",
+      "import_dependency_bundle",
+      "e65c87f6bc953e0f"
+    ],
+    "repo": "django/django",
+    "task_family": "validation",
+    "scope_tokens": 1002
+  },
+  {
+    "key": [
+      "django__django-10097",
+      "django/core/validators.py",
+      "URLValidator",
+      "test_target_bundle",
+      "f666da3487739539"
+    ],
+    "repo": "django/django",
+    "task_family": "test_aligned",
+    "scope_tokens": 942
+  }
+]

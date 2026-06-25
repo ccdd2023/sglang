@@ -1,0 +1,111 @@
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -1068,6 +1068,10 @@ def execute_sql(self, chunked_fetch=False, chunk_size=None):
+             self._result_cache = list(self._iterable_class(self))
+         return self._result_cache
+ 
++    def _get_order_by(self):
++        return self.order_by
++
+     def _get_select(self):
+         return self.select
+ 
++    def _get_order_by(self):
++        return self.order_by
++
+     def _get_select(self):
+         return self.select
+ 
+@@ -1080,6 +1084,7 @@ def execute_sql(self, chunked_fetch=False, chunk_size=None):
+         if self._result_cache is None:
+             self._result_cache = list(self._iterable_class(self))
+         return self._result_cache
++
+     def _get_select(self):
+         return self.select
+ 
+@@ -1088,6 +1093,7 @@ def execute_sql(self, chunked_fetch=False, chunk_size=None):
+         if self._result_cache is None:
+             self._result_cache = list(self._iterable_class(self))
+         return self._result_cache
++
+     def _get_select(self):
+         return self.select
+ 
+@@ -1096,6 +1102,7 @@ def execute_sql(self, chunked_fetch=False, chunk_size=None):
+         if self._result_cache is None:
+             self._result_cache = list(self._iterable_class(self))
+         return self._result_cache
++
+     def _get_select(self):
+         return self.select
+ 
+@@ -1104,6 +1111,7 @@ def execute_sql(self, chunked_fetch=False, chunk_size=None):
+         if self._result_cache is None:
+             self._result_cache = list(self._iterable_class(self))
+         return self._result_cache
++
+     def _get_select(self):
+         return self.select
+ 
+@@ -1112,6 +1119,7 @@ def execute_sql(self, chunked_fetch=False, chunk_size=None):
+         if self._result_cache is None:
+             self._result_cache = list(self._iterable_class(self))
+         return self._result_cache
++
+     def _get_select(self):
+         return self.select
+ 
+@@ -1120,6 +1128,7 @@ def execute_sql(self, chunked_fetch=False, chunk_size=None):
+         if self._result_cache is None:
+             self._result_cache = list(self._iterable_class(self))
+         return self._result_cache
++
+     def _get_select(self):
+         return self.select
+ 
+@@ -1128,6 +1137,7 @@ def execute_sql(self, chunked_fetch=False, chunk_size=None):
+         if self._result_cache is None:
+             self._result_cache = list(self._iterable_class(self))
+         return self._result_cache
++
+     def _get_select(self):
+         return self.select
+ 
+@@ -1136,6 +1146,7 @@ def execute_sql(self, chunked_fetch=False, chunk_size=None):
+         if self._result_cache is None:
+             self._result_cache = list(self._iterable_class(self))
+         return self._result_cache
++
+     def _get_select(self):
+         return self.select
+ 
+@@ -1144,6 +1155,7 @@ def execute_sql(self, chunked_fetch=False, chunk_size=None):
+         if self._result_cache is None:
+             self._result_cache = list(self._iterable_class(self))
+         return self._result_cache
++
+     def _get_select(self):
+         return self.select
+ 
+@@ -1152,6 +1164,7 @@ def execute_sql(self, chunked_fetch=False, chunk_size=None):
+         if self._result_cache is None:
+             self._result_cache = list(self._iterable_class(self))
+         return self._result_cache
++
+     def _get_select(self):
+         return self.select
+ 
+@@ -1160,6 +1173,7 @@ def execute_sql(self, chunked_fetch=False, chunk_size=None):
+         if self._result_cache is None:
+             self._result_cache = list(self._iterable_class(self))
+         return self._result_cache
++
+     def _get_select(self):
+         return self.select
+ 
+@@ -1168,6 +1182,7 @@ def execute_sql(self, chunked_fetch=False, chunk
+@@ -1176,6 +1191,7 @@ def execute_sql(self, chunked_fetch=False, chunk_size=None):
+         if self._result_cache is None:
+             self._result

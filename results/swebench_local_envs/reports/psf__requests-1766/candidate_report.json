@@ -1,0 +1,20 @@
+{
+  "instance_id": "psf__requests-1766",
+  "repo": "psf/requests",
+  "version": "2.0",
+  "mode": "candidate",
+  "env_name": "swe_psf_requests_1766_candidate",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-1766",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE",
+    "test_requests.py::RequestsTestCase::test_HTTP_200_OK_GET_ALTERNATIVE",
+    "test_requests.py::RequestsTestCase::test_cookie_sent_on_redirect",
+    "test_requests.py::RequestsTestCase::test_custom_content_type",
+    "test_requests.py::RequestsTestCase::test_params_are_merged_case_sensitive",
+    "test_requests.py::RequestsTestCase::test_user_agent_transfers"
+  ],
+  "returncode": 1
+}

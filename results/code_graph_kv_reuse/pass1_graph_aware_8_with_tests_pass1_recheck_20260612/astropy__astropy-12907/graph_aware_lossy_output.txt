@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "astropy/modeling/separable.py",
+      "search": "if isinstance(model, Mapping):",
+      "replace": "if isinstance(model, Mapping) or isinstance(model, CompoundModel):"
+    }
+  ]
+}
+```

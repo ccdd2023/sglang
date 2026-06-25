@@ -1,0 +1,65 @@
+{
+  "policy_name": "highcost_reject_probe9_cap1024_head256_20260619",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 0.9,
+  "diagnostic_only": true,
+  "notes": [
+    "Exploratory only: allow/cap high TTFT rejected cases with per-anchor suffix_recompute_head_len=256."
+  ],
+  "cases": {
+    "pytest-dev__pytest-7521": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "suffix_recompute_head_len": 256,
+      "reason": "exploratory_highcost_reject_probe"
+    },
+    "pytest-dev__pytest-7571": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "suffix_recompute_head_len": 256,
+      "reason": "exploratory_highcost_reject_probe"
+    },
+    "pytest-dev__pytest-7982": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "suffix_recompute_head_len": 256,
+      "reason": "exploratory_highcost_reject_probe"
+    },
+    "pytest-dev__pytest-8399": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "suffix_recompute_head_len": 256,
+      "reason": "exploratory_highcost_reject_probe"
+    },
+    "pytest-dev__pytest-6197": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "suffix_recompute_head_len": 256,
+      "reason": "exploratory_highcost_reject_probe"
+    },
+    "pytest-dev__pytest-5840": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "suffix_recompute_head_len": 256,
+      "reason": "exploratory_highcost_reject_probe"
+    },
+    "pytest-dev__pytest-5262": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "suffix_recompute_head_len": 256,
+      "reason": "exploratory_highcost_reject_probe"
+    },
+    "psf__requests-6028": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "suffix_recompute_head_len": 256,
+      "reason": "exploratory_highcost_reject_probe"
+    },
+    "pytest-dev__pytest-6202": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "suffix_recompute_head_len": 256,
+      "reason": "exploratory_highcost_reject_probe"
+    }
+  }
+}

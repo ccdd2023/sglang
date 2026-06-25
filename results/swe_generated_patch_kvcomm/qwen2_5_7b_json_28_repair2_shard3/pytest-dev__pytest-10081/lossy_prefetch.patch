@@ -1,0 +1,62 @@
+diff --git a/src/_pytest/unittest.py b/src/_pytest/unittest.py
+--- a/src/_pytest/unittest.py
++++ b/src/_pytest/unittest.py
+@@ -119,7 +119,57 @@
+             cls.__pytest_method_setup = method_fixture  # type: ignore[attr-defined]
+ 
+ 
+-def _make_xunit_fixture(
++def _make_xunit_fixture(obj: type, setup_name: str, teardown_name: str, cleanup_name: Optional[str], scope: Scope, pass_self: bool) -> Optional[Callable[[FixtureRequest], Generator[None, None, None]]]:
++    setup = getattr(obj, setup_name, None)
++    teardown = getattr(obj, teardown_name, None)
++    if setup is None and teardown is None:
++        return None
++
++    if cleanup_name:
++        cleanup = getattr(obj, cleanup_name, lambda *args: None)
++    else:
++        def cleanup(*args):
++            pass
++
++    @pytest.fixture(
++        scope=scope.value,
++        autouse=True,
++        # Use a unique name to speed up lookup.
++        name=f"_unittest_{setup_name}_fixture_{obj.__qualname__}",
++    )
++    def fixture(request: FixtureRequest) -> Generator[None, None, None]:
++        if _is_skipped(self):
++            reason = self.__unittest_skip_why__
++            raise pytest.skip.Exception(reason, _use_item_location=True)
++        if setup is not None:
++            try:
++                if pass_self:
++                    setup(self, request.function)
++                else:
++                    setup()
++            # unittest does not call the cleanup function for every BaseException, so we
++            # follow this here.
++            except Exception:
++                if pass_self:
++                    cleanup(self)
++                else:
++                    cleanup()
++
++                raise
++        yield
++        try:
++            if teardown is not None:
++                if pass_self:
++                    teardown(self, request.function)
++                else:
++                    teardown()
++        finally:
++            if pass_self:
++                cleanup(self)
++            else:
++                cleanup()
++
++    return fixture(
+     obj: type,
+     setup_name: str,
+     teardown_name: str,

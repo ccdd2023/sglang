@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/image.py",
+      "search": "self.norm.vmin, self.norm.vmax",
+      "replace": "self.norm.vmin, self.norm.vmax if self.norm.vmin <= self.norm.vmax else 0, 1"
+    }
+  ]
+}
+```

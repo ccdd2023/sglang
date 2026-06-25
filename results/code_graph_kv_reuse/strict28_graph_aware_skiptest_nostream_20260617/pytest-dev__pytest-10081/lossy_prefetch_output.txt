@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "src/_pytest/unittest.py",
+      "search": "def pytest_runtest_protocol(item: Item) -> Generator[None, None, None]:",
+      "replace": "def pytest_runtest_protocol(item: Item) -> Generator[None, None, None]:\n    if isinstance(item, TestCaseFunction) and 'twisted.trial.unittest' in sys.modules:\n        ut: Any = sys.modules[\"twisted.python.failure\"]\n        Failure__init__ = ut.Failure.__init__\n        check_testcase_implements_trial_reporter()\n\n        def excstore(self, exc_value=None, exc_type=None, exc_tb=None, captureVars=None):\n            if exc_value is None:\n                self._rawexcinfo = sys.exc_info()\n            else:\n                if exc_type is None:\n                    exc_type = type(exc_value)\n                self._rawexcinfo = (exc_type, exc_value, exc_tb)\n            try:\n                Failure__init__(self, exc_value, exc_type, exc_tb, captureVars=captureVars)\n            except TypeError:\n                Failure__init__(self, exc_value, exc_type, exc_tb)\n\n        ut.Failure.__init__ = excstore\n        yield\n        ut.Failure.__init__ = Failure__init__\n    else:\n        yield\n"
+    }
+  ]
+}
+```

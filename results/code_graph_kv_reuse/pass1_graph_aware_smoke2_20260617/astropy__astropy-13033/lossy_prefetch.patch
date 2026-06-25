@@ -1,0 +1,12 @@
+diff --git a/astropy/timeseries/core.py b/astropy/timeseries/core.py
+--- a/astropy/timeseries/core.py
++++ b/astropy/timeseries/core.py
+@@ -37,7 +37,7 @@
+     for name in COLUMN_RELATED_METHODS:
+         if (not hasattr(cls, name) or
+                 not isinstance(getattr(cls, name), FunctionType)):
+-            raise ValueError(f"{name} is not a valid method")
++            raise ValueError(f"{name} is not a valid method. Expected {self._required_columns} as the first columns but found {self.colnames}")
+         setattr(cls, name, decorator_method(getattr(cls, name)))
+ 
+     return cls

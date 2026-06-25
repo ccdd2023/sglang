@@ -1,0 +1,55 @@
+{
+  "instance_id": "astropy__astropy-13236",
+  "repo": "astropy/astropy",
+  "version": "5.0",
+  "mode": "candidate",
+  "env_name": "swe_astropy_astropy_13236_candidate",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13236",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "astropy/table/tests/test_mixin.py::test_ndarray_mixin[False]",
+    "astropy/table/tests/test_table.py::test_structured_masked_column"
+  ],
+  "returncode": 1,
+  "stdout_tail": "============================= test session starts ==============================\nplatform linux -- Python 3.9.25, pytest-7.4.0, pluggy-1.3.0\n\nRunning tests with Astropy version 5.2.dev64+g6ed769d58.d20260612.\nRunning tests in astropy/table/tests/test_mixin.py::test_ndarray_mixin[False] astropy/table/tests/test_table.py::test_structured_masked_column.\n\nDate: 2026-06-12T03:43:22\n\nPlatform: Linux-5.15.0-179-generic-x86_64-with-glibc2.35\n\nExecutable: /home/gfy/miniconda3/envs/swe_astropy_astropy_13236_candidate/bin/python\n\nFull Python Version: \n3.9.25 (main, Nov  3 2025, 22:33:05) \n[GCC 11.2.0]\n\nencodings: sys: utf-8, locale: UTF-8, filesystem: utf-8\nbyteorder: little\nfloat info: dig: 15, mant_dig: 15\n\nPackage versions: \nNumpy: 1.25.2\nScipy: not available\nMatplotlib: not available\nh5py: not available\nPandas: not available\nPyERFA: 2.0.0.3\nCython: not available\nScikit-image: not available\nasdf: not available\npyarrow: not available\n\nUsing Astropy options: remote_data: none.\n\nARCH_ON_CI: undefined\nIS_CRON: undefined\n\nrootdir: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13236\nconfigfile: setup.cfg\nplugins: hypothesis-6.82.6, remotedata-0.4.0, filter-subpackage-0.1.2, astropy-header-0.2.2, mock-3.11.1, astropy-0.10.0, arraydiff-0.5.0, cov-4.1.0, doctestplus-1.0.0, xdist-3.3.1, openfiles-0.5.0\ncollected 2 items\n\nastropy/table/tests/test_mixin.py F                                      [ 50%]\nastropy/table/tests/test_table.py F                                      [100%]\n\n=================================== FAILURES ===================================\n__________________________ test_ndarray_mixin[False] ___________________________\n\nas_ndarray_mixin = False\n\n    @pytest.mark.parametrize('as_ndarray_mixin', [True, False])\n    def test_ndarray_mixin(as_ndarray_mixin):\n        \"\"\"\n        Test directly adding various forms of structured ndarray columns to a table.\n        Adding as NdarrayMixin is expected to be somewhat unusual after #12644\n        (which provides full support for structured array Column's). This test shows\n        that the end behavior is the same in both cases.\n        \"\"\"\n        a = np.array([(1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')],\n                     dtype='<i4,' + ('|U1'))\n        b = np.array([(10, 'aa'), (20, 'bb'), (30, 'cc'), (40, 'dd')],\n                     dtype=[('x', 'i4'), ('y', ('U2'))])\n        c = np.rec.fromrecords([(100., 'raa'), (200., 'rbb'), (300., 'rcc'), (400., 'rdd')],\n                               names=['rx', 'ry'])\n        d = np.arange(8, dtype='i8').reshape(4, 2)\n    \n        if as_ndarray_mixin:\n            a = a.view(NdarrayMixin)\n            b = b.view(NdarrayMixin)\n            c = c.view(NdarrayMixin)\n            d = d.view(NdarrayMixin)\n            class_exp = NdarrayMixin\n        else:\n            class_exp = Column\n    \n        # Add one during initialization and the next as a new column.\n        t = Table([a], names=['a'])\n        t['b'] = b\n        t['c'] = c\n        t['d'] = d\n    \n>       assert isinstance(t['a'], class_exp)\nE       AssertionError: assert False\nE        +  where False = isinstance(NdarrayMixin([(1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')],\\n             dtype=[('f0', '<i4'), ('f1', '<U1')]), <class 'astropy.table.column.Column'>)\n\nastropy/table/tests/test_mixin.py:731: AssertionError\n________________________ test_structured_masked_column _________________________\n\n    def test_structured_masked_column():\n        \"\"\"Test that adding a masked ndarray with a structured dtype works\"\"\"\n        dtype = np.dtype([('z', 'f8'), ('x', 'f8'), ('y', 'i4')])\n        t = Table()\n        t['a'] = np.ma.array([(1, 2, 3),\n                              (4, 5, 6)],\n                             mask=[(False, False, True),\n                                   (False, True, False)],\n                             dtype=dtype)\n>       assert np.all(t['a']['z'].mask == [False, False])\nE       AttributeError: 'NdarrayMixin' object has no attribute 'mask'\n\nastropy/table/tests/test_table.py:2928: AttributeError\n=========================== short test summary info ============================\nFAILED astropy/table/tests/test_mixin.py::test_ndarray_mixin[False] - Asserti...\nFAILED astropy/table/tests/test_table.py::test_structured_masked_column - Att...\n============================== 2 failed in 0.95s ===============================\n\n",
+  "stderr_tail": "ERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/table/tests/test_mixin.py::test_ndarray_mixin[False] astropy/table/tests/test_table.py::test_structured_masked_column` failed. (See above for error)\n",
+  "env_sanity": {
+    "python_version": {
+      "returncode": 0,
+      "stdout_tail": "Python 3.9.25\n\n",
+      "stderr_tail": ""
+    },
+    "python_executable": {
+      "returncode": 0,
+      "stdout_tail": "/home/gfy/miniconda3/envs/swe_astropy_astropy_13236_candidate/bin/python\n\n",
+      "stderr_tail": ""
+    },
+    "pip_version": {
+      "returncode": 0,
+      "stdout_tail": "pip 24.2 from /home/gfy/miniconda3/envs/swe_astropy_astropy_13236_candidate/lib/python3.9/site-packages/pip (python 3.9)\n\n",
+      "stderr_tail": ""
+    },
+    "pytest_version": {
+      "returncode": 0,
+      "stdout_tail": "7.4.0\n\n",
+      "stderr_tail": ""
+    },
+    "numpy_version": {
+      "returncode": 0,
+      "stdout_tail": "1.25.2\n\n",
+      "stderr_tail": ""
+    },
+    "setuptools_version": {
+      "returncode": 0,
+      "stdout_tail": "68.0.0\n\n",
+      "stderr_tail": ""
+    },
+    "pip_freeze_head": {
+      "returncode": 0,
+      "stdout_tail": "-e git+https://github.com/astropy/astropy.git@6ed769d58d89380ebaa1ef52b300691eefda8928#egg=astropy\nattrs==23.1.0\ncoverage==7.10.7\nexceptiongroup==1.1.3\nexecnet==2.0.2\nhypothesis==6.82.6\niniconfig==2.0.0\nnumpy==1.25.2\npackaging==23.1\npluggy==1.3.0\npsutil==5.9.5\npyerfa==2.0.0.3\npytest==7.4.0\npytest-arraydiff==0.5.0\npytest-astropy==0.10.0\npytest-astropy-header==0.2.2\npytest-cov==4.1.0\npytest-doctestplus==1.0.0\npytest-filter-subpackage==0.1.2\npytest-mock==3.11.1\npytest-openfiles==0.5.0\npytest-remotedata==0.4.0\npytest-xdist==3.3.1\nPyYAML==6.0.1\nsortedcontainers==2.4.0\ntomli==2.0.1\n",
+      "stderr_tail": ""
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "instance_id": "matplotlib__matplotlib-20676",
+  "repo": "matplotlib/matplotlib",
+  "version": "3.4",
+  "mode": "base",
+  "env_name": "swe_matplotlib_matplotlib_20676_base",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-20676",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "lib/matplotlib/tests/test_widgets.py::test_span_selector_bound[horizontal]"
+  ],
+  "returncode": 1
+}

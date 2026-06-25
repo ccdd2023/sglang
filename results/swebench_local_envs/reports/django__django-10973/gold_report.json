@@ -1,0 +1,21 @@
+{
+  "instance_id": "django__django-10973",
+  "repo": "django/django",
+  "version": "3.0",
+  "mode": "gold",
+  "env_name": "swe_django_django_10973_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10973",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "./tests/runtests.py",
+    "--verbosity",
+    "2",
+    "--settings=test_sqlite",
+    "--parallel",
+    "1",
+    "dbshell.test_postgresql.PostgreSqlDbshellCommandTestCase.test_accent"
+  ],
+  "returncode": 0,
+  "stdout_tail": "Testing against Django installed in '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10973/django'\nImporting application dbshell\nSkipping setup of unused database(s): default, other.\nSystem check identified no issues (0 silenced).\n\n",
+  "stderr_tail": "test_accent (dbshell.test_postgresql.PostgreSqlDbshellCommandTestCase) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nOK\n\n"
+}

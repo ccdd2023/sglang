@@ -1,0 +1,15 @@
+{
+  "instance_id": "pylint-dev__pylint-6386",
+  "repo": "pylint-dev/pylint",
+  "version": "2.14",
+  "mode": "gold",
+  "env_name": "swe_pylint_dev_pylint_6386_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-6386",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "tests/config/test_config.py::test_short_verbose"
+  ],
+  "returncode": 4
+}

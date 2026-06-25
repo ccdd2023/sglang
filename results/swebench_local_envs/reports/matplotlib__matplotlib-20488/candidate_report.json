@@ -1,0 +1,54 @@
+{
+  "instance_id": "matplotlib__matplotlib-20488",
+  "repo": "matplotlib/matplotlib",
+  "version": "3.4",
+  "mode": "candidate",
+  "env_name": "swe_matplotlib_matplotlib_20488_candidate",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-20488",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "lib/matplotlib/tests/test_image.py::test_huge_range_log[png--1]"
+  ],
+  "returncode": 1,
+  "stdout_tail": ":\n            t0 = IdentityTransform()\n    \n        t0 += (\n            Affine2D()\n            .scale(\n                in_bbox.width / A.shape[1],\n                in_bbox.height / A.shape[0])\n            .translate(in_bbox.x0, in_bbox.y0)\n            + self.get_transform())\n    \n        t = (t0\n             + (Affine2D()\n                .translate(-clipped_bbox.x0, -clipped_bbox.y0)\n                .scale(magnification)))\n    \n        # So that the image is aligned with the edge of the axes, we want to\n        # round up the output width to the next integer.  This also means\n        # scaling the transform slightly to account for the extra subpixel.\n        if (t.is_affine and round_to_pixel_border and\n                (out_width_base % 1.0 != 0.0 or out_height_base % 1.0 != 0.0)):\n            out_width = math.ceil(out_width_base)\n            out_height = math.ceil(out_height_base)\n            extra_width = (out_width - out_width_base) / out_width_base\n            extra_height = (out_height - out_height_base) / out_height_base\n            t += Affine2D().scale(1.0 + extra_width, 1.0 + extra_height)\n        else:\n            out_width = int(out_width_base)\n            out_height = int(out_height_base)\n        out_shape = (out_height, out_width)\n    \n        if not unsampled:\n            if not (A.ndim == 2 or A.ndim == 3 and A.shape[-1] in (3, 4)):\n                raise ValueError(f\"Invalid shape {A.shape} for image data\")\n    \n            if A.ndim == 2:\n                # if we are a 2D array, then we are running through the\n                # norm + colormap transformation.  However, in general the\n                # input data is not going to match the size on the screen so we\n                # have to resample to the correct number of pixels\n    \n                # TODO slice input array first\n                inp_dtype = A.dtype\n                a_min = A.min()\n                a_max = A.max()\n                # figure out the type we should scale to.  For floats,\n                # leave as is.  For integers cast to an appropriate-sized\n                # float.  Small integers get smaller floats in an attempt\n                # to keep the memory footprint reasonable.\n                if a_min is np.ma.masked:\n                    # all masked, so values don't matter\n                    a_min, a_max = np.int32(0), np.int32(1)\n                if inp_dtype.kind == 'f':\n                    scaled_dtype = np.dtype(\n                        np.float64 if A.dtype.itemsize > 4 else np.float32)\n                    if scaled_dtype.itemsize < A.dtype.itemsize:\n                        _api.warn_external(\n                            f\"Casting input data from {A.dtype} to \"\n                            f\"{scaled_dtype} for imshow\")\n                else:\n                    # probably an integer of some type.\n                    da = a_max.astype(np.float64) - a_min.astype(np.float64)\n                    # give more breathing room if a big dynamic range\n                    scaled_dtype = np.float64 if da > 1e8 else np.float32\n    \n                # scale the input data to [.1, .9].  The Agg\n                # interpolators clip to [0, 1] internally, use a\n                # smaller input scale to identify which of the\n                # interpolated points need to be should be flagged as\n                # over / under.\n                # This may introduce numeric instabilities in very broadly\n                # scaled data\n                # Always copy, and don't allow array subtypes.\n                A_scaled = np.array(A, dtype=scaled_dtype)\n                # clip scaled data around norm if necessary.\n                # This is necessary for big numbers at the edge of\n                # float64's ability to represent changes.  Applying\n                # a norm first would be good, but ruins the interpolation\n                # of over numbers.\n                self.norm.autoscale_None(A)\n                dv = np.float64(self.norm.vmax) - np.float64(self.norm.vmin)\n                vmid = np.float64(self.norm.vmin) + dv / 2\n                fact = 1e7 if scaled_dtype == np.float64 else 1e4\n                newmin = vmid - dv * fact\n                if newmin < a_min:\n                    newmin = None\n                else:\n                    a_min = np.float64(newmin)\n                newmax = vmid + dv * fact\n                if newmax > a_max:\n                    newmax = None\n                else:\n                    a_max = np.float64(newmax)\n                if newmax is not None or newmin is not None:\n                    np.clip(A_scaled, newmin, newmax, out=A_scaled)\n    \n                # used to rescale the raw data to [offset, 1-offset]\n                # so that the resampling code will run cleanly.  Using\n                # dyadic numbers here could reduce the error, but\n                # would not full eliminate it and breaks a number of\n                # tests (due to the slightly different error bouncing\n                # some pixels across a boundary in the (very\n                # quantized) colormapping step).\n                offset = .1\n                frac = .8\n                # we need to run the vmin/vmax through the same rescaling\n                # that we run the raw data through because there are small\n                # errors in the round-trip due to float precision.  If we\n                # do not run the vmin/vmax through the same pipeline we can\n                # have values close or equal to the boundaries end up on the\n                # wrong side.\n>               vmin, vmax = self.norm.vmin, self.norm.vmax if self.norm.vmin <= self.norm.vmax else 0, 1\nE               ValueError: too many values to unpack (expected 2)\n\nlib/matplotlib/image.py:472: ValueError\n=========================== short test summary info ============================\nFAILED lib/matplotlib/tests/test_image.py::test_huge_range_log[png--1] - Valu...\n============================== 1 failed in 0.90s ===============================\n\n",
+  "stderr_tail": "ERROR conda.cli.main_run:execute(125): `conda run pytest -rA lib/matplotlib/tests/test_image.py::test_huge_range_log[png--1]` failed. (See above for error)\n",
+  "env_sanity": {
+    "python_version": {
+      "returncode": 0,
+      "stdout_tail": "Python 3.8.20\n\n",
+      "stderr_tail": ""
+    },
+    "python_executable": {
+      "returncode": 0,
+      "stdout_tail": "/home/gfy/miniconda3/envs/swe_matplotlib_matplotlib_20488_candidate/bin/python\n\n",
+      "stderr_tail": ""
+    },
+    "pip_version": {
+      "returncode": 0,
+      "stdout_tail": "pip 24.2 from /home/gfy/miniconda3/envs/swe_matplotlib_matplotlib_20488_candidate/lib/python3.8/site-packages/pip (python 3.8)\n\n",
+      "stderr_tail": ""
+    },
+    "pytest_version": {
+      "returncode": 0,
+      "stdout_tail": "7.4.4\n\n",
+      "stderr_tail": ""
+    },
+    "numpy_version": {
+      "returncode": 0,
+      "stdout_tail": "1.24.4\n\n",
+      "stderr_tail": ""
+    },
+    "setuptools_version": {
+      "returncode": 0,
+      "stdout_tail": "75.1.0\n\n",
+      "stderr_tail": ""
+    },
+    "pip_freeze_head": {
+      "returncode": 0,
+      "stdout_tail": "asttokens==3.0.1\nbackcall==0.2.0\ncycler==0.12.1\ndecorator==5.3.1\nexceptiongroup==1.3.1\nexecuting==2.2.1\niniconfig==2.1.0\nipython==8.12.3\njedi==0.19.2\nkiwisolver==1.4.7\n-e git+https://github.com/matplotlib/matplotlib.git@b7ce415c15eb39b026a097a2865da73fbcf15c9c#egg=matplotlib\nmatplotlib-inline==0.1.7\nnumpy==1.24.4\npackaging==26.2\nparso==0.8.7\npexpect==4.9.0\npickleshare==0.7.5\npillow==10.4.0\npluggy==1.5.0\nprompt_toolkit==3.0.52\nptyprocess==0.7.0\npure_eval==0.2.3\nPygments==2.19.2\npyparsing==3.1.4\npytest==7.4.4\npython-dateutil==2.9.0.post0\nsetuptools-scm==9.2.2\nsix==1.17.0\nstack-data==0.6.3\ntomli==2.4.1\ntraitlets==5.14.3\ntyping_extensions==4.13.2\nwcwidth==0.8.1\n",
+      "stderr_tail": ""
+    }
+  }
+}

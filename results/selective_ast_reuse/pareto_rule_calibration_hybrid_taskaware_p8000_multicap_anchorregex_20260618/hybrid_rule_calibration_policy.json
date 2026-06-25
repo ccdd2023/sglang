@@ -1,0 +1,103 @@
+{
+  "policy_name": "hybrid_prompt_fair_shape_token_window_calibrated",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 0.9,
+  "min_speedup": 1.05,
+  "diagnostic_only": true,
+  "not_instance_id_matched": true,
+  "default_action": "reject",
+  "default_reason": "no_shape_token_window_rule",
+  "rule_token_margin_ratio": 0.05,
+  "rule_anchor_name_regex": true,
+  "reject_cap_sensitive": true,
+  "notes": "Generated from existing prompt-fair runs. Rules match only observable selection shape, estimated reused-token windows, and optional task-anchor overlap; evaluate on held-out cases before reporting.",
+  "runs": [
+    "p8000=results/selective_ast_reuse/prompt_fair_taskaware_p8000_uncalibrated_requests8_20260618/summary.json",
+    "cap3500=results/selective_ast_reuse/prompt_fair_taskaware_p8000_exact_cap3500_requests8_20260618/summary.json",
+    "cap4500=results/selective_ast_reuse/prompt_fair_taskaware_p8000_exact_cap4500_requests8_20260618/summary.json"
+  ],
+  "rules": [
+    {
+      "name": "calibrated_psf__requests-1142",
+      "action": "cap",
+      "max_suffix_copy_len": 4432,
+      "reason": "shape_token_window_calibration",
+      "source_case": "psf__requests-1142",
+      "source_run": "cap4500",
+      "source_speedup": 4.3719,
+      "source_token_f1": 0.9291,
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 1966,
+        "max_estimated_reused_tokens": 2174,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-657$"
+        ]
+      }
+    },
+    {
+      "name": "calibrated_psf__requests-1766",
+      "action": "cap",
+      "max_suffix_copy_len": 5208,
+      "reason": "shape_token_window_calibration",
+      "source_case": "psf__requests-1766",
+      "source_run": "p8000",
+      "source_speedup": 6.9196,
+      "source_token_f1": 0.9362,
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 2323,
+        "max_estimated_reused_tokens": 2569,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-770$"
+        ]
+      }
+    },
+    {
+      "name": "calibrated_psf__requests-2931",
+      "action": "cap",
+      "max_suffix_copy_len": 6244,
+      "reason": "shape_token_window_calibration",
+      "source_case": "psf__requests-2931",
+      "source_run": "p8000",
+      "source_speedup": 6.5845,
+      "source_token_f1": 1.0,
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 2848,
+        "max_estimated_reused_tokens": 3148,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-848$"
+        ]
+      }
+    },
+    {
+      "name": "calibrated_psf__requests-5414",
+      "action": "cap",
+      "max_suffix_copy_len": 7541,
+      "reason": "shape_token_window_calibration",
+      "source_case": "psf__requests-5414",
+      "source_run": "p8000",
+      "source_speedup": 8.6146,
+      "source_token_f1": 1.0,
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 3536,
+        "max_estimated_reused_tokens": 3910,
+        "require_anchor_path_mentioned": true,
+        "selected_anchor_name_any_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-973$"
+        ]
+      }
+    }
+  ],
+  "skipped_conflicting_rules": []
+}

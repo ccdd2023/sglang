@@ -1,0 +1,1 @@
+{"edits":[{"path":"requests/models.py","search":"to_native_string(self.method.upper())","replace":"self.method.upper()"}]}

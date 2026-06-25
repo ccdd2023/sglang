@@ -11,5 +11,5 @@
     "-rA",
     "tests/checkers/unittest_variables.py::TestVariablesChecker::test_bitbucket_issue_78"
   ],
-  "returncode": 0
+  "returncode": 4
 }

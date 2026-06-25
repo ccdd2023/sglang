@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/axes/_axes.py",
+      "search": "def _make_inset_locator(bounds, trans, parent):",
+      "replace": "def _make_inset_locator(bounds, trans, parent):\n    if 'density' in parent.get_data_autoscale_view():\n        bounds = (0, 1)\n    "
+    }
+  ]
+}
+```

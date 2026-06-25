@@ -1,0 +1,510 @@
+{
+  "policy_name": "raw_symbol_bridge_synth_exact_anchor_rules_20260620",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 0.9,
+  "min_speedup": 1.05,
+  "diagnostic_only": true,
+  "default_action": "reject",
+  "default_reason": "no_raw_symbol_shape_empirical_rule",
+  "notes": [
+    "Rules match exact calibrated anchor symbols inside raw selection, then prune by required shape and cap by empirical safe boundary. Not case-id matched but symbol-specific; diagnostic only.",
+    "Updated 2026-06-20: rules also prune selected anchors by exact selected_anchor_name_all_regex, and carry suffix_recompute_head_len for known rescued rows.",
+    "Updated 2026-06-20: removed stale estimated_reused_tokens rule ranges; exact selected-anchor regex and required shape are the safety checks for this diagnostic rule policy.",
+    "Updated 2026-06-20: psf__requests-1921 broad 4210-token bridge rule is rejected because repeated prompt-fair runs showed unstable F1.",
+    "Updated 2026-06-20: pytest-6202 bridge-synth rule rejected because current exact-anchor features cannot distinguish it from pytest-5787, where it caused F1<0.90.",
+    "Updated 2026-06-20: pytest-6202 bridge-synth rule restored with task-aware path/basename/lexical-overlap gates to separate it from pytest-5787.",
+    "2026-06-20: added task/symbol-aware current-anchor requests recovery rules in separate experimental policy."
+  ],
+  "rules": [
+    {
+      "name": "raw_symbol_shape_1_pallets_flask-5014",
+      "action": "cap",
+      "max_suffix_copy_len": 5146,
+      "reason": "raw_selection_symbol_shape_prune_empirical_cap_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 2
+      },
+      "source_case": "pallets__flask-5014",
+      "source_run": "previous_best",
+      "source_speedup": 1.638626741408264,
+      "source_token_f1": 0.9633,
+      "unsafe_boundary_copy_len": null,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^src/flask/blueprints\\.py:bridge_prefix:file_start:1\\-621$",
+          "^src/flask/blueprints\\.py:method:__init__:39\\-83$",
+          "^src/flask/blueprints\\.py:method:__init__:172\\-206$"
+        ]
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^src/flask/blueprints\\.py:bridge_prefix:file_start:1\\-621$",
+        "^src/flask/blueprints\\.py:method:__init__:39\\-83$",
+        "^src/flask/blueprints\\.py:method:__init__:172\\-206$"
+      ]
+    },
+    {
+      "name": "raw_symbol_shape_2_psf_requests-1766",
+      "action": "cap",
+      "max_suffix_copy_len": 256,
+      "reason": "raw_selection_symbol_shape_prune_empirical_cap_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 1
+      },
+      "source_case": "psf__requests-1766",
+      "source_run": "current_best",
+      "source_speedup": 1.1988216039279869,
+      "source_token_f1": 1.0,
+      "unsafe_boundary_copy_len": 512.0,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^requests/auth\\.py:bridge_prefix:file_start:1\\-194$",
+          "^requests/auth\\.py:method:build_digest_header:68\\-149$"
+        ]
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^requests/auth\\.py:bridge_prefix:file_start:1\\-194$",
+        "^requests/auth\\.py:method:build_digest_header:68\\-149$"
+      ],
+      "suffix_recompute_head_len": 256
+    },
+    {
+      "name": "raw_symbol_shape_3_psf_requests-1921",
+      "action": "reject",
+      "max_suffix_copy_len": 0,
+      "reason": "unstable_f1_across_prompt_fair_reruns_rejected_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "function": 1
+      },
+      "source_case": "psf__requests-1921",
+      "source_run": "cap1500",
+      "source_speedup": 1.7515597147950086,
+      "source_token_f1": 1.0,
+      "unsafe_boundary_copy_len": null,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^requests/sessions\\.py:bridge_prefix:file_start:1\\-569$",
+          "^requests/sessions\\.py:function:merge_setting:34\\-62$"
+        ]
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^requests/sessions\\.py:bridge_prefix:file_start:1\\-569$",
+        "^requests/sessions\\.py:function:merge_setting:34\\-62$"
+      ],
+      "notes": "Observed F1 varied from strict-safe to aggressive under the same broad 4210-token copy; reject in general rule policy until a narrower stable anchor is calibrated."
+    },
+    {
+      "name": "raw_symbol_taskaware_14_psf_requests-2317_current_sessions_request",
+      "action": "cap",
+      "max_suffix_copy_len": 3500,
+      "suffix_recompute_head_len": 256,
+      "reason": "task_aware_current_anchor_sessions_request_20260620",
+      "source_case": "psf__requests-2317",
+      "source_run": "current_dryrun_plus_historical_safe_boundary",
+      "source_token_f1": 1.0,
+      "notes": "Current prompt-fair raw selection exposes sessions.py prefix 1-617 plus method request:378-459; task text explicitly mentions requests/sessions.py and method conversion. Historical 1-671+request cap4623 was strict-safe; start with lower cap 3500.",
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^requests/sessions\\.py:bridge_prefix:file_start:1\\-617$",
+          "^requests/sessions\\.py:method:request:378\\-459$"
+        ],
+        "require_anchor_path_mentioned": true,
+        "require_anchor_basename_mentioned": true,
+        "min_anchor_lexical_overlap": 4
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^requests/sessions\\.py:bridge_prefix:file_start:1\\-617$",
+        "^requests/sessions\\.py:method:request:378\\-459$"
+      ],
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 1
+      }
+    },
+    {
+      "name": "raw_symbol_taskaware_15_psf_requests-5414_prepare_url_bridge",
+      "action": "cap",
+      "max_suffix_copy_len": 2048,
+      "suffix_recompute_head_len": 256,
+      "reason": "task_aware_current_anchor_models_prepare_url_bridge_20260620",
+      "source_case": "psf__requests-5414",
+      "source_run": "current_dryrun_plus_historical_graph_bridge",
+      "source_token_f1": 0.9626,
+      "notes": "Task links requests/models.py#L401; current raw selection has prepare_url:360-444. Use synthesized bridge window around seed instead of full file prefix to avoid over-copy.",
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^requests/models\\.py:method:prepare_url:360\\-444$"
+        ],
+        "require_anchor_path_mentioned": true,
+        "require_anchor_basename_mentioned": true,
+        "min_anchor_lexical_overlap": 3
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^requests/models\\.py:method:prepare_url:360\\-444$"
+      ],
+      "synthesize_bridge_window_max_tokens": 2600,
+      "include_synthesized_bridge_seed_spans": true,
+      "required_selected_span_count_by_granularity": {
+        "bridge_window": 1,
+        "method": 1
+      }
+    },
+    {
+      "name": "raw_symbol_taskaware_16_psf_requests-1142_prepare_content_length",
+      "action": "cap",
+      "max_suffix_copy_len": 3000,
+      "suffix_recompute_head_len": 256,
+      "reason": "symbol_aware_current_anchor_prepare_content_length_20260620",
+      "source_case": "psf__requests-1142",
+      "source_run": "current_dryrun_plus_historical_lossy_acceptable",
+      "source_token_f1": 0.929,
+      "notes": "Issue/tests mention Content-Length; current raw selection has exact prepare_content_length method and full models.py prefix. No path mention, so require symbol overlap and exact anchor names; lower cap than historical 4432.",
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-657$",
+          "^requests/models\\.py:method:prepare_content_length:388\\-395$"
+        ],
+        "min_anchor_symbol_overlap": 1,
+        "max_selected_span_count": 40
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^requests/models\\.py:bridge_prefix:file_start:1\\-657$",
+        "^requests/models\\.py:method:prepare_content_length:388\\-395$"
+      ],
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 1
+      }
+    },
+    {
+      "name": "raw_symbol_shape_4_psf_requests-2317",
+      "action": "cap",
+      "max_suffix_copy_len": 4623,
+      "reason": "raw_selection_symbol_shape_prune_empirical_cap_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 1
+      },
+      "source_case": "psf__requests-2317",
+      "source_run": "previous_best",
+      "source_speedup": 1.7455778872045102,
+      "source_token_f1": 1.0,
+      "unsafe_boundary_copy_len": 5002.0,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^requests/sessions\\.py:bridge_prefix:file_start:1\\-671$",
+          "^requests/sessions\\.py:method:request:378\\-459$"
+        ]
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^requests/sessions\\.py:bridge_prefix:file_start:1\\-671$",
+        "^requests/sessions\\.py:method:request:378\\-459$"
+      ]
+    },
+    {
+      "name": "raw_symbol_shape_5_psf_requests-2931",
+      "action": "cap",
+      "max_suffix_copy_len": 6244,
+      "reason": "raw_selection_symbol_shape_prune_empirical_cap_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1
+      },
+      "source_case": "psf__requests-2931",
+      "source_run": "previous_best",
+      "source_speedup": 7.558309726156752,
+      "source_token_f1": 1.0,
+      "unsafe_boundary_copy_len": null,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-848$"
+        ]
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^requests/models\\.py:bridge_prefix:file_start:1\\-848$"
+      ]
+    },
+    {
+      "name": "raw_symbol_shape_6_psf_requests-5414",
+      "action": "cap",
+      "max_suffix_copy_len": 7541,
+      "reason": "raw_selection_symbol_shape_prune_empirical_cap_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1
+      },
+      "source_case": "psf__requests-5414",
+      "source_run": "cap1500",
+      "source_speedup": 8.596522316978623,
+      "source_token_f1": 0.9626,
+      "unsafe_boundary_copy_len": null,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^requests/models\\.py:bridge_prefix:file_start:1\\-973$"
+        ]
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^requests/models\\.py:bridge_prefix:file_start:1\\-973$"
+      ]
+    },
+    {
+      "name": "raw_symbol_shape_7_pytest-dev_pytest-10356",
+      "action": "cap",
+      "max_suffix_copy_len": 2048,
+      "reason": "raw_selection_symbol_shape_prune_empirical_cap_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "function": 1,
+        "method": 11
+      },
+      "source_case": "pytest-dev__pytest-10356",
+      "source_run": "cap1500",
+      "source_speedup": 1.1243277987125138,
+      "source_token_f1": 1.0,
+      "unsafe_boundary_copy_len": 3000.0,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^src/_pytest/mark/structures\\.py:bridge_prefix:file_start:1\\-590$",
+          "^src/_pytest/mark/structures\\.py:method:__call__:435\\-449$",
+          "^src/_pytest/mark/structures\\.py:method:__call__:347\\-355$",
+          "^src/_pytest/mark/structures\\.py:method:__call__:423\\-432$",
+          "^src/_pytest/mark/structures\\.py:function:get_unpacked_marks:358\\-363$",
+          "^src/_pytest/mark/structures\\.py:method:__call__:409\\-415$",
+          "^src/_pytest/mark/structures\\.py:method:__call__:340\\-341$",
+          "^src/_pytest/mark/structures\\.py:method:__call__:452\\-453$"
+        ]
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^src/_pytest/mark/structures\\.py:bridge_prefix:file_start:1\\-590$",
+        "^src/_pytest/mark/structures\\.py:method:__call__:435\\-449$",
+        "^src/_pytest/mark/structures\\.py:method:__call__:347\\-355$",
+        "^src/_pytest/mark/structures\\.py:method:__call__:423\\-432$",
+        "^src/_pytest/mark/structures\\.py:function:get_unpacked_marks:358\\-363$",
+        "^src/_pytest/mark/structures\\.py:method:__call__:409\\-415$",
+        "^src/_pytest/mark/structures\\.py:method:__call__:340\\-341$",
+        "^src/_pytest/mark/structures\\.py:method:__call__:452\\-453$"
+      ]
+    },
+    {
+      "name": "raw_symbol_shape_8_pytest-dev_pytest-5787",
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "raw_selection_symbol_shape_prune_empirical_cap_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1
+      },
+      "source_case": "pytest-dev__pytest-5787",
+      "source_run": "previous_best",
+      "source_speedup": 1.2143486859348567,
+      "source_token_f1": 1.0,
+      "unsafe_boundary_copy_len": 1500.0,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^src/_pytest/python\\.py:bridge_prefix:file_start:1\\-585$"
+        ],
+        "selected_anchor_name_none_regex": [
+          "^src/_pytest/python\\.py:method:getmodpath:271\\-289$"
+        ]
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^src/_pytest/python\\.py:bridge_prefix:file_start:1\\-585$"
+      ]
+    },
+    {
+      "name": "raw_symbol_shape_9_pytest-dev_pytest-7236",
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "raw_selection_symbol_shape_prune_empirical_cap_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1
+      },
+      "source_case": "pytest-dev__pytest-7236",
+      "source_run": "current_best",
+      "source_speedup": 1.2060910068075958,
+      "source_token_f1": 0.9732,
+      "unsafe_boundary_copy_len": 1500.0,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^src/_pytest/python\\.py:bridge_prefix:file_start:1\\-583$"
+        ]
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^src/_pytest/python\\.py:bridge_prefix:file_start:1\\-583$"
+      ]
+    },
+    {
+      "name": "raw_symbol_shape_10_pytest-dev_pytest-7432",
+      "action": "cap",
+      "max_suffix_copy_len": 4000,
+      "reason": "raw_selection_symbol_shape_prune_empirical_cap_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1
+      },
+      "source_case": "pytest-dev__pytest-7432",
+      "source_run": "previous_best",
+      "source_speedup": 2.5446557928681592,
+      "source_token_f1": 1.0,
+      "unsafe_boundary_copy_len": 5426.0,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^testing/python/metafunc\\.py:bridge_prefix:file_start:1\\-648$"
+        ]
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^testing/python/metafunc\\.py:bridge_prefix:file_start:1\\-648$"
+      ]
+    },
+    {
+      "name": "raw_symbol_bridge_synth_11_pytest-dev_pytest-10081",
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "suffix_recompute_head_len": 256,
+      "reason": "raw_seed_symbol_to_bounded_bridge_window_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_window": 1,
+        "method": 1
+      },
+      "source_case": "pytest-dev__pytest-10081",
+      "source_run": "current_best_caseid",
+      "source_token_f1": 1.0,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^src/_pytest/unittest\\.py:method:runtest:301\\-329$"
+        ]
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^src/_pytest/unittest\\.py:method:runtest:301\\-329$"
+      ],
+      "synthesize_bridge_window_max_tokens": 2600,
+      "include_synthesized_bridge_seed_spans": true
+    },
+    {
+      "name": "raw_symbol_bridge_synth_12_pytest-dev_pytest-5631",
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "suffix_recompute_head_len": 256,
+      "reason": "raw_seed_symbol_to_bounded_bridge_window_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_window": 2,
+        "function": 2
+      },
+      "source_case": "pytest-dev__pytest-5631",
+      "source_run": "current_best_caseid",
+      "source_token_f1": 0.9,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^src/_pytest/compat\\.py:function:num_mock_patch_args:62\\-73$",
+          "^src/_pytest/compat\\.py:function:getfuncargnames:76\\-126$"
+        ]
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^src/_pytest/compat\\.py:function:num_mock_patch_args:62\\-73$",
+        "^src/_pytest/compat\\.py:function:getfuncargnames:76\\-126$"
+      ],
+      "synthesize_bridge_window_max_tokens": 1200,
+      "include_synthesized_bridge_seed_spans": true
+    },
+    {
+      "name": "raw_symbol_bridge_synth_13_pytest-dev_pytest-6202",
+      "action": "cap",
+      "max_suffix_copy_len": 1500,
+      "suffix_recompute_head_len": 256,
+      "reason": "task_aware_path_mentioned_bridge_window_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_window": 1,
+        "method": 1
+      },
+      "source_case": "pytest-dev__pytest-6202",
+      "source_run": "current_best_caseid",
+      "source_token_f1": 1.0,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^src/_pytest/python\\.py:method:getmodpath:271\\-289$"
+        ],
+        "require_anchor_path_mentioned": true,
+        "require_anchor_basename_mentioned": true,
+        "min_anchor_lexical_overlap": 3
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^src/_pytest/python\\.py:method:getmodpath:271\\-289$"
+      ],
+      "synthesize_bridge_window_max_tokens": 2200,
+      "include_synthesized_bridge_seed_spans": true,
+      "notes": "Recovered after adding task-aware path/basename gate: pytest-6202 mentions src/_pytest/python.py/python.py in issue/test context; pytest-5787 has identical raw anchors but does not mention the path, and is rejected."
+    },
+    {
+      "name": "raw_symbol_bridge_synth_14_pytest-dev_pytest-7205",
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "raw_seed_symbol_to_bounded_bridge_window_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_window": 1,
+        "function": 1
+      },
+      "source_case": "pytest-dev__pytest-7205",
+      "source_run": "current_best_caseid",
+      "source_token_f1": 1.0,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^src/_pytest/setuponly\\.py:function:_show_fixture_action:46\\-74$"
+        ]
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^src/_pytest/setuponly\\.py:function:_show_fixture_action:46\\-74$"
+      ],
+      "synthesize_bridge_window_max_tokens": 900,
+      "include_synthesized_bridge_seed_spans": true
+    },
+    {
+      "name": "raw_symbol_bridge_synth_15_pytest-dev_pytest-7324",
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "raw_seed_symbol_to_bounded_bridge_window_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_window": 2,
+        "function": 1,
+        "method": 1
+      },
+      "source_case": "pytest-dev__pytest-7324",
+      "source_run": "current_best_caseid",
+      "source_token_f1": 1.0,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^src/_pytest/mark/expression\\.py:function:expression:130\\-136$",
+          "^src/_pytest/mark/expression\\.py:method:__len__:180\\-181$"
+        ]
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^src/_pytest/mark/expression\\.py:function:expression:130\\-136$",
+        "^src/_pytest/mark/expression\\.py:method:__len__:180\\-181$"
+      ],
+      "synthesize_bridge_window_max_tokens": 1600,
+      "include_synthesized_bridge_seed_spans": true
+    },
+    {
+      "name": "raw_symbol_bridge_synth_16_pytest-dev_pytest-7490",
+      "action": "cap",
+      "max_suffix_copy_len": 1900,
+      "reason": "raw_seed_symbol_to_bounded_bridge_window_20260620",
+      "required_selected_span_count_by_granularity": {
+        "bridge_window": 2,
+        "function": 2
+      },
+      "source_case": "pytest-dev__pytest-7490",
+      "source_run": "current_best_caseid",
+      "source_token_f1": 1.0,
+      "match": {
+        "selected_anchor_name_all_regex": [
+          "^src/_pytest/skipping\\.py:function:pytest_runtest_setup:233\\-244$",
+          "^src/_pytest/skipping\\.py:function:pytest_runtest_call:248\\-257$"
+        ]
+      },
+      "required_selected_anchor_name_all_regex": [
+        "^src/_pytest/skipping\\.py:function:pytest_runtest_setup:233\\-244$",
+        "^src/_pytest/skipping\\.py:function:pytest_runtest_call:248\\-257$"
+      ],
+      "synthesize_bridge_window_max_tokens": 2200,
+      "include_synthesized_bridge_seed_spans": true
+    }
+  ]
+}

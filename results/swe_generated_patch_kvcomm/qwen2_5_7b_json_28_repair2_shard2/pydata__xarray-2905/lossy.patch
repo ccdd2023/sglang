@@ -1,0 +1,12 @@
+diff --git a/xarray/core/variable.py b/xarray/core/variable.py
+--- a/xarray/core/variable.py
++++ b/xarray/core/variable.py
+@@ -364,7 +364,7 @@
+ 
+     @data.setter
+     def data(self, data):
+-        data = as_compatible_data(data)
++        data = as_compatible_data(data, fastpath=True)
+         if data.shape != self.shape:
+             raise ValueError(
+                 f"replacement data must match the Variable's shape. "

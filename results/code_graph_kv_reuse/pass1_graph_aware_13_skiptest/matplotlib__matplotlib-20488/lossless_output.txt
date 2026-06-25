@@ -1,0 +1,1 @@
+{"edits":[{"path":"lib/matplotlib/image.py","search":"vmin=100, vmax=data.max()","replace":"vmin=1, vmax=data.max()}"}]}

@@ -1,0 +1,58 @@
+{
+  "instance_id": "django__django-10880",
+  "repo": "django/django",
+  "version": "3.0",
+  "mode": "candidate",
+  "env_name": "swe_django_django_10880_candidate",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10880",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "./tests/runtests.py",
+    "--verbosity",
+    "2",
+    "--settings=test_sqlite",
+    "--parallel",
+    "1",
+    "aggregation.tests.AggregateTestCase.test_count_distinct_expression"
+  ],
+  "returncode": 1,
+  "stdout_tail": "Testing against Django installed in '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10880/django'\nImporting application aggregation\nSkipping setup of unused database(s): other.\nOperations to perform:\n  Synchronize unmigrated apps: aggregation, auth, contenttypes, messages, sessions, staticfiles\n  Apply all migrations: admin, sites\nSynchronizing apps without migrations:\n  Creating tables\u2026\n    Creating table django_content_type\n    Creating table auth_permission\n    Creating table auth_group\n    Creating table auth_user\n    Creating table django_session\n    Creating table aggregation_author\n    Creating table aggregation_publisher\n    Creating table aggregation_book\n    Creating table aggregation_store\n    Running deferred SQL\u2026\nRunning migrations:\n  Applying admin.0001_initial\u2026 OK\n  Applying admin.0002_logentry_remove_auto_add\u2026 OK\n  Applying admin.0003_logentry_add_action_flag_choices\u2026 OK\n  Applying sites.0001_initial\u2026 OK\n  Applying sites.0002_alter_domain_unique\u2026 OK\nSystem check identified no issues (0 silenced).\n\n",
+  "stderr_tail": "Creating test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')\u2026\ntest_count_distinct_expression (aggregation.tests.AggregateTestCase) ... ERROR\n\n======================================================================\nERROR: test_count_distinct_expression (aggregation.tests.AggregateTestCase)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10880/django/db/backends/utils.py\", line 84, in _execute\n    return self.cursor.execute(sql, params)\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10880/django/db/backends/sqlite3/base.py\", line 376, in execute\n    return Database.Cursor.execute(self, query, params)\nsqlite3.OperationalError: near \"WHEN\": syntax error\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10880/tests/aggregation/tests.py\", line 401, in test_count_distinct_expression\n    distinct_ratings=Count(Case(When(pages__gt=300, then='rating')), distinct=True),\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10880/django/db/models/manager.py\", line 82, in manager_method\n    return getattr(self.get_queryset(), name)(*args, **kwargs)\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10880/django/db/models/query.py\", line 378, in aggregate\n    return query.get_aggregation(self.db, kwargs)\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10880/django/db/models/sql/query.py\", line 489, in get_aggregation\n    result = compiler.execute_sql(SINGLE)\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10880/django/db/models/sql/compiler.py\", line 1080, in execute_sql\n    cursor.execute(sql, params)\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10880/django/db/backends/utils.py\", line 67, in execute\n    return self._execute_with_wrappers(sql, params, many=False, executor=self._execute)\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10880/django/db/backends/utils.py\", line 76, in _execute_with_wrappers\n    return executor(sql, params, many, context)\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10880/django/db/backends/utils.py\", line 84, in _execute\n    return self.cursor.execute(sql, params)\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10880/django/db/utils.py\", line 89, in __exit__\n    raise dj_exc_value.with_traceback(traceback) from exc_value\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10880/django/db/backends/utils.py\", line 84, in _execute\n    return self.cursor.execute(sql, params)\n  File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-10880/django/db/backends/sqlite3/base.py\", line 376, in execute\n    return Database.Cursor.execute(self, query, params)\ndjango.db.utils.OperationalError: near \"WHEN\": syntax error\n\n----------------------------------------------------------------------\nRan 1 test in 0.022s\n\nFAILED (errors=1)\nDestroying test database for alias 'default' ('file:memorydb_default?mode=memory&cache=shared')\u2026\n\nERROR conda.cli.main_run:execute(125): `conda run ./tests/runtests.py --verbosity 2 --settings=test_sqlite --parallel 1 aggregation.tests.AggregateTestCase.test_count_distinct_expression` failed. (See above for error)\n",
+  "env_sanity": {
+    "python_version": {
+      "returncode": 0,
+      "stdout_tail": "",
+      "stderr_tail": "Python 3.6.13 :: Anaconda, Inc.\n\n"
+    },
+    "python_executable": {
+      "returncode": 0,
+      "stdout_tail": "/home/gfy/miniconda3/envs/swe_django_django_10880_candidate/bin/python\n\n",
+      "stderr_tail": ""
+    },
+    "pip_version": {
+      "returncode": 0,
+      "stdout_tail": "pip 21.2.2 from /home/gfy/miniconda3/envs/swe_django_django_10880_candidate/lib/python3.6/site-packages/pip (python 3.6)\n\n",
+      "stderr_tail": ""
+    },
+    "pytest_version": {
+      "returncode": 1,
+      "stdout_tail": "",
+      "stderr_tail": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\nModuleNotFoundError: No module named 'pytest'\n\nERROR conda.cli.main_run:execute(125): `conda run python -c import pytest; print(pytest.__version__)` failed. (See above for error)\n"
+    },
+    "numpy_version": {
+      "returncode": 1,
+      "stdout_tail": "",
+      "stderr_tail": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\nModuleNotFoundError: No module named 'numpy'\n\nERROR conda.cli.main_run:execute(125): `conda run python -c import numpy; print(numpy.__version__)` failed. (See above for error)\n"
+    },
+    "setuptools_version": {
+      "returncode": 0,
+      "stdout_tail": "58.0.4\n\n",
+      "stderr_tail": ""
+    },
+    "pip_freeze_head": {
+      "returncode": 0,
+      "stdout_tail": "certifi==2021.5.30\n-e git+https://github.com/django/django.git@838e432e3e5519c5383d12018e6c78f8ec7833c1#egg=Django\npytz==2026.2\nsqlparse==0.4.4\n",
+      "stderr_tail": ""
+    }
+  }
+}

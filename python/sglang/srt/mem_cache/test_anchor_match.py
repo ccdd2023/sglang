@@ -265,6 +265,33 @@ def test_context_aware_confidence_reduces_when_high_predicted_distance(monkeypat
     assert result.match_reason == "exact_code_content_signature"
 
 
+def test_context_aware_confidence_max_predicted_d_rejects_high_risk_match(monkeypatch):
+    monkeypatch.setenv("SGLANG_CONTEXT_AWARE_CONFIDENCE", "1")
+    monkeypatch.setenv("SGLANG_CONTEXT_AWARE_MAX_PREDICTED_D", "1.8")
+    am = _fresh_anchor_module()
+    _inject_test_table(am, [
+        {"length_bin": "50-200", "position_offset": "50-100",
+         "system_prompt_class": "tester", "surrounding_code_class": "none",
+         "predicted_d_norm_mean": 2.0, "predicted_d_norm_std": 0.2, "n_samples": 5},
+    ])
+    spans = [{"anchor_type": "function", "signature": "s", "content_signature": "c",
+              "start_line": 1, "end_line": 8}]
+    request = am.build_anchor_metadata(
+        code_anchor_spans=spans, reuse_mode="lossy",
+        template_task_family="code_gen", token_count=120,
+        prompt_position_offset=100, system_prompt_class="tester", length_bin="50-200",
+    )
+    candidate = am.build_anchor_metadata(
+        code_anchor_spans=spans, reuse_mode="lossy",
+        template_task_family="code_gen", token_count=120,
+    )
+    result = am.match_request_to_candidate(request, candidate)
+    assert result.reuse_allowed is False
+    assert result.rejected_reason == "context_aware_confidence_below_floor"
+    assert result.match_reason == "exact_code_content_signature_demoted"
+    assert result.predicted_distance == 2.0
+
+
 def test_context_aware_confidence_demotes_below_floor_for_extreme_predicted(monkeypatch):
     """Synthetic table where d_max = d_predicted → multiplier = 0.5 → confidence = 0.475 < 0.5."""
     monkeypatch.setenv("SGLANG_CONTEXT_AWARE_CONFIDENCE", "1")
@@ -408,6 +435,7 @@ def _make_minimal_radix_cache(monkeypatch):
     cache = rc.RadixCache.__new__(rc.RadixCache)
     # Reuse the class's static get_child_key_fn for unit-test simplicity
     cache.get_child_key_fn = rc.get_child_key
+    cache.key_match_fn = rc._key_match_page_size1
     cache.page_size = 1
     cache.anchor_kv_store = {}
     cache.anchor_kv_store_lock = threading.RLock()
@@ -417,7 +445,61 @@ def _make_minimal_radix_cache(monkeypatch):
     cache.root_node = rc.TreeNode(priority=0)
     cache.device = torch.device("cpu")
     cache.disable = False
+    cache.enable_kv_cache_events = False
     return cache
+
+
+def test_insert_merges_anchor_spans_on_existing_prompt_node(monkeypatch):
+    """Selective whole-file reuse warms the same prompt with different spans.
+
+    A whole-file warmup can create the radix node first; a later function-span
+    warmup should add span-level content signatures instead of being ignored.
+    """
+    from sglang.srt.mem_cache import radix_cache as rc
+    cache = _make_minimal_radix_cache(monkeypatch)
+    key = rc.RadixKey([1, 2, 3, 4])
+    value = torch.arange(4, dtype=torch.int64)
+
+    whole_span = {
+        "anchor_type": "code_base",
+        "signature": "whole",
+        "content_signature": "whole-content",
+        "start_line": 1,
+        "end_line": 100,
+        "segment_name": "repo/file.py",
+    }
+    function_span = {
+        "anchor_type": "code_base",
+        "signature": "func",
+        "content_signature": "function-content",
+        "start_line": 10,
+        "end_line": 20,
+        "segment_name": "repo/file.py:function:f:10-20",
+    }
+
+    cache._insert_helper(
+        cache.root_node,
+        key,
+        value,
+        anchor_id="whole-anchor",
+        code_content_signature="whole-joined",
+        anchor_spans=[whole_span],
+        reuse_mode="lossy",
+    )
+    cache._insert_helper(
+        cache.root_node,
+        key,
+        value,
+        anchor_id="function-anchor",
+        code_content_signature="function-joined",
+        anchor_spans=[function_span],
+        reuse_mode="lossy",
+    )
+
+    node = next(iter(cache.root_node.children.values()))
+    signatures = {span.get("content_signature") for span in node.anchor_spans}
+    assert signatures == {"whole-content", "function-content"}
+    assert len(node.anchor_spans) == 2
 
 
 def _make_tree_node(rc, *, anchor_id="", content_sig="", anchor_type="",
@@ -654,6 +736,7 @@ def test_agenttemplatekv_store_protects_hint_anchor(monkeypatch):
 
     entry = cache.anchor_kv_store["content-sig"][0]
     assert entry.prefetch_lock_held is True
+    assert entry.prefix_context_signature
     assert source_node.lock_ref == 1
     assert req.codebase_prefetch_device_hit_count == 0
     assert req.agenttemplatekv_prefetch_newly_protected_tokens == 3
@@ -751,6 +834,745 @@ def test_agenttemplatekv_rejects_large_zero_fill_gap(monkeypatch):
     assert node is cache.root_node
     assert req.lossy_rejected_reason == "agenttemplatekv_large_zero_gap"
     assert req.agenttemplatekv_rejected_large_gap_count == 1
+
+
+def test_agenttemplatekv_context_aligned_recompute_gap_stages_chunk(monkeypatch):
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_ZERO_GAP", "4")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_SUFFIX_COPY_LEN", "2")
+    monkeypatch.setenv("SGLANG_LOSSY_RECOMPUTE_GAP", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", "1")
+    cache = _make_minimal_radix_cache(monkeypatch)
+    entry = rc.AnchorKVEntry(
+        signature="anchor-sig",
+        token_ids=torch.tensor([7, 8, 9], dtype=torch.int64),
+        kv_indices=torch.tensor([20, 21, 22], dtype=torch.int64),
+        start_pos=20,
+        code_content_signature="content-sig",
+    )
+    cache.anchor_kv_store["content-sig"] = [entry]
+    req = SimpleNamespace(
+        lossy_first_match_reason="exact_code_content_signature",
+        lossy_first_matched_content_signature="content-sig",
+        code_anchor_token_spans=[
+            {"start_token": 20, "end_token": 23, "content_signature": "content-sig"}
+        ],
+    )
+    key_tokens = [0, 1] + [2] * 18 + [7, 8, 9]
+    exact_values = [torch.tensor([100, 101], dtype=torch.int64)]
+
+    values, node = cache._try_lossy_fuzzy_match(
+        req,
+        rc.RadixKey(key_tokens),
+        exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert values == exact_values
+    assert node is cache.root_node
+    assert req.lossy_rejected_reason == "context_aligned_staging"
+    assert req.lossy_anchor_match_fail_reason == "context_aligned_staging"
+    assert req.lossy_anchor_match_gap_len == 18
+    assert req.lossy_anchor_gap_recompute_len == 18
+    assert req.lossy_anchor_suffix_copy_len == 0
+    assert req.lossy_anchor_context_aligned is False
+    assert req.lossy_anchor_context_align_fail_reason == "staged_recompute_gap_pending"
+    assert req.lossy_anchor_context_target_prefix_len == 20
+    assert not hasattr(req, "agenttemplatekv_rejected_large_gap_count")
+
+
+def test_agenttemplatekv_context_aligned_second_stage_copies_suffix(monkeypatch):
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    class FakeAllocator:
+        def __init__(self):
+            self.next_slot = 1000
+
+        def alloc(self, n):
+            slots = torch.arange(self.next_slot, self.next_slot + n, dtype=torch.int64)
+            self.next_slot += n
+            return slots
+
+        def get_kvcache(self):
+            return SimpleNamespace(k_buffer=None, v_buffer=None, layer_num=0)
+
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_ZERO_GAP", "4")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_SUFFIX_COPY_LEN", "2")
+    monkeypatch.setenv("SGLANG_LOSSY_RECOMPUTE_GAP", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", "1")
+    monkeypatch.setattr(rc, "move_kv_cache_native", lambda *args, **kwargs: None)
+    cache = _make_minimal_radix_cache(monkeypatch)
+    cache.token_to_kv_pool_allocator = FakeAllocator()
+    cache.rope_rotary_dim = 0
+    entry = rc.AnchorKVEntry(
+        signature="anchor-sig",
+        token_ids=torch.tensor([7, 8, 9], dtype=torch.int64),
+        kv_indices=torch.tensor([20, 21, 22], dtype=torch.int64),
+        start_pos=20,
+        code_content_signature="content-sig",
+        prefix_context_signature=rc._token_prefix_signature([100] * 20, 20),
+    )
+    cache.anchor_kv_store["content-sig"] = [entry]
+    req = SimpleNamespace(
+        lossy_first_match_reason="exact_code_content_signature",
+        lossy_first_matched_content_signature="content-sig",
+        code_anchor_token_spans=[
+            {"start_token": 20, "end_token": 23, "content_signature": "content-sig"}
+        ],
+        lossy_anchor_context_align_stage="recompute_gap_chunk",
+        lossy_anchor_context_target_prefix_len=20,
+        lossy_anchor_gap_recompute_len=18,
+    )
+    key_tokens = [0, 1] + [2] * 18 + [7, 8, 9]
+    exact_values = [torch.arange(20, dtype=torch.int64)]
+
+    values, node = cache._try_lossy_fuzzy_match(
+        req,
+        rc.RadixKey(key_tokens),
+        exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert node is cache.root_node
+    assert len(values) == 2
+    assert values[0] is exact_values[0]
+    assert values[1].numel() == 2
+    assert req.lossy_anchor_match_used is True
+    assert req.lossy_anchor_match_gap_len == 0
+    assert req.lossy_anchor_gap_recompute_len == 18
+    assert req.lossy_anchor_suffix_copy_len == 2
+    assert req.lossy_anchor_suffix_copy_planned_len == 3
+    assert req.lossy_anchor_suffix_copy_cap_len == 2
+    assert req.lossy_anchor_suffix_copy_truncated is True
+    assert req.lossy_anchor_context_copy_ready is True
+    assert req.lossy_anchor_context_aligned is True
+    assert req.lossy_anchor_context_align_fail_reason is None
+
+
+def test_agenttemplatekv_per_anchor_suffix_copy_cap(monkeypatch):
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    class FakeAllocator:
+        def alloc(self, n):
+            return torch.arange(100, 100 + n, dtype=torch.int64)
+
+        def get_kvcache(self):
+            return SimpleNamespace(k_buffer=None, v_buffer=None, layer_num=0)
+
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_ZERO_GAP", "4")
+    monkeypatch.delenv("SGLANG_LOSSY_MAX_SUFFIX_COPY_LEN", raising=False)
+    monkeypatch.setenv("SGLANG_LOSSY_RECOMPUTE_GAP", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", "1")
+    monkeypatch.setattr(rc, "move_kv_cache_native", lambda *args, **kwargs: None)
+    cache = _make_minimal_radix_cache(monkeypatch)
+    cache.token_to_kv_pool_allocator = FakeAllocator()
+    cache.rope_rotary_dim = 0
+    entry = rc.AnchorKVEntry(
+        signature="anchor-sig",
+        token_ids=torch.tensor([7, 8, 9, 10], dtype=torch.int64),
+        kv_indices=torch.tensor([20, 21, 22, 23], dtype=torch.int64),
+        start_pos=20,
+        code_content_signature="content-sig",
+        prefix_context_signature=rc._token_prefix_signature([100] * 20, 20),
+    )
+    cache.anchor_kv_store["content-sig"] = [entry]
+    req = SimpleNamespace(
+        lossy_first_match_reason="exact_code_content_signature",
+        lossy_first_matched_content_signature="content-sig",
+        code_anchor_token_spans=[
+            {
+                "start_token": 20,
+                "end_token": 24,
+                "content_signature": "content-sig",
+                "max_suffix_copy_len": 2,
+            }
+        ],
+        lossy_anchor_context_align_stage="recompute_gap_chunk",
+        lossy_anchor_context_target_prefix_len=20,
+        lossy_anchor_gap_recompute_len=18,
+    )
+    key_tokens = [0, 1] + [2] * 18 + [7, 8, 9, 10]
+    exact_values = [torch.arange(20, dtype=torch.int64)]
+
+    values, node = cache._try_lossy_fuzzy_match(
+        req,
+        rc.RadixKey(key_tokens),
+        exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert node is cache.root_node
+    assert len(values) == 2
+    assert values[1].numel() == 2
+    assert req.lossy_anchor_suffix_copy_len == 2
+    assert req.lossy_anchor_suffix_copy_planned_len == 4
+    assert req.lossy_anchor_suffix_copy_cap_len == 2
+    assert req.lossy_anchor_suffix_copy_truncated is True
+
+
+def test_agenttemplatekv_suffix_head_recompute_stages_then_copies_tail(monkeypatch):
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    class FakeAllocator:
+        def __init__(self):
+            self.next_slot = 1000
+
+        def alloc(self, n):
+            slots = torch.arange(self.next_slot, self.next_slot + n, dtype=torch.int64)
+            self.next_slot += n
+            return slots
+
+        def get_kvcache(self):
+            return SimpleNamespace(k_buffer=None, v_buffer=None, layer_num=0)
+
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_ZERO_GAP", "4")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_SUFFIX_COPY_LEN", "4")
+    monkeypatch.setenv("SGLANG_LOSSY_RECOMPUTE_GAP", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_SUFFIX_RECOMPUTE_HEAD_LEN", "2")
+    monkeypatch.setattr(rc, "move_kv_cache_native", lambda *args, **kwargs: None)
+    cache = _make_minimal_radix_cache(monkeypatch)
+    cache.token_to_kv_pool_allocator = FakeAllocator()
+    cache.rope_rotary_dim = 0
+    entry = rc.AnchorKVEntry(
+        signature="anchor-sig",
+        token_ids=torch.tensor([7, 8, 9], dtype=torch.int64),
+        kv_indices=torch.tensor([20, 21, 22], dtype=torch.int64),
+        start_pos=20,
+        code_content_signature="content-sig",
+        prefix_context_signature=rc._token_prefix_signature([100] * 20, 20),
+    )
+    cache.anchor_kv_store["content-sig"] = [entry]
+    key_tokens = [0, 1] + [2] * 18 + [7, 8, 9]
+    first_req = SimpleNamespace(
+        lossy_first_match_reason="exact_code_content_signature",
+        lossy_first_matched_content_signature="content-sig",
+        code_anchor_token_spans=[
+            {"start_token": 20, "end_token": 23, "content_signature": "content-sig"}
+        ],
+    )
+    exact_values = [torch.tensor([100, 101], dtype=torch.int64)]
+
+    values, _ = cache._try_lossy_fuzzy_match(
+        first_req,
+        rc.RadixKey(key_tokens),
+        exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert values == exact_values
+    assert first_req.lossy_rejected_reason == "context_aligned_staging"
+    assert first_req.lossy_anchor_context_target_prefix_len == 22
+    assert first_req.lossy_anchor_gap_recompute_len == 20
+    assert first_req.lossy_anchor_suffix_recompute_head_len == 2
+
+    second_req = SimpleNamespace(
+        lossy_first_match_reason="exact_code_content_signature",
+        lossy_first_matched_content_signature="content-sig",
+        code_anchor_token_spans=[
+            {"start_token": 20, "end_token": 23, "content_signature": "content-sig"}
+        ],
+        lossy_anchor_context_align_stage="recompute_gap_chunk",
+        lossy_anchor_context_target_prefix_len=22,
+        lossy_anchor_gap_recompute_len=20,
+    )
+    second_exact_values = [torch.arange(22, dtype=torch.int64)]
+
+    values, node = cache._try_lossy_fuzzy_match(
+        second_req,
+        rc.RadixKey(key_tokens),
+        second_exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert node is cache.root_node
+    assert len(values) == 2
+    assert values[1].numel() == 1
+    assert second_req.lossy_anchor_suffix_recompute_head_len == 2
+    assert second_req.lossy_anchor_suffix_copy_len == 1
+    assert second_req.lossy_anchor_suffix_copy_planned_len == 1
+    assert second_req.lossy_anchor_context_aligned is True
+
+
+def test_agenttemplatekv_span_suffix_head_recompute_overrides_env(monkeypatch):
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    class FakeAllocator:
+        def __init__(self):
+            self.next_slot = 1000
+
+        def alloc(self, n):
+            slots = torch.arange(self.next_slot, self.next_slot + n, dtype=torch.int64)
+            self.next_slot += n
+            return slots
+
+        def get_kvcache(self):
+            return SimpleNamespace(k_buffer=None, v_buffer=None, layer_num=0)
+
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_ZERO_GAP", "4")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_SUFFIX_COPY_LEN", "4")
+    monkeypatch.setenv("SGLANG_LOSSY_RECOMPUTE_GAP", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", "1")
+    monkeypatch.delenv("SGLANG_LOSSY_SUFFIX_RECOMPUTE_HEAD_LEN", raising=False)
+    monkeypatch.setattr(rc, "move_kv_cache_native", lambda *args, **kwargs: None)
+    cache = _make_minimal_radix_cache(monkeypatch)
+    cache.token_to_kv_pool_allocator = FakeAllocator()
+    cache.rope_rotary_dim = 0
+    entry = rc.AnchorKVEntry(
+        signature="anchor-sig",
+        token_ids=torch.tensor([7, 8, 9], dtype=torch.int64),
+        kv_indices=torch.tensor([20, 21, 22], dtype=torch.int64),
+        start_pos=20,
+        code_content_signature="content-sig",
+        prefix_context_signature=rc._token_prefix_signature([100] * 20, 20),
+    )
+    cache.anchor_kv_store["content-sig"] = [entry]
+    key_tokens = [0, 1] + [2] * 18 + [7, 8, 9]
+    span = {
+        "start_token": 20,
+        "end_token": 23,
+        "content_signature": "content-sig",
+        "suffix_recompute_head_len": 2,
+    }
+    first_req = SimpleNamespace(
+        lossy_first_match_reason="exact_code_content_signature",
+        lossy_first_matched_content_signature="content-sig",
+        code_anchor_token_spans=[span],
+    )
+    exact_values = [torch.tensor([100, 101], dtype=torch.int64)]
+
+    values, _ = cache._try_lossy_fuzzy_match(
+        first_req,
+        rc.RadixKey(key_tokens),
+        exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert values == exact_values
+    assert first_req.lossy_rejected_reason == "context_aligned_staging"
+    assert first_req.lossy_anchor_context_target_prefix_len == 22
+    assert first_req.lossy_anchor_suffix_recompute_head_len == 2
+
+    second_req = SimpleNamespace(
+        lossy_first_match_reason="exact_code_content_signature",
+        lossy_first_matched_content_signature="content-sig",
+        code_anchor_token_spans=[span],
+        lossy_anchor_context_align_stage="recompute_gap_chunk",
+        lossy_anchor_context_target_prefix_len=22,
+        lossy_anchor_gap_recompute_len=20,
+    )
+    second_exact_values = [torch.arange(22, dtype=torch.int64)]
+
+    values, node = cache._try_lossy_fuzzy_match(
+        second_req,
+        rc.RadixKey(key_tokens),
+        second_exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert node is cache.root_node
+    assert len(values) == 2
+    assert values[1].numel() == 1
+    assert second_req.lossy_anchor_suffix_recompute_head_len == 2
+    assert second_req.lossy_anchor_suffix_copy_len == 1
+    assert second_req.lossy_anchor_context_aligned is True
+
+
+def test_agenttemplatekv_multi_anchor_copy_accumulates_adjacent_spans(monkeypatch):
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    class FakeAllocator:
+        def __init__(self):
+            self.next_slot = 1000
+
+        def alloc(self, n):
+            slots = torch.arange(self.next_slot, self.next_slot + n, dtype=torch.int64)
+            self.next_slot += n
+            return slots
+
+        def get_kvcache(self):
+            return SimpleNamespace(k_buffer=None, v_buffer=None, layer_num=0)
+
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_MULTI_ANCHOR", "1")
+    monkeypatch.setattr(rc, "move_kv_cache_native", lambda *args, **kwargs: None)
+    cache = _make_minimal_radix_cache(monkeypatch)
+    cache.token_to_kv_pool_allocator = FakeAllocator()
+    cache.rope_rotary_dim = 0
+    first = rc.AnchorKVEntry(
+        signature="anchor-sig-1",
+        token_ids=torch.tensor([7, 8], dtype=torch.int64),
+        kv_indices=torch.tensor([20, 21], dtype=torch.int64),
+        start_pos=20,
+        code_content_signature="content-sig-1",
+    )
+    second = rc.AnchorKVEntry(
+        signature="anchor-sig-2",
+        token_ids=torch.tensor([9, 10], dtype=torch.int64),
+        kv_indices=torch.tensor([22, 23], dtype=torch.int64),
+        start_pos=22,
+        code_content_signature="content-sig-2",
+    )
+    cache.anchor_kv_store["content-sig-1"] = [first]
+    cache.anchor_kv_store["content-sig-2"] = [second]
+    key_tokens = [100] * 20 + [7, 8, 9, 10]
+    req = SimpleNamespace(
+        lossy_first_match_reason="exact_code_content_signature",
+        lossy_first_matched_content_signature="content-sig-1",
+        code_anchor_token_spans=[
+            {"start_token": 20, "end_token": 22, "content_signature": "content-sig-1"},
+            {"start_token": 22, "end_token": 24, "content_signature": "content-sig-2"},
+        ],
+    )
+    exact_values = [torch.arange(20, dtype=torch.int64)]
+
+    values, node = cache._try_lossy_fuzzy_match(
+        req,
+        rc.RadixKey(key_tokens),
+        exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert node is cache.root_node
+    assert len(values) == 3
+    assert values[1].numel() == 2
+    assert values[2].numel() == 2
+    assert req.lossy_anchor_multi_copy_count == 2
+    assert req.lossy_anchor_suffix_copy_len == 4
+    assert req.lossy_anchor_suffix_copy_planned_len == 4
+    assert req.agenttemplatekv_prefetch_hit_count == 2
+
+
+def test_agenttemplatekv_multi_anchor_stages_gap_after_first_copy(monkeypatch):
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    class FakeAllocator:
+        def __init__(self):
+            self.next_slot = 1000
+
+        def alloc(self, n):
+            slots = torch.arange(self.next_slot, self.next_slot + n, dtype=torch.int64)
+            self.next_slot += n
+            return slots
+
+        def get_kvcache(self):
+            return SimpleNamespace(k_buffer=None, v_buffer=None, layer_num=0)
+
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_MULTI_ANCHOR", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_RECOMPUTE_GAP", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", "1")
+    monkeypatch.setattr(rc, "move_kv_cache_native", lambda *args, **kwargs: None)
+    cache = _make_minimal_radix_cache(monkeypatch)
+    cache.token_to_kv_pool_allocator = FakeAllocator()
+    cache.rope_rotary_dim = 0
+    first = rc.AnchorKVEntry(
+        signature="anchor-sig-1",
+        token_ids=torch.tensor([7, 8], dtype=torch.int64),
+        kv_indices=torch.tensor([20, 21], dtype=torch.int64),
+        start_pos=20,
+        code_content_signature="content-sig-1",
+    )
+    second = rc.AnchorKVEntry(
+        signature="anchor-sig-2",
+        token_ids=torch.tensor([9, 10], dtype=torch.int64),
+        kv_indices=torch.tensor([25, 26], dtype=torch.int64),
+        start_pos=25,
+        code_content_signature="content-sig-2",
+    )
+    cache.anchor_kv_store["content-sig-1"] = [first]
+    cache.anchor_kv_store["content-sig-2"] = [second]
+    key_tokens = [100] * 20 + [7, 8, 101, 102, 103, 9, 10]
+    spans = [
+        {"start_token": 20, "end_token": 22, "content_signature": "content-sig-1"},
+        {"start_token": 25, "end_token": 27, "content_signature": "content-sig-2"},
+    ]
+    req = SimpleNamespace(
+        lossy_first_match_reason="exact_code_content_signature",
+        lossy_first_matched_content_signature="content-sig-1",
+        code_anchor_token_spans=spans,
+    )
+    exact_values = [torch.arange(20, dtype=torch.int64)]
+
+    values, node = cache._try_lossy_fuzzy_match(
+        req,
+        rc.RadixKey(key_tokens),
+        exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert node is cache.root_node
+    assert len(values) == 2
+    assert req.lossy_anchor_multi_copy_count == 1
+    assert req.lossy_anchor_suffix_copy_len == 2
+    assert req.lossy_anchor_context_target_prefix_len == 25
+    assert req.lossy_anchor_match_fail_reason == "context_aligned_staging"
+
+    req.lossy_anchor_context_align_stage = "recompute_gap_chunk"
+    second_exact_values = [torch.arange(25, dtype=torch.int64)]
+    values, node = cache._try_lossy_fuzzy_match(
+        req,
+        rc.RadixKey(key_tokens),
+        second_exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert node is cache.root_node
+    assert len(values) == 2
+    assert req.lossy_anchor_multi_copy_count == 2
+    assert req.lossy_anchor_suffix_copy_len == 4
+    assert req.lossy_anchor_suffix_copy_planned_len == 4
+
+
+def test_agenttemplatekv_rejects_overlong_recompute_gap_before_staging(monkeypatch):
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_ZERO_GAP", "4")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_SUFFIX_COPY_LEN", "4")
+    monkeypatch.setenv("SGLANG_LOSSY_RECOMPUTE_GAP", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_RECOMPUTE_GAP_LEN", "16")
+    cache = _make_minimal_radix_cache(monkeypatch)
+    entry = rc.AnchorKVEntry(
+        signature="anchor-sig",
+        token_ids=torch.tensor([7, 8, 9], dtype=torch.int64),
+        kv_indices=torch.tensor([20, 21, 22], dtype=torch.int64),
+        start_pos=20,
+        code_content_signature="content-sig",
+    )
+    cache.anchor_kv_store["content-sig"] = [entry]
+    req = SimpleNamespace(
+        lossy_first_match_reason="exact_code_content_signature",
+        lossy_first_matched_content_signature="content-sig",
+        code_anchor_token_spans=[
+            {"start_token": 20, "end_token": 23, "content_signature": "content-sig"}
+        ],
+    )
+    key_tokens = [0, 1] + [2] * 18 + [7, 8, 9]
+    exact_values = [torch.tensor([100, 101], dtype=torch.int64)]
+
+    values, node = cache._try_lossy_fuzzy_match(
+        req,
+        rc.RadixKey(key_tokens),
+        exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert values == exact_values
+    assert node is cache.root_node
+    assert req.lossy_rejected_reason == "recompute_gap_too_long"
+    assert req.lossy_anchor_match_fail_reason == "recompute_gap_too_long"
+    assert req.lossy_anchor_match_gap_len == 18
+    assert req.lossy_anchor_gap_recompute_len == 18
+    assert req.lossy_anchor_suffix_copy_len == 0
+    assert req.lossy_anchor_context_aligned is False
+    assert req.lossy_anchor_context_align_fail_reason == "planned_recompute_gap_too_long"
+    assert not hasattr(req, "lossy_anchor_context_target_prefix_len")
+
+
+def test_agenttemplatekv_rejects_overlong_planned_suffix_copy(monkeypatch):
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    class FakeAllocator:
+        def alloc(self, n):
+            raise AssertionError("overlong planned suffix must be rejected before alloc")
+
+        def get_kvcache(self):
+            raise AssertionError("overlong planned suffix must not touch KV cache")
+
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_ZERO_GAP", "4")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_SUFFIX_COPY_LEN", "10")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_PLANNED_SUFFIX_COPY_LEN", "2")
+    monkeypatch.setenv("SGLANG_LOSSY_RECOMPUTE_GAP", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", "1")
+    cache = _make_minimal_radix_cache(monkeypatch)
+    cache.token_to_kv_pool_allocator = FakeAllocator()
+    entry = rc.AnchorKVEntry(
+        signature="anchor-sig",
+        token_ids=torch.tensor([7, 8, 9], dtype=torch.int64),
+        kv_indices=torch.tensor([20, 21, 22], dtype=torch.int64),
+        start_pos=20,
+        code_content_signature="content-sig",
+        prefix_context_signature=rc._token_prefix_signature([100] * 20, 20),
+    )
+    cache.anchor_kv_store["content-sig"] = [entry]
+    req = SimpleNamespace(
+        lossy_first_match_reason="exact_code_content_signature",
+        lossy_first_matched_content_signature="content-sig",
+        code_anchor_token_spans=[
+            {"start_token": 20, "end_token": 23, "content_signature": "content-sig"}
+        ],
+        lossy_anchor_context_align_stage="recompute_gap_chunk",
+        lossy_anchor_context_target_prefix_len=20,
+        lossy_anchor_gap_recompute_len=18,
+    )
+    key_tokens = [0, 1] + [2] * 18 + [7, 8, 9]
+    exact_values = [torch.arange(20, dtype=torch.int64)]
+
+    values, node = cache._try_lossy_fuzzy_match(
+        req,
+        rc.RadixKey(key_tokens),
+        exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert node is cache.root_node
+    assert values == exact_values
+    assert req.lossy_rejected_reason == "planned_suffix_copy_too_long"
+    assert req.lossy_anchor_match_fail_reason == "planned_suffix_copy_too_long"
+    assert req.lossy_anchor_suffix_copy_len == 0
+    assert req.lossy_anchor_suffix_copy_planned_len == 3
+    assert req.lossy_anchor_suffix_copy_truncated is False
+
+
+def test_agenttemplatekv_context_aligned_stages_small_gap_without_zero_fill(monkeypatch):
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_ZERO_GAP", "16")
+    monkeypatch.setenv("SGLANG_LOSSY_RECOMPUTE_GAP", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", "1")
+    cache = _make_minimal_radix_cache(monkeypatch)
+    entry = rc.AnchorKVEntry(
+        signature="anchor-sig",
+        token_ids=torch.tensor([7, 8, 9], dtype=torch.int64),
+        kv_indices=torch.tensor([20, 21, 22], dtype=torch.int64),
+        start_pos=5,
+        code_content_signature="content-sig",
+    )
+    cache.anchor_kv_store["content-sig"] = [entry]
+    req = SimpleNamespace(
+        lossy_first_match_reason="exact_code_content_signature",
+        lossy_first_matched_content_signature="content-sig",
+        code_anchor_token_spans=[
+            {"start_token": 5, "end_token": 8, "content_signature": "content-sig"}
+        ],
+    )
+    key_tokens = [0, 1] + [2, 3, 4] + [7, 8, 9]
+    exact_values = [torch.tensor([100, 101], dtype=torch.int64)]
+
+    values, node = cache._try_lossy_fuzzy_match(
+        req,
+        rc.RadixKey(key_tokens),
+        exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert values == exact_values
+    assert node is cache.root_node
+    assert req.lossy_rejected_reason == "context_aligned_staging"
+    assert req.lossy_anchor_match_gap_len == 3
+    assert req.lossy_anchor_gap_recompute_len == 3
+    assert req.lossy_anchor_suffix_copy_len == 0
+    assert req.lossy_anchor_context_align_fail_reason == "staged_recompute_gap_pending"
+    assert req.lossy_anchor_context_target_prefix_len == 5
+
+
+def test_agenttemplatekv_context_aligned_reports_unsupported_without_staging(monkeypatch):
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_MAX_ZERO_GAP", "4")
+    monkeypatch.setenv("SGLANG_LOSSY_RECOMPUTE_GAP", "1")
+    monkeypatch.delenv("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", raising=False)
+    cache = _make_minimal_radix_cache(monkeypatch)
+    entry = rc.AnchorKVEntry(
+        signature="anchor-sig",
+        token_ids=torch.tensor([7, 8, 9], dtype=torch.int64),
+        kv_indices=torch.tensor([20, 21, 22], dtype=torch.int64),
+        start_pos=20,
+        code_content_signature="content-sig",
+    )
+    cache.anchor_kv_store["content-sig"] = [entry]
+    req = SimpleNamespace(
+        lossy_first_match_reason="exact_code_content_signature",
+        lossy_first_matched_content_signature="content-sig",
+        code_anchor_token_spans=[
+            {"start_token": 20, "end_token": 23, "content_signature": "content-sig"}
+        ],
+    )
+    key_tokens = [0, 1] + [2] * 18 + [7, 8, 9]
+    exact_values = [torch.tensor([100, 101], dtype=torch.int64)]
+
+    values, node = cache._try_lossy_fuzzy_match(
+        req,
+        rc.RadixKey(key_tokens),
+        exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert values == exact_values
+    assert node is cache.root_node
+    assert req.lossy_rejected_reason == "context_aligned_not_supported"
+    assert req.lossy_anchor_match_fail_reason == "context_aligned_not_supported"
+    assert req.lossy_anchor_context_align_fail_reason == "staged_recompute_gap_not_supported"
+    assert req.lossy_anchor_context_target_prefix_len == 0
+    assert req.lossy_anchor_suffix_copy_len == 0
+
+
+def test_agenttemplatekv_context_aligned_rejects_prefix_context_mismatch_after_gap(monkeypatch):
+    from sglang.srt.mem_cache import radix_cache as rc
+
+    monkeypatch.setenv("SGLANG_LOSSY_FUZZY_MATCH", "1")
+    monkeypatch.setenv("SGLANG_LOSSY_RECOMPUTE_GAP", "1")
+    cache = _make_minimal_radix_cache(monkeypatch)
+    entry = rc.AnchorKVEntry(
+        signature="anchor-sig",
+        token_ids=torch.tensor([7, 8, 9], dtype=torch.int64),
+        kv_indices=torch.tensor([20, 21, 22], dtype=torch.int64),
+        start_pos=5,
+        code_content_signature="content-sig",
+        prefix_context_signature=rc._token_prefix_signature([100, 101, 102, 103, 104], 5),
+    )
+    cache.anchor_kv_store["content-sig"] = [entry]
+    req = SimpleNamespace(
+        lossy_first_match_reason="exact_code_content_signature",
+        lossy_first_matched_content_signature="content-sig",
+        code_anchor_token_spans=[
+            {"start_token": 5, "end_token": 8, "content_signature": "content-sig"}
+        ],
+        lossy_anchor_gap_recompute_len=3,
+    )
+    key_tokens = [0, 1, 2, 3, 4] + [7, 8, 9]
+    exact_values = [torch.tensor([100, 101, 102, 103, 104], dtype=torch.int64)]
+
+    values, node = cache._try_lossy_fuzzy_match(
+        req,
+        rc.RadixKey(key_tokens),
+        exact_values,
+        exact_node=cache.root_node,
+        best_node=cache.root_node,
+    )
+
+    assert values == exact_values
+    assert node is cache.root_node
+    assert req.lossy_rejected_reason == "context_aligned_prefix_mismatch"
+    assert req.lossy_anchor_match_fail_reason == "context_aligned_prefix_mismatch"
+    assert req.lossy_anchor_context_align_fail_reason == "prefix_context_mismatch"
+    assert req.lossy_anchor_suffix_copy_len == 0
+    assert req.lossy_anchor_context_prefix_signature_match is False
 
 
 def test_master_gate_SGLANG_LOSSY_ENABLED_disables_protect_entry(monkeypatch):
@@ -1207,4 +2029,3 @@ def test_normal_evict_does_not_force(monkeypatch):
     assert not any(
         c.value.numel() == 4096 for c in cache.root_node.children.values()
     ), "leaf_c should have been evicted by normal path"
-

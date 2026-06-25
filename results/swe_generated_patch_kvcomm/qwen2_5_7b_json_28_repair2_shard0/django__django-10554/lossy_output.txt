@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "django/db/models/sql/compiler.py",
+      "search": "self.ordering_parts.search(sql).group(1)",
+      "replace": "self.ordering_parts.search(sql).group(1).strip()"
+    }
+  ]
+}
+```

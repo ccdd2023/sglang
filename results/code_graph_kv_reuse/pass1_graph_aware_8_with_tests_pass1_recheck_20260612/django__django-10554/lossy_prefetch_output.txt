@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "django/db/models/sql/compiler.py",
+      "search": "self.compile(resolved)",
+      "replace": "self.compile(resolved, select_format=FORCE)"
+    }
+  ]
+}
+```

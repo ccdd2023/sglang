@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "xarray/core/variable.py",
+      "search": "data = as_compatible_data(data)",
+      "replace": "data = as_compatible_data(data, fastpath=True)"
+    }
+  ]
+}
+```

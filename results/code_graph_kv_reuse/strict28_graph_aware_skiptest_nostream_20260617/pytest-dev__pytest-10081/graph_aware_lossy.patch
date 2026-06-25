@@ -1,0 +1,12 @@
+diff --git a/src/_pytest/unittest.py b/src/_pytest/unittest.py
+--- a/src/_pytest/unittest.py
++++ b/src/_pytest/unittest.py
+@@ -317,7 +317,7 @@
+             # TestCase instance interacts with the results object, so better to only do it
+             # when absolutely needed.
+             if self.config.getoption("usepdb") and not _is_skipped(self.obj):
+-                self._explicit_tearDown = self._testcase.tearDown
++                if not _is_skipped(self.obj): self._explicit_tearDown = self._testcase.tearDown
+                 setattr(self._testcase, "tearDown", lambda *args: None)
+ 
+             # We need to update the actual bound method with self.obj, because

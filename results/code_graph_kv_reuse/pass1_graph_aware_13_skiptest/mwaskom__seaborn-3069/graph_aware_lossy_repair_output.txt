@@ -1,0 +1,10 @@
+```json
+{
+  "edits": [
+    {
+      "path": "seaborn/_base/axis.py",
+      "search": "ax.set(**{f\":ax.set(**{\n            f\"{axis}lim\": (lo, hi),\n            f'{axis}axis'.get_inverted()":ax.set(**{\n            f\"{axis}lim\": (lo, hi),\n            f'{axis}axis'.get_inverted() if f'{axis}axis'.get_inverted() is not None else None,\n"
+    }
+  ]
+}
+```

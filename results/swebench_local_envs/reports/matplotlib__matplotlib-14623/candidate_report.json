@@ -11,5 +11,44 @@
     "-rA",
     "lib/matplotlib/tests/test_axes.py::test_inverted_limits"
   ],
-  "returncode": 1
+  "returncode": 1,
+  "stdout_tail": "============================= test session starts ==============================\nplatform linux -- Python 3.8.20, pytest-7.4.4, pluggy-1.5.0\nrootdir: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-14623\nconfigfile: pytest.ini\ncollected 1 item\n\nlib/matplotlib/tests/test_axes.py F                                      [100%]\n\n=================================== FAILURES ===================================\n_____________________________ test_inverted_limits _____________________________\n\n    def test_inverted_limits():\n        # Test gh:1553\n        # Calling invert_xaxis prior to plotting should not disable autoscaling\n        # while still maintaining the inverted direction\n        fig, ax = plt.subplots()\n        ax.invert_xaxis()\n        ax.plot([-5, -3, 2, 4], [1, 2, -3, 5])\n    \n        assert ax.get_xlim() == (4, -5)\n        assert ax.get_ylim() == (-3, 5)\n        plt.close()\n    \n        fig, ax = plt.subplots()\n        ax.invert_yaxis()\n        ax.plot([-5, -3, 2, 4], [1, 2, -3, 5])\n    \n        assert ax.get_xlim() == (-5, 4)\n        assert ax.get_ylim() == (5, -3)\n    \n        # Test inverting nonlinear axes.\n        fig, ax = plt.subplots()\n        ax.set_yscale(\"log\")\n        ax.set_ylim(10, 1)\n>       assert ax.get_ylim() == (10, 1)\nE       assert (1.0, 10.0) == (10, 1)\nE         At index 0 diff: 1.0 != 10\nE         Use -v to get more diff\n\nlib/matplotlib/tests/test_axes.py:944: AssertionError\n=============================== warnings summary ===============================\nlib/matplotlib/__init__.py:200\nlib/matplotlib/__init__.py:200\nlib/matplotlib/__init__.py:200\nlib/matplotlib/__init__.py:200\nlib/matplotlib/__init__.py:200\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/matplotlib__matplotlib-14623/lib/matplotlib/__init__.py:200: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(module.__version__) < minver:\n\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n../../../../../../miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337\n  /home/gfy/miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/setuptools/_distutils/version.py:337: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    other = LooseVersion(other)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED lib/matplotlib/tests/test_axes.py::test_inverted_limits - assert (1.0,...\n======================== 1 failed, 10 warnings in 0.87s ========================\n\n",
+  "stderr_tail": "Matplotlib is not built with the correct FreeType version to run tests.  Set local_freetype=True in setup.cfg and rebuild. Expect many image comparison failures below. Expected freetype version 2.6.1. Found freetype version 2.10.4. Freetype build type is not local\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA lib/matplotlib/tests/test_axes.py::test_inverted_limits` failed. (See above for error)\n",
+  "env_sanity": {
+    "python_version": {
+      "returncode": 0,
+      "stdout_tail": "Python 3.8.20\n\n",
+      "stderr_tail": ""
+    },
+    "python_executable": {
+      "returncode": 0,
+      "stdout_tail": "/home/gfy/miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/bin/python\n\n",
+      "stderr_tail": ""
+    },
+    "pip_version": {
+      "returncode": 0,
+      "stdout_tail": "pip 24.2 from /home/gfy/miniconda3/envs/swe_matplotlib_matplotlib_14623_candidate/lib/python3.8/site-packages/pip (python 3.8)\n\n",
+      "stderr_tail": ""
+    },
+    "pytest_version": {
+      "returncode": 0,
+      "stdout_tail": "7.4.4\n\n",
+      "stderr_tail": ""
+    },
+    "numpy_version": {
+      "returncode": 0,
+      "stdout_tail": "1.24.4\n\n",
+      "stderr_tail": ""
+    },
+    "setuptools_version": {
+      "returncode": 0,
+      "stdout_tail": "75.1.0\n\n",
+      "stderr_tail": ""
+    },
+    "pip_freeze_head": {
+      "returncode": 0,
+      "stdout_tail": "asttokens==3.0.1\nbackcall==0.2.0\ncycler==0.12.1\ndecorator==5.3.1\nexceptiongroup==1.3.1\nexecuting==2.2.1\niniconfig==2.1.0\nipython==8.12.3\njedi==0.19.2\nkiwisolver==1.4.7\n-e git+https://github.com/matplotlib/matplotlib.git@d65c9ca20ddf81ef91199e6d819f9d3506ef477c#egg=matplotlib\nmatplotlib-inline==0.1.7\nnumpy==1.24.4\npackaging==26.2\nparso==0.8.7\npexpect==4.9.0\npickleshare==0.7.5\npluggy==1.5.0\nprompt_toolkit==3.0.52\nptyprocess==0.7.0\npure_eval==0.2.3\nPygments==2.19.2\npyparsing==3.1.4\npytest==7.4.4\npython-dateutil==2.9.0.post0\nsix==1.17.0\nstack-data==0.6.3\ntomli==2.4.1\ntraitlets==5.14.3\ntyping_extensions==4.13.2\nwcwidth==0.8.1\n",
+      "stderr_tail": ""
+    }
+  }
 }

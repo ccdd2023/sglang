@@ -1,0 +1,15 @@
+{
+  "instance_id": "pylint-dev__pylint-6528",
+  "repo": "pylint-dev/pylint",
+  "version": "2.14",
+  "mode": "gold",
+  "env_name": "swe_pylint_dev_pylint_6528_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-6528",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "tests/lint/unittest_lint.py::test_recursive_ignore[--ignore-ignored_subdirectory]"
+  ],
+  "returncode": 4
+}

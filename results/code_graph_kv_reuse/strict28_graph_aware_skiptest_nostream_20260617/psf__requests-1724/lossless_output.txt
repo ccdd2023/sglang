@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "requests/sessions.py",
+      "search": "req.method = method.upper()",
+      "replace": "req.method = method.upper().encode('ascii')"
+    }
+  ]
+}
+```

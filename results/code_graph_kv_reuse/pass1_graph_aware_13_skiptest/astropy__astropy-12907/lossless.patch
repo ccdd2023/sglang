@@ -1,0 +1,20 @@
+diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
+--- a/astropy/modeling/separable.py
++++ b/astropy/modeling/separable.py
+@@ -288,6 +288,16 @@
+ 
+ 
+ def _separable(transform):
++    if isinstance(transform, CompoundModel) and transform.left.separable and transform.right.separable:
++        return _cstack(_separable(transform.left), _separable(transform.right))
++    if (transform_matrix := transform._calculate_separability_matrix()) is not NotImplemented:
++        return transform_matrix
++    elif isinstance(transform, CompoundModel):
++        sepleft = _separable(transform.left)
++        sepright = _separable(transform.right)
++        return _cstack(sepleft, sepright)
++    elif isinstance(transform, Model):
++        return _coord_matrix(transform, 'left', transform.n_outputs)
+     """
+     Calculate the separability of outputs.
+ 

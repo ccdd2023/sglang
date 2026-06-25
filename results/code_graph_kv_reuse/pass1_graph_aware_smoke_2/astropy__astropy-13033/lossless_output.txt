@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "astropy/timeseries/core.py",
+      "search": "raise ValueError(f\"{name} is not a valid method\")",
+      "replace": "raise ValueError(f\"{name} is not a valid method. Expected {self._required_columns} as the first columns but found {self.colnames}\")"
+    }
+  ]
+}
+```

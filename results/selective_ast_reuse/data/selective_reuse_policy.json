@@ -1,0 +1,83 @@
+{
+  "schema_version": "selective_ast_reuse_policy_v1",
+  "p90_threshold": 0.45,
+  "max_tail_rate": 0.1,
+  "default_allowed_granularities": [
+    "function",
+    "method"
+  ],
+  "granularities": {
+    "class": {
+      "decision": "recompute",
+      "reason": "granularity_risk",
+      "oracle_allow": false,
+      "count": 60,
+      "mean": 0.419408905564279,
+      "p50": 0.40573060835984776,
+      "p90": 0.562063830954038,
+      "max": 0.7695879299632425,
+      "tail_rate_gt_0_5": 0.2,
+      "retention_tokens": 4930
+    },
+    "control_block": {
+      "decision": "recompute",
+      "reason": "granularity_risk",
+      "oracle_allow": false,
+      "count": 60,
+      "mean": 0.36683626993740714,
+      "p50": 0.35752620146824765,
+      "p90": 0.46783886216526177,
+      "max": 0.5851376238579522,
+      "tail_rate_gt_0_5": 0.08333333333333333,
+      "retention_tokens": 5379
+    },
+    "file_prefix": {
+      "decision": "recompute",
+      "reason": "granularity_risk",
+      "oracle_allow": false,
+      "count": 60,
+      "mean": 0.3685138582565484,
+      "p50": 0.3488415278571953,
+      "p90": 0.4612244575194893,
+      "max": 0.5731690058879984,
+      "tail_rate_gt_0_5": 0.06666666666666667,
+      "retention_tokens": 57039
+    },
+    "function": {
+      "decision": "reuse",
+      "reason": "default_function_method_low_p90",
+      "oracle_allow": true,
+      "count": 60,
+      "mean": 0.33268108071540503,
+      "p50": 0.32413783433205445,
+      "p90": 0.42405933439452065,
+      "max": 0.45708562593617225,
+      "tail_rate_gt_0_5": 0.0,
+      "retention_tokens": 5357
+    },
+    "method": {
+      "decision": "reuse",
+      "reason": "default_function_method_low_p90",
+      "oracle_allow": true,
+      "count": 60,
+      "mean": 0.34271284066861557,
+      "p50": 0.3377322822281785,
+      "p90": 0.42058218798283553,
+      "max": 0.5760115478402715,
+      "tail_rate_gt_0_5": 0.08333333333333333,
+      "retention_tokens": 5175
+    },
+    "statement_window": {
+      "decision": "recompute",
+      "reason": "granularity_risk",
+      "oracle_allow": false,
+      "count": 60,
+      "mean": 0.32995754274385836,
+      "p50": 0.28773954673708974,
+      "p90": 0.5443744589293332,
+      "max": 0.7500923910296038,
+      "tail_rate_gt_0_5": 0.13333333333333333,
+      "retention_tokens": 5057
+    }
+  }
+}

@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "requests/auth.py",
+      "search": "qop is None",
+      "replace": 'qop="auth"'
+    }
+  ]
+}
+```

@@ -11,5 +11,5 @@
     "-rA",
     "xarray/tests/test_variable.py::TestAsCompatibleData::test_unsupported_type"
   ],
-  "returncode": 4
+  "returncode": 1
 }

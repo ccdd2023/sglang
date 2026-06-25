@@ -1,0 +1,41 @@
+{
+  "policy_name": "pytest_patchonly_taskastdirect_cap1024_20260619",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 0.9,
+  "diagnostic_only": true,
+  "notes": [
+    "Task-aware AST direct spans selected from issue/FAIL/test_patch, no gold patch; patch-only diagnostic manifest."
+  ],
+  "cases": {
+    "pytest-dev__pytest-7521": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "taskastdirect_cap1024"
+    },
+    "pytest-dev__pytest-7571": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "taskastdirect_cap1024"
+    },
+    "pytest-dev__pytest-7982": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "taskastdirect_cap1024"
+    },
+    "pytest-dev__pytest-8399": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "taskastdirect_cap1024"
+    },
+    "pytest-dev__pytest-6197": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "taskastdirect_cap1024"
+    },
+    "pytest-dev__pytest-5840": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "taskastdirect_cap1024"
+    }
+  }
+}

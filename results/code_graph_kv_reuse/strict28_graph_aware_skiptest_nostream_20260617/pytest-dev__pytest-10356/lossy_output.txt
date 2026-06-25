@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "src/_pytest/mark/structures.py",
+      "search": "def get_unpacked_marks(obj: object) -> Iterable[Mark]:",
+      "replace": "def get_unpacked_marks(obj: object, consider_mro: bool = True) -> Iterable[Mark]:\n        """Obtain the unpacked marks that are stored on an object.\n\n        :param consider_mro: Whether to consider the method resolution order when collecting marks.\n        """\n        mark_list = getattr(obj, \"pytestmark\", [])\n        if not isinstance(mark_list, list):\n            mark_list = [mark_list]\n        if consider_mro:\n            return normalize_mark_list(mark_list)\n        else:\n            return mark_list"
+    }
+  ]
+}
+```

@@ -1310,6 +1310,231 @@ class PlaceholderHighOverlapSkipTests(unittest.TestCase):
         self.assertEqual(req.placeholder_knn_skipped_high_overlap_count, 0)
 
 
+class PlaceholderHighNewTokenRatioSkipTests(unittest.TestCase):
+    """O10: skip the k-NN search entirely when the slot is mostly NEW
+    (cold prefix from the slot's perspective).  The cold-prefix
+    counterpart to O1: O1 fires when prefix already covers most of
+    the slot; O10 fires when most of the slot is NEW.
+
+    When the slot has >threshold new tokens, the k-NN search
+    overhead (~30ms per slot) dominates any copy saving — agents
+    4-5 cold-prefix sub-agents regress by 200ms+ without this gate.
+    """
+
+    def setUp(self):
+        from sglang.srt.mem_cache import semantic_suffix as ss
+        ss.reset_for_tests()
+        self._saved = {
+            k: os.environ.get(k)
+            for k in (
+                "SGLANG_PLACEHOLDER_KNN_HEAD_TOKENS",
+                "SGLANG_PLACEHOLDER_KNN_MAX_OVERLAP_RATIO",
+                "SGLANG_PLACEHOLDER_KNN_MAX_NEW_TOKEN_RATIO",
+                "SGLANG_SEMANTIC_SUFFIX_ENABLED",
+            )
+        }
+        os.environ["SGLANG_PLACEHOLDER_KNN_HEAD_TOKENS"] = "2"
+        os.environ["SGLANG_PLACEHOLDER_KNN_MAX_OVERLAP_RATIO"] = "1.0"  # disable O1 for isolation
+        os.environ["SGLANG_PLACEHOLDER_KNN_MAX_NEW_TOKEN_RATIO"] = "0.5"
+        os.environ["SGLANG_SEMANTIC_SUFFIX_ENABLED"] = "1"
+        from sglang.srt.mem_cache import semantic_suffix as _ss
+        self._emb = _ss.load_embedder()
+        if self._emb is None:
+            self.skipTest("embedder unavailable on this host")
+
+    def tearDown(self):
+        from sglang.srt.mem_cache import semantic_suffix as ss
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        ss.reset_for_tests()
+
+    def _build_req(self, slot_text: str, start_token: int = 0,
+                   end_token: int = 3500) -> object:
+        req = type("R", (), {})()
+        req.placeholder_anchor_token_spans = [
+            {
+                "slot_id": "code_base1",
+                "label": "code_base1",
+                "start_token": start_token,
+                "end_token": end_token,
+                "content_signature": "fake_sig",
+                "text": slot_text,
+            }
+        ]
+        for f in (
+            "placeholder_anchor_pool_hit_count",
+            "placeholder_anchor_pool_miss_count",
+            "placeholder_kv_prefill_matched_slots",
+            "placeholder_kv_prefill_skipped_tokens",
+            "placeholder_anchor_pool_skipped_cost_count",
+            "placeholder_knn_skipped_high_overlap_count",
+            "placeholder_knn_skipped_high_new_token_ratio_count",
+            "placeholder_knn_skipped_high_span_overlap_count",
+            "placeholder_knn_skipped_short_new_tokens_count",
+            "placeholder_knn_head_rotation_tokens",
+            "placeholder_knn_head_rotation_total_ops",
+            "placeholder_kv_prefill_overlap_tokens",
+            "placeholder_anchor_pool_copy_error_count",
+        ):
+            setattr(req, f, 0)
+        req.placeholder_knn_topk_similarity_mean = 0.0
+        req.placeholder_knn_copy_method = "none"
+        return req
+
+    def _populate_pool_with_anchor(self, rc, slot_id, n_tokens,
+                                    best_start_pos=500):
+        from sglang.srt.mem_cache.semantic_suffix import embed_single_text
+        entry = _make_entry(slot_id, start_pos=best_start_pos,
+                            n=n_tokens, embed_dim=384)
+        entry.pool_embedding = embed_single_text(
+            "fake anchor text for high-new-token-ratio skip test",
+            emb=self._emb,
+        )
+        with rc.placeholder_anchor_pool_lock:
+            rc.placeholder_anchor_pool.setdefault(slot_id, []).append(entry)
+        return entry
+
+    def _run_body(self, rc, req, slot_start, slot_end, anchor_n_tokens,
+                  prefix_len=0, max_new_token_ratio=0.5,
+                  max_overlap_ratio=1.0,
+                  cost_guard_enabled=False, best_start_pos=500):
+        """Run body with monkey-patched _apply_rope_delta_to_head to
+        record copy + RoPE args. Returns the list of captured RoPE calls.
+        Embedding compute is monkey-patched to a no-op (and a flag set)
+        so we can verify whether O10 short-circuited BEFORE the
+        embedding step (the whole point of the gate).
+        """
+        from sglang.srt.mem_cache.radix_cache import RadixCache
+        captured = []
+        embed_called = []
+
+        def spy_head(k_buffer, dst_slots, head_len, delta):
+            captured.append({
+                "dst_shape": tuple(dst_slots.shape),
+                "delta_value": int(delta),
+                "head_len": int(head_len),
+            })
+            return head_len
+
+        def spy_embed(text, emb=None, **_):
+            embed_called.append(True)
+            # Defer to the real embedder; we just want to record that
+            # O10 didn't short-circuit BEFORE the embed call.
+            from sglang.srt.mem_cache.semantic_suffix import (
+                embed_single_text as _real_embed,
+            )
+            return _real_embed(text, emb=emb)
+
+        prev_head = getattr(rc, "_apply_rope_delta_to_head", None)
+        rc._apply_rope_delta_to_head = spy_head
+        try:
+            self._populate_pool_with_anchor(
+                rc, "code_base1", n_tokens=anchor_n_tokens,
+                best_start_pos=best_start_pos,
+            )
+            rc.token_to_kv_pool_allocator.alloc = lambda n: torch.zeros(
+                n, dtype=torch.long,
+            )
+            fake_exact_values = (
+                [torch.zeros(prefix_len, dtype=torch.long)]
+                if prefix_len > 0 else []
+            )
+            # Patch the embed call inside the body to be detectable.
+            # The body does `from semantic_suffix import embed_single_text_
+            # cached as _est`, so we must patch the source module, not the
+            # radix_cache re-export.
+            from sglang.srt.mem_cache import semantic_suffix as ss
+            orig_embed = ss.embed_single_text_cached
+            ss.embed_single_text_cached = spy_embed
+            try:
+                RadixCache._try_placeholder_knn_lossy_match_body(
+                    rc, req, fake_exact_values, None,
+                    [{"slot_id": "code_base1", "start_token": slot_start,
+                      "end_token": slot_end,
+                      "content_signature": "fake_sig",
+                      "text": "fake anchor text"}],
+                    self._emb, top_k=4, min_cos=0.0,
+                    max_slot_len=4096, max_rope_ops=114688,
+                    head_tokens=2,
+                    max_overlap_ratio=max_overlap_ratio,
+                    cost_guard_enabled=cost_guard_enabled,
+                    max_new_token_ratio=max_new_token_ratio,
+                )
+            finally:
+                ss.embed_single_text_cached = orig_embed
+        finally:
+            if prev_head is not None:
+                rc._apply_rope_delta_to_head = prev_head
+            else:
+                delattr(rc, "_apply_rope_delta_to_head")
+        return captured, embed_called
+
+    def test_skip_when_new_token_ratio_above_threshold(self):
+        """prefix_len=57, prompt~2700 (spans ending at 2700): cached_ratio
+        = 57/2700 ≈ 0.02 < (1 - 0.5) = 0.5 → skip entire request.
+        """
+        rc = _FakeRadixCacheWithBody(layer_num=28)
+        req = self._build_req("anchor text", start_token=0, end_token=2700)
+        captured, embed_called = self._run_body(
+            rc, req,
+            slot_start=0, slot_end=2700,
+            anchor_n_tokens=2000,
+            prefix_len=57,
+        )
+        # Skip path fired BEFORE embedding compute (the whole point).
+        self.assertEqual(captured, [])
+        self.assertEqual(embed_called, [])  # never even embedded
+        self.assertEqual(req.placeholder_knn_skipped_high_new_token_ratio_count, 1)
+        # Other counters remain at zero.
+        self.assertEqual(req.placeholder_kv_prefill_matched_slots, 0)
+        self.assertEqual(req.placeholder_anchor_pool_miss_count, 0)
+        self.assertEqual(req.placeholder_knn_skipped_high_overlap_count, 0)
+
+    def test_copy_when_new_token_ratio_below_threshold(self):
+        """prefix_len=1500, prompt=2700: cached_ratio = 1500/2700 ≈ 0.55
+        > (1 - 0.5) = 0.5 → don't skip; copy proceeds (cost guard disabled).
+        This is the warm-prefix case where O10 should NOT fire.  We use
+        prefix_len=1500 (not 2302) to leave room for a non-trivial
+        overlap and copy_len > 0.
+        """
+        rc = _FakeRadixCacheWithBody(layer_num=28)
+        req = self._build_req("anchor text", start_token=0, end_token=2700)
+        captured, _ = self._run_body(
+            rc, req,
+            slot_start=0, slot_end=2700,
+            anchor_n_tokens=3000,  # larger anchor → entry_len > overlap
+            prefix_len=1500,
+            max_new_token_ratio=0.5,  # default — let copy run when warm
+            cost_guard_enabled=False,  # isolate O10 from cost guard
+        )
+        # Copy path fires.
+        self.assertEqual(len(captured), 1)
+        self.assertEqual(req.placeholder_knn_skipped_high_new_token_ratio_count, 0)
+        self.assertEqual(req.placeholder_kv_prefill_matched_slots, 1)
+
+    def test_disabled_with_max_new_token_ratio_one(self):
+        """Setting max_new_token_ratio=1.0 (impossible to exceed) disables
+        the skip; even a fully-new request proceeds to k-NN search.
+        """
+        rc = _FakeRadixCacheWithBody(layer_num=28)
+        req = self._build_req("anchor text", start_token=0, end_token=2700)
+        _, embed_called = self._run_body(
+            rc, req,
+            slot_start=0, slot_end=2700,
+            anchor_n_tokens=2000,
+            prefix_len=57,
+            max_new_token_ratio=1.0,  # disabled
+        )
+        # Embedding compute fires (gate disabled); even if copy is
+        # skipped later (by cost guard or other gates), the embed
+        # call is the canary that O10 didn't short-circuit.
+        self.assertGreaterEqual(len(embed_called), 1)
+        self.assertEqual(req.placeholder_knn_skipped_high_new_token_ratio_count, 0)
+
+
 class PlaceholderCostVsPrefillTests(unittest.TestCase):
     """Phase 2.6: cost-vs-prefill gate (CacheBlend HKVD-style).  Skip
     the copy when alloc + move + RoPE cost exceeds the prefill saving

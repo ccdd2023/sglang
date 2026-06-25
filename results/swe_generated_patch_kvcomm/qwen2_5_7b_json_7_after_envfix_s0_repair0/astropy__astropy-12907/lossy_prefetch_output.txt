@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "astropy/modeling/separable.py",
+      "search": "separable_matrix = np.where(separable_matrix != 0, True, False)",
+      "replace": "separable_matrix = np.where(separable_matrix != 0, True, False)\nif isinstance(transform, CompoundModel):\n    for submodel in transform.models:\n        if isinstance(submodel, CompoundModel):\n            separable_matrix = np.kron(separable_matrix, np.ones((submodel.n_outputs, submodel.n_inputs), dtype=bool))"
+    }
+  ]
+}
+```

@@ -6,7 +6,10 @@
     "rope_delta": "results/kvcomm_ablation_package/rope_delta_ablation.csv",
     "logit_alignment": "results/kvcomm_ablation_package/logit_alignment_ablation.csv",
     "passrate_primary": "results/swe_generated_patch_kvcomm/qwen2_5_7b_json_30/passrate_table.csv",
+    "graph_bundle_pass1_recheck": "results/code_graph_kv_reuse/pass1_graph_aware_8_with_tests_pass1_recheck_20260612/pass1_8_with_tests_summary.json",
     "prefetch_primary": "results/coding_kvflow_prefetch/qwen2_5_7b_100/prefetch_table.csv",
+    "prefetch_lmcache_dryrun": "results/coding_kvflow_prefetch/qwen2_5_7b_100_lmcache_dryrun_20260613/server_command.json",
+    "prefetch_lmcache_runbook": "docs/lmcache_baseline_replay.md",
     "ttft_stress": "results/ttft_agenttemplatekv/p1_rollup.csv",
     "ttft_p0_sanity": "results/ttft_agenttemplatekv/qwen2_5_7b_micro_final_p0/summary.json",
     "ablation": "results/ttft_agenttemplatekv/p1_rollup.csv",
@@ -14,7 +17,17 @@
     "manifest_30": "results/repo_level_datasets/manifest_30.json",
     "manifest_100": "results/repo_level_datasets/manifest_100.json",
     "manifest_500": "results/repo_level_datasets/manifest_500.json",
-    "gate_500": "results/repo_level_datasets/500_gate_anchor_stats.csv"
+    "gate_500": "results/repo_level_datasets/500_gate_anchor_stats.csv",
+    "humaneval_codebase_full": "results/selective_ast_reuse/humaneval_codebase_full_20260612/summary.json",
+    "mbpp_codebase_full": "results/selective_ast_reuse/mbpp_codebase_full_20260613/summary.json",
+    "swe_selective_wholefile_80k_manifest": "results/selective_ast_reuse/data/swe_selective_wholefile_80k_manifest.json",
+    "swe_selective_wholefile_80k_instances": "results/selective_ast_reuse/data/swe_selective_wholefile_80k_instances.json",
+    "swe_selective_wholefile_80k_1file_manifest": "results/selective_ast_reuse/data/swe_selective_wholefile_80k_1file_manifest.json",
+    "swe_selective_wholefile_80k_1file_instances": "results/selective_ast_reuse/data/swe_selective_wholefile_80k_1file_instances.json",
+    "swe_selective_wholefile_80k_1file_full_29": "results/selective_ast_reuse/swe_wholefile_80k_1file_full_29_merged_20260613/summary.json",
+    "swe_selective_wholefile_68k_1file_manifest": "results/selective_ast_reuse/data/swe_selective_wholefile_68k_1file_manifest.json",
+    "swe_selective_wholefile_68k_1file_instances": "results/selective_ast_reuse/data/swe_selective_wholefile_68k_1file_instances.json",
+    "swe_selective_wholefile_68k_1file_full_28": "results/selective_ast_reuse/swe_wholefile_68k_1file_full_28_fixrun_merged_20260613/summary.json"
   },
   "summaries": {
     "passrate": {
@@ -37,6 +50,74 @@
         "cached": 2190.1785714285716,
         "latency": 1729.3710714285717,
         "exact_hits": 28
+      }
+    },
+    "graph_bundle_pass1_recheck": {
+      "graph_aware_lossy": {
+        "n": 8,
+        "apply_ok": 6,
+        "synthesis_ok": 6,
+        "search_not_found": 2,
+        "json_parse_failed": 0,
+        "candidate_test_runs": 6,
+        "candidate_test_pass": 1,
+        "candidate_test_pass_rate": 0.16666666666666666,
+        "failure_class_counts": {
+          "not_run": 2,
+          "pass": 1,
+          "real_pytest_failure": 5
+        },
+        "mean_cached_tokens": 2309.5
+      },
+      "lossless": {
+        "n": 8,
+        "apply_ok": 6,
+        "synthesis_ok": 6,
+        "search_not_found": 2,
+        "json_parse_failed": 0,
+        "candidate_test_runs": 6,
+        "candidate_test_pass": 0,
+        "candidate_test_pass_rate": 0.0,
+        "failure_class_counts": {
+          "candidate_patch_syntax_failure": 1,
+          "candidate_patch_syntax_or_install_failure": 1,
+          "not_run": 2,
+          "real_pytest_failure": 4
+        },
+        "mean_cached_tokens": 7533.75
+      },
+      "lossy": {
+        "n": 8,
+        "apply_ok": 6,
+        "synthesis_ok": 6,
+        "search_not_found": 2,
+        "json_parse_failed": 0,
+        "candidate_test_runs": 6,
+        "candidate_test_pass": 0,
+        "candidate_test_pass_rate": 0.0,
+        "failure_class_counts": {
+          "candidate_patch_syntax_failure": 1,
+          "candidate_patch_syntax_or_install_failure": 1,
+          "not_run": 2,
+          "real_pytest_failure": 4
+        },
+        "mean_cached_tokens": 9512.875
+      },
+      "lossy_prefetch": {
+        "n": 8,
+        "apply_ok": 6,
+        "synthesis_ok": 6,
+        "search_not_found": 2,
+        "json_parse_failed": 0,
+        "candidate_test_runs": 6,
+        "candidate_test_pass": 0,
+        "candidate_test_pass_rate": 0.0,
+        "failure_class_counts": {
+          "candidate_patch_syntax_failure": 1,
+          "not_run": 2,
+          "real_pytest_failure": 5
+        },
+        "mean_cached_tokens": 9513.875
       }
     },
     "prefetch": {
@@ -201,6 +282,57 @@
         "estimated_cached_tokens": 14967.0
       }
     },
+    "codebase_accuracy_sanity": {
+      "humaneval_codebase_full": {
+        "cases": 164,
+        "modes": 3,
+        "lossless_full_prefill_pass_at_1": 0.7073170731707317,
+        "whole_file_reuse_all_pass_at_1": 0.7073170731707317,
+        "selective_function_method_reuse_pass_at_1": 0.7073170731707317,
+        "selective_avg_reused_tokens": 98.1,
+        "selective_avg_recomputed_tokens": 121.7
+      },
+      "mbpp_codebase_full": {
+        "cases": 257,
+        "modes": 3,
+        "lossless_full_prefill_pass_at_1": 0.6381322957198443,
+        "whole_file_reuse_all_pass_at_1": 0.6381322957198443,
+        "selective_function_method_reuse_pass_at_1": 0.6381322957198443,
+        "selective_avg_reused_tokens": 30.0,
+        "selective_avg_recomputed_tokens": 101.0
+      },
+      "note": "Full HumanEval/MBPP-Codebase runs are auxiliary accuracy sanity checks and are not pooled with SWE-bench pass@1."
+    },
+    "swe_selective_wholefile_full_dataset": {
+      "status": "two_file_dataset_defined; one_file_complete_run_finished",
+      "manifest": "results/selective_ast_reuse/data/swe_selective_wholefile_80k_manifest.json",
+      "instances": "results/selective_ast_reuse/data/swe_selective_wholefile_80k_instances.json",
+      "cases": 29,
+      "files": 56,
+      "selective_spans": 4150,
+      "avg_chars_per_file": 51943.14,
+      "source": "All eligible cases from the 500-case SWE-bench Verified repo-level manifest under the 80KB complete-file threshold.",
+      "rule": "Include every case with at least one complete Python file <=80,000 chars and at least one function/method span admitted by selective_function_method_reuse; keep up to two eligible files per case.",
+      "note": "The two-file run repeatedly disconnected the SGLang server at the first pytest case (two complete files, 135K chars). It is a workload-pressure diagnostic, not a paper result."
+    },
+    "swe_selective_wholefile_80k_1file_full_29": {
+      "status": "complete_diagnostic_run",
+      "manifest": "results/selective_ast_reuse/data/swe_selective_wholefile_80k_1file_manifest.json",
+      "instances": "results/selective_ast_reuse/data/swe_selective_wholefile_80k_1file_instances.json",
+      "summary": "results/selective_ast_reuse/swe_wholefile_80k_1file_full_29_merged_20260613/summary.json",
+      "cases": 29,
+      "files": 29,
+      "modes": 4,
+      "rows": 116,
+      "lossless_avg_elapsed_ms": 1676.2375862068966,
+      "whole_file_reuse_all_exact_hit_rate": 1.0,
+      "whole_file_reuse_all_avg_token_f1": 1.0,
+      "selective_function_method_exact_hit_rate": 0.0,
+      "selective_function_method_avg_token_f1": 0.8965931034482759,
+      "selective_oracle_exact_hit_rate": 0.4482758620689655,
+      "selective_oracle_avg_token_f1": 1.0,
+      "note": "Complete filtered SWE/codebase diagnostic. Do not promote as a positive main-evaluation result: the default selective function/method path estimates reuse but records zero exact runtime hits, indicating an anchor/matching implementation issue to fix before claiming selective SWE benefit."
+    },
     "nearmatch_safety": {
       "exact_content_gate": {
         "pairs": 550,
@@ -256,6 +388,67 @@
       "mean_kl": 0.014716221562500005,
       "top1_agreement": 0.96875,
       "top5_agreement": 1.0
+    },
+    "swe_selective_wholefile_68k_1file_full_28": {
+      "lossless_full_prefill": {
+        "n": 28,
+        "avg_elapsed_ms": 1687.8032142857141,
+        "p50_elapsed_ms": 1746.045,
+        "avg_cached_tokens": 12309.5,
+        "avg_estimated_reused_tokens": 0.0,
+        "avg_estimated_recomputed_tokens": 9366.82142857143,
+        "exact_hit_rate": 0.0,
+        "avg_token_f1_vs_lossless": 1.0
+      },
+      "whole_file_reuse_all": {
+        "n": 28,
+        "avg_elapsed_ms": 1688.8125,
+        "p50_elapsed_ms": 1748.01,
+        "avg_cached_tokens": 12309.5,
+        "avg_estimated_reused_tokens": 4047.214285714286,
+        "avg_estimated_recomputed_tokens": 0.0,
+        "exact_hit_rate": 1.0,
+        "avg_token_f1_vs_lossless": 1.0
+      },
+      "selective_function_method_reuse": {
+        "n": 28,
+        "avg_elapsed_ms": 1692.8678571428572,
+        "p50_elapsed_ms": 1746.045,
+        "avg_cached_tokens": 12309.5,
+        "avg_estimated_reused_tokens": 3833.5714285714284,
+        "avg_estimated_recomputed_tokens": 5533.25,
+        "exact_hit_rate": 1.0,
+        "avg_token_f1_vs_lossless": 1.0
+      },
+      "selective_oracle_low_dnorm": {
+        "n": 28,
+        "avg_elapsed_ms": 1693.8207142857143,
+        "p50_elapsed_ms": 1751.885,
+        "avg_cached_tokens": 12309.5,
+        "avg_estimated_reused_tokens": 3833.5714285714284,
+        "avg_estimated_recomputed_tokens": 5533.25,
+        "exact_hit_rate": 1.0,
+        "avg_token_f1_vs_lossless": 1.0
+      },
+      "dataset_rule": {
+        "case_count": 28,
+        "file_count": 28,
+        "max_file_chars": 68000,
+        "files_per_case": 1,
+        "requires_complete_file_under_threshold": true,
+        "note": "Complete deterministic SWE/codebase systems set stable on the 24GB server; larger 80k exploratory cases are recorded as a hardware/server-stability boundary, not post-hoc drops."
+      }
+    }
+  },
+  "artifacts": {
+    "prefetch_lmcache_100_combined_20260613": {
+      "path": "results/coding_kvflow_prefetch/qwen2_5_7b_100_lmcache_combined_20260613",
+      "schema": "prefetch_summary.json/summary.json plus prefetch_table.csv, combined from sharded same-workload LMCache replay",
+      "n_cases": 100,
+      "n_modes": 4,
+      "n_rows": 400,
+      "purpose": "Diagnostic same-workload LMCache external-baseline replay artifact.",
+      "headline": "Operational but not publication-headline clean: first 48 cases ran in one default LMCache server; cases 48-99 required cache flush, serial scheduling, PYTHONHASHSEED=0, and SGLANG_ENABLE_STRICT_MEM_CHECK_DURING_IDLE=0 on the 24GB server."
     }
   }
 }

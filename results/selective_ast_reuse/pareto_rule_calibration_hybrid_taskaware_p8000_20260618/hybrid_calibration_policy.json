@@ -1,0 +1,33 @@
+{
+  "policy_name": "hybrid_prompt_fair_pareto_calibrated_diagnostic",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 0.9,
+  "min_speedup": 1.05,
+  "diagnostic_only": true,
+  "reject_cap_sensitive": true,
+  "cap_sensitive_allowlist": [],
+  "notes": "Generated from existing prompt-fair runs. Use only as calibration/upper diagnostic; do not report as held-out generalization.",
+  "runs": [
+    "taskaware_p8000_smoke=results/selective_ast_reuse/prompt_fair_taskaware_p8000_uncalibrated_smoke2_20260618/summary.json"
+  ],
+  "cases": {
+    "psf__requests-5414": {
+      "action": "cap",
+      "max_suffix_copy_len": 7541,
+      "source_run": "taskaware_p8000_smoke",
+      "source_speedup": 7.4243,
+      "source_token_f1": 1.0,
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1
+      },
+      "reason": "best_acceptable_prompt_fair_calibration"
+    },
+    "psf__requests-6028": {
+      "action": "reject",
+      "source_run": "",
+      "source_speedup": 0.0,
+      "source_token_f1": "",
+      "reason": "no_calibrated_safe_speedup"
+    }
+  }
+}

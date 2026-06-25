@@ -1,0 +1,1321 @@
+{
+  "model": "/home/gfy/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/c03e6d358207e414f1eca0bb1891e29f1db0e242",
+  "dataset": "results/repo_level_datasets/swe_verified_30_instances.json",
+  "manifest": "results/repo_level_datasets/manifest_30.json",
+  "timestamp": "2026-06-09 12:22:44",
+  "git_commit": "3d709f3ce",
+  "command": "benchmark/multi_workflow/bench_swe_generated_patch_kvcomm.py --model /home/gfy/.cache/huggingface/hub/models--Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/c03e6d358207e414f1eca0bb1891e29f1db0e242 --dataset results/repo_level_datasets/swe_verified_30_instances.json --manifest results/repo_level_datasets/manifest_30.json --start-index 14 --max-cases 7 --port 31312 --output-schema json-edit --server-timeout 600 --repair-attempts 2 --force-evict --disable-overlap-schedule --max-running-requests 1 --out-dir results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2",
+  "experiment": {
+    "repair_attempts": 2,
+    "output_schema": "json-edit",
+    "prompt_layout": "agenttemplatekv",
+    "force_evict": true,
+    "disable_overlap_schedule": true,
+    "max_running_requests": 1,
+    "max_cases": 7,
+    "start_index": 14
+  },
+  "results": [
+    {
+      "instance_id": "psf__requests-1766",
+      "repo": "psf/requests",
+      "target_paths": [
+        "requests/auth.py"
+      ],
+      "segments": [
+        {
+          "name": "requests/auth.py",
+          "lines": 194
+        },
+        {
+          "name": "requests/packages/charade/big5freq.py",
+          "lines": 279
+        },
+        {
+          "name": "requests/models.py",
+          "lines": 687
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 19735.12,
+          "repair_elapsed_ms": 5302.58,
+          "cached_tokens": 27504,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/psf__requests-1766/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/psf__requests-1766/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 2
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "======\nrequests/packages/urllib3/_collections.py:7\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-1766/requests/packages/urllib3/_collections.py:7: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    from collections import MutableMapping\n\nrequests/sessions.py:12\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-1766/requests/sessions.py:12: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    from collections import Mapping\n\ntest_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-1766/requests/models.py:156: DeprecationWarning: Using or importing the ABCs from 'collections' instead of from 'collections.abc' is deprecated since Python 3.3, and in 3.10 it will stop working\n    if isinstance(hook, collections.Callable):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n==================================== PASSES ====================================\n=========================== short test summary info ============================\nPASSED test_requests.py::RequestsTestCase::test_HTTP_200_OK_GET_ALTERNATIVE\nFAILED test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE\nFAILED test_requests.py::RequestsTestCase::test_cookie_sent_on_redirect - jso...\nFAILED test_requests.py::RequestsTestCase::test_custom_content_type - assert ...\nFAILED test_requests.py::RequestsTestCase::test_params_are_merged_case_sensitive\nFAILED test_requests.py::RequestsTestCase::test_user_agent_transfers - Assert...\n=================== 5 failed, 1 passed, 3 warnings in 55.97s ===================\n\n$ git fetch --all --tags\n$ git checkout --force 847735553aeda6e6633f2b32e14ba14ba86887a4\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda create -y -n swe_psf_requests_1766_candidate python=3.9\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_psf_requests_1766_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_1766_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/psf__requests-1766/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/psf__requests-1766/lossless.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_1766_candidate bash -lc 'python -m pip install .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_psf_requests_1766_candidate pytest -rA test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE test_requests.py::RequestsTestCase::test_HTTP_200_OK_GET_ALTERNATIVE test_requests.py::RequestsTestCase::test_cookie_sent_on_redirect test_requests.py::RequestsTestCase::test_custom_content_type test_requests.py::RequestsTestCase::test_params_are_merged_case_sensitive test_requests.py::RequestsTestCase::test_user_agent_transfers\n{\n  \"instance_id\": \"psf__requests-1766\",\n  \"repo\": \"psf/requests\",\n  \"version\": \"2.0\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_psf_requests_1766_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/psf__requests-1766\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE\",\n    \"test_requests.py::RequestsTestCase::test_HTTP_200_OK_GET_ALTERNATIVE\",\n    \"test_requests.py::RequestsTestCase::test_cookie_sent_on_redirect\",\n    \"test_requests.py::RequestsTestCase::test_custom_content_type\",\n    \"test_requests.py::RequestsTestCase::test_params_are_merged_case_sensitive\",\n    \"test_requests.py::RequestsTestCase::test_user_agent_transfers\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "HEAD is now at 84773555 Merge pull request #1762 from dstufft/update-urllib3\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA test_requests.py::RequestsTestCase::test_DIGESTAUTH_QUOTES_QOP_VALUE test_requests.py::RequestsTestCase::test_HTTP_200_OK_GET_ALTERNATIVE test_requests.py::RequestsTestCase::test_cookie_sent_on_redirect test_requests.py::RequestsTestCase::test_custom_content_type test_requests.py::RequestsTestCase::test_params_are_merged_case_sensitive test_requests.py::RequestsTestCase::test_user_agent_transfers` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 19744.85,
+          "repair_elapsed_ms": 19964.93,
+          "cached_tokens": 27505,
+          "lossy_meta": {
+            "lossy_candidate_count": 10,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "4c942a94c53a730e",
+            "lossy_first_matched_content_signature": "546d2978cb0604de8513fc37f5c0645e",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 6,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "4c942a94c53a730e",
+            "lossy_final_matched_content_signature": "546d2978cb0604de8513fc37f5c0645e",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 6,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/psf__requests-1766/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/psf__requests-1766/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Expecting ',' delimiter: line 142 column 6 (char 3163)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 19756.95,
+          "repair_elapsed_ms": 19991.73,
+          "cached_tokens": 27506,
+          "lossy_meta": {
+            "lossy_candidate_count": 19,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "4c942a94c53a730e",
+            "lossy_first_matched_content_signature": "546d2978cb0604de8513fc37f5c0645e",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 14,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "4c942a94c53a730e",
+            "lossy_final_matched_content_signature": "546d2978cb0604de8513fc37f5c0645e",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 14,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 1,
+            "agenttemplatekv_prefetch_protected_tokens": 26687,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 6126,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/psf__requests-1766/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/psf__requests-1766/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "json parse failed: Expecting ',' delimiter: line 142 column 6 (char 3163)",
+            "edits": 0
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "pydata__xarray-2905",
+      "repo": "pydata/xarray",
+      "target_paths": [
+        "xarray/core/variable.py"
+      ],
+      "segments": [
+        {
+          "name": "xarray/core/variable.py",
+          "lines": 638
+        },
+        {
+          "name": "xarray/core/dataset.py",
+          "lines": 701
+        },
+        {
+          "name": "xarray/core/dataarray.py",
+          "lines": 661
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1199.05,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 16748,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-2905/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-2905/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "_ _ _ _ _ _ \n\nself = <[AttributeError(\"'Variable' object has no attribute '_dims'\") raised in repr()] Variable object at 0x7f0e4c0b0a00>\ndims = ()\n\n    def _parse_dimensions(self, dims):\n        if isinstance(dims, str):\n            dims = (dims,)\n        dims = tuple(dims)\n        if len(dims) != self.ndim:\n>           raise ValueError(\n                \"dimensions %s must have the same length as the \"\n                \"number of data dimensions, ndim=%s\" % (dims, self.ndim)\n            )\nE           ValueError: dimensions () must have the same length as the number of data dimensions, ndim=1\n\n/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905/xarray/core/variable.py:592: ValueError\n=============================== warnings summary ===============================\nxarray/__init__.py:1\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905/xarray/__init__.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html\n    import pkg_resources\n\nxarray/core/dask_array_compat.py:61\nxarray/core/dask_array_compat.py:61\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905/xarray/core/dask_array_compat.py:61: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(dask_version) > LooseVersion(\"2.9.0\"):\n\nxarray/core/pdcompat.py:45\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(pd.__version__) < \"0.25.0\":\n\n../../../../../../miniconda3/envs/swe_pydata_xarray_2905_candidate/lib/python3.10/site-packages/setuptools/_distutils/version.py:345\n  /home/gfy/miniconda3/envs/swe_pydata_xarray_2905_candidate/lib/python3.10/site-packages/setuptools/_distutils/version.py:345: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    other = LooseVersion(other)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED xarray/tests/test_variable.py::TestAsCompatibleData::test_unsupported_type\n======================== 1 failed, 5 warnings in 3.12s =========================\n\n$ git fetch --all --tags\n$ git checkout --force 7c4e2ac83f7b4306296ff9b7b51aaf016e5ad614\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_pydata_xarray_2905_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_2905_candidate python -m pip install numpy==1.23.0 packaging==23.1 pandas==1.5.3 pytest==7.4.0 python-dateutil==2.8.2 pytz==2023.3 six==1.16.0 scipy==1.11.1 setuptools==68.0.0 dask==2022.8.1\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_2905_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/pydata__xarray-2905/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-2905/lossless.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_2905_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_2905_candidate pytest -rA xarray/tests/test_variable.py::TestAsCompatibleData::test_unsupported_type\n{\n  \"instance_id\": \"pydata__xarray-2905\",\n  \"repo\": \"pydata/xarray\",\n  \"version\": \"0.12\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_pydata_xarray_2905_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"xarray/tests/test_variable.py::TestAsCompatibleData::test_unsupported_type\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "HEAD is now at 7c4e2ac8 Revert defaults of beckends' open_datasets to prepare the switch to APIv2 #4309 (#4899)\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: pip install --upgrade pip\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: pip install --upgrade pip\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: python -m pip install --upgrade pip\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA xarray/tests/test_variable.py::TestAsCompatibleData::test_unsupported_type` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1187.94,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 16749,
+          "lossy_meta": {
+            "lossy_candidate_count": 18,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "99cc470520a14f46",
+            "lossy_first_matched_content_signature": "14dfdd03ec3912ebad3185287c9768af",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 32,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "99cc470520a14f46",
+            "lossy_final_matched_content_signature": "14dfdd03ec3912ebad3185287c9768af",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 32,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-2905/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-2905/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": " _ _ _ _ _ _ _ \n\nself = <[AttributeError(\"'Variable' object has no attribute '_dims'\") raised in repr()] Variable object at 0x7f2b7eaa0400>\ndims = ()\n\n    def _parse_dimensions(self, dims):\n        if isinstance(dims, str):\n            dims = (dims,)\n        dims = tuple(dims)\n        if len(dims) != self.ndim:\n>           raise ValueError(\n                \"dimensions %s must have the same length as the \"\n                \"number of data dimensions, ndim=%s\" % (dims, self.ndim)\n            )\nE           ValueError: dimensions () must have the same length as the number of data dimensions, ndim=1\n\n/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905/xarray/core/variable.py:592: ValueError\n=============================== warnings summary ===============================\nxarray/__init__.py:1\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905/xarray/__init__.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html\n    import pkg_resources\n\nxarray/core/dask_array_compat.py:61\nxarray/core/dask_array_compat.py:61\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905/xarray/core/dask_array_compat.py:61: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(dask_version) > LooseVersion(\"2.9.0\"):\n\nxarray/core/pdcompat.py:45\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(pd.__version__) < \"0.25.0\":\n\n../../../../../../miniconda3/envs/swe_pydata_xarray_2905_candidate/lib/python3.10/site-packages/setuptools/_distutils/version.py:345\n  /home/gfy/miniconda3/envs/swe_pydata_xarray_2905_candidate/lib/python3.10/site-packages/setuptools/_distutils/version.py:345: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    other = LooseVersion(other)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED xarray/tests/test_variable.py::TestAsCompatibleData::test_unsupported_type\n======================== 1 failed, 5 warnings in 1.23s =========================\n\n$ git fetch --all --tags\n$ git checkout --force 7c4e2ac83f7b4306296ff9b7b51aaf016e5ad614\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_pydata_xarray_2905_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_2905_candidate python -m pip install numpy==1.23.0 packaging==23.1 pandas==1.5.3 pytest==7.4.0 python-dateutil==2.8.2 pytz==2023.3 six==1.16.0 scipy==1.11.1 setuptools==68.0.0 dask==2022.8.1\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_2905_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/pydata__xarray-2905/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-2905/lossy.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_2905_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_2905_candidate pytest -rA xarray/tests/test_variable.py::TestAsCompatibleData::test_unsupported_type\n{\n  \"instance_id\": \"pydata__xarray-2905\",\n  \"repo\": \"pydata/xarray\",\n  \"version\": \"0.12\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_pydata_xarray_2905_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"xarray/tests/test_variable.py::TestAsCompatibleData::test_unsupported_type\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "HEAD is now at 7c4e2ac8 Revert defaults of beckends' open_datasets to prepare the switch to APIv2 #4309 (#4899)\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: pip install --upgrade pip\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: pip install --upgrade pip\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: python -m pip install --upgrade pip\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA xarray/tests/test_variable.py::TestAsCompatibleData::test_unsupported_type` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1112.45,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 16750,
+          "lossy_meta": {
+            "lossy_candidate_count": 21,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "99cc470520a14f46",
+            "lossy_first_matched_content_signature": "14dfdd03ec3912ebad3185287c9768af",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 32,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "99cc470520a14f46",
+            "lossy_final_matched_content_signature": "14dfdd03ec3912ebad3185287c9768af",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 32,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 15398,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 15398,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-2905/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-2905/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "_ _ _ \n\nself = <[AttributeError(\"'Variable' object has no attribute '_dims'\") raised in repr()] Variable object at 0x7f9ff07a9580>\ndims = ()\n\n    def _parse_dimensions(self, dims):\n        if isinstance(dims, str):\n            dims = (dims,)\n        dims = tuple(dims)\n        if len(dims) != self.ndim:\n>           raise ValueError(\n                \"dimensions %s must have the same length as the \"\n                \"number of data dimensions, ndim=%s\" % (dims, self.ndim)\n            )\nE           ValueError: dimensions () must have the same length as the number of data dimensions, ndim=1\n\n/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905/xarray/core/variable.py:592: ValueError\n=============================== warnings summary ===============================\nxarray/__init__.py:1\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905/xarray/__init__.py:1: DeprecationWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html\n    import pkg_resources\n\nxarray/core/dask_array_compat.py:61\nxarray/core/dask_array_compat.py:61\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905/xarray/core/dask_array_compat.py:61: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(dask_version) > LooseVersion(\"2.9.0\"):\n\nxarray/core/pdcompat.py:45\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905/xarray/core/pdcompat.py:45: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(pd.__version__) < \"0.25.0\":\n\n../../../../../../miniconda3/envs/swe_pydata_xarray_2905_candidate/lib/python3.10/site-packages/setuptools/_distutils/version.py:345\n  /home/gfy/miniconda3/envs/swe_pydata_xarray_2905_candidate/lib/python3.10/site-packages/setuptools/_distutils/version.py:345: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    other = LooseVersion(other)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nFAILED xarray/tests/test_variable.py::TestAsCompatibleData::test_unsupported_type\n======================== 1 failed, 5 warnings in 1.16s =========================\n\n$ git fetch --all --tags\n$ git checkout --force 7c4e2ac83f7b4306296ff9b7b51aaf016e5ad614\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_pydata_xarray_2905_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_2905_candidate python -m pip install numpy==1.23.0 packaging==23.1 pandas==1.5.3 pytest==7.4.0 python-dateutil==2.8.2 pytz==2023.3 six==1.16.0 scipy==1.11.1 setuptools==68.0.0 dask==2022.8.1\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_2905_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/pydata__xarray-2905/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-2905/lossy_prefetch.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_2905_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_2905_candidate pytest -rA xarray/tests/test_variable.py::TestAsCompatibleData::test_unsupported_type\n{\n  \"instance_id\": \"pydata__xarray-2905\",\n  \"repo\": \"pydata/xarray\",\n  \"version\": \"0.12\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_pydata_xarray_2905_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-2905\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"xarray/tests/test_variable.py::TestAsCompatibleData::test_unsupported_type\"\n  ],\n  \"returncode\": 1\n}\n",
+            "stderr_tail": "HEAD is now at 7c4e2ac8 Revert defaults of beckends' open_datasets to prepare the switch to APIv2 #4309 (#4899)\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: pip install --upgrade pip\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: pip install --upgrade pip\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: python -m pip install --upgrade pip\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA xarray/tests/test_variable.py::TestAsCompatibleData::test_unsupported_type` failed. (See above for error)\n"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "pydata__xarray-3095",
+      "repo": "pydata/xarray",
+      "target_paths": [
+        "xarray/core/indexing.py",
+        "xarray/core/variable.py"
+      ],
+      "segments": [
+        {
+          "name": "xarray/core/indexing.py",
+          "lines": 602
+        },
+        {
+          "name": "xarray/core/variable.py",
+          "lines": 588
+        },
+        {
+          "name": "xarray/core/dataset.py",
+          "lines": 612
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1798.93,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15348,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-3095/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-3095/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 4,
+            "stdout_tail": "ap>:688: in _load_unlocked\n    ???\n<frozen importlib._bootstrap_external>:883: in exec_module\n    ???\n<frozen importlib._bootstrap>:241: in _call_with_frames_removed\n    ???\nxarray/__init__.py:8: in <module>\n    from .core.alignment import align, broadcast, broadcast_arrays\nxarray/core/alignment.py:23: in <module>\n    from .variable import IndexVariable, Variable\nE     File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/core/variable.py\", line 264\nE       self._dims = self._parse_dimensions(dims)\nE   IndentationError: unexpected indent\n=============================== warnings summary ===============================\n../../../../../../miniconda3/envs/swe_pydata_xarray_3095_candidate/lib/python3.10/site-packages/_pytest/config/__init__.py:1373\n  /home/gfy/miniconda3/envs/swe_pydata_xarray_3095_candidate/lib/python3.10/site-packages/_pytest/config/__init__.py:1373: PytestConfigWarning: Unknown config option: env\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\nxarray/core/dask_array_ops.py:11\nxarray/core/dask_array_ops.py:11\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/core/dask_array_ops.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(dask.__version__) <= LooseVersion('0.18.2'):\n\nxarray/core/npcompat.py:135\nxarray/core/npcompat.py:135\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/core/npcompat.py:135: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(np.__version__) >= LooseVersion('1.13'):\n\nxarray/core/dask_array_compat.py:43\nxarray/core/dask_array_compat.py:43\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/core/dask_array_compat.py:43: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(dask_version) > LooseVersion('0.19.2'):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nERROR xarray/tests/test_variable.py\n========================= 7 warnings, 1 error in 0.67s =========================\n\n$ git fetch --all --tags\n$ git checkout --force 1757dffac2fa493d7b9a074b84cf8c830a706688\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda create -y -n swe_pydata_xarray_3095_candidate python=3.10\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_pydata_xarray_3095_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_3095_candidate python -m pip install numpy==1.23.0 packaging==23.1 pandas==1.5.3 pytest==7.4.0 python-dateutil==2.8.2 pytz==2023.3 six==1.16.0 scipy==1.11.1 setuptools==68.0.0 dask==2022.8.1\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_3095_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/pydata__xarray-3095/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-3095/lossless.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_3095_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_3095_candidate pytest -rA 'xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]'\n{\n  \"instance_id\": \"pydata__xarray-3095\",\n  \"repo\": \"pydata/xarray\",\n  \"version\": \"0.12\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_pydata_xarray_3095_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]\"\n  ],\n  \"returncode\": 4\n}\n",
+            "stderr_tail": "set (#3112)\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\nERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.\nmodelscope 1.37.0 requires urllib3>=1.26, which is not installed.\noutlines 0.1.11 requires jinja2, which is not installed.\nbuild 1.5.0 requires packaging>=24.0, but you have packaging 23.1 which is incompatible.\nflashinfer-python 0.6.6 requires packaging>=24.2, but you have packaging 23.1 which is incompatible.\nmistral-common 1.11.2 requires numpy<2.4,>=1.25; python_version <= \"3.12\", but you have numpy 1.23.0 which is incompatible.\nwheel 0.46.3 requires packaging>=24.0, but you have packaging 23.1 which is incompatible.\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: pip install --upgrade pip\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: pip install --upgrade pip\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: python -m pip install --upgrade pip\n\nERROR: not found: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]\n(no name '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]' in any of [<Module test_variable.py>])\n\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1787.77,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15349,
+          "lossy_meta": {
+            "lossy_candidate_count": 28,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "f08a6c7c3ec6f802",
+            "lossy_first_matched_content_signature": "1c4331903e2c90069d1c5159a724450b",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 46,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "f08a6c7c3ec6f802",
+            "lossy_final_matched_content_signature": "1c4331903e2c90069d1c5159a724450b",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 46,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-3095/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-3095/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 4,
+            "stdout_tail": "ozen importlib._bootstrap>:1006: in _find_and_load_unlocked\n    ???\n<frozen importlib._bootstrap>:688: in _load_unlocked\n    ???\n<frozen importlib._bootstrap_external>:883: in exec_module\n    ???\n<frozen importlib._bootstrap>:241: in _call_with_frames_removed\n    ???\nxarray/__init__.py:8: in <module>\n    from .core.alignment import align, broadcast, broadcast_arrays\nxarray/core/alignment.py:23: in <module>\n    from .variable import IndexVariable, Variable\nE     File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/core/variable.py\", line 264\nE       self._dims = self._parse_dimensions(dims)\nE   IndentationError: unexpected indent\n=============================== warnings summary ===============================\n../../../../../../miniconda3/envs/swe_pydata_xarray_3095_candidate/lib/python3.10/site-packages/_pytest/config/__init__.py:1373\n  /home/gfy/miniconda3/envs/swe_pydata_xarray_3095_candidate/lib/python3.10/site-packages/_pytest/config/__init__.py:1373: PytestConfigWarning: Unknown config option: env\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\nxarray/core/dask_array_ops.py:11\nxarray/core/dask_array_ops.py:11\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/core/dask_array_ops.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(dask.__version__) <= LooseVersion('0.18.2'):\n\nxarray/core/npcompat.py:135\nxarray/core/npcompat.py:135\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/core/npcompat.py:135: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(np.__version__) >= LooseVersion('1.13'):\n\nxarray/core/dask_array_compat.py:43\nxarray/core/dask_array_compat.py:43\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/core/dask_array_compat.py:43: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(dask_version) > LooseVersion('0.19.2'):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nERROR xarray/tests/test_variable.py\n========================= 7 warnings, 1 error in 0.68s =========================\n\n$ git fetch --all --tags\n$ git checkout --force 1757dffac2fa493d7b9a074b84cf8c830a706688\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_pydata_xarray_3095_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_3095_candidate python -m pip install numpy==1.23.0 packaging==23.1 pandas==1.5.3 pytest==7.4.0 python-dateutil==2.8.2 pytz==2023.3 six==1.16.0 scipy==1.11.1 setuptools==68.0.0 dask==2022.8.1\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_3095_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/pydata__xarray-3095/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-3095/lossy.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_3095_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_3095_candidate pytest -rA 'xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]'\n{\n  \"instance_id\": \"pydata__xarray-3095\",\n  \"repo\": \"pydata/xarray\",\n  \"version\": \"0.12\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_pydata_xarray_3095_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]\"\n  ],\n  \"returncode\": 4\n}\n",
+            "stderr_tail": "HEAD is now at 1757dffa More annotations in Dataset (#3112)\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: pip install --upgrade pip\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: pip install --upgrade pip\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: python -m pip install --upgrade pip\n\nERROR: not found: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]\n(no name '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]' in any of [<Module test_variable.py>])\n\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1805.21,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 15350,
+          "lossy_meta": {
+            "lossy_candidate_count": 31,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "f08a6c7c3ec6f802",
+            "lossy_first_matched_content_signature": "1c4331903e2c90069d1c5159a724450b",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 46,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "f08a6c7c3ec6f802",
+            "lossy_final_matched_content_signature": "1c4331903e2c90069d1c5159a724450b",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 46,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14229,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14229,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-3095/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-3095/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 4,
+            "stdout_tail": "rtlib._bootstrap>:1006: in _find_and_load_unlocked\n    ???\n<frozen importlib._bootstrap>:688: in _load_unlocked\n    ???\n<frozen importlib._bootstrap_external>:883: in exec_module\n    ???\n<frozen importlib._bootstrap>:241: in _call_with_frames_removed\n    ???\nxarray/__init__.py:8: in <module>\n    from .core.alignment import align, broadcast, broadcast_arrays\nxarray/core/alignment.py:23: in <module>\n    from .variable import IndexVariable, Variable\nE     File \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/core/variable.py\", line 264\nE       self._dims = self._parse_dimensions(dims)\nE   IndentationError: unexpected indent\n=============================== warnings summary ===============================\n../../../../../../miniconda3/envs/swe_pydata_xarray_3095_candidate/lib/python3.10/site-packages/_pytest/config/__init__.py:1373\n  /home/gfy/miniconda3/envs/swe_pydata_xarray_3095_candidate/lib/python3.10/site-packages/_pytest/config/__init__.py:1373: PytestConfigWarning: Unknown config option: env\n  \n    self._warn_or_fail_if_strict(f\"Unknown config option: {key}\\n\")\n\nxarray/core/dask_array_ops.py:11\nxarray/core/dask_array_ops.py:11\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/core/dask_array_ops.py:11: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(dask.__version__) <= LooseVersion('0.18.2'):\n\nxarray/core/npcompat.py:135\nxarray/core/npcompat.py:135\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/core/npcompat.py:135: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(np.__version__) >= LooseVersion('1.13'):\n\nxarray/core/dask_array_compat.py:43\nxarray/core/dask_array_compat.py:43\n  /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/core/dask_array_compat.py:43: DeprecationWarning: distutils Version classes are deprecated. Use packaging.version instead.\n    if LooseVersion(dask_version) > LooseVersion('0.19.2'):\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n=========================== short test summary info ============================\nERROR xarray/tests/test_variable.py\n========================= 7 warnings, 1 error in 0.73s =========================\n\n$ git fetch --all --tags\n$ git checkout --force 1757dffac2fa493d7b9a074b84cf8c830a706688\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_pydata_xarray_3095_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_3095_candidate python -m pip install numpy==1.23.0 packaging==23.1 pandas==1.5.3 pytest==7.4.0 python-dateutil==2.8.2 pytz==2023.3 six==1.16.0 scipy==1.11.1 setuptools==68.0.0 dask==2022.8.1\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_3095_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/pydata__xarray-3095/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-3095/lossy_prefetch.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_3095_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_pydata_xarray_3095_candidate pytest -rA 'xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]'\n{\n  \"instance_id\": \"pydata__xarray-3095\",\n  \"repo\": \"pydata/xarray\",\n  \"version\": \"0.12\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_pydata_xarray_3095_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]\"\n  ],\n  \"returncode\": 4\n}\n",
+            "stderr_tail": "HEAD is now at 1757dffa More annotations in Dataset (#3112)\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: pip install --upgrade pip\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: pip install --upgrade pip\n\n\n[notice] A new release of pip is available: 26.1.1 -> 26.1.2\n[notice] To update, run: python -m pip install --upgrade pip\n\nERROR: not found: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]\n(no name '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pydata__xarray-3095/xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]' in any of [<Module test_variable.py>])\n\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA xarray/tests/test_variable.py::TestIndexVariable::test_copy[str-True]` failed. (See above for error)\n"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "pydata__xarray-3151",
+      "repo": "pydata/xarray",
+      "target_paths": [
+        "xarray/core/combine.py"
+      ],
+      "segments": [
+        {
+          "name": "xarray/core/combine.py",
+          "lines": 540
+        },
+        {
+          "name": "xarray/core/dataset.py",
+          "lines": 611
+        },
+        {
+          "name": "xarray/core/dataarray.py",
+          "lines": 589
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1646.76,
+          "repair_elapsed_ms": 3216.86,
+          "cached_tokens": 15800,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-3151/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-3151/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in xarray/core/combine.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 2378.42,
+          "repair_elapsed_ms": 3106.29,
+          "cached_tokens": 8245,
+          "lossy_meta": {
+            "lossy_candidate_count": 13,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "18569b2dba9b72ab",
+            "lossy_first_matched_content_signature": "0117f2a787296e7b",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 59,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "18569b2dba9b72ab",
+            "lossy_final_matched_content_signature": "0117f2a787296e7b",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 59,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-3151/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-3151/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in xarray/core/combine.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 2384.85,
+          "repair_elapsed_ms": 3104.34,
+          "cached_tokens": 8245,
+          "lossy_meta": {
+            "lossy_candidate_count": 13,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "18569b2dba9b72ab",
+            "lossy_first_matched_content_signature": "0117f2a787296e7b",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 70,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "18569b2dba9b72ab",
+            "lossy_final_matched_content_signature": "0117f2a787296e7b",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 59,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 14325,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 14325,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-3151/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pydata__xarray-3151/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in xarray/core/combine.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "pylint-dev__pylint-4551",
+      "repo": "pylint-dev/pylint",
+      "target_paths": [
+        "pylint/pyreverse/diagrams.py",
+        "pylint/pyreverse/inspector.py",
+        "pylint/pyreverse/utils.py",
+        "pylint/pyreverse/writer.py"
+      ],
+      "segments": [
+        {
+          "name": "pylint/pyreverse/diagrams.py",
+          "lines": 255
+        },
+        {
+          "name": "pylint/pyreverse/inspector.py",
+          "lines": 355
+        },
+        {
+          "name": "pylint/pyreverse/utils.py",
+          "lines": 215
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1971.38,
+          "repair_elapsed_ms": 13555.05,
+          "cached_tokens": 7914,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4551/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4551/lossless.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in pylint/pyreverse/utils.py",
+            "edits": 2
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 15233.11,
+          "repair_elapsed_ms": 14479.69,
+          "cached_tokens": 7915,
+          "lossy_meta": {
+            "lossy_candidate_count": 15,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "0218a9f6e933c4dd",
+            "lossy_first_matched_content_signature": "1b7a4e5043032ae14043a266828847db",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 80,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "0218a9f6e933c4dd",
+            "lossy_final_matched_content_signature": "1b7a4e5043032ae14043a266828847db",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 80,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4551/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4551/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in pylint/pyreverse/utils.py",
+            "edits": 16
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 14511.73,
+          "repair_elapsed_ms": 14597.63,
+          "cached_tokens": 7916,
+          "lossy_meta": {
+            "lossy_candidate_count": 21,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "0218a9f6e933c4dd",
+            "lossy_first_matched_content_signature": "1b7a4e5043032ae14043a266828847db",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 80,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "0218a9f6e933c4dd",
+            "lossy_final_matched_content_signature": "1b7a4e5043032ae14043a266828847db",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 80,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 6169,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 6169,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4551/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4551/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in pylint/pyreverse/utils.py",
+            "edits": 6
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "pylint-dev__pylint-4604",
+      "repo": "pylint-dev/pylint",
+      "target_paths": [
+        "pylint/checkers/variables.py",
+        "pylint/constants.py"
+      ],
+      "segments": [
+        {
+          "name": "pylint/checkers/variables.py",
+          "lines": 631
+        },
+        {
+          "name": "pylint/constants.py",
+          "lines": 50
+        },
+        {
+          "name": "pylint/checkers/base.py",
+          "lines": 585
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 2142.21,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 13233,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4604/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4604/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 4,
+            "stdout_tail": "ned_builtin_modname_not_ignored tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_in_function tests/checkers/unittest_variables.py::TestVariablesChecker::test_unassigned_global tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_decorator tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_ancestors tests/checkers/unittest_variables.py::TestVariablesChecker::test_return_type_annotation tests/checkers/unittest_variables.py::TestVariablesChecker::test_attribute_in_type_comment tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_custom_callback_string tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_modname_not_ignored tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_in_function tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_import_as_underscore tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_lambda_in_classdef tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_nested_lambda tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_no_message tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_starred_args tests/checkers/unittest_variables.py::TestMissingSubmodule::test_package_all\n{\n  \"instance_id\": \"pylint-dev__pylint-4604\",\n  \"repo\": \"pylint-dev/pylint\",\n  \"version\": \"2.9\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_pylint_dev_pylint_4604_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-4604\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_bitbucket_issue_78\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_no_name_in_module_skipped\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_all_elements_without_parent\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_ignored\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_custom_modules\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_modname_not_ignored\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_in_function\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_unassigned_global\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_decorator\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_ancestors\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_return_type_annotation\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_attribute_in_type_comment\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_custom_callback_string\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_modname_not_ignored\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_in_function\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_import_as_underscore\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_lambda_in_classdef\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_nested_lambda\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_no_message\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_starred_args\",\n    \"tests/checkers/unittest_variables.py::TestMissingSubmodule::test_package_all\"\n  ],\n  \"returncode\": 4\n}\n",
+            "stderr_tail": "les.py::TestVariablesChecker::test_bitbucket_issue_78 tests/checkers/unittest_variables.py::TestVariablesChecker::test_no_name_in_module_skipped tests/checkers/unittest_variables.py::TestVariablesChecker::test_all_elements_without_parent tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_ignored tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_custom_modules tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_modname_not_ignored tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_in_function tests/checkers/unittest_variables.py::TestVariablesChecker::test_unassigned_global tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_decorator tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_ancestors tests/checkers/unittest_variables.py::TestVariablesChecker::test_return_type_annotation tests/checkers/unittest_variables.py::TestVariablesChecker::test_attribute_in_type_comment tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_custom_callback_string tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_modname_not_ignored tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_in_function tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_import_as_underscore tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_lambda_in_classdef tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_nested_lambda tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_no_message tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_starred_args tests/checkers/unittest_variables.py::TestMissingSubmodule::test_package_all` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 2160.61,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 13234,
+          "lossy_meta": {
+            "lossy_candidate_count": 32,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "ceb0e6493e1df775",
+            "lossy_first_matched_content_signature": "00c351fdc764dec9507129e20aacc732",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 99,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "ceb0e6493e1df775",
+            "lossy_final_matched_content_signature": "00c351fdc764dec9507129e20aacc732",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 99,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4604/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4604/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 4,
+            "stdout_tail": "ned_builtin_modname_not_ignored tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_in_function tests/checkers/unittest_variables.py::TestVariablesChecker::test_unassigned_global tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_decorator tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_ancestors tests/checkers/unittest_variables.py::TestVariablesChecker::test_return_type_annotation tests/checkers/unittest_variables.py::TestVariablesChecker::test_attribute_in_type_comment tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_custom_callback_string tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_modname_not_ignored tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_in_function tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_import_as_underscore tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_lambda_in_classdef tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_nested_lambda tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_no_message tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_starred_args tests/checkers/unittest_variables.py::TestMissingSubmodule::test_package_all\n{\n  \"instance_id\": \"pylint-dev__pylint-4604\",\n  \"repo\": \"pylint-dev/pylint\",\n  \"version\": \"2.9\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_pylint_dev_pylint_4604_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-4604\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_bitbucket_issue_78\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_no_name_in_module_skipped\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_all_elements_without_parent\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_ignored\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_custom_modules\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_modname_not_ignored\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_in_function\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_unassigned_global\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_decorator\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_ancestors\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_return_type_annotation\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_attribute_in_type_comment\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_custom_callback_string\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_modname_not_ignored\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_in_function\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_import_as_underscore\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_lambda_in_classdef\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_nested_lambda\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_no_message\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_starred_args\",\n    \"tests/checkers/unittest_variables.py::TestMissingSubmodule::test_package_all\"\n  ],\n  \"returncode\": 4\n}\n",
+            "stderr_tail": "les.py::TestVariablesChecker::test_bitbucket_issue_78 tests/checkers/unittest_variables.py::TestVariablesChecker::test_no_name_in_module_skipped tests/checkers/unittest_variables.py::TestVariablesChecker::test_all_elements_without_parent tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_ignored tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_custom_modules tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_modname_not_ignored tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_in_function tests/checkers/unittest_variables.py::TestVariablesChecker::test_unassigned_global tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_decorator tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_ancestors tests/checkers/unittest_variables.py::TestVariablesChecker::test_return_type_annotation tests/checkers/unittest_variables.py::TestVariablesChecker::test_attribute_in_type_comment tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_custom_callback_string tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_modname_not_ignored tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_in_function tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_import_as_underscore tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_lambda_in_classdef tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_nested_lambda tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_no_message tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_starred_args tests/checkers/unittest_variables.py::TestMissingSubmodule::test_package_all` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 2135.02,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 13235,
+          "lossy_meta": {
+            "lossy_candidate_count": 35,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "ceb0e6493e1df775",
+            "lossy_first_matched_content_signature": "00c351fdc764dec9507129e20aacc732",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 99,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "ceb0e6493e1df775",
+            "lossy_final_matched_content_signature": "00c351fdc764dec9507129e20aacc732",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 99,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 11897,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 11897,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4604/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4604/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 4,
+            "stdout_tail": "ned_builtin_modname_not_ignored tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_in_function tests/checkers/unittest_variables.py::TestVariablesChecker::test_unassigned_global tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_decorator tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_ancestors tests/checkers/unittest_variables.py::TestVariablesChecker::test_return_type_annotation tests/checkers/unittest_variables.py::TestVariablesChecker::test_attribute_in_type_comment tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_custom_callback_string tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_modname_not_ignored tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_in_function tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_import_as_underscore tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_lambda_in_classdef tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_nested_lambda tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_no_message tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_starred_args tests/checkers/unittest_variables.py::TestMissingSubmodule::test_package_all\n{\n  \"instance_id\": \"pylint-dev__pylint-4604\",\n  \"repo\": \"pylint-dev/pylint\",\n  \"version\": \"2.9\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_pylint_dev_pylint_4604_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-4604\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_bitbucket_issue_78\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_no_name_in_module_skipped\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_all_elements_without_parent\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_ignored\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_custom_modules\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_modname_not_ignored\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_in_function\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_unassigned_global\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_decorator\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_ancestors\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_return_type_annotation\",\n    \"tests/checkers/unittest_variables.py::TestVariablesChecker::test_attribute_in_type_comment\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_custom_callback_string\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_modname_not_ignored\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_in_function\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_import_as_underscore\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_lambda_in_classdef\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_nested_lambda\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_no_message\",\n    \"tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_starred_args\",\n    \"tests/checkers/unittest_variables.py::TestMissingSubmodule::test_package_all\"\n  ],\n  \"returncode\": 4\n}\n",
+            "stderr_tail": "les.py::TestVariablesChecker::test_bitbucket_issue_78 tests/checkers/unittest_variables.py::TestVariablesChecker::test_no_name_in_module_skipped tests/checkers/unittest_variables.py::TestVariablesChecker::test_all_elements_without_parent tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_ignored tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_custom_modules tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_modname_not_ignored tests/checkers/unittest_variables.py::TestVariablesChecker::test_redefined_builtin_in_function tests/checkers/unittest_variables.py::TestVariablesChecker::test_unassigned_global tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_decorator tests/checkers/unittest_variables.py::TestVariablesChecker::test_listcomp_in_ancestors tests/checkers/unittest_variables.py::TestVariablesChecker::test_return_type_annotation tests/checkers/unittest_variables.py::TestVariablesChecker::test_attribute_in_type_comment tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_custom_callback_string tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_modname_not_ignored tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_redefined_builtin_in_function tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_import_as_underscore tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_lambda_in_classdef tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_nested_lambda tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_no_message tests/checkers/unittest_variables.py::TestVariablesCheckerWithTearDown::test_ignored_argument_names_starred_args tests/checkers/unittest_variables.py::TestMissingSubmodule::test_package_all` failed. (See above for error)\n"
+          }
+        }
+      ]
+    },
+    {
+      "instance_id": "pylint-dev__pylint-4661",
+      "repo": "pylint-dev/pylint",
+      "target_paths": [
+        "pylint/config/__init__.py",
+        "setup.cfg"
+      ],
+      "segments": [
+        {
+          "name": "pylint/config/__init__.py",
+          "lines": 120
+        },
+        {
+          "name": "setup.cfg",
+          "lines": 113
+        },
+        {
+          "name": "pylint/checkers/base.py",
+          "lines": 583
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 1402.83,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 8980,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4661/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4661/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 4,
+            "stdout_tail": "_4661_candidate/lib/python3.9/site-packages (from pytest) (2.1.0)\nRequirement already satisfied: packaging>=20 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pytest) (26.2)\nRequirement already satisfied: pluggy<2,>=1.5 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pytest) (1.6.0)\nRequirement already satisfied: pygments>=2.7.2 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pytest) (2.20.0)\nRequirement already satisfied: tomli>=1 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pytest) (2.4.1)\nRequirement already satisfied: typing-extensions>=4.6.0 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from exceptiongroup>=1->pytest) (4.15.0)\n\nObtaining file:///home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-4661\n  Preparing metadata (setup.py): started\n  Preparing metadata (setup.py): finished with status 'done'\nRequirement already satisfied: astroid<2.7,>=2.6.5 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pylint==2.10.0.dev0) (2.6.6)\nRequirement already satisfied: isort<6,>=4.2.5 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pylint==2.10.0.dev0) (5.13.2)\nRequirement already satisfied: mccabe<0.7,>=0.6 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pylint==2.10.0.dev0) (0.6.1)\nRequirement already satisfied: toml>=0.7.1 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pylint==2.10.0.dev0) (0.10.2)\nRequirement already satisfied: lazy-object-proxy>=1.4.0 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from astroid<2.7,>=2.6.5->pylint==2.10.0.dev0) (1.12.0)\nRequirement already satisfied: wrapt<1.13,>=1.11 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from astroid<2.7,>=2.6.5->pylint==2.10.0.dev0) (1.12.1)\nRequirement already satisfied: setuptools>=20.0 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from astroid<2.7,>=2.6.5->pylint==2.10.0.dev0) (80.9.0)\nInstalling collected packages: pylint\n  Attempting uninstall: pylint\n    Found existing installation: pylint 2.10.0.dev0\n    Uninstalling pylint-2.10.0.dev0:\n      Successfully uninstalled pylint-2.10.0.dev0\n  Running setup.py develop for pylint\nSuccessfully installed pylint-2.10.0.dev0\n\n$ git fetch --all --tags\n$ git checkout --force 1d1619ef913b99b06647d2030bddff4800abdf63\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_pylint_dev_pylint_4661_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_4661_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/pylint-dev__pylint-4661/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4661/lossless.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_4661_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_4661_candidate pytest -rA tests/lint/unittest_lint.py::test_pylint_home\n{\n  \"instance_id\": \"pylint-dev__pylint-4661\",\n  \"repo\": \"pylint-dev/pylint\",\n  \"version\": \"2.10\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_pylint_dev_pylint_4661_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-4661\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"tests/lint/unittest_lint.py::test_pylint_home\"\n  ],\n  \"returncode\": 4\n}\n",
+            "stderr_tail": "HEAD is now at 1d1619ef9 Performance improvment of the Similarity checker (#4565)\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n  DEPRECATION: Legacy editable install of pylint==2.10.0.dev0 from file:///home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-4661 (setup.py develop) is deprecated. pip 25.0 will enforce this behaviour change. A possible replacement is to add a pyproject.toml or enable --use-pep517, and use setuptools >= 64. If the resulting installation is not behaving as expected, try using --config-settings editable_mode=compat. Please consult the setuptools documentation for more information. Discussion can be found at https://github.com/pypa/pip/issues/11457\n\nImportError while loading conftest '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-4661/tests/conftest.py'.\ntests/conftest.py:8: in <module>\n    from pylint import checkers\npylint/checkers/__init__.py:49: in <module>\n    from pylint.checkers.base_checker import BaseChecker, BaseTokenChecker\npylint/checkers/base_checker.py:22: in <module>\n    from pylint.config import OptionsProviderMixIn\npylint/config/__init__.py:66: in <module>\n    PYLINT_HOME = appdirs.user_cache_dir(\"pylint\")\nE   NameError: name 'appdirs' is not defined\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA tests/lint/unittest_lint.py::test_pylint_home` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1392.17,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 8981,
+          "lossy_meta": {
+            "lossy_candidate_count": 41,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "a1b9e31f013d08e7",
+            "lossy_first_matched_content_signature": "288a1b3f202711e3aea663d5e8784f5a",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 111,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "a1b9e31f013d08e7",
+            "lossy_final_matched_content_signature": "288a1b3f202711e3aea663d5e8784f5a",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 111,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4661/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4661/lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 4,
+            "stdout_tail": "int_4661_candidate/lib/python3.9/site-packages (from pytest) (2.1.0)\nRequirement already satisfied: packaging>=20 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pytest) (26.2)\nRequirement already satisfied: pluggy<2,>=1.5 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pytest) (1.6.0)\nRequirement already satisfied: pygments>=2.7.2 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pytest) (2.20.0)\nRequirement already satisfied: tomli>=1 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pytest) (2.4.1)\nRequirement already satisfied: typing-extensions>=4.6.0 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from exceptiongroup>=1->pytest) (4.15.0)\n\nObtaining file:///home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-4661\n  Preparing metadata (setup.py): started\n  Preparing metadata (setup.py): finished with status 'done'\nRequirement already satisfied: astroid<2.7,>=2.6.5 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pylint==2.10.0.dev0) (2.6.6)\nRequirement already satisfied: isort<6,>=4.2.5 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pylint==2.10.0.dev0) (5.13.2)\nRequirement already satisfied: mccabe<0.7,>=0.6 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pylint==2.10.0.dev0) (0.6.1)\nRequirement already satisfied: toml>=0.7.1 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pylint==2.10.0.dev0) (0.10.2)\nRequirement already satisfied: lazy-object-proxy>=1.4.0 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from astroid<2.7,>=2.6.5->pylint==2.10.0.dev0) (1.12.0)\nRequirement already satisfied: wrapt<1.13,>=1.11 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from astroid<2.7,>=2.6.5->pylint==2.10.0.dev0) (1.12.1)\nRequirement already satisfied: setuptools>=20.0 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from astroid<2.7,>=2.6.5->pylint==2.10.0.dev0) (80.9.0)\nInstalling collected packages: pylint\n  Attempting uninstall: pylint\n    Found existing installation: pylint 2.10.0.dev0\n    Uninstalling pylint-2.10.0.dev0:\n      Successfully uninstalled pylint-2.10.0.dev0\n  Running setup.py develop for pylint\nSuccessfully installed pylint-2.10.0.dev0\n\n$ git fetch --all --tags\n$ git checkout --force 1d1619ef913b99b06647d2030bddff4800abdf63\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_pylint_dev_pylint_4661_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_4661_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/pylint-dev__pylint-4661/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4661/lossy.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_4661_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_4661_candidate pytest -rA tests/lint/unittest_lint.py::test_pylint_home\n{\n  \"instance_id\": \"pylint-dev__pylint-4661\",\n  \"repo\": \"pylint-dev/pylint\",\n  \"version\": \"2.10\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_pylint_dev_pylint_4661_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-4661\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"tests/lint/unittest_lint.py::test_pylint_home\"\n  ],\n  \"returncode\": 4\n}\n",
+            "stderr_tail": "HEAD is now at 1d1619ef9 Performance improvment of the Similarity checker (#4565)\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n  DEPRECATION: Legacy editable install of pylint==2.10.0.dev0 from file:///home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-4661 (setup.py develop) is deprecated. pip 25.0 will enforce this behaviour change. A possible replacement is to add a pyproject.toml or enable --use-pep517, and use setuptools >= 64. If the resulting installation is not behaving as expected, try using --config-settings editable_mode=compat. Please consult the setuptools documentation for more information. Discussion can be found at https://github.com/pypa/pip/issues/11457\n\nImportError while loading conftest '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-4661/tests/conftest.py'.\ntests/conftest.py:8: in <module>\n    from pylint import checkers\npylint/checkers/__init__.py:49: in <module>\n    from pylint.checkers.base_checker import BaseChecker, BaseTokenChecker\npylint/checkers/base_checker.py:22: in <module>\n    from pylint.config import OptionsProviderMixIn\npylint/config/__init__.py:66: in <module>\n    PYLINT_HOME = appdirs.user_cache_dir(\"pylint\")\nE   NameError: name 'appdirs' is not defined\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA tests/lint/unittest_lint.py::test_pylint_home` failed. (See above for error)\n"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1402.91,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 8982,
+          "lossy_meta": {
+            "lossy_candidate_count": 44,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "a1b9e31f013d08e7",
+            "lossy_first_matched_content_signature": "288a1b3f202711e3aea663d5e8784f5a",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 111,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "a1b9e31f013d08e7",
+            "lossy_final_matched_content_signature": "288a1b3f202711e3aea663d5e8784f5a",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 111,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 8211,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 8211,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4661/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4661/lossy_prefetch.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 4,
+            "stdout_tail": "candidate/lib/python3.9/site-packages (from pytest) (2.1.0)\nRequirement already satisfied: packaging>=20 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pytest) (26.2)\nRequirement already satisfied: pluggy<2,>=1.5 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pytest) (1.6.0)\nRequirement already satisfied: pygments>=2.7.2 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pytest) (2.20.0)\nRequirement already satisfied: tomli>=1 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pytest) (2.4.1)\nRequirement already satisfied: typing-extensions>=4.6.0 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from exceptiongroup>=1->pytest) (4.15.0)\n\nObtaining file:///home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-4661\n  Preparing metadata (setup.py): started\n  Preparing metadata (setup.py): finished with status 'done'\nRequirement already satisfied: astroid<2.7,>=2.6.5 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pylint==2.10.0.dev0) (2.6.6)\nRequirement already satisfied: isort<6,>=4.2.5 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pylint==2.10.0.dev0) (5.13.2)\nRequirement already satisfied: mccabe<0.7,>=0.6 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pylint==2.10.0.dev0) (0.6.1)\nRequirement already satisfied: toml>=0.7.1 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from pylint==2.10.0.dev0) (0.10.2)\nRequirement already satisfied: lazy-object-proxy>=1.4.0 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from astroid<2.7,>=2.6.5->pylint==2.10.0.dev0) (1.12.0)\nRequirement already satisfied: wrapt<1.13,>=1.11 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from astroid<2.7,>=2.6.5->pylint==2.10.0.dev0) (1.12.1)\nRequirement already satisfied: setuptools>=20.0 in /home/gfy/miniconda3/envs/swe_pylint_dev_pylint_4661_candidate/lib/python3.9/site-packages (from astroid<2.7,>=2.6.5->pylint==2.10.0.dev0) (80.9.0)\nInstalling collected packages: pylint\n  Attempting uninstall: pylint\n    Found existing installation: pylint 2.10.0.dev0\n    Uninstalling pylint-2.10.0.dev0:\n      Successfully uninstalled pylint-2.10.0.dev0\n  Running setup.py develop for pylint\nSuccessfully installed pylint-2.10.0.dev0\n\n$ git fetch --all --tags\n$ git checkout --force 1d1619ef913b99b06647d2030bddff4800abdf63\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_pylint_dev_pylint_4661_candidate 'pip<25' wheel\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_4661_candidate python -m pip install pytest\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/patches/pylint-dev__pylint-4661/test.patch\n$ git apply /home/gfy/CodeMAS_Project/sglang-kvflow/results/swe_generated_patch_kvcomm/qwen2_5_7b_json_28_repair2_shard2/pylint-dev__pylint-4661/lossy_prefetch.patch\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_4661_candidate bash -lc 'python -m pip install -e .'\n$ /home/gfy/miniconda3/bin/conda run -n swe_pylint_dev_pylint_4661_candidate pytest -rA tests/lint/unittest_lint.py::test_pylint_home\n{\n  \"instance_id\": \"pylint-dev__pylint-4661\",\n  \"repo\": \"pylint-dev/pylint\",\n  \"version\": \"2.10\",\n  \"mode\": \"candidate\",\n  \"env_name\": \"swe_pylint_dev_pylint_4661_candidate\",\n  \"repo_dir\": \"/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-4661\",\n  \"skip_pre_install\": false,\n  \"test_cmd\": [\n    \"pytest\",\n    \"-rA\",\n    \"tests/lint/unittest_lint.py::test_pylint_home\"\n  ],\n  \"returncode\": 4\n}\n",
+            "stderr_tail": "HEAD is now at 1d1619ef9 Performance improvment of the Similarity checker (#4565)\n\n\n==> WARNING: A newer version of conda exists. <==\n    current version: 25.3.1\n    latest version: 26.5.2\n\nPlease update conda by running\n\n    $ conda update -n base -c defaults conda\n\n\n  DEPRECATION: Legacy editable install of pylint==2.10.0.dev0 from file:///home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-4661 (setup.py develop) is deprecated. pip 25.0 will enforce this behaviour change. A possible replacement is to add a pyproject.toml or enable --use-pep517, and use setuptools >= 64. If the resulting installation is not behaving as expected, try using --config-settings editable_mode=compat. Please consult the setuptools documentation for more information. Discussion can be found at https://github.com/pypa/pip/issues/11457\n\nImportError while loading conftest '/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pylint-dev__pylint-4661/tests/conftest.py'.\ntests/conftest.py:8: in <module>\n    from pylint import checkers\npylint/checkers/__init__.py:49: in <module>\n    from pylint.checkers.base_checker import BaseChecker, BaseTokenChecker\npylint/checkers/base_checker.py:22: in <module>\n    from pylint.config import OptionsProviderMixIn\npylint/config/__init__.py:66: in <module>\n    PYLINT_HOME = appdirs.user_cache_dir(\"pylint\")\nE   NameError: name 'appdirs' is not defined\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA tests/lint/unittest_lint.py::test_pylint_home` failed. (See above for error)\n"
+          }
+        }
+      ]
+    }
+  ]
+}

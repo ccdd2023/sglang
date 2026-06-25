@@ -1,0 +1,12 @@
+diff --git a/astropy/io/ascii/html.py b/astropy/io/ascii/html.py
+--- a/astropy/io/ascii/html.py
++++ b/astropy/io/ascii/html.py
+@@ -339,7 +339,7 @@
+         self.outputter = HTMLOutputter()
+         return super().read(table)
+ 
+-    def write(self, table):
++    def write(self, table, formats=None):
+         """
+         Return data in ``table`` converted to HTML as a list of strings.
+         """

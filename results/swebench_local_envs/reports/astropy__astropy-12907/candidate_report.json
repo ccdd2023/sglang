@@ -12,5 +12,44 @@
     "astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6]",
     "astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]"
   ],
-  "returncode": 1
+  "returncode": 1,
+  "stdout_tail": "============================= test session starts ==============================\nplatform linux -- Python 3.9.25, pytest-7.4.0, pluggy-1.3.0\n\nRunning tests with Astropy version 5.1.dev623+gd16bfe05a.d20260612.\nRunning tests in astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6] astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9].\n\nDate: 2026-06-12T10:35:38\n\nPlatform: Linux-5.15.0-179-generic-x86_64-with-glibc2.35\n\nExecutable: /home/gfy/miniconda3/envs/swe_astropy_astropy_12907_candidate/bin/python\n\nFull Python Version: \n3.9.25 (main, Nov  3 2025, 22:33:05) \n[GCC 11.2.0]\n\nencodings: sys: utf-8, locale: UTF-8, filesystem: utf-8\nbyteorder: little\nfloat info: dig: 15, mant_dig: 15\n\nPackage versions: \nNumpy: 1.25.2\nScipy: not available\nMatplotlib: not available\nh5py: not available\nPandas: not available\nPyERFA: 2.0.0.3\nCython: not available\nScikit-image: not available\nasdf: not available\npyarrow: not available\n\nUsing Astropy options: remote_data: none.\n\nARCH_ON_CI: undefined\nIS_CRON: undefined\n\nrootdir: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-12907\nconfigfile: setup.cfg\nplugins: hypothesis-6.82.6, remotedata-0.4.0, filter-subpackage-0.1.2, astropy-header-0.2.2, mock-3.11.1, astropy-0.10.0, arraydiff-0.5.0, cov-4.1.0, doctestplus-1.0.0, xdist-3.3.1, openfiles-0.5.0\ncollected 2 items\n\nastropy/modeling/tests/test_separable.py FF                              [100%]\n\n=================================== FAILURES ===================================\n___________________ test_separable[compound_model6-result6] ____________________\n\ncompound_model = <CompoundModel(angle_0=2., offset_1=1., offset_2=2.)>\nresult = (array([False, False,  True,  True]), array([[ True,  True, False, False],\n       [ True,  True, False, False],\n       [False, False,  True, False],\n       [False, False, False,  True]]))\n\n    @pytest.mark.parametrize(('compound_model', 'result'), compound_models.values())\n    def test_separable(compound_model, result):\n>       assert_allclose(is_separable(compound_model), result[0])\n\nastropy/modeling/tests/test_separable.py:151: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nargs = (<function assert_allclose.<locals>.compare at 0x7fca25acfaf0>, array([False, False, False, False]), array([False, False,  True,  True]))\nkwds = {'equal_nan': True, 'err_msg': '', 'header': 'Not equal to tolerance rtol=1e-07, atol=0', 'verbose': True}\n\n    @wraps(func)\n    def inner(*args, **kwds):\n        with self._recreate_cm():\n>           return func(*args, **kwds)\nE           AssertionError: \nE           Not equal to tolerance rtol=1e-07, atol=0\nE           \nE           Mismatched elements: 2 / 4 (50%)\nE            x: array([False, False, False, False])\nE            y: array([False, False,  True,  True])\n\n/home/gfy/miniconda3/envs/swe_astropy_astropy_12907_candidate/lib/python3.9/contextlib.py:79: AssertionError\n___________________ test_separable[compound_model9-result9] ____________________\n\ncompound_model = <CompoundModel(angle_0=2., offset_1=1., factor_2=1., factor_3=2.)>\nresult = (array([False, False,  True,  True,  True]), array([[ True,  True, False, False, False],\n       [ True,  True, False, ... False,  True, False, False],\n       [False, False, False,  True, False],\n       [False, False, False, False,  True]]))\n\n    @pytest.mark.parametrize(('compound_model', 'result'), compound_models.values())\n    def test_separable(compound_model, result):\n>       assert_allclose(is_separable(compound_model), result[0])\n\nastropy/modeling/tests/test_separable.py:151: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nargs = (<function assert_allclose.<locals>.compare at 0x7fc9eaeee940>, array([False, False,  True, False, False]), array([False, False,  True,  True,  True]))\nkwds = {'equal_nan': True, 'err_msg': '', 'header': 'Not equal to tolerance rtol=1e-07, atol=0', 'verbose': True}\n\n    @wraps(func)\n    def inner(*args, **kwds):\n        with self._recreate_cm():\n>           return func(*args, **kwds)\nE           AssertionError: \nE           Not equal to tolerance rtol=1e-07, atol=0\nE           \nE           Mismatched elements: 2 / 5 (40%)\nE            x: array([False, False,  True, False, False])\nE            y: array([False, False,  True,  True,  True])\n\n/home/gfy/miniconda3/envs/swe_astropy_astropy_12907_candidate/lib/python3.9/contextlib.py:79: AssertionError\n=========================== short test summary info ============================\nFAILED astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6]\nFAILED astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]\n============================== 2 failed in 0.39s ===============================\n\n",
+  "stderr_tail": "<frozen importlib._bootstrap>:228: RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 80 from C header, got 96 from PyObject\n\nERROR conda.cli.main_run:execute(125): `conda run pytest -rA astropy/modeling/tests/test_separable.py::test_separable[compound_model6-result6] astropy/modeling/tests/test_separable.py::test_separable[compound_model9-result9]` failed. (See above for error)\n",
+  "env_sanity": {
+    "python_version": {
+      "returncode": 0,
+      "stdout_tail": "Python 3.9.25\n\n",
+      "stderr_tail": ""
+    },
+    "python_executable": {
+      "returncode": 0,
+      "stdout_tail": "/home/gfy/miniconda3/envs/swe_astropy_astropy_12907_candidate/bin/python\n\n",
+      "stderr_tail": ""
+    },
+    "pip_version": {
+      "returncode": 0,
+      "stdout_tail": "pip 24.2 from /home/gfy/miniconda3/envs/swe_astropy_astropy_12907_candidate/lib/python3.9/site-packages/pip (python 3.9)\n\n",
+      "stderr_tail": ""
+    },
+    "pytest_version": {
+      "returncode": 0,
+      "stdout_tail": "7.4.0\n\n",
+      "stderr_tail": ""
+    },
+    "numpy_version": {
+      "returncode": 0,
+      "stdout_tail": "1.25.2\n\n",
+      "stderr_tail": ""
+    },
+    "setuptools_version": {
+      "returncode": 0,
+      "stdout_tail": "68.0.0\n\n",
+      "stderr_tail": ""
+    },
+    "pip_freeze_head": {
+      "returncode": 0,
+      "stdout_tail": "-e git+https://github.com/astropy/astropy.git@d16bfe05a744909de4b27f5875fe0d4ed41ce607#egg=astropy\nattrs==23.1.0\ncoverage==7.10.7\nexceptiongroup==1.1.3\nexecnet==2.0.2\nhypothesis==6.82.6\niniconfig==2.0.0\nnumpy==1.25.2\npackaging==23.1\npluggy==1.3.0\npsutil==5.9.5\npyerfa==2.0.0.3\npytest==7.4.0\npytest-arraydiff==0.5.0\npytest-astropy==0.10.0\npytest-astropy-header==0.2.2\npytest-cov==4.1.0\npytest-doctestplus==1.0.0\npytest-filter-subpackage==0.1.2\npytest-mock==3.11.1\npytest-openfiles==0.5.0\npytest-remotedata==0.4.0\npytest-xdist==3.3.1\nPyYAML==6.0.1\nsortedcontainers==2.4.0\ntomli==2.0.1\n",
+      "stderr_tail": ""
+    }
+  }
 }

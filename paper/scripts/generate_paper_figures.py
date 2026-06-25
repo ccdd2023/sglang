@@ -340,6 +340,39 @@ def table_passrate(pass_rows: list[dict[str, str]]) -> dict[str, dict[str, float
     return summary
 
 
+def table_graph_bundle_pass1(summary: dict) -> dict:
+    if not summary:
+        return {}
+    order = [
+        ("lossless", "Lossless KV"),
+        ("lossy", "Exact-content reuse"),
+        ("lossy_prefetch", "Exact reuse + prefetch"),
+        ("graph_aware_lossy", "Graph-aware exact reuse"),
+    ]
+    lines = [
+        "\\begin{table}[t]",
+        "\\centering",
+        "\\caption{Graph-bundle 8-case paired candidate-test recheck. The subset is diagnostic and is not pooled with the 28-case headline pass@1 comparison.}",
+        "\\label{tab:graph-bundle-pass1}",
+        "\\begin{tabular}{lrrrr}",
+        "\\toprule",
+        "Mode & Apply & Tests run & pass@1 & Avg cached tok. \\\\",
+        "\\midrule",
+    ]
+    for mode, label in order:
+        s = summary.get(mode, {})
+        if not s:
+            continue
+        lines.append(
+            f"{label} & {int(s['apply_ok'])}/{int(s['n'])} & "
+            f"{int(s['candidate_test_runs'])} & {int(s['candidate_test_pass'])}/{int(s['candidate_test_runs'])} & "
+            f"{float(s['mean_cached_tokens']):.1f} \\\\"
+        )
+    lines += ["\\bottomrule", "\\end{tabular}", "\\end{table}"]
+    (TAB / "table_graph_bundle_pass1.tex").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return summary
+
+
 def table_prefetch(rows: list[dict[str, str]]) -> dict[str, dict[str, float]]:
     by_mode = defaultdict(list)
     for r in rows:
@@ -1050,11 +1083,16 @@ def main() -> None:
     ttft_stress_path = ROOT / "results/kvcomm_ttft_stress/qwen2_5_7b/ttft_stress_table.csv"
     ttft_rollup_path = ROOT / "results/ttft_agenttemplatekv/p1_rollup.csv"
     ttft_p0_summary_path = ROOT / "results/ttft_agenttemplatekv/qwen2_5_7b_micro_final_p0/summary.json"
+    graph_bundle_pass1_path = (
+        ROOT
+        / "results/code_graph_kv_reuse/pass1_graph_aware_8_with_tests_pass1_recheck_20260612/pass1_8_with_tests_summary.json"
+    )
     passrate = read_csv(passrate_path)
     prefetch = read_csv(prefetch_path)
     ttft_stress = optional_csv(ttft_stress_path)
     ttft_rollup = optional_csv(ttft_rollup_path)
     ttft_p0_summary = read_json(ttft_p0_summary_path) if ttft_p0_summary_path.exists() else {}
+    graph_bundle_pass1 = read_json(graph_bundle_pass1_path) if graph_bundle_pass1_path.exists() else {}
     template_segments = optional_csv(ROOT / "results/template_codebase_segments/template_segment_ablation.csv")
     gate500 = read_csv(ROOT / "results/repo_level_datasets/500_gate_anchor_stats.csv")
     manifest30 = read_json(ROOT / "results/repo_level_datasets/manifest_30.json")
@@ -1077,6 +1115,7 @@ def main() -> None:
     table_safety(gate)
     nearmatch_summary = table_nearmatch_safety(nearmatch)
     pass_summary = table_passrate(passrate)
+    graph_bundle_pass1_summary = table_graph_bundle_pass1(graph_bundle_pass1)
     prefetch_summary = table_prefetch(prefetch)
     if ttft_rollup:
         ttft_stress_summary = table_ttft_agenttemplatekv(ttft_rollup, ttft_p0_summary)
@@ -1276,6 +1315,7 @@ def main() -> None:
             "rope_delta": "results/kvcomm_ablation_package/rope_delta_ablation.csv",
             "logit_alignment": "results/kvcomm_ablation_package/logit_alignment_ablation.csv",
             "passrate_primary": str(passrate_path.relative_to(ROOT)),
+            "graph_bundle_pass1_recheck": str(graph_bundle_pass1_path.relative_to(ROOT)) if graph_bundle_pass1_summary else "",
             "prefetch_primary": str(prefetch_path.relative_to(ROOT)),
             "ttft_stress": str(ttft_rollup_path.relative_to(ROOT)) if ttft_rollup else str(ttft_stress_path.relative_to(ROOT)) if ttft_stress else "",
             "ttft_p0_sanity": str(ttft_p0_summary_path.relative_to(ROOT)) if ttft_p0_summary else "",
@@ -1288,6 +1328,7 @@ def main() -> None:
         },
         "summaries": {
             "passrate": pass_summary,
+            "graph_bundle_pass1_recheck": graph_bundle_pass1_summary,
             "prefetch": prefetch_summary,
             "ttft_stress": ttft_stress_summary,
             "ablation": ablation_summary,

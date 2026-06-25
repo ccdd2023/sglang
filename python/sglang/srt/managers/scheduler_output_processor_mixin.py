@@ -241,6 +241,10 @@ class SchedulerOutputProcessorMixin:
             "placeholder_knn_skipped_high_span_overlap_count": getattr(
                 req, "placeholder_knn_skipped_high_span_overlap_count", None
             ),
+            # O10: high-new-token-ratio skip telemetry (cold prefix).
+            "placeholder_knn_skipped_high_new_token_ratio_count": getattr(
+                req, "placeholder_knn_skipped_high_new_token_ratio_count", None
+            ),
             # Phase 2.1 head-only RoPE rotation telemetry (EPIC-inspired).
             "placeholder_knn_head_rotation_tokens": getattr(
                 req, "placeholder_knn_head_rotation_tokens", None

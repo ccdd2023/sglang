@@ -1,0 +1,1 @@
+{"edits":[{"path":"src/_pytest/mark/expression.py","search":"raise NotImplementedError()","replace":"raise ValueError(\"Unsupported literal: None\")"}]}

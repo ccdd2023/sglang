@@ -1,0 +1,16 @@
+```json
+{
+  "edits": [
+    {
+      "path": "pylint/pyreverse/utils.py",
+      "search": "def get_annotation(node):",
+      "replace": "def get_annotation(node) -> Optional[astroid.NodeNG]:"
+    },
+    {
+      "path": "pylint/pyreverse/utils.py",
+      "search": "def infer_node(node):",
+      "replace": "def infer_node(node) -> Set[astroid.NodeNG]:"
+    }
+  ]
+}
+```

@@ -11,5 +11,5 @@
     "-rA",
     "tests/lint/unittest_lint.py::test_pylint_home"
   ],
-  "returncode": 0
+  "returncode": 4
 }

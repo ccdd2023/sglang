@@ -1,0 +1,67 @@
+```json
+{
+  "edits": [
+    {
+      "path": "seaborn/_core/scales.py",
+      "search": "def _get_formatter(self, locator, formatter):",
+      "replace": "def _get_formatter(self, locator, formatter, use_offset):"
+    },
+    {
+      "path": "seaborn/_core/scales.py",
+      "search": "if formatter is not None:",
+      "replace": "if formatter is not None or use_offset:"
+    },
+    {
+      "path": "seaborn/_core/scales.py",
+      "search": "return formatter",
+      "replace": "return formatter if formatter is not None else ScalarFormatter(useOffset=use_offset)"
+    },
+    {
+      "path": "seaborn/_core/scales.py",
+      "search": "def _get_locators(self, locator, at, upto, count, every, between, minor):",
+      "replace": "def _get_locators(self, locator, at, upto, count, every, between, minor, use_offset):"
+    },
+    {
+      "path": "seaborn/_core/scales.py",
+      "search": "if base is default:",
+      "replace": "if base is default or use_offset:"
+    },
+    {
+      "path": "seaborn/_core/scales.py",
+      "search": "formatter = ScalarFormatter()",
+      "replace": "formatter = ScalarFormatter(useOffset=use_offset)"
+    },
+    {
+      "path": "seaborn/_core/scales.py",
+      "search": "def _setup(self, data: Series, prop: Property, axis: Axis | None = None, ) -> Scale:",
+      "replace": "def _setup(self, data: Series, prop: Property, axis: Axis | None = None, use_offset: bool = False) -> Scale:"
+    },
+    {
+      "path": "seaborn/_core/scales.py",
+      "search": "def __call__(self, data: Series) -> ArrayLike:",
+      "replace": "def __call__(self, data: Series, use_offset: bool = False) -> ArrayLike:"
+    },
+    {
+      "path": "seaborn/_core/scales.py",
+      "search": "return self._get_formatter(major_locator, **self._label_params)",
+      "replace": "return self._get_formatter(major_locator, **self._label_params, use_offset=use_offset)"
+    },
+    {
+      "path": "seaborn/_core/scales.py",
+      "search": "def _get_transform(self):",
+      "replace": "def _get_transform(self, use_offset: bool = False):"
+    },
+    {
+      "path": "seaborn/_core/scales.py",
+      "search": "def _get_scale(self, name: str, forward: Callable, inverse: Callable):",
+      "replace": "def _get_scale(self, name: str, forward: Callable, inverse: Callable, use_offset: bool = False):"
+    },
+    {
+      "path": "seaborn/_core/scales.py",
+      "search": "def _get_scale(self, name: str, forward: Callable, inverse: Callable):",
+      "replace": "def _get_scale(self, name: str, forward: Callable, inverse: Callable, use_offset: bool = False):"
+    },
+    {
+      "path": "seaborn/_core/scales.py",
+      "search": "def _get_scale(self, name: str, forward: Callable, inverse: Callable):",
+      "replace": "def _get_scale

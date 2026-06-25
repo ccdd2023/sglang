@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from typing import TYPE_CHECKING, Optional
 
@@ -82,6 +83,12 @@ class LMCRadixCache(RadixCache):
     ):
         super().__init__(params)
 
+        config_file = os.environ.get("LMCACHE_CONFIG_FILE")
+        if not config_file:
+            raise RuntimeError(
+                "LMCache requires LMCACHE_CONFIG_FILE to point to a config YAML"
+            )
+
         kvcache = self.token_to_kv_pool_allocator.get_kvcache()
         self.lmcache_connector = LMCacheLayerwiseConnector(
             sgl_config=model_config,
@@ -100,6 +107,7 @@ class LMCRadixCache(RadixCache):
                 "v_buffer",
                 getattr(self.token_to_kv_pool_allocator._kvcache, "v_buffer"),
             ),
+            config_file=config_file,
             tp_group=tp_group.device_group if tp_group is not None else None,
         )
 

@@ -1,0 +1,238 @@
+{
+  "selector_snapshot": {
+    "git_commit": "5fb934751",
+    "policy": "results/selective_ast_reuse/data/selective_reuse_policy_extended.json",
+    "policy_sha1": "f256dd7fa88d1ee1e4a0a117a9877eaa00bd4246",
+    "dataset": "results/selective_ast_reuse/data/swe_selective_wholefile_68k_1file_taskaware_instances.json",
+    "dataset_sha1": "18d34837f6869d669bcf354ee5ca899ea1455658",
+    "manifest": "results/selective_ast_reuse/data/pytest_exact_patchtarget_8399_20260619/manifest.json",
+    "manifest_sha1": "1a5ef671162c430d98a8f8dd7a6d4e288f4ce4a2",
+    "max_file_chars": 68000,
+    "max_complete_file_chars": 60000,
+    "server_random_seed": 42,
+    "target_modes": [
+      "hybrid_code_aware_lossy"
+    ],
+    "enable_hybrid_code_aware_lossy": true,
+    "hybrid_min_bridge_tokens": 4000,
+    "hybrid_max_bridge_tokens": 0,
+    "hybrid_bridge_anchor_max_tokens": 0,
+    "hybrid_bridge_max_count_per_file": 0,
+    "hybrid_bridge_source": "task_ast_direct",
+    "hybrid_task_ast_top_k": 8,
+    "hybrid_risk_large_bridge_min_tokens": 0,
+    "hybrid_risk_max_large_bridge_count": 0,
+    "hybrid_risk_max_graph_tokens_for_large_bridge": 0,
+    "enable_bridge_prefix_anchors": false,
+    "bridge_anchor_max_tokens": 0,
+    "disable_graph_bridge_prefix_anchors": false,
+    "selection_min_estimated_reused_tokens": 16,
+    "selective_anchor_min_span_tokens": 16,
+    "selective_anchor_max_span_tokens": 0,
+    "selective_anchor_max_start_token": 0,
+    "anchor_min_total_tokens": 0,
+    "anchor_max_total_tokens": 12000,
+    "anchor_max_total_policy": "reject",
+    "exclude_anchor_granularities": "",
+    "graph_anchor_token_budget": 1600,
+    "graph_anchor_max_span_tokens": 900,
+    "lossy_max_planned_suffix_copy_len": 0,
+    "case_selector_overrides": "",
+    "case_selector_override_cases": 0
+  },
+  "dataset": "results/selective_ast_reuse/data/swe_selective_wholefile_68k_1file_taskaware_instances.json",
+  "manifest": "results/selective_ast_reuse/data/pytest_exact_patchtarget_8399_20260619/manifest.json",
+  "modes": [
+    "hybrid_code_aware_lossy"
+  ],
+  "hybrid_calibration_policy": "",
+  "hybrid_calibration_policy_cases": 0,
+  "hybrid_calibration_policy_rules": 0,
+  "rows": [
+    {
+      "instance_id": "pytest-dev__pytest-8399",
+      "repo": "pytest-dev/pytest",
+      "mode": "hybrid_code_aware_lossy",
+      "status": "ok",
+      "selected_span_count": 8,
+      "selected_span_count_by_granularity": {
+        "function": 8
+      },
+      "estimated_reused_tokens": 450,
+      "estimated_recomputed_tokens": 9611,
+      "decision_reason_counts": {
+        "reuse:hybrid_task_ast_direct_span": 8
+      },
+      "selected_anchor_names": [
+        "testing/test_unittest.py:function:test_unittest_setup_interaction:800-829",
+        "testing/test_unittest.py:function:test_pdb_teardown_called:1174-1206",
+        "testing/test_unittest.py:function:test_no_teardown_if_setupclass_failed:858-883",
+        "testing/test_unittest.py:function:test_setup_setUpClass:280-302",
+        "testing/test_unittest.py:function:test_pdb_teardown_skipped:1210-1240",
+        "testing/test_unittest.py:function:test_setup_failure_is_shown:261-277",
+        "testing/test_unittest.py:function:test_method_and_teardown_failing_reporting:237-258",
+        "testing/test_unittest.py:function:test_non_unittest_no_setupclass_support:832-855"
+      ],
+      "selected_anchor_features": [
+        {
+          "name": "testing/test_unittest.py:function:test_unittest_setup_interaction:800-829",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_unittest_setup_interaction",
+          "line_range": "800-829"
+        },
+        {
+          "name": "testing/test_unittest.py:function:test_pdb_teardown_called:1174-1206",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_pdb_teardown_called",
+          "line_range": "1174-1206"
+        },
+        {
+          "name": "testing/test_unittest.py:function:test_no_teardown_if_setupclass_failed:858-883",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_no_teardown_if_setupclass_failed",
+          "line_range": "858-883"
+        },
+        {
+          "name": "testing/test_unittest.py:function:test_setup_setUpClass:280-302",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_setup_setUpClass",
+          "line_range": "280-302"
+        },
+        {
+          "name": "testing/test_unittest.py:function:test_pdb_teardown_skipped:1210-1240",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_pdb_teardown_skipped",
+          "line_range": "1210-1240"
+        },
+        {
+          "name": "testing/test_unittest.py:function:test_setup_failure_is_shown:261-277",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_setup_failure_is_shown",
+          "line_range": "261-277"
+        },
+        {
+          "name": "testing/test_unittest.py:function:test_method_and_teardown_failing_reporting:237-258",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_method_and_teardown_failing_reporting",
+          "line_range": "237-258"
+        },
+        {
+          "name": "testing/test_unittest.py:function:test_non_unittest_no_setupclass_support:832-855",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_non_unittest_no_setupclass_support",
+          "line_range": "832-855"
+        }
+      ],
+      "selected_anchor_task_features": [
+        {
+          "name": "testing/test_unittest.py:function:test_unittest_setup_interaction:800-829",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_unittest_setup_interaction",
+          "line_range": "800-829",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "testing/test_unittest.py:function:test_pdb_teardown_called:1174-1206",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_pdb_teardown_called",
+          "line_range": "1174-1206",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "testing/test_unittest.py:function:test_no_teardown_if_setupclass_failed:858-883",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_no_teardown_if_setupclass_failed",
+          "line_range": "858-883",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "testing/test_unittest.py:function:test_setup_setUpClass:280-302",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_setup_setUpClass",
+          "line_range": "280-302",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "testing/test_unittest.py:function:test_pdb_teardown_skipped:1210-1240",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_pdb_teardown_skipped",
+          "line_range": "1210-1240",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "testing/test_unittest.py:function:test_setup_failure_is_shown:261-277",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_setup_failure_is_shown",
+          "line_range": "261-277",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "testing/test_unittest.py:function:test_method_and_teardown_failing_reporting:237-258",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_method_and_teardown_failing_reporting",
+          "line_range": "237-258",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        },
+        {
+          "name": "testing/test_unittest.py:function:test_non_unittest_no_setupclass_support:832-855",
+          "path": "testing/test_unittest.py",
+          "granularity": "function",
+          "symbol": "test_non_unittest_no_setupclass_support",
+          "line_range": "832-855",
+          "path_mentioned": true,
+          "basename_mentioned": true,
+          "symbol_overlap": 0,
+          "lexical_overlap": 3
+        }
+      ],
+      "max_anchor_lexical_overlap": 3,
+      "any_anchor_path_mentioned": true,
+      "any_anchor_basename_mentioned": true,
+      "max_anchor_symbol_overlap": 0,
+      "hybrid_calibration_policy_applied": null,
+      "hybrid_calibration_action": "",
+      "hybrid_calibration_rule_name": "",
+      "hybrid_calibration_reason": "",
+      "hybrid_calibration_max_suffix_copy_len": "",
+      "hybrid_calibration_rejected": null,
+      "hybrid_calibration_shape_mismatch": null,
+      "hybrid_calibration_shape_pruned": null
+    }
+  ]
+}

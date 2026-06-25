@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "django/db/models/aggregates.py",
+      "search": "Count\(Case\(When\(pages__gt=300, then='rating'\), distinct=True\)",
+      "replace": "Count(Case(When(pages__gt=300, then='rating '), distinct=True)"
+    }
+  ]
+}
+```

@@ -1,0 +1,16 @@
+```json
+{
+  "edits": [
+    {
+      "path": "src/_pytest/reports.py",
+      "search": "raise ValueError(13) from e2",
+      "replace": "raise ValueError(13, 'Chained from: ' + str(e2)) from e2"
+    },
+    {
+      "path": "src/_pytest/reports.py",
+      "search": "raise ValueError(23) from e2",
+      "replace": "raise ValueError(23, 'Chained from: ' + str(e2)) from e2"
+    }
+  ]
+}
+```

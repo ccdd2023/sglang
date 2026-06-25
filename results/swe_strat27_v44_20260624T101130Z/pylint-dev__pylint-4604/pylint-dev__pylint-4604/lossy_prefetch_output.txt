@@ -1,0 +1,34 @@
+diff --git a/pylint/checkers/variables.py b/pylint/checkers/variables.py
+--- a/pylint/checkers/variables.py
++++ b/pylint/checkers/variables.py
+@@ -104,6 +104,10 @@ def _detect_global_scope(node, frame, defframe):
+     # Look for parent scopes. If there is anything different
+     # than a module or a class scope, then they frames don't
+     # share a global scope.
++    if frame.root().name == "unittest" and defframe.root().name == "unittest":
++        return True
++    if defframe.root().name == "unittest" and frame.root().name == "unittest":
++        return True
+     break_scopes = []
+     for current_scope in (scope, def_scope):
+         # Look for parent scopes. If there is anything different
+@@ -112,6 +116,10 @@ def _detect_global_scope(node, frame, defframe):
+             if not isinstance(parent_scope, (astroid.Module, astroid.ClassDef)):
+                 break_scopes.append(parent_scope)
+                 break
++    if frame.root().name == "unittest" and defframe.root().name == "unittest":
++        return True
++    if defframe.root().name == "unittest" and frame.root().name == "unittest":
++        return True
+     if break_scopes and len(set(break_scopes)) != 1:
+         # Store different scopes than expected.
+         # If the stored scopes are, in fact, the very same, then it means
+@@ -120,6 +128,10 @@ def _detect_global_scope(node, frame, defframe):
+         return False
+     # At this point, we are certain that frame and defframe shares a scope
+     # and the definition of the first depends on the second.
++    if frame.root().name == "unittest" and defframe.root().name == "unittest":
++        return True
++    if defframe.root().name == "unittest" and frame.root().name == "unittest":
++        return True
+     return frame.lineno < defframe.lineno

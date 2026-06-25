@@ -1,0 +1,25 @@
+diff --git a/lib/matplotlib/axes/_axes.py b/lib/matplotlib/axes/_axes.py
+--- a/lib/matplotlib/axes/_axes.py
++++ b/lib/matplotlib/axes/_axes.py
+@@ -1040,6 +1040,10 @@ def hist(self, x, bins="auto", range=None, density=None, weights=None,
+             if bins == "auto":
+                 bins = _make_auto_bins(x, bins, range=range)
+ 
++            if density is not None and bins is not None:
++                # Ensure that the bins are correctly set for density=True
++                bins = np.linspace(range[0], range[1], bins + 1)
++
+             if weights is not None:
+                 if len(weights) != len(x):
+                     raise ValueError("x and weights must have same length")
+@@ -1047,6 +1051,10 @@ def hist(self, x, bins="auto", range=None, density=None, weights=None,
+             if bins == "auto":
+                 bins = _make_auto_bins(x, bins, range=range)
+ 
++            if density is not None and bins is not None:
++                # Ensure that the bins are correctly set for density=True
++                bins = np.linspace(range[0], range[1], bins + 1)
++
+             if weights is not None:
+                 if len(weights) != len(x):
+                     raise ValueError("x and weights must have same length")

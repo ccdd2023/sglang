@@ -1,0 +1,16 @@
+```json
+{
+  "edits": [
+    {
+      "path": "sphinx/directives/code.py",
+      "search": "lines = reader.read_file(self.filename, location=location)",
+      "replace": "lines = reader.read_file(self.filename, location=location)\n        lines = self._dedent_lines(lines, self.options.get('dedent'))"
+    },
+    {
+      "path": "sphinx/directives/code.py",
+      "search": "def _dedent_lines(self, lines: List[str], dedent: int) -> List[str]:",
+      "replace": "def _dedent_lines(self, lines: List[str], dedent: int) -> List[str]:\n        if dedent is None:\n            return lines\n        return [line[dedent:] for line in lines]"
+    }
+  ]
+}
+```

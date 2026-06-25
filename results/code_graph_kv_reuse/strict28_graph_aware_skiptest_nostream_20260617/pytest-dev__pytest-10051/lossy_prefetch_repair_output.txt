@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "src/_pytest/logging.py",
+      "search": "self.handler.records.append(record)",
+      "replace": "self.handler.records = [record] + self.handler.records[:]"
+    }
+  ]
+}
+```

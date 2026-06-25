@@ -1,0 +1,16 @@
+diff --git a/xarray/core/variable.py b/xarray/core/variable.py
+--- a/xarray/core/variable.py
++++ b/xarray/core/variable.py
+@@ -641,6 +641,11 @@ def _parse_dimensions(self, dims):
+         dims = tuple(dims)
+         if len(dims) != self.ndim:
+             raise ValueError(
+-                "dimensions %s must have the same length as the "
++                "dimensions %s must have the same length as the number of data "
++                "dimensions, ndim=%s" % (dims, self.ndim)
++            )
++        if not all(isinstance(dim, str) for dim in dims):
++            raise ValueError("dimensions must be strings, got %s" % (dims,))
+         return dims
+ 
+     def _item_key_to_tuple(self, key):

@@ -1,0 +1,15 @@
+{
+  "instance_id": "pytest-dev__pytest-5262",
+  "repo": "pytest-dev/pytest",
+  "version": "4.5",
+  "mode": "gold",
+  "env_name": "swe_pytest_dev_pytest_5262_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-5262",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "testing/test_capture.py::TestFDCapture::test_capfd_sys_stdout_mode"
+  ],
+  "returncode": 1
+}

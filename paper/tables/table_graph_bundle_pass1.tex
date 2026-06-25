@@ -1,0 +1,15 @@
+\begin{table}[t]
+\centering
+\caption{Graph-bundle 8-case paired candidate-test recheck. The subset is diagnostic and is not pooled with the 28-case headline pass@1 comparison.}
+\label{tab:graph-bundle-pass1}
+\begin{tabular}{lrrrr}
+\toprule
+Mode & Apply & Tests run & pass@1 & Avg cached tok. \\
+\midrule
+Lossless KV & 6/8 & 6 & 0/6 & 7533.8 \\
+Exact-content reuse & 6/8 & 6 & 0/6 & 9512.9 \\
+Exact reuse + prefetch & 6/8 & 6 & 0/6 & 9513.9 \\
+Graph-aware exact reuse & 6/8 & 6 & 1/6 & 2309.5 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -486,6 +486,14 @@ def _apply_context_aware_confidence(
     )
     if predicted_d is None:
         predicted_d = table.get("global", {}).get("predicted_d_norm_baseline", 1.0)
+    max_allowed_predicted = os.environ.get("SGLANG_CONTEXT_AWARE_MAX_PREDICTED_D")
+    if max_allowed_predicted:
+        try:
+            threshold = float(max_allowed_predicted)
+        except ValueError:
+            threshold = 0.0
+        if threshold > 0 and predicted_d > threshold:
+            return predicted_d, 0.0, False, True
     d_max = max(table.get("global", {}).get("predicted_d_norm_max_observed", 1.0), 1e-6)
     multiplier = 0.5 + 0.5 * max(0.0, 1.0 - predicted_d / d_max)
     new_conf = base_confidence * multiplier

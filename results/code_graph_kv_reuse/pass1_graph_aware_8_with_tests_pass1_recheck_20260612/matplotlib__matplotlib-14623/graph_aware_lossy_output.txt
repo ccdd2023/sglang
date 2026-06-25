@@ -1,0 +1,16 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/axes/_base.py",
+      "search": "if bottom <= 0:",
+      "replace": "if bottom <= 0 and self.get_yscale() != 'log':"
+    },
+    {
+      "path": "lib/matplotlib/axes/_base.py",
+      "search": "if top <= 0:",
+      "replace": "if top <= 0 and self.get_yscale() != 'log':"
+    }
+  ]
+}
+```

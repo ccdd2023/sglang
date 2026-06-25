@@ -1,0 +1,16 @@
+```json
+{
+  "edits": [
+    {
+      "path": "requests/auth.py",
+      "search": "qop = self.chal.get('qop')",
+      "replace": "qop = self.chal.get('qop', '')"
+    },
+    {
+      "path": "requests/auth.py",
+      "search": "if qop is None:",
+      "replace": "if not qop:"
+    }
+  ]
+}
+```

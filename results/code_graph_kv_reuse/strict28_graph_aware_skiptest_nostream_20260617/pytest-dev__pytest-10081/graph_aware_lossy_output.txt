@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "src/_pytest/unittest.py",
+      "search": "self._explicit_tearDown = self._testcase.tearDown",
+      "replace": "if not _is_skipped(self.obj): self._explicit_tearDown = self._testcase.tearDown"
+    }
+  ]
+}
+```

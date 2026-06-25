@@ -482,7 +482,8 @@ def alloc_for_decode(batch: ScheduleBatch, token_per_req: int) -> torch.Tensor:
     return out_cache_loc
 
 
-def release_kv_cache(req: Req, tree_cache: BasePrefixCache, is_insert: bool = True):
+def release_kv_cache(req: Req, tree_cache: BasePrefixCache, is_insert: bool = True,
+                     tokenizer=None):
     # MambaRadixCache may alloc mamba state before alloc KV cache
     if req.req_pool_idx is None:
         assert (
@@ -496,7 +497,7 @@ def release_kv_cache(req: Req, tree_cache: BasePrefixCache, is_insert: bool = Tr
             req.mamba_pool_idx = None
         return
 
-    tree_cache.cache_finished_req(req, is_insert=is_insert)
+    tree_cache.cache_finished_req(req, is_insert=is_insert, tokenizer=tokenizer)
 
     # FIXME: SessionAwareCache.cache_finished_req sets req_pool_idx = None to
     # transfer KV ownership to the SessionSlot, so we skip the remaining

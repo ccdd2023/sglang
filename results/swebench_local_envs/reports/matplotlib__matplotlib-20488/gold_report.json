@@ -11,5 +11,5 @@
     "-rA",
     "lib/matplotlib/tests/test_image.py::test_huge_range_log[png--1]"
   ],
-  "returncode": 4
+  "returncode": 1
 }

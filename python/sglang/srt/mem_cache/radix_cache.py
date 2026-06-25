@@ -2432,6 +2432,19 @@ class RadixCache(BasePrefixCache):
                 "SGLANG_PLACEHOLDER_KNN_COPY_ROPE_PER_LAYER_US", "2"
             )
         )
+        # O10: skip the k-NN search entirely when the slot is mostly
+        # NEW tokens (cold prefix from the slot's perspective).  This
+        # is the cold-prefix counterpart to O1 (which skips when
+        # prefix already covers most of the slot).  When the slot has
+        # >threshold new tokens, the k-NN search overhead (~30ms per
+        # slot × N slots) dominates the prefill saving — agents 4-5
+        # cold-prefix sub-agents regress by 200ms+ without this gate.
+        # Default 1.0 (disabled, behavior preserved); recommended 0.5.
+        max_new_token_ratio = float(
+            os.environ.get(
+                "SGLANG_PLACEHOLDER_KNN_MAX_NEW_TOKEN_RATIO", "1.0"
+            )
+        )
         # Wrap the rest in try/except so a single bad span cannot crash
         # the request pipeline.  Any exception becomes a "no-op" and
         # sets req.placeholder_anchor_pool_skipped_invalid_count.
@@ -2443,7 +2456,7 @@ class RadixCache(BasePrefixCache):
                 cost_guard_enabled, copy_skip_margin,
                 copy_launch_overhead_us, copy_move_per_token_us,
                 copy_prefill_per_token_us, copy_rope_per_layer_us,
-                min_new_tokens, max_span_overlap_ratio,
+                min_new_tokens, max_span_overlap_ratio, max_new_token_ratio,
             )
         except Exception as ke:  # pragma: no cover - defensive
             logger.warning(
@@ -2479,6 +2492,7 @@ class RadixCache(BasePrefixCache):
         copy_rope_per_layer_us: float = 2,
         min_new_tokens: int = 0,  # O7: skip k-NN search if new_tokens < this
         max_span_overlap_ratio: float = 1.0,  # O8: skip if span overlap > this
+        max_new_token_ratio: float = 1.0,  # O10: skip if overall prompt mostly NEW
     ) -> Tuple[List[torch.Tensor], TreeNode]:
         from sglang.srt.mem_cache.semantic_suffix import (
             embed_single_text_cached as _est,
@@ -2503,6 +2517,11 @@ class RadixCache(BasePrefixCache):
         consumed_entries: List[AnchorKVEntry] = []
         miss_count = 0
         skipped_invalid = 0
+        # O10: per-request skip flag.  Set False when the OVERALL prompt
+        # is mostly NEW (cold prefix).  The first iteration computes the
+        # cached/prompt ratio; subsequent iterations of the for-loop
+        # check the flag and short-circuit.
+        _o10_request_cold = True
         # The original code accepted `key` to bound k-NN lookups to the
         # prompt length, but the body helper no longer needs it; keep
         # `key_tokens_len = None` so spans are always attempted (they were
@@ -2577,6 +2596,58 @@ class RadixCache(BasePrefixCache):
                     ) + 1,
                 )
                 continue
+            # O10: skip the k-NN search entirely when the OVERALL prompt
+            # is mostly NEW (cold prefix at the request level).  When
+            # most of the prompt's tokens still need dense prefill, the
+            # embedding compute (~24ms) + k-NN search (~5ms) overhead
+            # dominates any copy saving — agents 4-5 cold-prefix sub-
+            # agents regress by 200ms+ when this gate is off.  This is
+            # the per-request cold-prefix counterpart to O1 (which is
+            # per-slot warm-prefix).  The metric is the request-level
+            # cached/total ratio: low → cold prefix → skip search.
+            # Default 1.0 (disabled, behavior preserved).
+            if (
+                max_new_token_ratio < 1.0
+                and _o10_request_cold  # set once per request
+            ):
+                # Compute once per request based on the LAST span's end
+                # (= approximate prompt length) and prefix_len (= cached).
+                last_span_end = max(
+                    (int(s.get("end_token", 0)) for s in spans),
+                    default=0,
+                )
+                cached_ratio = (
+                    prefix_len / last_span_end
+                    if last_span_end > 0
+                    else 0.0
+                )
+                # Skip when cached_ratio < (1 - max_new_token_ratio).
+                # max_new_token_ratio=0.5 → skip when cached<50%.
+                if cached_ratio < (1.0 - max_new_token_ratio):
+                    setattr(
+                        req,
+                        "placeholder_knn_skipped_high_new_token_ratio_count",
+                        getattr(
+                            req,
+                            "placeholder_knn_skipped_high_new_token_ratio_count",
+                            0,
+                        ) + 1,
+                    )
+                    logger.info(
+                        "[placeholder_knn] rid=%s slot=%s skip-cold-prompt: "
+                        "prefix=%d prompt=%d cached_ratio=%.3f "
+                        "threshold=%.3f",
+                        getattr(req, "rid", "?"), slot_id,
+                        prefix_len, last_span_end,
+                        cached_ratio, 1.0 - max_new_token_ratio,
+                    )
+                    # Don't `break` — `continue` so the loop runs to
+                    # completion.  This keeps cache_finished_req's view
+                    # of the request consistent (it iterates through all
+                    # spans regardless of which gates fired).  Once
+                    # fired for the request, subsequent slots skip too.
+                    _o10_request_cold = False
+                    continue  # skip this slot's search but keep iterating
             query_emb = _est(text or " ", emb=emb)
             if query_emb is None:
                 miss_count += 1

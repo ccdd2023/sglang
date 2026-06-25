@@ -1,0 +1,28 @@
+diff --git a/requests/auth.py b/requests/auth.py
+--- a/requests/auth.py
++++ b/requests/auth.py
+@@ -104,6 +104,7 @@ def build_digest_header(self, method, url):
+         realm = self.chal['realm']
+         nonce = self.chal['nonce']
+         qop = self.chal.get('qop')
++        qop = '"%s"' % qop if qop else ''
+         algorithm = self.chal.get('algorithm')
+         opaque = self.chal.get('opaque')
+ 
+@@ -112,6 +113,7 @@ def build_digest_header(self, method, url):
+         if hash_utf8 is None:
+             return None
+ 
++        base = 'username="%s", realm="%s", nonce="%s", uri="%s", ' \
++               'response="%s"' % (self.username, realm, nonce, path, respdig)
+         if opaque:
+             base += ', opaque="%s"' % opaque
+         if algorithm:
+@@ -120,6 +122,7 @@ def build_digest_header(self, method, url):
+         if entdig:
+             base += ', digest="%s"' % entdig
+         if qop:
++            base += ', qop=%s' % qop
+             base += ', nc=%s, cnonce="%s"' % (ncvalue, cnonce)
+ 
+         return 'Digest %s' % (base)

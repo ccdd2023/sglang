@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/dates.py",
+      "search": "return _wrap_in_tex(result) if self._usetex else result",
+      "replace": "return result if not self._usetex else _wrap_in_tex(result)"
+    }
+  ]
+}
+```

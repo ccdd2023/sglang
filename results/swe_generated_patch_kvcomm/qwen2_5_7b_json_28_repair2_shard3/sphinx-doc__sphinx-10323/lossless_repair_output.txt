@@ -1,0 +1,16 @@
+```json
+{
+  "edits": [
+    {
+      "path": "sphinx/directives/code.py",
+      "search": "lines = reader.read_file(self.filename, location=location)",
+      "replace": "lines = reader.read_file(self.filename, location=location)\n        lines = self._dedent_lines(lines, self.options.get('dedent'))"
+    },
+    {
+      "path": "sphinx/directives/code.py",
+      "search": "def _dedent_lines(self, lines: List[str], dedent: int) -> List[str]:",
+      "replace": "def _dedent_lines(self, lines: List[str], dedent: int) -> List[str]:\n        if dedent is None:\n            return textwrap.dedent(''.join(lines)).splitlines(True)\n\n        if any(s[:dedent].strip() for s in lines):\n            logger.warning(__('non-whitespace stripped by dedent'), location=location)\n\n        new_lines = []\n        for line in lines:\n            new_line = line[dedent:]\n            if line.endswith('\\n') and not new_line:\n                new_line = '\\n'  # keep CRLF\n            new_lines.append(new_line)\n\n        return new_lines"
+    }
+  ]
+}
+```

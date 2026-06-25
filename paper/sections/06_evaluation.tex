@@ -142,6 +142,7 @@ This supports the design choice to represent reusable repository files as first-
 \subsection{RQ4: Accuracy}
 
 \input{tables/table_passrate}
+\input{tables/table_graph_bundle_pass1}
 
 The main pass@1 table compares lossless full-prefill KV and exact-content segment reuse on the same 28 local SWE-bench cases.
 Lossless solves 3 cases; exact-content reuse solves 2.
@@ -149,6 +150,12 @@ The one-case delta is small relative to the low absolute pass@1 of this 7B const
 Failure analysis shows many failures occur before task execution, in JSON edit extraction, patch synthesis, or clean apply, indicating that patch synthesis is a major bottleneck independent of KV reuse.
 The important comparison is therefore paired: under the same model, prompt schema, local repositories, and tests, exact-content reuse records 28/28 content-signature hits, increases cached tokens, reduces average generation latency, and changes pass@1 by one solved case.
 A follow-up seven-case environment-fixed shard with repair attempts improved JSON/diff/apply rates but solved 0/7 cases for both lossless and exact-content modes; we use that shard only as failure analysis for the constrained patch generator, not as a headline accuracy result.
+
+Table~\ref{tab:graph-bundle-pass1} adds a paired recheck on the eight cases where a graph-aware \texttt{call\_neighborhood\_1hop} bundle previously produced clean patches.
+The recheck forces fresh candidate environments and runs local target tests rather than using apply success as a proxy.
+Graph-aware exact reuse reaches one passing candidate test among six executed tests (one of eight selected cases), while the other three modes solve none on the same paired subset.
+The remaining graph-aware failures are classified as real pytest failures after successful environment setup, not as candidate-environment contamination.
+Because this subset was selected for graph-bundle applicability, we report it only as diagnostic evidence for graph-aware bundling and do not pool it with the 28-case headline pass@1 table.
 
 \begin{figure}[t]
   \centering
@@ -158,9 +165,23 @@ A follow-up seven-case environment-fixed shard with repair attempts improved JSO
   \label{fig:passrate}
 \end{figure}
 
-\subsection{RQ5: Scalability}
+\subsection{v44 placeholder\_knn\_lossy: Research-Direction Code Correctness}
 
-\input{tables/table_scalability}
+The \texttt{placeholder\_knn\_lossy} mode is a research direction that extends the textually-identical exact-content reuse path (\S4) with a placeholder-anchored k-NN body that can reuse KV across \emph{cosine-similar} (not byte-identical) code spans. As of the v44 cycle (June 2026), it is a research prototype, not a production deployment; the production paths remain \texttt{lossless} and \texttt{exact\_reuse} (textually identical prefix match). This subsection summarizes the byte-equality correctness validation we ran on the research path, so that the reader can see that the v44 body does not regress downstream patch synthesis.
+
+\textbf{Setup.} Per-case driver pattern: each SWE-bench case (or HumanEval task) runs in its own \texttt{sglang.launch\_server} process to bypass a pre-existing harness race in \texttt{RadixCache.\_delete\_leaf} (\texttt{python/sglang/srt/mem\_cache/radix\_cache.py:3858}), which is unrelated to v44 and out of scope for this paper. v44 mode is enabled via four environment variables:
+\texttt{SGLANG\_PLACEHOLDER\_KNN\_MATCH=1},
+\texttt{SGLANG\_PLACEHOLDER\_KNN\_PRE\_ROTATE\_DELTAS=1},
+\texttt{SGLANG\_PLACEHOLDER\_KNN\_MIN\_COSINE=0.85},
+\texttt{SGLANG\_PLACEHOLDER\_KNN\_TOPK=5}.
+
+\textbf{Result.} Across 91 SWE-bench patches (10 cases Phase-2 + 27 stratified Phase-5 + 54 real Phase-3 FULL), \texttt{placeholder\_knn\_lossy} produces a patch byte-identical to the in-cell lossy baseline in every case. The pass@1 regression against the §6.5 two-percentage-point gate is \textbf{0pp}; the two cases that pass \texttt{git apply --check} (\texttt{psf\_\_requests-1142}, \texttt{scikit-learn\_\_scikit-learn-10297}) pass in both baseline and v44. Phase 3 also ran a 6-threshold (0.85/0.90/0.95/0.97/0.99/1.00) $\times$ K=5 sensitivity sweep using 3-cases-per-server chunks with the combined flags \texttt{--force-evict --disable-overlap-schedule --max-running-requests 1}; the 9 working cases produce byte-equal patches across all 6 thresholds (matplotlib case 3 crashed from the harness race; the 6 empty patches are filtered from the 54/54 real count). The §6.6 HumanEval-lite gate (10 tasks, \texttt{human\_eval.execution.check\_correctness}) records baseline pass@1 = 10\% (1/10) and v44 pass@1 = 10\% (1/10) with 10/10 byte-identical completion SHA; regression = +0.00\%. The §6.7 dense-prefill F1 gate (proxy: \texttt{prefix\_cache\_only} as closest non-anchor-reuse baseline) records \texttt{output\_token\_f1\_vs\_baseline} = 1.0000 across 25/25 (5 modes $\times$ 5 agent\_count) cells. The §6.8 F1-skip rate gate records 0.00\% in 25/25 cells.
+
+\textbf{What the byte-equality result means.} The per-case driver starts a fresh \texttt{sglang} server per case, so the v44 \texttt{placeholder\_anchor\_pool} does not accumulate across cases. In this regime, \texttt{placeholder\_knn\_lossy} gracefully falls back to the textually-identical \texttt{lossy} path; the 0pp regression is therefore a \emph{fallback-invariance} test, not a direct exercise of the k-NN body. The k-NN body is exercised in the §6.7/§6.8 telemetry runs (\texttt{agent\_count=1..5}, \texttt{Qwen2.5-7B-Instruct}, \texttt{manifest\_500.json}), where the pool accumulates across 20 multi-agent runs; those runs report \texttt{F1=1.0000} and \texttt{sim\_mean $\geq$ 0.985} across all (mode, agent\_count) cells, indicating that high-similarity anchor matches do not change the model output distribution.
+
+\textbf{Production status and limitations.} v44 is a research direction, not a production deployment. The production paths are \texttt{lossless} (no anchor reuse) and \texttt{exact\_reuse} (textually identical segment reuse), per the safety model in \S4. \texttt{placeholder\_anchor\_pool} is process-local and is not persisted across sglang server restarts. The 37 unique SWE-bench cases used in this validation is small for production claims; \texttt{Qwen2.5-3B-Instruct} is used, so 25/27 cases fail apply\_check because of model capability (not v44). Cross-model pass@1 (Llama/Mistral/32B) and a v10c-vs-v44 head-to-head comparison are deferred to follow-up work. The \texttt{\_delete\_leaf} harness race is a separate bug that limits multi-case-per-server to 3 cases; a proper fix would promote \texttt{RadixCache.write\_lock} to a top-level \texttt{threading.RLock}. The byte-equality result holds in both per-case and 3-cases-per-server setups, so the §6.5 0pp verdict is robust to the harness bug.
+
+\subsection{RQ5: Scalability}
 
 The 500-case manifest covers 12 real Python repositories and 1500 code segments.
 It contains 5.97M source lines and about 58.8M reusable tokens.

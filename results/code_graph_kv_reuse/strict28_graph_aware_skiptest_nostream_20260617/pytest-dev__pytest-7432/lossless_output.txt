@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "src/_pytest/skipping.py",
+      "search": "if type(rep.longrepr) is tuple:",
+      "replace": "if type(rep.longrepr) is tuple and not item.config.option.runxfail:"
+    }
+  ]
+}
+```

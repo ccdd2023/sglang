@@ -986,6 +986,7 @@ class TokenizerManager(TokenizerCommunicatorMixin, TokenizerManagerMultiItemMixi
                 code_content_signature=obj.code_content_signature,
                 code_anchor_spans=obj.code_anchor_spans,
                 code_anchor_token_spans=obj.code_anchor_token_spans,
+                placeholder_anchor_token_spans=obj.placeholder_anchor_token_spans,
                 reuse_mode=obj.reuse_mode,
                 lossy_alignment_method=obj.lossy_alignment_method,
                 template_task_family=obj.template_task_family,

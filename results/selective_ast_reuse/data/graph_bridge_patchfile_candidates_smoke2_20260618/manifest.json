@@ -1,0 +1,71 @@
+{
+  "label": "graph_bridge_patchfile_candidates_smoke2_20260618",
+  "schema_version": "selective_wholefile_manifest_v1",
+  "source_manifest": "results/repo_level_datasets/manifest_500.json",
+  "source_dataset": "results/repo_level_datasets/swe_verified_500_instances.json",
+  "policy": "benchmark/multi_workflow/selective_reuse_policy_extended.json",
+  "case_count": 2,
+  "file_count": 28,
+  "selective_span_count": 2117,
+  "avg_chars_per_file": 49967.71,
+  "repo_distribution": {
+    "pallets/flask": 1,
+    "psf/requests": 8,
+    "pytest-dev/pytest": 19
+  },
+  "rejected_no_eligible_file": 0,
+  "selection_rule": "mixed-window baseline; original 1-file window for validated expanded bridge-safe cases",
+  "samples": [
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "pytest-dev__pytest-6197",
+      "repo": "pytest-dev/pytest",
+      "version": "5.2",
+      "difficulty": "1-4 hours",
+      "repo_key": "pytest-dev__pytest",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pytest-dev__pytest-6197",
+      "files": [
+        {
+          "path": "src/_pytest/python.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-6197/src/_pytest/python.py",
+          "content_hash": "21fb0c39cd72f2aeca94f2d4fd6fc4acb2d4d803e1553438ab164197110cd787",
+          "lines": 1457,
+          "chars": 54071,
+          "selection_source": "patch_file_candidate_20260618"
+        }
+      ],
+      "selective_wholefile_rule": {
+        "selection": "patch files for extended bridge candidate probe",
+        "source_manifest": "results/selective_ast_reuse/data/combined_no6028_cap4000_plus_expanded_graph_targets_20260618/manifest.json",
+        "candidate_probe": true
+      }
+    },
+    {
+      "source_dataset": "ScalingIntelligence/swe-bench-verified-codebase-content",
+      "metadata_dataset": "princeton-nlp/SWE-bench_Verified",
+      "instance_id": "pytest-dev__pytest-7490",
+      "repo": "pytest-dev/pytest",
+      "version": "6.0",
+      "difficulty": "15 min - 1 hour",
+      "repo_key": "pytest-dev__pytest",
+      "sample_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/repo_level_datasets/pytest-dev__pytest-7490",
+      "files": [
+        {
+          "path": "src/_pytest/skipping.py",
+          "local_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-7490/src/_pytest/skipping.py",
+          "content_hash": "9ce81773726e1f9d52b9441e8141da781170ae3bc786c9e92a09917c8aca85cb",
+          "lines": 315,
+          "chars": 10727,
+          "selection_source": "patch_file_candidate_20260618"
+        }
+      ],
+      "selective_wholefile_rule": {
+        "selection": "patch files for extended bridge candidate probe",
+        "source_manifest": "results/selective_ast_reuse/data/combined_no6028_cap4000_plus_expanded_graph_targets_20260618/manifest.json",
+        "candidate_probe": true
+      }
+    }
+  ],
+  "candidate_probe_note": "Only 6197/7490/7982/8399 are changed to patch-file prompt contexts for selector probing."
+}

@@ -1,0 +1,17 @@
+{
+  "instance_id": "astropy__astropy-13977",
+  "repo": "astropy/astropy",
+  "version": "5.1",
+  "mode": "gold",
+  "env_name": "swe_astropy_astropy_13977_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13977",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity0-quantity0-add]"
+  ],
+  "returncode": 0,
+  "stdout_tail": "\u001b[1m============================= test session starts ==============================\u001b[0m\nplatform linux -- Python 3.9.25, pytest-7.4.0, pluggy-1.3.0\n\nRunning tests with Astropy version 5.3.dev125+g5250b2442.d20260609.\nRunning tests in astropy/units/tests/test_quantity_ufuncs.py::TestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity0-quantity0-add].\n\nDate: 2026-06-09T13:36:19\n\nPlatform: Linux-5.15.0-179-generic-x86_64-with-glibc2.35\n\nExecutable: /home/gfy/miniconda3/envs/swe_astropy_astropy_13977_gold/bin/python\n\nFull Python Version: \n3.9.25 (main, Nov  3 2025, 22:33:05) \n[GCC 11.2.0]\n\nencodings: sys: utf-8, locale: UTF-8, filesystem: utf-8\nbyteorder: little\nfloat info: dig: 15, mant_dig: 15\n\nPackage versions: \nNumpy: 1.25.2\nScipy: not available\nMatplotlib: not available\nh5py: not available\nPandas: not available\nPyERFA: 2.0.0.3\nCython: not available\nScikit-image: not available\nasdf: not available\npyarrow: not available\n\nUsing Astropy options: remote_data: none.\n\nCI: undefined\nARCH_ON_CI: undefined\nIS_CRON: undefined\n\nrootdir: /home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/astropy__astropy-13977\nconfigfile: setup.cfg\nplugins: hypothesis-6.82.6, remotedata-0.4.0, filter-subpackage-0.1.2, astropy-header-0.2.2, mock-3.11.1, astropy-0.10.0, arraydiff-0.5.0, cov-4.1.0, doctestplus-1.0.0, xdist-3.3.1, openfiles-0.5.0\ncollected 1 item\n\nastropy/units/tests/test_quantity_ufuncs.py \u001b[32m.\u001b[0m\u001b[32m                            [100%]\u001b[0m\n\n==================================== PASSES ====================================\n\u001b[36m\u001b[1m=========================== short test summary info ============================\u001b[0m\n\u001b[32mPASSED\u001b[0m astropy/units/tests/test_quantity_ufuncs.py::\u001b[1mTestUfuncReturnsNotImplemented::TestBinaryUfuncs::test_full[None-duck_quantity0-quantity0-add]\u001b[0m\n\u001b[32m============================== \u001b[32m\u001b[1m1 passed\u001b[0m\u001b[32m in 0.28s\u001b[0m\u001b[32m ===============================\u001b[0m\n\n",
+  "stderr_tail": "<frozen importlib._bootstrap>:228: RuntimeWarning: numpy.ndarray size changed, may indicate binary incompatibility. Expected 80 from C header, got 96 from PyObject\n\n"
+}

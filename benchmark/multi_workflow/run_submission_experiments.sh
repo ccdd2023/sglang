@@ -43,7 +43,8 @@ run_e1_full() {
     --output-schema json-edit \
     --server-timeout 600 \
     --port "$((PORT_BASE + 2))" \
-    --out-dir results/swe_generated_patch_kvcomm/qwen2_5_32b_gptq_json_30
+    --emit-ttft \
+    --out-dir results/swe_generated_patch_kvcomm/qwen2_5_32b_gptq_json_30_ttft_20260615
 }
 
 run_e1_smallctx_smoke() {
@@ -97,7 +98,8 @@ run_e2_full() {
     --files-per-case 3 \
     --disable-hierarchical-cache \
     --port "$((PORT_BASE + 4))" \
-    --out-dir results/coding_kvflow_prefetch/qwen2_5_7b_100
+    --emit-ttft \
+    --out-dir results/coding_kvflow_prefetch/qwen2_5_7b_100_ttft_20260615
 }
 
 run_e5_smoke() {

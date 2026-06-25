@@ -1,0 +1,12 @@
+diff --git a/requests/sessions.py b/requests/sessions.py
+--- a/requests/sessions.py
++++ b/requests/sessions.py
+@@ -313,7 +313,7 @@ def prepare_request(self, request):
+     req.method = request.method.upper()
+     req.headers = merge_setting(request.headers, self.headers, dict_class=CaseInsensitiveDict)
+     req.body = request.data
+-    req.files = request.files
++    req.files = request.files or {}
+     req.params = merge_setting(request.params, self.params)
+     req.auth = merge_setting(request.auth, self.auth)
+     req.cookies = merge_setting(request.cookies, self.cookies)

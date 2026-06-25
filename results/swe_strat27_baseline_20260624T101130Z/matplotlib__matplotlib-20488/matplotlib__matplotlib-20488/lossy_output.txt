@@ -1,0 +1,39 @@
+diff --git a/lib/matplotlib/image.py b/lib/matplotlib/image.py
+--- a/lib/matplotlib/image.py
++++ b/lib/matplotlib/image.py
+@@ -542,7 +542,7 @@ def _make_image(self, A, in_bbox, out_bbox, clip_bbox, magnification=1.0,
+             vrange = np.array([vmin, vmax], dtype=scaled_dtype)
+ 
+             A_scaled -= a_min
+-            vrange -= a_min
++            vrange -= a_min.item()
+             if a_min != a_max:
+                 A_scaled /= ((a_max - a_min) / frac)
+                 vrange /= ((a_max - a_min) / frac)
+@@ -550,7 +550,7 @@ def _make_image(self, A, in_bbox, out_bbox, clip_bbox, magnification=1.0,
+             A_resampled += a_min
+             vrange += a_min
+             # if using NoNorm, cast back to the original datatype
+-            if isinstance(self.norm, mcolors.NoNorm):
++            if isinstance(self.norm, mcolors.NoNorm) and a_min != a_max:
+                 A_resampled = A_resampled.astype(A.dtype)
+ 
+             mask = (np.where(A.mask, np.float32(np.nan), np.float32(1))
+@@ -560,7 +560,7 @@ def _make_image(self, A, in_bbox, out_bbox, clip_bbox, magnification=1.0,
+             out_alpha[out_mask] = 1
+             # Apply the pixel-by-pixel alpha values if present
+             alpha = self.get_alpha()
+-            if alpha is not None and np.ndim(alpha) > 0:
++            if alpha is not None and np.ndim(alpha) > 0 and a_min != a_max:
+                 out_alpha *= _resample(self, alpha, out_shape,
+                                        t, resample=True)
+             # mask and run through the norm
+@@ -570,7 +570,7 @@ def _make_image(self, A, in_bbox, out_bbox, clip_bbox, magnification=1.0,
+             resampled_masked = np.ma.masked_array(A_resampled, out_mask)
+             # we have re-set the vmin/vmax to account for small errors
+             # that may have moved input values in/out of range
+-            s_vmin, s_vmax = vrange
++            s_vmin, s_vmax = vrange.item(), vrange.item()
+             if isinstance(self.norm, mcolors.LogNorm):
+                 if s_vmin < 0:
+                     s_vmin = max(s_vmin, np.finfo(scaled_dtype).eps)

@@ -1,0 +1,19 @@
+{
+  "instance_id": "django__django-11066",
+  "repo": "django/django",
+  "version": "3.0",
+  "mode": "gold",
+  "env_name": "swe_django_django_11066_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/django__django-11066",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "./tests/runtests.py",
+    "--verbosity",
+    "2",
+    "--settings=test_sqlite",
+    "--parallel",
+    "1",
+    "contenttypes_tests.test_operations.ContentTypeOperationsTests.test_existing_content_type_rename_other_database"
+  ],
+  "returncode": 1
+}

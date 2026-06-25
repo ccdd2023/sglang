@@ -1,0 +1,206 @@
+{
+  "policy_name": "hybrid_bridge_candidate_smoke6",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 1.0,
+  "min_speedup": 1.01,
+  "diagnostic_only": true,
+  "reject_cap_sensitive": false,
+  "cap_sensitive_allowlist": [],
+  "notes": "Allow current-selector bridge-prefix candidates plus known safe shape-pruned 1724. Diagnostic smoke only.",
+  "runs": [
+    "p5500=results/selective_ast_reuse/prompt_fair_pareto_f090_hybrid_p5500_riskgate_maxtotal9000_28case_20260618/summary.json"
+  ],
+  "cases": {
+    "pallets__flask-5014": {
+      "action": "cap",
+      "max_suffix_copy_len": 5500,
+      "source_run": "current_selector_bridge_dryrun",
+      "source_speedup": 0,
+      "source_token_f1": "",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 2
+      },
+      "reason": "bridge_candidate_current_selector_smoke",
+      "diagnostic_note": "Six-case bridge candidate smoke; not a mainline policy."
+    },
+    "psf__requests-1142": {
+      "action": "cap",
+      "max_suffix_copy_len": 5500,
+      "source_run": "current_selector_bridge_dryrun",
+      "source_speedup": 0,
+      "source_token_f1": "",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 1
+      },
+      "reason": "bridge_candidate_current_selector_smoke",
+      "diagnostic_note": "Six-case bridge candidate smoke; not a mainline policy."
+    },
+    "psf__requests-1724": {
+      "action": "cap",
+      "max_suffix_copy_len": 4001,
+      "source_run": "current_selector_bridge_dryrun",
+      "source_speedup": 0,
+      "source_token_f1": "",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 1
+      },
+      "reason": "bridge_candidate_known_safe_shape_pruned",
+      "diagnostic_note": "Six-case bridge candidate smoke; not a mainline policy."
+    },
+    "psf__requests-1766": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "psf__requests-1921": {
+      "action": "cap",
+      "max_suffix_copy_len": 5500,
+      "source_run": "current_selector_bridge_dryrun",
+      "source_speedup": 0,
+      "source_token_f1": "",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "function": 1
+      },
+      "reason": "bridge_candidate_current_selector_smoke",
+      "diagnostic_note": "Six-case bridge candidate smoke; not a mainline policy."
+    },
+    "psf__requests-2317": {
+      "action": "cap",
+      "max_suffix_copy_len": 5500,
+      "source_run": "current_selector_bridge_dryrun",
+      "source_speedup": 0,
+      "source_token_f1": "",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 1
+      },
+      "reason": "bridge_candidate_current_selector_smoke",
+      "diagnostic_note": "Six-case bridge candidate smoke; not a mainline policy."
+    },
+    "psf__requests-2931": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "psf__requests-5414": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "psf__requests-6028": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-10051": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-10081": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-10356": {
+      "action": "cap",
+      "max_suffix_copy_len": 5500,
+      "source_run": "current_selector_bridge_dryrun",
+      "source_speedup": 0,
+      "source_token_f1": "",
+      "required_selected_span_count_by_granularity": {
+        "bridge_prefix": 1,
+        "method": 11,
+        "function": 1
+      },
+      "reason": "bridge_candidate_current_selector_smoke",
+      "diagnostic_note": "Six-case bridge candidate smoke; not a mainline policy."
+    },
+    "pytest-dev__pytest-5262": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-5631": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-5787": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-5809": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-5840": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-6197": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-6202": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-7205": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-7236": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-7324": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-7432": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-7490": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-7521": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-7571": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-7982": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    },
+    "pytest-dev__pytest-8399": {
+      "action": "reject",
+      "reason": "bridge_candidate_smoke_default_reject",
+      "diagnostic_note": "Rejected for six-case bridge-candidate smoke."
+    }
+  },
+  "source_policy": "results/selective_ast_reuse/pareto_calibration_p5500_semantic_gated_f0895_20260618/hybrid_calibration_policy.json",
+  "validated_smoke": "results/selective_ast_reuse/prompt_fair_p5500_semantic_shapeprune_strict3_20260618"
+}

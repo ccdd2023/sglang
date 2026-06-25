@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "lib/matplotlib/axes/_base.py",
+      "search": "def _process_plot_format(fmt):",
+      "replace": "def _process_plot_format(fmt):\n    if fmt == 'log':\n        return 'log', None, None\n"
+    }
+  ]
+}
+```

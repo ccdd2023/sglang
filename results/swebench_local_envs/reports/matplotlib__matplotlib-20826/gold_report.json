@@ -11,5 +11,5 @@
     "-rA",
     "lib/matplotlib/tests/test_axes.py::test_shared_axes_clear[png]"
   ],
-  "returncode": 4
+  "returncode": 1
 }

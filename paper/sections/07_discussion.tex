@@ -37,3 +37,5 @@ Completing robust host load-back is future work for stronger TTFT gains.
 \paragraph{Scope.}
 \system targets coding MAS prompts with large repeated code-base segments.
 It is not designed to reuse arbitrary natural-language context, approximate code variants, or semantically equivalent but textually different implementations.
+The \texttt{placeholder\_knn\_lossy} v44 mode (§6.4) is a research demonstration of byte-equal fallback safety on cosine-similar anchor matches; it is not part of the production deployment path, which remains textually-identical exact-content reuse.
+The natural next research step toward active-path k-NN benefit is the O5-real architecture fix (inline dense prefill + KVCOMM weighted offset blend, 500--1000 LOC), gated on a proper \texttt{RadixCache.write\_lock} fix for the pre-existing \texttt{\_delete\_leaf} harness race.

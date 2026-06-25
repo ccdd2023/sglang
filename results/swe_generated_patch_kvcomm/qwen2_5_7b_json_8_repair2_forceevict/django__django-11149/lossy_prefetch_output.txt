@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "django/contrib/admin/options.py",
+      "search": "return self.formfield_for_dbfield(db_field, request, **kwargs)",
+      "replace": "return self.formfield_for_dbfield(db_field, request, **kwargs, can_add_related=False, can_change_related=False, can_delete_related=False, can_view_related=False)"
+    }
+  ]
+}
+```

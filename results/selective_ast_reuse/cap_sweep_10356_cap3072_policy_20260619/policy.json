@@ -1,0 +1,13 @@
+{
+  "policy_name": "cap_sweep_10356_cap3072_20260619",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 0.9,
+  "diagnostic_only": true,
+  "cases": {
+    "pytest-dev__pytest-10356": {
+      "action": "cap",
+      "max_suffix_copy_len": 3072,
+      "reason": "cap_sweep_10356_3072"
+    }
+  }
+}

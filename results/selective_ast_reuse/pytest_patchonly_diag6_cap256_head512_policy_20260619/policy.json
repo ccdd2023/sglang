@@ -1,0 +1,44 @@
+{
+  "policy_name": "pytest_patchonly_diag6_cap256_head512_20260619",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 0.9,
+  "diagnostic_only": true,
+  "cases": {
+    "pytest-dev__pytest-7521": {
+      "action": "cap",
+      "max_suffix_copy_len": 256,
+      "suffix_recompute_head_len": 512,
+      "reason": "patchonly_diag_cap256_head512"
+    },
+    "pytest-dev__pytest-7571": {
+      "action": "cap",
+      "max_suffix_copy_len": 256,
+      "suffix_recompute_head_len": 512,
+      "reason": "patchonly_diag_cap256_head512"
+    },
+    "pytest-dev__pytest-7982": {
+      "action": "cap",
+      "max_suffix_copy_len": 256,
+      "suffix_recompute_head_len": 512,
+      "reason": "patchonly_diag_cap256_head512"
+    },
+    "pytest-dev__pytest-8399": {
+      "action": "cap",
+      "max_suffix_copy_len": 256,
+      "suffix_recompute_head_len": 512,
+      "reason": "patchonly_diag_cap256_head512"
+    },
+    "pytest-dev__pytest-6197": {
+      "action": "cap",
+      "max_suffix_copy_len": 256,
+      "suffix_recompute_head_len": 512,
+      "reason": "patchonly_diag_cap256_head512"
+    },
+    "pytest-dev__pytest-5840": {
+      "action": "cap",
+      "max_suffix_copy_len": 256,
+      "suffix_recompute_head_len": 512,
+      "reason": "patchonly_diag_cap256_head512"
+    }
+  }
+}

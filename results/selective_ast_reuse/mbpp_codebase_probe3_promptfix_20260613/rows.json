@@ -1,0 +1,242 @@
+[
+  {
+    "task_id": "11",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 1271.8562228679657,
+    "cached_tokens": 254,
+    "completion": "def remove_Occ(s: str, ch: str) -> str:\n    first_index = s.find(ch)\n    last_index = s.rfind(ch)\n    if first_index == -1 or last_index == -1:\n        return s\n    return s[:first_index] + s[first_index+1:last_index] + s[last_index+1:]",
+    "model_output": "```python\ndef remove_Occ(s: str, ch: str) -> str:\n    first_index = s.find(ch)\n    last_index = s.rfind(ch)\n    if first_index == -1 or last_index == -1:\n        return s\n    return s[:first_index] + s[first_index+1:last_index] + s[last_index+1:]\n```",
+    "lossy_match_reason": null,
+    "span_count": 7,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 122,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 3
+    },
+    "passed": true,
+    "error": ""
+  },
+  {
+    "task_id": "11",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 1281.902538061142,
+    "cached_tokens": 0,
+    "completion": "def remove_Occ(s: str, ch: str) -> str:\n    first_index = s.find(ch)\n    last_index = s.rfind(ch)\n    if first_index == -1 or last_index == -1:\n        return s\n    return s[:first_index] + s[first_index+1:last_index] + s[last_index+1:]",
+    "model_output": "```python\ndef remove_Occ(s: str, ch: str) -> str:\n    first_index = s.find(ch)\n    last_index = s.rfind(ch)\n    if first_index == -1 or last_index == -1:\n        return s\n    return s[:first_index] + s[first_index+1:last_index] + s[last_index+1:]\n```",
+    "lossy_match_reason": "",
+    "span_count": 7,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 76,
+    "estimated_recomputed_tokens": 46,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 3,
+      "granularity_risk": 2
+    },
+    "passed": true,
+    "error": ""
+  },
+  {
+    "task_id": "11",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 1275.5223979949951,
+    "cached_tokens": 254,
+    "completion": "def remove_Occ(s: str, ch: str) -> str:\n    first_index = s.find(ch)\n    last_index = s.rfind(ch)\n    if first_index == -1 or last_index == -1:\n        return s\n    return s[:first_index] + s[first_index+1:last_index] + s[last_index+1:]",
+    "model_output": "```python\ndef remove_Occ(s: str, ch: str) -> str:\n    first_index = s.find(ch)\n    last_index = s.rfind(ch)\n    if first_index == -1 or last_index == -1:\n        return s\n    return s[:first_index] + s[first_index+1:last_index] + s[last_index+1:]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 7,
+    "selected_span_count": 3,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 3
+    },
+    "estimated_reused_tokens": 30,
+    "estimated_recomputed_tokens": 92,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 3
+    },
+    "passed": true,
+    "error": ""
+  },
+  {
+    "task_id": "12",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 518.6664776802063,
+    "cached_tokens": 381,
+    "completion": "def sort_matrix(matrix):\n    return [row for _, row in sorted(zip([sum(row) for row in matrix], matrix))]",
+    "model_output": "```python\ndef sort_matrix(matrix):\n    return [row for _, row in sorted(zip([sum(row) for row in matrix], matrix))]\n```",
+    "lossy_match_reason": null,
+    "span_count": 7,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 157,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 3
+    },
+    "passed": true,
+    "error": ""
+  },
+  {
+    "task_id": "12",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 519.7669599056244,
+    "cached_tokens": 381,
+    "completion": "def sort_matrix(matrix):\n    return [row for _, row in sorted(zip([sum(row) for row in matrix], matrix))]",
+    "model_output": "```python\ndef sort_matrix(matrix):\n    return [row for _, row in sorted(zip([sum(row) for row in matrix], matrix))]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 7,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 111,
+    "estimated_recomputed_tokens": 46,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 3,
+      "granularity_risk": 2
+    },
+    "passed": true,
+    "error": ""
+  },
+  {
+    "task_id": "12",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 521.5441496372223,
+    "cached_tokens": 381,
+    "completion": "def sort_matrix(matrix):\n    return [row for _, row in sorted(zip([sum(row) for row in matrix], matrix))]",
+    "model_output": "```python\ndef sort_matrix(matrix):\n    return [row for _, row in sorted(zip([sum(row) for row in matrix], matrix))]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 7,
+    "selected_span_count": 3,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 3
+    },
+    "estimated_reused_tokens": 30,
+    "estimated_recomputed_tokens": 127,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 3
+    },
+    "passed": true,
+    "error": ""
+  },
+  {
+    "task_id": "14",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 469.76352286338806,
+    "cached_tokens": 256,
+    "completion": "def find_Volume(base, height, length):\n    return 0.5 * base * height * length",
+    "model_output": "```python\ndef find_Volume(base, height, length):\n    return 0.5 * base * height * length\n```",
+    "lossy_match_reason": null,
+    "span_count": 7,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 117,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 3
+    },
+    "passed": true,
+    "error": ""
+  },
+  {
+    "task_id": "14",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 470.99259090423584,
+    "cached_tokens": 256,
+    "completion": "def find_Volume(base, height, length):\n    return 0.5 * base * height * length",
+    "model_output": "```python\ndef find_Volume(base, height, length):\n    return 0.5 * base * height * length\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 7,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 71,
+    "estimated_recomputed_tokens": 46,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 3,
+      "granularity_risk": 2
+    },
+    "passed": true,
+    "error": ""
+  },
+  {
+    "task_id": "14",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 473.3779890537262,
+    "cached_tokens": 256,
+    "completion": "def find_Volume(base, height, length):\n    return 0.5 * base * height * length",
+    "model_output": "```python\ndef find_Volume(base, height, length):\n    return 0.5 * base * height * length\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 7,
+    "selected_span_count": 3,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 3
+    },
+    "estimated_reused_tokens": 30,
+    "estimated_recomputed_tokens": 87,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 3
+    },
+    "passed": true,
+    "error": ""
+  }
+]

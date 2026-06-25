@@ -614,9 +614,13 @@ class ModelRunnerKVCacheMixin:
                         start_layer=self.start_layer,
                         end_layer=self.end_layer,
                         enable_alt_stream=not self.server_args.enable_pdmux,
-                        enable_kv_cache_copy=(
-                            self.server_args.speculative_algorithm is not None
-                        ),
+                        # Phase 2.2: enable unconditionally so the
+                        # placeholder k-NN dispatcher (radix_cache.py
+                        # `_try_placeholder_knn_lossy_match_body`) can
+                        # route to the triton-tiled kernel at default
+                        # SGLANG_NATIVE_MOVE_KV_CACHE=False.  Warmup is
+                        # a 1-element triton kernel (~µs).
+                        enable_kv_cache_copy=True,
                     )
                 else:
                     self.token_to_kv_pool = MHATokenToKVPool(
@@ -633,9 +637,13 @@ class ModelRunnerKVCacheMixin:
                         start_layer=self.start_layer,
                         end_layer=self.end_layer,
                         enable_alt_stream=not self.server_args.enable_pdmux,
-                        enable_kv_cache_copy=(
-                            self.server_args.speculative_algorithm is not None
-                        ),
+                        # Phase 2.2: enable unconditionally so the
+                        # placeholder k-NN dispatcher (radix_cache.py
+                        # `_try_placeholder_knn_lossy_match_body`) can
+                        # route to the triton-tiled kernel at default
+                        # SGLANG_NATIVE_MOVE_KV_CACHE=False.  Warmup is
+                        # a 1-element triton kernel (~µs).
+                        enable_kv_cache_copy=True,
                     )
 
         # Initialize token_to_kv_pool_allocator

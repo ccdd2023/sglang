@@ -1,0 +1,242 @@
+[
+  {
+    "task_id": "11",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 1844.6531949043274,
+    "cached_tokens": 195,
+    "completion": "def remove_first_last_occurrence(s: str, char: str) -> str:\n    try:\n        first_index = s.index(char)\n        last_index = s.rindex(char)\n    except ValueError:\n        return s  # Return the original string if the character is not found\n    if first_index == last_index:\n        return \"\"  # If the first and last occurrence is the same, return an empty string\n    return s[:first_index] + s[first_index+1:last_index] + s[last_index+1:]",
+    "model_output": "```python\ndef remove_first_last_occurrence(s: str, char: str) -> str:\n    try:\n        first_index = s.index(char)\n        last_index = s.rindex(char)\n    except ValueError:\n        return s  # Return the original string if the character is not found\n    if first_index == last_index:\n        return \"\"  # If the first and last occurrence is the same, return an empty string\n    return s[:first_index] + s[first_index+1:last_index] + s[last_index+1:]\n```",
+    "lossy_match_reason": null,
+    "span_count": 7,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 104,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 3
+    },
+    "passed": false,
+    "error": "Traceback (most recent call last):\n  File \"/tmp/tmp4kkc6vy0.py\", line 15, in <module>\n    assert remove_Occ(\"hello\",\"l\") == \"heo\"\n           ^^^^^^^^^^\nNameError: name 'remove_Occ' is not defined\n"
+  },
+  {
+    "task_id": "11",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 1841.894926071167,
+    "cached_tokens": 0,
+    "completion": "def remove_first_last_occurrence(s: str, char: str) -> str:\n    try:\n        first_index = s.index(char)\n        last_index = s.rindex(char)\n    except ValueError:\n        return s  # Return the original string if the character is not found\n    if first_index == last_index:\n        return \"\"  # If the first and last occurrence is the same, return an empty string\n    return s[:first_index] + s[first_index+1:last_index] + s[last_index+1:]",
+    "model_output": "```python\ndef remove_first_last_occurrence(s: str, char: str) -> str:\n    try:\n        first_index = s.index(char)\n        last_index = s.rindex(char)\n    except ValueError:\n        return s  # Return the original string if the character is not found\n    if first_index == last_index:\n        return \"\"  # If the first and last occurrence is the same, return an empty string\n    return s[:first_index] + s[first_index+1:last_index] + s[last_index+1:]\n```",
+    "lossy_match_reason": "",
+    "span_count": 7,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 58,
+    "estimated_recomputed_tokens": 46,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 3,
+      "granularity_risk": 2
+    },
+    "passed": false,
+    "error": "Traceback (most recent call last):\n  File \"/tmp/tmpktwxkria.py\", line 15, in <module>\n    assert remove_Occ(\"hello\",\"l\") == \"heo\"\n           ^^^^^^^^^^\nNameError: name 'remove_Occ' is not defined\n"
+  },
+  {
+    "task_id": "11",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 1844.6997799873352,
+    "cached_tokens": 195,
+    "completion": "def remove_first_last_occurrence(s: str, char: str) -> str:\n    try:\n        first_index = s.index(char)\n        last_index = s.rindex(char)\n    except ValueError:\n        return s  # Return the original string if the character is not found\n    if first_index == last_index:\n        return \"\"  # If the first and last occurrence is the same, return an empty string\n    return s[:first_index] + s[first_index+1:last_index] + s[last_index+1:]",
+    "model_output": "```python\ndef remove_first_last_occurrence(s: str, char: str) -> str:\n    try:\n        first_index = s.index(char)\n        last_index = s.rindex(char)\n    except ValueError:\n        return s  # Return the original string if the character is not found\n    if first_index == last_index:\n        return \"\"  # If the first and last occurrence is the same, return an empty string\n    return s[:first_index] + s[first_index+1:last_index] + s[last_index+1:]\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 7,
+    "selected_span_count": 3,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 3
+    },
+    "estimated_reused_tokens": 30,
+    "estimated_recomputed_tokens": 74,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 3
+    },
+    "passed": false,
+    "error": "Traceback (most recent call last):\n  File \"/tmp/tmpx5zjljk3.py\", line 15, in <module>\n    assert remove_Occ(\"hello\",\"l\") == \"heo\"\n           ^^^^^^^^^^\nNameError: name 'remove_Occ' is not defined\n"
+  },
+  {
+    "task_id": "12",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 501.56188678741455,
+    "cached_tokens": 196,
+    "completion": "def sort_matrix_by_row_sum(matrix: List[List[int]]) -> List[List[int]]:\n    return sorted(matrix, key=sum)",
+    "model_output": "```python\ndef sort_matrix_by_row_sum(matrix: List[List[int]]) -> List[List[int]]:\n    return sorted(matrix, key=sum)\n```",
+    "lossy_match_reason": null,
+    "span_count": 7,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 105,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 3
+    },
+    "passed": false,
+    "error": "Traceback (most recent call last):\n  File \"/tmp/tmpp7ji2id2.py\", line 5, in <module>\n    def sort_matrix_by_row_sum(matrix: List[List[int]]) -> List[List[int]]:\n                                       ^^^^\nNameError: name 'List' is not defined. Did you mean: 'list'?\n"
+  },
+  {
+    "task_id": "12",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 502.0488829612732,
+    "cached_tokens": 196,
+    "completion": "def sort_matrix_by_row_sum(matrix: List[List[int]]) -> List[List[int]]:\n    return sorted(matrix, key=sum)",
+    "model_output": "```python\ndef sort_matrix_by_row_sum(matrix: List[List[int]]) -> List[List[int]]:\n    return sorted(matrix, key=sum)\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 7,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 59,
+    "estimated_recomputed_tokens": 46,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 3,
+      "granularity_risk": 2
+    },
+    "passed": false,
+    "error": "Traceback (most recent call last):\n  File \"/tmp/tmprkvtuss5.py\", line 5, in <module>\n    def sort_matrix_by_row_sum(matrix: List[List[int]]) -> List[List[int]]:\n                                       ^^^^\nNameError: name 'List' is not defined. Did you mean: 'list'?\n"
+  },
+  {
+    "task_id": "12",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 504.2912049293518,
+    "cached_tokens": 196,
+    "completion": "def sort_matrix_by_row_sum(matrix: List[List[int]]) -> List[List[int]]:\n    return sorted(matrix, key=sum)",
+    "model_output": "```python\ndef sort_matrix_by_row_sum(matrix: List[List[int]]) -> List[List[int]]:\n    return sorted(matrix, key=sum)\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 7,
+    "selected_span_count": 3,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 3
+    },
+    "estimated_reused_tokens": 30,
+    "estimated_recomputed_tokens": 75,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 3
+    },
+    "passed": false,
+    "error": "Traceback (most recent call last):\n  File \"/tmp/tmpi30kz0yw.py\", line 5, in <module>\n    def sort_matrix_by_row_sum(matrix: List[List[int]]) -> List[List[int]]:\n                                       ^^^^\nNameError: name 'List' is not defined. Did you mean: 'list'?\n"
+  },
+  {
+    "task_id": "14",
+    "mode": "lossless_full_prefill",
+    "elapsed_ms": 901.6548449993134,
+    "cached_tokens": 190,
+    "completion": "def volume_of_triangular_prism(base_length: float, base_width: float, height: float, length: float) -> float:\n    triangle_area = 0.5 * base_length * base_width\n    return triangle_area * length",
+    "model_output": "```python\ndef volume_of_triangular_prism(base_length: float, base_width: float, height: float, length: float) -> float:\n    triangle_area = 0.5 * base_length * base_width\n    return triangle_area * length\n```",
+    "lossy_match_reason": null,
+    "span_count": 7,
+    "selected_span_count": 0,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {},
+    "estimated_reused_tokens": 0,
+    "estimated_recomputed_tokens": 99,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "default_function_method_low_p90": 3
+    },
+    "passed": false,
+    "error": "Traceback (most recent call last):\n  File \"/tmp/tmp3ql5fnly.py\", line 9, in <module>\n    assert find_Volume(10,8,6) == 240\n           ^^^^^^^^^^^\nNameError: name 'find_Volume' is not defined\n"
+  },
+  {
+    "task_id": "14",
+    "mode": "whole_file_reuse_all",
+    "elapsed_ms": 903.9864909648895,
+    "cached_tokens": 190,
+    "completion": "def volume_of_triangular_prism(base_length: float, base_width: float, height: float, length: float) -> float:\n    triangle_area = 0.5 * base_length * base_width\n    return triangle_area * length",
+    "model_output": "```python\ndef volume_of_triangular_prism(base_length: float, base_width: float, height: float, length: float) -> float:\n    triangle_area = 0.5 * base_length * base_width\n    return triangle_area * length\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 7,
+    "selected_span_count": 2,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "file_prefix": 2
+    },
+    "estimated_reused_tokens": 53,
+    "estimated_recomputed_tokens": 46,
+    "decision_reason_counts": {
+      "reuse:granularity_risk": 2,
+      "default_function_method_low_p90": 3,
+      "granularity_risk": 2
+    },
+    "passed": false,
+    "error": "Traceback (most recent call last):\n  File \"/tmp/tmpesnf2g8l.py\", line 9, in <module>\n    assert find_Volume(10,8,6) == 240\n           ^^^^^^^^^^^\nNameError: name 'find_Volume' is not defined\n"
+  },
+  {
+    "task_id": "14",
+    "mode": "selective_function_method_reuse",
+    "elapsed_ms": 905.6868932247162,
+    "cached_tokens": 190,
+    "completion": "def volume_of_triangular_prism(base_length: float, base_width: float, height: float, length: float) -> float:\n    triangle_area = 0.5 * base_length * base_width\n    return triangle_area * length",
+    "model_output": "```python\ndef volume_of_triangular_prism(base_length: float, base_width: float, height: float, length: float) -> float:\n    triangle_area = 0.5 * base_length * base_width\n    return triangle_area * length\n```",
+    "lossy_match_reason": "exact_code_content_signature",
+    "span_count": 7,
+    "selected_span_count": 3,
+    "span_count_by_granularity": {
+      "file_prefix": 2,
+      "function": 3,
+      "control_block": 2
+    },
+    "selected_span_count_by_granularity": {
+      "function": 3
+    },
+    "estimated_reused_tokens": 30,
+    "estimated_recomputed_tokens": 69,
+    "decision_reason_counts": {
+      "granularity_risk": 4,
+      "reuse:default_function_method_low_p90": 3
+    },
+    "passed": false,
+    "error": "Traceback (most recent call last):\n  File \"/tmp/tmpzq83s36d.py\", line 9, in <module>\n    assert find_Volume(10,8,6) == 240\n           ^^^^^^^^^^^\nNameError: name 'find_Volume' is not defined\n"
+  }
+]

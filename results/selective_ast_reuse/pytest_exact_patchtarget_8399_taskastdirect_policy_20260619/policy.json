@@ -1,0 +1,13 @@
+{
+  "policy_name": "pytest_exact_patchtarget_8399_taskastdirect_20260619",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 0.9,
+  "diagnostic_only": true,
+  "cases": {
+    "pytest-dev__pytest-8399": {
+      "action": "cap",
+      "max_suffix_copy_len": 1024,
+      "reason": "exact_patchtarget_8399_taskastdirect"
+    }
+  }
+}

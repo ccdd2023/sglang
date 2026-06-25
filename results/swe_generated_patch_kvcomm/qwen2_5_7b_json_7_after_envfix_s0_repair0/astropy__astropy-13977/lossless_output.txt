@@ -1,0 +1,11 @@
+```json
+{
+  "edits": [
+    {
+      "path": "astropy/units/quantity.py",
+      "search": "raise ValueError",
+      "replace": "return NotImplemented"
+    }
+  ]
+}
+```

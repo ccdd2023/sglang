@@ -1,0 +1,14 @@
+diff --git a/astropy/modeling/separable.py b/astropy/modeling/separable.py
+--- a/astropy/modeling/separable.py
++++ b/astropy/modeling/separable.py
+@@ -99,6 +99,10 @@
+                        dtype=np.bool_)
+     separable_matrix = _separable(transform)
+     separable_matrix = np.where(separable_matrix != 0, True, False)
++if isinstance(transform, CompoundModel):
++    for submodel in transform.models:
++        if isinstance(submodel, CompoundModel):
++            separable_matrix = np.kron(separable_matrix, np.ones((submodel.n_outputs, submodel.n_inputs), dtype=np.bool_))
+     return separable_matrix
+ 
+ 

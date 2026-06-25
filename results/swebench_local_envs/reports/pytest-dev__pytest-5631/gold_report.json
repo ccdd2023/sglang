@@ -1,0 +1,15 @@
+{
+  "instance_id": "pytest-dev__pytest-5631",
+  "repo": "pytest-dev/pytest",
+  "version": "5.0",
+  "mode": "gold",
+  "env_name": "swe_pytest_dev_pytest_5631_gold",
+  "repo_dir": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/swebench_local_envs/repos/pytest-dev__pytest-5631",
+  "skip_pre_install": false,
+  "test_cmd": [
+    "pytest",
+    "-rA",
+    "testing/python/integration.py::TestMockDecoration::test_mock_sentinel_check_against_numpy_like"
+  ],
+  "returncode": 1
+}

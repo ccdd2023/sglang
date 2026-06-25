@@ -1,0 +1,12 @@
+{
+  "cases": {
+    "pallets__flask-5014": {
+      "file_start_index": 1,
+      "files_per_case": 1,
+      "prefer_selective_files": false,
+      "prefer_graph_target_files": false,
+      "max_file_chars": 68000,
+      "max_complete_file_chars": 68000
+    }
+  }
+}

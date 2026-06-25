@@ -1,0 +1,329 @@
+{
+  "model": "/home/gfy/models/Qwen2.5-7B-Instruct",
+  "dataset": "results/repo_level_datasets/swe_verified_100_instances.json",
+  "manifest": "results/repo_level_datasets/manifest_100.json",
+  "timestamp": "2026-06-11 15:25:06",
+  "git_commit": "3d709f3ce",
+  "command": "benchmark/multi_workflow/bench_swe_generated_patch_kvcomm.py --model /home/gfy/models/Qwen2.5-7B-Instruct --dataset results/repo_level_datasets/swe_verified_100_instances.json --manifest results/repo_level_datasets/manifest_100.json --instance-id-file results/code_graph_kv_reuse/data/graph_pass1_8_applyok.json --enable-graph-aware-lossy --graph-bundle-policy call_neighborhood_1hop --max-cases 1 --start-index 0 --files-per-case 3 --max-file-chars 22000 --output-schema json-edit --prompt-layout agenttemplatekv --force-evict --disable-overlap-schedule --max-running-requests 1 --repair-attempts 1 --max-tokens 768 --max-total-tokens 65536 --chunked-prefill-size 8192 --max-prefill-tokens 16384 --mem-fraction-static 0.82 --out-dir results/code_graph_kv_reuse/pass1_graph_aware_1_with_tests_probe",
+  "experiment": {
+    "repair_attempts": 1,
+    "output_schema": "json-edit",
+    "prompt_layout": "agenttemplatekv",
+    "force_evict": true,
+    "disable_overlap_schedule": true,
+    "max_running_requests": 1,
+    "max_cases": 1,
+    "start_index": 0,
+    "instance_id_file": "results/code_graph_kv_reuse/data/graph_pass1_8_applyok.json",
+    "enable_graph_aware_lossy": true,
+    "code_graph_bundle_manifest": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/data/code_graph_precision_manifest.jsonl",
+    "graph_bundle_policy": "call_neighborhood_1hop",
+    "graph_bundle_role": "planner",
+    "skip_candidate_tests": false
+  },
+  "results": [
+    {
+      "instance_id": "astropy__astropy-12907",
+      "repo": "astropy/astropy",
+      "target_paths": [
+        "astropy/modeling/separable.py"
+      ],
+      "segments": [
+        {
+          "name": "astropy/modeling/separable.py",
+          "lines": 317
+        },
+        {
+          "name": "astropy/modeling/core.py",
+          "lines": 555
+        },
+        {
+          "name": "astropy/table/table.py",
+          "lines": 622
+        }
+      ],
+      "graph_segments": [
+        {
+          "name": "astropy/modeling/separable.py",
+          "lines": 100
+        }
+      ],
+      "modes": [
+        {
+          "mode": "lossless",
+          "elapsed_ms": 2989.2,
+          "repair_elapsed_ms": 4209.76,
+          "cached_tokens": 12985,
+          "lossy_meta": {
+            "lossy_anchor_rope_delta": 0,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "astropy/modeling/separable.py",
+              "lines": 317
+            },
+            {
+              "name": "astropy/modeling/core.py",
+              "lines": 555
+            },
+            {
+              "name": "astropy/table/table.py",
+              "lines": 622
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_1_with_tests_probe/astropy__astropy-12907/lossless_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_1_with_tests_probe/astropy__astropy-12907/lossless.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "$ git fetch --all --tags\nFetching origin\n$ git checkout --force d16bfe05a744909de4b27f5875fe0d4ed41ce607\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_astropy_astropy_12907_candidate 'pip<25' wheel\nChannels:\n - defaults\nPlatform: linux-64\nCollecting package metadata (repodata.json): - \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\b\\ \b\b| \b\b/ \b\b- \b\bdone\nSolving environment: | \b\bdone\n\n# All requested packages already installed.\n\n$ /home/gfy/miniconda3/bin/conda run -n swe_astropy_astropy_12907_candidate bash --noprofile --norc -lc 'sed -i '\"'\"'s/requires = \\[\"setuptools\",/requires = \\[\"setuptools==68.0.0\",/'\"'\"' pyproject.toml'\n$ /home/gfy/miniconda3/bin/conda run -n swe_astropy_astropy_12907_candidate python -m pip install attrs==23.1.0 exceptiongroup==1.1.3 execnet==2.0.2 hypothesis==6.82.6 iniconfig==2.0.0 numpy==1.25.2 packaging==23.1 pluggy==1.3.0 psutil==5.9.5 pyerfa==2.0.0.3 pytest-arraydiff==0.5.0 pytest-astropy-header==0.2.2 pytest-astropy==0.10.0 pytest-cov==4.1.0 pytest-doctestplus==1.0.0 pytest-filter-subpackage==0.1.2 pytest-mock==3.11.1 pytest-openfiles==0.5.0 pytest-remotedata==0.4.0 pytest-xdist==3.3.1 pytest==7.4.0 PyYAML==6.0.1 setuptools==68.0.0 sortedcontainers==2.4.0 tomli==2.0.1\nCollecting attrs==23.1.0\n  Using cached attrs-23.1.0-py3-none-any.whl.metadata (11 kB)\nCollecting exceptiongroup==1.1.3\n  Using cached exceptiongroup-1.1.3-py3-none-any.whl.metadata (6.1 kB)\nCollecting execnet==2.0.2\n  Using cached execnet-2.0.2-py3-none-any.whl.metadata (2.9 kB)\nCollecting hypothesis==6.82.6\n  Using cached hypothesis-6.82.6-py3-none-any.whl.metadata (5.9 kB)\nCollecting iniconfig==2.0.0\n  Using cached iniconfig-2.0.0-py3-none-any.whl.metadata (2.6 kB)\nCollecting numpy==1.25.2\n  Using cached numpy-1.25.2.tar.gz (10.8 MB)\n  Installing build dependencies: started\n  Installing build dependencies: finished with status 'done'\n  Getting requirements to build wheel: started\n  Getting requirements to build wheel: finished with status 'error'\n\n",
+            "stderr_tail": "and_load_unlocked\n        File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n        File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n        File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n        File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n        File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n        File \"<frozen importlib._bootstrap_external>\", line 999, in exec_module\n        File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n        File \"/tmp/pip-build-env-gbjfbqbn/overlay/lib/python3.12/site-packages/setuptools/__init__.py\", line 16, in <module>\n          import setuptools.version\n        File \"/tmp/pip-build-env-gbjfbqbn/overlay/lib/python3.12/site-packages/setuptools/version.py\", line 1, in <module>\n          import pkg_resources\n        File \"/tmp/pip-build-env-gbjfbqbn/overlay/lib/python3.12/site-packages/pkg_resources/__init__.py\", line 2172, in <module>\n          register_finder(pkgutil.ImpImporter, find_on_path)\n                          ^^^^^^^^^^^^^^^^^^^\n      AttributeError: module 'pkgutil' has no attribute 'ImpImporter'. Did you mean: 'zipimporter'?\n      [end of output]\n  \n  note: This error originates from a subprocess, and is likely not a problem with pip.\nERROR: Failed to build 'numpy' when getting requirements to build wheel\n\nERROR conda.cli.main_run:execute(125): `conda run python -m pip install attrs==23.1.0 exceptiongroup==1.1.3 execnet==2.0.2 hypothesis==6.82.6 iniconfig==2.0.0 numpy==1.25.2 packaging==23.1 pluggy==1.3.0 psutil==5.9.5 pyerfa==2.0.0.3 pytest-arraydiff==0.5.0 pytest-astropy-header==0.2.2 pytest-astropy==0.10.0 pytest-cov==4.1.0 pytest-doctestplus==1.0.0 pytest-filter-subpackage==0.1.2 pytest-mock==3.11.1 pytest-openfiles==0.5.0 pytest-remotedata==0.4.0 pytest-xdist==3.3.1 pytest==7.4.0 PyYAML==6.0.1 setuptools==68.0.0 sortedcontainers==2.4.0 tomli==2.0.1` failed. (See above for error)\n\n"
+          }
+        },
+        {
+          "mode": "lossy",
+          "elapsed_ms": 1082.35,
+          "repair_elapsed_ms": 1087.91,
+          "cached_tokens": 12986,
+          "lossy_meta": {
+            "lossy_candidate_count": 11,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_first_matched_content_signature": "260dd44a073c0f66",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 5,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_final_matched_content_signature": "260dd44a073c0f66",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 5,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "astropy/modeling/separable.py",
+              "lines": 317
+            },
+            {
+              "name": "astropy/modeling/core.py",
+              "lines": 555
+            },
+            {
+              "name": "astropy/table/table.py",
+              "lines": 622
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_1_with_tests_probe/astropy__astropy-12907/lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_1_with_tests_probe/astropy__astropy-12907/lossy.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in astropy/modeling/separable.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "lossy_prefetch",
+          "elapsed_ms": 1088.21,
+          "repair_elapsed_ms": 1086.67,
+          "cached_tokens": 12987,
+          "lossy_meta": {
+            "lossy_candidate_count": 18,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_first_matched_content_signature": "260dd44a073c0f66",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 15,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "2cb05cbb606a1551",
+            "lossy_final_matched_content_signature": "260dd44a073c0f66",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 15,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 3,
+            "codebase_prefetch_text_count": 3,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 11829,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 11829,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "file_context",
+          "segments": [
+            {
+              "name": "astropy/modeling/separable.py",
+              "lines": 317
+            },
+            {
+              "name": "astropy/modeling/core.py",
+              "lines": 555
+            },
+            {
+              "name": "astropy/table/table.py",
+              "lines": 622
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_1_with_tests_probe/astropy__astropy-12907/lossy_prefetch_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_1_with_tests_probe/astropy__astropy-12907/lossy_prefetch.patch",
+          "diff_extracted": false,
+          "patch_synthesis": {
+            "ok": false,
+            "error": "search not found in astropy/modeling/separable.py",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          },
+          "repair_attempted": true,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": null,
+            "stdout_tail": "",
+            "stderr_tail": "no diff extracted"
+          }
+        },
+        {
+          "mode": "graph_aware_lossy",
+          "elapsed_ms": 1703.31,
+          "repair_elapsed_ms": null,
+          "cached_tokens": 1843,
+          "lossy_meta": {
+            "lossy_candidate_count": 24,
+            "lossy_first_match_reason": "exact_code_content_signature",
+            "lossy_first_reuse_allowed": true,
+            "lossy_first_reuse_confidence": 0.6388,
+            "lossy_first_matched_anchor_signature": "ac4b500237218fab",
+            "lossy_first_matched_content_signature": "32bcd162e4543604",
+            "lossy_first_syntax_region_type": "code_base",
+            "lossy_first_matched_node_id": 9,
+            "lossy_final_match_reason": "exact_code_content_signature",
+            "lossy_final_reuse_allowed": true,
+            "lossy_final_reuse_confidence": 0.6388,
+            "lossy_final_matched_anchor_signature": "ac4b500237218fab",
+            "lossy_final_matched_content_signature": "32bcd162e4543604",
+            "lossy_final_syntax_region_type": "code_base",
+            "lossy_final_matched_node_id": 30,
+            "lossy_anchor_rope_delta": 0,
+            "lossy_predicted_distance": 1.8268,
+            "lossy_context_aware_confidence": 0.6388,
+            "lossy_context_aware_multiplier": 0.6725,
+            "codebase_prefetch_hint_count": 0,
+            "codebase_prefetch_text_count": 0,
+            "codebase_prefetch_queued_tokens": 0,
+            "codebase_prefetch_matched_tokens": 0,
+            "codebase_prefetch_success_count": 0,
+            "codebase_prefetch_device_hit_count": 0,
+            "agenttemplatekv_prefetch_hit_count": 0,
+            "agenttemplatekv_prefetch_miss_count": 0,
+            "agenttemplatekv_prefetch_protected_tokens": 0,
+            "agenttemplatekv_prefetch_newly_protected_tokens": 0,
+            "agenttemplatekv_prefetch_consumed_count": 0,
+            "agenttemplatekv_prefetch_expired_tokens": 0,
+            "agenttemplatekv_rejected_large_gap_count": 0
+          },
+          "segment_source": "code_graph_bundle",
+          "segments": [
+            {
+              "name": "astropy/modeling/separable.py",
+              "lines": 100
+            }
+          ],
+          "raw_output_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_1_with_tests_probe/astropy__astropy-12907/graph_aware_lossy_output.txt",
+          "patch_path": "/home/gfy/CodeMAS_Project/sglang-kvflow/results/code_graph_kv_reuse/pass1_graph_aware_1_with_tests_probe/astropy__astropy-12907/graph_aware_lossy.patch",
+          "diff_extracted": true,
+          "patch_synthesis": {
+            "ok": true,
+            "error": "",
+            "edits": 1
+          },
+          "apply_check": {
+            "returncode": 0,
+            "stdout_tail": "",
+            "stderr_tail": ""
+          },
+          "repair_attempted": false,
+          "generation_error": "",
+          "candidate_test": {
+            "returncode": 1,
+            "stdout_tail": "$ git fetch --all --tags\nFetching origin\n$ git checkout --force d16bfe05a744909de4b27f5875fe0d4ed41ce607\n$ git clean -fdx\n$ /home/gfy/miniconda3/bin/conda install -y -n swe_astropy_astropy_12907_candidate 'pip<25' wheel\nChannels:\n - defaults\nPlatform: linux-64\nCollecting package metadata (repodata.json): - \b\b\\ \b\b| \b\bdone\nSolving environment: - \b\bdone\n\n# All requested packages already installed.\n\n$ /home/gfy/miniconda3/bin/conda run -n swe_astropy_astropy_12907_candidate bash --noprofile --norc -lc 'sed -i '\"'\"'s/requires = \\[\"setuptools\",/requires = \\[\"setuptools==68.0.0\",/'\"'\"' pyproject.toml'\n$ /home/gfy/miniconda3/bin/conda run -n swe_astropy_astropy_12907_candidate python -m pip install attrs==23.1.0 exceptiongroup==1.1.3 execnet==2.0.2 hypothesis==6.82.6 iniconfig==2.0.0 numpy==1.25.2 packaging==23.1 pluggy==1.3.0 psutil==5.9.5 pyerfa==2.0.0.3 pytest-arraydiff==0.5.0 pytest-astropy-header==0.2.2 pytest-astropy==0.10.0 pytest-cov==4.1.0 pytest-doctestplus==1.0.0 pytest-filter-subpackage==0.1.2 pytest-mock==3.11.1 pytest-openfiles==0.5.0 pytest-remotedata==0.4.0 pytest-xdist==3.3.1 pytest==7.4.0 PyYAML==6.0.1 setuptools==68.0.0 sortedcontainers==2.4.0 tomli==2.0.1\nCollecting attrs==23.1.0\n  Using cached attrs-23.1.0-py3-none-any.whl.metadata (11 kB)\nCollecting exceptiongroup==1.1.3\n  Using cached exceptiongroup-1.1.3-py3-none-any.whl.metadata (6.1 kB)\nCollecting execnet==2.0.2\n  Using cached execnet-2.0.2-py3-none-any.whl.metadata (2.9 kB)\nCollecting hypothesis==6.82.6\n  Using cached hypothesis-6.82.6-py3-none-any.whl.metadata (5.9 kB)\nCollecting iniconfig==2.0.0\n  Using cached iniconfig-2.0.0-py3-none-any.whl.metadata (2.6 kB)\nCollecting numpy==1.25.2\n  Using cached numpy-1.25.2.tar.gz (10.8 MB)\n  Installing build dependencies: started\n  Installing build dependencies: finished with status 'done'\n  Getting requirements to build wheel: started\n  Getting requirements to build wheel: finished with status 'error'\n\n",
+            "stderr_tail": "and_load_unlocked\n        File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n        File \"<frozen importlib._bootstrap>\", line 1387, in _gcd_import\n        File \"<frozen importlib._bootstrap>\", line 1360, in _find_and_load\n        File \"<frozen importlib._bootstrap>\", line 1331, in _find_and_load_unlocked\n        File \"<frozen importlib._bootstrap>\", line 935, in _load_unlocked\n        File \"<frozen importlib._bootstrap_external>\", line 999, in exec_module\n        File \"<frozen importlib._bootstrap>\", line 488, in _call_with_frames_removed\n        File \"/tmp/pip-build-env-h_vcvslf/overlay/lib/python3.12/site-packages/setuptools/__init__.py\", line 16, in <module>\n          import setuptools.version\n        File \"/tmp/pip-build-env-h_vcvslf/overlay/lib/python3.12/site-packages/setuptools/version.py\", line 1, in <module>\n          import pkg_resources\n        File \"/tmp/pip-build-env-h_vcvslf/overlay/lib/python3.12/site-packages/pkg_resources/__init__.py\", line 2172, in <module>\n          register_finder(pkgutil.ImpImporter, find_on_path)\n                          ^^^^^^^^^^^^^^^^^^^\n      AttributeError: module 'pkgutil' has no attribute 'ImpImporter'. Did you mean: 'zipimporter'?\n      [end of output]\n  \n  note: This error originates from a subprocess, and is likely not a problem with pip.\nERROR: Failed to build 'numpy' when getting requirements to build wheel\n\nERROR conda.cli.main_run:execute(125): `conda run python -m pip install attrs==23.1.0 exceptiongroup==1.1.3 execnet==2.0.2 hypothesis==6.82.6 iniconfig==2.0.0 numpy==1.25.2 packaging==23.1 pluggy==1.3.0 psutil==5.9.5 pyerfa==2.0.0.3 pytest-arraydiff==0.5.0 pytest-astropy-header==0.2.2 pytest-astropy==0.10.0 pytest-cov==4.1.0 pytest-doctestplus==1.0.0 pytest-filter-subpackage==0.1.2 pytest-mock==3.11.1 pytest-openfiles==0.5.0 pytest-remotedata==0.4.0 pytest-xdist==3.3.1 pytest==7.4.0 PyYAML==6.0.1 setuptools==68.0.0 sortedcontainers==2.4.0 tomli==2.0.1` failed. (See above for error)\n\n"
+          }
+        }
+      ]
+    }
+  ]
+}

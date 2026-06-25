@@ -1,0 +1,37 @@
+{
+  "policy_name": "hybrid_prompt_fair_shape_token_window_calibrated",
+  "mode": "hybrid_code_aware_lossy",
+  "token_f1_threshold": 0.9,
+  "min_speedup": 1.05,
+  "diagnostic_only": true,
+  "not_instance_id_matched": true,
+  "default_action": "reject",
+  "default_reason": "no_shape_token_window_rule",
+  "rule_token_margin_ratio": 0.15,
+  "reject_cap_sensitive": true,
+  "notes": "Generated from existing prompt-fair runs. Rules match only observable selection shape, estimated reused-token windows, and optional task-anchor overlap; evaluate on held-out cases before reporting.",
+  "runs": [
+    "taskaware_p8000_smoke=results/selective_ast_reuse/prompt_fair_taskaware_p8000_uncalibrated_smoke2_20260618/summary.json"
+  ],
+  "rules": [
+    {
+      "name": "calibrated_psf__requests-5414",
+      "action": "cap",
+      "max_suffix_copy_len": 7541,
+      "reason": "shape_token_window_calibration",
+      "source_case": "psf__requests-5414",
+      "source_run": "taskaware_p8000_smoke",
+      "source_speedup": 7.4243,
+      "source_token_f1": 1.0,
+      "match": {
+        "selected_span_count_by_granularity": {
+          "bridge_prefix": 1
+        },
+        "min_estimated_reused_tokens": 3164,
+        "max_estimated_reused_tokens": 4282,
+        "require_anchor_path_mentioned": true
+      }
+    }
+  ],
+  "skipped_conflicting_rules": []
+}
