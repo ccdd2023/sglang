@@ -278,3 +278,9 @@ sgl-kernel/csrc/**/*_musa/
 
 # swebench_local_envs build outputs (loose checkouts from env_build, regenerated on demand)
 results/swebench_local_envs/repos/
+
+# Large data: pandas source checkout for giant-codebase benchmark (462 MB).
+# Regenerate with: git clone https://github.com/pandas-dev/pandas.git results/giant_codebase/pandas_src
+results/giant_codebase/pandas_src/
+results/giant_codebase/tasks/pandas__pandas__1000/manifest.jsonl
+
