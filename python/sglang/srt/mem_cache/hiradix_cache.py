@@ -1428,6 +1428,23 @@ class HiRadixCache(RadixCache):
             value, last_node = self._try_lossy_fuzzy_match(
                 req, key, value, last_node, best_node
             )
+        # PR3 placeholder k-NN: per-slot embedding k-NN reuse (Duke 2026
+        # KVCOMM-style). Runs after byte-exact match; gated by env
+        # SGLANG_PLACEHOLDER_KNN_MATCH=1.  Composes with `_try_lossy_fuzzy_
+        # match` — both can fire on the same request.
+        # FIX (2026-06-26): HiRadixCache.match_prefix previously omitted
+        # this call, so the placeholder k-NN body was never reached for
+        # hicache-enabled deployments. Mirroring the radix_cache.py:686-691
+        # block here. Without this, pool entries are stored (by
+        # _store_placeholder_anchor_kv at cache_finished_req) but never
+        # queried, so hits stay at 0 and the whole KNNFIRST pipeline is
+        # silently disabled.
+        if req is not None and (
+            getattr(req, "placeholder_anchor_token_spans", None) or []
+        ):
+            value, last_node = self._try_placeholder_knn_lossy_match(
+                req, key, value, last_node,
+            )
         if value:
             value = torch.cat(value)
         else:
