@@ -83,6 +83,22 @@ class SchedulerOutputProcessorMixin:
     def _append_lossy_observability(
         self, customized_info: dict, req: Req, send_token_offset: int = 0
     ) -> None:
+        # FIX (2026-06-26): instead of reading the stale req attribute
+        # (which is set by `_store_placeholder_anchor_kv` AFTER
+        # observability reads), read the pool size directly from the
+        # tree_cache. This fixes the long-standing bug where
+        # `placeholder_anchor_store_entry_count` was reported as 0 in
+        # the response even when the pool grew.
+        _dbg_stored_read = None
+        try:
+            _tree = getattr(self, "tree_cache", None)
+            if _tree is not None:
+                with _tree.placeholder_anchor_pool_lock:
+                    _dbg_stored_read = sum(
+                        len(v) for v in _tree.placeholder_anchor_pool.values()
+                    )
+        except Exception:
+            pass
         observability_fields = {
             "lossy_candidate_count": getattr(req, "lossy_candidate_count", None),
             "lossy_first_match_reason": getattr(req, "lossy_first_match_reason", None),
@@ -212,8 +228,10 @@ class SchedulerOutputProcessorMixin:
             "placeholder_knn_topk_similarity_mean": getattr(
                 req, "placeholder_knn_topk_similarity_mean", None
             ),
-            "placeholder_anchor_store_entry_count": getattr(
-                req, "placeholder_anchor_store_entry_count", None
+            "placeholder_anchor_store_entry_count": (
+                _dbg_stored_read
+                if _dbg_stored_read is not None
+                else getattr(req, "placeholder_anchor_store_entry_count", None)
             ),
             "placeholder_anchor_store_skipped_low_f1_count": getattr(
                 req, "placeholder_anchor_store_skipped_low_f1_count", None
