@@ -1343,6 +1343,9 @@ class RadixCache(BasePrefixCache):
         stored = 0
         skipped_low_f1 = 0
         skipped_invalid = 0
+        f1_seen: list[float] = []
+        skipped_no_text = 0
+        skipped_no_actual = 0
         min_f1 = float(
             os.environ.get("SGLANG_PLACEHOLDER_STORE_MIN_F1", "0.60")
         )
@@ -1375,8 +1378,15 @@ class RadixCache(BasePrefixCache):
             # validated by the k-NN read path's cosine floor).
             if text and actual_text:
                 f1_score = self._placeholder_f1(text, actual_text)
-            else:
+            elif text and not actual_text:
+                skipped_no_actual += 1
                 f1_score = 1.0  # unknown — accept by default
+            elif actual_text and not text:
+                skipped_no_text += 1
+                f1_score = 1.0  # unknown — accept by default
+            else:
+                f1_score = 1.0
+            f1_seen.append(f1_score)
             if text and actual_text and f1_score < min_f1:
                 logger.info(
                     "[placeholder_anchor_pool] skip store slot=%s start=%d "
@@ -2658,15 +2668,51 @@ class RadixCache(BasePrefixCache):
             )
             if not neighbors:
                 miss_count += 1
+                if os.environ.get("SGLANG_AST_ALIGNMENT_LOG", "0") == "1":
+                    print(
+                        f"[POOL_DIAG] NO_NEIGHBORS rid={getattr(req, 'rid', '?')} "
+                        f"slot_id={slot_id!r} pool_size={len(pool)} min_cos={min_cos}",
+                        flush=True,
+                    )
                 continue
 
             best, best_sim = neighbors[0]
+            if os.environ.get("SGLANG_AST_ALIGNMENT_LOG", "0") == "1":
+                print(
+                    f"[POOL_DIAG] NEIGHBORS rid={getattr(req, 'rid', '?')} "
+                    f"slot_id={slot_id!r} best_sim={float(best_sim):.4f} "
+                    f"min_cos={min_cos} pool_size={len(pool)} "
+                    f"entry_text_chars={len(getattr(best, 'embedding_text', '') or '')} "
+                    f"query_text_chars={len(text)}",
+                    flush=True,
+                )
             sims_total.append(best_sim)
             entry_len = min(len(best.token_ids), end - start, max_slot_len)
             if entry_len <= 0:
                 miss_count += 1
+                if os.environ.get("SGLANG_AST_ALIGNMENT_LOG", "0") == "1":
+                    print(
+                        f"[POOL_DIAG] ENTRY_LEN_ZERO rid={getattr(req, 'rid', '?')} "
+                        f"slot_id={slot_id!r} best_token_ids_len={len(best.token_ids)} "
+                        f"end-start={end - start} max_slot_len={max_slot_len}",
+                        flush=True,
+                    )
                 continue
-
+            overlap_len = max(0, prefix_len - start)
+            # FIX (2026-06-26): cap overlap_len at entry_len to avoid
+            # negative copy_len when prefix_len overshoots end (e.g.
+            # hicache shared across salts gives prefix_len > end).
+            overlap_len = min(overlap_len, entry_len)
+            copy_offset = overlap_len
+            copy_len = entry_len - overlap_len
+            if os.environ.get("SGLANG_AST_ALIGNMENT_LOG", "0") == "1":
+                print(
+                    f"[POOL_DIAG] COPY_PARAMS rid={getattr(req, 'rid', '?')} "
+                    f"slot_id={slot_id!r} prefix_len={prefix_len} start={start} "
+                    f"end={end} entry_len={entry_len} overlap_len={overlap_len} "
+                    f"copy_len={copy_len}",
+                    flush=True,
+                )
             # Phase 2.4: trim the k-NN copy to only the post-prefix
             # portion of the slot. When start < prefix_len, the prefix
             # cache has [start, prefix_len) of the slot already; we
@@ -2682,6 +2728,10 @@ class RadixCache(BasePrefixCache):
             #  - start < prefix_len: copy_len = entry_len - overlap_len
             #  - start >= prefix_len: copy_len = entry_len, copy_offset=0
             overlap_len = max(0, prefix_len - start)
+            # FIX (2026-06-26): cap overlap_len at entry_len to avoid
+            # negative copy_len when prefix_len overshoots end (e.g.
+            # hicache shared across salts gives prefix_len > end).
+            overlap_len = min(overlap_len, entry_len)
             copy_offset = overlap_len
             copy_len = entry_len - overlap_len
             # Phase 2.5: skip copy when most of the slot is already in
@@ -2969,6 +3019,32 @@ class RadixCache(BasePrefixCache):
                 best.ref_count += 1
                 best.last_access_time = time.monotonic()
             consumed_entries.append(best)
+
+            # AST-alignment measurement (2026-06-26). When the env var
+            # is on, dump a structured line per match so the post-hoc
+            # aggregator can compute hit-rate vs AST-boundary alignment.
+            # Off by default — production unaffected. Uses print() because
+            # the server runs with --log-level error which suppresses
+            # logger.info().
+            if os.environ.get("SGLANG_AST_ALIGNMENT_LOG", "0") == "1":
+                try:
+                    slot_text = str(span.get("text", "") or "")
+                    match_text = str(getattr(best, "embedding_text", "") or "")
+                    rid = getattr(req, "rid", "?")
+                    print(
+                        f"[AST_ALIGN] rid={rid} slot_id={slot_id} cos={float(best_sim):.4f} "
+                        f"slot_start={int(start)} slot_end={int(end)} "
+                        f"match_start={int(getattr(best, 'start_pos', -1))} "
+                        f"match_end={int(getattr(best, 'start_pos', -1)) + int(len(best.token_ids))} "
+                        f"slot_chars={len(slot_text)} match_chars={len(match_text)} "
+                        f"slot_sha1={hashlib.sha1(slot_text.encode('utf-8')).hexdigest()[:12] if slot_text else ''} "
+                        f"match_sha1={hashlib.sha1(match_text.encode('utf-8')).hexdigest()[:12] if match_text else ''} "
+                        f"slot_first={slot_text[:40].replace(chr(10), ' ')} "
+                        f"match_first={match_text[:40].replace(chr(10), ' ')}",
+                        flush=True,
+                    )
+                except Exception as log_exc:  # pragma: no cover - defensive
+                    print(f"[AST_ALIGN] log failed: {log_exc}", flush=True)
 
             exact_values = exact_values + [new_slots]
             exact_len += copy_len
