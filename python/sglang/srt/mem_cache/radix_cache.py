@@ -1319,6 +1319,25 @@ class RadixCache(BasePrefixCache):
             : self.placeholder_pool_max_per_slot
         ]
 
+    # ------------------------------------------------------------------
+    # Direction #3 (AST-boundary chunked prefill) — Phase A infrastructure
+    # ------------------------------------------------------------------
+    #
+    # The optional ASTChunker import below wires up the server-side mirror
+    # of MAScoder's PythonCodeAnchorExtractor. Phase B will use this to
+    # chunk slot text at function/class boundaries and store per-chunk
+    # AnchorKVEntry records; Phase A only ensures the chunker is
+    # importable + testable in isolation. Import failure is non-fatal —
+    # the existing whole-slot k-NN path is unaffected.
+    def _get_ast_chunker(self):  # pragma: no cover - exercised by Phase B
+        try:
+            from sglang.srt.mem_cache.ast_chunker import ASTChunker
+        except ImportError:
+            return None
+        if getattr(self, "_ast_chunker", None) is None:
+            self._ast_chunker = ASTChunker()
+        return self._ast_chunker
+
     def _store_placeholder_anchor_kv(
         self,
         req: Req,
