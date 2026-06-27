@@ -681,3 +681,50 @@ Direction #3 preserves the byte-exact invariant at the chunk level
 even after L3 is removed. Phase A infrastructure was landed in
 commit `7fb1a5bb2` (2026-06-27); Phase B/C/D continue the safe path
 to recover some of the lost 0.33× speedup.
+
+---
+
+## Direction #3 Phase C/D — Read path + telemetry (2026-06-27)
+
+**Status**: Phase C and D landed on `fix/placeholder-pool-activation`
+(commit `5197823bf`). 12 new tests pass (9 read-path + 3 policy).
+
+**Phase C — Read path** (`_try_placeholder_chunk_lossy_match` +
+`_build_chunk_plan` + `_execute_chunk_plan`):
+
+- Sibling call in `match_prefix` after the L3 block. Strict byte-exact:
+  a chunk is only copied when `byte_start`/`byte_end` align exactly
+  AND signature matches. No MiniLM fallback, no drift tolerance.
+- Allocates new KV slots per chunk, runs `kvcache.move_kv_cache`,
+  applies head-only RoPE delta rotation (`_apply_rope_delta_to_head`,
+  Phase 2.1 / EPIC — head_tokens=2).
+- Appends new slots to `match_prefix`'s `value` list so the prefill
+  kernel treats them as part of the matched prefix.
+- Gated by `SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1` (default OFF).
+
+**Phase D — Telemetry**: 7 new per-decision counters
+
+| Counter | Meaning |
+|---|---|
+| `placeholder_chunk_pool_hit_count` | successful chunk-pool copies |
+| `placeholder_chunk_pool_miss_count` | dense_prefill decisions |
+| `placeholder_chunk_pool_skip_no_entry_count` | pool has no entry for (slot_id, sig) |
+| `placeholder_chunk_pool_skip_byte_drift_count` | pool entry byte range differs from chunk |
+| `placeholder_chunk_pool_skip_size_mismatch_count` | byte match but token length differs |
+| `placeholder_chunk_pool_skip_alloc_failed_count` | OOM during KV alloc |
+| `placeholder_chunk_pool_rope_ops_count` | cumulative head rotation ops |
+| `placeholder_chunk_pool_total_tokens_reused` | cumulative tokens copied from pool |
+| `placeholder_chunk_pool_total_tokens_dense` | cumulative tokens dense-computed |
+
+Binary confidence: every `ChunkDecision.confidence` is 1.0 (byte-exact
+hit) or 0.0 (any skip reason). No fractional confidence in production.
+
+**Expected production speedup** (L1 + L2 + L4-chunk): ~1.49× vs
+`prefix_cache_only` baseline. To be validated by the giant-codebase
+smoke run on branch `fix/placeholder-pool-activation` with
+`SGLANG_CHUNKED_PLACEHOLDER_KNN=1 SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1`.
+
+**How to enable**: set both
+`SGLANG_CHUNKED_PLACEHOLDER_KNN=1 SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1`
+in the server's environment. To disable (production default), unset
+both.
