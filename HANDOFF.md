@@ -552,3 +552,95 @@ isolated k-NN copy benefit (same mode, MATCH=1 vs MATCH=0) is
 TRUE architectural fix (O5-real: inline dense prefill + KVCOMM
 weighted offset blend, ~500-1000 LOC) is documented in
 `PLACEHOLDER_KNN_STATUS.md` as future work.
+
+---
+
+## Placeholder Pool Activation — 3 bug fixes (2026-06-27)
+
+The v44 cycle shipped `placeholder_knn_lossy` with 91/91 SWE-bench
+byte-identical correctness, but the **placeholder k-NN body never
+actually fired** in any benchmark. Every run since v44 reported
+`placeholder_anchor_pool_hit_count = 0`. The 2026-06-27 session found
+and fixed three independent bugs:
+
+### Bug 1: `HiRadixCache.match_prefix` never invoked placeholder k-NN body
+
+**File**: `python/sglang/srt/mem_cache/hiradix_cache.py:1398`
+
+`HiRadixCache.match_prefix` (used by default when
+`--enable-hierarchical-cache` is on) overrode `match_prefix` but
+only called `_resolve_lossy_match` and `_try_lossy_fuzzy_match`.
+The placeholder k-NN body was never reached. Fix: added the missing
+`_try_placeholder_knn_lossy_match` call.
+
+### Bug 2: `copy_len` could go negative
+
+**File**: `python/sglang/srt/mem_cache/radix_cache.py:2782`
+
+When hicache shared prefix across cache_salts (`prefix_len > end`),
+`overlap_len > entry_len` → negative `copy_len`, then `if copy_len <= 0: continue`
+dropped the match. Fix: `overlap_len = min(overlap_len, entry_len)`.
+
+### Bug 3: `placeholder_anchor_store_entry_count` always reported 0
+
+**File**: `python/sglang/srt/managers/scheduler_output_processor_mixin.py:222`
+
+Observability reads req attrs during decoding; `_store_placeholder_anchor_kv`
+runs in `cache_finished_req` after generation. Read pool size directly
+from `tree_cache` in observability path instead.
+
+### Branch + measured impact
+
+All three fixes are committed on branch **`fix/placeholder-pool-activation`**
+(off `aaf4b2665`, NOT merged to main yet). 7 commits:
+
+```
+9b0b1086d docs(results): measurement reports
+d4181b797 feat(benchmark): add SWE-Smith giant-codebase driver
+32f0a1640 feat(benchmark): add AST-alignment measurement
+ef973d511 chore(gitignore): exclude 462 MB pandas source
+3a1c03fd3 fix(scheduler): read placeholder pool size live
+30cc77473 fix(radix_cache): cap overlap_len at entry_len
+af33191af fix(hiradix): invoke placeholder k-NN body
+```
+
+60-case × 5-agent measurement (Qwen2.5-3B-Instruct) before vs after:
+
+| Metric | Before | After |
+|---|---:|---:|
+| Placeholder pool hits (300 reqs) | 0 | **408** |
+| AST-aligned hit rate | undefined | **91.8%** |
+| Prefix-cache reuse ratio | 0.5% | **44.9%** |
+| Avg TTFT (placeholder_knn_reuse) | 516 ms | **361 ms** |
+| Speedup vs `prefix_cache_only` baseline | — | **1.43×** |
+
+The 91.8% AST alignment means **Direction #3 (AST-boundary chunked prefill) is worth pursuing** — 8-12 weeks per the prior deep-research synthesis.
+
+### New measurement infrastructure (in this branch)
+
+| File | Purpose |
+|---|---|
+| `benchmark/multi_workflow/bench_ast_alignment_measure.py` | Persistent-server driver with structured `[AST_ALIGN]` log |
+| `benchmark/multi_workflow/aggregate_ast_alignment.py` | Aggregator v2 with byte-identical rate, start/end aligned rate |
+| `benchmark/multi_workflow/bench_giant_codebase_reuse.py` | Multi-agent driver on a single giant code base (SWE-Smith) |
+| `benchmark/multi_workflow/aggregate_giant_codebase.py` | Per-task reuse trend + baseline comparison |
+| `benchmark/multi_workflow/swesmith_pandas_loader.py` | Streams SWE-bench/SWE-Smith HF dataset, filters pandas (2354 tasks) |
+
+### Pending MAScoder commit
+
+The `byte_start`/`byte_end` fields added to `MAScoder/src/mascoder/code_anchor.py`
+are in a separate repo and NOT yet committed. The measurement driver depends
+on this. New session should:
+
+```bash
+cd /home/gfy/CodeMAS_Project/MAScoder
+git status  # shows M src/mascoder/code_anchor.py
+git add src/mascoder/code_anchor.py
+git commit -m "feat(code_anchor): emit byte_start/byte_end alongside start_line/end_line"
+```
+
+### Cross-session handoff doc
+
+The session-handoff plan file `/home/gfy/.claude/plans/whimsical-stirring-thimble.md`
+is the entry point for any new Claude session — it has the bug details,
+reproduction steps, open items, and file inventory.
