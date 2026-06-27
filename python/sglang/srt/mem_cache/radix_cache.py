@@ -114,6 +114,60 @@ class AnchorKVEntry:
         )
 
 
+class ChunkKVEntry:
+    """Direction #3: per-AST-chunk KV cache entry (Phase B write path).
+
+    Stores the KV blocks for a single AST-aligned chunk (function,
+    class, or control-block boundary) within a placeholder slot. The
+    signature matches ``ASTChunker.chunk_text``'s output (sha1[:16] of
+    "lang:type:name:normalized"), so the read path (Phase C) can
+    join by signature without recomputing.
+
+    Invariant preserved: chunks are stored ONLY when the slot's text is
+    byte-identical to the chunk's expected text (the chunker is called
+    on the same string that produced the span). Variable renames or
+    comment edits inside a chunk will NOT produce a matching entry —
+    the chunk pool respects the byte-exact invariant at chunk
+    granularity, which is the production-safety property the L3
+    deprecation (commit ``8064ea45``) requires.
+    """
+
+    def __init__(
+        self,
+        slot_id: str,
+        chunk_signature: str,
+        anchor_type: str,
+        name: str,
+        byte_start: int,
+        byte_end: int,
+        start_token: int,
+        end_token: int,
+        token_ids: torch.Tensor,
+        kv_indices: torch.Tensor,
+        source_node: Optional["TreeNode"] = None,
+    ):
+        self.slot_id = slot_id
+        self.chunk_signature = chunk_signature
+        self.anchor_type = anchor_type
+        self.name = name
+        self.byte_start = byte_start
+        self.byte_end = byte_end
+        self.start_token = start_token
+        self.end_token = end_token
+        self.token_ids = token_ids
+        self.kv_indices = kv_indices
+        self.source_node = source_node
+        self.ref_count = 1
+        self.last_access_time = time.monotonic()
+
+    def __repr__(self):
+        return (
+            f"ChunkKVEntry(slot={self.slot_id!r}, sig={self.chunk_signature!r}, "
+            f"type={self.anchor_type}, name={self.name!r}, "
+            f"tokens={self.start_token}..{self.end_token})"
+        )
+
+
 def _token_prefix_signature(token_ids: list[int] | torch.Tensor, end_pos: int) -> str:
     if end_pos <= 0:
         return "sha1:"
@@ -557,6 +611,24 @@ class RadixCache(BasePrefixCache):
         self.placeholder_pool_max_per_slot: int = int(
             os.environ.get("SGLANG_PLACEHOLDER_POOL_MAX_PER_SLOT", "256")
         )
+        # Direction #3: per-AST-chunk placeholder pool (Phase B write path).
+        # Keyed by (slot_id, chunk_signature); value is a list of ChunkKVEntry
+        # for the same AST chunk at different prompt positions. Read path is
+        # Phase C. The chunk pool is in a separate dict from the whole-slot
+        # pool so the read path can pick which pool to query without
+        # signature-prefix ambiguity. Telemetry counters live on the cache
+        # itself for simplicity; they accumulate across the process lifetime
+        # and reset via `reset()`.
+        self.placeholder_chunk_pool: dict[tuple[str, str], list["ChunkKVEntry"]] = {}
+        self.placeholder_chunk_pool_lock = threading.RLock()
+        self.placeholder_chunk_pool_max_per_key: int = int(
+            os.environ.get("SGLANG_PLACEHOLDER_CHUNK_POOL_MAX_PER_KEY", "16")
+        )
+        # Telemetry: per-process counters.
+        self.placeholder_chunk_pool_hit_count = 0
+        self.placeholder_chunk_pool_miss_count = 0
+        self.placeholder_chunk_pool_total_chunks_stored = 0
+        self.placeholder_chunk_pool_store_call_count = 0
 
         self.rope_base = params.rope_base
         self.rope_rotary_dim = params.rope_rotary_dim
@@ -1482,6 +1554,18 @@ class RadixCache(BasePrefixCache):
             with self.placeholder_anchor_pool_lock:
                 self.placeholder_anchor_pool.setdefault(slot_id, []).append(entry)
                 self._evict_placeholder_pool_slot_locked(slot_id)
+            # Direction #3 Phase B: chunk the slot text and store per-chunk
+            # KV alongside the whole-slot entry. Opt-in via
+            # SGLANG_CHUNKED_PLACEHOLDER_KNN=1. Read path is Phase C.
+            try:
+                self._store_placeholder_chunk_kv(
+                    req, span, span_token_ids, span_kv_indices, start
+                )
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug(
+                    "[placeholder_chunk_pool] store failed for slot=%s: %s",
+                    slot_id, exc,
+                )
             stored += 1
 
         setattr(req, "placeholder_anchor_store_entry_count", stored)
@@ -1493,6 +1577,126 @@ class RadixCache(BasePrefixCache):
                 "skipped_invalid=%d",
                 getattr(req, "rid", "?"), stored, skipped_low_f1, skipped_invalid,
             )
+
+    def _store_placeholder_chunk_kv(
+        self,
+        req: "Req",
+        span: dict,
+        span_token_ids: torch.Tensor,
+        span_kv_indices: torch.Tensor,
+        span_start_pos: int,
+    ) -> int:
+        """Direction #3 Phase B: chunk the slot text and store per-chunk KV.
+
+        Runs the server-side ``ASTChunker`` (mirror of MAScoder's
+        ``PythonCodeAnchorExtractor``) on the slot text, maps each
+        chunk's ``byte_start`` / ``byte_end`` to a token offset within
+        ``span_token_ids`` via the request's tokenizer, and stores one
+        ``ChunkKVEntry`` per chunk in ``placeholder_chunk_pool``.
+
+        Opt-in via env var ``SGLANG_CHUNKED_PLACEHOLDER_KNN=1`` (default
+        OFF until the read path — Phase C — is wired in).
+
+        Returns the number of chunks stored.
+        """
+        if not os.environ.get("SGLANG_CHUNKED_PLACEHOLDER_KNN", "").strip():
+            return 0
+        text = str(span.get("text", "") or "")
+        if not text:
+            return 0
+        slot_id = str(span.get("slot_id", "") or "")
+        if not slot_id:
+            return 0
+
+        chunker = self._get_ast_chunker()
+        if chunker is None:
+            return 0
+
+        try:
+            chunks = chunker.chunk_text(text)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug(
+                "[placeholder_chunk_pool] ASTChunker failed for slot=%s: %s",
+                slot_id, exc,
+            )
+            return 0
+        if not chunks:
+            return 0
+
+        tokenizer = getattr(req, "tokenizer", None)
+        slot_len = len(span_token_ids)
+        stored = 0
+        for chunk in chunks:
+            # Map chunk.byte_start / byte_end to token offsets within the
+            # span. We re-encode the prefix via the request's tokenizer.
+            # If no tokenizer is available, skip this chunk (Phase B is
+            # research-only; the read path will gate on real data).
+            token_start_within = self._byte_to_token_offset(
+                text, chunk.byte_start, tokenizer
+            )
+            token_end_within = self._byte_to_token_offset(
+                text, chunk.byte_end, tokenizer
+            )
+            # Clamp into the span's token range.
+            token_start_within = max(0, min(token_start_within, slot_len))
+            token_end_within = max(token_start_within, min(token_end_within, slot_len))
+            if token_end_within <= token_start_within:
+                continue
+
+            chunk_token_ids = span_token_ids[token_start_within:token_end_within]
+            chunk_kv_indices = span_kv_indices[token_start_within:token_end_within]
+            if len(chunk_token_ids) == 0:
+                continue
+
+            entry = ChunkKVEntry(
+                slot_id=slot_id,
+                chunk_signature=chunk.signature,
+                anchor_type=chunk.anchor_type,
+                name=chunk.name,
+                byte_start=chunk.byte_start,
+                byte_end=chunk.byte_end,
+                start_token=span_start_pos + token_start_within,
+                end_token=span_start_pos + token_end_within,
+                token_ids=chunk_token_ids,
+                kv_indices=chunk_kv_indices,
+                source_node=None,
+            )
+            key = (slot_id, chunk.signature)
+            with self.placeholder_chunk_pool_lock:
+                lst = self.placeholder_chunk_pool.setdefault(key, [])
+                lst.append(entry)
+                # LRU trim on the per-key list. We keep at most
+                # placeholder_chunk_pool_max_per_key entries per chunk
+                # signature (default 16) to bound memory.
+                if len(lst) > self.placeholder_chunk_pool_max_per_key:
+                    lst.sort(key=lambda e: e.last_access_time, reverse=True)
+                    del lst[self.placeholder_chunk_pool_max_per_key :]
+            stored += 1
+
+        with self.placeholder_chunk_pool_lock:
+            self.placeholder_chunk_pool_total_chunks_stored += stored
+            self.placeholder_chunk_pool_store_call_count += 1
+        return stored
+
+    @staticmethod
+    def _byte_to_token_offset(
+        text: str, byte_pos: int, tokenizer: Optional[Any]
+    ) -> int:
+        """Map a byte offset within ``text`` to a token offset.
+
+        Re-encodes the prefix up to ``byte_pos`` via ``tokenizer``. Falls
+        back to 0 if no tokenizer is available — Phase B is research-only
+        and we don't want to guess on production-shaped inputs.
+        """
+        if byte_pos <= 0:
+            return 0
+        if tokenizer is None:
+            return 0
+        try:
+            prefix = text[:byte_pos]
+            return len(tokenizer.encode(prefix, add_special_tokens=False))
+        except Exception:
+            return 0
 
     def _resolve_lossy_match(self, req: Req) -> AnchorMatchResult:
         request_meta = self._build_req_anchor_metadata(req)
