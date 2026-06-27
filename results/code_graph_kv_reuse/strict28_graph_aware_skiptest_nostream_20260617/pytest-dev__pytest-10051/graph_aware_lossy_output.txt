@@ -1,1 +1,0 @@
-{"edits":[{"path":"src/_pytest/logging.py","search":"self._initial_logger_levels.setdefault(logger, logger_obj.level)","replace":"self._initial_logger_levels.setdefault(logger, logger_obj.level if logger else logger_obj.level)"}]}

@@ -1,8 +1,0 @@
-{
-  "psf__requests-6028": {
-    "max_file_chars": 68000,
-    "max_complete_file_chars": 68000,
-    "files_per_case": 1,
-    "file_start_index": 0
-  }
-}

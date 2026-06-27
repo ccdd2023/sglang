@@ -1,1 +1,0 @@
-{"edits":[{"path":"src/_pytest/python.py","search":"collected 1 item / 1 errors","replace":"collected 1 item"}]}

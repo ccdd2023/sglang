@@ -1,7 +1,0 @@
-```json
-{"paths":[{"path":"/path/to/file1.py","search":"import xarray as xr\nclass HasValues(object)) GameController.__init__(self, \n", "replace_with": "\"use xarray as xr\nclass GameController(xr.VariableType, \n
-游戏技巧paralleled contentиемно переименовать и изменить его на корректный JSON формат."}]
-```json
-{"paths":[{"path":"/path/to/file1.py","search\_":"import xarray as xr\nclass GameController(xr.VariableType, \n","replace_with":"import xarray as xr
-
-class GameController(xr.VariableType,\n

@@ -1,3 +1,0 @@
-```json
-{"edits":[{"path":"seaborn/_core/plot.py","search":"assert ax1.get_xlim() == (-.5, 2.5)","replace":"assert ax1.get_xlim() == (-0.5, 2.5)"}]}
-```

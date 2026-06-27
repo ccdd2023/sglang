@@ -1,3 +1,0 @@
-```json
-{"edits":[{"path":"pylint/pyreverse/diagrams/entity/class_diagram.py","search":"obj.node","","
-```

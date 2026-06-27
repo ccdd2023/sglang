@@ -1,1 +1,0 @@
-{"edits":[{"path":"django/db/models/sql/compiler.py","search":"raise DatabaseError('ORDER BY term does not match any column in the result set.')","replace":"raise ValueError('ORDER BY term does not match any column in the result set.')"}]}

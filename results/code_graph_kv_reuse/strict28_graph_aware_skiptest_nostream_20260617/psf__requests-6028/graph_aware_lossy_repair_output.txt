@@ -1,3 +1,0 @@
-```json
-{"edits":[{"path":"utils.py","search":"parsed.netloc, path = path, netloc","replace":"parsed.netloc, path = netloc, path"}]}
-```

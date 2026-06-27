@@ -1,3 +1,0 @@
-```json
-{"edits":[{"path":"sklearn/metrics/cluster/superviseded", "search":"tk / np.sqrt(pk * qk) if tk != 0. else 0.0", "replace":"tk / np.sqrt(pk) * np.sqrt(tk / qk) if tk != 0.0 else 0.0"}]}
-```

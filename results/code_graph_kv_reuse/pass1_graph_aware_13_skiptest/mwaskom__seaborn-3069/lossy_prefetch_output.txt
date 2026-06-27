@@ -1,1 +1,0 @@
-{"edits":[{"path":"seaborn/_core/plot.py","search":"self.plot_data[axis].empty","replace":"self.plot_data[axis].empty or self.var_types[axis] == 'categorical'"}]}

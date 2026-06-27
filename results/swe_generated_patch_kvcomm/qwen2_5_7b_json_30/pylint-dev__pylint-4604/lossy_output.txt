@@ -1,2 +1,0 @@
-```json
-{"edits":[{"path":"pylint/checkers/variables.py","search":"from foo import Bar, Boo","replace":"from .foo import Bar, Boo"}]}```

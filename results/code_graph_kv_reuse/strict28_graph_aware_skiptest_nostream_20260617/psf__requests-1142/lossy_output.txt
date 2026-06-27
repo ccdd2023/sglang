@@ -1,3 +1,0 @@
-```json
-{"edits":[{"path":"requests/models.py","search":"self.prepare_content_length(self.body)","replace":"if self.body is not None: self.prepare_content_length(self.body)"}]}
-```

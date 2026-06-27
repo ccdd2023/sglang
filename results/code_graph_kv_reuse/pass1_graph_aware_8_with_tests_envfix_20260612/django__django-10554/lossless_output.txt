@@ -1,9 +1,0 @@
-{
-  "edits": [
-    {
-      "path": "django/db/models/sql/compiler.py",
-      "search": "self.query.combinator",
-      "replace": "self.query.combinator if self.query.combinator is not None else ''"
-    }
-  ]
-}

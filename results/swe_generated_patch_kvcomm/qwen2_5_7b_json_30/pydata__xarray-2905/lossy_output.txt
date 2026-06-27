@@ -1,2 +1,0 @@
-```json
-[{"edit_path": "xarray/core/variable.py", "search": "data = as_indexable(self._data)[indexer]", "replace": "data = as_indexable(self._data)[indexer]\nif isinstance(rhs, HasValuesValuesAttr):\n    data = data[...]"}]

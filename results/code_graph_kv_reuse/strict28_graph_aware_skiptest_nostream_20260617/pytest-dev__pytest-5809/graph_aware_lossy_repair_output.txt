@@ -1,1 +1,0 @@
-{"edits":[{"path":"src/_pytest/pastebin.py","search":"lexer=python3\"if sys.version_info[0] >= 3 else \"python","replace":"lexer=text"}]}

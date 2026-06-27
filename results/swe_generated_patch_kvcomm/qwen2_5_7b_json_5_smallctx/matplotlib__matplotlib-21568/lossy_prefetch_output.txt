@@ -1,1 +1,0 @@
-{"edits":[{"path":"lib/matplotlib/dates.py","search":"[r'Jan\\$\\mathdefault{ %02d 1990}$' % (day,)],","replace":"[r'$\\mathdefault{1990{-}01{-}%02d}$' % day],"search":"[r'\\$\\mathdefault{%02d:00:00}$' % (hour,)],[r'\\$\\mathdefault{01{-}01\\;%02d}$' % hour]","replace":"[r'$\\mathdefault{01\\;00{:}%02d}$' % hour]"}]}

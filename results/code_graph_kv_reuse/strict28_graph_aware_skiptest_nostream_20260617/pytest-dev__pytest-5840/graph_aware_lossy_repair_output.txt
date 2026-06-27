@@ -1,1 +1,0 @@
-{"edits":[{"path":"src/_pytest/config/__init__.py","search":"values[0].__file__.startswith(str(unique_path(conf))","replace":"values[0].__file__.startswith(str(conf))"}]}

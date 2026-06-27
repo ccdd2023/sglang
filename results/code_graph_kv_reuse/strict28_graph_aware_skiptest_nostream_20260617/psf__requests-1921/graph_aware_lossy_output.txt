@@ -1,1 +1,0 @@
-{"edits":[{"path":"requests/sessions.py","search":"return request_setting","replace":"return {} if request_setting is None else request_setting"}]}

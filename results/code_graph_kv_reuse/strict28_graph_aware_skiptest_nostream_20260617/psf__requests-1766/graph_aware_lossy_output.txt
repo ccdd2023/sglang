@@ -1,1 +1,0 @@
-{"edits":[{"path":"requests/auth.py","search":"qop is None","replace":"qop is None or qop == \"auth\" or 'auth' in qop.split(',')"}]}
