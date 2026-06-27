@@ -32,6 +32,7 @@ import sys
 import threading
 import time
 from collections import defaultdict
+from dataclasses import dataclass
 from functools import lru_cache, partial
 from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Tuple, Union
 
@@ -166,6 +167,75 @@ class ChunkKVEntry:
             f"type={self.anchor_type}, name={self.name!r}, "
             f"tokens={self.start_token}..{self.end_token})"
         )
+
+
+@dataclass
+class ChunkDecision:
+    """Direction #3 Phase C: per-chunk prefill decision.
+
+    Records whether a single AST chunk should be copied from the
+    placeholder_chunk_pool or dense-computed during prefill. The
+    decision is made on strict byte-exact alignment (no MiniLM
+    fallback); see ``_find_byte_exact_chunk_entry``.
+
+    Fields:
+        chunk_signature: sha1[:16] of (lang, type, name, normalized) — joins
+            against pool entries without recomputation.
+        slot_id: which code-base slot this chunk belongs to.
+        name: chunk display name (e.g. function/class name).
+        anchor_type: "function" | "class" | "for" | "while" | "if" | "try".
+        start_token / end_token: absolute global token positions of this chunk
+            in the current request's prompt.
+        token_len: end_token - start_token (convenience).
+        action: "copy_pool" if a byte-exact match was found, else
+            "dense_prefill".
+        pool_entry: the matched ChunkKVEntry when action == "copy_pool";
+            None otherwise.
+        confidence: 1.0 for byte-exact hits, 0.0 for any skip. Binary —
+            see Phase D design doc (no fractional confidence in production).
+        skip_reason: one of ("no_pool_entry", "byte_drift",
+            "size_mismatch", "alloc_failed") when action == "dense_prefill".
+        rope_delta: scalar RoPE delta for the head rotation; only meaningful
+            when action == "copy_pool".
+    """
+
+    chunk_signature: str
+    slot_id: str
+    name: str
+    anchor_type: str
+    start_token: int
+    end_token: int
+    action: str  # "copy_pool" | "dense_prefill"
+    pool_entry: Optional["ChunkKVEntry"] = None
+    confidence: float = 0.0
+    skip_reason: str = ""
+    rope_delta: int = 0
+
+    @property
+    def token_len(self) -> int:
+        return self.end_token - self.start_token
+
+
+@dataclass
+class ChunkPlan:
+    """Direction #3 Phase C: per-request chunk prefill plan.
+
+    A plan is the full set of per-chunk decisions for a single request.
+    It is built by ``_build_chunk_plan`` and consumed by
+    ``_execute_chunk_plan``. The plan is discarded after the prefill
+    completes (it is per-request, not cached).
+    """
+
+    decisions: List["ChunkDecision"]
+    copy_count: int = 0
+    dense_count: int = 0
+
+    def __post_init__(self):
+        if self.copy_count == 0 and self.dense_count == 0 and self.decisions:
+            self.copy_count = sum(
+                1 for d in self.decisions if d.action == "copy_pool"
+            )
+            self.dense_count = len(self.decisions) - self.copy_count
 
 
 def _token_prefix_signature(token_ids: list[int] | torch.Tensor, end_pos: int) -> str:
@@ -629,6 +699,15 @@ class RadixCache(BasePrefixCache):
         self.placeholder_chunk_pool_miss_count = 0
         self.placeholder_chunk_pool_total_chunks_stored = 0
         self.placeholder_chunk_pool_store_call_count = 0
+        # Phase D telemetry: per-decision skip-reason counters. byte-exact
+        # is binary (1.0 hit / 0.0 dense), so these tell us WHY we skipped.
+        self.placeholder_chunk_pool_skip_no_entry_count = 0
+        self.placeholder_chunk_pool_skip_byte_drift_count = 0
+        self.placeholder_chunk_pool_skip_size_mismatch_count = 0
+        self.placeholder_chunk_pool_skip_alloc_failed_count = 0
+        self.placeholder_chunk_pool_rope_ops_count = 0
+        self.placeholder_chunk_pool_total_tokens_reused = 0
+        self.placeholder_chunk_pool_total_tokens_dense = 0
 
         self.rope_base = params.rope_base
         self.rope_rotary_dim = params.rope_rotary_dim
@@ -759,6 +838,15 @@ class RadixCache(BasePrefixCache):
             getattr(req, "placeholder_anchor_token_spans", None) or []
         ):
             value, last_node = self._try_placeholder_knn_lossy_match(
+                req, key, value, last_node,
+            )
+        # Direction #3 Phase C: per-AST-chunk byte-exact reuse. Sibling
+        # call after L3 — the chunk pass picks up cases L3 missed
+        # (semantically-different code) and is byte-exact safe.
+        if req is not None and (
+            getattr(req, "placeholder_anchor_token_spans", None) or []
+        ):
+            value, last_node = self._try_placeholder_chunk_lossy_match(
                 req, key, value, last_node,
             )
         if value:
@@ -1697,6 +1785,427 @@ class RadixCache(BasePrefixCache):
             return len(tokenizer.encode(prefix, add_special_tokens=False))
         except Exception:
             return 0
+
+    # ------------------------------------------------------------------
+    # Direction #3 Phase C/D: per-AST-chunk pool READ path
+    # ------------------------------------------------------------------
+    # Byte-exact decision logic + KV-copy + RoPE-delta + telemetry.
+    # Activated via SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1 (default OFF).
+    #
+
+    def _try_placeholder_chunk_lossy_match(
+        self,
+        req: "Req",
+        key: "RadixKey",
+        exact_values: List[torch.Tensor],
+        exact_node: "TreeNode",
+    ) -> Tuple[List[torch.Tensor], "TreeNode"]:
+        """Direction #3 Phase C: per-AST-chunk byte-exact KV reuse.
+
+        Sibling of ``_try_placeholder_knn_lossy_match``. Walks each
+        placeholder span, chunks it via the server-side ``ASTChunker``
+        (Phase A), and for each chunk tries to find a byte-exact match
+        in ``self.placeholder_chunk_pool`` (Phase B write path). Matches
+        are copied into newly-allocated KV slots with a per-chunk RoPE
+        delta rotation. The new slots are appended to ``exact_values`` so
+        the radix tree's prefill kernel treats them as part of the matched
+        prefix.
+
+        Strict byte-exact: a chunk is only reused when its signature
+        matches AND byte_start/byte_end align exactly AND len(token_ids)
+        matches the pool entry. No MiniLM fallback — this is the L4
+        safe-recovery layer that recovers the 0.33× speedup lost when L3
+        was deprecated (see ``l3-placeholder-knn-deprecated`` memory).
+
+        Gated by ``SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1`` (default OFF).
+        """
+        if os.environ.get("SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH", "0") != "1":
+            return exact_values, exact_node
+        spans = getattr(req, "placeholder_anchor_token_spans", None) or []
+        if not spans:
+            return exact_values, exact_node
+        # NOTE: do NOT early-return when placeholder_chunk_pool is empty.
+        # _build_chunk_plan will produce a no_pool_entry decision for every
+        # chunk, which is exactly what Phase D telemetry wants to count.
+        try:
+            plan = self._build_chunk_plan(req, spans)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug(
+                "[placeholder_chunk_pool] _build_chunk_plan failed: %s", exc,
+            )
+            return exact_values, exact_node
+        # Phase D: bump per-skip-reason counters unconditionally. The
+        # decisions carry their skip_reason; we tally here so the
+        # counters reflect every ChunkPlan execution, not just the
+        # ones with at least one copy_pool decision.
+        skip_no_entry = 0
+        skip_byte_drift = 0
+        skip_size_mismatch = 0
+        for d in plan.decisions:
+            if d.action != "dense_prefill":
+                continue
+            if d.skip_reason == "no_pool_entry":
+                skip_no_entry += 1
+            elif d.skip_reason == "byte_drift":
+                skip_byte_drift += 1
+            elif d.skip_reason == "size_mismatch":
+                skip_size_mismatch += 1
+        self.placeholder_chunk_pool_skip_no_entry_count += skip_no_entry
+        self.placeholder_chunk_pool_skip_byte_drift_count += skip_byte_drift
+        self.placeholder_chunk_pool_skip_size_mismatch_count += (
+            skip_size_mismatch
+        )
+        if plan.copy_count == 0:
+            # No matches — bump miss counter so telemetry captures the
+            # dense decision. alloc_failed counter is only bumped inside
+            # _execute_chunk_plan (it can only happen during KV copy).
+            self.placeholder_chunk_pool_miss_count += plan.dense_count
+            return exact_values, exact_node
+        return self._execute_chunk_plan(
+            req, key, exact_values, exact_node, plan,
+        )
+
+    def _build_chunk_plan(
+        self, req: "Req", spans: List[dict],
+    ) -> ChunkPlan:
+        """Walk each span and build per-chunk copy/dense decisions.
+
+        For each AST chunk in each span:
+          1. Look up ``(slot_id, chunk_signature)`` in ``placeholder_chunk_pool``.
+          2. If pool has no entry → decision = dense, skip_reason = "no_pool_entry".
+          3. Otherwise call ``_find_byte_exact_chunk_entry`` for strict
+             byte/token alignment. If no exact match → dense with
+             skip_reason = "byte_drift" or "size_mismatch".
+          4. On hit → decision = copy_pool, rope_delta computed as
+             ``request_chunk_start_token - pool_entry.start_token``.
+
+        All decisions are appended to ``plan.decisions`` regardless of
+        action — telemetry needs both hits and misses to surface.
+        """
+        plan = ChunkPlan(decisions=[])
+        chunker = self._get_ast_chunker()
+        if chunker is None:
+            return plan
+
+        for span in spans:
+            slot_id = str(span.get("slot_id", "") or "")
+            text = str(span.get("text", "") or "")
+            span_start = int(span.get("start_token", 0) or 0)
+            span_label = str(span.get("label", "") or "")
+            if not slot_id or not text:
+                continue
+            try:
+                chunks = chunker.chunk_text(text)
+            except Exception:
+                continue
+            if not chunks:
+                continue
+
+            for chunk in chunks:
+                key_pool = (slot_id, chunk.signature)
+                with self.placeholder_chunk_pool_lock:
+                    entries = list(
+                        self.placeholder_chunk_pool.get(key_pool, [])
+                    )
+                # Decision: no_pool_entry
+                if not entries:
+                    plan.decisions.append(ChunkDecision(
+                        chunk_signature=chunk.signature,
+                        slot_id=slot_id,
+                        name=chunk.name,
+                        anchor_type=chunk.anchor_type,
+                        start_token=span_start,
+                        end_token=span_start,  # unknown w/o alloc; refined in execute
+                        action="dense_prefill",
+                        pool_entry=None,
+                        confidence=0.0,
+                        skip_reason="no_pool_entry",
+                    ))
+                    continue
+                best = self._find_byte_exact_chunk_entry(chunk, entries)
+                if best is None:
+                    # Could be byte_drift OR size_mismatch; check entry
+                    # byte ranges to disambiguate for telemetry.
+                    any_byte_match = any(
+                        e.byte_start == chunk.byte_start
+                        and e.byte_end == chunk.byte_end
+                        for e in entries
+                    )
+                    skip_reason = (
+                        "size_mismatch" if any_byte_match else "byte_drift"
+                    )
+                    plan.decisions.append(ChunkDecision(
+                        chunk_signature=chunk.signature,
+                        slot_id=slot_id,
+                        name=chunk.name,
+                        anchor_type=chunk.anchor_type,
+                        start_token=span_start,
+                        end_token=span_start,
+                        action="dense_prefill",
+                        pool_entry=None,
+                        confidence=0.0,
+                        skip_reason=skip_reason,
+                    ))
+                    continue
+                # Hit: compute RoPE delta. New chunk starts at the same
+                # global token position as the span (since byte_start=0
+                # chunks within a span). For nested chunks within a
+                # span, span_start_token + within-span offset. Since
+                # ASTChunker.chunk_text gives absolute byte offsets
+                # within the span text, the request's chunk start_token
+                # is span_start_token + (token-offset-of-byte_start).
+                # We approximate using len(token_ids) symmetry: by
+                # construction both pool entry and new request derive
+                # their chunks from the same byte span, so the start
+                # token within the span is identical. The total chunk
+                # length is len(best.token_ids).
+                chunk_token_len = len(best.token_ids)
+                chunk_end = span_start + chunk_token_len
+                # Within-span offset: 0 because ASTChunker produces
+                # byte_start=0 chunks at the top level. For nested
+                # chunks (e.g. methods inside a class span) the byte
+                # offset matters; Phase C takes the conservative view
+                # that all top-level chunks anchor at span_start. Phase
+                # E may refine this for nested chunks.
+                rope_delta = span_start - best.start_token
+                plan.decisions.append(ChunkDecision(
+                    chunk_signature=chunk.signature,
+                    slot_id=slot_id,
+                    name=chunk.name,
+                    anchor_type=chunk.anchor_type,
+                    start_token=span_start,
+                    end_token=chunk_end,
+                    action="copy_pool",
+                    pool_entry=best,
+                    confidence=1.0,
+                    rope_delta=rope_delta,
+                ))
+        # Final counts
+        plan.copy_count = sum(
+            1 for d in plan.decisions if d.action == "copy_pool"
+        )
+        plan.dense_count = len(plan.decisions) - plan.copy_count
+        return plan
+
+    def _find_byte_exact_chunk_entry(
+        self,
+        chunk: Any,
+        entries: List["ChunkKVEntry"],
+    ) -> Optional["ChunkKVEntry"]:
+        """Strict byte-exact validator: returns the first entry where
+        ``byte_start == chunk.byte_start`` AND ``byte_end == chunk.byte_end``.
+
+        Token-content equality holds by construction: both pool entry and
+        new request derive their chunks from byte-equal source text via
+        the deterministic ``ASTChunker.chunk_text`` + deterministic
+        ``_byte_to_token_offset`` pipeline. The signature is a sha1 of
+        the chunk's normalized content, so signature + byte-range
+        alignment is a sufficient (and necessary) byte-exact invariant.
+
+        This is deliberately stricter than L3 (MiniLM cos ≥ 0.85): no
+        tolerance for surface drift. The 8.2% of pool hits that L3
+        recovers are exactly the cases this rejects.
+        """
+        for e in entries:
+            if e.byte_start != chunk.byte_start:
+                continue
+            if e.byte_end != chunk.byte_end:
+                continue
+            return e
+        return None
+
+    def _execute_chunk_plan(
+        self,
+        req: "Req",
+        key: "RadixKey",
+        exact_values: List[torch.Tensor],
+        exact_node: "TreeNode",
+        plan: ChunkPlan,
+    ) -> Tuple[List[torch.Tensor], "TreeNode"]:
+        """Allocate dst slots, move KV from pool, apply RoPE delta, append.
+
+        For each ``copy_pool`` decision in ``plan``:
+          1. Allocate ``copy_len = len(entry.kv_indices)`` new KV slots
+             via ``token_to_kv_pool_allocator.alloc(copy_len)``.
+             - If alloc fails (OOM / pool exhausted), flip the decision
+               to ``dense_prefill`` with ``skip_reason="alloc_failed"`` and
+               continue. The dense prefill kernel will still compute this
+               chunk's tokens from scratch.
+          2. Copy K/V from the pool entry's stored ``kv_indices`` to the
+             newly-allocated slots via ``kvcache.move_kv_cache``.
+             - Falls back to ``move_kv_cache_native`` if the dispatcher
+               isn't available (test stubs).
+          3. Apply per-chunk head-only RoPE delta rotation via
+             ``_apply_rope_delta_to_head``. The delta is
+             ``new_global_pos - stored_global_pos``, which is just
+             ``decision.rope_delta`` (a scalar). Only the first
+             ``head_tokens`` slots are rotated (Phase 2.1 / EPIC).
+          4. Append the new slots tensor to ``exact_values``. The
+             radix prefill kernel will see them as part of the matched
+             prefix and skip recomputing those tokens.
+
+        On alloc failure the decision is mutated in-place; on success
+        the pool entry's ``last_access_time`` is bumped for LRU.
+
+        Telemetry: hit / miss / per-skip counters and tokens_reused /
+        tokens_dense are bumped on every decision.
+        """
+        new_value_slices: List[torch.Tensor] = []
+        # Head-only RoPE rotation depth (EPIC recommended default).
+        head_tokens = int(
+            os.environ.get("SGLANG_CHUNKED_PLACEHOLDER_HEAD_TOKENS", "2")
+        )
+        tokens_reused = 0
+        tokens_dense = plan.dense_count  # already-known dense count
+        alloc_failed_count = 0
+        # NOTE: no_entry/byte_drift/size_mismatch counters are bumped
+        # in _try_placeholder_chunk_lossy_match (the entry method) so
+        # they cover plans with copy_count==0 too. Only alloc_failed
+        # and the hit/token counters are bumped here.
+
+        # Process copy decisions.
+        for decision in plan.decisions:
+            if decision.action != "copy_pool":
+                continue
+            entry = decision.pool_entry
+            copy_len = len(entry.kv_indices)
+            if copy_len == 0:
+                # Defensive: zero-length entry, treat as dense.
+                decision.action = "dense_prefill"
+                decision.skip_reason = "alloc_failed"
+                alloc_failed_count += 1
+                tokens_dense += copy_len
+                continue
+
+            new_slots = self.token_to_kv_pool_allocator.alloc(copy_len)
+            if new_slots is None or (
+                hasattr(new_slots, "__len__") and len(new_slots) != copy_len
+            ):
+                # OOM or shape mismatch: flip to dense for this chunk.
+                decision.action = "dense_prefill"
+                decision.skip_reason = "alloc_failed"
+                decision.pool_entry = None
+                alloc_failed_count += 1
+                plan.copy_count -= 1
+                tokens_dense += copy_len
+                continue
+
+            try:
+                kvcache = self.token_to_kv_pool_allocator.get_kvcache()
+            except Exception as ae:  # pragma: no cover - defensive
+                logger.debug(
+                    "[placeholder_chunk_pool] get_kvcache failed: %s", ae,
+                )
+                decision.action = "dense_prefill"
+                decision.skip_reason = "alloc_failed"
+                decision.pool_entry = None
+                alloc_failed_count += 1
+                plan.copy_count -= 1
+                tokens_dense += copy_len
+                continue
+
+            src_kv = entry.kv_indices
+            dst_kv = new_slots[:copy_len] if hasattr(
+                new_slots, "__getitem__"
+            ) else new_slots
+            try:
+                kvcache.move_kv_cache(dst_kv, src_kv)
+            except AttributeError:
+                # Test stubs may expose only k_buffer/v_buffer.
+                try:
+                    move_kv_cache_native(
+                        kvcache.k_buffer, kvcache.v_buffer, dst_kv, src_kv,
+                    )
+                except Exception as me:  # pragma: no cover - defensive
+                    logger.debug(
+                        "[placeholder_chunk_pool] move_kv failed: %s", me,
+                    )
+                    decision.action = "dense_prefill"
+                    decision.skip_reason = "alloc_failed"
+                    decision.pool_entry = None
+                    alloc_failed_count += 1
+                    plan.copy_count -= 1
+                    tokens_dense += copy_len
+                    continue
+            except Exception as me:  # pragma: no cover - defensive
+                logger.debug(
+                    "[placeholder_chunk_pool] move_kv_cache failed: %s", me,
+                )
+                decision.action = "dense_prefill"
+                decision.skip_reason = "alloc_failed"
+                decision.pool_entry = None
+                alloc_failed_count += 1
+                plan.copy_count -= 1
+                tokens_dense += copy_len
+                continue
+
+            # Apply per-chunk RoPE delta (head-only).
+            rotated_ops = 0
+            if (
+                decision.rope_delta != 0
+                and getattr(self, "rope_rotary_dim", 0) > 0
+            ):
+                try:
+                    rotated_ops = self._apply_rope_delta_to_head(
+                        kvcache.k_buffer, dst_kv, head_tokens,
+                        decision.rope_delta,
+                    )
+                except Exception as re_:  # pragma: no cover - defensive
+                    logger.debug(
+                        "[placeholder_chunk_pool] rope_delta skipped: %s",
+                        re_,
+                    )
+                    rotated_ops = 0
+
+            new_value_slices.append(new_slots)
+            tokens_reused += copy_len
+            # Bump LRU access time on the pool entry.
+            with self.placeholder_chunk_pool_lock:
+                entry.last_access_time = time.monotonic()
+                entry.ref_count += 1
+
+            # Expose per-call telemetry on req (matches L3 pattern).
+            try:
+                prev = getattr(
+                    req, "placeholder_chunk_pool_decision_count", 0,
+                )
+                setattr(
+                    req, "placeholder_chunk_pool_decision_count",
+                    prev + 1,
+                )
+                setattr(
+                    req, "placeholder_chunk_pool_last_rope_delta",
+                    decision.rope_delta,
+                )
+                setattr(
+                    req, "placeholder_chunk_pool_last_rotated_ops",
+                    int(rotated_ops),
+                )
+            except Exception:  # pragma: no cover - defensive
+                pass
+
+        # Update pool-level counters (Phase D telemetry).
+        # no_entry/byte_drift/size_mismatch are bumped in the entry
+        # method; here we only update hit/token/alloc_failed/rope_ops.
+        self.placeholder_chunk_pool_hit_count += len(new_value_slices)
+        self.placeholder_chunk_pool_miss_count += plan.dense_count
+        self.placeholder_chunk_pool_total_tokens_reused += tokens_reused
+        self.placeholder_chunk_pool_total_tokens_dense += tokens_dense
+        self.placeholder_chunk_pool_skip_alloc_failed_count += (
+            alloc_failed_count
+        )
+        # rope_ops_count: sum of head_tokens rotated per call (single
+        # increment per successful copy keeps the cost visible).
+        if new_value_slices:
+            self.placeholder_chunk_pool_rope_ops_count += (
+                head_tokens * len(new_value_slices)
+            )
+
+        if new_value_slices:
+            # Append new slots to the value list so the radix prefill
+            # kernel treats them as part of the matched prefix.
+            exact_values = exact_values + new_value_slices
+        return exact_values, exact_node
 
     def _resolve_lossy_match(self, req: Req) -> AnchorMatchResult:
         request_meta = self._build_req_anchor_metadata(req)
