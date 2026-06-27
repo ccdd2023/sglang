@@ -3490,22 +3490,32 @@ class RadixCache(BasePrefixCache):
         if self.disable:
             return IncLockRefResult(delta=0)
         cap = math.inf if max_ancestors is None else int(max_ancestors)
-        delta = 0
-        locked: list = []
-        steps = 0
-        cur = node
-        # ``steps <= cap`` so max_ancestors=2 locks leaf + 2 ancestors
-        # (3 nodes total). Default cap=math.inf walks to root.
-        while cur is not None and cur != self.root_node and steps <= cap:
-            if cur.lock_ref == 0:
-                self.evictable_size_ -= len(cur.key)
-                self.protected_size_ += len(cur.key)
-                delta -= len(cur.key)
-            cur.lock_ref += 1
-            self._update_leaf_status(cur)
-            locked.append(cur)
-            cur = cur.parent
-            steps += 1
+        # Lock the lock_ref + size accounting + evictable_leaves mutations.
+        # ``anchor_kv_store_lock`` is an RLock (radix_cache.py:549); the
+        # eviction path that calls ``_decrement_anchor_refs`` already holds
+        # it (line 3962), so the re-entry is harmless. Without this lock a
+        # concurrent eviction can observe an inconsistent
+        # ``evictable_size_`` / ``evictable_leaves`` state during the
+        # ``if cur.lock_ref == 0`` check + ``cur.lock_ref += 1`` write
+        # window, leading to assertion failures at line 3397 or
+        # ``RuntimeError: dictionary changed size during iteration``.
+        with self.anchor_kv_store_lock:
+            delta = 0
+            locked: list = []
+            steps = 0
+            cur = node
+            # ``steps <= cap`` so max_ancestors=2 locks leaf + 2 ancestors
+            # (3 nodes total). Default cap=math.inf walks to root.
+            while cur is not None and cur != self.root_node and steps <= cap:
+                if cur.lock_ref == 0:
+                    self.evictable_size_ -= len(cur.key)
+                    self.protected_size_ += len(cur.key)
+                    delta -= len(cur.key)
+                cur.lock_ref += 1
+                self._update_leaf_status(cur)
+                locked.append(cur)
+                cur = cur.parent
+                steps += 1
         # When capped, return the locked list so the caller can release
         # exactly those nodes. For a full walk (default), the caller
         # already tracks the top-level node and dec_lock_ref will walk the
@@ -3573,24 +3583,28 @@ class RadixCache(BasePrefixCache):
         if self.disable:
             return DecLockRefResult(delta=0)
         cap = math.inf if max_ancestors is None else int(max_ancestors)
-        delta = 0
-        steps = 0
-        cur = node
-        # Symmetric with inc_lock_ref: ``steps <= cap``.
-        while cur is not None and cur != self.root_node and steps <= cap:
-            if cur.lock_ref == 1:
-                self.evictable_size_ += len(cur.key)
-                self.protected_size_ -= len(cur.key)
-                delta += len(cur.key)
-            cur.lock_ref -= 1
-            self._update_leaf_status(cur)
-            if cur.parent is None:
-                assert (
-                    cur is self.root_node
-                ), f"This request holds the node from another tree"
-            cur = cur.parent
-            steps += 1
-        return DecLockRefResult(delta=delta)
+        # Symmetric critical section with inc_lock_ref (see comment there
+        # for why ``anchor_kv_store_lock`` is held across the lock_ref +
+        # size + evictable_leaves mutations).
+        with self.anchor_kv_store_lock:
+            delta = 0
+            steps = 0
+            cur = node
+            # Symmetric with inc_lock_ref: ``steps <= cap``.
+            while cur is not None and cur != self.root_node and steps <= cap:
+                if cur.lock_ref == 1:
+                    self.evictable_size_ += len(cur.key)
+                    self.protected_size_ -= len(cur.key)
+                    delta += len(cur.key)
+                cur.lock_ref -= 1
+                self._update_leaf_status(cur)
+                if cur.parent is None:
+                    assert (
+                        cur is self.root_node
+                    ), f"This request holds the node from another tree"
+                cur = cur.parent
+                steps += 1
+            return DecLockRefResult(delta=delta)
 
     def evictable_size(self):
         return self.evictable_size_
