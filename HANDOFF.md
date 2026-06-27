@@ -644,3 +644,40 @@ git commit -m "feat(code_anchor): emit byte_start/byte_end alongside start_line/
 The session-handoff plan file `/home/gfy/.claude/plans/whimsical-stirring-thimble.md`
 is the entry point for any new Claude session — it has the bug details,
 reproduction steps, open items, and file inventory.
+
+## L3 (Placeholder k-NN Body) — DEPRECATED FOR PRODUCTION (2026-06-27)
+
+The placeholder k-NN body (`_try_placeholder_knn_lossy_match` in
+`python/sglang/srt/mem_cache/radix_cache.py:2319`) reuses K/V across
+byte-different code via MiniLM embedding cosine similarity. It was
+instrumental in the v44 / 2026-06-27 measurement sweep:
+
+| Measurement | With L3 (research) | Without L3 (production) |
+|---|---:|---:|
+| 60-case SWE-bench TTFT | 361 ms (1.43×) | ~440 ms (1.32×) |
+| 50 pandas × 5 agent TTFT | 353 ms (1.65×) | ~440 ms (1.32×) |
+| Avg cached ratio (50 pandas) | 53.6% | ~30% |
+
+**Why deprecated**: Code is highly sensitive to surface changes that
+MiniLM cannot distinguish from benign whitespace drift. Variable
+renames (`histogram` → `hist`), signature changes, and comment edits
+all leave MiniLM cos ≥ 0.85 — but reusing K/V from the OLD version
+gives the model a confused representation of the NEW prompt.
+Failure mode is silent: tests pass, output reads correctly, but
+runtime behavior diverges.
+
+**Policy**: Production deployments must keep
+`SGLANG_PLACEHOLDER_KNN_MATCH=0` (the new default). The placeholder
+k-NN code path is preserved only for the giant-codebase research
+measurement sweep, gated behind an explicit `--enable-research-l3`
+CLI flag on `bench_giant_codebase_reuse.py`.
+
+**Companion memory entry**: `l3-placeholder-knn-deprecated` (auto-loaded
+in every new session — read it before touching L3 paths).
+
+**Direction #3 (AST-boundary chunked prefill) is unaffected**:
+Direction #3 preserves the byte-exact invariant at the chunk level
+(function/class boundary chunks), so it remains safe for production
+even after L3 is removed. Phase A infrastructure was landed in
+commit `7fb1a5bb2` (2026-06-27); Phase B/C/D continue the safe path
+to recover some of the lost 0.33× speedup.
