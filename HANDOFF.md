@@ -6,6 +6,17 @@
 
 ---
 
+> ⚠️ **READ FIRST**: For the current single source of truth on project
+> target, see **[CANONICAL_TARGET.md](./CANONICAL_TARGET.md)**.
+>
+> The first paragraphs of this file date from 2026-06-07 and predate
+> the L3 deprecation (2026-06-27) and Direction #3 chunk pool landing.
+> Active branch is `fix/placeholder-pool-activation` at HEAD
+> `fea64d4cc`, **not** the branches referenced in the early sections
+> below.
+
+---
+
 ## What this project is
 
 `sglang-kvflow` is the repository name. The paper's method is **AgentTemplateKV**, a fork of SGLang that adds three contributions for **Coding Multi-Agent System (MAS)** serving:
