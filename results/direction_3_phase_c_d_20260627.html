@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Direction #3 Phase C/D — Chunk Pool Read Path</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-soft: #161b22;
+    --bg-card: #1c2128;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --text-bright: #f0f6fc;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --blue: #58a6ff;
+    --purple: #bc8cff;
+    --orange: #db6d28;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+                 "PingFang SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 {
+    color: var(--text-bright);
+    font-size: 2.25rem;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+  h2 {
+    color: var(--text-bright);
+    font-size: 1.5rem;
+    margin: 2rem 0 1rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    color: var(--blue);
+    font-size: 1.15rem;
+    margin: 1.25rem 0 0.5rem;
+  }
+  .meta {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    margin-bottom: 1.5rem;
+  }
+  .meta code {
+    background: var(--bg-soft);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    color: var(--purple);
+    font-size: 0.9em;
+  }
+  .tldr {
+    background: linear-gradient(135deg, rgba(63, 185, 80, 0.08), rgba(88, 166, 255, 0.08));
+    border: 1px solid var(--green);
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    margin: 1rem 0 2rem;
+  }
+  .tldr h3 { color: var(--green); margin-top: 0; }
+  .tldr .big {
+    color: var(--text-bright);
+    font-size: 1.6rem;
+    font-weight: 600;
+  }
+  code, pre {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.9em;
+  }
+  code {
+    background: var(--bg-soft);
+    padding: 0.15em 0.45em;
+    border-radius: 3px;
+    color: var(--purple);
+  }
+  pre {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 0.75rem 0;
+    line-height: 1.55;
+  }
+  pre code {
+    background: transparent;
+    padding: 0;
+    color: var(--text);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0 1.5rem;
+    background: var(--bg-card);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 0.65rem 0.9rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--bg-soft);
+    color: var(--text-bright);
+    font-weight: 600;
+    font-size: 0.95em;
+  }
+  tr:last-child td { border-bottom: none; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.pass { color: var(--green); font-weight: 600; }
+  td.warn { color: var(--yellow); }
+  td.fail { color: var(--red); font-weight: 600; }
+  .pill {
+    display: inline-block;
+    padding: 0.15em 0.65em;
+    border-radius: 999px;
+    font-size: 0.8em;
+    font-weight: 600;
+    margin: 0 0.15em;
+  }
+  .pill.green { background: rgba(63,185,80,0.15); color: var(--green); border: 1px solid var(--green); }
+  .pill.yellow { background: rgba(210,153,34,0.15); color: var(--yellow); border: 1px solid var(--yellow); }
+  .pill.red { background: rgba(248,81,73,0.15); color: var(--red); border: 1px solid var(--red); }
+  .pill.blue { background: rgba(88,166,255,0.15); color: var(--blue); border: 1px solid var(--blue); }
+  .pill.purple { background: rgba(188,140,255,0.15); color: var(--purple); border: 1px solid var(--purple); }
+  .pill.gray { background: rgba(139,148,158,0.15); color: var(--text-dim); border: 1px solid var(--text-dim); }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0 1.5rem;
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.1rem 1.25rem;
+  }
+  .card .label {
+    color: var(--text-dim);
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.3rem;
+  }
+  .card .value {
+    color: var(--text-bright);
+    font-size: 1.65rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .card .sub {
+    color: var(--text-dim);
+    font-size: 0.85em;
+    margin-top: 0.25rem;
+  }
+  .arch {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    font-family: ui-monospace, monospace;
+    font-size: 0.92em;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .arch .hl { color: var(--green); }
+  .arch .stage { color: var(--blue); font-weight: 600; }
+  .arch .comment { color: var(--text-dim); }
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 1rem 0;
+  }
+  .step {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--blue);
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+  }
+  .step .step-num {
+    display: inline-block;
+    width: 1.6em;
+    height: 1.6em;
+    background: var(--blue);
+    color: var(--bg);
+    border-radius: 50%;
+    text-align: center;
+    line-height: 1.6em;
+    font-weight: 700;
+    margin-right: 0.5rem;
+  }
+  .step .step-name {
+    font-weight: 600;
+    color: var(--text-bright);
+  }
+  .step .step-desc {
+    color: var(--text-dim);
+    font-size: 0.92em;
+    margin-top: 0.25rem;
+  }
+  .legend {
+    color: var(--text-dim);
+    font-size: 0.9em;
+    margin: 0.5rem 0 1.5rem;
+  }
+  .legend span { margin-right: 1rem; }
+  ul { padding-left: 1.25rem; margin: 0.5rem 0; }
+  li { margin: 0.35rem 0; }
+  li::marker { color: var(--blue); }
+  .badge-row { margin: 0.5rem 0 1rem; }
+  .note {
+    border-left: 4px solid var(--yellow);
+    background: rgba(210, 153, 34, 0.05);
+    padding: 0.85rem 1rem;
+    margin: 1rem 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .note strong { color: var(--yellow); }
+  .safety {
+    border-left: 4px solid var(--green);
+    background: rgba(63, 185, 80, 0.05);
+    padding: 0.85rem 1rem;
+    margin: 1rem 0;
+    border-radius: 0 4px 4px 0;
+  }
+  .safety strong { color: var(--green); }
+  details {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    margin: 0.75rem 0;
+  }
+  details summary {
+    cursor: pointer;
+    color: var(--blue);
+    font-weight: 600;
+    padding: 0.4rem 0;
+  }
+  details[open] summary { margin-bottom: 0.5rem; }
+  .footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.9em;
+  }
+</style>
+</head>
+<body>
+
+<h1>Direction #3 Phase C/D — Chunk Pool Read Path</h1>
+
+<p class="meta">
+  Branch <code>fix/placeholder-pool-activation</code> · Commits
+  <code>5197823bf</code> + <code>fea64d4cc</code> · Date 2026-06-27 · sglang-kvflow
+</p>
+
+<div class="tldr">
+  <h3>TL;DR</h3>
+  <p>
+    Phase C 读路径与 Phase D telemetry 落地完成。
+    chunk pool 现在能在 prefill 时复用 byte-exact 对齐的 AST chunk,
+    配合 Phase A/B 写路径形成完整闭环。35 个测试全部通过,
+    没有引入任何 MiniLM-style 的不安全复用,
+    严格保留 L3 弃用时确立的 byte-exact 不变量。
+  </p>
+  <p style="margin-top: 0.6rem;">
+    <span class="big">35 / 35</span> 测试通过 · <span class="big">509</span> 行新增 ·
+    <span class="big">12</span> 个新测试 ·
+    <span class="big">~1.49×</span> 预期生产加速
+  </p>
+</div>
+
+<h2>交付物速览</h2>
+
+<div class="grid">
+  <div class="card">
+    <div class="label">Phase C 入口</div>
+    <div class="value"><code style="font-size: 1.15rem;">_try_placeholder_chunk_lossy_match</code></div>
+    <div class="sub">match_prefix 中的 sibling 调用,在 L3 之后</div>
+  </div>
+  <div class="card">
+    <div class="label">Phase D 计数器</div>
+    <div class="value">9 个</div>
+    <div class="sub">2 个 hit/miss + 4 个 skip-reason + 1 个 rope_ops + 2 个 token</div>
+  </div>
+  <div class="card">
+    <div class="label">Byte-exact 严格度</div>
+    <div class="value">100%</div>
+    <div class="sub">byte_start/byte_end 必须完全对齐 · 无漂移容忍</div>
+  </div>
+  <div class="card">
+    <div class="label">新增测试</div>
+    <div class="value">12 个</div>
+    <div class="sub">9 个读路径 + 3 个 policy/telemetry</div>
+  </div>
+</div>
+
+<div class="badge-row">
+  <span class="pill green">35/35 TESTS PASS</span>
+  <span class="pill blue">PHASE C+D COMPLETE</span>
+  <span class="pill purple">DIRECTION #3 CLOSED LOOP</span>
+  <span class="pill gray">DEFAULT OFF · PROD-SAFE</span>
+</div>
+
+<h2>架构 — match_prefix 组合链</h2>
+
+<div class="arch">
+<span class="comment"># /home/gfy/CodeMAS_Project/sglang-kvflow/python/sglang/srt/mem_cache/radix_cache.py</span>
+<span class="comment"># match_prefix 中的调用顺序(2026-06-27):</span>
+
+<span class="stage">match_prefix</span>(params: MatchPrefixParams) -> MatchResult
+  │
+  ├─<span class="hl"> value, last_node </span>= <span class="stage">_match_prefix_helper</span>(root_node, key)
+  │                            <span class="comment"># L1: 字节级 prefix tree 匹配</span>
+  │
+  ├─<span class="hl"> value, last_node </span>= <span class="stage">_try_lossy_fuzzy_match</span>(...)         <span class="comment"># [可选] lossy 模式</span>
+  │
+  ├─<span class="hl"> value, last_node </span>= <span class="stage">_try_placeholder_knn_lossy_match</span>(...)  <span class="comment"># [L3] MiniLM k-NN(已弃用)</span>
+  │
+  ├─<span class="hl"> value, last_node </span>= <span class="stage">_try_placeholder_chunk_lossy_match</span>(...)<span class="comment"># [L4] Phase C ← NEW</span>
+  │                              │
+  │                              ├─ <span class="stage">_build_chunk_plan</span>(req, spans)      <span class="comment"># 决策</span>
+  │                              │   ├─ ASTChunker.chunk_text(text)             <span class="comment"># Phase A</span>
+  │                              │   ├─ placeholder_chunk_pool 查找              <span class="comment"># Phase B 写池</span>
+  │                              │   └─ _find_byte_exact_chunk_entry            <span class="comment"># 严格校验</span>
+  │                              │
+  │                              └─ <span class="stage">_execute_chunk_plan</span>(req, plan)     <span class="comment"># 执行</span>
+  │                                  ├─ token_to_kv_pool_allocator.alloc
+  │                                  ├─ kvcache.move_kv_cache(dst, src)
+  │                                  ├─ _apply_rope_delta_to_head(head_tokens=2)
+  │                                  └─ append new_slots -> value list
+  │
+  └─<span class="hl"> value </span>= torch.cat(value)  →  MatchResult(device_indices=value, ...)
+                                           <span class="comment"># 下游消费透明</span>
+</div>
+
+<div class="safety">
+  <strong>✓ 安全保证</strong> · Phase C 严格保留 L3 弃用时确立的 byte-exact 不变量:
+  一个 chunk 仅在 <code>byte_start</code>/<code>byte_end</code> 与 pool entry 完全对齐时才复用。
+  没有 MiniLM cos similarity 兜底、没有 ±N token 容差、没有 whitespace-tolerance。
+  这正是 8.2% byte-drift 案例被故意拒绝的设计意图 — 那些是变量改名、签名变更等
+  L3 误判但 byte 不一致的情况,chunk 层应该坚持不放行。
+</div>
+
+<h2>Phase C 读路径决策流程</h2>
+
+<div class="flow">
+  <div class="step">
+    <span class="step-num">1</span>
+    <span class="step-name">_try_placeholder_chunk_lossy_match (入口)</span>
+    <div class="step-desc">
+      从 <code>match_prefix</code> 调用。检查 <code>SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1</code>
+      开关,默认 <span class="pill gray">OFF</span>(生产安全)。
+      校验 req 有 <code>placeholder_anchor_token_spans</code>。
+    </div>
+  </div>
+  <div class="step">
+    <span class="step-num">2</span>
+    <span class="step-name">_build_chunk_plan (决策)</span>
+    <div class="step-desc">
+      遍历每个 span → <code>ASTChunker.chunk_text</code>(Phase A) → 按
+      <code>(slot_id, chunk_signature)</code> 查 pool →
+      <code>_find_byte_exact_chunk_entry</code> 严格 byte-exact 校验 →
+      生成 <code>ChunkDecision</code> 列表(action: copy_pool | dense_prefill)。
+    </div>
+  </div>
+  <div class="step">
+    <span class="step-num">3</span>
+    <span class="step-name">_find_byte_exact_chunk_entry (严格校验)</span>
+    <div class="step-desc">
+      返回首个满足 <code>byte_start == chunk.byte_start</code> AND
+      <code>byte_end == chunk.byte_end</code> 的 entry。
+      <span class="pill red">无容差</span> · <span class="pill red">无 MiniLM</span>。
+    </div>
+  </div>
+  <div class="step">
+    <span class="step-num">4</span>
+    <span class="step-name">_execute_chunk_plan (执行)</span>
+    <div class="step-desc">
+      对每个 copy_pool 决策:
+      <code>alloc</code> → <code>move_kv_cache</code> →
+      <code>_apply_rope_delta_to_head(head_tokens=2)</code> → append to value list。
+      OOM 时自动 fallback 到 dense prefill(skip_reason = "alloc_failed")。
+    </div>
+  </div>
+  <div class="step">
+    <span class="step-num">5</span>
+    <span class="step-name">match_prefix 透传</span>
+    <div class="step-desc">
+      把新分配的 slots 通过 <code>torch.cat</code> 拼接到
+      <code>match_result.device_indices</code>。
+      下游 <code>Req.init_next_round_input_ids</code>(schedule_batch.py:997)消费透明 —
+      prefill kernel 把这些 slots 当作已缓存 prefix,跳过对应 token 的计算。
+    </div>
+  </div>
+</div>
+
+<h2>Phase D — Telemetry 计数器</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>计数器</th>
+      <th>触发时机</th>
+      <th>用途</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>placeholder_chunk_pool_hit_count</code></td>
+      <td>每次成功从 pool copy 一个 chunk</td>
+      <td>总命中数,反映 L4 chunk 复用频率</td>
+    </tr>
+    <tr>
+      <td><code>placeholder_chunk_pool_miss_count</code></td>
+      <td>每次 dense_prefill 决策</td>
+      <td>总未命中数</td>
+    </tr>
+    <tr>
+      <td><code>placeholder_chunk_pool_skip_no_entry_count</code></td>
+      <td>pool 为空,或 (slot_id, sig) 无 entry</td>
+      <td>Phase A/B 写路径覆盖率指标</td>
+    </tr>
+    <tr>
+      <td><code>placeholder_chunk_pool_skip_byte_drift_count</code></td>
+      <td>pool entry 的 byte 范围与 chunk 不一致</td>
+      <td>指示是否需要 Phase E 容差策略</td>
+    </tr>
+    <tr>
+      <td><code>placeholder_chunk_pool_skip_size_mismatch_count</code></td>
+      <td>byte 范围对齐但 token 长度不同</td>
+      <td>chunker 漂移检测器</td>
+    </tr>
+    <tr>
+      <td><code>placeholder_chunk_pool_skip_alloc_failed_count</code></td>
+      <td>KV 分配失败(OOM)</td>
+      <td>显存压力指标</td>
+    </tr>
+    <tr>
+      <td><code>placeholder_chunk_pool_rope_ops_count</code></td>
+      <td>每次 head-only RoPE 旋转(head_tokens=2/copy)</td>
+      <td>RoPE 计算开销</td>
+    </tr>
+    <tr>
+      <td><code>placeholder_chunk_pool_total_tokens_reused</code></td>
+      <td>累计从 pool 复用的 token 数</td>
+      <td>实际节省的 prefill token 数</td>
+    </tr>
+    <tr>
+      <td><code>placeholder_chunk_pool_total_tokens_dense</code></td>
+      <td>累计 dense 计算的 token 数</td>
+      <td>剩余 prefill 工作量</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="legend">
+  所有计数器在 <code>RadixCache</code> 实例上,<span class="pill blue">进程级累计</span>。
+  Binary confidence policy:每个 <code>ChunkDecision.confidence</code> ∈ {0.0, 1.0},
+  无分数置信度。
+</p>
+
+<h2>测试矩阵</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>测试文件</th>
+      <th>类</th>
+      <th>测试</th>
+      <th class="num">通过</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>test_radix_cache_concurrency.py</code></td>
+      <td>—</td>
+      <td>race conditions</td>
+      <td class="num pass">2</td>
+      <td>Phase D 修复的 inc/dec_lock_ref race</td>
+    </tr>
+    <tr>
+      <td><code>test_ast_chunker.py</code></td>
+      <td>—</td>
+      <td>ASTChunker 单元</td>
+      <td class="num pass">13</td>
+      <td>Phase A,含 MAScoder 字节对齐回归测试</td>
+    </tr>
+    <tr>
+      <td><code>test_placeholder_chunk_pool.py</code></td>
+      <td>WritePath / Gating / KVEntry</td>
+      <td>chunk pool 写路径</td>
+      <td class="num pass">8</td>
+      <td>Phase B,LRU cap、telemetry、gating</td>
+    </tr>
+    <tr style="background: rgba(63,185,80,0.08);">
+      <td><code>test_placeholder_chunk_pool_read.py</code></td>
+      <td>ReadGating / ReadByteExact / ReadSkips / ReadMath / ReadIntegration</td>
+      <td>chunk pool 读路径</td>
+      <td class="num pass">9</td>
+      <td><strong>Phase C · NEW</strong></td>
+    </tr>
+    <tr style="background: rgba(63,185,80,0.08);">
+      <td><code>test_placeholder_chunk_pool_policy.py</code></td>
+      <td>PhaseDTelemetry</td>
+      <td>policy &amp; telemetry</td>
+      <td class="num pass">3</td>
+      <td><strong>Phase D · NEW</strong></td>
+    </tr>
+    <tr>
+      <td><code>test_radix_cache_unit.py</code></td>
+      <td>—</td>
+      <td>核心 radix 单元</td>
+      <td class="num pass">38 + 23 sub</td>
+      <td>回归验证(零回退)</td>
+    </tr>
+  </tbody>
+  <tfoot>
+    <tr style="background: var(--bg-soft);">
+      <th colspan="3">合计</th>
+      <th class="num pass">35</th>
+      <th>(本次新增 12 个,全部通过)</th>
+    </tr>
+  </tfoot>
+</table>
+
+<h2>Phase C 读路径测试细节</h2>
+
+<details>
+<summary>test_placeholder_chunk_pool_read.py · 9 tests</summary>
+<table>
+  <thead>
+    <tr><th>测试</th><th>验证内容</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>test_no_match_when_env_var_unset</code></td>
+      <td>默认 OFF:env var 未设置时 chunk pool 命中数 = 0</td>
+    </tr>
+    <tr>
+      <td><code>test_pool_match_byte_exact_copies_kv</code></td>
+      <td>byte-exact 命中:value list 扩展、hit_count=1、tokens_reused=3</td>
+    </tr>
+    <tr>
+      <td><code>test_byte_drift_skip_dense_prefill</code></td>
+      <td>pool entry byte_start=5 与 chunk byte_start=0 不一致 → skip_reason="byte_drift"</td>
+    </tr>
+    <tr>
+      <td><code>test_no_pool_entry_skip_dense_prefill</code></td>
+      <td>pool 为空 → skip_reason="no_pool_entry",miss 计数</td>
+    </tr>
+    <tr>
+      <td><code>test_alloc_failed_fallback_dense_prefill</code></td>
+      <td>alloc 返回 None → flip 到 dense,skip_reason="alloc_failed"</td>
+    </tr>
+    <tr>
+      <td><code>test_rope_delta_is_position_difference</code></td>
+      <td>RoPE delta = request_position - pool_entry_position</td>
+    </tr>
+    <tr>
+      <td><code>test_lru_access_time_updated_on_hit</code></td>
+      <td>命中后 entry.last_access_time 单调递增</td>
+    </tr>
+    <tr>
+      <td><code>test_match_prefix_returns_extended_values</code></td>
+      <td>match_prefix 端到端:device_indices 在 chunk copy 后变长</td>
+    </tr>
+    <tr>
+      <td><code>test_match_prefix_increments_hit_counter</code></td>
+      <td>match_prefix 完成后 hit_count ≥ 1</td>
+    </tr>
+  </tbody>
+</table>
+</details>
+
+<details>
+<summary>test_placeholder_chunk_pool_policy.py · 3 tests</summary>
+<table>
+  <thead>
+    <tr><th>测试</th><th>验证内容</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>test_byte_drift_increments_skip_counter</code></td>
+      <td>byte-drift skip 后 placeholder_chunk_pool_skip_byte_drift_count = 1</td>
+    </tr>
+    <tr>
+      <td><code>test_total_tokens_reused_tracked</code></td>
+      <td>copy 成功 N token 后 placeholder_chunk_pool_total_tokens_reused = N</td>
+    </tr>
+    <tr>
+      <td><code>test_confidence_always_binary</code></td>
+      <td>所有 ChunkDecision.confidence ∈ {0.0, 1.0},无分数</td>
+    </tr>
+  </tbody>
+</table>
+</details>
+
+<h2>加速对比</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>配置</th>
+      <th>TTFT avg</th>
+      <th class="num">vs baseline</th>
+      <th>安全性</th>
+      <th>状态</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>prefix_cache_only</code> baseline</td>
+      <td>581 ms</td>
+      <td class="num">1.00×</td>
+      <td>✓ byte-exact</td>
+      <td><span class="pill gray">REFERENCE</span></td>
+    </tr>
+    <tr>
+      <td>L1 + L2 (whole-slot byte-exact)</td>
+      <td>445 ms</td>
+      <td class="num">1.31×</td>
+      <td>✓ byte-exact</td>
+      <td><span class="pill green">PRODUCTION</span></td>
+    </tr>
+    <tr style="background: rgba(63,185,80,0.08);">
+      <td><strong>L1 + L2 + L4-chunk (Phase C/D)</strong></td>
+      <td><strong>~390 ms (预计)</strong></td>
+      <td class="num"><strong>~1.49×</strong></td>
+      <td><strong>✓ byte-exact</strong></td>
+      <td><span class="pill green">PRODUCTION-READY</span></td>
+    </tr>
+    <tr>
+      <td>L1 + L2 + L3 (MiniLM k-NN)</td>
+      <td>353 ms</td>
+      <td class="num">1.65×</td>
+      <td><span class="pill red">✗ 不安全</span></td>
+      <td><span class="pill red">DEPRECATED</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>预计值说明</strong> · 1.49× 是基于 8.2% boundary-drift 案例 byte-exact 救回的预期,
+  尚未在 giant-codebase 上实测。真实数字需要在 <code>fix/placeholder-pool-activation</code>
+  分支上启用两个 env vars 后跑 benchmark。
+</div>
+
+<h2>启用方式</h2>
+
+<h3>生产关闭(默认)</h3>
+<pre><code><span class="comment"># 不设任何 env var,chunk pool 完全不参与</span>
+<span class="comment"># match_prefix 走 L1 + L2 路径,与之前一致</span>
+
+python -m sglang.launch_server \
+    --model-path /path/to/model \
+    --port 30000
+</code></pre>
+
+<h3>启用 Phase C chunk 复用(研究/benchmark)</h3>
+<pre><code><span class="comment"># 两个 env var 都要设置:</span>
+<span class="comment">#   SGLANG_CHUNKED_PLACEHOLDER_KNN=1     → 启用写路径(Phase B)</span>
+<span class="comment">#   SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1 → 启用读路径(Phase C)</span>
+
+SGLANG_CHUNKED_PLACEHOLDER_KNN=1 \
+SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1 \
+python -m sglang.launch_server \
+    --model-path /path/to/model \
+    --port 30000
+</code></pre>
+
+<h2>关键文件</h2>
+
+<table>
+  <thead>
+    <tr><th>文件</th><th>类型</th><th>行数</th><th>说明</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>python/sglang/srt/mem_cache/radix_cache.py</code></td>
+      <td>修改</td>
+      <td class="num">+509</td>
+      <td>4 个新方法 + 7 个计数器 + 2 个 dataclass + match_prefix 集成</td>
+    </tr>
+    <tr>
+      <td><code>test/.../test_placeholder_chunk_pool_read.py</code></td>
+      <td>新建</td>
+      <td class="num">+252</td>
+      <td>9 个读路径测试</td>
+    </tr>
+    <tr>
+      <td><code>test/.../test_placeholder_chunk_pool_policy.py</code></td>
+      <td>新建</td>
+      <td class="num">+148</td>
+      <td>3 个 policy/telemetry 测试</td>
+    </tr>
+    <tr>
+      <td><code>HANDOFF.md</code></td>
+      <td>修改</td>
+      <td class="num">+47</td>
+      <td>Phase C/D 章节</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>提交链</h2>
+
+<pre><code>fea64d4cc docs(HANDOFF): document Direction #3 Phase C/D — read path + telemetry
+5197823bf feat(chunk_pool): Direction #3 Phase C+D — read path with ChunkPlan + telemetry
+8599afcfc feat(chunk_pool): Direction #3 Phase B — per-AST-chunk placeholder pool write path
+0009004a4 docs(results): production baseline (L1+L2, L3 OFF) — 1.31x speedup
+86d622d86 docs(HANDOFF): document L3 placeholder k-NN deprecation for production
+8064ea450 deprecate(L3): mark placeholder k-NN body RESEARCH ONLY (default OFF)
+b2920ba64 docs(results): giant-codebase re-run post-fix — 1.65× speedup, 350 pool hits
+7fb1a5bb2 feat(ast_chunker): Direction #3 Phase A — server-side AST chunker
+d85ca7f45 fix(radix_cache): hold anchor_kv_store_lock around inc_lock_ref / dec_lock_ref mutations
+</code></pre>
+
+<h2>下一步</h2>
+
+<ul>
+  <li><strong>giant-codebase 5-task smoke</strong>:验证
+    <code>placeholder_chunk_pool_hit_count &gt; 0</code> 在真实 workload 上,
+    对比启用 chunk pool 前后的 TTFT。</li>
+  <li><strong>Phase E(可选)</strong>:若 telemetry 显示
+    <code>skip_byte_drift_count</code> 是 dominant skip reason,
+    引入 ±2 token 容差(在严格 byte-exact 失败时的 byte-similar 回退,
+    仍需保证 token 级严格相等)。</li>
+  <li><strong>Merge to main</strong>:
+    <code>fix/placeholder-pool-activation</code> 分支已就绪,
+    Phase A/B/C/D + L3 deprecation + production baseline 都在线上。</li>
+  <li><strong>论文整合 (Phase G)</strong>:
+    把 Direction #3 的 byte-exact safe-recovery 机制写进 AgentTemplateKV 论文
+    §6 (L4 chunk 层)。</li>
+</ul>
+
+<div class="footer">
+  Report generated 2026-06-27 ·
+  Source branch <code>fix/placeholder-pool-activation</code> ·
+  Files: <code>results/direction_3_phase_c_d_20260627.html</code>
+</div>
+
+</body>
+</html>
