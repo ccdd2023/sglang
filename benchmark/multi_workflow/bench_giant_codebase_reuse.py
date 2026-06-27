@@ -236,9 +236,27 @@ def launch_or_relaunch(handle: ServerHandle | None, args: argparse.Namespace, ch
         except Exception:
             pass
     # Force placeholder k-NN env vars BEFORE launch_server spawns the subprocess.
-    os.environ["SGLANG_PLACEHOLDER_KNN_MATCH"] = "1"
-    os.environ["SGLANG_PLACEHOLDER_KNN_TOPK"] = str(args.placeholder_knn_topk)
-    os.environ["SGLANG_PLACEHOLDER_KNN_MIN_COSINE"] = str(args.placeholder_knn_min_cosine)
+    # L3 (placeholder k-NN body) is deprecated for production (2026-06-27);
+    # it reuses K/V from byte-different code which silently produces
+    # wrong-but-plausible outputs when the variable name or comment
+    # changes. Default OFF — require explicit --enable-research-l3 to opt in.
+    if args.enable_research_l3:
+        os.environ["SGLANG_PLACEHOLDER_KNN_MATCH"] = "1"
+        os.environ["SGLANG_PLACEHOLDER_KNN_TOPK"] = str(args.placeholder_knn_topk)
+        os.environ["SGLANG_PLACEHOLDER_KNN_MIN_COSINE"] = str(args.placeholder_knn_min_cosine)
+        print(
+            f"[giant_driver] chunk {chunk_id}: L3 placeholder k-NN ENABLED "
+            f"(topk={args.placeholder_knn_topk}, min_cosine={args.placeholder_knn_min_cosine}). "
+            f"RESEARCH ONLY — DO NOT USE IN PRODUCTION.",
+            flush=True,
+        )
+    else:
+        os.environ["SGLANG_PLACEHOLDER_KNN_MATCH"] = "0"
+        print(
+            f"[giant_driver] chunk {chunk_id}: L3 placeholder k-NN DISABLED (default). "
+            f"Production path uses byte-exact match (L2) only.",
+            flush=True,
+        )
     # Phase 2.5+ optimization: skip the k-NN body when the prefix cache
     # already covers most of a slot. Default is 0.5. For the giant-codebase
     # benchmark we want the k-NN body to run even when the prefix cache
@@ -521,6 +539,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--debug-first-task", action="store_true", help="Print placeholder pool status after first task's first agent")
     parser.add_argument("--vary-code", action="store_true", default=True, help="Per-agent byte-level variation to force placeholder k-NN path (default on)")
     parser.add_argument("--no-vary-code", dest="vary_code", action="store_false", help="Disable per-agent byte-level variation")
+    parser.add_argument(
+        "--enable-research-l3",
+        action="store_true",
+        default=False,
+        help=(
+            "RESEARCH ONLY. Enables the placeholder k-NN body "
+            "(SGLANG_PLACEHOLDER_KNN_MATCH=1) which reuses K/V across "
+            "byte-different code via MiniLM semantic similarity. "
+            "DEPRECATED for production because variable renames / "
+            "comment edits silently produce wrong-but-plausible "
+            "outputs (cos=0.92 doesn't mean semantically equivalent). "
+            "Default OFF — production must use byte-exact match (L2) "
+            "only. See HANDOFF.md §L3-deprecation."
+        ),
+    )
 
     return parser.parse_args()
 

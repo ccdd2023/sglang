@@ -2319,13 +2319,28 @@ class RadixCache(BasePrefixCache):
     # -----------------------------------------------------------------
     # Per-placeholder k-NN read path (Duke 2026 KVCOMM-style).
     #
+    # !! DEPRECATED FOR PRODUCTION — RESEARCH ONLY (2026-06-27) !!
+    #
+    # Code is highly sensitive to surface changes (variable renames,
+    # comment edits, signature changes) that MiniLM cannot distinguish from
+    # benign whitespace drift. Reusing K/V from byte-different code gives
+    # the model a confused representation of the current prompt — the
+    # stored K/V encodes the OLD variable's semantic role, but the model
+    # must generate based on the NEW variable. Failure mode is silent:
+    # tests pass, output reads correctly, but runtime behavior diverges.
+    #
+    # Production deployments must keep ``SGLANG_PLACEHOLDER_KNN_MATCH=0``
+    # (the default). This path is preserved for the giant-codebase
+    # research measurement sweep only. See HANDOFF.md §L3-deprecation
+    # and memory entry ``l3-placeholder-knn-deprecated``.
+    #
+    # Mechanism (when enabled via SGLANG_PLACEHOLDER_KNN_MATCH=1):
     # `_try_placeholder_knn_lossy_match` runs *after* `_try_lossy_fuzzy_match`
-    # in `match_prefix` (when SGLANG_PLACEHOLDER_KNN_MATCH=1).  For each
-    # slot in `req.placeholder_anchor_token_spans` it (a) embeds the slot's
-    # text, (b) does per-slot embedding k-NN search, (c) copies the best
-    # neighbor's KV into the current prefill stream with a RoPE delta
-    # rotation.  v1 takes only the single-best neighbor; soft-weighted
-    # K-nearest reconstruction is Phase 2.
+    # in `match_prefix`. For each slot in `req.placeholder_anchor_token_spans`
+    # it (a) embeds the slot's text, (b) does per-slot embedding k-NN
+    # search, (c) copies the best neighbor's KV into the current prefill
+    # stream with a RoPE delta rotation. v1 takes only the single-best
+    # neighbor; soft-weighted K-nearest reconstruction is Phase 2.
     # -----------------------------------------------------------------
 
     def _try_placeholder_knn_lossy_match(
