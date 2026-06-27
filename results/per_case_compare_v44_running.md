@@ -1,39 +1,15 @@
-# Phase 2.1 per-case pass@1 summary
+# ~~Phase 2.1 per-case pass@1 summary (v44 running)~~ — SUPERSEDED STUB
 
-baseline: `results/swe_percase_baseline_20260624T085604Z`
-v44:      `results/swe_percase_v44_20260624T085604Z`
-
-Format: <bytes>B[ext,syn,app✓/✗,sim=X.XXX,copy=method]
-
-## Per-case × per-mode table
-
-| case_id | repo | lossless_base | lossless_v44 | eq | lossy_base | lossy_v44 | eq | lossy_prefetch_base | lossy_prefetch_v44 | eq | placeholder_knn_lossy_base | placeholder_knn_lossy_v44 | eq |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| astropy__astropy-12907 |  | 3868B[ext,syn,app✗] | 3868B[ext,syn,app✗] | EQUAL | 2239B[ext,syn,app✗] | 2239B[ext,syn,app✗] | EQUAL | 2239B[ext,syn,app✗] | 2239B[ext,syn,app✗] | EQUAL | - | 2239B[ext,syn,app✗] | - |
-| django__django-10097 |  | 2433B[ext,syn,app✗] | 2433B[ext,syn,app✗] | EQUAL | 1823B[ext,syn,app✗] | 1823B[ext,syn,app✗] | EQUAL | 1823B[ext,syn,app✗] | 1823B[ext,syn,app✗] | EQUAL | - | 1823B[ext,syn,app✗] | - |
-| matplotlib__matplotlib-13989 |  | 4330B[ext,syn,app✗] | - | - | 1241B[ext,syn] | - | - | 1241B[ext,syn] | - | - | - | - | - |
-| mwaskom__seaborn-3069 |  | 1061B[ext,syn,app✗] | - | - | 3690B[ext,syn,app✗] | - | - | 3690B[ext,syn,app✗] | - | - | - | - | - |
-| pallets__flask-5014 |  | 893B[ext,syn,app✗] | - | - | 904B[ext,syn,app✗] | - | - | 904B[ext,syn,app✗] | - | - | - | - | - |
-| psf__requests-1142 |  | 438B[ext,syn] | - | - | 431B[ext,syn,app✓] | - | - | 431B[ext,syn,app✓] | - | - | - | - | - |
-| pydata__xarray-2905 |  | 697B[ext,syn,app✗] | - | - | 779B[ext,syn] | - | - | 779B[ext,syn] | - | - | - | - | - |
-| pylint-dev__pylint-4551 |  | 3248B[ext,syn,app✗] | - | - | 3937B[ext,syn,app✗] | - | - | 3937B[ext,syn,app✗] | - | - | - | - | - |
-| pytest-dev__pytest-10051 |  | 694B[ext,syn,app✗] | - | - | 694B[ext,syn,app✗] | - | - | 694B[ext,syn,app✗] | - | - | - | - | - |
-| scikit-learn__scikit-learn-10297 |  | 3365B[ext,syn,app✗] | - | - | 2767B[ext,syn] | - | - | 2767B[ext,syn] | - | - | - | - | - |
-
-## Aggregate counts
-
-| mode | source | extracted | synth_ok | apply_pass | candidate_pass |
-|---|---|---|---|---|---|
-| lossless | baseline | 10/10 | 10/10 | 0/10 | 0/10 |
-| lossless | v44 | 2/2 | 2/2 | 0/2 | 0/2 |
-| lossy | baseline | 10/10 | 10/10 | 1/10 | 0/10 |
-| lossy | v44 | 2/2 | 2/2 | 0/2 | 0/2 |
-| lossy_prefetch | baseline | 10/10 | 10/10 | 1/10 | 0/10 |
-| lossy_prefetch | v44 | 2/2 | 2/2 | 0/2 | 0/2 |
-| placeholder_knn_lossy | baseline | 0/0 | 0/0 | 0/0 | 0/0 |
-| placeholder_knn_lossy | v44 | 2/2 | 2/2 | 0/2 | 0/2 |
-
-## Byte-equality: baseline patch vs v44 patch
-
-| case_id | mode | baseline | v44 | equal |
-|---|---|---|---|---|
+> ⚠️ **This document is superseded.**
+> It was an aborted v44 per-case comparison from 2026-06-24 where
+> only 2 cases completed before the run was terminated; all later
+> cases show **0/0**. Superseded by the 10-case completed run
+> ([`./per_case_pass_at_1_compare_20260624T085604Z.md`](./per_case_pass_at_1_compare_20260624T085604Z.md))
+> and the 27-case stratified run
+> ([`./strat27_compare_20260624T101130Z.md`](./strat27_compare_20260624T101130Z.md)).
+>
+> **For current project state, see [../HANDOFF.md](../HANDOFF.md) and
+> [../CANONICAL_TARGET.md](../../../CANONICAL_TARGET.md).**
+>
+> All v44 evidence is now superseded — see
+> [/home/gfy/.claude/projects/-home-gfy/memory/v44-cycle-history.md](../../../../.claude/projects/-home-gfy/memory/v44-cycle-history.md).
