@@ -393,6 +393,23 @@ async def run_one_task(
         )
         row["chunk_id"] = chunk_id
         rows.append(row)
+        # Sidecar dump of the generated text for offline A/B correctness
+        # comparison (e.g. C2 CacheBlend vs no-CacheBlend baseline). The CSV
+        # only stores output_chars + a bag-of-tokens F1 that defaults to 1.0
+        # when no in-run baseline exists, so the raw text is needed for a real
+        # byte/sequence comparison.
+        try:
+            _out_text = response.get("text") or ""
+            with (args.out_dir / "outputs.jsonl").open("a", encoding="utf-8") as _of:
+                _of.write(json.dumps({
+                    "case_id": case.get("case_id", ""),
+                    "task_index": case_idx,
+                    "agent_idx": idx,
+                    "role": role,
+                    "output_text": _out_text,
+                }) + "\n")
+        except Exception:
+            pass
         cached = row.get("cached_tokens", 0)
         upstream += f" {role} observed {cached} cached tokens."
     return rows

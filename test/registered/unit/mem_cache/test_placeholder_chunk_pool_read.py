@@ -162,7 +162,7 @@ class TestChunkPoolReadGating(unittest.TestCase):
 
     def test_no_match_when_env_var_unset(self):
         req = _MockReq(placeholder_anchor_token_spans=[
-            _make_span("code_base0", self.text, start_token=200),
+            _make_span("code_base0", self.text, start_token=0),
         ])
         key = RadixKey(token_ids=list(range(300)), extra_key=None)
         values, node = self.cache._try_placeholder_chunk_lossy_match(
@@ -195,7 +195,7 @@ class TestChunkPoolReadByteExact(unittest.TestCase):
     def test_pool_match_byte_exact_copies_kv(self):
         """byte-exact match → new slots allocated + value list extended."""
         req = _MockReq(placeholder_anchor_token_spans=[
-            _make_span("code_base0", self.text, start_token=200),
+            _make_span("code_base0", self.text, start_token=0),
         ])
         key = RadixKey(token_ids=list(range(300)), extra_key=None)
         values, node = self.cache._try_placeholder_chunk_lossy_match(
@@ -231,7 +231,7 @@ class TestChunkPoolReadSkips(unittest.TestCase):
             start_token=50, end_token=53,
         )
         req = _MockReq(placeholder_anchor_token_spans=[
-            _make_span("code_base0", self.text, start_token=200),
+            _make_span("code_base0", self.text, start_token=0),
         ])
         key = RadixKey(token_ids=list(range(300)), extra_key=None)
         values, node = self.cache._try_placeholder_chunk_lossy_match(
@@ -248,7 +248,7 @@ class TestChunkPoolReadSkips(unittest.TestCase):
     def test_no_pool_entry_skip_dense_prefill(self):
         """Pool is empty → skip_reason='no_pool_entry'."""
         req = _MockReq(placeholder_anchor_token_spans=[
-            _make_span("code_base0", self.text, start_token=200),
+            _make_span("code_base0", self.text, start_token=0),
         ])
         key = RadixKey(token_ids=list(range(300)), extra_key=None)
         values, node = self.cache._try_placeholder_chunk_lossy_match(
@@ -270,7 +270,7 @@ class TestChunkPoolReadSkips(unittest.TestCase):
         # Override the cache's allocator to return None
         self.cache.token_to_kv_pool_allocator.alloc = Mock(return_value=None)
         req = _MockReq(placeholder_anchor_token_spans=[
-            _make_span("code_base0", self.text, start_token=200),
+            _make_span("code_base0", self.text, start_token=0),
         ])
         key = RadixKey(token_ids=list(range(300)), extra_key=None)
         values, node = self.cache._try_placeholder_chunk_lossy_match(
@@ -299,13 +299,14 @@ class TestChunkPoolReadMath(unittest.TestCase):
     def test_rope_delta_is_position_difference(self):
         """rope_delta = request_position - pool_entry_position."""
         # Pool entry was stored at start_token=100. New request span at
-        # start_token=350. Expected rope_delta = 350 - 100 = 250.
+        # start_token=0 (contiguous with the empty prefix). Expected
+        # rope_delta = 0 - 100 = -100 (non-zero → head rotation fires).
         _seed_pool_entry(
             self.cache, "code_base0", self.sig, 0, self.byte_end,
             start_token=100, end_token=103,
         )
         req = _MockReq(placeholder_anchor_token_spans=[
-            _make_span("code_base0", self.text, start_token=350),
+            _make_span("code_base0", self.text, start_token=0),
         ])
         key = RadixKey(token_ids=list(range(400)), extra_key=None)
         values, node = self.cache._try_placeholder_chunk_lossy_match(
@@ -325,7 +326,7 @@ class TestChunkPoolReadMath(unittest.TestCase):
         )
         original_atime = entry.last_access_time
         req = _MockReq(placeholder_anchor_token_spans=[
-            _make_span("code_base0", self.text, start_token=200),
+            _make_span("code_base0", self.text, start_token=0),
         ])
         key = RadixKey(token_ids=list(range(300)), extra_key=None)
         # Sleep a tiny moment to ensure monotonic time moves forward.
@@ -401,7 +402,7 @@ class TestChunkPoolReadIntegration(unittest.TestCase):
             start_token=50, end_token=53,
         )
         req = _MockReq(placeholder_anchor_token_spans=[
-            _make_span("code_base0", self.text, start_token=200),
+            _make_span("code_base0", self.text, start_token=0),
         ])
         full_token_ids = list(range(300))
         match_result = self.cache.match_prefix(MatchPrefixParams(
@@ -412,6 +413,214 @@ class TestChunkPoolReadIntegration(unittest.TestCase):
         self.assertGreaterEqual(
             self.cache.placeholder_chunk_pool_hit_count, 1,
         )
+
+
+class TestChunkPoolReadContiguityGate(unittest.TestCase):
+    """M1.5 regression: the contiguity gate. SGLang's prefill treats
+    device_indices as a contiguous prefix, so only chunks that extend the
+    prefix contiguously may be copied. A chunk with a gap before it must be
+    skipped (else device_indices > input_len → flashinfer qo_indptr crash)."""
+
+    def setUp(self):
+        os.environ["SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH"] = "1"
+        self.cache = _make_simulated_cache()
+        self.text = _histogram_text()
+        self.sig = _histogram_signature()
+        self.byte_end = _histogram_byte_end()
+        # One pool entry reused by both spans (same signature).
+        _seed_pool_entry(
+            self.cache, "code_base0", self.sig, 0, self.byte_end,
+            start_token=50, end_token=53,
+        )
+
+    def tearDown(self):
+        os.environ.pop("SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH", None)
+
+    def test_contiguous_chunk_copied_gap_chunk_skipped(self):
+        """Span at start_token=0 (contiguous with empty prefix) is copied;
+        span at start_token=500 (gap) is skipped with reason 'gap'."""
+        req = _MockReq(placeholder_anchor_token_spans=[
+            _make_span("code_base0", self.text, start_token=0),
+            _make_span("code_base0", self.text, start_token=500),
+        ])
+        key = RadixKey(token_ids=list(range(600)), extra_key=None)
+        values, node = self.cache._try_placeholder_chunk_lossy_match(
+            req, key, [], self.cache.root_node,
+        )
+        # Exactly one copy (the contiguous chunk); the gap chunk was skipped.
+        self.assertEqual(len(values), 1)
+        self.assertEqual(
+            self.cache.placeholder_chunk_pool_hit_count, 1,
+        )
+        self.assertEqual(
+            self.cache.placeholder_chunk_pool_skip_gap_count, 1,
+        )
+        # The copied slice must not exceed the request input length — this
+        # is the invariant whose violation crashed flashinfer before M1.5.
+        copied_tokens = int(values[0].numel())
+        self.assertLessEqual(copied_tokens, 600)
+
+
+class TestChunkPoolCacheBlendStaging(unittest.TestCase):
+    """C2 CacheBlend: when SGLANG_CACHEBLEND_CHUNK=1 and a byte-exact chunk
+    sits beyond a LEADING gap (chunk_start > prefix_len, no chunk copied yet),
+    the plan defers the copy (action=copy_pool_blend) and asks the scheduler
+    to prefill the gap by setting ``lossy_anchor_context_target_prefix_len``
+    (the same attr the L3 recompute-gap stage reads). No copy happens this
+    round — copied slots are not persisted to the radix tree, so a copy must
+    not precede a gap stage. With the flag OFF, the same gap is skipped as
+    before (M1.5 regression)."""
+
+    def setUp(self):
+        os.environ["SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH"] = "1"
+        os.environ["SGLANG_CACHEBLEND_CHUNK"] = "1"
+        # The test chunk is only 3 tokens; disable the run-length guard so
+        # staging is exercised on a tiny chunk (production keeps the default
+        # 256-token floor).
+        os.environ["SGLANG_CACHEBLEND_MIN_RUN"] = "0"
+        self.cache = _make_simulated_cache()
+        self.text = _histogram_text()
+        self.sig = _histogram_signature()
+        self.byte_end = _histogram_byte_end()
+        _seed_pool_entry(
+            self.cache, "code_base0", self.sig, 0, self.byte_end,
+            start_token=50, end_token=53,
+        )
+
+    def tearDown(self):
+        os.environ.pop("SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH", None)
+        os.environ.pop("SGLANG_CACHEBLEND_CHUNK", None)
+        os.environ.pop("SGLANG_CACHEBLEND_MIN_RUN", None)
+
+    def test_leading_gap_stages_blend_no_copy_this_round(self):
+        """Chunk at start_token=500 (gap from empty prefix) → blend stage."""
+        req = _MockReq(placeholder_anchor_token_spans=[
+            _make_span("code_base0", self.text, start_token=500),
+        ])
+        key = RadixKey(token_ids=list(range(600)), extra_key=None)
+        values, node = self.cache._try_placeholder_chunk_lossy_match(
+            req, key, [], self.cache.root_node,
+        )
+        # No copy this round — the gap must be prefilled first.
+        self.assertEqual(values, [])
+        self.assertEqual(self.cache.placeholder_chunk_pool_hit_count, 0)
+        # Staging telemetry bumped.
+        self.assertEqual(
+            self.cache.placeholder_chunk_pool_blend_stage_count, 1,
+        )
+        self.assertEqual(
+            self.cache.placeholder_chunk_pool_blend_gap_tokens, 500,
+        )
+        # The scheduler staging attr is set so the existing recompute-gap
+        # stage fires (prefill up to the chunk's start).
+        self.assertEqual(
+            getattr(req, "lossy_anchor_context_target_prefix_len", 0), 500,
+        )
+        self.assertEqual(
+            getattr(req, "lossy_anchor_context_align_stage", None),
+            "recompute_gap_chunk",
+        )
+        # The deferred chunk was NOT counted as a plain skip_gap.
+        self.assertEqual(
+            self.cache.placeholder_chunk_pool_skip_gap_count, 0,
+        )
+
+    def test_contiguous_chunk_not_staged(self):
+        """Chunk contiguous with the prefix (no gap) copies normally."""
+        req = _MockReq(placeholder_anchor_token_spans=[
+            _make_span("code_base0", self.text, start_token=0),
+        ])
+        key = RadixKey(token_ids=list(range(300)), extra_key=None)
+        values, node = self.cache._try_placeholder_chunk_lossy_match(
+            req, key, [], self.cache.root_node,
+        )
+        self.assertEqual(len(values), 1)
+        self.assertEqual(
+            self.cache.placeholder_chunk_pool_blend_stage_count, 0,
+        )
+        self.assertEqual(
+            self.cache.placeholder_chunk_pool_hit_count, 1,
+        )
+
+    def test_blend_off_falls_back_to_skip_gap(self):
+        """With SGLANG_CACHEBLEND_CHUNK unset, a gap chunk is skipped (M1.5)."""
+        os.environ.pop("SGLANG_CACHEBLEND_CHUNK", None)
+        req = _MockReq(placeholder_anchor_token_spans=[
+            _make_span("code_base0", self.text, start_token=500),
+        ])
+        key = RadixKey(token_ids=list(range(600)), extra_key=None)
+        values, node = self.cache._try_placeholder_chunk_lossy_match(
+            req, key, [], self.cache.root_node,
+        )
+        self.assertEqual(values, [])
+        self.assertEqual(
+            self.cache.placeholder_chunk_pool_skip_gap_count, 1,
+        )
+        self.assertEqual(
+            self.cache.placeholder_chunk_pool_blend_stage_count, 0,
+        )
+
+
+class TestHiRadixCacheDispatch(unittest.TestCase):
+    """Regression for the 2026-06-28 fix: HiRadixCache.match_prefix must
+    dispatch to the L4 chunk pool read path (_try_placeholder_chunk_lossy_match)
+    when the request carries placeholder_anchor_token_spans, mirroring the
+    base RadixCache.match_prefix block (radix_cache.py:843-851). Previously
+    this call was omitted, so the L4 chunk pool was stored but never queried
+    under hicache (the giant-codebase bench default), leaving
+    placeholder_chunk_pool_hit_count at 0."""
+
+    def _make_stub(self, record):
+        from sglang.srt.mem_cache.hiradix_cache import HiRadixCache
+
+        class _Node:
+            evicted = False
+            backuped = True
+            parent = None
+            host_value = torch.empty(0, dtype=torch.int64)
+
+        class _Stub(HiRadixCache):
+            def __init__(self_inner):
+                # Skip the real HiRadixCache init (host pools, etc.) — only
+                # set the attributes match_prefix reads.
+                self_inner.disable = False
+                self_inner.page_size = 1
+                self_inner.device = torch.device("cpu")
+                self_inner.root_node = _Node()
+                self_inner.is_eagle = False
+
+            def maybe_bigram_convert(self_inner, key):
+                return key, None
+
+            def _match_prefix_helper(self_inner, root, key):
+                return [], self_inner.root_node
+
+            def _try_placeholder_knn_lossy_match(self_inner, req, key, values, node):
+                return values, node
+
+            def _try_placeholder_chunk_lossy_match(self_inner, req, key, values, node):
+                record.append(True)
+                return values, node
+
+        return _Stub()
+
+    def _run(self, spans):
+        record = []
+        stub = self._make_stub(record)
+        req = type("R", (), {
+            "reuse_mode": "",
+            "placeholder_anchor_token_spans": spans,
+        })()
+        stub.match_prefix(MatchPrefixParams(
+            key=torch.tensor([1, 2, 3], dtype=torch.int64), req=req,
+        ))
+        return record
+
+    def test_spans_present_dispatches_to_chunk_pool(self):
+        self.assertEqual(self._run([(object(),)]), [True])
+
+    def test_no_spans_does_not_dispatch(self):
+        self.assertEqual(self._run([]), [])
 
 
 if __name__ == "__main__":

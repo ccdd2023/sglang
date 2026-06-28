@@ -757,6 +757,19 @@ def row_from_response(
     placeholder_overlap_tokens = int(meta.get("placeholder_kv_prefill_overlap_tokens") or 0)
     placeholder_copy_method = meta.get("placeholder_knn_copy_method") or "none"
     placeholder_copy_errors = int(meta.get("placeholder_anchor_pool_copy_error_count") or 0)
+    # Direction #3 (L4) chunk-pool telemetry (cumulative, read from tree_cache).
+    chunk_pool_hits = int(meta.get("placeholder_chunk_pool_hit_count") or 0)
+    chunk_pool_misses = int(meta.get("placeholder_chunk_pool_miss_count") or 0)
+    chunk_pool_stored = int(meta.get("placeholder_chunk_pool_total_chunks_stored") or 0)
+    chunk_pool_skip_byte_drift = int(meta.get("placeholder_chunk_pool_skip_byte_drift_count") or 0)
+    chunk_pool_skip_no_entry = int(meta.get("placeholder_chunk_pool_skip_no_entry_count") or 0)
+    chunk_pool_skip_size_mismatch = int(meta.get("placeholder_chunk_pool_skip_size_mismatch_count") or 0)
+    chunk_pool_skip_gap = int(meta.get("placeholder_chunk_pool_skip_gap_count") or 0)
+    chunk_pool_tokens_reused = int(meta.get("placeholder_chunk_pool_total_tokens_reused") or 0)
+    chunk_pool_tokens_dense = int(meta.get("placeholder_chunk_pool_total_tokens_dense") or 0)
+    chunk_pool_blend_stage = int(meta.get("placeholder_chunk_pool_blend_stage_count") or 0)
+    chunk_pool_blend_gap_tokens = int(meta.get("placeholder_chunk_pool_blend_gap_tokens") or 0)
+    chunk_pool_blend_run_tokens = int(meta.get("placeholder_chunk_pool_blend_run_tokens") or 0)
     if protected_tokens > 0 and consumed_count == 0 and device_hit_count > 0 and anchor_used:
         fast_path_status = "anchor_reuse_device_hit_consumed_counter_gap"
     elif protected_tokens > 0 and consumed_count == 0:
@@ -842,6 +855,19 @@ def row_from_response(
         # Phase 2.2 triton-tiled KV copy dispatcher telemetry.
         "placeholder_knn_copy_method": placeholder_copy_method,
         "placeholder_anchor_pool_copy_error_count": placeholder_copy_errors,
+        # Direction #3 (L4) chunk-pool telemetry (cumulative).
+        "placeholder_chunk_pool_hit_count": chunk_pool_hits,
+        "placeholder_chunk_pool_miss_count": chunk_pool_misses,
+        "placeholder_chunk_pool_total_chunks_stored": chunk_pool_stored,
+        "placeholder_chunk_pool_skip_byte_drift_count": chunk_pool_skip_byte_drift,
+        "placeholder_chunk_pool_skip_no_entry_count": chunk_pool_skip_no_entry,
+        "placeholder_chunk_pool_skip_size_mismatch_count": chunk_pool_skip_size_mismatch,
+        "placeholder_chunk_pool_skip_gap_count": chunk_pool_skip_gap,
+        "placeholder_chunk_pool_total_tokens_reused": chunk_pool_tokens_reused,
+        "placeholder_chunk_pool_total_tokens_dense": chunk_pool_tokens_dense,
+        "placeholder_chunk_pool_blend_stage_count": chunk_pool_blend_stage,
+        "placeholder_chunk_pool_blend_gap_tokens": chunk_pool_blend_gap_tokens,
+        "placeholder_chunk_pool_blend_run_tokens": chunk_pool_blend_run_tokens,
         "fast_path_status": fast_path_status,
         "output_exact_match_vs_baseline": bool(baseline_text) and text == baseline_text,
         "output_token_f1_vs_baseline": round(token_f1(text, baseline_text), 4) if baseline_text else 1.0,

@@ -147,7 +147,7 @@ class TestPhaseDTelemetry(unittest.TestCase):
             start_token=50, end_token=53,
         )
         req = _MockReq(placeholder_anchor_token_spans=[
-            _make_span("code_base0", self.text, start_token=200),
+            _make_span("code_base0", self.text, start_token=0),
         ])
         key = RadixKey(token_ids=list(range(300)), extra_key=None)
         self.cache._try_placeholder_chunk_lossy_match(
@@ -164,7 +164,7 @@ class TestPhaseDTelemetry(unittest.TestCase):
             start_token=50, end_token=53, n_tokens=3,
         )
         req = _MockReq(placeholder_anchor_token_spans=[
-            _make_span("code_base0", self.text, start_token=200),
+            _make_span("code_base0", self.text, start_token=0),
         ])
         key = RadixKey(token_ids=list(range(300)), extra_key=None)
         self.cache._try_placeholder_chunk_lossy_match(
@@ -195,7 +195,7 @@ class TestPhaseDTelemetry(unittest.TestCase):
                 start_token=50, end_token=53, n_tokens=3,
             )
         req = _MockReq(placeholder_anchor_token_spans=[
-            _make_span("code_base0", text_two_chunks, start_token=200),
+            _make_span("code_base0", text_two_chunks, start_token=0),
         ])
         key = RadixKey(token_ids=list(range(300)), extra_key=None)
         # Build plan directly so we can inspect all decisions.

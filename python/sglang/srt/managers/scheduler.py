@@ -2446,8 +2446,13 @@ class Scheduler(
 
         if self.chunked_req is not None:
             if (
-                os.environ.get("SGLANG_LOSSY_RECOMPUTE_GAP", "0") == "1"
-                and os.environ.get("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", "0") == "1"
+                (
+                    (
+                        os.environ.get("SGLANG_LOSSY_RECOMPUTE_GAP", "0") == "1"
+                        and os.environ.get("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", "0") == "1"
+                    )
+                    or os.environ.get("SGLANG_CACHEBLEND_CHUNK", "0") == "1"
+                )
                 and getattr(self.chunked_req, "lossy_anchor_context_align_stage", None)
                 == "recompute_gap_chunk"
                 and int(

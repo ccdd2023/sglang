@@ -784,9 +784,17 @@ class PrefillAdder:
             context_target_prefix_len = int(
                 getattr(req, "lossy_anchor_context_target_prefix_len", 0) or 0
             )
-            if (
+            # The recompute-gap staging stage fires under either the L3
+            # anchor flags or the C2 CacheBlend chunk flag. The chunk path
+            # (radix_cache._try_placeholder_chunk_lossy_match) sets the same
+            # ``lossy_anchor_context_target_prefix_len`` attr, so the staging
+            # plumbing below is shared unchanged.
+            cacheblend_stage = (
                 os.environ.get("SGLANG_LOSSY_RECOMPUTE_GAP", "0") == "1"
                 and os.environ.get("SGLANG_LOSSY_STAGE_RECOMPUTE_GAP", "0") == "1"
+            ) or os.environ.get("SGLANG_CACHEBLEND_CHUNK", "0") == "1"
+            if (
+                cacheblend_stage
                 and context_target_prefix_len > prefix_len
                 and context_target_prefix_len < len(req.fill_ids)
             ):

@@ -187,16 +187,31 @@ class ChunkDecision:
         start_token / end_token: absolute global token positions of this chunk
             in the current request's prompt.
         token_len: end_token - start_token (convenience).
-        action: "copy_pool" if a byte-exact match was found, else
+        action: "copy_pool" if a byte-exact match was found (and is copied in
+            THIS round), "copy_pool_blend" if a byte-exact match was found but
+            sits beyond a gap and is deferred to a later round after the gap is
+            prefilled (CacheBlend staging, see _build_chunk_plan), else
             "dense_prefill".
-        pool_entry: the matched ChunkKVEntry when action == "copy_pool";
-            None otherwise.
+        pool_entry: the matched ChunkKVEntry when action == "copy_pool" or
+            "copy_pool_blend"; None otherwise.
         confidence: 1.0 for byte-exact hits, 0.0 for any skip. Binary —
             see Phase D design doc (no fractional confidence in production).
         skip_reason: one of ("no_pool_entry", "byte_drift",
-            "size_mismatch", "alloc_failed") when action == "dense_prefill".
+            "size_mismatch", "alloc_failed", "gap", "covered", "out_of_range")
+            when action == "dense_prefill".
         rope_delta: scalar RoPE delta for the head rotation; only meaningful
-            when action == "copy_pool".
+            when action == "copy_pool" or "copy_pool_blend".
+        copy_offset / copy_len: when action == "copy_pool", the slice of the
+            pool entry's ``kv_indices`` to copy. ``copy_offset`` trims the
+            portion that overlaps the already-cached prefix (L3-style), so
+            the copied slots extend the contiguous prefix by exactly
+            ``copy_len`` tokens. The contiguity gate (see _build_chunk_plan)
+            guarantees ``start_token + copy_offset == running prefix len``,
+            which is the invariant SGLang's prefill kernel requires.
+        gap_len: when action == "copy_pool_blend", the number of uncached
+            tokens in ``[running prefix, chunk_start)`` that must be prefilled
+            (via the CacheBlend gap stage) before this chunk can be copied.
+            Zero for non-blend decisions.
     """
 
     chunk_signature: str
@@ -205,11 +220,14 @@ class ChunkDecision:
     anchor_type: str
     start_token: int
     end_token: int
-    action: str  # "copy_pool" | "dense_prefill"
+    action: str  # "copy_pool" | "copy_pool_blend" | "dense_prefill"
     pool_entry: Optional["ChunkKVEntry"] = None
     confidence: float = 0.0
     skip_reason: str = ""
     rope_delta: int = 0
+    copy_offset: int = 0
+    copy_len: int = 0
+    gap_len: int = 0
 
     @property
     def token_len(self) -> int:
@@ -229,13 +247,27 @@ class ChunkPlan:
     decisions: List["ChunkDecision"]
     copy_count: int = 0
     dense_count: int = 0
+    # CacheBlend (C2): when a byte-exact chunk sits beyond a leading gap,
+    # the plan defers its copy to a later round and asks the scheduler to
+    # prefill the gap first. ``blend_gap_target`` is the absolute token
+    # position to prefill up to (= the deferred chunk's start_token);
+    # ``blend_gap_len`` is the gap length in tokens. Zero when no staging
+    # is requested (the contiguity gate copied everything in this round).
+    blend_gap_target: int = 0
+    blend_gap_len: int = 0
+    # The deferred chunk's expected copy length (the contiguous run starting
+    # at blend_gap_target) — used by the cost guard to ensure the copy
+    # outweighs the gap prefill (reuse-only speedup).
+    blend_run_len: int = 0
 
     def __post_init__(self):
         if self.copy_count == 0 and self.dense_count == 0 and self.decisions:
             self.copy_count = sum(
                 1 for d in self.decisions if d.action == "copy_pool"
             )
-            self.dense_count = len(self.decisions) - self.copy_count
+            self.dense_count = sum(
+                1 for d in self.decisions if d.action == "dense_prefill"
+            )
 
 
 def _token_prefix_signature(token_ids: list[int] | torch.Tensor, end_pos: int) -> str:
@@ -705,9 +737,21 @@ class RadixCache(BasePrefixCache):
         self.placeholder_chunk_pool_skip_byte_drift_count = 0
         self.placeholder_chunk_pool_skip_size_mismatch_count = 0
         self.placeholder_chunk_pool_skip_alloc_failed_count = 0
+        # M1.5: chunks rejected by the contiguity gate (non-contiguous with
+        # the cached prefix). High values mean the flat-prefix API is the
+        # binding constraint — motivates CacheBlend-style position-aware
+        # filling (option C in the L4 fix discussion).
+        self.placeholder_chunk_pool_skip_gap_count = 0
         self.placeholder_chunk_pool_rope_ops_count = 0
         self.placeholder_chunk_pool_total_tokens_reused = 0
         self.placeholder_chunk_pool_total_tokens_dense = 0
+        # C2 CacheBlend staging telemetry: how many requests deferred a chunk
+        # copy behind a staged gap-prefill round, and the gap/run token totals
+        # (run = tokens that will be copied cheaply after the gap is prefilled;
+        # speedup comes from run >> gap + round overhead).
+        self.placeholder_chunk_pool_blend_stage_count = 0
+        self.placeholder_chunk_pool_blend_gap_tokens = 0
+        self.placeholder_chunk_pool_blend_run_tokens = 0
 
         self.rope_base = params.rope_base
         self.rope_rotary_dim = params.rope_rotary_dim
@@ -1827,8 +1871,17 @@ class RadixCache(BasePrefixCache):
         # NOTE: do NOT early-return when placeholder_chunk_pool is empty.
         # _build_chunk_plan will produce a no_pool_entry decision for every
         # chunk, which is exactly what Phase D telemetry wants to count.
+        # Contiguity gate inputs: prefix_len = tokens already in the matched
+        # prefix (radix + any prior-layer copies); input_len = total request
+        # input tokens. The gate only copies chunks that extend the prefix
+        # contiguously, so device_indices never exceeds input_len (the
+        # invariant SGLang's prefill kernel requires — see M1.5 fix).
+        prefix_len = (
+            sum(int(v.numel()) for v in exact_values) if exact_values else 0
+        )
+        input_len = len(getattr(req, "origin_input_ids", []) or [])
         try:
-            plan = self._build_chunk_plan(req, spans)
+            plan = self._build_chunk_plan(req, spans, prefix_len, input_len)
         except Exception as exc:  # pragma: no cover - defensive
             logger.debug(
                 "[placeholder_chunk_pool] _build_chunk_plan failed: %s", exc,
@@ -1841,6 +1894,7 @@ class RadixCache(BasePrefixCache):
         skip_no_entry = 0
         skip_byte_drift = 0
         skip_size_mismatch = 0
+        skip_gap = 0
         for d in plan.decisions:
             if d.action != "dense_prefill":
                 continue
@@ -1850,11 +1904,35 @@ class RadixCache(BasePrefixCache):
                 skip_byte_drift += 1
             elif d.skip_reason == "size_mismatch":
                 skip_size_mismatch += 1
+            elif d.skip_reason == "gap":
+                skip_gap += 1
         self.placeholder_chunk_pool_skip_no_entry_count += skip_no_entry
         self.placeholder_chunk_pool_skip_byte_drift_count += skip_byte_drift
         self.placeholder_chunk_pool_skip_size_mismatch_count += (
             skip_size_mismatch
         )
+        self.placeholder_chunk_pool_skip_gap_count += skip_gap
+        # C2 CacheBlend: a byte-exact chunk sits beyond a leading gap. Stage
+        # a gap-prefill round (reuse the L3 scheduler staging attribute) so
+        # the next match_prefix call sees the chunk as contiguous and copies
+        # it. No copy THIS round — copied slots are not persisted to the tree,
+        # so a copy must not precede a gap stage (see _build_chunk_plan). The
+        # scheduler's recompute-gap stage fires under SGLANG_CACHEBLEND_CHUNK=1
+        # (its env gate is broadened to include the chunk flag).
+        if plan.blend_gap_target > 0:
+            setattr(
+                req,
+                "lossy_anchor_context_target_prefix_len",
+                int(plan.blend_gap_target),
+            )
+            setattr(req, "lossy_anchor_context_align_stage", "recompute_gap_chunk")
+            setattr(req, "lossy_anchor_context_copy_ready", False)
+            setattr(req, "lossy_anchor_context_aligned", False)
+            setattr(req, "lossy_anchor_match_fail_reason", "staged_recompute_gap_pending")
+            self.placeholder_chunk_pool_blend_stage_count += 1
+            self.placeholder_chunk_pool_blend_gap_tokens += int(plan.blend_gap_len)
+            self.placeholder_chunk_pool_blend_run_tokens += int(plan.blend_run_len)
+            return exact_values, exact_node
         if plan.copy_count == 0:
             # No matches — bump miss counter so telemetry captures the
             # dense decision. alloc_failed counter is only bumped inside
@@ -1867,6 +1945,7 @@ class RadixCache(BasePrefixCache):
 
     def _build_chunk_plan(
         self, req: "Req", spans: List[dict],
+        prefix_len: int = 0, input_len: int = 0,
     ) -> ChunkPlan:
         """Walk each span and build per-chunk copy/dense decisions.
 
@@ -1876,8 +1955,18 @@ class RadixCache(BasePrefixCache):
           3. Otherwise call ``_find_byte_exact_chunk_entry`` for strict
              byte/token alignment. If no exact match → dense with
              skip_reason = "byte_drift" or "size_mismatch".
-          4. On hit → decision = copy_pool, rope_delta computed as
-             ``request_chunk_start_token - pool_entry.start_token``.
+          4. On hit → compute the chunk's absolute input token position
+             (``span_start + token_offset_of_byte_start`` via the request's
+             tokenizer) and apply the **contiguity gate** (M1.5 fix):
+             only copy chunks that extend the already-cached prefix
+             contiguously. SGLang's prefill kernel treats ``device_indices``
+             as a contiguous prefix and computes
+             ``num_extend = input_len - len(device_indices)``; copying a
+             non-contiguous chunk would inflate ``device_indices`` past
+             ``input_len`` → negative ``num_extend`` → flashinfer crash.
+             The gate trims overlap (L3-style) and skips gaps, so the
+             copied slots always cover ``[cursor, cursor + copy_len)``
+             with ``cursor`` = running prefix length.
 
         All decisions are appended to ``plan.decisions`` regardless of
         action — telemetry needs both hits and misses to surface.
@@ -1887,11 +1976,15 @@ class RadixCache(BasePrefixCache):
         if chunker is None:
             return plan
 
+        tokenizer = getattr(req, "tokenizer", None)
+        # Collect byte-exact hits first, then apply the contiguity gate in
+        # input-token order. Dense (miss) decisions are appended inline.
+        candidates: List[tuple] = []  # (chunk_start, chunk_len, best, chunk, slot_id)
+
         for span in spans:
             slot_id = str(span.get("slot_id", "") or "")
             text = str(span.get("text", "") or "")
             span_start = int(span.get("start_token", 0) or 0)
-            span_label = str(span.get("label", "") or "")
             if not slot_id or not text:
                 continue
             try:
@@ -1907,7 +2000,6 @@ class RadixCache(BasePrefixCache):
                     entries = list(
                         self.placeholder_chunk_pool.get(key_pool, [])
                     )
-                # Decision: no_pool_entry
                 if not entries:
                     plan.decisions.append(ChunkDecision(
                         chunk_signature=chunk.signature,
@@ -1915,7 +2007,7 @@ class RadixCache(BasePrefixCache):
                         name=chunk.name,
                         anchor_type=chunk.anchor_type,
                         start_token=span_start,
-                        end_token=span_start,  # unknown w/o alloc; refined in execute
+                        end_token=span_start,
                         action="dense_prefill",
                         pool_entry=None,
                         confidence=0.0,
@@ -1924,8 +2016,6 @@ class RadixCache(BasePrefixCache):
                     continue
                 best = self._find_byte_exact_chunk_entry(chunk, entries)
                 if best is None:
-                    # Could be byte_drift OR size_mismatch; check entry
-                    # byte ranges to disambiguate for telemetry.
                     any_byte_match = any(
                         e.byte_start == chunk.byte_start
                         and e.byte_end == chunk.byte_end
@@ -1947,44 +2037,179 @@ class RadixCache(BasePrefixCache):
                         skip_reason=skip_reason,
                     ))
                     continue
-                # Hit: compute RoPE delta. New chunk starts at the same
-                # global token position as the span (since byte_start=0
-                # chunks within a span). For nested chunks within a
-                # span, span_start_token + within-span offset. Since
-                # ASTChunker.chunk_text gives absolute byte offsets
-                # within the span text, the request's chunk start_token
-                # is span_start_token + (token-offset-of-byte_start).
-                # We approximate using len(token_ids) symmetry: by
-                # construction both pool entry and new request derive
-                # their chunks from the same byte span, so the start
-                # token within the span is identical. The total chunk
-                # length is len(best.token_ids).
-                chunk_token_len = len(best.token_ids)
-                chunk_end = span_start + chunk_token_len
-                # Within-span offset: 0 because ASTChunker produces
-                # byte_start=0 chunks at the top level. For nested
-                # chunks (e.g. methods inside a class span) the byte
-                # offset matters; Phase C takes the conservative view
-                # that all top-level chunks anchor at span_start. Phase
-                # E may refine this for nested chunks.
-                rope_delta = span_start - best.start_token
+                # Byte-exact hit. Compute its absolute input token position
+                # via the same byte→token mapping Phase B uses to store the
+                # entry, so source/dest token offsets agree. Falls back to
+                # span_start (token_start_within=0) when no tokenizer is
+                # available — safe only for the first chunk; the gate will
+                # skip subsequent ones as gaps.
+                token_start_within = self._byte_to_token_offset(
+                    text, chunk.byte_start, tokenizer,
+                )
+                chunk_len = len(best.token_ids)
+                chunk_start = span_start + int(token_start_within)
+                candidates.append(
+                    (chunk_start, chunk_len, best, chunk, slot_id)
+                )
+
+        # Contiguity gate: walk hits in input order, extend the prefix
+        # contiguously. cursor = running length of device_indices built so
+        # far (starts at the radix prefix length).
+        cacheblend_enabled = (
+            os.environ.get("SGLANG_CACHEBLEND_CHUNK", "0") == "1"
+        )
+        max_gap = int(
+            os.environ.get("SGLANG_CACHEBLEND_MAX_GAP", "8192") or 0
+        )
+        min_run = int(
+            os.environ.get("SGLANG_CACHEBLEND_MIN_RUN", "256") or 0
+        )
+        candidates.sort(key=lambda c: c[0])
+        cursor = int(prefix_len)
+        for idx, (chunk_start, chunk_len, best, chunk, slot_id) in enumerate(
+            candidates
+        ):
+            if input_len > 0 and chunk_start >= input_len:
                 plan.decisions.append(ChunkDecision(
-                    chunk_signature=chunk.signature,
-                    slot_id=slot_id,
-                    name=chunk.name,
-                    anchor_type=chunk.anchor_type,
-                    start_token=span_start,
-                    end_token=chunk_end,
-                    action="copy_pool",
-                    pool_entry=best,
-                    confidence=1.0,
-                    rope_delta=rope_delta,
+                    chunk_signature=chunk.signature, slot_id=slot_id,
+                    name=chunk.name, anchor_type=chunk.anchor_type,
+                    start_token=chunk_start, end_token=chunk_start + chunk_len,
+                    action="dense_prefill", pool_entry=None,
+                    confidence=0.0, skip_reason="out_of_range",
                 ))
-        # Final counts
+                continue
+            if chunk_start > cursor:
+                # Gap between the cached prefix and this chunk — the
+                # intervening tokens are not cached, so appending this
+                # chunk's KV would misalign the prefix.
+                #
+                # CacheBlend (C2): when this is a LEADING gap (no chunk has
+                # been copied yet this round, i.e. cursor == prefix_len) and
+                # the chunk after the gap is byte-exact in the pool, stage a
+                # gap-prefill round up to ``chunk_start`` instead of skipping.
+                # The scheduler reuses the L3 ``lossy_anchor_context_target
+                # _prefix_len`` staging (see schedule_policy.py /
+                # scheduler.py) to prefill the gap into the radix tree; the
+                # next match_prefix call then sees the chunk as contiguous and
+                # copies it. Copies only ever happen in the final round (a
+                # copied slot is not persisted to the tree, so a copy must
+                # not precede a gap stage) — hence the ``cursor == prefix_len``
+                # guard. Internal gaps (after a copy) fall through to the
+                # plain skip below.
+                gap_len = chunk_start - cursor
+                if (
+                    cacheblend_enabled
+                    and plan.blend_gap_target == 0
+                    and cursor == int(prefix_len)
+                    and (max_gap <= 0 or gap_len <= max_gap)
+                ):
+                    # Compute the contiguous run length starting at this
+                    # chunk (the copy benefit that pays for the gap round).
+                    run_len = 0
+                    run_end = chunk_start
+                    for r_start, r_len, _rb, _rc, _rs in candidates[idx:]:
+                        if r_start > run_end:
+                            break  # internal gap ends the run
+                        if input_len > 0 and r_start >= input_len:
+                            break
+                        # Trim overlap with the run tail (contiguous chunks
+                        # may share a boundary token via the AST chunker).
+                        seg_start = max(r_start, run_end)
+                        seg_len = r_len - (seg_start - r_start)
+                        if seg_len <= 0:
+                            continue
+                        run_len += seg_len
+                        run_end = seg_start + seg_len
+                    if min_run <= 0 or run_len >= min_run:
+                        plan.blend_gap_target = int(chunk_start)
+                        plan.blend_gap_len = int(gap_len)
+                        plan.blend_run_len = int(run_len)
+                        rope_delta = chunk_start - int(best.start_token)
+                        plan.decisions.append(ChunkDecision(
+                            chunk_signature=chunk.signature,
+                            slot_id=slot_id,
+                            name=chunk.name,
+                            anchor_type=chunk.anchor_type,
+                            start_token=chunk_start,
+                            end_token=chunk_start + chunk_len,
+                            action="copy_pool_blend",
+                            pool_entry=best,
+                            confidence=1.0,
+                            rope_delta=rope_delta,
+                            copy_offset=0,
+                            copy_len=chunk_len,
+                            gap_len=gap_len,
+                        ))
+                        # Stage only the first leading gap; remaining
+                        # chunks (incl. the rest of this run) are deferred
+                        # to the post-gap round, where they become
+                        # contiguous and copy normally.
+                        break
+                plan.decisions.append(ChunkDecision(
+                    chunk_signature=chunk.signature, slot_id=slot_id,
+                    name=chunk.name, anchor_type=chunk.anchor_type,
+                    start_token=chunk_start, end_token=chunk_start + chunk_len,
+                    action="dense_prefill", pool_entry=None,
+                    confidence=0.0, skip_reason="gap",
+                ))
+                continue
+            # chunk_start <= cursor: overlaps or is contiguous with the
+            # cached prefix. Trim the overlapping portion (L3-style) so the
+            # copy covers exactly [cursor, cursor + copy_len).
+            overlap_len = cursor - chunk_start
+            if overlap_len >= chunk_len:
+                # Entirely already cached.
+                plan.decisions.append(ChunkDecision(
+                    chunk_signature=chunk.signature, slot_id=slot_id,
+                    name=chunk.name, anchor_type=chunk.anchor_type,
+                    start_token=chunk_start, end_token=chunk_start + chunk_len,
+                    action="dense_prefill", pool_entry=None,
+                    confidence=0.0, skip_reason="covered",
+                ))
+                continue
+            copy_offset = overlap_len
+            copy_len = chunk_len - overlap_len
+            # Cap so the copy never pushes device_indices past input_len.
+            if input_len > 0 and cursor + copy_len > input_len:
+                copy_len = input_len - cursor
+            if copy_len <= 0:
+                plan.decisions.append(ChunkDecision(
+                    chunk_signature=chunk.signature, slot_id=slot_id,
+                    name=chunk.name, anchor_type=chunk.anchor_type,
+                    start_token=chunk_start, end_token=chunk_start + chunk_len,
+                    action="dense_prefill", pool_entry=None,
+                    confidence=0.0, skip_reason="covered",
+                ))
+                continue
+            # rope_delta is position-invariant under trim: the copied
+            # slice starts at global pos (chunk_start + copy_offset) and
+            # the stored slice at (best.start_token + copy_offset), so
+            # delta = chunk_start - best.start_token.
+            rope_delta = chunk_start - int(best.start_token)
+            plan.decisions.append(ChunkDecision(
+                chunk_signature=chunk.signature,
+                slot_id=slot_id,
+                name=chunk.name,
+                anchor_type=chunk.anchor_type,
+                start_token=chunk_start,
+                end_token=chunk_start + chunk_len,
+                action="copy_pool",
+                pool_entry=best,
+                confidence=1.0,
+                rope_delta=rope_delta,
+                copy_offset=copy_offset,
+                copy_len=copy_len,
+            ))
+            cursor += copy_len
+        # Final counts. ``copy_pool_blend`` decisions are neither copied this
+        # round nor truly dense (they are deferred) — track separately so the
+        # dense/token counters stay honest.
         plan.copy_count = sum(
             1 for d in plan.decisions if d.action == "copy_pool"
         )
-        plan.dense_count = len(plan.decisions) - plan.copy_count
+        plan.dense_count = sum(
+            1 for d in plan.decisions if d.action == "dense_prefill"
+        )
         return plan
 
     def _find_byte_exact_chunk_entry(
@@ -2068,9 +2293,16 @@ class RadixCache(BasePrefixCache):
             if decision.action != "copy_pool":
                 continue
             entry = decision.pool_entry
-            copy_len = len(entry.kv_indices)
-            if copy_len == 0:
-                # Defensive: zero-length entry, treat as dense.
+            # M1.5: copy only the trimmed slice [copy_offset, copy_offset+copy_len)
+            # decided by the contiguity gate. Falls back to the full entry when
+            # the gate didn't set copy_len (defensive; should not happen).
+            copy_offset = int(getattr(decision, "copy_offset", 0) or 0)
+            copy_len = int(getattr(decision, "copy_len", 0) or 0)
+            if copy_len <= 0:
+                copy_len = len(entry.kv_indices)
+                copy_offset = 0
+            if copy_len == 0 or copy_offset + copy_len > len(entry.kv_indices):
+                # Defensive: zero-length or out-of-range entry, treat as dense.
                 decision.action = "dense_prefill"
                 decision.skip_reason = "alloc_failed"
                 alloc_failed_count += 1
@@ -2104,7 +2336,7 @@ class RadixCache(BasePrefixCache):
                 tokens_dense += copy_len
                 continue
 
-            src_kv = entry.kv_indices
+            src_kv = entry.kv_indices[copy_offset : copy_offset + copy_len]
             dst_kv = new_slots[:copy_len] if hasattr(
                 new_slots, "__getitem__"
             ) else new_slots

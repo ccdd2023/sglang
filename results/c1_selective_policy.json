@@ -1,0 +1,7 @@
+{
+  "schema_version": "selective_ast_reuse_policy_v1",
+  "p90_threshold": 0.45,
+  "max_tail_rate": 0.10,
+  "default_allowed_granularities": ["function", "method"],
+  "granularities": {}
+}

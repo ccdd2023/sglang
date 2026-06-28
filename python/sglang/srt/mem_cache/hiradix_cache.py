@@ -1445,6 +1445,20 @@ class HiRadixCache(RadixCache):
             value, last_node = self._try_placeholder_knn_lossy_match(
                 req, key, value, last_node,
             )
+        # Direction #3 Phase C: per-AST-chunk byte-exact reuse. Sibling
+        # call after L3 — the chunk pass picks up cases L3 missed
+        # (semantically-different code) and is byte-exact safe. Mirrors the
+        # radix_cache.py:843-851 block. FIX (2026-06-28): HiRadixCache.
+        # match_prefix previously omitted this call (same class of bug as
+        # the 2026-06-26 L3 omission), so the L4 chunk pool was stored but
+        # never queried for hicache-enabled deployments (the giant-codebase
+        # bench default) → placeholder_chunk_pool_hit_count stayed at 0.
+        if req is not None and (
+            getattr(req, "placeholder_anchor_token_spans", None) or []
+        ):
+            value, last_node = self._try_placeholder_chunk_lossy_match(
+                req, key, value, last_node,
+            )
         if value:
             value = torch.cat(value)
         else:

@@ -769,6 +769,21 @@ class OpenAIServingChat(OpenAIServingBase):
                                 # Phase 2.2 triton-tiled KV copy dispatcher.
                                 "placeholder_knn_copy_method",
                                 "placeholder_anchor_pool_copy_error_count",
+                                # Direction #3 (L4) chunk-pool cumulative counters.
+                                "placeholder_chunk_pool_hit_count",
+                                "placeholder_chunk_pool_miss_count",
+                                "placeholder_chunk_pool_total_chunks_stored",
+                                "placeholder_chunk_pool_skip_no_entry_count",
+                                "placeholder_chunk_pool_skip_byte_drift_count",
+                                "placeholder_chunk_pool_skip_size_mismatch_count",
+                                "placeholder_chunk_pool_skip_alloc_failed_count",
+                                "placeholder_chunk_pool_skip_gap_count",
+                                "placeholder_chunk_pool_rope_ops_count",
+                                "placeholder_chunk_pool_total_tokens_reused",
+                                "placeholder_chunk_pool_total_tokens_dense",
+                                "placeholder_chunk_pool_blend_stage_count",
+                                "placeholder_chunk_pool_blend_gap_tokens",
+                                "placeholder_chunk_pool_blend_run_tokens",
                             )
                             if content["meta_info"].get(k) is not None
                         }
@@ -1234,6 +1249,21 @@ class OpenAIServingChat(OpenAIServingBase):
             # Phase 2.2 triton-tiled KV copy dispatcher.
             "placeholder_knn_copy_method",
             "placeholder_anchor_pool_copy_error_count",
+            # Direction #3 (L4) chunk-pool cumulative counters.
+            "placeholder_chunk_pool_hit_count",
+            "placeholder_chunk_pool_miss_count",
+            "placeholder_chunk_pool_total_chunks_stored",
+            "placeholder_chunk_pool_skip_no_entry_count",
+            "placeholder_chunk_pool_skip_byte_drift_count",
+            "placeholder_chunk_pool_skip_size_mismatch_count",
+            "placeholder_chunk_pool_skip_alloc_failed_count",
+            "placeholder_chunk_pool_skip_gap_count",
+            "placeholder_chunk_pool_rope_ops_count",
+            "placeholder_chunk_pool_total_tokens_reused",
+            "placeholder_chunk_pool_total_tokens_dense",
+            "placeholder_chunk_pool_blend_stage_count",
+            "placeholder_chunk_pool_blend_gap_tokens",
+            "placeholder_chunk_pool_blend_run_tokens",
         ]
         lossy_metadata = {
             key: ret[0]["meta_info"].get(key)

@@ -99,6 +99,35 @@ class SchedulerOutputProcessorMixin:
                     )
         except Exception:
             pass
+        # Direction #3 (L4) chunk-pool telemetry. These are cumulative
+        # process-lifetime counters on the cache (radix_cache.py:698-710),
+        # not per-req attributes, so read them directly from tree_cache —
+        # same rationale as _dbg_stored_read above. Without this the L4
+        # hit count is unobservable from the response, which is how the
+        # 2026-06-28 HiRadixCache dispatch omission stayed silent.
+        _dbg_chunk = {}
+        try:
+            _tree = getattr(self, "tree_cache", None)
+            if _tree is not None:
+                for _name in (
+                    "placeholder_chunk_pool_hit_count",
+                    "placeholder_chunk_pool_miss_count",
+                    "placeholder_chunk_pool_total_chunks_stored",
+                    "placeholder_chunk_pool_skip_no_entry_count",
+                    "placeholder_chunk_pool_skip_byte_drift_count",
+                    "placeholder_chunk_pool_skip_size_mismatch_count",
+                    "placeholder_chunk_pool_skip_alloc_failed_count",
+                    "placeholder_chunk_pool_skip_gap_count",
+                    "placeholder_chunk_pool_rope_ops_count",
+                    "placeholder_chunk_pool_total_tokens_reused",
+                    "placeholder_chunk_pool_total_tokens_dense",
+                    "placeholder_chunk_pool_blend_stage_count",
+                    "placeholder_chunk_pool_blend_gap_tokens",
+                    "placeholder_chunk_pool_blend_run_tokens",
+                ):
+                    _dbg_chunk[_name] = getattr(_tree, _name, None)
+        except Exception:
+            pass
         observability_fields = {
             "lossy_candidate_count": getattr(req, "lossy_candidate_count", None),
             "lossy_first_match_reason": getattr(req, "lossy_first_match_reason", None),
@@ -235,6 +264,50 @@ class SchedulerOutputProcessorMixin:
             ),
             "placeholder_anchor_store_skipped_low_f1_count": getattr(
                 req, "placeholder_anchor_store_skipped_low_f1_count", None
+            ),
+            # Direction #3 (L4) chunk-pool cumulative counters, read directly
+            # from tree_cache (see _dbg_chunk above).
+            "placeholder_chunk_pool_hit_count": _dbg_chunk.get(
+                "placeholder_chunk_pool_hit_count"
+            ),
+            "placeholder_chunk_pool_miss_count": _dbg_chunk.get(
+                "placeholder_chunk_pool_miss_count"
+            ),
+            "placeholder_chunk_pool_total_chunks_stored": _dbg_chunk.get(
+                "placeholder_chunk_pool_total_chunks_stored"
+            ),
+            "placeholder_chunk_pool_skip_no_entry_count": _dbg_chunk.get(
+                "placeholder_chunk_pool_skip_no_entry_count"
+            ),
+            "placeholder_chunk_pool_skip_byte_drift_count": _dbg_chunk.get(
+                "placeholder_chunk_pool_skip_byte_drift_count"
+            ),
+            "placeholder_chunk_pool_skip_size_mismatch_count": _dbg_chunk.get(
+                "placeholder_chunk_pool_skip_size_mismatch_count"
+            ),
+            "placeholder_chunk_pool_skip_alloc_failed_count": _dbg_chunk.get(
+                "placeholder_chunk_pool_skip_alloc_failed_count"
+            ),
+            "placeholder_chunk_pool_skip_gap_count": _dbg_chunk.get(
+                "placeholder_chunk_pool_skip_gap_count"
+            ),
+            "placeholder_chunk_pool_rope_ops_count": _dbg_chunk.get(
+                "placeholder_chunk_pool_rope_ops_count"
+            ),
+            "placeholder_chunk_pool_total_tokens_reused": _dbg_chunk.get(
+                "placeholder_chunk_pool_total_tokens_reused"
+            ),
+            "placeholder_chunk_pool_total_tokens_dense": _dbg_chunk.get(
+                "placeholder_chunk_pool_total_tokens_dense"
+            ),
+            "placeholder_chunk_pool_blend_stage_count": _dbg_chunk.get(
+                "placeholder_chunk_pool_blend_stage_count"
+            ),
+            "placeholder_chunk_pool_blend_gap_tokens": _dbg_chunk.get(
+                "placeholder_chunk_pool_blend_gap_tokens"
+            ),
+            "placeholder_chunk_pool_blend_run_tokens": _dbg_chunk.get(
+                "placeholder_chunk_pool_blend_run_tokens"
             ),
             # Phase 2 cost-aware abort guard telemetry.
             "placeholder_anchor_pool_skipped_cost_count": getattr(
