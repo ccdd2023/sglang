@@ -1780,6 +1780,37 @@ class RadixCache(BasePrefixCache):
             if len(chunk_token_ids) == 0:
                 continue
 
+            # Pinning (SGLANG_CHUNK_POOL_PIN=1): the radix slots in
+            # ``chunk_kv_indices`` are owned by the radix tree and get
+            # OVERWRITTEN by later prefills (LRU reuse / eviction). An entry
+            # that merely references them goes stale → C2 copies garbage KV
+            # → lossy outputs (observed: case 0 exact, cases 1+ diverge).
+            # Pinning allocates dedicated slots and COPIES the KV into them,
+            # so the entry owns its KV and survives radix churn. This makes
+            # cross-request chunk reuse exact (accuracy == lossless).
+            if os.environ.get("SGLANG_CHUNK_POOL_PIN", "0") == "1":
+                try:
+                    pin_slots = self.token_to_kv_pool_allocator.alloc(
+                        len(chunk_kv_indices)
+                    )
+                    if pin_slots is not None and (
+                        not hasattr(pin_slots, "__len__")
+                        or len(pin_slots) == len(chunk_kv_indices)
+                    ):
+                        kvcache = self.token_to_kv_pool_allocator.get_kvcache()
+                        try:
+                            kvcache.move_kv_cache(pin_slots, chunk_kv_indices)
+                        except AttributeError:
+                            move_kv_cache_native(
+                                kvcache.k_buffer, kvcache.v_buffer,
+                                pin_slots, chunk_kv_indices,
+                            )
+                        chunk_kv_indices = pin_slots  # pinned, owned by pool
+                except Exception as exc:  # pragma: no cover - defensive
+                    logger.debug(
+                        "[placeholder_chunk_pool] pin alloc failed: %s", exc,
+                    )
+
             entry = ChunkKVEntry(
                 slot_id=slot_id,
                 chunk_signature=chunk.signature,
@@ -2065,6 +2096,69 @@ class RadixCache(BasePrefixCache):
             os.environ.get("SGLANG_CACHEBLEND_MIN_RUN", "256") or 0
         )
         candidates.sort(key=lambda c: c[0])
+
+        # ---- C2-direct: single-round multi-chunk copy with gap zeroing. ----
+        # Alternative to the staged contiguity gate (SGLANG_CACHEBLEND_CHUNK).
+        # For every byte-exact chunk in input order, emit a copy_pool decision
+        # that ALSO records the gap [cursor, chunk_start) before it. The
+        # executor allocates gap+copy slots, ZEROES the gap KV (the prefill
+        # kernel treats them as cached-but-zero → lossy for the gap's
+        # downstream attention), and copies the chunk KV at its correct
+        # position. One round, all chunks — no staging round-trip. The chunk's
+        # own KV is correct (computed under the right context at store time);
+        # only the zeroed gap loses information. Chunk granularity keeps gaps
+        # small → less lossy than L3's whole-slot copy. Full-key RoPE.
+        if (
+            os.environ.get("SGLANG_CACHEBLEND_DIRECT", "0") == "1"
+            and os.environ.get("SGLANG_CACHEBLEND_CHUNK", "0") == "1"
+            and candidates
+        ):
+            direct_max_gap = int(
+                os.environ.get("SGLANG_CACHEBLEND_DIRECT_MAX_GAP", "512") or 0
+            )
+            dcursor = int(prefix_len)
+            for chunk_start, chunk_len, best, chunk, slot_id in candidates:
+                if input_len > 0 and chunk_start >= input_len:
+                    continue
+                gap_len = max(0, chunk_start - dcursor)
+                if direct_max_gap > 0 and gap_len > direct_max_gap:
+                    # Gap too large → zeroing it would lose too much context.
+                    # Skip this chunk (dense). Cursor does NOT advance (the
+                    # gap region is recomputed by the normal prefill).
+                    plan.decisions.append(ChunkDecision(
+                        chunk_signature=chunk.signature, slot_id=slot_id,
+                        name=chunk.name, anchor_type=chunk.anchor_type,
+                        start_token=chunk_start, end_token=chunk_start + chunk_len,
+                        action="dense_prefill", pool_entry=None,
+                        confidence=0.0, skip_reason="gap",
+                    ))
+                    continue
+                # Trim overlap with the already-built prefix (chunk_start < cursor).
+                overlap = max(0, dcursor - chunk_start)
+                copy_offset = overlap
+                copy_len = chunk_len - overlap
+                if input_len > 0 and chunk_start + copy_len > input_len:
+                    copy_len = input_len - chunk_start
+                if copy_len <= 0:
+                    continue
+                rope_delta = (chunk_start + 0) - int(best.start_token)
+                plan.decisions.append(ChunkDecision(
+                    chunk_signature=chunk.signature, slot_id=slot_id,
+                    name=chunk.name, anchor_type=chunk.anchor_type,
+                    start_token=chunk_start, end_token=chunk_start + chunk_len,
+                    action="copy_pool", pool_entry=best, confidence=1.0,
+                    rope_delta=rope_delta, copy_offset=copy_offset,
+                    copy_len=copy_len, gap_len=gap_len,
+                ))
+                dcursor = chunk_start + copy_len
+            plan.copy_count = sum(
+                1 for d in plan.decisions if d.action == "copy_pool"
+            )
+            plan.dense_count = sum(
+                1 for d in plan.decisions if d.action == "dense_prefill"
+            )
+            return plan
+
         cursor = int(prefix_len)
         for idx, (chunk_start, chunk_len, best, chunk, slot_id) in enumerate(
             candidates
@@ -2309,9 +2403,15 @@ class RadixCache(BasePrefixCache):
                 tokens_dense += copy_len
                 continue
 
-            new_slots = self.token_to_kv_pool_allocator.alloc(copy_len)
+            # C2-direct: a non-zero gap_len means this chunk sits beyond a
+            # gap. Allocate gap+copy slots contiguously, ZERO the gap KV
+            # (prefill treats it as cached-but-zero → lossy for the gap's
+            # downstream attention), and copy the chunk into the suffix.
+            gap_len = int(getattr(decision, "gap_len", 0) or 0)
+            total_new = gap_len + copy_len
+            new_slots = self.token_to_kv_pool_allocator.alloc(total_new)
             if new_slots is None or (
-                hasattr(new_slots, "__len__") and len(new_slots) != copy_len
+                hasattr(new_slots, "__len__") and len(new_slots) != total_new
             ):
                 # OOM or shape mismatch: flip to dense for this chunk.
                 decision.action = "dense_prefill"
@@ -2337,9 +2437,30 @@ class RadixCache(BasePrefixCache):
                 continue
 
             src_kv = entry.kv_indices[copy_offset : copy_offset + copy_len]
-            dst_kv = new_slots[:copy_len] if hasattr(
-                new_slots, "__getitem__"
-            ) else new_slots
+            if gap_len > 0:
+                # dst slots for the chunk are the suffix of new_slots (after
+                # the zeroed gap). The gap slots (new_slots[:gap_len]) are
+                # left zeroed below so the prefill kernel skips recomputing
+                # them — this is the lossy CacheBlend gap-zero mechanism.
+                if hasattr(new_slots, "__getitem__"):
+                    dst_kv = new_slots[gap_len : gap_len + copy_len]
+                    gap_slots = new_slots[:gap_len]
+                else:
+                    dst_kv = new_slots
+                    gap_slots = None
+                try:
+                    for layer_id in range(kvcache.layer_num):
+                        if gap_slots is not None:
+                            kvcache.get_key_buffer(layer_id)[gap_slots] = 0
+                            kvcache.get_value_buffer(layer_id)[gap_slots] = 0
+                except Exception as ge:  # pragma: no cover - defensive
+                    logger.debug(
+                        "[placeholder_chunk_pool] gap zero failed: %s", ge,
+                    )
+            else:
+                dst_kv = new_slots[:copy_len] if hasattr(
+                    new_slots, "__getitem__"
+                ) else new_slots
             try:
                 kvcache.move_kv_cache(dst_kv, src_kv)
             except AttributeError:
@@ -2371,17 +2492,32 @@ class RadixCache(BasePrefixCache):
                 tokens_dense += copy_len
                 continue
 
-            # Apply per-chunk RoPE delta (head-only).
+            # Apply per-chunk RoPE delta. The staged contiguity-gate path
+            # (gap_len==0) uses head-only rotation (cheap, positions already
+            # aligned by the gate). The C2-direct path (gap_len>0) places the
+            # chunk at a position shifted by the gap, so use FULL-key RoPE
+            # (_apply_rope_delta_to_keys, GPU) for correctness — matches the
+            # L3 anchor suffix-copy rotation.
             rotated_ops = 0
             if (
                 decision.rope_delta != 0
                 and getattr(self, "rope_rotary_dim", 0) > 0
             ):
                 try:
-                    rotated_ops = self._apply_rope_delta_to_head(
-                        kvcache.k_buffer, dst_kv, head_tokens,
-                        decision.rope_delta,
-                    )
+                    if gap_len > 0:
+                        delta_tensor = torch.full(
+                            (copy_len,), int(decision.rope_delta),
+                            dtype=torch.long, device=dst_kv.device,
+                        )
+                        self._apply_rope_delta_to_keys(
+                            kvcache.k_buffer, dst_kv, delta_tensor,
+                        )
+                        rotated_ops = copy_len
+                    else:
+                        rotated_ops = self._apply_rope_delta_to_head(
+                            kvcache.k_buffer, dst_kv, head_tokens,
+                            decision.rope_delta,
+                        )
                 except Exception as re_:  # pragma: no cover - defensive
                     logger.debug(
                         "[placeholder_chunk_pool] rope_delta skipped: %s",
@@ -2542,11 +2678,11 @@ class RadixCache(BasePrefixCache):
         dst_flat = dst_slots.view(-1).long()
         num_tokens = dst_flat.shape[0]
 
-        # Timing via CUDA events for micro-benchmarking
-        start_event = torch.cuda.Event(enable_timing=True)
-        end_event = torch.cuda.Event(enable_timing=True)
-        start_event.record()
-
+        # NOTE: do NOT torch.cuda.synchronize() here. This is called once per
+        # copied chunk (head-only RoPE); a per-chunk sync serializes the GPU
+        # and adds ~5-20ms/chunk, negating the reuse speedup (measured
+        # ~400ms overhead for ~20 chunks). The rotation enqueues async and is
+        # consumed by the subsequent prefill kernel's own synchronization.
         for k_cache in k_buffer:
             # k_cache: [max_tokens, num_kv_heads, head_size] (3D)
             k_selected = k_cache[dst_flat]  # [num_tokens, num_kv_heads, head_size]
@@ -2554,18 +2690,6 @@ class RadixCache(BasePrefixCache):
 
             k_rotated = apply_rotary_emb(k_selected, cos, sin, is_neox)
             k_cache[dst_flat] = k_rotated
-
-        end_event.record()
-        torch.cuda.synchronize()
-        elapsed_ms = start_event.elapsed_time(end_event)
-
-        logger.warning(
-            "[rope_delta] rotated %d tokens x %d layers in %.3f ms (%.3f ms/layer)",
-            num_tokens,
-            len(k_buffer),
-            elapsed_ms,
-            elapsed_ms / len(k_buffer) if k_buffer else 0,
-        )
 
     def _apply_rope_delta_to_head(
         self, k_buffer, dst_slots: torch.Tensor, head_len: int, delta: int,
