@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import os
 import re
 from dataclasses import dataclass
 from typing import Optional
@@ -160,10 +161,35 @@ class ASTChunker:
         """Parse ``text`` and return up to ``_MAX_ANCHORS`` AST-aligned chunks.
 
         Returns ``[]`` for empty input or syntax errors.
+
+        Coarse mode (``SGLANG_CHUNK_COARSE=1``): return a SINGLE chunk spanning
+        the entire text (anchor_type="module"). One chunk = one whole-slot copy
+        in the C2 read path, so a 7000-token code_base is copied in ONE
+        alloc+move+RoPE (fast, like L3's whole-slot copy) instead of ~88
+        per-function copies whose per-chunk overhead negates the reuse speedup.
+        The signature still derives from the (normalized) text, so byte-exact
+        matching across requests is preserved.
         """
         source = (text or "").strip()
         if not source:
             return []
+        if os.environ.get("SGLANG_CHUNK_COARSE", "0") == "1":
+            normalized = _normalize_snippet(source)
+            signature = hashlib.sha1(
+                f"{self.language}:module:module:{normalized}".encode("utf-8")
+            ).hexdigest()[:16]
+            return [
+                ChunkSpan(
+                    byte_start=0,
+                    byte_end=len(text or ""),
+                    start_line=1,
+                    end_line=len(source.splitlines()) or 1,
+                    anchor_type="module",
+                    name="module",
+                    signature=signature,
+                    nesting_depth=0,
+                )
+            ]
         try:
             tree = ast.parse(source)
         except SyntaxError:
@@ -219,6 +245,12 @@ class ASTChunker:
                     )
                 )
             elif isinstance(node, (ast.For, ast.While, ast.If, ast.Try)):
+                # Top-level mode (SGLANG_CHUNK_TOPLEVEL=1): skip control-flow
+                # chunks, keeping only function/class chunks. Fewer, larger
+                # chunks → fewer copies in the C2 read path → lower per-chunk
+                # overhead → better speedup, while staying AST-aligned.
+                if os.environ.get("SGLANG_CHUNK_TOPLEVEL", "0") == "1":
+                    continue
                 node_type = type(node).__name__.lower()
                 snippet = _slice_source(
                     lines, node.lineno, getattr(node, "end_lineno", node.lineno)

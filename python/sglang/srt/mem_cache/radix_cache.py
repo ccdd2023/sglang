@@ -2752,6 +2752,15 @@ class RadixCache(BasePrefixCache):
                 # (their gaps would be inflated). Break the batch here.
                 break
             gap_len = int(getattr(d, "gap_len", 0) or 0)
+            # Compact mode (SGLANG_CACHEBLEND_COMPACT=1): do NOT allocate or
+            # zero the gap. Copy only the chunk's copy_len tokens, compacted
+            # right after the prefix; the gap [prefix, chunk_start) is prefilled
+            # by num_extend (correct KV, unlike gap-zero which corrupts it).
+            # This matches L3's whole-slot compaction mechanism → similar
+            # accuracy/speed profile, but with AST byte-exact chunk selection.
+            compact = os.environ.get("SGLANG_CACHEBLEND_COMPACT", "0") == "1"
+            if compact:
+                gap_len = 0
             layout.append((gap_len, copy_len, copy_offset, int(d.rope_delta), entry))
             valid.append(d)
             total_new += gap_len + copy_len
