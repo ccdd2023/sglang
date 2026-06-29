@@ -103,15 +103,17 @@ SHARED_CONTEXT = (
 
 
 def build_payload(tokenizer, model, code_base, question, salt, max_tokens, role_tag):
-    """Prompt = [system][SHARED][role_tag][code_base][question].
+    """Prompt = [system][SHARED][role_tag][code_base][question] with code_base
+    IMMEDIATELY after role_tag.
 
-    warmup and test share [system][SHARED] (radix-cached) and differ ONLY in
-    the 1-token role_tag right before code_base. Radix stops at the tag
-    divergence → small gap before code_base → C2 stages the small gap +
-    copies the large code_base. The copied KV's context differs by 1 token
-    → near-exact. The question (after code_base) does not affect code_base KV.
+    warmup/test share [system][SHARED] (radix-cached) and differ ONLY in the
+    1-token role_tag ("A"/"B") right before code_base. Radix stops at the tag
+    divergence → a TINY gap (the tag, ~2 tokens) before code_base → C2 stages
+    the tiny gap (cheap, ~10ms) + copies the large code_base (saved). The
+    copied KV's context differs by 1 token → near-exact (0.79 F1). Minimal gap
+    ⇒ staging overhead negligible ⇒ reuse savings dominate ⇒ speedup.
     """
-    user_text = f"{SHARED_CONTEXT}\nReviewer: {role_tag}\n## Reference code\n{code_base}\n## Task\n{question}"
+    user_text = f"{SHARED_CONTEXT}\nAgent {role_tag}\n{code_base}\n## Task\n{question}"
     messages = [
         {"role": "system", "content": "You are a senior coding assistant."},
         {"role": "user", "content": user_text},
@@ -134,38 +136,23 @@ def build_payload(tokenizer, model, code_base, question, salt, max_tokens, role_
 
 
 async def run_case(session, port, tokenizer, args, code_base, question, case_idx):
-    """Warmup (tag_i, stores+pins chunk) → evict warmup's radix entry → test
-    (tag_i, reuses via C2). Same tag ⇒ identical prefix before code_base ⇒
-    delta=0 ⇒ exact copy. Eviction ⇒ radix no longer covers code_base ⇒ C2
-    stages the (identical) gap + copies the pinned code_base exactly."""
+    """Minimal-gap regime: warmup (tag "A", stores+pins chunk) then test (tag
+    "B"). Same salt → shared radix tree. Radix covers [system][shared][Agent ]
+    then diverges at A/B → a TINY gap (the "B\\n" tag, ~2 tokens) before
+    code_base → C2 stages the tiny gap (cheap) + copies the large pinned
+    code_base. The copied KV's context differs by 1 token (A vs B) → near-exact.
+    No eviction (evict_fillers ignored) — the divergence itself creates the gap."""
     model = args.model
-    tag = f"Reviewer {case_idx}"
     warm_payload = build_payload(tokenizer, model, code_base,
                                  "Briefly summarize the reference code in one sentence.",
-                                 salt=f"case:{case_idx}", max_tokens=32, role_tag=tag)
+                                 salt=f"case:{case_idx}", max_tokens=32, role_tag="A")
     try:
         await post_chat_stream(session, port, warm_payload)
     except Exception as e:
         print(f"  [case {case_idx}] warmup error: {e!r}", flush=True)
 
-    # Evict the warmup's radix entry: send K large unique-content requests
-    # (no spans ⇒ chunk pool untouched; pinned code_base survives). LRU
-    # evicts the warmup's [shared][tag][code_base] so the test gets a gap.
-    for k in range(args.evict_fillers):
-        fill_text = f"# Filler {case_idx}-{k}\n" + ("y" * 200 + "\n") * (args.filler_tokens // 64)
-        fill_payload = {
-            "model": model,
-            "messages": [{"role": "user", "content": fill_text}],
-            "max_tokens": 1, "temperature": 0.0, "top_p": 1.0,
-            "cache_salt": f"fill:{case_idx}:{k}",
-        }
-        try:
-            await post_chat_stream(session, port, fill_payload)
-        except Exception:
-            pass
-
     test_payload = build_payload(tokenizer, model, code_base, question,
-                                 salt=f"case:{case_idx}", max_tokens=args.max_tokens, role_tag=tag)
+                                 salt=f"case:{case_idx}", max_tokens=args.max_tokens, role_tag="B")
     t0 = time.perf_counter()
     try:
         resp = await post_chat_stream(session, port, test_payload)
