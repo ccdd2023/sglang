@@ -2764,6 +2764,10 @@ class RadixCache(BasePrefixCache):
         total_new = 0
         tokens_reused = 0
         valid = []
+        prefix_len = (
+            sum(int(v.numel()) for v in exact_values) if exact_values else 0
+        )
+        input_len = len(getattr(req, "origin_input_ids", []) or [])
         for d in decisions:
             entry = d.pool_entry
             copy_offset = int(getattr(d, "copy_offset", 0) or 0)
@@ -2790,6 +2794,16 @@ class RadixCache(BasePrefixCache):
             compact = os.environ.get("SGLANG_CACHEBLEND_COMPACT", "0") == "1"
             if compact:
                 gap_len = 0
+            # Cap the copy at the useful (non-prefix) range to prevent
+            # over-copying redundant tokens. Without this, compact mode copies
+            # full chunks even when they overlap the prefix or extend past
+            # input_len — measured 4336 copied vs 2939 useful (1397 redundant
+            # = pure move_kv_cache overhead). The cap limits total copied to
+            # input_len - prefix_len (the genuinely-uncached tokens).
+            if input_len > 0 and tokens_reused + copy_len > input_len - prefix_len:
+                copy_len = max(0, (input_len - prefix_len) - tokens_reused)
+                if copy_len == 0:
+                    break
             layout.append((gap_len, copy_len, copy_offset, int(d.rope_delta), entry))
             valid.append(d)
             total_new += gap_len + copy_len
