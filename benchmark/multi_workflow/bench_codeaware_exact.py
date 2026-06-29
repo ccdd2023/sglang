@@ -65,6 +65,23 @@ def launch_server_serial(args, log_path: Path) -> subprocess.Popen:
         "--max-running-requests", "1",
         "--log-level", "error",
     ]
+    if os.environ.get("SGLANG_CODEAWARE_OVERLAP", "0") == "1":
+        # Overlap scheduling (realistic deployment): removes the serial
+        # --disable-overlap-schedule / --max-running-requests 1 so the C2 copy
+        # can overlap with other compute instead of sitting on the critical path.
+        filtered = []
+        skip_next = False
+        for c in cmd:
+            if skip_next:
+                skip_next = False
+                continue
+            if c == "--disable-overlap-schedule":
+                continue
+            if c == "--max-running-requests":
+                skip_next = True
+                continue
+            filtered.append(c)
+        cmd = filtered
     return subprocess.Popen(cmd, cwd=str(PROJECT), env=env,
                             stdout=open(log_path, "w"), stderr=subprocess.STDOUT)
 
