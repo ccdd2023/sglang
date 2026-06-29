@@ -1988,6 +1988,22 @@ class RadixCache(BasePrefixCache):
             sum(int(v.numel()) for v in exact_values) if exact_values else 0
         )
         input_len = len(getattr(req, "origin_input_ids", []) or [])
+        # Cost guard (mirrors L3's O10 cold-prefix skip): when the radix prefix
+        # already covers most of the prompt (cached_ratio high), the code_base
+        # is mostly cached and any chunk copy is REDUNDANT — it adds
+        # alloc+move+RoPE overhead without prefill savings (measured: agents
+        # with cached≈60% regressed from ~250ms to ~380ms when C2 fired
+        # redundantly). Skip the chunk path in that regime; let dense prefill
+        # handle the few new tokens. Default threshold 0.55 (skip when cached
+        # > 55% of prompt). SGLANG_CACHEBLEND_MAX_CACHED_RATIO overrides.
+        if input_len > 0:
+            cached_ratio = prefix_len / input_len
+            max_cached_ratio = float(
+                os.environ.get("SGLANG_CACHEBLEND_MAX_CACHED_RATIO", "0.55") or 0
+            )
+            if max_cached_ratio > 0 and cached_ratio > max_cached_ratio:
+                self.placeholder_chunk_pool_miss_count += 0
+                return exact_values, exact_node
         try:
             plan = self._build_chunk_plan(req, spans, prefix_len, input_len)
         except Exception as exc:  # pragma: no cover - defensive
