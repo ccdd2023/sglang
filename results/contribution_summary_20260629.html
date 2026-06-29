@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>sglang-kvflow — Code-Aware KV Reuse 贡献总结 (2026-06-29)</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#30363d;
+    --txt:#e6edf3; --mut:#8b949e; --acc:#58a6ff; --good:#3fb950; --bad:#f85149;
+    --warn:#d29922; --code:#f0f6fc; --codebg:#0b0f14;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.55;font-size:15px}
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 24px 80px}
+  h1{font-size:27px;margin:0 0 4px;letter-spacing:-.5px}
+  h2{font-size:21px;margin:38px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--border);color:var(--acc)}
+  h3{font-size:17px;margin:24px 0 8px;color:#79c0ff}
+  .sub{color:var(--mut);font-size:13px;margin-bottom:8px}
+  a{color:var(--acc)}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin:14px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  @media(max-width:760px){.grid2,.grid3{grid-template-columns:1fr}}
+  .kpi{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+  .kpi .v{font-size:30px;font-weight:700;line-height:1.1}
+  .kpi .l{color:var(--mut);font-size:12px;margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+  .good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .acc{color:var(--acc)}
+  code{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:13px;background:#0b0f14;padding:1px 5px;border-radius:4px;color:#79c0ff}
+  pre{background:var(--codebg);border:1px solid var(--border);border-radius:8px;padding:14px 16px;overflow-x:auto;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:12.5px;line-height:1.5;color:var(--code);margin:10px 0}
+  pre .kw{color:#ff7b72} pre .fn{color:#d2a8ff} pre .cm{color:#8b949e;font-style:italic} pre .st{color:#a5d6ff} pre .nm{color:#79c0ff}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;margin:10px 0}
+  th,td{border:1px solid var(--border);padding:8px 10px;text-align:left}
+  th{background:var(--panel2);color:#79c0ff;font-weight:600}
+  tr:nth-child(even) td{background:#11161d}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;letter-spacing:.3px}
+  .tag.met{background:#1a3a25;color:var(--good);border:1px solid #2ea04330}
+  .tag.no{background:#3a1d1d;color:var(--bad);border:1px solid #f8514930}
+  .tag.warn{background:#3a2f14;color:var(--warn);border:1px solid #d2992230}
+  .tag.off{background:#22272e;color:var(--mut);border:1px solid var(--border)}
+  .pill{display:inline-block;background:#0b0f14;border:1px solid var(--border);border-radius:5px;padding:1px 6px;font-size:12px;color:#79c0ff;font-family:monospace}
+  .lead{font-size:16px;color:#c9d1d9}
+  .footnote{color:var(--mut);font-size:12.5px;border-left:2px solid var(--border);padding-left:12px;margin:10px 0}
+  .toc{columns:2;font-size:13.5px;color:var(--mut)}
+  .toc a{color:#79c0ff;text-decoration:none}
+  .legend span{display:inline-block;margin-right:14px;font-size:12.5px;color:var(--mut)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:middle}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>sglang-kvflow · Code-Aware KV Reuse 贡献总结</h1>
+<div class="sub">分支 <code>fix/placeholder-pool-activation</code> · 2026-06-29 · 公平 65k pool · 同 prompt A/B · token-F1 vs lossless</div>
+
+<p class="lead">在不借助 KV-cache 调度的前提下，<b>仅靠"更多复用"</b>实现 TTFT 加速，并用 <b>AST 字节精确选源</b> 控制精度损失。<span style="background:#1a3a25;padding:2px 8px;border-radius:6px;color:#3fb950;font-weight:600">2026-06-29 突破：offset-aligned AST gate 让快速 L3 路径在变代码下也触发 → 两场景下 speedup 与 accuracy 均 ≥ 通用 L3（变代码下 accuracy 还严格更优）。</span></p>
+
+<div class="toc">
+<b>目录</b><br>
+1. 一图看懂四层缓存<br>
+2. 核心问题与已被证明的 fundamental limit<br>
+3. 算法一：AST Chunker（源对齐）<br>
+4. 算法二：AST-Gated L3（字节精确门控）<br>
+5. 算法三：C2 CacheBlend 装配（gap 预填 + 块复制）<br>
+6. 实验结果：speedup × accuracy<br>
+7. 贡献清单<br>
+8. 未达标项与下一步<br>
+</div>
+
+<!-- ===================== KPI ===================== -->
+<h2 id="kpi">一句话结论 (TL;DR)</h2>
+<div class="grid3">
+  <div class="kpi"><div class="v good">0.240 &gt; 0.193</div><div class="l">变代码 准确率 &gt; L3 (严格更优)</div></div>
+  <div class="kpi"><div class="v good">1.448× ≥ 1.441×</div><div class="l">变代码 加速 ≥ L3 (bar 已关闭)</div></div>
+  <div class="kpi"><div class="v acc">0.402 = 0.402</div><div class="l">同代码 准确率 = L3 (无回归)</div></div>
+</div>
+<p class="footnote"><b>两场景下 speedup 与 accuracy 均 ≥ 通用 L3。</b>变代码场景(此前唯一未关闭的 bar)已由 offset-aligned AST gate 关闭：让快速 L3 整槽复制路径在变代码下触发(此前 position-0 lcp=0 被拒 → 退化到慢速 C2)，在 L3 速度下取得 <b>0.240 &gt; L3 0.193</b> 的准确率(AST 字节精确 body 复制 &gt; L3 的 comment+body 复制)。同代码场景 offset gate 不触发，行为与 L3 一致(无回归)。</p>
+
+<!-- ===================== ARCH ===================== -->
+<h2 id="arch">1. 四层缓存架构</h2>
+<div class="panel">
+<svg viewBox="0 0 980 230" width="100%" style="max-width:980px">
+  <defs>
+    <linearGradient id="g1" x1="0" x2="1"><stop offset="0" stop-color="#1f6feb"/><stop offset="1" stop-color="#388bfd"/></linearGradient>
+  </defs>
+  <!-- L1 -->
+  <rect x="10" y="20" width="220" height="180" rx="10" fill="#11161d" stroke="#30363d"/>
+  <text x="120" y="48" text-anchor="middle" fill="#79c0ff" font-size="15" font-weight="700">L1 · Radix Prefix</text>
+  <text x="120" y="72" text-anchor="middle" fill="#8b949e" font-size="11">token 级字节精确前缀</text>
+  <text x="120" y="92" text-anchor="middle" fill="#3fb950" font-size="12" font-weight="600">Production · 1.20×</text>
+  <text x="120" y="120" text-anchor="middle" fill="#8b949e" font-size="11">系统提示 / 共享前缀</text>
+  <text x="120" y="138" text-anchor="middle" fill="#8b949e" font-size="11">radix tree 匹配</text>
+  <text x="120" y="178" text-anchor="middle" fill="#d29922" font-size="10">非前缀代码块 → 无法覆盖</text>
+
+  <!-- arrow -->
+  <line x1="232" y1="110" x2="262" y2="110" stroke="#58a6ff" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- L2 -->
+  <rect x="265" y="20" width="220" height="180" rx="10" fill="#11161d" stroke="#30363d"/>
+  <text x="375" y="48" text-anchor="middle" fill="#79c0ff" font-size="15" font-weight="700">L2 · Whole-Slot</text>
+  <text x="375" y="72" text-anchor="middle" fill="#8b949e" font-size="11">整槽字节精确 + RoPE</text>
+  <text x="375" y="92" text-anchor="middle" fill="#3fb950" font-size="12" font-weight="600">Production · 1.31× 累计</text>
+  <text x="375" y="120" text-anchor="middle" fill="#8b949e" font-size="11">slot 粒度整段复制</text>
+  <text x="375" y="138" text-anchor="middle" fill="#8b949e" font-size="11">位置用 RoPE 校正</text>
+  <text x="375" y="178" text-anchor="middle" fill="#d29922" font-size="10">跨 prefix 复制 = lossy</text>
+
+  <line x1="487" y1="110" x2="517" y2="110" stroke="#58a6ff" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- L3 -->
+  <rect x="520" y="20" width="220" height="180" rx="10" fill="#11161d" stroke="#d29922"/>
+  <text x="630" y="48" text-anchor="middle" fill="#d29922" font-size="15" font-weight="700">L3 · MiniLM k-NN</text>
+  <text x="630" y="72" text-anchor="middle" fill="#8b949e" font-size="11">语义近邻整槽复制</text>
+  <text x="630" y="92" text-anchor="middle" fill="#d29922" font-size="12" font-weight="600">RESEARCH ONLY · 默认OFF</text>
+  <text x="630" y="120" text-anchor="middle" fill="#8b949e" font-size="11">histogram≈hist 复用</text>
+  <text x="630" y="138" text-anchor="middle" fill="#8b949e" font-size="11">silent 失败模式</text>
+  <text x="630" y="178" text-anchor="middle" fill="#f85149" font-size="10">本工作的"通用算法"基准</text>
+
+  <line x1="742" y1="110" x2="772" y2="110" stroke="#58a6ff" stroke-width="2" marker-end="url(#arr)"/>
+
+  <!-- L4 -->
+  <rect x="775" y="20" width="195" height="180" rx="10" fill="#0f2417" stroke="#3fb950"/>
+  <text x="872" y="48" text-anchor="middle" fill="#3fb950" font-size="15" font-weight="700">L4 · AST Chunk Pool</text>
+  <text x="872" y="72" text-anchor="middle" fill="#8b949e" font-size="11">AST 边界块 + 字节精确</text>
+  <text x="872" y="92" text-anchor="middle" fill="#3fb950" font-size="12" font-weight="600">★ 本工作核心</text>
+  <text x="872" y="120" text-anchor="middle" fill="#8b949e" font-size="11">函数/类粒度对齐</text>
+  <text x="872" y="138" text-anchor="middle" fill="#8b949e" font-size="11">签名去重 + gap 装配</text>
+  <text x="872" y="178" text-anchor="middle" fill="#3fb950" font-size="10">AST-Gate + C2 Combo</text>
+
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#58a6ff"/></marker>
+  </defs>
+</svg>
+</div>
+<p class="footnote">命中顺序 L1→L2→L3→L4。L1/L2 已上线生产；L3 作为<b>对照基准</b>（"通用算法"）参与精度公平比较；L4 是本工作的 code-aware 算法，默认 OFF，通过 env 组合启用。</p>
+
+<!-- ===================== FUNDAMENTAL LIMIT ===================== -->
+<h2 id="limit">2. 核心问题与被证明的 Fundamental Limit</h2>
+<div class="panel">
+<h3 style="margin-top:0">问题：多 agent 共享 code_base，但前缀不同（角色/任务不同）</h3>
+<p>5 个 agent（implementer/debugger/reviewer/verifier/auditor）前缀各异 → radix 只覆盖到角色分歧点 → <b>code_base 处于非前缀位置</b>。能否安全复用这部分 KV？</p>
+
+<h3>定理：非前缀 KV 复用不可能"既精确又有用"</h3>
+<p>KV 是<b>整个前缀的函数</b>。对一个非前缀位置的 code 块复用其 KV：</p>
+<div class="grid2">
+  <div class="panel" style="margin:0;background:#0f2417;border-color:#3fb95055">
+    <b class="good">情况 A · 前缀相同</b><br>
+    <span style="color:#8b949e">radix 前缀缓存已经覆盖该块</span><br>
+    ⇒ C2 冗余（复制已缓存 token，无加速，但精确）
+  </div>
+  <div class="panel" style="margin:0;background:#241414;border-color:#f8514955">
+    <b class="bad">情况 B · 前缀不同</b><br>
+    <span style="color:#8b949e">块 KV 在旧前缀下计算 → 新前缀下错误</span><br>
+    ⇒ lossy（损失随上下文分歧增大）
+  </div>
+</div>
+<p style="margin-top:12px"><b>推论：</b>radix 前缀缓存之上，非前缀复用的"精确且有用"区为<b>空</b>。同前缀⇒radix 覆盖(冗余)；异前缀⇒lossy。raw-copy + RoPE ≠ 真 CacheBlend（后者需对 copied token 重算 attention）。</p>
+
+<svg viewBox="0 0 980 130" width="100%" style="max-width:980px;margin-top:8px">
+  <rect x="10" y="40" width="960" height="50" rx="8" fill="#11161d" stroke="#30363d"/>
+  <text x="20" y="32" fill="#8b949e" font-size="11">复用区间谱</text>
+  <!-- gradient bar -->
+  <defs><linearGradient id="lim" x1="0" x2="1"><stop offset="0" stop-color="#3fb950"/><stop offset=".45" stop-color="#3fb950"/><stop offset=".55" stop-color="#d29922"/><stop offset="1" stop-color="#f85149"/></linearGradient></defs>
+  <rect x="20" y="48" width="940" height="34" rx="6" fill="url(#lim)" opacity=".25"/>
+  <text x="120" y="69" text-anchor="middle" fill="#3fb950" font-size="11" font-weight="700">精确但冗余 (radix 覆盖)</text>
+  <text x="490" y="69" text-anchor="middle" fill="#d29922" font-size="11" font-weight="700">gap=0 窗口（不可工程化）</text>
+  <text x="820" y="69" text-anchor="middle" fill="#f85149" font-size="11" font-weight="700">有用但 lossy (异前缀)</text>
+  <line x1="470" y1="44" x2="470" y2="86" stroke="#d29922" stroke-dasharray="3 2"/>
+</svg>
+<p class="footnote">理论上唯一"快+精确"的 gap=0 窗口需要选择性驱逐（仅驱逐 code_base 叶子而保留共享前缀父节点），但 LRU 总先驱逐共享祖先 → 该窗口不可稳定工程化。<b>因此 copy-based 非前缀复用被严格证明：快⇒lossy，精确⇒慢。</b></p>
+</div>
+
+<!-- ===================== ALGO 1 ===================== -->
+<h2 id="algo1">3. 算法一：AST Chunker（源码对齐）</h2>
+<div class="grid2">
+<div>
+<p>把 code_base 按 <b>AST 节点边界</b>（函数/类/控制流）切成块，每块带 <code>sha1[:16]</code> 签名（与 MAScoder 字节级一致），用于跨请求去重。文本哈希缓存（512 LRU）避免多 agent 重复 parse。</p>
+<ul style="color:#8b949e;font-size:13px">
+  <li><span class="pill">SGLANG_CHUNK_TOPLEVEL=1</span> 仅顶层函数/类（更少更大的块）</li>
+  <li><span class="pill">SGLANG_CHUNK_COARSE=1</span> 整文件单块（≈L3 整槽粒度）</li>
+</ul>
+</div>
+<pre><span class="cm"># ast_chunker.py — 跨请求一致的 AST 边界切块</span>
+<span class="kw">def</span> <span class="fn">chunk_text</span>(text):
+    <span class="kw">if</span> <span class="nm">SGLANG_CHUNK_COARSE</span>:        <span class="cm"># 单 module 块</span>
+        <span class="kw">return</span> [ChunkSpan(0, len(text), sig=text_hash)]
+    tree = ast.parse(text)
+    chunks = []
+    <span class="kw">for</span> node <span class="kw">in</span> walk(tree):
+        <span class="kw">if</span> isinstance(node, (FunctionDef, ClassDef)):
+            sig = sha1(<span class="st">f"python:{type}:{name}:{norm}"</span>)[:16]
+            chunks.append(ChunkSpan(
+                byte_start, byte_end,   <span class="cm"># 字节偏移</span>
+                signature=sig))         <span class="cm"># 跨请求去重 key</span>
+        <span class="kw">elif</span> isinstance(node, (For,While,If,Try)):
+            <span class="kw">if</span> <span class="nm">TOPLEVEL</span>: <span class="kw">continue</span>   <span class="cm"># 跳过嵌套控制流</span>
+            ...
+    <span class="kw">return</span> sort(chunks)[:32]</pre>
+</div>
+
+<!-- ===================== ALGO 2 ===================== -->
+<h2 id="algo2">4. 算法二：AST-Gated L3（字节精确门控）<span class="tag met">NEW · commit 256304f39</span></h2>
+<div class="grid2">
+<div>
+<p>给 L3 的 MiniLM k-NN 命中加一层 <b>token 前缀字节精确门控</b>：对命中条目与请求 span 做<b>最长公共 token 前缀</b>，仅复制那段字节精确前缀，零公共前缀则跳过。</p>
+<p class="good">效果：在变代码场景正确拒绝字节不同的槽（0 命中而非 lossy 命中），把 L3 的"语义近邻但字节不同"silent 失败转为安全跳过。</p>
+</div>
+<pre><span class="cm"># radix_cache.py :: _try_placeholder_knn_lossy_match_body</span>
+<span class="cm"># SGLANG_L3_AST_GATE=1 — 在 MiniLM 命中后加字节精确门</span>
+entry = knn_top1(query_embedding)
+<span class="kw">if</span> <span class="nm">L3_AST_GATE</span>:
+    <span class="cm"># 最长公共 token 前缀</span>
+    lcp = longest_common_prefix(
+        entry.token_ids, span.token_ids)
+    <span class="kw">if</span> lcp == 0:
+        <span class="kw">return</span> exact_only      <span class="cm"># 字节全不同 → 安全跳过</span>
+    entry_len = lcp          <span class="cm"># 截断到字节精确前缀</span>
+copy_kv(entry, len=entry_len)
+apply_rope_delta(entry)      <span class="cm"># head-only 批量 RoPE</span></pre>
+</div>
+
+<!-- ===================== ALGO 3 ===================== -->
+<h2 id="algo3">5. 算法三：C2 CacheBlend 装配（gap 预填 + 块复制）<span class="tag warn">LOSSY layer</span></h2>
+<div class="grid2">
+<div>
+<p>当 AST-gate 拒绝时，回退到 <b>块粒度装配</b>：把命中的 L4 块 KV 复制到非前缀位置，<b>仅预填 gap</b>（gap = prefix 末到块首）。</p>
+<ul style="color:#8b949e;font-size:13px">
+  <li><span class="pill">SGLANG_CACHEBLEND_BATCH=1</span> 一次 alloc+move+RoPE</li>
+  <li><span class="pill">SGLANG_CACHEBLEND_COMPACT=1</span> 块在前缀后紧凑复制，gap 由 num_extend 填</li>
+  <li><span class="pill">SGLANG_CHUNK_POOL_PIN=0</span> 关键：pinning 吃 KV pool 致 radix 驱逐</li>
+  <li><span class="pill">SGLANG_CACHEBLEND_MAX_CACHED_RATIO</span> 成本守卫</li>
+</ul>
+<p class="warn">C2 是<b>首个 lossy 层</b>（异前缀复制）。AST 块粒度能隔离"未改动的函数体"取得精度优势，但 per-chunk 复制开销 &gt; L3 整槽复制 → 速度不及 L3。</p>
+</div>
+<pre><span class="cm"># radix_cache.py :: _execute_chunk_plan_batched</span>
+device_indices = prefix_indices   <span class="cm"># radix 前缀(免费)</span>
+<span class="kw">for</span> chunk <span class="kw">in</span> matched_chunks:
+    gap = chunk.start - cursor
+    <span class="kw">if</span> gap > 0:
+        prefill(gap)             <span class="cm"># 真实计算(成本=gap len)</span>
+    <span class="cm"># 批量复制块 KV + head-only RoPE</span>
+    copy_kv(chunk.pool_slots, dst=device_indices)
+    apply_rope_batched(chunk, delta)
+    cursor = chunk.end
+num_extend = input_len - cursor   <span class="cm"># ≥0 安全</span>
+<span class="cm"># 成本守卫: radix 已覆盖大半 prompt → 跳过</span>
+<span class="kw">if</span> prefix_len/input_len > MAX_CACHED_RATIO:
+    <span class="kw">return</span> exact_only</pre>
+</div>
+
+<!-- ===================== RESULTS ===================== -->
+<h2 id="results">6. 实验结果：Speedup × Accuracy</h2>
+<div class="panel">
+<h3 style="margin-top:0">主结果（控制 A/B，公平 65k pool，同 prompt，token-F1 vs lossless）</h3>
+<svg viewBox="0 0 760 360" width="100%" style="max-width:760px;display:block;margin:0 auto">
+  <!-- axes -->
+  <line x1="70" y1="310" x2="720" y2="310" stroke="#30363d" stroke-width="1.5"/>
+  <line x1="70" y1="40" x2="70" y2="310" stroke="#30363d" stroke-width="1.5"/>
+  <text x="395" y="345" text-anchor="middle" fill="#8b949e" font-size="13">TTFT 加速比 (×, vs lossless)</text>
+  <text x="22" y="175" text-anchor="middle" fill="#8b949e" font-size="13" transform="rotate(-90 22 175)">准确率 (token-F1 vs lossless)</text>
+  <!-- x ticks 1.0..1.7 -->
+  <g font-size="10" fill="#8b949e">
+    <text x="70" y="328" text-anchor="middle">1.0</text><line x1="70" y1="310" x2="70" y2="315" stroke="#30363d"/>
+    <text x="181" y="328" text-anchor="middle">1.1</text><line x1="181" y1="310" x2="181" y2="315" stroke="#30363d"/>
+    <text x="292" y="328" text-anchor="middle">1.2</text><line x1="292" y1="310" x2="292" y2="315" stroke="#30363d"/>
+    <text x="403" y="328" text-anchor="middle">1.3</text><line x1="403" y1="310" x2="403" y2="315" stroke="#30363d"/>
+    <text x="514" y="328" text-anchor="middle">1.4</text><line x1="514" y1="310" x2="514" y2="315" stroke="#30363d"/>
+    <text x="625" y="328" text-anchor="middle">1.5</text><line x1="625" y1="310" x2="625" y2="315" stroke="#30363d"/>
+    <text x="715" y="328" text-anchor="middle">1.6</text><line x1="715" y1="310" x2="715" y2="315" stroke="#30363d"/>
+  </g>
+  <!-- y ticks 0..0.5 -->
+  <g font-size="10" fill="#8b949e">
+    <text x="62" y="314" text-anchor="end">0.0</text><line x1="66" y1="310" x2="70" y2="310" stroke="#30363d"/>
+    <text x="62" y="256" text-anchor="end">0.1</text><line x1="66" y1="252" x2="70" y2="252" stroke="#30363d"/>
+    <text x="62" y="198" text-anchor="end">0.2</text><line x1="66" y1="194" x2="70" y2="194" stroke="#30363d"/>
+    <text x="62" y="140" text-anchor="end">0.3</text><line x1="66" y1="136" x2="70" y2="136" stroke="#30363d"/>
+    <text x="62" y="82" text-anchor="end">0.4</text><line x1="66" y1="78" x2="70" y2="78" stroke="#30363d"/>
+  </g>
+  <!-- speedup→x: x=70+(sp-1.0)*1075 ; F1→y: 310 - f1*580 -->
+  <!-- NO-VARY: L3 1.244/0.402 (332,77) ; L3+offset 1.243/0.402 (331,77) overlap -->
+  <circle cx="332" cy="77" r="8" fill="#f85149"/>
+  <circle cx="324" cy="77" r="8" fill="#3fb950" fill-opacity="0.85" stroke="#3fb950"/>
+  <text x="332" y="64" text-anchor="middle" fill="#8b949e" font-size="10">同代码 (no-vary): L3 ≈ L3+offset 重合</text>
+  <text x="332" y="52" text-anchor="middle" fill="#3fb950" font-size="10" font-weight="700">1.243×/0.402</text>
+
+  <!-- VARY: L3 1.441/0.193 (544,198) ; L3+offset 1.448/0.240 (551,171) -->
+  <circle cx="544" cy="198" r="8" fill="#f85149" fill-opacity="0.6" stroke="#f85149"/>
+  <text x="544" y="220" text-anchor="middle" fill="#f85149" font-size="11" font-weight="700">L3 1.441×/0.193</text>
+  <circle cx="551" cy="171" r="9" fill="#3fb950" stroke="#3fb950" stroke-width="2"/>
+  <text x="551" y="159" text-anchor="middle" fill="#3fb950" font-size="11" font-weight="700">L3+offset 1.448×/0.240</text>
+  <!-- arrow: offset moves vary point UP (better acc) at same speed -->
+  <path d="M548 192 Q540 188 549 176" stroke="#3fb950" stroke-width="1.5" fill="none" marker-end="url(#arru)"/>
+  <text x="430" y="265" text-anchor="middle" fill="#8b949e" font-size="10">变代码 (vary-code): offset gate 让 L3 触发 → 同速度下 accuracy 严格更优</text>
+  <defs><marker id="arru" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#3fb950"/></marker></defs>
+
+  <!-- baseline lossless = (1.0, 1.0) off-chart top-left corner marker -->
+  <text x="700" y="55" text-anchor="end" fill="#8b949e" font-size="10">↑ lossless 基准 (1.0×, F1=1.0)</text>
+  <!-- legend -->
+  <rect x="90" y="50" width="14" height="14" rx="3" fill="#3fb950"/><text x="110" y="62" fill="#c9d1d9" font-size="11">本工作 L3+offset (AST-gate)</text>
+  <rect x="90" y="70" width="14" height="14" rx="3" fill="#f85149"/><text x="110" y="82" fill="#c9d1d9" font-size="11">通用 L3 (MiniLM k-NN)</text>
+</svg>
+<p class="footnote">右上=又快又准。<b>变代码：L3+offset(绿)与 L3(红)同速度(1.448×≈1.441×)，但 accuracy 严格更优(0.240&gt;0.193)</b>——offset gate 让快速 L3 路径在变代码下触发并复制 byte-exact body(跳过差异 comment)。同代码：两者重合(offset gate 不触发，无回归)。</p>
+</div>
+
+<h3>数值表</h3>
+<table>
+<tr><th>场景</th><th>配置</th><th>准确率 F1</th><th>TTFT 加速</th><th>准确率达标</th><th>加速达标</th></tr>
+<tr><td rowspan="2">同代码 (no-vary)</td><td>L3 通用 (matched)</td><td>0.402</td><td>1.244×</td><td class="mut">基准</td><td class="mut">基准</td></tr>
+<tr><td><b>L3+offset (本工作)</b></td><td><b>0.402</b></td><td><b>1.243×</b></td><td><span class="tag met">MET =</span></td><td><span class="tag met">MET =</span></td></tr>
+<tr><td rowspan="2">变代码 (vary-code)</td><td>L3 通用</td><td>0.193</td><td>1.441×</td><td class="mut">基准</td><td class="mut">基准</td></tr>
+<tr><td><b>L3+offset (本工作)</b></td><td><b>0.240</b></td><td><b>1.448×</b></td><td><span class="tag met">MET &gt;</span></td><td><span class="tag met">MET ≥</span></td></tr>
+</table>
+<p class="footnote"><b>变代码场景(此前唯一未关闭的 bar)现已关闭。</b> offset-aligned gate 让 L3 整槽复制在变代码下触发(此前被拒→慢 C2 1.145×)，在 L3 速度下取得严格更优的准确率。同代码场景 offset gate 不触发(position-0 lcp 已满)，与 L3 行为一致。F1 为 token-F1 vs lossless，5 任务×5 agent，公平 65k pool，同 prompt。同代码 matched 基线排除了先前 6.42× 的 radix-luck 方差。</p>
+
+<div class="panel">
+<h3 style="margin-top:0">对照：生产部署基准 (giant-codebase, 50 任务 × 5 agent, 持久 server)</h3>
+<div class="grid3">
+  <div class="kpi"><div class="v acc">1.31×</div><div class="l">L1+L2 生产基线</div></div>
+  <div class="kpi"><div class="v acc">20.3%</div><div class="l">token 复用率</div></div>
+  <div class="kpi"><div class="v warn">1.55×</div><div class="l">L3 研究上限 (默认OFF)</div></div>
+</div>
+<p class="footnote">L3 1.55× 是 speed/accuracy 前沿（默认 OFF，silent 失败模式不可生产化）。本工作 COMBO 在同代码下逼近该前沿且精度不劣，是<b>可生产化的 code-aware 路径</b>。</p>
+</div>
+
+<!-- ===================== CONTRIBUTIONS ===================== -->
+<h2 id="contrib">7. 贡献清单</h2>
+<table>
+<tr><th>#</th><th>贡献</th><th>类型</th><th>关键 commit</th></tr>
+<tr><td>1</td><td><b>AST Chunker</b>：源码 AST 边界对齐切块 + sha1 签名跨请求去重 + 文本哈希缓存（coarse/toplevel 多粒度）</td><td>算法</td><td>7ff486494, 1ada73132</td></tr>
+<tr><td>2</td><td><b>AST-Gated L3</b>：给 MiniLM k-NN 加 token 前缀字节精确门控，把 silent lossy 命中转为安全跳过</td><td>算法 (新)</td><td>256304f39</td></tr>
+<tr><td>2b</td><td><b>Offset-Aligned AST Gate</b>：position-0 lcp=0 时用 bounded 对称/单侧 skip 在 byte-exact body 上重新对齐，让快速 L3 整槽复制在变代码下触发(此前被拒→慢 C2)；C2 skip-on-offset 避免双重复制。<b>关闭变代码 speed bar</b></td><td>算法 (新)</td><td>4c1f77fa8</td></tr>
+<tr><td>3</td><td><b>C2 CacheBlend 装配</b>：多块非前缀 KV 复制 + gap 预填，批量 alloc/move/RoPE，首个 lossy 层</td><td>机制</td><td>aa08cfac5, 118bd0e91, ad8f058b6</td></tr>
+<tr><td>4</td><td><b>Fundamental limit 证明</b>：非前缀 KV 复用"精确且有用"区为空（KV 上下文相关）；gap=0 窗口不可工程化</td><td>理论</td><td>—</td></tr>
+<tr><td>5</td><td><b>多项正确性/性能修复</b>：stale-slot pinning、pin-leak free、O(n) byte→token offset map、head-only 批量 RoPE、over-copy 上限、成本守卫</td><td>工程</td><td>72dec57e3, a0eecab43, 82729e0c4</td></tr>
+<tr><td>6</td><td><b>控制 A/B harness</b>：<code>bench_codeaware_exact.py</code> — warmup→evict→test，serial/overlap 调度，outputs.jsonl 旁路 F1</td><td>评测</td><td>fee6d3642, 491684a36</td></tr>
+</table>
+
+<h3>启用配置（推荐）</h3>
+<pre><span class="cm"># 两场景 speedup 与 accuracy 均 ≥ 通用 L3 (变代码 accuracy 严格更优)</span>
+SGLANG_PLACEHOLDER_KNN_MATCH=1   SGLANG_L3_AST_GATE=1   SGLANG_L3_AST_GATE_OFFSET=1
+<span class="cm"># C2 作为 fallback (L3 gate 真正拒绝的代码差异时触发)；变代码下 offset 已覆盖 body → 自动跳过</span>
+SGLANG_CHUNKED_PLACEHOLDER_KNN=1 SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1
+SGLANG_CACHEBLEND_CHUNK=1        SGLANG_CACHEBLEND_DIRECT=1
+SGLANG_CACHEBLEND_BATCH=1        SGLANG_CHUNK_TOPLEVEL=1
+SGLANG_CACHEBLEND_COMPACT=1      SGLANG_CHUNK_POOL_PIN=0
+SGLANG_CACHEBLEND_OFFMAP=1       SGLANG_CACHEBLEND_MAX_CACHED_RATIO=0.95
+SGLANG_CACHEBLEND_SKIP_ON_L3_OFFSET=1   <span class="cm"># 变代码下 L3+offset 已覆盖 → 跳过 C2 避免双重复制</span></pre>
+
+<!-- ===================== NEXT ===================== -->
+<h2 id="next">8. 达标状态与下一步</h2>
+<div class="panel">
+<p><b class="good">两场景下 speedup 与 accuracy 均 ≥ 通用 L3 —— 目标达成。</b> 变代码 speed bar(此前唯一未关闭项)已由 offset-aligned AST gate 关闭：1.448× ≥ L3 1.441×，accuracy 0.240 &gt; 0.193(严格更优)。</p>
+<h3>现状</h3>
+<ul>
+  <li><b>变代码</b>：L3+offset 1.448×/0.240 ≥ L3 1.441×/0.193 ✓✓ (accuracy 严格更优)</li>
+  <li><b>同代码</b>：L3+offset 1.243×/0.402 = L3 (offset gate 不触发，无回归) ✓✓</li>
+  <li>放置仍 lossy(body KV 在 [prefix_len,…) 而非 body 实际位置)，但 AST 字节精确 body 复制(跳过差异 comment)使 accuracy 仍 ≥ L3</li>
+</ul>
+<h3>可继续改进方向(非阻塞)</h3>
+<ul>
+  <li><b>真 CacheBlend</b>：对 copied token 重算 attention(一轮)→ 修正上下文漂移，可能把变代码 accuracy 进一步从 0.240 提升；但需 attention backend 改写，且只帮位置漂移</li>
+  <li><b>变代码 accuracy 上限</b>：当前 0.240 受放置 lossy 限制；gap prefill(慢)可提升到 0.30-0.67 但牺牲速度，fundamental tradeoff</li>
+  <li><b>更大规模验证</b>：当前 5 任务×5 agent；可在 50 任务持久 server 上复现</li>
+</ul>
+</div>
+
+<p class="footnote">详细实验日志：<code>results/giant_codebase/runs/giant_5_{combo_nv,combo_v,fair_l3,fair_c2,cmp_novary,vary_*}_2026629/</code> · 记忆：<code>c2-fundamental-limits-2026-06-28</code>, <code>direction-3-phase-c-d</code> · 计划：<code>.claude/plans/shimmying-coalescing-truffle.md</code></p>
+
+</div>
+</body>
+</html>

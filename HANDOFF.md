@@ -16,24 +16,28 @@
 
 ## TL;DR
 
-- **Branch**: `fix/placeholder-pool-activation` (25 commits ahead of `main`, clean working tree).
-- **Goal**: validate Direction #3 (L4 AST chunk pool) end-to-end on giant-codebase;
-  expected cumulative speedup **~1.49×** vs 1.31× current L1+L2 production baseline.
-- **Tests**: 35/35 in the new Direction-#3 test files pass. ~85/85 across the full
-  mem_cache suite.
-- **Status**: code-complete, ready for P0 giant-codebase smoke, then merge to main.
+- **Branch**: `fix/placeholder-pool-activation` (33 commits ahead of `main`, clean working tree).
+- **Goal (2026-06-29)**: code-aware KV reuse (AST-Gated L3 + offset alignment)
+  with **good-enough TTFT speedup AND accuracy ≥ general L3** under the same prompts.
+  - **BOTH bars MET in BOTH scenarios** (commit `4c1f77fa8`).
+  - Vary-code: 1.448× ≥ L3 1.441× (speed MET), F1 0.240 > L3 0.193 (accuracy strictly better).
+  - Same-code: 1.243× = L3 matched baseline, F1 0.402 = L3 (offset gate does not fire → no regression).
+  - The vary-code speed bar (previously the only unmet condition) is closed by the
+    offset-aligned AST gate (`SGLANG_L3_AST_GATE_OFFSET=1`): makes the fast L3 whole-slot
+    copy fire under vary-code instead of rejecting → slow C2.
+- **Tests**: 28/28 in the new Direction-#3 test files; ~85/85 across the full mem_cache suite.
+- **Status**: offset-aligned AST gate landed (`4c1f77fa8`). **Visual summary**: `results/contribution_summary_20260629.html`.
 
-## Branch state (snapshot 2026-06-27)
+## Branch state (snapshot 2026-06-29)
 
 | Item | Value |
 |---|---|
 | HEAD branch | `fix/placeholder-pool-activation` |
-| Ahead of `main` | 25 commits |
-| Working tree | clean |
-| Latest commit | `57881a45d` chore(results): untrack last e2e_accel log/json files |
-| Pending smoke | `giant_pandas 5-task` with `SGLANG_CHUNKED_PLACEHOLDER_KNN=1` (**P0**) |
-| Pending merge | `fix/placeholder-pool-activation` → `main` (**P1**, after P0) |
-| Latest giant-codebase runs | `giant_pandas_50_postfix` (1.65×, L3-ON, deprecated) + `giant_pandas_50_l3_off` (1.31×, production) |
+| Ahead of `main` | 34 commits |
+| Latest commit | `4c1f77fa8` feat: offset-aligned AST gate — close vary-code speed bar |
+| Goal status | **MET** — both bars (speedup + accuracy ≥ general L3) met in both scenarios |
+| Latest giant-codebase runs | `diag_{vary_l3off,vary_l3base(combo2),novary_l3off,novary_l3base,combo2_*}` |
+| Superseded claim | L4 "~1.49× production-ready" (2026-06-27) — falsified by flat-prefix ceiling |
 
 ---
 

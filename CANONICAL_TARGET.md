@@ -1,9 +1,36 @@
-# CANONICAL TARGET — sglang-kvflow (2026-06-27)
+# CANONICAL TARGET — sglang-kvflow (2026-06-27, updated 2026-06-29)
 
 > **THIS FILE IS THE SINGLE SOURCE OF TRUTH FOR PROJECT GOAL.**
 > All other docs (HANDOFF.md, KVFLOW_OVERVIEW.md, PHASE2_*.md, etc.)
 > either supersede to this file or are explicitly superseded by it.
 > Read this FIRST when starting any new session.
+
+---
+
+> ## ⚠️ 2026-06-29 UPDATE — supersedes the L4 "~1.49× production-ready" claim below
+>
+> The 2026-06-27 status (L4 "Production-ready, ~1.49×") is **FALSIFIED** by
+> subsequent work on branch `fix/placeholder-pool-activation` (commits
+> `aa08cfac5` → `9339f70b5`). The corrected picture:
+>
+> - **L4 byte-exact alone yields 0 reuse** on giant-codebase (flat-prefix API
+>   ceiling — see memory `l4-contiguity-ceiling-2026-06-28`). The "~1.49×"
+>   was the broken over-copying path. L4 is the *match policy*, not a
+>   speedup source by itself.
+> - **Non-prefix KV reuse is fundamentally lossy-or-slow** (proven; KV is
+>   context-dependent). See memory `c2-fundamental-limits-2026-06-28`.
+> - **New code-aware algorithm = AST-Gated L3 + offset alignment (+ C2 fallback).**
+>   Controlled A/B (fair 65k pool, same prompts, token-F1 vs lossless):
+>   - **Vary-code: F1 0.240 (> L3 0.193), speedup 1.448× (≥ L3 1.441×) — BOTH bars met, accuracy strictly better.** (commit `4c1f77fa8`)
+>   - Same-code: F1 0.402 (= L3), speedup 1.243× (= L3 matched baseline) — both bars met, no regression (offset gate does not fire).
+>   - **Both bars (good-enough speedup AND accuracy ≥ general L3) met in BOTH scenarios.** The vary-code speed bar — the last unmet condition — is closed by the offset-aligned AST gate (`SGLANG_L3_AST_GATE_OFFSET=1`), which makes the fast L3 whole-slot copy fire under vary-code (previously rejected on position-0 lcp=0 → slow C2 fallback).
+> - **L3 stays OFF by default** but is the explicit *general-algorithm
+>   baseline* for the fairness comparison (the user's goal frames it so).
+> - **Visual summary**: [`results/contribution_summary_20260629.html`](./results/contribution_summary_20260629.html).
+>
+> The original 2026-06-27 body below is retained for archaeology; treat the
+> L4 "~1.49× production-ready" line and the "Next: smoke run" item as
+> superseded.
 
 ---
 
