@@ -4178,7 +4178,49 @@ class RadixCache(BasePrefixCache):
                     flush=True,
                 )
             sims_total.append(best_sim)
+            # AST byte-exact gate (SGLANG_L3_AST_GATE=1): only copy when the
+            # matched entry's token_ids PREFIX-MATCH the request's span tokens
+            # (byte-exact at the token level). This is more permissive than a
+            # full content-signature equality (which fails on any byte diff like
+            # a comment): it accepts entries whose tokens align, and TRIMS the
+            # copy to the matching prefix so only byte-exact tokens are copied.
+            # Upgrades L3's MiniLM semantic selection to token-exact while
+            # keeping L3's fast contiguous whole-slot copy mechanism — accuracy
+            # ≥ L3 AND speed ≈ L3 (same copy path, just trimmed to the exact
+            # prefix). When OFF, pure L3 (copy full entry_len regardless).
+            ast_gate = os.environ.get("SGLANG_L3_AST_GATE", "0") == "1"
+            ast_exact_prefix = 0  # token count of the byte-exact prefix
+            if ast_gate:
+                # Compare entry.token_ids against the request's span tokens.
+                key_tokens = getattr(req, "origin_input_ids", None)
+                if key_tokens is not None:
+                    try:
+                        if isinstance(key_tokens, torch.Tensor):
+                            req_span = key_tokens[start:end].tolist()
+                        else:
+                            req_span = list(key_tokens[start:end])
+                        ent_tok = (best.token_ids.tolist()
+                                   if isinstance(best.token_ids, torch.Tensor)
+                                   else list(best.token_ids))
+                        # Longest common prefix.
+                        m = min(len(req_span), len(ent_tok))
+                        while (ast_exact_prefix < m
+                               and int(req_span[ast_exact_prefix])
+                               == int(ent_tok[ast_exact_prefix])):
+                            ast_exact_prefix += 1
+                    except Exception:
+                        ast_exact_prefix = 0
+                if ast_exact_prefix == 0:
+                    # No byte-exact prefix → skip (dense). Avoids copying
+                    # semantically-similar-but-byte-different KV (the lossy
+                    # case L3's MiniLM accepts).
+                    miss_count += 1
+                    continue
             entry_len = min(len(best.token_ids), end - start, max_slot_len)
+            # AST gate: trim entry_len to the byte-exact common prefix so only
+            # matching tokens are copied (the rest is left to dense prefill).
+            if ast_gate and ast_exact_prefix > 0:
+                entry_len = min(entry_len, ast_exact_prefix)
             if entry_len <= 0:
                 miss_count += 1
                 if os.environ.get("SGLANG_AST_ALIGNMENT_LOG", "0") == "1":
