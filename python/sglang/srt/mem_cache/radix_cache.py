@@ -1976,6 +1976,18 @@ class RadixCache(BasePrefixCache):
         spans = getattr(req, "placeholder_anchor_token_spans", None) or []
         if not spans:
             return exact_values, exact_node
+        # Skip C2 when the offset-aligned L3 path already fired this request.
+        # Under vary-code L3+offset covered the body via the fast single-slot
+        # copy; C2's per-chunk copy would only double-copy the same tokens
+        # (its ~25ms plan_ms + per-chunk overhead made vary-code 4× slower
+        # when both fired). Under no-vary the offset gate does NOT fire, so
+        # C2 still runs and adds reuse there. Gated by env so the old COMBO
+        # behavior (C2 always on) is recoverable.
+        if (
+            getattr(req, "placeholder_l3_offset_fired", False)
+            and os.environ.get("SGLANG_CACHEBLEND_SKIP_ON_L3_OFFSET", "1") == "1"
+        ):
+            return exact_values, exact_node
         # NOTE: do NOT early-return when placeholder_chunk_pool is empty.
         # _build_chunk_plan will produce a no_pool_entry decision for every
         # chunk, which is exactly what Phase D telemetry wants to count.
@@ -2004,6 +2016,8 @@ class RadixCache(BasePrefixCache):
             if max_cached_ratio > 0 and cached_ratio > max_cached_ratio:
                 self.placeholder_chunk_pool_miss_count += 0
                 return exact_values, exact_node
+        _dbg = os.environ.get("SGLANG_CACHEBLEND_DEBUG", "0") == "1"
+        _t0 = time.perf_counter() if _dbg else 0.0
         try:
             plan = self._build_chunk_plan(req, spans, prefix_len, input_len)
         except Exception as exc:  # pragma: no cover - defensive
@@ -2011,6 +2025,7 @@ class RadixCache(BasePrefixCache):
                 "[placeholder_chunk_pool] _build_chunk_plan failed: %s", exc,
             )
             return exact_values, exact_node
+        _t1 = time.perf_counter() if _dbg else 0.0
         # Phase D: bump per-skip-reason counters unconditionally. The
         # decisions carry their skip_reason; we tally here so the
         # counters reflect every ChunkPlan execution, not just the
@@ -2066,14 +2081,16 @@ class RadixCache(BasePrefixCache):
         new_values, new_node = self._execute_chunk_plan(
             req, key, exact_values, exact_node, plan,
         )
-        if os.environ.get("SGLANG_CACHEBLEND_DEBUG", "0") == "1":
+        _t2 = time.perf_counter() if _dbg else 0.0
+        if _dbg:
             new_prefix = sum(int(v.numel()) for v in new_values) if new_values else 0
             print(
                 f"[C2DBG] rid={getattr(req,'rid','?')} input_len={input_len} "
                 f"radix_prefix={prefix_len} after_copy_prefix={new_prefix} "
                 f"copied={new_prefix-prefix_len} extend_before={input_len-prefix_len} "
                 f"extend_after={input_len-new_prefix} copy_count={plan.copy_count} "
-                f"reused={getattr(plan,'_reused',0)}",
+                f"reused={getattr(plan,'_reused',0)} "
+                f"plan_ms={(_t1-_t0)*1000:.1f} exec_ms={(_t2-_t1)*1000:.1f}",
                 flush=True,
             )
         return new_values, new_node
@@ -2863,6 +2880,8 @@ class RadixCache(BasePrefixCache):
             off += gap_len + copy_len
 
         # Single gather-scatter KV copy for all chunks.
+        _bd = os.environ.get("SGLANG_CACHEBLEND_DEBUG", "0") == "1"
+        _bt0 = time.perf_counter() if _bd else 0.0
         try:
             if len(all_dst) == 1:
                 kvcache.move_kv_cache(all_dst[0], all_src[0])
@@ -2884,6 +2903,7 @@ class RadixCache(BasePrefixCache):
         except Exception as me:  # pragma: no cover - defensive
             logger.debug("[placeholder_chunk_pool] batch move_kv_cache failed: %s", me)
             return exact_values, exact_node, 0, len(decisions)
+        _bt1 = time.perf_counter() if _bd else 0.0
 
         # Zero all gap KV in one pass per layer (lossy CacheBlend gap-zero).
         if all_gap:
@@ -2939,6 +2959,14 @@ class RadixCache(BasePrefixCache):
                         )
             except Exception as re_:  # pragma: no cover - defensive
                 logger.debug("[placeholder_chunk_pool] batch rope skipped: %s", re_)
+        _bt2 = time.perf_counter() if _bd else 0.0
+        if _bd:
+            print(
+                f"[C2BDBG] nchunk={len(layout)} reused={tokens_reused} "
+                f"move_ms={(_bt1-_bt0)*1000:.1f} rope_ms={(_bt2-_bt1)*1000:.1f} "
+                f"layers={getattr(kvcache,'layer_num',0)}",
+                flush=True,
+            )
 
         # Bump LRU access time on every consumed pool entry.
         with self.placeholder_chunk_pool_lock:
@@ -3968,6 +3996,77 @@ class RadixCache(BasePrefixCache):
                     getattr(req, "placeholder_anchor_pool_skipped_invalid_count", 0) + len(spans))
             return exact_values, exact_node
 
+    def _ast_gate_offset_lcp(
+        self,
+        req_span: List[int],
+        ent_tok: List[int],
+        bound: int,
+    ) -> tuple:
+        """Bounded offset-aligned longest common prefix (AST gate helper).
+
+        When the position-0 token lcp is tiny, the entry and request diverge
+        only in a short leading region — e.g. a per-agent ``# Agent N
+        variant\\n`` comment prefix that differs between the stored slot and
+        the request (same length, different content). Trying leading skips up
+        to ``bound`` — symmetric (same skip in both), request-only, and
+        entry-only — and taking the longest common prefix realigns on the
+        byte-exact body.
+
+        Cheap: wrong offsets mismatch in ~1-2 tokens (early-exit), so cost is
+        ~O(bound + body_len). Returns ``(entry_skip, lcp_len)`` — the entry-
+        side skip that reaches the byte-exact region, and its length. (0, 0)
+        if no substantial alignment. Used by the AST gate
+        (``SGLANG_L3_AST_GATE_OFFSET=1``) so the fast L3 whole-slot copy FIRES
+        under vary-code (instead of rejecting on a zero position-0 lcp →
+        falling back to slow per-chunk C2). The copy uses ``entry_skip`` as
+        the source offset so the body (not the differing comment) is copied.
+        """
+        best_skip = 0
+        best = 0
+        lr, le = len(req_span), len(ent_tok)
+        # Symmetric skip (same amount in both): the common vary-code case
+        # where BOTH entry and request carry a same-length leading comment
+        # that differs. The body sits at the same offset in both.
+        for s in range(1, min(bound, lr, le) + 1):
+            n = min(lr - s, le - s)
+            if n <= best:
+                break
+            lcp = 0
+            while lcp < n and int(req_span[s + lcp]) == int(ent_tok[s + lcp]):
+                lcp += 1
+            if lcp > best:
+                best = lcp
+                best_skip = s
+                if best >= n:
+                    break
+        # Skip leading tokens in the REQUEST only (entry starts at the body).
+        for s in range(1, min(bound, lr) + 1):
+            n = min(lr - s, le)
+            if n <= best:
+                break
+            lcp = 0
+            while lcp < n and int(req_span[s + lcp]) == int(ent_tok[lcp]):
+                lcp += 1
+            if lcp > best:
+                best = lcp
+                best_skip = 0
+                if best >= le:
+                    break
+        # Skip leading tokens in the ENTRY only (request starts at the body).
+        for s in range(1, min(bound, le) + 1):
+            n = min(lr, le - s)
+            if n <= best:
+                break
+            lcp = 0
+            while lcp < n and int(req_span[lcp]) == int(ent_tok[s + lcp]):
+                lcp += 1
+            if lcp > best:
+                best = lcp
+                best_skip = s
+                if best >= lr:
+                    break
+        return best_skip, best
+
     def _try_placeholder_knn_lossy_match_body(
         self,
         req: Req,
@@ -4190,6 +4289,7 @@ class RadixCache(BasePrefixCache):
             # prefix). When OFF, pure L3 (copy full entry_len regardless).
             ast_gate = os.environ.get("SGLANG_L3_AST_GATE", "0") == "1"
             ast_exact_prefix = 0  # token count of the byte-exact prefix
+            ast_entry_skip = 0   # entry-side offset where the byte-exact region starts
             if ast_gate:
                 # Compare entry.token_ids against the request's span tokens.
                 key_tokens = getattr(req, "origin_input_ids", None)
@@ -4208,8 +4308,46 @@ class RadixCache(BasePrefixCache):
                                and int(req_span[ast_exact_prefix])
                                == int(ent_tok[ast_exact_prefix])):
                             ast_exact_prefix += 1
-                    except Exception:
+                        # Offset-aligned fallback (SGLANG_L3_AST_GATE_OFFSET=1):
+                        # when the position-0 lcp is tiny, entry and request
+                        # diverge only in a short leading region (e.g. a
+                        # per-agent comment that differs). Realign on the
+                        # byte-exact body by skipping a bounded leading region.
+                        # Makes the fast L3 whole-slot copy FIRE under vary-code
+                        # (instead of rejecting → slow C2), at L3 speed.
+                        if (
+                            ast_exact_prefix < min(m, 16)
+                            and os.environ.get(
+                                "SGLANG_L3_AST_GATE_OFFSET", "0"
+                            ) == "1"
+                        ):
+                            off_bound = int(
+                                os.environ.get(
+                                    "SGLANG_L3_AST_GATE_OFFSET_BOUND", "96"
+                                )
+                            )
+                            off_skip, off_lcp = self._ast_gate_offset_lcp(
+                                req_span, ent_tok, off_bound,
+                            )
+                            if off_lcp > ast_exact_prefix:
+                                ast_exact_prefix = off_lcp
+                                ast_entry_skip = off_skip
+                        if os.environ.get("SGLANG_L3_GATE_DEBUG", "0") == "1":
+                            print(
+                                f"[GATEDBG] rid={getattr(req,'rid','?')[-8:]} "
+                                f"slot={slot_id!r} req_len={len(req_span)} "
+                                f"ent_len={len(ent_tok)} p0_lcp={ast_exact_prefix if not ast_entry_skip else 'pre'} "
+                                f"off_lcp={off_lcp if ast_exact_prefix else 0} off_skip={ast_entry_skip} "
+                                f"final={ast_exact_prefix} "
+                                f"req0={int(req_span[0]) if req_span else -1} "
+                                f"ent0={int(ent_tok[0]) if ent_tok else -1}",
+                                flush=True,
+                            )
+                    except Exception as _ge:
+                        if os.environ.get("SGLANG_L3_GATE_DEBUG", "0") == "1":
+                            print(f"[GATEDBG] exc: {_ge!r}", flush=True)
                         ast_exact_prefix = 0
+                        ast_entry_skip = 0
                 if ast_exact_prefix == 0:
                     # No byte-exact prefix → skip (dense). Avoids copying
                     # semantically-similar-but-byte-different KV (the lossy
@@ -4219,8 +4357,11 @@ class RadixCache(BasePrefixCache):
             entry_len = min(len(best.token_ids), end - start, max_slot_len)
             # AST gate: trim entry_len to the byte-exact common prefix so only
             # matching tokens are copied (the rest is left to dense prefill).
+            # When offset-aligned, the byte-exact region starts at
+            # ``ast_entry_skip`` in the entry, so the copy end is
+            # ``ast_entry_skip + ast_exact_prefix``.
             if ast_gate and ast_exact_prefix > 0:
-                entry_len = min(entry_len, ast_exact_prefix)
+                entry_len = min(entry_len, ast_entry_skip + ast_exact_prefix)
             if entry_len <= 0:
                 miss_count += 1
                 if os.environ.get("SGLANG_AST_ALIGNMENT_LOG", "0") == "1":
@@ -4267,6 +4408,29 @@ class RadixCache(BasePrefixCache):
             overlap_len = min(overlap_len, entry_len)
             copy_offset = overlap_len
             copy_len = entry_len - overlap_len
+            # AST offset-aligned gate: the byte-exact region starts at
+            # ``ast_entry_skip`` in the entry (after the differing comment).
+            # Copy from there so the body — not the comment — is moved. The
+            # dst placement is unchanged ([prefix_len, ...)); only the src
+            # offset shifts. Under vary-code overlap_len is 0, so this sets
+            # copy_offset = ast_entry_skip, copy_len = ast_exact_prefix.
+            if ast_gate and ast_entry_skip > 0:
+                copy_offset = ast_entry_skip
+                copy_len = ast_exact_prefix
+                if copy_offset + copy_len > len(best.token_ids):
+                    copy_len = max(0, len(best.token_ids) - copy_offset)
+                if copy_len <= 0:
+                    miss_count += 1
+                    continue
+                # Mark that the offset-aligned L3 path fired for this request.
+                # The C2 chunk-pool pass (sibling call after L3) checks this
+                # flag and SKIPS itself: under vary-code L3+offset already
+                # covered the body via the fast single-slot copy, so C2's
+                # per-chunk copy would only double-copy the same tokens (its
+                # plan_ms overhead made vary-code 4× slower). Under no-vary
+                # the offset gate does NOT fire (position-0 lcp is full), so
+                # this flag stays False and C2 still runs to add reuse there.
+                setattr(req, "placeholder_l3_offset_fired", True)
             # Phase 2.5: skip copy when most of the slot is already in
             # the prefix cache.  The cost of alloc + move_kv_cache + head
             # RoPE for a small (entry_len - overlap_len) trim is on par
