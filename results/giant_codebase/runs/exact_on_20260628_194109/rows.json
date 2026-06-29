@@ -1,0 +1,90 @@
+[
+  {
+    "case_idx": 0,
+    "ttft_ms": 1031.0,
+    "output_text": "The single most important implementation risk in the reference code is the potential for subclasses to improperly implement the abstract methods, leading to unexpected behavior or errors in pandas operations.",
+    "cached_tokens": 3836,
+    "prompt_tokens": 4869,
+    "blend_stage": 1,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 1,
+    "ttft_ms": 858.8,
+    "output_text": "Sub abstract important implementation risk is failing to properly is not not improper to raise `construct or not methods without raising to runtime results or failures.",
+    "cached_tokens": 3945,
+    "prompt_tokens": 4869,
+    "blend_stage": 2,
+    "chunk_hit": 6,
+    "tokens_reused": 8286,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 2,
+    "ttft_ms": 929.9,
+    "output_text": "The most important risk is ensuring to properly register and recognize custom extension dt types ` AbstractMethodError in the registry failing dtype in dtype in dtype inference and usage.",
+    "cached_tokens": 3945,
+    "prompt_tokens": 4869,
+    "blend_stage": 2,
+    "chunk_hit": 10,
+    "tokens_reused": 13810,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 3,
+    "ttft_ms": 1187.4,
+    "output_text": "The most critical implementation risk is the potential for the `Registry.find` method to return the first matching type without ensuring it correctly implements the `ExtensionDtype` interface, which could lead to unexpected behavior or errors in pandas operations.",
+    "cached_tokens": 3945,
+    "prompt_tokens": 4869,
+    "blend_stage": 2,
+    "chunk_hit": 14,
+    "tokens_reused": 19334,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 4,
+    "ttft_ms": 1021.2,
+    "output_text": "The most significant implementation risk in the code is the potential for the `Registry.find` method to return the first matching type from multiple registered types without clear precedence rules, leading to unexpected behavior.",
+    "cached_tokens": 3945,
+    "prompt_tokens": 4869,
+    "blend_stage": 2,
+    "chunk_hit": 18,
+    "tokens_reused": 24858,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 5,
+    "ttft_ms": 1026.3,
+    "output_text": "The most significant implementation risk in the code is the potential for the `Registry.find` method to return incorrect types, especially given the complex overloading and the dynamic nature of type checking.",
+    "cached_tokens": 3945,
+    "prompt_tokens": 4869,
+    "blend_stage": 2,
+    "chunk_hit": 22,
+    "tokens_reused": 30382,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 6,
+    "ttft_ms": 1263.7,
+    "output_text": "The most critical implementation risk is the potential for the `find` method in the `Registry` class to return incorrect types, especially when dealing with custom `ExtensionDtype` classes, due to the complex type overloading and the dynamic nature of type checking.",
+    "cached_tokens": 3945,
+    "prompt_tokens": 4869,
+    "blend_stage": 2,
+    "chunk_hit": 26,
+    "tokens_reused": 35906,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 7,
+    "ttft_ms": 1191.2,
+    "output_text": "The `find` class does not it it lacks not properly distinguish between `ExtensionDtype` instances and types, which can lead to incorrect inference and potential `None` returns where a valid `ExtensionDtype` instance should be returned.",
+    "cached_tokens": 3945,
+    "prompt_tokens": 4869,
+    "blend_stage": 2,
+    "chunk_hit": 30,
+    "tokens_reused": 41430,
+    "skip_gap": 0
+  }
+]

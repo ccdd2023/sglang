@@ -1,0 +1,46 @@
+[
+  {
+    "case_idx": 0,
+    "ttft_ms": 1236.4,
+    "output_text": "The most important implementation risk in the reference code is the potential for incorrect type handling and dtype conversion errors, particularly with the `astype` and `_astype_nans",
+    "cached_tokens": 2896,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 1,
+    "ttft_ms": 1240.1,
+    "output_text": "The most important implementation risk in the reference code is the potential for incorrect type handling and dtype conversion errors, particularly with the `astype` and `_astype_nans",
+    "cached_tokens": 2896,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 4,
+    "tokens_reused": 5524,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 2,
+    "ttft_ms": 1210.2,
+    "output_text": "The most important implementation risk in the reference code is the lack of proper input validation and handling for the `dtype` and `arr` in `astype/_astype",
+    "cached_tokens": 2896,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 6,
+    "tokens_reused": 8286,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 3,
+    "ttft_ms": 1231.3,
+    "output_text": "The most important implementation risk in the reference code is the potential for incorrect type handling and dtype conversion errors, particularly with the `astype` and `_astype_nans",
+    "cached_tokens": 2896,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 8,
+    "tokens_reused": 11048,
+    "skip_gap": 0
+  }
+]

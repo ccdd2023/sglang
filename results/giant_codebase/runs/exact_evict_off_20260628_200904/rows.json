@@ -1,0 +1,46 @@
+[
+  {
+    "case_idx": 0,
+    "ttft_ms": 976.2,
+    "output_text": "The single most important implementation risk in the reference code is the potential for subclasses to improperly implement abstract methods like `type`, `name`, and `construct_array_type`, leading to unexpected behavior or errors in pandas operations.",
+    "cached_tokens": 7566,
+    "prompt_tokens": 7593,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 1,
+    "ttft_ms": 1006.1,
+    "output_text": "The single most important implementation risk in the reference code is the potential for subclasses to improperly implement abstract methods like `type`, `name`, and `construct_array_type`, leading to unexpected behavior or errors in pandas operations.",
+    "cached_tokens": 7566,
+    "prompt_tokens": 7593,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 2,
+    "ttft_ms": 963.4,
+    "output_text": "The single most important implementation risk in the reference code is the potential for subclasses to improperly implement abstract methods like `type`, `name`, and `construct_array_type`, leading to unexpected behavior or errors in pandas operations.",
+    "cached_tokens": 7566,
+    "prompt_tokens": 7593,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 3,
+    "ttft_ms": 982.4,
+    "output_text": "The single most important implementation risk in the reference code is the potential for subclasses to improperly implement abstract methods like `type`, `name`, and `construct_array_type`, leading to unexpected behavior or errors in pandas operations.",
+    "cached_tokens": 7566,
+    "prompt_tokens": 7593,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  }
+]

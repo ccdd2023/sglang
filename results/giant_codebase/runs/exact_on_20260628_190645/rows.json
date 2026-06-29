@@ -1,0 +1,90 @@
+[
+  {
+    "case_idx": 0,
+    "ttft_ms": 874.3,
+    "output_text": "The single most important implementation risk in the reference code is ensuring that all required abstract methods are properly implemented by subclasses, as failing to do so will raise `AbstractMethodError`.",
+    "cached_tokens": 3781,
+    "prompt_tokens": 3808,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 1,
+    "ttft_ms": 891.9,
+    "output_text": "The single most important implementation risk in the reference code is ensuring that all required abstract methods are properly implemented by subclasses, as failing to do so will raise `AbstractMethodError`.",
+    "cached_tokens": 3801,
+    "prompt_tokens": 3808,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 2,
+    "ttft_ms": 872.1,
+    "output_text": "The single most important implementation risk in the reference code is ensuring that all required abstract methods are properly overridden in subclasses, as failing to do so will raise `AbstractMethodError`.",
+    "cached_tokens": 3801,
+    "prompt_tokens": 3808,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 3,
+    "ttft_ms": 876.4,
+    "output_text": "The single most important implementation risk in the reference code is ensuring that all required abstract methods are properly overridden in subclasses, as failing to do so will raise `AbstractMethodError`.",
+    "cached_tokens": 3801,
+    "prompt_tokens": 3808,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 4,
+    "ttft_ms": 882.0,
+    "output_text": "The single most important implementation risk in the reference code is ensuring that all required abstract methods are properly implemented by subclasses, as failing to do so will raise `AbstractMethodError`.",
+    "cached_tokens": 3801,
+    "prompt_tokens": 3808,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 5,
+    "ttft_ms": 891.0,
+    "output_text": "The single most important implementation risk in the reference code is ensuring that all required abstract methods are properly implemented by subclasses, as failing to do so will raise `AbstractMethodError`.",
+    "cached_tokens": 3801,
+    "prompt_tokens": 3808,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 6,
+    "ttft_ms": 875.9,
+    "output_text": "The single most important implementation risk in the reference code is ensuring that all required abstract methods are properly implemented by subclasses, as failing to do so will raise `AbstractMethodError`.",
+    "cached_tokens": 3801,
+    "prompt_tokens": 3808,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 7,
+    "ttft_ms": 871.9,
+    "output_text": "The single most important implementation risk in the reference code is ensuring that all required abstract methods are properly implemented by subclasses, as failing to do so will raise `AbstractMethodError`.",
+    "cached_tokens": 3801,
+    "prompt_tokens": 3808,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  }
+]

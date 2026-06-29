@@ -1,0 +1,24 @@
+[
+  {
+    "case_idx": 0,
+    "ttft_ms": 3877.0,
+    "output_text": "The single most important implementation risk in the reference code is the potential for subclasses to improperly implement the abstract methods, leading to unexpected behavior or errors in pandas operations.",
+    "cached_tokens": 3836,
+    "prompt_tokens": 4869,
+    "blend_stage": 1,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 1,
+    "ttft_ms": 830.0,
+    "output_text": "The single most important implementation risk in the reference code is the potential for subclasses to improperly implement the abstract methods, leading to unexpected behavior or errors in pandas operations.",
+    "cached_tokens": 4862,
+    "prompt_tokens": 4869,
+    "blend_stage": 1,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  }
+]

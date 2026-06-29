@@ -1,0 +1,24 @@
+[
+  {
+    "case_idx": 0,
+    "ttft_ms": 1206.8,
+    "output_text": "The most important (and potentially risky) implementation risk in the1 the given code is the lack of proper input validation and handling for edge cases, leading to potential",
+    "cached_tokens": 2896,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 1,
+    "ttft_ms": 1381.7,
+    "output_text": "The single most important implementation risk in the reference code is the potential for incorrect handling of NaN values when casting between floating and integer dtypes.",
+    "cached_tokens": 5,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  }
+]

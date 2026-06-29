@@ -1,0 +1,46 @@
+[
+  {
+    "case_idx": 0,
+    "ttft_ms": 1072.1,
+    "output_text": "The single most important implementation risk in the reference code is the potential for subclasses to improperly implement abstract methods like `type`, `name`, and `construct_array_type`, leading to unexpected behavior or errors in pandas operations.",
+    "cached_tokens": 7566,
+    "prompt_tokens": 7593,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 1,
+    "ttft_ms": 889.7,
+    "output_text": "The single most important implementation risk in the reference code is the potential for subclasses to incorrectly implement the abstract methods, leading to unexpected behavior or errors in pandas operations.",
+    "cached_tokens": 7566,
+    "prompt_tokens": 7593,
+    "blend_stage": 1,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 2,
+    "ttft_ms": 880.2,
+    "output_text": "The single most important implementation risk in the reference code is the potential for subclasses to improperly implement the abstract methods, leading to unexpected behavior or errors in pandas operations.",
+    "cached_tokens": 7566,
+    "prompt_tokens": 7593,
+    "blend_stage": 2,
+    "chunk_hit": 4,
+    "tokens_reused": 5524,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 3,
+    "ttft_ms": 1096.6,
+    "output_text": "The single most important implementation risk in the reference code is the potential for incorrect handling of NaN values when casting between floating-point and integer dtypes, as `_astype_float_to_int_nansafe` does not handle all edge cases.",
+    "cached_tokens": 7566,
+    "prompt_tokens": 7593,
+    "blend_stage": 3,
+    "chunk_hit": 6,
+    "tokens_reused": 8286,
+    "skip_gap": 0
+  }
+]

@@ -1,0 +1,68 @@
+[
+  {
+    "case_idx": 0,
+    "ttft_ms": 1306.7,
+    "output_text": "The single most important implementation risk in the reference code is the potential for incorrect handling of NaN values when casting between floating and integer dtypes.",
+    "cached_tokens": 5,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 1,
+    "ttft_ms": 1304.0,
+    "output_text": "The single most important implementation risk in the reference code is the potential for incorrect handling of NaN values when casting between floating and integer dtypes.",
+    "cached_tokens": 5,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 2,
+    "ttft_ms": 1297.8,
+    "output_text": "The single most important implementation risk in the reference code is the potential for incorrect handling of NaN values when casting between floating and integer dtypes.",
+    "cached_tokens": 5,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 3,
+    "ttft_ms": 1310.8,
+    "output_text": "The single most important implementation risk in the reference code is the potential for incorrect handling of NaN values when casting between floating and integer dtypes.",
+    "cached_tokens": 5,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 4,
+    "ttft_ms": 1315.9,
+    "output_text": "The single most important implementation risk in the reference code is the potential for incorrect handling of NaN values when casting between floating and integer dtypes.",
+    "cached_tokens": 5,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 5,
+    "ttft_ms": 1302.6,
+    "output_text": "The single most important implementation risk in the reference code is the potential for incorrect handling of NaN values when casting between floating and integer dtypes.",
+    "cached_tokens": 5,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 0,
+    "tokens_reused": 0,
+    "skip_gap": 0
+  }
+]

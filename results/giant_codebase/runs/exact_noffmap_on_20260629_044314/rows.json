@@ -1,0 +1,90 @@
+[
+  {
+    "case_idx": 0,
+    "ttft_ms": 1502.1,
+    "output_text": "The most important implementation risk in the reference code is the potential for incorrect type handling and dtype conversion errors, particularly with the `astype` and `_astype_nansafe` functions, due to complex type checks and multiple type conversions scenarios handling mechanisms",
+    "cached_tokens": 2896,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 1,
+    "ttft_ms": 1477.0,
+    "output_text": "The most important implementation risk in the reference code is the potential for incorrect type handling and dtype conversion errors, particularly with the `astype` and `_astype_nansafe` functions, due to complex type checks, type conversions, and error handling",
+    "cached_tokens": 2896,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 4,
+    "tokens_reused": 5524,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 2,
+    "ttft_ms": 1482.3,
+    "output_text": "The most important implementation risk in the reference code is the lack of proper input validation and handling for the `dtype` and `arr` parameters in `astype` methods, which can lead to unexpected behavior or errors during type conversionsions.",
+    "cached_tokens": 2896,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 6,
+    "tokens_reused": 8286,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 3,
+    "ttft_ms": 1469.0,
+    "output_text": "The most important implementation risk in the reference code is the potential for incorrect type handling and dtype conversion errors, particularly with the `astype` and `_astype_nansafe` functions, due to complex type checks, type conversions, and error handling",
+    "cached_tokens": 2896,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 8,
+    "tokens_reused": 11048,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 4,
+    "ttft_ms": 1503.3,
+    "output_text": "The most important implementation risk in the reference code is the potential for incorrect type handling and dtype conversion errors, particularly with the `astype` and `_astype_nansafe` functions, due to complex type checks and multiple type conversions scenarios handling mechanisms",
+    "cached_tokens": 2896,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 10,
+    "tokens_reused": 13810,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 5,
+    "ttft_ms": 1481.0,
+    "output_text": "The most important implementation risk in the reference code is the lack of proper input validation and handling for the `dtype` and `arr` in `astype/_astype_safe`, which can lead to unexpected behavior or errors during type casting operations.",
+    "cached_tokens": 2896,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 12,
+    "tokens_reused": 16572,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 6,
+    "ttft_ms": 1486.8,
+    "output_text": "The most important implementation risk in the reference code is the potential for incorrect type handling and dtype conversion errors, particularly with the `astype` and `_astype_nansafe` functions, due to complex type checks, type conversionsions, and error",
+    "cached_tokens": 2896,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 14,
+    "tokens_reused": 19334,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 7,
+    "ttft_ms": 1495.4,
+    "output_text": "The most significant implementation risk in the reference code is the potential for silent failures due to the lack of proper validation and handling of invalid subclass instances in `ExtensionDtype`.",
+    "cached_tokens": 29,
+    "prompt_tokens": 6542,
+    "blend_stage": 0,
+    "chunk_hit": 14,
+    "tokens_reused": 19334,
+    "skip_gap": 0
+  }
+]

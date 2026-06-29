@@ -1,0 +1,90 @@
+[
+  {
+    "case_idx": 0,
+    "ttft_ms": 1491.2,
+    "output_text": "The single most important implementation risk in the reference code is the potential for silent failures or incorrect results when using `astype` with `ExtensionDtype` instances, especially regarding NaN handling and type conversion rules.",
+    "cached_tokens": 3834,
+    "prompt_tokens": 7585,
+    "blend_stage": 1,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 1,
+    "ttft_ms": 1024.3,
+    "output_text": "The single most important implementation risk in the reference code is the potential for silent failures or incorrect results when using `astype` with `ExtensionDtype` instances, especially regarding NaN handling and type conversion semantics.",
+    "cached_tokens": 7578,
+    "prompt_tokens": 7585,
+    "blend_stage": 1,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 2,
+    "ttft_ms": 1032.0,
+    "output_text": "The single most important implementation risk in the reference code is the potential for silent failures or incorrect results when using `astype` with `ExtensionDtype` instances, especially regarding NaN handling and type conversion rules.",
+    "cached_tokens": 7578,
+    "prompt_tokens": 7585,
+    "blend_stage": 1,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 3,
+    "ttft_ms": 1013.1,
+    "output_text": "The single most important implementation risk in the reference code is the potential for silent failures or incorrect results when using `astype` with `ExtensionDtype` instances, especially regarding NaN handling and type conversion semantics.",
+    "cached_tokens": 7578,
+    "prompt_tokens": 7585,
+    "blend_stage": 1,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 4,
+    "ttft_ms": 1016.2,
+    "output_text": "The single most important implementation risk in the reference code is the potential for silent failures or incorrect results when using `astype` with `ExtensionDtype` instances, especially regarding NaN handling and type conversion semantics.",
+    "cached_tokens": 7578,
+    "prompt_tokens": 7585,
+    "blend_stage": 1,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 5,
+    "ttft_ms": 1015.1,
+    "output_text": "The single most important implementation risk in the reference code is the potential for silent failures or incorrect results when using `astype` with `ExtensionDtype` instances, especially regarding NaN handling and type conversion semantics.",
+    "cached_tokens": 7578,
+    "prompt_tokens": 7585,
+    "blend_stage": 1,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 6,
+    "ttft_ms": 1031.3,
+    "output_text": "The single most important implementation risk in the reference code is the potential for silent failures or incorrect results when using `astype` with `ExtensionDtype` instances, especially regarding NaN handling and type conversion semantics.",
+    "cached_tokens": 7578,
+    "prompt_tokens": 7585,
+    "blend_stage": 1,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  },
+  {
+    "case_idx": 7,
+    "ttft_ms": 1015.5,
+    "output_text": "The single most important implementation risk in the reference code is the potential for silent failures or incorrect results when using `astype` with `ExtensionDtype` instances, especially regarding NaN handling and type conversion semantics.",
+    "cached_tokens": 7578,
+    "prompt_tokens": 7585,
+    "blend_stage": 1,
+    "chunk_hit": 2,
+    "tokens_reused": 2762,
+    "skip_gap": 0
+  }
+]
