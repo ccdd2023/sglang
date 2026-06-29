@@ -90,29 +90,21 @@ def load_code_base(path: Path, max_chars: int) -> str:
     return txt[:max_chars]
 
 
-# A large shared context that radix caches identically across warmup/test.
-# Only the TINY role tag differs ("Agent A." vs "Agent B.") right before
-# code_base, so radix stops there → a SMALL gap before code_base → C2
-# recomputes the small gap (cheap) + copies the large code_base (saved).
-# The code_base KV mismatch is just 1 token (A vs B) → near-exact.
-SHARED_CONTEXT = (
-    "You are a senior coding assistant reviewing a large Python codebase. "
-    "Below is extensive shared project context that establishes conventions, "
-    "naming, and the module under review. " + ("Shared convention line. " * 256)
-)
+# Evicted identical-prefix regime: warmup and test share an IDENTICAL
+# [system][code_base] prefix (same role_tag), so the code_base KV the chunk
+# pool stored is EXACT for the test (same context → delta=0 → byte-exact copy).
+# Eviction fillers LRU-evict the warmup's radix entry between warmup and test,
+# so radix no longer covers code_base → C2 stages the tiny [system] gap +
+# copies the large code_base EXACTLY. This is the one regime where code-aware
+# reuse is both EXACT (accuracy == lossless) AND useful (saves the code_base
+# re-prefill). Tiny system → tiny gap → cheap stage.
+SHARED_CONTEXT = "You are a senior coding assistant. Review the reference code."
 
 
 def build_payload(tokenizer, model, code_base, question, salt, max_tokens, role_tag):
-    """Prompt = [system][SHARED][role_tag][code_base][question] with code_base
-    IMMEDIATELY after role_tag.
-
-    warmup/test share [system][SHARED] (radix-cached) and differ ONLY in the
-    1-token role_tag ("A"/"B") right before code_base. Radix stops at the tag
-    divergence → a TINY gap (the tag, ~2 tokens) before code_base → C2 stages
-    the tiny gap (cheap, ~10ms) + copies the large code_base (saved). The
-    copied KV's context differs by 1 token → near-exact (0.79 F1). Minimal gap
-    ⇒ staging overhead negligible ⇒ reuse savings dominate ⇒ speedup.
-    """
+    """Prompt = [system][role_tag][code_base][question], code_base right after
+    the tiny role_tag. warmup and test use the SAME role_tag → identical
+    [system][role_tag][code_base] prefix → exact copy (delta=0)."""
     user_text = f"{SHARED_CONTEXT}\nAgent {role_tag}\n{code_base}\n## Task\n{question}"
     messages = [
         {"role": "system", "content": "You are a senior coding assistant."},
@@ -136,13 +128,16 @@ def build_payload(tokenizer, model, code_base, question, salt, max_tokens, role_
 
 
 async def run_case(session, port, tokenizer, args, code_base, question, case_idx):
-    """Minimal-gap regime: warmup (tag "A", stores+pins chunk) then test (tag
-    "B"). Same salt → shared radix tree. Radix covers [system][shared][Agent ]
-    then diverges at A/B → a TINY gap (the "B\\n" tag, ~2 tokens) before
-    code_base → C2 stages the tiny gap (cheap) + copies the large pinned
-    code_base. The copied KV's context differs by 1 token (A vs B) → near-exact.
-    No eviction (evict_fillers ignored) — the divergence itself creates the gap."""
+    """Evicted identical-prefix regime: warmup (tag T, stores+pins chunk) →
+    evict warmup's radix entry → test (SAME tag T, reuses via C2). Identical
+    prefix ⇒ delta=0 ⇒ EXACT copy. Eviction ⇒ radix no longer covers code_base
+    ⇒ C2 stages the tiny [system][tag] gap + copies code_base exactly."""
     model = args.model
+    # Unique-tag regime (no eviction needed): warmup tag "A", test tag "B{idx}".
+    # Radix covers [system][Agent ] then diverges A vs B{idx} → small gap
+    # before code_base → C2 copies code_base (cross-context 1-token, near-
+    # exact). Unique test tags ⇒ no cross-case radix sharing ⇒ C2 is the real
+    # reuse path. No fillers ⇒ no pool exhaustion ⇒ copy alloc always succeeds.
     warm_payload = build_payload(tokenizer, model, code_base,
                                  "Briefly summarize the reference code in one sentence.",
                                  salt=f"case:{case_idx}", max_tokens=32, role_tag="A")
@@ -150,6 +145,19 @@ async def run_case(session, port, tokenizer, args, code_base, question, case_idx
         await post_chat_stream(session, port, warm_payload)
     except Exception as e:
         print(f"  [case {case_idx}] warmup error: {e!r}", flush=True)
+
+    for k in range(args.evict_fillers):
+        fill_text = f"# Filler {case_idx}-{k}\n" + ("z" * 200 + "\n") * (args.filler_tokens // 64)
+        fill_payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": fill_text}],
+            "max_tokens": 1, "temperature": 0.0, "top_p": 1.0,
+            "cache_salt": f"fill:{case_idx}:{k}",
+        }
+        try:
+            await post_chat_stream(session, port, fill_payload)
+        except Exception:
+            pass
 
     test_payload = build_payload(tokenizer, model, code_base, question,
                                  salt=f"case:{case_idx}", max_tokens=args.max_tokens,

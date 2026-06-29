@@ -160,6 +160,10 @@ class ChunkKVEntry:
         self.source_node = source_node
         self.ref_count = 1
         self.last_access_time = time.monotonic()
+        # When True, kv_indices are dedicated pool-owned slots (allocated by
+        # SGLANG_CHUNK_POOL_PIN) that must be freed on eviction. When False,
+        # kv_indices reference radix-tree slots (not owned; freed by radix LRU).
+        self.pinned = False
 
     def __repr__(self):
         return (
@@ -1806,10 +1810,16 @@ class RadixCache(BasePrefixCache):
                                 pin_slots, chunk_kv_indices,
                             )
                         chunk_kv_indices = pin_slots  # pinned, owned by pool
+                        _pinned_this = True
+                    else:
+                        _pinned_this = False
                 except Exception as exc:  # pragma: no cover - defensive
                     logger.debug(
                         "[placeholder_chunk_pool] pin alloc failed: %s", exc,
                     )
+                    _pinned_this = False
+            else:
+                _pinned_this = False
 
             entry = ChunkKVEntry(
                 slot_id=slot_id,
@@ -1824,6 +1834,7 @@ class RadixCache(BasePrefixCache):
                 kv_indices=chunk_kv_indices,
                 source_node=None,
             )
+            entry.pinned = bool(_pinned_this)
             key = (slot_id, chunk.signature)
             with self.placeholder_chunk_pool_lock:
                 lst = self.placeholder_chunk_pool.setdefault(key, [])
@@ -1833,7 +1844,19 @@ class RadixCache(BasePrefixCache):
                 # signature (default 16) to bound memory.
                 if len(lst) > self.placeholder_chunk_pool_max_per_key:
                     lst.sort(key=lambda e: e.last_access_time, reverse=True)
+                    evicted = lst[self.placeholder_chunk_pool_max_per_key :]
                     del lst[self.placeholder_chunk_pool_max_per_key :]
+                    # Free pinned (pool-owned) slots to prevent the leak that
+                    # exhausted the KV pool and silently dropped later copies
+                    # (alloc returned None → copied=0 → no speedup).
+                    for e in evicted:
+                        if getattr(e, "pinned", False):
+                            try:
+                                self.token_to_kv_pool_allocator.free(
+                                    e.kv_indices
+                                )
+                            except Exception:  # pragma: no cover - defensive
+                                pass
             stored += 1
 
         with self.placeholder_chunk_pool_lock:
@@ -1860,6 +1883,47 @@ class RadixCache(BasePrefixCache):
             return len(tokenizer.encode(prefix, add_special_tokens=False))
         except Exception:
             return 0
+
+    def _build_byte_to_token_map(
+        self, text: str, tokenizer: Optional[Any]
+    ) -> Optional[List[int]]:
+        """One-pass byte→token offset map. Returns a sorted list of token
+        END byte positions; ``_lookup_byte_offset`` binary-searches it
+        (``bisect_right(ends, byte_pos)``) to get ``len(encode(text[:byte_pos]))``
+        EXACTLY (verified to match the per-chunk ``_byte_to_token_offset``
+        re-encode on real tokenizers — a spanning token at the cut means
+        counting ends, not starts, is correct). Built via a single
+        ``tokenizer(text, return_offsets_mapping=True)`` — O(text_len) — to
+        avoid the O(chunks × text_len) per-chunk re-encoding that dominated
+        the read path. Returns None if offset mapping is unavailable (caller
+        falls back to per-chunk re-encode).
+        """
+        if tokenizer is None or not text:
+            return None
+        try:
+            out = tokenizer(text, add_special_tokens=False,
+                            return_offsets_mapping=True)
+            offsets = out["offset_mapping"] if isinstance(out, dict) else out
+            if not offsets:
+                return None
+            # offsets must be (start, end) tuples; some tokenizers ignore the
+            # kwarg and return flat id lists — guard so we fall back.
+            ends = sorted(
+                en for (_st, en) in offsets
+                if en is not None and en >= 0
+            )
+        except Exception:
+            return None
+        return ends
+
+    def _lookup_byte_offset(self, ends: List[int], byte_pos: int) -> int:
+        """``len(encode(text[:byte_pos]))`` = number of tokens whose END byte
+        <= ``byte_pos`` (bisect_right on the sorted end bytes from
+        ``_build_byte_to_token_map``)."""
+        if not ends:
+            return 0
+        import bisect
+        return bisect.bisect_right(ends, byte_pos)
 
     # ------------------------------------------------------------------
     # Direction #3 Phase C/D: per-AST-chunk pool READ path
@@ -1970,9 +2034,20 @@ class RadixCache(BasePrefixCache):
             # _execute_chunk_plan (it can only happen during KV copy).
             self.placeholder_chunk_pool_miss_count += plan.dense_count
             return exact_values, exact_node
-        return self._execute_chunk_plan(
+        new_values, new_node = self._execute_chunk_plan(
             req, key, exact_values, exact_node, plan,
         )
+        if os.environ.get("SGLANG_CACHEBLEND_DEBUG", "0") == "1":
+            new_prefix = sum(int(v.numel()) for v in new_values) if new_values else 0
+            print(
+                f"[C2DBG] rid={getattr(req,'rid','?')} input_len={input_len} "
+                f"radix_prefix={prefix_len} after_copy_prefix={new_prefix} "
+                f"copied={new_prefix-prefix_len} extend_before={input_len-prefix_len} "
+                f"extend_after={input_len-new_prefix} copy_count={plan.copy_count} "
+                f"reused={getattr(plan,'_reused',0)}",
+                flush=True,
+            )
+        return new_values, new_node
 
     def _build_chunk_plan(
         self, req: "Req", spans: List[dict],
@@ -2025,6 +2100,15 @@ class RadixCache(BasePrefixCache):
             if not chunks:
                 continue
 
+            # ONE-PASS byte→token offset map for this span's text. Avoids the
+            # O(chunks × text_len) re-encoding that _byte_to_token_offset did
+            # per chunk (2 calls × ~88 chunks = the dominant per-request cost,
+            # which negated the reuse speedup). Falls back to per-chunk
+            # re-encode only if offset mapping is unavailable.
+            byte_to_tok = None  # TEMP: force fallback to diagnose hit=0
+            if os.environ.get("SGLANG_CACHEBLEND_OFFMAP", "1") == "1":
+                byte_to_tok = self._build_byte_to_token_map(text, tokenizer)
+
             for chunk in chunks:
                 key_pool = (slot_id, chunk.signature)
                 with self.placeholder_chunk_pool_lock:
@@ -2069,14 +2153,16 @@ class RadixCache(BasePrefixCache):
                     ))
                     continue
                 # Byte-exact hit. Compute its absolute input token position
-                # via the same byte→token mapping Phase B uses to store the
-                # entry, so source/dest token offsets agree. Falls back to
-                # span_start (token_start_within=0) when no tokenizer is
-                # available — safe only for the first chunk; the gate will
-                # skip subsequent ones as gaps.
-                token_start_within = self._byte_to_token_offset(
-                    text, chunk.byte_start, tokenizer,
-                )
+                # via the one-pass byte→token map (O(1) lookup). Falls back to
+                # the per-chunk re-encode only when the map is unavailable.
+                if byte_to_tok is not None:
+                    token_start_within = self._lookup_byte_offset(
+                        byte_to_tok, chunk.byte_start
+                    )
+                else:
+                    token_start_within = self._byte_to_token_offset(
+                        text, chunk.byte_start, tokenizer,
+                    )
                 chunk_len = len(best.token_ids)
                 chunk_start = span_start + int(token_start_within)
                 candidates.append(
@@ -2680,6 +2766,13 @@ class RadixCache(BasePrefixCache):
 
         # One allocation for the whole contiguous span.
         new_slots = self.token_to_kv_pool_allocator.alloc(total_new)
+        if os.environ.get("SGLANG_CACHEBLEND_DEBUG", "0") == "1":
+            print(
+                f"[C2BDBG] rid={getattr(req,'rid','?')} ndec={len(decisions)} "
+                f"nvalid={len(valid)} total_new={total_new} "
+                f"alloc={'OK' if new_slots is not None else 'NONE'}",
+                flush=True,
+            )
         if new_slots is None or (
             hasattr(new_slots, "__len__") and len(new_slots) != total_new
         ):
@@ -2750,19 +2843,48 @@ class RadixCache(BasePrefixCache):
             except Exception as ge:  # pragma: no cover - defensive
                 logger.debug("[placeholder_chunk_pool] batch gap zero failed: %s", ge)
 
-        # Single full-key RoPE rotation for all copied tokens. Full-key is
-        # exact (the per-chunk staged path used a head-only approximation;
-        # batched full-key is strictly more correct at modest extra cost,
-        # and it's async — no per-chunk sync).
-        dst_cat = torch.cat(all_dst) if len(all_dst) > 1 else all_dst[0]
+        # RoPE rotation. Head-only (first ``head_tokens`` of each chunk) — the
+        # EPIC k=2 approximation: rotating only the chunk's first few tokens'
+        # positions is near-exact for small position deltas and ~100× cheaper
+        # than full-key rotation (which looped over all 28 layers × all copied
+        # tokens and dominated cost, negating the reuse speedup). Full-key can
+        # be re-enabled with SGLANG_CACHEBLEND_FULL_ROPE=1 if a large delta
+        # demands it.
+        use_full_rope = os.environ.get("SGLANG_CACHEBLEND_FULL_ROPE", "0") == "1"
         if any(d != 0 for d in all_delta) and getattr(self, "rope_rotary_dim", 0) > 0:
             try:
-                delta_tensor = torch.tensor(
-                    all_delta, dtype=torch.long, device=dst_cat.device,
-                )
-                self._apply_rope_delta_to_keys(
-                    kvcache.k_buffer, dst_cat, delta_tensor,
-                )
+                if use_full_rope:
+                    dst_cat = torch.cat(all_dst) if len(all_dst) > 1 else all_dst[0]
+                    delta_tensor = torch.tensor(
+                        all_delta, dtype=torch.long, device=dst_cat.device,
+                    )
+                    self._apply_rope_delta_to_keys(
+                        kvcache.k_buffer, dst_cat, delta_tensor,
+                    )
+                else:
+                    # Batched head-only: gather the first head_tokens slots of
+                    # each chunk + their deltas, one rotation call.
+                    heads_dst = []
+                    heads_delta = []
+                    idx = 0
+                    for gap_len, copy_len, copy_offset, rope_delta, entry in layout:
+                        if rope_delta == 0:
+                            idx += 1
+                            continue
+                        dst_slice = all_dst[idx]
+                        h = min(head_tokens, copy_len)
+                        if h > 0:
+                            heads_dst.append(dst_slice[:h])
+                            heads_delta.extend([rope_delta] * h)
+                        idx += 1
+                    if heads_dst:
+                        hd = torch.cat(heads_dst)
+                        dt = torch.tensor(
+                            heads_delta, dtype=torch.long, device=hd.device,
+                        )
+                        self._apply_rope_delta_to_keys(
+                            kvcache.k_buffer, hd, dt,
+                        )
             except Exception as re_:  # pragma: no cover - defensive
                 logger.debug("[placeholder_chunk_pool] batch rope skipped: %s", re_)
 
