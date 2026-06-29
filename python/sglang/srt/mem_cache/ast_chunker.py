@@ -157,6 +157,14 @@ class ASTChunker:
 
     language: str = "python"
 
+    # Process-wide cache: text-hash → chunk list. The same code text is chunked
+    # by every agent in a multi-agent run (5 agents × 5 spans = 25 identical
+    # AST parses + signature hashes per request); caching avoids that repeat
+    # cost on the TTFT critical path. Bounded to _CHUNK_CACHE_MAX entries (LRU
+    # via dict insertion-order eviction).
+    _chunk_cache: "dict[int, list[ChunkSpan]]" = {}
+    _CHUNK_CACHE_MAX = 512
+
     def chunk_text(self, text: str) -> list[ChunkSpan]:
         """Parse ``text`` and return up to ``_MAX_ANCHORS`` AST-aligned chunks.
 
@@ -173,6 +181,26 @@ class ASTChunker:
         source = (text or "").strip()
         if not source:
             return []
+        # Cache lookup (keyed by text hash + the two granularity env flags so
+        # toggling coarse/toplevel invalidates). The AST parse + signature
+        # hashing is the dominant per-request cost in the C2 read path; the
+        # same code text is chunked by every agent, so this turns 25 parses
+        # into 5.
+        cache_key = hash((
+            text,
+            os.environ.get("SGLANG_CHUNK_COARSE", "0"),
+            os.environ.get("SGLANG_CHUNK_TOPLEVEL", "0"),
+        ))
+        cached = ASTChunker._chunk_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        result = self._chunk_text_uncached(text, source)
+        if len(ASTChunker._chunk_cache) >= ASTChunker._CHUNK_CACHE_MAX:
+            ASTChunker._chunk_cache.pop(next(iter(ASTChunker._chunk_cache)))
+        ASTChunker._chunk_cache[cache_key] = result
+        return result
+
+    def _chunk_text_uncached(self, text: str, source: str) -> list[ChunkSpan]:
         if os.environ.get("SGLANG_CHUNK_COARSE", "0") == "1":
             normalized = _normalize_snippet(source)
             signature = hashlib.sha1(

@@ -1900,6 +1900,16 @@ class RadixCache(BasePrefixCache):
         """
         if tokenizer is None or not text:
             return None
+        # Cache by text hash: the same code text is tokenized by every agent
+        # in a multi-agent run; the offset map is identical across them.
+        # Avoids ~5ms tokenization × 5 spans × 5 agents on the TTFT path.
+        ck = hash(text)
+        cached = getattr(self, "_byte_to_token_map_cache", None)
+        if cached is None:
+            cached = {}
+            self._byte_to_token_map_cache = cached
+        elif ck in cached:
+            return cached[ck]
         try:
             out = tokenizer(text, add_special_tokens=False,
                             return_offsets_mapping=True)
@@ -1914,6 +1924,9 @@ class RadixCache(BasePrefixCache):
             )
         except Exception:
             return None
+        if len(cached) > 512:
+            cached.pop(next(iter(cached)))
+        cached[ck] = ends
         return ends
 
     def _lookup_byte_offset(self, ends: List[int], byte_pos: int) -> int:
