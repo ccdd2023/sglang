@@ -152,7 +152,8 @@ async def run_case(session, port, tokenizer, args, code_base, question, case_idx
         print(f"  [case {case_idx}] warmup error: {e!r}", flush=True)
 
     test_payload = build_payload(tokenizer, model, code_base, question,
-                                 salt=f"case:{case_idx}", max_tokens=args.max_tokens, role_tag="B")
+                                 salt=f"case:{case_idx}", max_tokens=args.max_tokens,
+                                 role_tag=f"B{case_idx}")
     t0 = time.perf_counter()
     try:
         resp = await post_chat_stream(session, port, test_payload)

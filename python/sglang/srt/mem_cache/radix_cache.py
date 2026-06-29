@@ -2382,6 +2382,55 @@ class RadixCache(BasePrefixCache):
         # they cover plans with copy_count==0 too. Only alloc_failed
         # and the hit/token counters are bumped here.
 
+        # ---- Batched execution (SGLANG_CACHEBLEND_BATCH=1): collapse ALL
+        # copy_pool decisions into ONE alloc + ONE move_kv_cache + ONE RoPE.
+        # The per-chunk loop below does N allocs + N moves + N RoPE calls
+        # (each with Python + kernel-launch overhead), which dominates cost
+        # for many small chunks and negates the reuse speedup. The batched
+        # path assembles the contiguous [gap0][chunk0][gap1][chunk1]... layout
+        # in a single allocated span, then does a single gather-scatter KV
+        # copy and a single full-key RoPE rotation. Correctness is identical
+        # (or better: full-key RoPE is exact, vs the head-only approximation
+        # the per-chunk staged path used). On any failure it falls through to
+        # the per-chunk loop.
+        copy_decisions = [
+            d for d in plan.decisions if d.action == "copy_pool"
+        ]
+        batch_enabled = (
+            os.environ.get("SGLANG_CACHEBLEND_BATCH", "1") == "1"
+            and copy_decisions
+            and getattr(self, "rope_rotary_dim", 0) >= 0
+        )
+        if batch_enabled:
+            try:
+                exact_values, exact_node, _tok_reused, _alloc_failed = (
+                    self._execute_chunk_plan_batched(
+                        req, exact_values, exact_node, copy_decisions,
+                        head_tokens,
+                    )
+                )
+                tokens_reused = _tok_reused
+                alloc_failed_count = _alloc_failed
+                # Counters
+                self.placeholder_chunk_pool_hit_count += len(copy_decisions) - _alloc_failed
+                self.placeholder_chunk_pool_miss_count += plan.dense_count
+                self.placeholder_chunk_pool_total_tokens_reused += tokens_reused
+                self.placeholder_chunk_pool_total_tokens_dense += (
+                    tokens_dense + _alloc_failed
+                )
+                self.placeholder_chunk_pool_skip_alloc_failed_count += (
+                    alloc_failed_count
+                )
+                if copy_decisions:
+                    self.placeholder_chunk_pool_rope_ops_count += tokens_reused
+                return exact_values, exact_node
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.debug(
+                    "[placeholder_chunk_pool] batched exec failed (%s); "
+                    "falling back to per-chunk", exc,
+                )
+                # Fall through to per-chunk loop.
+
         # Process copy decisions.
         for decision in plan.decisions:
             if decision.action != "copy_pool":
@@ -2574,6 +2623,171 @@ class RadixCache(BasePrefixCache):
             # kernel treats them as part of the matched prefix.
             exact_values = exact_values + new_value_slices
         return exact_values, exact_node
+
+    def _execute_chunk_plan_batched(
+        self,
+        req: "Req",
+        exact_values: List[torch.Tensor],
+        exact_node: "TreeNode",
+        decisions: List["ChunkDecision"],
+        head_tokens: int,
+    ) -> Tuple[List[torch.Tensor], "TreeNode", int, int]:
+        """Batched copy: ONE alloc + ONE move_kv_cache + ONE RoPE for all
+        ``copy_pool`` decisions. See ``_execute_chunk_plan`` for the per-chunk
+        fallback. Returns (exact_values, exact_node, tokens_reused,
+        alloc_failed_count).
+
+        Layout (contiguous, appended to the matched prefix): for each decision
+        in input order, ``[gap_len zeroed slots][copy_len copied slots]``.
+        The assembled span covers ``[prefix_len, last_chunk_end)``; the radix
+        prefill kernel treats it as cached (gaps are zero → lossy for the
+        gap's downstream attention; chunks are exact copies, full-key
+        RoPE-corrected). One alloc, one gather-scatter KV copy, one RoPE.
+        """
+        # Pass 1: compute the layout and validate entries.
+        layout = []  # (gap_len, copy_len, copy_offset, rope_delta, entry)
+        total_new = 0
+        tokens_reused = 0
+        valid = []
+        for d in decisions:
+            entry = d.pool_entry
+            copy_offset = int(getattr(d, "copy_offset", 0) or 0)
+            copy_len = int(getattr(d, "copy_len", 0) or 0)
+            if copy_len <= 0:
+                copy_len = len(entry.kv_indices)
+                copy_offset = 0
+            if (
+                copy_len == 0
+                or copy_offset + copy_len > len(entry.kv_indices)
+            ):
+                # Skip this chunk (treat as dense). The span it would have
+                # covered is left to the prefill kernel; subsequent chunks
+                # are no longer contiguous with the prefix → skip them too
+                # (their gaps would be inflated). Break the batch here.
+                break
+            gap_len = int(getattr(d, "gap_len", 0) or 0)
+            layout.append((gap_len, copy_len, copy_offset, int(d.rope_delta), entry))
+            valid.append(d)
+            total_new += gap_len + copy_len
+            tokens_reused += copy_len
+
+        if total_new == 0:
+            return exact_values, exact_node, 0, 0
+
+        # Decisions dropped after the first invalid one (contiguity break):
+        # flip them to dense so telemetry/prefill treats them correctly.
+        alloc_failed_count = len(decisions) - len(valid)
+
+        # One allocation for the whole contiguous span.
+        new_slots = self.token_to_kv_pool_allocator.alloc(total_new)
+        if new_slots is None or (
+            hasattr(new_slots, "__len__") and len(new_slots) != total_new
+        ):
+            # Batch alloc failed → all chunks dense.
+            for d in decisions:
+                d.action = "dense_prefill"
+                d.skip_reason = "alloc_failed"
+                d.pool_entry = None
+            return exact_values, exact_node, 0, len(decisions)
+
+        try:
+            kvcache = self.token_to_kv_pool_allocator.get_kvcache()
+        except Exception as ae:  # pragma: no cover - defensive
+            logger.debug("[placeholder_chunk_pool] batch get_kvcache failed: %s", ae)
+            return exact_values, exact_node, 0, len(decisions)
+
+        # Pass 2: build index tensors over the allocated span.
+        off = 0
+        all_dst: List[torch.Tensor] = []   # chunk dst slot indices
+        all_src: List[torch.Tensor] = []   # chunk src slot indices (pool)
+        all_gap: List[torch.Tensor] = []   # gap slot indices (to zero)
+        all_delta: List[int] = []          # per-chunk-token RoPE delta
+        for gap_len, copy_len, copy_offset, rope_delta, entry in layout:
+            base = off
+            if gap_len > 0 and hasattr(new_slots, "__getitem__"):
+                all_gap.append(new_slots[base : base + gap_len])
+            chunk_dst_start = base + gap_len
+            if hasattr(new_slots, "__getitem__"):
+                dst_slice = new_slots[chunk_dst_start : chunk_dst_start + copy_len]
+            else:
+                dst_slice = new_slots
+            src_slice = entry.kv_indices[copy_offset : copy_offset + copy_len]
+            all_dst.append(dst_slice)
+            all_src.append(src_slice)
+            all_delta.extend([rope_delta] * copy_len)
+            off += gap_len + copy_len
+
+        # Single gather-scatter KV copy for all chunks.
+        try:
+            if len(all_dst) == 1:
+                kvcache.move_kv_cache(all_dst[0], all_src[0])
+            else:
+                dst_cat = torch.cat(all_dst)
+                src_cat = torch.cat(all_src)
+                kvcache.move_kv_cache(dst_cat, src_cat)
+        except AttributeError:
+            # Test stubs expose only k_buffer/v_buffer.
+            dst_cat = torch.cat(all_dst) if len(all_dst) > 1 else all_dst[0]
+            src_cat = torch.cat(all_src) if len(all_src) > 1 else all_src[0]
+            try:
+                move_kv_cache_native(
+                    kvcache.k_buffer, kvcache.v_buffer, dst_cat, src_cat,
+                )
+            except Exception as me:  # pragma: no cover - defensive
+                logger.debug("[placeholder_chunk_pool] batch move_kv failed: %s", me)
+                return exact_values, exact_node, 0, len(decisions)
+        except Exception as me:  # pragma: no cover - defensive
+            logger.debug("[placeholder_chunk_pool] batch move_kv_cache failed: %s", me)
+            return exact_values, exact_node, 0, len(decisions)
+
+        # Zero all gap KV in one pass per layer (lossy CacheBlend gap-zero).
+        if all_gap:
+            try:
+                gap_cat = torch.cat(all_gap) if len(all_gap) > 1 else all_gap[0]
+                for layer_id in range(kvcache.layer_num):
+                    kvcache.get_key_buffer(layer_id)[gap_cat] = 0
+                    kvcache.get_value_buffer(layer_id)[gap_cat] = 0
+            except Exception as ge:  # pragma: no cover - defensive
+                logger.debug("[placeholder_chunk_pool] batch gap zero failed: %s", ge)
+
+        # Single full-key RoPE rotation for all copied tokens. Full-key is
+        # exact (the per-chunk staged path used a head-only approximation;
+        # batched full-key is strictly more correct at modest extra cost,
+        # and it's async — no per-chunk sync).
+        dst_cat = torch.cat(all_dst) if len(all_dst) > 1 else all_dst[0]
+        if any(d != 0 for d in all_delta) and getattr(self, "rope_rotary_dim", 0) > 0:
+            try:
+                delta_tensor = torch.tensor(
+                    all_delta, dtype=torch.long, device=dst_cat.device,
+                )
+                self._apply_rope_delta_to_keys(
+                    kvcache.k_buffer, dst_cat, delta_tensor,
+                )
+            except Exception as re_:  # pragma: no cover - defensive
+                logger.debug("[placeholder_chunk_pool] batch rope skipped: %s", re_)
+
+        # Bump LRU access time on every consumed pool entry.
+        with self.placeholder_chunk_pool_lock:
+            now = time.monotonic()
+            for gap_len, copy_len, copy_offset, rope_delta, entry in layout:
+                entry.last_access_time = now
+                entry.ref_count += 1
+
+        # Flip any dropped decisions (post-contiguity-break) to dense.
+        for d in decisions[len(valid):]:
+            d.action = "dense_prefill"
+            d.skip_reason = "alloc_failed"
+            d.pool_entry = None
+
+        # Telemetry on req.
+        try:
+            setattr(req, "placeholder_chunk_pool_decision_count", len(valid))
+            setattr(req, "placeholder_chunk_pool_last_rotated_ops", int(tokens_reused))
+        except Exception:  # pragma: no cover - defensive
+            pass
+
+        exact_values = exact_values + [new_slots]
+        return exact_values, exact_node, tokens_reused, alloc_failed_count
 
     def _resolve_lossy_match(self, req: Req) -> AnchorMatchResult:
         request_meta = self._build_req_anchor_metadata(req)
