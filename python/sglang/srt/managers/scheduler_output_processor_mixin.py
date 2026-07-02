@@ -250,6 +250,29 @@ class SchedulerOutputProcessorMixin:
             "placeholder_kv_prefill_skipped_tokens": getattr(
                 req, "placeholder_kv_prefill_skipped_tokens", None
             ),
+            # A6 (fair-measurement): per-request code-aware-vs-radix
+            # decomposition. radix_only_prefix_len = pure L1 radix prefix
+            # (the only part the prefix_cache_only baseline also sees).
+            # l2_wholeslot_reused_tokens = L2 whole-slot byte-exact copy (the
+            # general-KVCOMM baseline's reuse). l3_offset_reused_tokens /
+            # c2_chunk_reused_tokens = L3 offset-gate body copy + C2 chunk copy.
+            # codeaware_reused_tokens = L2 + L3 + C2 (EXCLUDES radix). The bench
+            # uses these to decompose cached_tokens and gate on prefix parity.
+            "radix_only_prefix_len": getattr(
+                req, "radix_only_prefix_len", None
+            ),
+            "l2_wholeslot_reused_tokens": getattr(
+                req, "l2_wholeslot_reused_tokens", None
+            ),
+            "l3_offset_reused_tokens": getattr(
+                req, "l3_offset_reused_tokens", None
+            ),
+            "c2_chunk_reused_tokens": getattr(
+                req, "c2_chunk_reused_tokens", None
+            ),
+            "codeaware_reused_tokens": getattr(
+                req, "codeaware_reused_tokens", None
+            ),
             # Phase 2.4: cumulative overlap (prefix_len - start per slot).
             "placeholder_kv_prefill_overlap_tokens": getattr(
                 req, "placeholder_kv_prefill_overlap_tokens", None

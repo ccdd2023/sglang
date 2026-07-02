@@ -32,6 +32,7 @@ import sys
 import threading
 import time
 from collections import defaultdict
+from pathlib import Path
 from dataclasses import dataclass
 from functools import lru_cache, partial
 from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Tuple, Union
@@ -43,12 +44,85 @@ from sglang.srt.mem_cache.memory_pool import move_kv_cache_native
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Byte-to-token offset helper (module-level free function).
+#
+# Factored out of RadixCache._byte_to_token_offset so offline tools (the
+# codebase-KV precompute script) can map AST chunk byte offsets to token
+# offsets without instantiating a live RadixCache. The staticmethod below
+# is kept as a thin wrapper for backward compatibility with existing call
+# sites.
+# ---------------------------------------------------------------------------
+def byte_to_token_offset(
+    text: str, byte_pos: int, tokenizer: Optional[Any]
+) -> int:
+    """Map a byte offset within ``text`` to a token offset.
+
+    Re-encodes the prefix up to ``byte_pos`` via ``tokenizer``. Falls
+    back to 0 if no tokenizer is available.
+    """
+    if byte_pos <= 0:
+        return 0
+    if tokenizer is None:
+        return 0
+    try:
+        prefix = text[:byte_pos]
+        return len(tokenizer.encode(prefix, add_special_tokens=False))
+    except Exception:
+        return 0
+
+
+# ---------------------------------------------------------------------------
 # Anchor KV Entry for position-aligned non-prefix reuse.
 #
 # AgentTemplateKV treats the KVCOMM-style exact-content/RoPE copy as the low
 # level mechanism, then adds device-resident future-use protection so coding
 # agent templates can turn prefetch hints into real GPU hits.
 # ---------------------------------------------------------------------------
+# Phase 7 Exp2 helper: dump a slice of kvcache.k_buffer to disk for off-line
+# byte-comparison of SYNC vs LAYERED RoPE outputs. Gated by
+# SGLANG_KVFLOW_BYTECMP_DUMP=1; counter is global so the first N calls only
+# are dumped (default 4), avoiding runaway disk usage. Output files:
+# results/kvcomm_ab/bytecmp/{site}_{idx}.pt
+_BYTECMP_COUNTER = {"n": 0}
+_BYTECMP_LIMIT = int(os.environ.get("SGLANG_KVFLOW_BYTECMP_LIMIT", "4"))
+
+
+def _bytecmp_dump(site: str, kvcache, dst_slice, tag: str = "") -> None:
+    """One-shot guarded dump of kvcache.k_buffer[0][dst_slice] for byte-comparison.
+
+    site: 'sync_perchunk' | 'sync_batched' | 'layered_perlayer'
+    dst_slice: torch.Tensor of slot indices on the same device as kvcache.
+    tag: extra context for the filename (e.g. layer_id).
+    """
+    if os.environ.get("SGLANG_KVFLOW_BYTECMP_DUMP", "0") != "1":
+        return
+    if _BYTECMP_COUNTER["n"] >= _BYTECMP_LIMIT:
+        return
+    try:
+        out_dir = Path("results/kvcomm_ab/bytecmp")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        idx = _BYTECMP_COUNTER["n"]
+        _BYTECMP_COUNTER["n"] += 1
+        k_cpu = kvcache.k_buffer[0][dst_slice].detach().cpu().contiguous()
+        suffix = f"_{tag}" if tag else ""
+        fname = out_dir / f"{site}_n{idx}{suffix}.pt"
+        torch.save(
+            {
+                "site": site,
+                "tag": tag,
+                "k_shape": list(k_cpu.shape),
+                "k_dtype": str(k_cpu.dtype),
+                "k_sum": float(k_cpu.float().sum()),
+                "k_mean": float(k_cpu.float().mean()),
+                "k_std": float(k_cpu.float().std()),
+                "k_first16": k_cpu.flatten()[:16].tolist(),
+            },
+            fname,
+        )
+    except Exception as _e:  # pragma: no cover - diagnostic only
+        logger.debug("[bytecmp] dump failed: %s", _e)
+
+
 class AnchorKVEntry:
     """Stores KV cache for an anchor block, keyed by signature + position."""
 
@@ -106,6 +180,13 @@ class AnchorKVEntry:
         # [head_tokens, H, D].
         self.pre_rotated_head_k: Optional[List[List[torch.Tensor]]] = None
         self.pre_rotated_deltas: Optional[List[int]] = None
+        # Residency of kv_indices. "device" = GPU MHATokenToKVPool slots
+        # (the historical path; pinned or radix-referenced). "host" =
+        # slots in a dedicated codebase host pool (precomputed-KV path),
+        # so the read path must transfer CPU->GPU before reuse. "disk" is
+        # reserved for future lazy-load. Default "device" is backward
+        # compatible with all existing entries.
+        self.location: str = "device"
 
     def __repr__(self):
         return (
@@ -164,6 +245,13 @@ class ChunkKVEntry:
         # SGLANG_CHUNK_POOL_PIN) that must be freed on eviction. When False,
         # kv_indices reference radix-tree slots (not owned; freed by radix LRU).
         self.pinned = False
+        # Residency of kv_indices. "device" = GPU MHATokenToKVPool slots
+        # (historical; pinned or radix-referenced). "host" = slots in a
+        # dedicated codebase host pool (offline-precomputed KV path), so the
+        # read path must transfer CPU->GPU (load_to_device_per_layer) before
+        # reuse. "disk" reserved for future lazy-load. Default "device" keeps
+        # all existing entries backward compatible.
+        self.location: str = "device"
 
     def __repr__(self):
         return (
@@ -263,6 +351,11 @@ class ChunkPlan:
     # at blend_gap_target) — used by the cost guard to ensure the copy
     # outweighs the gap prefill (reuse-only speedup).
     blend_run_len: int = 0
+    # MULTI_SLOT (SGLANG_CACHEBLEND_MULTI_SLOT=1): total tokens of INTERNAL
+    # gaps (inter-slot headers, dropped functions) that were ZEROED to copy
+    # non-contiguous matching slots beyond the first. Telemetry/loss metric —
+    # the zeroed-gap KV is lossy (unlike the staged real leading gap).
+    multi_slot_zeroed_gap_tokens: int = 0
 
     def __post_init__(self):
         if self.copy_count == 0 and self.dense_count == 0 and self.decisions:
@@ -730,6 +823,27 @@ class RadixCache(BasePrefixCache):
         self.placeholder_chunk_pool_max_per_key: int = int(
             os.environ.get("SGLANG_PLACEHOLDER_CHUNK_POOL_MAX_PER_KEY", "16")
         )
+        # Global cap on PINNED chunk-pool tokens (SGLANG_CHUNK_POOL_PIN=1).
+        # Pinned entries own dedicated KV slots (copied from radix at store
+        # time) so they survive radix eviction — necessary for the eviction-
+        # trigger in _execute_chunk_plan_batched to be safe. But without a
+        # GLOBAL cap they accumulate across tasks (per-key LRU only trims
+        # within one (slot_id,signature) key; 12 tasks × 5 distinct segments
+        # = 60 keys × ~1444 tok = 87k > pool). This cap + global LRU frees
+        # the oldest pinned entries (across ALL keys) when exceeded. -1 = no
+        # global cap (per-key LRU only).
+        self.placeholder_chunk_pool_pinned_token_cap: int = int(
+            os.environ.get("SGLANG_PLACEHOLDER_CHUNK_POOL_PINNED_CAP", "24576")
+        )
+        self.placeholder_chunk_pool_pinned_tokens: int = 0
+        # Subset of pinned tokens that live on the DEVICE (not the host
+        # pool). Only these affect device-allocator accounting — host-pool
+        # entries occupy CPU memory and the device allocator never sees
+        # them. The leak detector at scheduler_runtime_checker_mixin checks
+        # available+evictable == max_total - protected, so we must include
+        # device-resident chunks in protected_size but NOT host-pool
+        # chunks.
+        self.placeholder_chunk_pool_pinned_device_tokens: int = 0
         # Telemetry: per-process counters.
         self.placeholder_chunk_pool_hit_count = 0
         self.placeholder_chunk_pool_miss_count = 0
@@ -756,6 +870,9 @@ class RadixCache(BasePrefixCache):
         self.placeholder_chunk_pool_blend_stage_count = 0
         self.placeholder_chunk_pool_blend_gap_tokens = 0
         self.placeholder_chunk_pool_blend_run_tokens = 0
+        # MULTI_SLOT: total INTERNAL-gap tokens zeroed to copy non-contiguous
+        # matching slots beyond the first (loss metric — zeroed KV is lossy).
+        self.placeholder_chunk_pool_multi_slot_zeroed_gap_tokens = 0
 
         self.rope_base = params.rope_base
         self.rope_rotary_dim = params.rope_rotary_dim
@@ -874,6 +991,23 @@ class RadixCache(BasePrefixCache):
             return empty_match_result()
 
         value, last_node = self._match_prefix_helper(self.root_node, key)
+        # A1 (fair-measurement): snapshot the PURE radix (L1) prefix length
+        # BEFORE any lossy / placeholder / chunk code-aware path appends copied
+        # slots to `value`. This is the only portion the `prefix_cache_only`
+        # baseline also sees, so it must cancel in a fair A/B. Code-aware
+        # copies (L3 k-NN body, offset-aligned AST gate, C2 chunk) are reported
+        # separately via req.l3_offset_reused_tokens / req.c2_chunk_reused_tokens
+        # and must NOT be folded into this number.
+        if req is not None:
+            req.radix_only_prefix_len = sum(int(v.numel()) for v in value) if value else 0
+            # Initialize per-request code-aware counters (populated by the
+            # L3/C2 paths below). Default 0 so absent paths leave them clean.
+            if not hasattr(req, "l3_offset_reused_tokens"):
+                req.l3_offset_reused_tokens = 0
+            if not hasattr(req, "c2_chunk_reused_tokens"):
+                req.c2_chunk_reused_tokens = 0
+            if not hasattr(req, "l2_wholeslot_reused_tokens"):
+                req.l2_wholeslot_reused_tokens = 0
         if best_node is not None:
             value, last_node = self._try_lossy_fuzzy_match(
                 req, key, value, last_node, best_node
@@ -896,6 +1030,18 @@ class RadixCache(BasePrefixCache):
         ):
             value, last_node = self._try_placeholder_chunk_lossy_match(
                 req, key, value, last_node,
+            )
+        # A4 (fair-measurement): total code-aware-reused tokens for this
+        # request = L2 whole-slot + L3 (offset-gated) body copy + C2 chunk copy.
+        # This EXCLUDES the radix L1 prefix (req.radix_only_prefix_len), so the
+        # bench can decompose cached_tokens into radix_prefix + codeaware_reused.
+        # L2 is included so the general-KVCOMM baseline (L2 whole-slot) and the
+        # AST path (L4+C2) are comparable on the same code-aware axis.
+        if req is not None:
+            req.codeaware_reused_tokens = int(
+                getattr(req, "l2_wholeslot_reused_tokens", 0)
+            ) + int(getattr(req, "l3_offset_reused_tokens", 0)) + int(
+                getattr(req, "c2_chunk_reused_tokens", 0)
             )
         if value:
             value = torch.cat(value)
@@ -1839,6 +1985,13 @@ class RadixCache(BasePrefixCache):
             with self.placeholder_chunk_pool_lock:
                 lst = self.placeholder_chunk_pool.setdefault(key, [])
                 lst.append(entry)
+                if entry.pinned:
+                    n = len(entry.kv_indices)
+                    self.placeholder_chunk_pool_pinned_tokens += n
+                    # Only device-resident pinned entries affect the device
+                    # allocator; host-pool pinned slots live on CPU memory.
+                    if getattr(entry, "location", "device") == "device":
+                        self.placeholder_chunk_pool_pinned_device_tokens += n
                 # LRU trim on the per-key list. We keep at most
                 # placeholder_chunk_pool_max_per_key entries per chunk
                 # signature (default 16) to bound memory.
@@ -1857,6 +2010,41 @@ class RadixCache(BasePrefixCache):
                                 )
                             except Exception:  # pragma: no cover - defensive
                                 pass
+                            n = len(e.kv_indices)
+                            self.placeholder_chunk_pool_pinned_tokens -= n
+                            if getattr(e, "location", "device") == "device":
+                                self.placeholder_chunk_pool_pinned_device_tokens -= n
+                # Global pinned-LRU cap: free the oldest PINNED entries
+                # across ALL keys when total pinned tokens exceed the cap.
+                # Without this, pinned chunks accumulate across tasks (12
+                # tasks × 5 segments = 60 keys, per-key LRU can't trim) and
+                # exhaust the pool. Iterates the whole pool but is bounded
+                # by the cap (stops once under cap).
+                cap = self.placeholder_chunk_pool_pinned_token_cap
+                if (
+                    cap > 0
+                    and self.placeholder_chunk_pool_pinned_tokens > cap
+                ):
+                    pinned = []
+                    for k, es in self.placeholder_chunk_pool.items():
+                        for e in es:
+                            if getattr(e, "pinned", False):
+                                pinned.append((e.last_access_time, k, e))
+                    pinned.sort(key=lambda t: t[0])  # oldest first
+                    for _lat, k, e in pinned:
+                        if self.placeholder_chunk_pool_pinned_tokens <= cap:
+                            break
+                        try:
+                            self.token_to_kv_pool_allocator.free(e.kv_indices)
+                        except Exception:  # pragma: no cover - defensive
+                            pass
+                        n = len(e.kv_indices)
+                        self.placeholder_chunk_pool_pinned_tokens -= n
+                        if getattr(e, "location", "device") == "device":
+                            self.placeholder_chunk_pool_pinned_device_tokens -= n
+                        es = self.placeholder_chunk_pool.get(k, [])
+                        if e in es:
+                            es.remove(e)
             stored += 1
 
         with self.placeholder_chunk_pool_lock:
@@ -1870,19 +2058,11 @@ class RadixCache(BasePrefixCache):
     ) -> int:
         """Map a byte offset within ``text`` to a token offset.
 
-        Re-encodes the prefix up to ``byte_pos`` via ``tokenizer``. Falls
-        back to 0 if no tokenizer is available — Phase B is research-only
-        and we don't want to guess on production-shaped inputs.
+        Thin wrapper over the module-level ``byte_to_token_offset`` free
+        function (factored out so offline tools can reuse it without a
+        live RadixCache). Falls back to 0 if no tokenizer is available.
         """
-        if byte_pos <= 0:
-            return 0
-        if tokenizer is None:
-            return 0
-        try:
-            prefix = text[:byte_pos]
-            return len(tokenizer.encode(prefix, add_special_tokens=False))
-        except Exception:
-            return 0
+        return byte_to_token_offset(text, byte_pos, tokenizer)
 
     def _build_byte_to_token_map(
         self, text: str, tokenizer: Optional[Any]
@@ -2051,6 +2231,13 @@ class RadixCache(BasePrefixCache):
             skip_size_mismatch
         )
         self.placeholder_chunk_pool_skip_gap_count += skip_gap
+        # MULTI_SLOT loss telemetry: internal-gap tokens zeroed to copy
+        # non-contiguous slots beyond the first (set in _build_chunk_plan).
+        # Bumped here unconditionally so it covers both the staging round
+        # (where it is 0) and the post-gap copy round (where it fires).
+        self.placeholder_chunk_pool_multi_slot_zeroed_gap_tokens += int(
+            getattr(plan, "multi_slot_zeroed_gap_tokens", 0)
+        )
         # C2 CacheBlend: a byte-exact chunk sits beyond a leading gap. Stage
         # a gap-prefill round (reuse the L3 scheduler staging attribute) so
         # the next match_prefix call sees the chunk as contiguous and copies
@@ -2227,6 +2414,19 @@ class RadixCache(BasePrefixCache):
         min_run = int(
             os.environ.get("SGLANG_CACHEBLEND_MIN_RUN", "256") or 0
         )
+        # MULTI_SLOT (SGLANG_CACHEBLEND_MULTI_SLOT=1): in the post-leading-gap
+        # copy round, emit zeroed-gap copy_pool decisions for INTERNAL gaps
+        # (inter-slot headers / dropped functions) so ALL matching slots are
+        # copied, not just the first contiguous run. The batched executor
+        # zeros the gap KV in place (positionally correct, lossy only in the
+        # zeroed gap). Requires COMPACT=0 — COMPACT=1 drops gaps and compacts
+        # chunks, which is positionally wrong for internal gaps (shifts every
+        # subsequent slot's absolute position).
+        multi_slot_enabled = (
+            cacheblend_enabled
+            and os.environ.get("SGLANG_CACHEBLEND_MULTI_SLOT", "0") == "1"
+            and os.environ.get("SGLANG_CACHEBLEND_COMPACT", "0") == "0"
+        )
         candidates.sort(key=lambda c: c[0])
 
         # ---- C2-direct: single-round multi-chunk copy with gap zeroing. ----
@@ -2371,6 +2571,50 @@ class RadixCache(BasePrefixCache):
                         # to the post-gap round, where they become
                         # contiguous and copy normally.
                         break
+                # MULTI_SLOT: this is an INTERNAL gap (cursor > prefix_len,
+                # i.e. at least one slot already copied this round). Instead
+                # of skipping the slot, emit a copy_pool decision whose
+                # gap_len the batched executor will ZERO in place — so the
+                # slot lands at its true absolute position (positionally
+                # correct; lossy only in the zeroed gap KV, e.g. the ~13-tok
+                # inter-slot header). This is what lets slots 2..N copy
+                # instead of only the first contiguous run. The leading gap
+                # is NOT handled here (it stays staged/real above) — only
+                # internal gaps become zeroed copies. Mirrors the C2-direct
+                # trim (overlap=0 for internal gaps) and the position-
+                # invariant rope_delta of the contiguous branch.
+                if multi_slot_enabled and cursor > int(prefix_len):
+                    multi_slot_max_gap = int(
+                        os.environ.get(
+                            "SGLANG_CACHEBLEND_MULTI_SLOT_MAX_GAP", "256"
+                        ) or 0
+                    )
+                    if multi_slot_max_gap <= 0 or gap_len <= multi_slot_max_gap:
+                        overlap = max(0, cursor - chunk_start)
+                        copy_offset = overlap
+                        copy_len = chunk_len - overlap
+                        if input_len > 0 and chunk_start + copy_len > input_len:
+                            copy_len = input_len - chunk_start
+                        if copy_len > 0:
+                            rope_delta = chunk_start - int(best.start_token)
+                            plan.decisions.append(ChunkDecision(
+                                chunk_signature=chunk.signature,
+                                slot_id=slot_id,
+                                name=chunk.name,
+                                anchor_type=chunk.anchor_type,
+                                start_token=chunk_start,
+                                end_token=chunk_start + chunk_len,
+                                action="copy_pool",
+                                pool_entry=best,
+                                confidence=1.0,
+                                rope_delta=rope_delta,
+                                copy_offset=copy_offset,
+                                copy_len=copy_len,
+                                gap_len=gap_len,
+                            ))
+                            plan.multi_slot_zeroed_gap_tokens += int(gap_len)
+                            cursor = chunk_start + copy_len
+                            continue
                 plan.decisions.append(ChunkDecision(
                     chunk_signature=chunk.signature, slot_id=slot_id,
                     name=chunk.name, anchor_type=chunk.anchor_type,
@@ -2555,6 +2799,10 @@ class RadixCache(BasePrefixCache):
                 )
                 if copy_decisions:
                     self.placeholder_chunk_pool_rope_ops_count += tokens_reused
+                # A2 (fair-measurement): per-request C2-copied token count
+                # (excludes radix L1 prefix and L3). Accumulates across this
+                # request's chunk copies; read by A4 for the code-aware total.
+                setattr(req, "c2_chunk_reused_tokens", int(tokens_reused))
                 return exact_values, exact_node
             except Exception as exc:  # pragma: no cover - defensive
                 logger.debug(
@@ -2643,7 +2891,17 @@ class RadixCache(BasePrefixCache):
                     new_slots, "__getitem__"
                 ) else new_slots
             try:
-                kvcache.move_kv_cache(dst_kv, src_kv)
+                if getattr(entry, "location", "device") == "host":
+                    # Host-resident (precomputed) chunk: CPU->GPU transfer
+                    # instead of GPU->GPU move_kv_cache (Phase 3). In async
+                    # mode RoPE is issued on load_stream per-layer (Phase 4A);
+                    # in sync mode RoPE is applied below on default stream.
+                    self._load_host_chunks_to_device(
+                        [(src_kv, dst_kv, decision.rope_delta)], kvcache,
+                        req=req, head_tokens=head_tokens,
+                    )
+                else:
+                    kvcache.move_kv_cache(dst_kv, src_kv)
             except AttributeError:
                 # Test stubs may expose only k_buffer/v_buffer.
                 try:
@@ -2679,10 +2937,17 @@ class RadixCache(BasePrefixCache):
             # chunk at a position shifted by the gap, so use FULL-key RoPE
             # (_apply_rope_delta_to_keys, GPU) for correctness — matches the
             # L3 anchor suffix-copy rotation.
+            # SKIP for host-resident chunks in async mode — their RoPE was
+            # issued on load_stream per-layer in _load_host_chunks_to_device.
+            _async_host_pc = (
+                os.environ.get("SGLANG_PRECOMPUTE_HOST_LOAD_ASYNC", "0") == "1"
+                and getattr(entry, "location", "device") == "host"
+            )
             rotated_ops = 0
             if (
                 decision.rope_delta != 0
                 and getattr(self, "rope_rotary_dim", 0) > 0
+                and not _async_host_pc
             ):
                 try:
                     if gap_len > 0:
@@ -2705,6 +2970,8 @@ class RadixCache(BasePrefixCache):
                         re_,
                     )
                     rotated_ops = 0
+                # Phase 7 Exp2: byte-cmp dump after SYNC per-chunk RoPE.
+                _bytecmp_dump("sync_perchunk", kvcache, dst_kv)
 
             new_value_slices.append(new_slots)
             tokens_reused += copy_len
@@ -2754,7 +3021,233 @@ class RadixCache(BasePrefixCache):
             # Append new slots to the value list so the radix prefill
             # kernel treats them as part of the matched prefix.
             exact_values = exact_values + new_value_slices
+        # A2 (fair-measurement): per-request C2-copied token count
+        # (per-chunk path). See the batched path above for the same setattr.
+        setattr(req, "c2_chunk_reused_tokens", int(tokens_reused))
         return exact_values, exact_node
+
+    def _load_host_chunks_to_device(
+        self,
+        items: List[Tuple[torch.Tensor, torch.Tensor, int]],
+        kvcache,
+        req=None,
+        head_tokens: int = 2,
+    ) -> None:
+        """Transfer host-resident (precomputed) chunks CPU->GPU (Phase 3 / 4A).
+
+        ``items`` is a list of ``(host_src_indices, dst_gpu_slice, rope_delta)``.
+        Uses the dedicated ``codebase_host_pool`` (a ``MHATokenToKVPoolHost``)
+        loaded at server start.
+
+        Two modes (``SGLANG_PRECOMPUTE_HOST_LOAD_ASYNC``):
+        * OFF (sync, correct-first): issue all per-layer
+          ``load_to_device_per_layer`` copies on the default stream, then
+          ``torch.cuda.synchronize()``, then the caller's RoPE pass (default
+          stream) rotates the now-GPU-resident keys. The full device sync
+          blocks the scheduler thread — no overlap, but correct.
+
+        * ON (async, layered overlap): issue the per-layer copies on a
+          dedicated ``load_stream`` (the HiCacheController's when HiCache is
+          enabled, else a lazy stream on codebase_host_pool), recording a
+          per-layer completion event on the shared ``LayerDoneCounter``. RoPE
+          for the host chunks is ALSO issued on load_stream, per layer, right
+          after that layer's copy — so the prefill's per-layer
+          ``get_key_buffer(layer_id)`` -> ``layer_transfer_counter.wait_until``
+          waits only until that layer's (load + RoPE) has landed. Later layers'
+          transfers overlap earlier layers' attention. This is the same
+          mechanism SGLang uses for radix HiCache (cache_controller.start_loading).
+          The caller MUST skip RoPE for these host chunks on the default stream
+          (done in _execute_chunk_plan_batched via the host_dst_indices set),
+          and the scheduler wires the consumer (req.codebase_kv_producer_id).
+          No synchronization here — returns immediately; sets
+          ``req.codebase_kv_producer_id`` for the consumer wiring.
+        """
+        host_pool = getattr(self, "codebase_host_pool", None)
+        if host_pool is None:
+            logger.debug("[host_kv] no codebase_host_pool; skipping %d items", len(items))
+            return
+        io_backend = os.environ.get("SGLANG_PRECOMPUTE_HOST_LOAD_IO_BACKEND", "kernel")
+        async_mode = os.environ.get("SGLANG_PRECOMPUTE_HOST_LOAD_ASYNC", "0") == "1"
+        layer_num = kvcache.layer_num
+
+        # Concatenate all items into one batched transfer (one set of per-layer
+        # kernel launches instead of N), reducing launch overhead for many chunks.
+        all_host = []
+        all_dst = []
+        for host_src, dst_slice, _rope_delta in items:
+            all_host.append(host_src.to(torch.int64))
+            all_dst.append(dst_slice.to(torch.int64))
+        host_cat = torch.cat(all_host) if len(all_host) > 1 else all_host[0]
+        dst_cat = torch.cat(all_dst) if len(all_dst) > 1 else all_dst[0]
+
+        # Precompute the head-only RoPE delta tensors (one per item, first
+        # head_tokens slots) so the load_stream loop can rotate per layer
+        # without recomputing. Empty when no item needs rotation.
+        rope_dst_head = None
+        rope_delta_head = None
+        if async_mode and getattr(self, "rope_rotary_dim", 0) > 0:
+            hd_list = []
+            dt_list = []
+            for _host_src, dst_slice, rope_delta in items:
+                if rope_delta == 0:
+                    continue
+                h = min(head_tokens, int(dst_slice.shape[0]))
+                if h > 0:
+                    hd_list.append(dst_slice[:h].to(torch.int64))
+                    dt_list.extend([int(rope_delta)] * h)
+            if hd_list:
+                rope_dst_head = torch.cat(hd_list)
+                rope_delta_head = torch.tensor(
+                    dt_list, dtype=torch.long, device=rope_dst_head.device
+                )
+
+        if not async_mode:
+            for layer_id in range(layer_num):
+                host_pool.load_to_device_per_layer(
+                    device_pool=kvcache,
+                    host_indices=host_cat,
+                    device_indices=dst_cat,
+                    layer_id=layer_id,
+                    io_backend=io_backend,
+                )
+            try:
+                torch.cuda.synchronize()
+            except Exception:
+                pass
+            # Phase 7 hooks (all default OFF, mutually combinable). Each env
+            # is independent — they layer on top of the base SYNC path.
+            # Order: existing sync -> Exp4 (per-layer wait) -> Exp5
+            # (record_stream) -> Exp3 (double sync) -> return. The caller's
+            # RoPE pass runs after the function returns.
+            if os.environ.get("SGLANG_KVFLOW_PERLAYERWAIT", "0") == "1":
+                try:
+                    for _ in range(layer_num):
+                        _e = torch.cuda.Event()
+                        _e.record()
+                        _e.wait()
+                except Exception as _e:  # pragma: no cover
+                    logger.debug("[exp4] per-layer wait failed: %s", _e)
+            if os.environ.get("SGLANG_KVFLOW_RECORDSTREAM_SYNC", "0") == "1":
+                try:
+                    if host_cat.is_cuda:
+                        host_cat.record_stream(torch.cuda.current_stream())
+                    if dst_cat.is_cuda:
+                        dst_cat.record_stream(torch.cuda.current_stream())
+                except Exception as _e:  # pragma: no cover
+                    logger.debug("[exp5] record_stream failed: %s", _e)
+            if os.environ.get("SGLANG_KVFLOW_DOUBLE_SYNC", "0") == "1":
+                try:
+                    torch.cuda.synchronize()
+                except Exception:
+                    pass
+            return
+
+        # Async path: resolve a load_stream + LayerDoneCounter.
+        cc = getattr(self, "cache_controller", None)
+        load_stream = None
+        layer_done_counter = None
+        if cc is not None:
+            load_stream = getattr(cc, "load_stream", None)
+            layer_done_counter = getattr(cc, "layer_done_counter", None)
+        if load_stream is None:
+            load_stream = getattr(host_pool, "_load_stream", None)
+            if load_stream is None:
+                try:
+                    load_stream = torch.cuda.Stream()
+                    host_pool._load_stream = load_stream  # type: ignore[attr-defined]
+                except Exception:
+                    load_stream = None
+
+        if load_stream is None or layer_done_counter is None:
+            # No stream/counter available (HiCache disabled + no fallback, or
+            # CPU-only test stub). Fall back to the sync path — correct, no overlap.
+            for layer_id in range(layer_num):
+                host_pool.load_to_device_per_layer(
+                    device_pool=kvcache, host_indices=host_cat,
+                    device_indices=dst_cat, layer_id=layer_id, io_backend=io_backend,
+                )
+            try:
+                torch.cuda.synchronize()
+            except Exception:
+                pass
+            return
+
+        # Allocate a producer slot on the LayerDoneCounter ring (3 slots).
+        try:
+            producer_id = layer_done_counter.update_producer()
+        except Exception:
+            # Prior producer still in flight (ring full) — fall back to sync.
+            for layer_id in range(layer_num):
+                host_pool.load_to_device_per_layer(
+                    device_pool=kvcache, host_indices=host_cat,
+                    device_indices=dst_cat, layer_id=layer_id, io_backend=io_backend,
+                )
+            try:
+                torch.cuda.synchronize()
+            except Exception:
+                pass
+            return
+
+        producer_event = layer_done_counter.events[producer_id]
+        producer_event.start_event.record()
+
+        # Precompute RoPE cos/sin on the default stream (cheap, CPU+1 GPU op)
+        # so the load_stream loop can use them. .to() below is a host->device
+        # copy ordered before the stream switch is fine (recorded on default).
+        rope_cos = None
+        rope_sin = None
+        if rope_dst_head is not None:
+            rope_cos, rope_sin = self._compute_rope_cos_sin_for_delta(rope_delta_head)
+            rope_cos = rope_cos.to(device=dst_cat.device)
+            rope_sin = rope_sin.to(device=dst_cat.device)
+
+        is_neox = self.rope_is_neox_style
+        rotary_dim = self.rope_rotary_dim
+
+        with torch.cuda.stream(load_stream):
+            producer_event.start_event.wait(load_stream)
+            for layer_id in range(layer_num):
+                # 1) transfer this layer's K/V CPU->GPU
+                host_pool.load_to_device_per_layer(
+                    device_pool=kvcache,
+                    host_indices=host_cat,
+                    device_indices=dst_cat,
+                    layer_id=layer_id,
+                    io_backend=io_backend,
+                )
+                # 2) per-layer head-only RoPE on the copied keys, on load_stream,
+                #    so wait_until(layer_id) covers load+RoPE for that layer.
+                if rope_dst_head is not None:
+                    k_cache = kvcache.k_buffer[layer_id]
+                    k_sel = k_cache[rope_dst_head]
+                    from sglang.srt.layers.rotary_embedding.utils import (
+                        apply_rotary_emb,
+                    )
+
+                    k_rot = apply_rotary_emb(k_sel, rope_cos, rope_sin, is_neox)
+                    k_cache[rope_dst_head] = k_rot
+                    # Phase 7 Exp2: byte-cmp dump after LAYERED per-layer RoPE.
+                    _bytecmp_dump(
+                        "layered_perlayer", kvcache, rope_dst_head,
+                        tag=f"L{layer_id}",
+                    )
+                # 3) record this layer's completion event
+                producer_event.complete(layer_id)
+            # Keep index tensors alive for the stream's lifetime.
+            if host_cat.is_cuda:
+                host_cat.record_stream(load_stream)
+            if dst_cat.is_cuda:
+                dst_cat.record_stream(load_stream)
+
+        # Wire the consumer: tell the prefill to wait per-layer on our producer.
+        # The scheduler reads req.codebase_kv_producer_id and sets
+        # new_batch.hicache_consumer_index so tp_worker.set_hicache_consumer
+        # points the LayerDoneCounter consumer at our producer_id.
+        if req is not None:
+            try:
+                req.codebase_kv_producer_id = producer_id
+            except Exception:
+                pass
 
     def _execute_chunk_plan_batched(
         self,
@@ -2811,16 +3304,25 @@ class RadixCache(BasePrefixCache):
             compact = os.environ.get("SGLANG_CACHEBLEND_COMPACT", "0") == "1"
             if compact:
                 gap_len = 0
-            # Cap the copy at the useful (non-prefix) range to prevent
-            # over-copying redundant tokens. Without this, compact mode copies
-            # full chunks even when they overlap the prefix or extend past
-            # input_len — measured 4336 copied vs 2939 useful (1397 redundant
-            # = pure move_kv_cache overhead). The cap limits total copied to
-            # input_len - prefix_len (the genuinely-uncached tokens).
-            if input_len > 0 and tokens_reused + copy_len > input_len - prefix_len:
-                copy_len = max(0, (input_len - prefix_len) - tokens_reused)
-                if copy_len == 0:
+            # Cap the allocated span so device_indices never exceeds input_len.
+            # device_indices length = prefix_len + total_new (gaps + chunks);
+            # num_extend = input_len - that must stay >= 0 or flashinfer crashes
+            # (negative num_extend / o_indptr assertion). The OLD cap counted
+            # only copied chunks (tokens_reused), which is correct when
+            # gap_len==0 (single-slot / compact) but UNDERFLOWS under MULTI_SLOT
+            # where zeroed inter-slot gaps add to total_new without adding to
+            # tokens_reused — total_new could then push device_indices past
+            # input_len. Cap on total_new (gaps + chunks) instead. gap_len is
+            # positional and can't be trimmed, so if the gap alone would
+            # overflow, stop the batch here (subsequent chunks stay dense).
+            if input_len > 0:
+                remaining = (input_len - prefix_len) - total_new
+                if gap_len >= remaining:
                     break
+                if copy_len > remaining - gap_len:
+                    copy_len = max(0, remaining - gap_len)
+                    if copy_len == 0:
+                        break
             layout.append((gap_len, copy_len, copy_offset, int(d.rope_delta), entry))
             valid.append(d)
             total_new += gap_len + copy_len
@@ -2835,6 +3337,32 @@ class RadixCache(BasePrefixCache):
 
         # One allocation for the whole contiguous span.
         new_slots = self.token_to_kv_pool_allocator.alloc(total_new)
+        if new_slots is None and os.environ.get(
+            "SGLANG_CACHEBLEND_EVICT_ON_ALLOC", "0"
+        ) == "1":
+            # The direct alloc bypasses the scheduler's eviction path (the
+            # paged allocator returns None when free pages run out — it does
+            # NOT trigger radix eviction, per allocator.py:170). Under
+            # MULTI_SLOT each copy span is ~5× a single-slot copy, so radix
+            # prefixes from prior requests accumulate and exhaust the pool
+            # → alloc=NONE → 0 reuse. Trigger eviction manually to free
+            # completed requests' prefix leaves, then retry.
+            # WARNING: evicting mid-match_prefix can free the current
+            # request's exact_node or the source's radix node (staling PIN=0
+            # chunk-pool entries) → corruption/crash. Default OFF. Requires
+            # SGLANG_CHUNK_POOL_PIN=1 + a global pinned-LRU cap to be safe;
+            # even then it crashed the server in testing (frees in-use
+            # nodes). Left opt-in for future tuning; the proven path is
+            # pure-LRU + a large-enough pool (no eviction-trigger).
+            try:
+                from sglang.srt.mem_cache.common import evict_from_tree_cache
+                evict_from_tree_cache(self, total_new)
+            except Exception:
+                try:
+                    self.evict(EvictParams(num_tokens=total_new))
+                except Exception:
+                    pass
+            new_slots = self.token_to_kv_pool_allocator.alloc(total_new)
         if os.environ.get("SGLANG_CACHEBLEND_DEBUG", "0") == "1":
             print(
                 f"[C2BDBG] rid={getattr(req,'rid','?')} ndec={len(decisions)} "
@@ -2846,6 +3374,15 @@ class RadixCache(BasePrefixCache):
             hasattr(new_slots, "__len__") and len(new_slots) != total_new
         ):
             # Batch alloc failed → all chunks dense.
+            # NOTE: a graceful "drop trailing chunks and retry alloc" was
+            # attempted (copy as many leading slots as fit) but it leaked
+            # KV slots (the runtime checker flagged unaccounted tokens —
+            # the partial span's accounting/insert got confused), so it was
+            # reverted. The OOM 0-reuse remains a limitation: the paged
+            # allocator does not evict (allocator.py:170), so under
+            # MULTI_SLOT's 5×-larger copies the pool exhausts and later
+            # reusers get 0 reuse. Fix needs ephemeral (non-persisted)
+            # copies, which is future work.
             for d in decisions:
                 d.action = "dense_prefill"
                 d.skip_reason = "alloc_failed"
@@ -2861,9 +3398,15 @@ class RadixCache(BasePrefixCache):
         # Pass 2: build index tensors over the allocated span.
         off = 0
         all_dst: List[torch.Tensor] = []   # chunk dst slot indices
-        all_src: List[torch.Tensor] = []   # chunk src slot indices (pool)
+        all_src: List[torch.Tensor] = []   # chunk src slot indices (pool, GPU)
         all_gap: List[torch.Tensor] = []   # gap slot indices (to zero)
         all_delta: List[int] = []          # per-chunk-token RoPE delta
+        # Host-resident (offline-precomputed) chunks are transferred CPU->GPU
+        # separately via _load_host_chunks_to_device; they are EXCLUDED from
+        # the GPU->GPU move_kv_cache batch below (their src indices are host
+        # pool slots, not device slots). See codebase_kv_loader.py / Phase 3.
+        host_items: List[Tuple[torch.Tensor, torch.Tensor, int]] = []
+        host_dst_indices: set = set()
         for gap_len, copy_len, copy_offset, rope_delta, entry in layout:
             base = off
             if gap_len > 0 and hasattr(new_slots, "__getitem__"):
@@ -2874,32 +3417,54 @@ class RadixCache(BasePrefixCache):
             else:
                 dst_slice = new_slots
             src_slice = entry.kv_indices[copy_offset : copy_offset + copy_len]
+            if getattr(entry, "location", "device") == "host":
+                host_items.append((src_slice, dst_slice, rope_delta))
+                host_dst_indices.add(len(all_dst))  # mark for skip in move batch
             all_dst.append(dst_slice)
             all_src.append(src_slice)
             all_delta.extend([rope_delta] * copy_len)
             off += gap_len + copy_len
 
-        # Single gather-scatter KV copy for all chunks.
+        # CPU->GPU transfer for host-resident (precomputed) chunks. Sync path
+        # (load_to_device_per_layer + synchronize) is correct-first; the async
+        # layered path (SGLANG_PRECOMPUTE_HOST_LOAD_ASYNC=1) overlaps the
+        # transfer with prefill via LayerDoneCounter (Phase 4A).
+        if host_items:
+            try:
+                self._load_host_chunks_to_device(
+                    host_items, kvcache, req=req, head_tokens=head_tokens,
+                )
+            except Exception as he:  # pragma: no cover - defensive
+                logger.debug("[placeholder_chunk_pool] host->device load failed: %s", he)
+                # Degrade: leave dst slots uninitialized → prefill recomputes
+                # them densely (the kernel treats unmatched tokens as dense).
+
+        # Single gather-scatter KV copy for all GPU-resident chunks. Host-
+        # resident (precomputed) chunks were already transferred above and are
+        # skipped here (their src indices are host slots, not device slots).
         _bd = os.environ.get("SGLANG_CACHEBLEND_DEBUG", "0") == "1"
         _bt0 = time.perf_counter() if _bd else 0.0
+        gpu_dst = [d for i, d in enumerate(all_dst) if i not in host_dst_indices]
+        gpu_src = [s for i, s in enumerate(all_src) if i not in host_dst_indices]
         try:
-            if len(all_dst) == 1:
-                kvcache.move_kv_cache(all_dst[0], all_src[0])
-            else:
-                dst_cat = torch.cat(all_dst)
-                src_cat = torch.cat(all_src)
+            if len(gpu_dst) == 1:
+                kvcache.move_kv_cache(gpu_dst[0], gpu_src[0])
+            elif len(gpu_dst) > 1:
+                dst_cat = torch.cat(gpu_dst)
+                src_cat = torch.cat(gpu_src)
                 kvcache.move_kv_cache(dst_cat, src_cat)
         except AttributeError:
             # Test stubs expose only k_buffer/v_buffer.
-            dst_cat = torch.cat(all_dst) if len(all_dst) > 1 else all_dst[0]
-            src_cat = torch.cat(all_src) if len(all_src) > 1 else all_src[0]
-            try:
-                move_kv_cache_native(
-                    kvcache.k_buffer, kvcache.v_buffer, dst_cat, src_cat,
-                )
-            except Exception as me:  # pragma: no cover - defensive
-                logger.debug("[placeholder_chunk_pool] batch move_kv failed: %s", me)
-                return exact_values, exact_node, 0, len(decisions)
+            dst_cat = torch.cat(gpu_dst) if len(gpu_dst) > 1 else (gpu_dst[0] if gpu_dst else None)
+            src_cat = torch.cat(gpu_src) if len(gpu_src) > 1 else (gpu_src[0] if gpu_src else None)
+            if dst_cat is not None:
+                try:
+                    move_kv_cache_native(
+                        kvcache.k_buffer, kvcache.v_buffer, dst_cat, src_cat,
+                    )
+                except Exception as me:  # pragma: no cover - defensive
+                    logger.debug("[placeholder_chunk_pool] batch move_kv failed: %s", me)
+                    return exact_values, exact_node, 0, len(decisions)
         except Exception as me:  # pragma: no cover - defensive
             logger.debug("[placeholder_chunk_pool] batch move_kv_cache failed: %s", me)
             return exact_values, exact_node, 0, len(decisions)
@@ -2926,21 +3491,60 @@ class RadixCache(BasePrefixCache):
         if any(d != 0 for d in all_delta) and getattr(self, "rope_rotary_dim", 0) > 0:
             try:
                 if use_full_rope:
-                    dst_cat = torch.cat(all_dst) if len(all_dst) > 1 else all_dst[0]
-                    delta_tensor = torch.tensor(
-                        all_delta, dtype=torch.long, device=dst_cat.device,
+                    # In async mode, host-resident chunks were already rotated
+                    # on load_stream; rotate only the device-resident ones.
+                    _async_host_full = (
+                        os.environ.get("SGLANG_PRECOMPUTE_HOST_LOAD_ASYNC", "0") == "1"
                     )
-                    self._apply_rope_delta_to_keys(
-                        kvcache.k_buffer, dst_cat, delta_tensor,
-                    )
+                    if _async_host_full and host_dst_indices:
+                        fr_dst = []
+                        fr_delta = []
+                        _idx = 0
+                        for _gl, _cl, _co, _rd, _e in layout:
+                            if _idx in host_dst_indices:
+                                _idx += 1
+                                continue
+                            fr_dst.append(all_dst[_idx])
+                            fr_delta.extend([_rd] * _cl)
+                            _idx += 1
+                        if fr_dst:
+                            dst_cat = torch.cat(fr_dst) if len(fr_dst) > 1 else fr_dst[0]
+                            delta_tensor = torch.tensor(
+                                fr_delta, dtype=torch.long, device=dst_cat.device,
+                            )
+                            self._apply_rope_delta_to_keys(
+                                kvcache.k_buffer, dst_cat, delta_tensor,
+                            )
+                    else:
+                        dst_cat = torch.cat(all_dst) if len(all_dst) > 1 else all_dst[0]
+                        delta_tensor = torch.tensor(
+                            all_delta, dtype=torch.long, device=dst_cat.device,
+                        )
+                        self._apply_rope_delta_to_keys(
+                            kvcache.k_buffer, dst_cat, delta_tensor,
+                        )
                 else:
                     # Batched head-only: gather the first head_tokens slots of
                     # each chunk + their deltas, one rotation call.
+                    # SKIP host-resident chunks in async mode — their RoPE was
+                    # issued on load_stream per-layer (Phase 4A); rotating again
+                    # here would double-rotate. In sync mode the host chunks'
+                    # KV is already on GPU (post-synchronize) and DO need RoPE
+                    # here, so only skip when async fired.
+                    _async_host = (
+                        os.environ.get("SGLANG_PRECOMPUTE_HOST_LOAD_ASYNC", "0") == "1"
+                    )
                     heads_dst = []
                     heads_delta = []
                     idx = 0
                     for gap_len, copy_len, copy_offset, rope_delta, entry in layout:
                         if rope_delta == 0:
+                            idx += 1
+                            continue
+                        if (
+                            _async_host
+                            and getattr(entry, "location", "device") == "host"
+                        ):
                             idx += 1
                             continue
                         dst_slice = all_dst[idx]
@@ -2957,6 +3561,8 @@ class RadixCache(BasePrefixCache):
                         self._apply_rope_delta_to_keys(
                             kvcache.k_buffer, hd, dt,
                         )
+                        # Phase 7 Exp2: byte-cmp dump after SYNC batched RoPE.
+                        _bytecmp_dump("sync_batched", kvcache, hd)
             except Exception as re_:  # pragma: no cover - defensive
                 logger.debug("[placeholder_chunk_pool] batch rope skipped: %s", re_)
         _bt2 = time.perf_counter() if _bd else 0.0
@@ -3705,6 +4311,17 @@ class RadixCache(BasePrefixCache):
                 extended = exact_values + [new_slots]
                 copied_anchor_count += 1
                 total_copy_len += copy_len
+                # Step 5 (fair-measurement): per-request L2 whole-slot
+                # byte-exact copied-token count. This is the general-KVCOMM
+                # baseline's reuse (byte-exact hash selection + RoPE rotation,
+                # no AST). Folded into req.codeaware_reused_tokens by A4 so
+                # the L2 baseline and the L4+C2 AST path are comparable on the
+                # same code-aware axis in the parity gate / decomposed report.
+                setattr(
+                    req,
+                    "l2_wholeslot_reused_tokens",
+                    int(getattr(req, "l2_wholeslot_reused_tokens", 0)) + int(copy_len),
+                )
                 total_planned_copy_len += planned_copy_len
                 total_gap_len += gap_len
                 total_gap_recompute_len += (
@@ -4762,6 +5379,12 @@ class RadixCache(BasePrefixCache):
         setattr(req, "placeholder_kv_prefill_matched_slots", matched_slots)
         setattr(req, "placeholder_kv_prefill_skipped_tokens", skipped_tokens)
         setattr(req, "placeholder_anchor_pool_hit_count", matched_slots)
+        # A3 (fair-measurement): alias the L3-copied token count (this
+        # `skipped_tokens` accumulates `copy_len` for every slot copied,
+        # including the offset-aligned AST-gate body copy) under a name that
+        # makes the code-aware-vs-radix decomposition explicit. Used by A4 to
+        # compute req.codeaware_reused_tokens.
+        setattr(req, "l3_offset_reused_tokens", int(skipped_tokens))
         setattr(
             req, "placeholder_anchor_pool_miss_count",
             getattr(req, "placeholder_anchor_pool_miss_count", 0) + miss_count,
@@ -4862,6 +5485,19 @@ class RadixCache(BasePrefixCache):
         # In deterministic mode, disable finished request insertion to radix cache
         if self.disable_finished_insert:
             is_insert = False
+
+        # NOTE on A5 (fair-measurement, 2026-06-30): an earlier attempt added an
+        # SGLANG_CODEAWARE_EPHEMERAL_COPY flag to skip the radix insert for
+        # requests that did code-aware reuse, so copied spans would not persist
+        # into the radix tree. It was REMOVED because (a) it caused a KV-pool
+        # memory leak — protecting req.radix_only_prefix_len slots while
+        # skipping the insert left them never freed (protected_size grew until
+        # the allocator aborted); and (b) it was unnecessary: in the bench each
+        # agent has a unique cache_salt and one request, so a copied span
+        # persisted under agent N's salt is never matched as prefix by any
+        # later request. Fairness is instead delivered by the decomposed
+        # counters (A1-A4: radix_only_prefix_len / codeaware_reused_tokens),
+        # source-agent exclusion (B1), and the warmup-parity gate (B2).
 
         kv_committed_len = req.pop_committed_kv_cache()
         if self.disable:
@@ -5307,8 +5943,15 @@ class RadixCache(BasePrefixCache):
         return self.evictable_size_
 
     def protected_size(self):
-        # protected size refers to the size of the cache that is locked
-        return self.protected_size_
+        # protected size refers to the size of the cache that is locked.
+        # Add placeholder chunk pool pinned tokens that live on the DEVICE
+        # (the SGLANG_PRECOMPUTE_DEVICE_RESIDENT path). Host-pool pinned
+        # slots use a separate CPU allocator and the device_allocator never
+        # sees them — including them here would falsely report a leak.
+        return (
+            self.protected_size_
+            + self.placeholder_chunk_pool_pinned_device_tokens
+        )
 
     def all_values_flatten(self):
         values = []

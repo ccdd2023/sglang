@@ -206,6 +206,26 @@
 <div class="wrap">
 
 <!-- ============================================ -->
+<!-- RETRACTION BANNER (added 2026-07-01)          -->
+<!-- ============================================ -->
+<div style="background:#3d1f1f; border:1px solid var(--red-dim); border-radius:8px; padding:14px 18px; margin:0 0 20px 0;">
+  <div style="color:var(--red); font-weight:700; font-size:16px; margin-bottom:6px;">⚠️ RETRACTED / SUPERSEDED — read this before trusting any number below</div>
+  <div style="color:var(--text); font-size:14px; line-height:1.55;">
+    This report is a <b>2026-06-27 snapshot</b>. Its headline speedup claims are no longer valid:
+    <ul style="margin:6px 0 6px 18px;">
+      <li>The <b>L4 &ldquo;~1.49&times; production-ready&rdquo;</b> claim was the <b>broken over-copying path</b> (falsified by the flat-prefix ceiling).</li>
+      <li>The later <b>&ldquo;1.448&times; both bars met&rdquo;</b> (AST-gated L3) claim was <b>retracted 2026-06-30</b> — <code>cached_tokens</code> conflated radix prefix + code-aware reuse.</li>
+      <li>The L3 MiniLM k-NN path shown here is <b>deprecated</b> (research only).</li>
+    </ul>
+    The <b>current</b> honest state (2026-07-01): the speed bar is MET (MULTI_SLOT 7.5&times; vs lossless for hitters), but substantial cross-context KV reuse is <b>lossy</b> (F1 0.46&rarr;0.00 as reuse grows 1400&rarr;7100 tok). The only remaining path to both speed and accuracy is true CacheBlend (attention recompute).
+    <br><br>
+    &#187; <a href="../CANONICAL_TARGET.md">CANONICAL_TARGET.md</a> (single source of truth)
+    &nbsp;&middot;&nbsp; <a href="CODE_AWARE_LOSSY_KV_PROGRESS.md">CODE_AWARE_LOSSY_KV_PROGRESS.md</a> (current timeline + results)
+    &nbsp;&middot;&nbsp; <a href="kvcomm_ab/KV_BREAKDOWN_REPORT.html">KV_BREAKDOWN_REPORT.html</a> (latest results)
+  </div>
+</div>
+
+<!-- ============================================ -->
 <!-- HEADER / TL;DR                                -->
 <!-- ============================================ -->
 <h1>sglang-kvflow — Project Progress</h1>

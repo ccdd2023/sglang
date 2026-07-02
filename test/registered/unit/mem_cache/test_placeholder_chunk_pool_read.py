@@ -461,6 +461,71 @@ class TestChunkPoolReadContiguityGate(unittest.TestCase):
         self.assertLessEqual(copied_tokens, 600)
 
 
+class TestFairMeasurementCounters(unittest.TestCase):
+    """FAIR-MEASUREMENT (A1-A4): match_prefix must separate the radix L1
+    prefix from code-aware copies in the per-request counters, so the bench
+    can decompose cached_tokens and the parity gate can verify the radix
+    prefix cancels across baseline and experimental configs.
+
+    radix_only_prefix_len must equal the pure radix match (before any
+    code-aware copy is appended); c2_chunk_reused_tokens must equal the
+    copied chunk tokens; codeaware_reused_tokens = L3 + C2 (here L3 is off
+    so it == C2 only). No double-counting with the radix prefix.
+    """
+
+    def setUp(self):
+        os.environ["SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH"] = "1"
+        # L3 (placeholder k-NN body) OFF — isolates the C2 chunk path so
+        # l3_offset_reused_tokens is 0 and codeaware == c2_chunk only.
+        os.environ["SGLANG_PLACEHOLDER_KNN_MATCH"] = "0"
+        self.cache = _make_simulated_cache()
+        self.text = _histogram_text()
+        self.sig = _histogram_signature()
+        self.byte_end = _histogram_byte_end()
+
+    def tearDown(self):
+        os.environ.pop("SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH", None)
+        os.environ.pop("SGLANG_PLACEHOLDER_KNN_MATCH", None)
+
+    def test_radix_and_codeaware_counters_separate(self):
+        from sglang.srt.mem_cache.radix_cache import RadixKey
+        from sglang.srt.mem_cache.base_prefix_cache import InsertParams
+
+        n_prefix = 50
+        prefix_token_ids = list(range(n_prefix))
+        full_token_ids = prefix_token_ids + list(range(50))
+        # Insert a radix prefix so L1 has a real match (50 tokens).
+        prefix_key = RadixKey(token_ids=prefix_token_ids, extra_key=None)
+        self.cache.insert(InsertParams(
+            key=prefix_key,
+            value=torch.tensor(prefix_token_ids, dtype=torch.int64),
+            priority=1.0,
+        ))
+        # Seed a 3-token byte-exact chunk pool entry sitting at the prefix end.
+        _seed_pool_entry(
+            self.cache, "code_base0", self.sig, 0, self.byte_end,
+            start_token=n_prefix, end_token=n_prefix + 3,
+        )
+        req = _MockReq(placeholder_anchor_token_spans=[
+            _make_span("code_base0", self.text, start_token=n_prefix),
+        ])
+        full_key = RadixKey(token_ids=full_token_ids, extra_key=None)
+        self.cache.match_prefix(MatchPrefixParams(key=full_key, req=req))
+
+        # A1: pure radix L1 prefix, captured BEFORE the chunk copy appended.
+        self.assertEqual(int(req.radix_only_prefix_len), n_prefix)
+        # A2: C2 chunk copy count (3 tokens), excluding the radix prefix.
+        self.assertEqual(int(req.c2_chunk_reused_tokens), 3)
+        # A3: L3 path did not fire (L3 off) → 0.
+        self.assertEqual(int(req.l3_offset_reused_tokens), 0)
+        # A4: total code-aware == L3 + C2 == 3 (NOT radix + copy == 53).
+        self.assertEqual(int(req.codeaware_reused_tokens), 3)
+        # The decomposition must not double-count: radix_only (50) +
+        # codeaware (3) reconstructs the matched prefix length, and
+        # codeaware must NOT include the radix prefix.
+        self.assertNotEqual(int(req.codeaware_reused_tokens), n_prefix + 3)
+
+
 class TestChunkPoolCacheBlendStaging(unittest.TestCase):
     """C2 CacheBlend: when SGLANG_CACHEBLEND_CHUNK=1 and a byte-exact chunk
     sits beyond a LEADING gap (chunk_start > prefix_len, no chunk copied yet),

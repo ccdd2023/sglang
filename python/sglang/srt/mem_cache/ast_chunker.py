@@ -145,6 +145,41 @@ def _build_chunk_span(
     )
 
 
+def _build_module_chunk_span(
+    language: str,
+    text: str,
+    byte_start: int,
+    byte_end: int,
+) -> ChunkSpan:
+    """Build a "module" ChunkSpan covering the byte range [byte_start, byte_end).
+
+    Used by SGLANG_CHUNK_FILL_GAPS to capture non-anchor code (leading imports,
+    inter-anchor code, trailing code) so the chunker covers the whole slot. The
+    signature derives from the (normalized) range text, so byte-exact matching
+    across requests is preserved (same range text → same signature → cross-position
+    pool hit via the content-derived slot_id). No AST node — byte offsets are
+    passed explicitly.
+    """
+    snippet = (text or "")[byte_start:byte_end]
+    normalized = _normalize_snippet(snippet)
+    signature_seed = f"{language}:module:module:{normalized}"
+    signature = hashlib.sha1(signature_seed.encode("utf-8")).hexdigest()[:16]
+    # Approximate line numbers from the byte range (1-based, best-effort —
+    # only used for telemetry/sorting, not for KV addressing).
+    start_line = (text or "")[:max(0, byte_start)].count("\n") + 1
+    end_line = start_line + snippet.count("\n")
+    return ChunkSpan(
+        byte_start=byte_start,
+        byte_end=byte_end,
+        start_line=start_line,
+        end_line=end_line,
+        anchor_type="module",
+        name="module",
+        signature=signature,
+        nesting_depth=0,
+    )
+
+
 class ASTChunker:
     """Chunker for Python source code (stdlib ast only).
 
@@ -297,6 +332,43 @@ class ASTChunker:
                 )
 
         chunks.sort(key=lambda c: (c.start_line, c.anchor_type, c.name))
+
+        # SGLANG_CHUNK_FILL_GAPS=1 (default OFF): fill the non-anchor gaps
+        # (leading imports/module-level code, inter-anchor code, trailing
+        # code) with "module" chunks so the chunker covers the WHOLE slot
+        # text — matching whole-slot coverage. Without this, the chunker
+        # only emits FunctionDef/ClassDef chunks, MISSING the leading import
+        # block → the first anchor is far from the prompt prefix → a large
+        # gap that the C2 contiguity/direct path skips or zero-pads →
+        # gap-cascade (some segments get 0 reuse) and per-segment lossiness.
+        # Filling gaps makes AST chunking competitive with whole-slot under
+        # full-sharing position-shift (same coverage, byte-exact per piece,
+        # cross-position via the content-derived slot_id), while keeping
+        # per-function granularity for the partial-sharing regime.
+        if (
+            os.environ.get("SGLANG_CHUNK_FILL_GAPS", "0") == "1"
+            and chunks
+        ):
+            filled: list[ChunkSpan] = []
+            cursor = int(leading_offset)  # code starts after leading whitespace
+            text_len = len(text or "")
+            for ch in chunks:
+                if ch.byte_start > cursor:
+                    filled.append(
+                        _build_module_chunk_span(
+                            self.language, text, cursor, ch.byte_start,
+                        )
+                    )
+                filled.append(ch)
+                cursor = max(cursor, ch.byte_end)
+            if cursor < text_len:
+                filled.append(
+                    _build_module_chunk_span(
+                        self.language, text, cursor, text_len,
+                    )
+                )
+            chunks = filled
+
         return chunks[:_MAX_ANCHORS]
 
 

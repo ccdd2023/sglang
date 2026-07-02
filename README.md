@@ -58,26 +58,23 @@
 
 ## KVFlow: Coding-MAS-Aware KV Cache Management (this fork)
 
-This repository is a fork of SGLang that adds **template-driven KV cache management for Coding Multi-Agent System (MAS)** workflows. See [`KVFLOW_OVERVIEW.md`](KVFLOW_OVERVIEW.md) for the consolidated project documentation (replaces the previous `KVCOMM.md` + `PROGRESS_SUMMARY.md` + `ARCHITECTURE_LIMIT.md` triplet).
+This repository is a fork of SGLang that adds **code-aware KV cache reuse for Coding Multi-Agent System (MAS)** workflows. The goal is TTFT speedup from reusing KV across agents that share code, with acceptable accuracy under the same prompts as a general reuse algorithm. Speedup comes **only from more reuse** — no KV-cache scheduling tricks.
 
-**At a glance**:
-- **3 contributions** layered on top of SGLang's `RadixCache`:
-  1. Workflow Template Generation (Planner/Implementer/Reviewer fixed chain)
-  2. Template-Guided KV Prefetch & Eviction
-  3. Code-Base-Aware Lossy KV Reuse (KVCOMM) + **Context-Aware Confidence Modifier**
-- **Data-driven gate**: the lossy reuse gate is the exact `code_content_signature` match, but a learned modifier down-grades the confidence for an exact match when the request's prompt context (position offset, system prompt, surrounding wrap) predicts a high KV distance.
-- **Experiments**:
-  - `results/ast_kv_distance/` — 121-segment AST-type KV distance analysis (Qwen2.5-Coder-7B)
-  - `results/same_code_context_variation/` — 2,304 forward-pass experiment that drives the confidence modifier
-- **Tooling**: `tools/aggregate_lossy_rope_delta.py` for production telemetry
+**At a glance** — a layered byte-exact lossy reuse path on top of SGLang's `RadixCache`:
+- **L2** — whole-slot byte-exact reuse + RoPE rotation (cross-position).
+- **L4** — AST-boundary chunk reuse (byte-exact per function/class), so a partially-changed slot still reuses the unchanged functions.
+- **C2 / MULTI_SLOT** — CacheBlend gap-prefill + multi-slot batched copy (stage the leading gap with real KV, then copy all matching slots in one alloc/move/RoPE).
+- **L3** (MiniLM semantic k-NN) is **deprecated** — research only; byte-exact match is the reuse gate.
+
+**Current state (2026-07-01, honest):** the speed bar is met (MULTI_SLOT gives 7.5× vs lossless for hitters), but substantial cross-context KV reuse is **lossy** (F1 drops 0.46 → 0.00 as reuse grows 1400 → 7100 tok) because KV at layers > 0 encodes the preceding prefix. The only remaining path to both speed and accuracy is true CacheBlend (attention recompute). Full timeline, results tables, and the proven fundamental limit are in [`results/CODE_AWARE_LOSSY_KV_PROGRESS.md`](results/CODE_AWARE_LOSSY_KV_PROGRESS.md).
 
 Quick links:
-- [KVFLOW_OVERVIEW.md](KVFLOW_OVERVIEW.md) — main project doc
-- [docs/experiment_plan.md](docs/experiment_plan.md) — main experiment plan
-- [results/ast_kv_distance/report.md](results/ast_kv_distance/report.md) — first KV-distance write-up
-- [results/same_code_context_variation/report.md](results/same_code_context_variation/report.md) — second KV-distance write-up
-- [python/sglang/srt/mem_cache/anchor_match.py](python/sglang/srt/mem_cache/anchor_match.py) — gate logic + modifier
-- [python/sglang/srt/mem_cache/radix_cache.py](python/sglang/srt/mem_cache/radix_cache.py) — anchor KV store + lossy copy + RoPE delta
+- [CANONICAL_TARGET.md](CANONICAL_TARGET.md) — single source of truth: goal, current state, invariants
+- [HANDOFF.md](HANDOFF.md) — current session state
+- [results/CODE_AWARE_LOSSY_KV_PROGRESS.md](results/CODE_AWARE_LOSSY_KV_PROGRESS.md) — master progress + timeline + results
+- [results/kvcomm_ab/CROSS_POSITION_REPORT.md](results/kvcomm_ab/CROSS_POSITION_REPORT.md) — cross-position fix + 7B + partial-share results
+- [python/sglang/srt/mem_cache/radix_cache.py](python/sglang/srt/mem_cache/radix_cache.py) — L2/L4/C2/MULTI_SLOT reuse implementation
+- [python/sglang/srt/mem_cache/ast_chunker.py](python/sglang/srt/mem_cache/ast_chunker.py) — L4 server-side AST chunker
 
 ## About
 SGLang is a high-performance serving framework for large language models and multimodal models.

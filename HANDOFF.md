@@ -1,193 +1,165 @@
-# HANDOFF — sglang-kvflow
+# HANDOFF — sglang-kvflow (2026-07-01)
 
-> ⚠️ **READ FIRST**:
-> 1. [CANONICAL_TARGET.md](./CANONICAL_TARGET.md) — the *single* project goal
->    statement and 4-layer architecture.
-> 2. [results/project_progress_20260627.html](./results/project_progress_20260627.html)
->    — comprehensive progress report (this file's visual companion).
-> 3. The auto-loaded [memory index](../home/gfy/.claude/projects/-home-gfy/memory/MEMORY.md)
->    has the key invariants (L3 deprecated, byte-exact only, etc.).
+> **READ FIRST**:
+> 1. [CANONICAL_TARGET.md](./CANONICAL_TARGET.md) — single project goal + current state.
+> 2. [results/CODE_AWARE_LOSSY_KV_PROGRESS.md](./results/CODE_AWARE_LOSSY_KV_PROGRESS.md)
+>    — full development timeline, results tables, proven fundamental limit.
+> 3. [results/kvcomm_ab/KV_BREAKDOWN_REPORT.html](./results/kvcomm_ab/KV_BREAKDOWN_REPORT.html)
+>    — visual KV-breakdown + multi-slot results.
 >
-> **If you have 5 minutes**: read CANONICAL_TARGET.md + this file's TL;DR +
-> Outstanding work.
-> **If you have 30 minutes**: read everything below in order.
+> The auto-loaded [memory index](../home/gfy/.claude/projects/-home-gfy/memory/MEMORY.md)
+> has the key invariants.
 
 ---
 
 ## TL;DR
 
-- **Branch**: `fix/placeholder-pool-activation` (33 commits ahead of `main`, clean working tree).
-- **Goal (2026-06-29)**: code-aware KV reuse (AST-Gated L3 + offset alignment)
-  with **good-enough TTFT speedup AND accuracy ≥ general L3** under the same prompts.
-  - **BOTH bars MET in BOTH scenarios** (commit `4c1f77fa8`).
-  - Vary-code: 1.448× ≥ L3 1.441× (speed MET), F1 0.240 > L3 0.193 (accuracy strictly better).
-  - Same-code: 1.243× = L3 matched baseline, F1 0.402 = L3 (offset gate does not fire → no regression).
-  - The vary-code speed bar (previously the only unmet condition) is closed by the
-    offset-aligned AST gate (`SGLANG_L3_AST_GATE_OFFSET=1`): makes the fast L3 whole-slot
-    copy fire under vary-code instead of rejecting → slow C2.
-- **Tests**: 28/28 in the new Direction-#3 test files; ~85/85 across the full mem_cache suite.
-- **Status**: offset-aligned AST gate landed (`4c1f77fa8`). **Visual summary**: `results/contribution_summary_20260629.html`.
+- **Branch**: `fix/placeholder-pool-activation` (uncommitted changes on top
+  of the multi-slot work).
+- **Speed bar: MET.** MULTI_SLOT copy (`SGLANG_CACHEBLEND_MULTI_SLOT=1`)
+  breaks the 1-slot reuse ceiling: 97% utilization (5 slots ≈ 7100 tok),
+  hitter p50 TTFT = 124 ms = **7.5× vs lossless (932 ms)**. The speed
+  problem is solved by code-aware reuse alone.
+- **Accuracy bar: NOT MET for substantial reuse.** MULTI_SLOT hitters
+  output garbage (F1=0.000). Single-slot (≈1400 tok) F1≈0.46
+  (valid-but-different). Root cause is proven: **cross-context KV loss**
+  — raw copy + RoPE of KV under a different prefix is lossy, and the loss
+  scales with reuse volume. See `c2-cacheblend-lossy-not-safe`,
+  `multi-slot-copy-2026-07-01`.
+- **Only remaining path**: true CacheBlend (attention recompute for
+  copied chunks under the new context). Expensive, **not yet built**,
+  awaits explicit user sign-off.
+- **Retracted claims** (do not cite): L4 "~1.49× production-ready"
+  (broken over-copying path); AST-gated L3 "1.448× both bars met"
+  (cached_tokens conflated radix prefix + code-aware reuse). See
+  `fair-measurement-prefix-conflation-2026-06-30`.
 
-## Branch state (snapshot 2026-06-29)
+## Branch state (snapshot 2026-07-01)
 
 | Item | Value |
 |---|---|
 | HEAD branch | `fix/placeholder-pool-activation` |
-| Ahead of `main` | 34 commits |
-| Latest commit | `4c1f77fa8` feat: offset-aligned AST gate — close vary-code speed bar |
-| Goal status | **MET** — both bars (speedup + accuracy ≥ general L3) met in both scenarios |
-| Latest giant-codebase runs | `diag_{vary_l3off,vary_l3base(combo2),novary_l3off,novary_l3base,combo2_*}` |
-| Superseded claim | L4 "~1.49× production-ready" (2026-06-27) — falsified by flat-prefix ceiling |
+| Latest landed work | MULTI_SLOT copy (stage leading gap + copy all 5 slots + zero inter-slot headers) |
+| Goal status | Speed bar MET; accuracy bar NOT met for substantial reuse |
+| Known limitation | MULTI_SLOT copied spans occasionally leak (not radix-evictable); mitigated with `SGLANG_ENABLE_STRICT_MEM_CHECK_DURING_IDLE=0` |
 
 ---
 
 ## 1. What this project is
 
-**Coding-MAS serving**, fast and correct via code-aware KV cache reuse. This is
-a fork of SGLang at `sglang-kvflow` adding:
+Coding-MAS serving, fast and correct via **code-aware KV cache reuse**.
+Fork of SGLang adding a layered lossy reuse path on top of `RadixCache`:
 
-1. **L2 whole-slot byte-exact reuse** — fuzzy match on token-id hashes
-2. **L3 placeholder MiniLM k-NN body** — *deprecated* (8.2% silent failure on real
-   workload)
-3. **L4 AST chunk pool** — byte-exact per-function/class chunk reuse (Direction #3)
+1. **L2** — whole-slot byte-exact reuse + RoPE (cross-position).
+2. **L3** — placeholder MiniLM k-NN body — *deprecated* (silent failure).
+3. **L4** — AST-boundary chunk reuse (byte-exact per function/class).
+4. **C2 / MULTI_SLOT** — CacheBlend gap-prefill + multi-slot batched copy.
 
-Paper context: AgentTemplateKV submission to EuroSys 2026 (branch
-`agenttemplatekv-eurosys-2026-06`); HEAD numbers **+21.3% TTFT, +1.9% E2E, +64%
-cached** vs SGLang baseline. Full 38-pp breakdown is in
-`docs/agenttemplatekv_paper/` and is intentionally not duplicated here.
+Paper context: AgentTemplateKV submission to EuroSys 2026.
 
-## 2. The 4-layer cache
+## 2. The current result (7B-Coder, full-share position-shift, fair A/B)
 
-See [CANONICAL_TARGET.md](./CANONICAL_TARGET.md) §"The 4-Layer Cache Architecture"
-for the authoritative table. Quick reference:
-
-| Layer | Mechanism | Cumulative | Status |
+| config | reuse | p50 TTFT | F1 vs lossless |
 |---|---|---|---|
-| L1 | Prefix cache (radix) | 1.20× | production |
-| L2 | Whole-slot byte-exact | 1.31× | production |
-| L3 | MiniLM k-NN body | 1.65× | **DEPRECATED** (8.2% silent fail) |
-| L4 | AST chunk pool | ~1.49× | **CURRENT TARGET** |
+| lossless | 0 | 932 ms | 1.000 |
+| single-slot staged (L2) | ~1300 tok | ~820 ms | 0.461 |
+| **MULTI_SLOT (5 slots)** | ~7100 tok | **124 ms (7.5×)** | **0.000** |
 
-## 3. Direction #3 — AST chunk pool
+Full tables (3B/7B, full-share/partial-share) and the development
+timeline are in
+[results/CODE_AWARE_LOSSY_KV_PROGRESS.md](./results/CODE_AWARE_LOSSY_KV_PROGRESS.md).
 
-Four phases, one sprint (Jun 26 – Jun 27). All on `fix/placeholder-pool-activation`.
+## 3. The proven fundamental limit
 
-| Phase | Commit | Code location | Tests |
-|---|---|---|---|
-| A — AST chunker | `7fb1a5bb2` | `ast_chunker.py` (~220 LOC, pure-Python AST) | 13 |
-| B — write path | `8599afcfc` | `_store_placeholder_chunks` at `radix_cache.py:1654` | 8 |
-| C — read path | `5197823bf` | `_try_placeholder_chunk_lossy_match` at `:1796`, `_build_chunk_plan` at `:1868`, `_execute_chunk_plan` at `:2017` | 9 |
-| D — telemetry | `fea64d4cc` | 11 counters at `radix_cache.py:698-710` | 3 |
-
-For the architectural diagram, byte-exact decision flow, and per-counter
-specification, see [results/project_progress_20260627.html](./results/project_progress_20260627.html).
+Non-prefix KV reuse via raw copy + RoPE is **lossy** because KV at
+layers > 0 encodes the preceding prefix. Reusing segments under a new
+prefix copies stale KV. Confirmed with data: 1400 tok reused → F1 0.46;
+7100 tok reused → F1 0.00. Only **true CacheBlend** (recompute attention
+for copied chunks under the new context) can give speed AND accuracy.
 
 ## 4. Non-negotiable invariants
 
-These are the rules a new session **must not** propose to violate.
-
-- **L3 is deprecated for production.** Default `SGLANG_PLACEHOLDER_KNN_MATCH=0`.
-  Do not propose re-enabling it. The 8.2% silent failure rate on the
-  giant-codebase 50-task run is the dominant failure mode that triggered
-  deprecation. (See memory: `l3-placeholder-knn-deprecated`.)
-- **L4 byte-exact is binary.** L4 chunks are reused only when
-  `(slot_id, signature, byte_start, byte_end, token_ids)` all match exactly.
-  Do **not** propose drift tolerance, MiniLM fallback, or lossy matching at
-  the chunk layer. L3's `cos ≥ 0.85` gate is what made L3 unsafe.
-- **For benchmark runs > 3 cases, you MUST add**
-  `--force-evict --disable-overlap-schedule --max-running-requests 1` to
-  avoid the `_delete_leaf` assertion that crashes normal-evict. (See
-  memory: `_delete-leaf-bug-2026-06-24`.)
+- **L3 (MiniLM k-NN body) is OFF by default** (`SGLANG_PLACEHOLDER_KNN_MATCH=0`).
+  Do not re-enable. (Memory: `l3-placeholder-knn-deprecated`.)
+- **Byte-exact match is the reuse gate.** No drift tolerance / MiniLM
+  fallback at the reuse layer. AST anchors decide alignment, not matching.
+- **Speedup ONLY from more reuse.** No KV-cache scheduling for speed.
+- **New features ship OFF by default.**
+- **For benchmark runs > 3 cases, add**
+  `--force-evict --disable-overlap-schedule --max-running-requests 1`
+  (`_delete_leaf` assertion crash). (Memory: `_delete-leaf-bug-2026-06-24`.)
 - **Do NOT run `--vary-code`** for repeatable benchmarks. Use `--no-vary-code`.
+- **Do NOT re-track `swebench_local_envs/` (21G).**
 
-## 5. Operational caveats
-
-| Caveat | Effect | Workaround |
-|---|---|---|
-| `--vary-code` mutates source across runs | Unrepeatable benchmark numbers | Always use `--no-vary-code` for production measurement |
-| `_delete_leaf` assertion under > 3 cases | Crashes normal-evict path | Add `--force-evict --disable-overlap-schedule --max-running-requests 1` |
-| RoPE delta requires head-only rotation | Existing `_apply_rope_delta_to_head` handles this; do not rewrite | Reuse as-is |
-| 21G `swebench_local_envs/` in results/ | Slow git operations if re-tracked | Already gitignored; do not re-add |
-| `radix_cache.py` is 4895 lines | Hard to navigate | Use the line numbers in §3 / §6 |
-
-## 6. Outstanding work
+## 5. Outstanding work
 
 | P | Task | Why | Gate |
 |---|---|---|---|
-| **P0** | Run giant-codebase 5-task smoke with `SGLANG_CHUNKED_PLACEHOLDER_KNN=1 SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1` to validate the predicted ~1.49× speedup | Phase C/D is code-complete but unvalidated on real workload | None — ready to launch |
-| **P1** | Merge `fix/placeholder-pool-activation` → `main` | 25 commits, clean, no conflicts | After P0 ≥ 1.4× |
-| **P2** | Phase E — whitespace-drift tolerance gated on `placeholder_chunk_pool_skip_byte_drift_count` telemetry | Recover L3's lost ~0.16× if it's the dominant skip reason | Only if P0 borderline |
+| **P0** | True CacheBlend (attention recompute for copied chunks) | The only path to BOTH speed and accuracy; raw-copy+RoPE is proven lossy | User sign-off (fresh algorithmic change) |
+| P1 | Fix MULTI_SLOT copied-span leak (ephemeral copy / proper radix insertion) | Leak forces `STRICT_MEM_CHECK_DURING_IDLE=0`; bounded but unclean | None, but optional if CacheBlend supersedes multi-slot |
+| P2 | Re-run partial-share with more tasks for a robust AST-vs-L2 average | 12-task/42-case result is noisy; AST meets accuracy bar not speed | None |
 
-## 7. Key reference docs
+## 6. Key reference docs
 
 | Doc | Purpose |
 |---|---|
-| [CANONICAL_TARGET.md](./CANONICAL_TARGET.md) | Single source of truth for project goal, 4-layer architecture, deprecation policy |
-| [results/project_progress_20260627.html](./results/project_progress_20260627.html) | Comprehensive visual progress report |
-| [results/direction_3_phase_c_d_20260627.html](./results/direction_3_phase_c_d_20260627.html) | Phase C/D deep-dive |
-| [results/giant_codebase/runs/giant_pandas_50_l3_off_20260627_051353/report/REPORT.md](./results/giant_codebase/runs/giant_pandas_50_l3_off_20260627_051353/report/REPORT.md) | Production baseline (1.31×) |
-| [results/giant_codebase/runs/giant_pandas_50_postfix_20260627_024916/report/REPORT.md](./results/giant_codebase/runs/giant_pandas_50_postfix_20260627_024916/report/REPORT.md) | L3-ON research run (1.65×, deprecated) |
-| [results/ast_alignment_v3_20260626/REPORT.md](./results/ast_alignment_v3_20260626/REPORT.md) | 91.8% byte-identical AST alignment measurement |
-| [memory/v44-cycle-history.md](../home/gfy/.claude/projects/-home-gfy/memory/v44-cycle-history.md) | v44 k-NN cycle historical (8 evidence lines, all deprecated 2026-06-27) |
+| [CANONICAL_TARGET.md](./CANONICAL_TARGET.md) | Single source of truth: goal, current state, invariants |
+| [results/CODE_AWARE_LOSSY_KV_PROGRESS.md](./results/CODE_AWARE_LOSSY_KV_PROGRESS.md) | Master timeline + results + fundamental limit |
+| [results/kvcomm_ab/CROSS_POSITION_REPORT.md](./results/kvcomm_ab/CROSS_POSITION_REPORT.md) | Cross-position fix + 7B + partial-share results |
+| [results/kvcomm_ab/KV_BREAKDOWN_REPORT.html](./results/kvcomm_ab/KV_BREAKDOWN_REPORT.html) | Visual KV-breakdown + multi-slot results |
+| [results/direction_3_phase_c_d_20260627.html](./results/direction_3_phase_c_d_20260627.html) | L4 Phase C/D architecture deep-dive (still valid) |
+| ⚠️ [results/project_progress_20260627.html](./results/project_progress_20260627.html) | Has a RETRACTION banner — speedup claims superseded |
 
-## 8. Common commands
+## 7. Common commands
 
 ```bash
-# Run Direction #3 unit tests (35 tests, ~60s)
+# L4 chunker + pool unit tests
 python -m pytest test/registered/unit/mem_cache/test_ast_chunker.py \
                    test/registered/unit/mem_cache/test_placeholder_chunk_pool.py \
-                   test/registered/unit/mem_cache/test_radix_cache_concurrency.py \
                    test/registered/unit/mem_cache/test_placeholder_chunk_pool_read.py \
                    test/registered/unit/mem_cache/test_placeholder_chunk_pool_policy.py -v
 
-# Run full mem_cache suite
-python -m pytest test/registered/unit/mem_cache/ -v
-
-# Giant-codebase 5-task smoke (P0)
-python benchmark/multi_workflow/bench_giant_codebase_reuse.py \
-    --manifest  results/giant_codebase/tasks/pandas_50.jsonl \
-    --repo-root results/giant_codebase/pandas_src \
-    --out-dir   results/giant_codebase/runs/giant_pandas_5_l4_on_$(date -u +%Y%m%d_%H%M%S) \
-    --model     Qwen/Qwen2.5-3B-Instruct \
-    --max-tasks 5 --agent-count 5 \
-    --mode      placeholder_knn_reuse --segment-count 5 \
-    --no-vary-code
-# NOTE: for > 3 tasks add --force-evict --disable-overlap-schedule --max-running-requests 1
+# MULTI_SLOT A/B (full-share position-shift, 7B, 12 tasks)
+bash results/kvcomm_ab/run_7b_multislot_l2.sh
+# lossless reference
+bash results/kvcomm_ab/run_7b_lossless.sh
+# fair A/B analysis
+python benchmark/multi_workflow/analyze_fair_ab.py \
+    --baseline results/kvcomm_ab/7b_lossless \
+    --experimental results/kvcomm_ab/7b_multislot_l2 \
+    --lossless results/kvcomm_ab/7b_lossless
 ```
 
-Env-var toggles:
+Key env toggles (all default OFF unless noted):
+- `SGLANG_CACHEBLEND_MULTI_SLOT=1` + `SGLANG_CACHEBLEND_COMPACT=0` — multi-slot copy
+- `SGLANG_CACHEBLEND_CHUNK=1` + `SGLANG_CACHEBLEND_BATCH=1` — C2 batched executor
+- `SGLANG_CHUNKED_PLACEHOLDER_KNN=1` + `SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1` — L4 read/write
+- `SGLANG_CHUNK_COARSE=1` — L2 whole-slot; `SGLANG_CHUNK_TOPLEVEL=1 SGLANG_CHUNK_FILL_GAPS=1` — L4 AST
+- `SGLANG_PLACEHOLDER_KNN_MATCH=0` — L3 OFF (default, keep off)
+- `SGLANG_ENABLE_STRICT_MEM_CHECK_DURING_IDLE=0` — warn-only (multi-slot leak workaround)
 
-- `SGLANG_CHUNKED_PLACEHOLDER_KNN=1` — turn the chunk pool write-path on
-- `SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1` — turn the chunk pool read-path on
-- `SGLANG_PLACEHOLDER_KNN_MATCH=0` (default) — keep L3 off in production
+## 8. What NOT to do
 
-## 9. What NOT to do
+1. **Don't re-enable L3 (MiniLM k-NN body).** Deprecated; 8.2% silent failure.
+2. **Don't propose drift tolerance / MiniLM fallback at the reuse layer.** Byte-exact only.
+3. **Don't run `--vary-code`** for measurement.
+4. **Don't run > 3 cases without** `--force-evict --disable-overlap-schedule --max-running-requests 1`.
+5. **Don't re-track `swebench_local_envs/` (21G).**
+6. **Don't cite the retracted claims** ("~1.49× production-ready", "1.448× both bars met").
 
-1. **Don't re-enable L3 (MiniLM k-NN body).** It is deprecated. 8.2% silent failure.
-2. **Don't propose drift tolerance or MiniLM fallback at the L4 chunk layer.** L4 is
-   byte-exact by design. Phase E drift tolerance, if pursued at all, is a separate
-   opt-in flag and gated on telemetry.
-3. **Don't run the giant-codebase bench without `--no-vary-code`.** Results
-   become unrepeatable.
-4. **Don't run > 3 cases without `--force-evict --disable-overlap-schedule
-   --max-running-requests 1`.** You'll hit the `_delete_leaf` assertion crash.
-5. **Don't re-track `swebench_local_envs/` (21G).** It's gitignored for a reason.
+## 9. Memory pointers (auto-load each session)
 
-## 10. Memory pointers
-
-These are the memory entries that auto-load in every session. New sessions
-should skim them:
-
-- `direction-3-phase-c-d` — Direction #3 read-path + telemetry (this sprint)
+- `multi-slot-copy-2026-07-01` — MULTI_SLOT: 7.5× speed, F1=0.000 (latest)
+- `cross-position-fix-works-2026-06-30` — cross-position slot_id fix unblocked byte-exact reuse
+- `c2-cacheblend-lossy-not-safe-2026-06-28` — raw-copy+RoPE is lossy (the fundamental limit)
+- `c2-fundamental-limits-2026-06-28` — proven limits + vary-code speed bar history
+- `fair-measurement-prefix-conflation-2026-06-30` — why 1.448× was retracted
 - `l3-placeholder-knn-deprecated` — why L3 is off
-- `sglang-kvflow-session-handoff-2026-06-27` — session index pointer
-- `100-case-force-evict-fix` — why `--force-evict` is required
-- `_delete-leaf-bug-2026-06-24` — the assertion crash & its workaround
-- `v44-cycle-history` — v44 k-NN cycle (8 evidence lines, all superseded 2026-06-27)
-- `sglang-kvflow-placeholder-pool-bugs` — 3 critical activation bugs (Jun 26)
-- `giant-codebase-benchmark-swesmith` — 50-task × 5-agent baseline run
+- `_delete-leaf-bug-2026-06-24` — the >3-case assertion crash & workaround
+- `giant-codebase-benchmark-swesmith` — 50-task × 5-agent benchmark
+- `output-path` — results go to `results/`, not `/tmp`
 
 ---
 
-**Last refreshed**: 2026-06-27, after Phase C/D land. Next refresh trigger: P0
-giant-codebase smoke result, or merge to main.
+**Last refreshed**: 2026-07-01, after MULTI_SLOT measurement. Next refresh
+trigger: true CacheBlend decision, or a fresh fair multi-case headline number.

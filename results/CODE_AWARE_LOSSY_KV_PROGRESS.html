@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code-Aware Lossy KV Reuse — Progress Slides (2026-07-01)</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --card-hi: #1c2128;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --text-mute: #6e7681;
+    --blue: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --yellow: #d29922;
+    --orange: #db6d28;
+    --purple: #bc8cff;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+  #deck {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+  #track {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none; /* Firefox */
+  }
+  #track::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+  .slide {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
+    padding: 56px 84px 88px 84px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    scroll-snap-align: start;
+  }
+  .slide h1 {
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+  .slide h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--blue);
+    margin: 22px 0 12px 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .slide h3 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--purple);
+    margin: 16px 0 8px 0;
+  }
+  .slide p, .slide li {
+    font-size: 17px;
+    line-height: 1.62;
+    color: var(--text);
+  }
+  .slide ul, .slide ol { margin: 6px 0 6px 26px; }
+  .slide li { margin: 4px 0; }
+  .sub { color: var(--text-dim); font-size: 16px; margin-bottom: 18px; }
+  .slide code, .nav code {
+    font-family: var(--mono);
+    font-size: 14px;
+    background: rgba(110,118,129,0.22);
+    padding: 2px 7px;
+    border-radius: 5px;
+    color: var(--text);
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+    font-size: 15px;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 11px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--card-hi); color: var(--blue); font-weight: 600; }
+  tr:nth-child(even) td { background: rgba(22,27,34,0.5); }
+  .good { color: var(--green); font-weight: 600; }
+  .bad { color: var(--red); font-weight: 600; }
+  .warn { color: var(--yellow); font-weight: 600; }
+  .accent { color: var(--blue); font-weight: 600; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 10px 0;
+  }
+  .card.red { border-color: var(--red); background: #2a1717; }
+  .card.green { border-color: var(--green); background: #122117; }
+  .card.blue { border-color: var(--blue); background: #0d1a2a; }
+  .big-num { font-size: 52px; font-weight: 700; line-height: 1.1; }
+  .kvgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 10px 0; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 13px; font-weight: 600; }
+  .badge.good { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge.bad { background: rgba(248,81,73,0.15); color: var(--red); }
+  .badge.warn { background: rgba(210,153,34,0.15); color: var(--yellow); }
+
+  /* nav */
+  #nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 48px;
+    background: rgba(13,17,23,0.92);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 10;
+    backdrop-filter: blur(6px);
+  }
+  #progress {
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    width: 0;
+    background: var(--blue);
+    z-index: 11;
+  }
+  /* no-JS fallback: drive the progress bar purely from track scroll position.
+     When JS is alive it also sets width — the @supports rule only wins if the
+     browser supports scroll-timeline; older browsers fall back to JS width. */
+  #track { scroll-timeline-name: --deck; scroll-timeline-axis: x; }
+  @supports (animation-timeline: --deck) {
+    #progress { animation: 1ms linear bar-tl both; animation-timeline: --deck; }
+    @keyframes bar-tl { from { width: 0%; } to { width: 100%; } }
+  }
+  .navbtn {
+    background: var(--card-hi);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 34px; height: 34px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .navbtn:hover { background: var(--border); border-color: var(--text-dim); }
+  .navbtn:disabled { opacity: 0.35; cursor: default; }
+  #pager { font-size: 14px; color: var(--text-dim); font-family: var(--mono); white-space: nowrap; }
+  #pager b { color: var(--text); }
+  #sectitle { font-size: 13px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
+  #sectitle::before { content: "· "; color: var(--text-mute); }
+  .nav-center { display: flex; align-items: center; gap: 14px; flex: 1; justify-content: center; overflow: hidden; }
+  #dots { display: flex; gap: 5px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); cursor: pointer; transition: background 0.15s, transform 0.15s; flex: 0 0 auto; }
+  .dot.active { background: var(--blue); transform: scale(1.35); }
+  @media (max-width: 760px) {
+    #sectitle, #dots { display: none; }
+  }
+  .hint { position: fixed; bottom: 56px; right: 24px; font-size: 12px; color: var(--text-mute); font-family: var(--mono); z-index: 10; pointer-events: none; }
+  .title-slide { justify-content: center; }
+  .title-slide h1 { font-size: 56px; }
+  .title-slide .sub { font-size: 20px; margin-top: 10px; }
+  .tline { display: grid; grid-template-columns: 130px 1fr 1fr; gap: 0 14px; font-size: 14.5px; }
+  .tline .d { color: var(--purple); font-family: var(--mono); font-weight: 600; }
+  .tline .s { color: var(--blue); font-weight: 600; }
+  .tline .o { color: var(--text-dim); }
+  .tline > div { padding: 5px 0; border-bottom: 1px solid rgba(48,54,61,0.5); }
+  .footer-link { font-size: 14px; color: var(--text-dim); margin-top: 14px; }
+  .footer-link a { color: var(--blue); }
+  .alggrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 8px 0; }
+  .algcell { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px; }
+  .algcap { font-size: 13px; color: var(--text-dim); text-align: center; margin-top: 6px; font-family: var(--mono); }
+  pre .c { color: var(--text-mute); }
+  /* 5-agent rotation chip diagram (slide ⑥) */
+  .rotgrid { display: grid; grid-template-columns: 64px repeat(5, 1fr); gap: 6px 8px; align-items: center; margin: 6px 0 10px; }
+  .rotgrid .rh { font-size: 12px; color: var(--text-mute); font-family: var(--mono); text-align: center; }
+  .rotgrid .rl { font-size: 12px; color: var(--blue); font-family: var(--mono); font-weight: 600; }
+  .chip { font-size: 11px; font-family: var(--mono); padding: 4px 6px; border-radius: 5px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: 1px solid transparent; }
+  .chip.c1 { background: rgba(88,166,255,0.18); color: #58a6ff; border-color: rgba(88,166,255,0.4); }
+  .chip.c2 { background: rgba(63,185,80,0.16); color: #3fb950; border-color: rgba(63,185,80,0.4); }
+  .chip.c3 { background: rgba(210,153,34,0.16); color: #d29922; border-color: rgba(210,153,34,0.4); }
+  .chip.c4 { background: rgba(188,140,255,0.16); color: #bc8cff; border-color: rgba(188,140,255,0.4); }
+  .chip.c5 { background: rgba(219,109,40,0.16); color: #db6d28; border-color: rgba(219,109,40,0.4); }
+  .chip.drop { background: rgba(139,148,158,0.10); color: var(--text-mute); border-color: rgba(139,148,158,0.25); text-decoration: line-through; }
+  .chip .fn { font-size: 10px; color: var(--text-mute); }
+  /* prompt I/O two-column layout */
+  .io-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; margin: 8px 0; }
+  .promptbox { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: var(--mono); font-size: 13px; line-height: 1.55; white-space: pre-wrap; }
+  .promptbox .ph { color: var(--text-mute); }
+  .promptbox .sec { color: var(--blue); }
+  .promptbox.out { border-color: var(--green); background: #122117; }
+  .promptbox.out .ol { color: var(--green); }
+  .outlist { font-size: 13.5px; }
+  .outlist li { margin: 3px 0; }
+  .outlist .r { color: var(--blue); font-family: var(--mono); font-weight: 600; }
+
+  /* PRINT: stack slides vertically, one slide per page. Defeats the horizontal
+     scroll-snap flex layout so every slide is captured (not just the first).
+     Page height (1600px) fits the tallest slide (~1529px) → exactly 16 pages,
+     nothing clipped, no overflow pages. */
+  @media print {
+    @page { size: 1280px 1600px; margin: 0; }
+    html, body { height: auto; overflow: visible; background: var(--bg); }
+    #progress, #nav, .hint { display: none !important; }
+    #deck { width: 1280px; height: auto; overflow: visible; }
+    #track {
+      display: block;          /* stack instead of horizontal flex */
+      width: 1280px; height: auto;
+      overflow: visible;
+      scroll-snap-type: none;
+    }
+    .slide {
+      flex: none;
+      width: 1280px;
+      min-height: 1600px;      /* fill one page; tallest slide (~1529px) fits */
+      page-break-after: always;
+      break-after: page;
+      overflow: visible;
+    }
+    .slide:last-child { page-break-after: auto; break-after: auto; }
+  }
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="deck">
+  <div id="track">
+
+<!-- 1. TITLE -->
+<section class="slide title-slide">
+  <h1>Code-Aware Lossy KV Reuse</h1>
+  <div class="sub">sglang-kvflow · 进展 / 时间线 / 结果 · 2026-07-01</div>
+  <div class="card blue" style="max-width:760px;">
+    <p style="font-size:19px;">目标：<b>仅靠更多 KV 复用</b>（不靠调度）让 Coding-MAS serving 又快又准。</p>
+    <p style="margin-top:10px;">两个 bar：① TTFT 加速 vs lossless baseline；② 同 prompt 下精度不低于通用复用算法。</p>
+  </div>
+  <p class="footer-link">伴生文档：<a href="CODE_AWARE_LOSSY_KV_PROGRESS.md">CODE_AWARE_LOSSY_KV_PROGRESS.md</a> · <a href="../CANONICAL_TARGET.md">CANONICAL_TARGET.md</a> · <a href="kvcomm_ab/KV_BREAKDOWN_REPORT.html">KV_BREAKDOWN_REPORT.html</a></p>
+  <p style="color:var(--text-mute); margin-top:18px; font-size:13px; font-family:var(--mono);">← → / 空格 翻页 · 滚轮（垂直）= 翻页 · shift+滚轮 = 页内滚动 · 底部圆点跳转</p>
+</section>
+
+<!-- 2. GOAL & REGIME -->
+<section class="slide">
+  <h1>① 目标 & 支持的 regime</h1>
+  <h2>目标</h2>
+  <ul>
+    <li><span class="accent">Speed</span> — TTFT 加速 vs <code>prefix_cache_only</code> / lossless baseline。</li>
+    <li><span class="accent">Accuracy</span> — 同 prompt 下，精度不必差于通用（非 code-aware）复用算法。用 real token-F1 vs lossless 衡量。</li>
+    <li><span class="warn">约束</span> — 加速<b>只</b>来自更多复用，不准用 KV-cache 调度 trick。</li>
+  </ul>
+  <h2>支持的 regime：KVCOMM 字节精确跨位置 copy + RoPE</h2>
+  <p>同一 prompt 内容出现在不同绝对位置 → 拷贝 + RoPE delta（<code>new_pos − old_pos</code>）。<b>AST chunking</b> 是其上的编码专用优化（按函数/类粒度，部分变更的 slot 仍能复用未变函数）。</p>
+  <div class="card red" style="max-width:760px;">
+    <p><b>L3 MiniLM 语义 k-NN 不是这个 regime</b> — 已弃用（research only）。复用闸门是<b>字节精确文本匹配</b>，AST 锚点只决定对齐边界，不做模糊匹配。</p>
+  </div>
+</section>
+
+<!-- 3. 4-LAYER CACHE -->
+<section class="slide">
+  <h1>② 4-Layer Cache（诚实版）</h1>
+  <table>
+    <tr><th>Layer</th><th>机制</th><th>复用闸门</th><th>状态</th></tr>
+    <tr><td><b>L1</b></td><td>Radix 前缀缓存（token 级字节精确，同位置）</td><td>精确前缀</td><td class="good">Production — 唯一安全复用，baseline</td></tr>
+    <tr><td><b>L2</b></td><td>整 slot 字节精确 + RoPE（跨位置）</td><td>精确 slot 文本 + content-derived slot_id</td><td>已实现；大量复用时 lossy（1 slot F1≈0.46）</td></tr>
+    <tr><td><b>L3</b></td><td>Placeholder k-NN body（MiniLM 语义）</td><td>cos≥0.85</td><td class="bad">DEPRECATED — research only</td></tr>
+    <tr><td><b>L4</b></td><td>AST 边界 chunk 复用（按函数/类字节精确）</td><td>精确 chunk（signature+bytespan+tokenids）</td><td>已实现；partial-share 有精度优势，无速度优势</td></tr>
+    <tr><td><b>C2 / MULTI_SLOT</b></td><td>CacheBlend gap-prefill + 多 slot 批量拷贝</td><td>精确 chunk；leading gap 真实 stage，内部 gap 置零</td><td class="bad">已实现；7.5× 速度但 F1=0.000（lossy）</td></tr>
+  </table>
+  <div class="card red">
+    <p><b>无当前 "production-ready" 加速声明。</b> L4 "~1.49×" 与 AST-gated L3 "1.448× both bars met" 均<b>已撤回</b>。</p>
+  </div>
+</section>
+
+<!-- 4. TIMELINE -->
+<section class="slide">
+  <h1>③ 开发时间线</h1>
+  <div class="tline">
+    <div class="d">2026-06 P1/2</div><div class="s">context-aware KV reuse · L2 整 slot + RoPE</div><div class="o">基础；L2 = 安全-ish 整 slot 拷贝路径</div>
+    <div class="d">06-22→25 v44</div><div class="s">L3 MiniLM k-NN · 选择性 AST 复用</div><div class="o">06-27 弃用：cos≥0.85 区分不了 rename vs 空白漂移，8.2% silent fail</div>
+    <div class="d">06-26</div><div class="s">placeholder pool 激活 bug 修复 · giant-codebase 50×5 基准</div><div class="o">pool 终于命中；1.31× vs prefix-only，20% 复用</div>
+    <div class="d">06-27</div><div class="s">Direction #3（L4 AST chunk pool）A/B/C/D 落地</div><div class="o">按函数字节精确复用</div>
+    <div class="d">06-28</div><div class="s">L4 contiguity ceiling · C2 CacheBlend</div><div class="o">正确 L4 在 giant-codebase 上 ~0 复用（flat-prefix 天花板）；"~1.49×" 是坏的 over-copy 路径；C2 raw-copy lossy</div>
+    <div class="d">06-29</div><div class="s">AST-gated L3 + offset alignment</div><div class="o">"1.448× both bars met" → 06-30 撤回（cached_tokens 混淆 radix 与 code-aware）</div>
+    <div class="d">06-30</div><div class="s">fair-measurement 重设计（分解计数 A1-A6 · 排除 source agent · parity gate）</div><div class="o">测量诚实化；同 regime 下 L2/L4/C2 全 0 复用 — 根因 = positional slot_id</div>
+    <div class="d">06-30</div><div class="s">cross-position slot_id 修复（code_base:&lt;file&gt; 非 positional idx）</div><div class="o">解锁字节精确 KVCOMM 复用（0 → 7-13/16 reusers 命中）</div>
+    <div class="d">06-30</div><div class="s">C2 gap-ZERO vs STAGED gap-prefill（3B）</div><div class="o">gap-zero：2.5× 但 F1=0.008（garbage）；staged：1.085× / F1=0.376</div>
+    <div class="d">06-30→07-01</div><div class="s">7B-Coder scaling（大模型 → copy-vs-prefill 差更大）</div><div class="o">L2-staged 1.144×/F1 0.461；full-share 下 L2 优于 L4</div>
+    <div class="d">07-01</div><div class="s">partial-share + rotation（AST 的 niche）</div><div class="o">12-task/42-case：AST F1 0.622 > L2 0.513（精度 bar 达标），速度 0.96×（未达标）</div>
+    <div class="d">07-01</div><div class="s">MULTI_SLOT copy（SGLANG_CACHEBLEND_MULTI_SLOT=1）</div><div class="o">破 1-slot 天花板：97% 利用率，7.5× 速度，但 F1=0.000 — 确证 cross-context KV loss</div>
+  </div>
+</section>
+
+<!-- 4. CASE CONSTRUCTION -->
+<section class="slide">
+  <h1>④ 测试 case 如何构造</h1>
+  <p class="sub">giant-codebase benchmark（pandas / SWE-Smith）· <code>--position-shift --partial-share --no-vary-code</code></p>
+  <div class="kvgrid">
+    <div class="card">
+      <h3 style="margin-top:0;">① 数据源</h3>
+      <p>SWE-Smith pandas manifest（<code>results/giant_codebase/tasks/.../manifest.jsonl</code>），每条 = 一个真实 pandas 任务：instance_id / patch / problem_statement / 涉及文件。</p>
+      <h3>② 切片成 5 个 code_base slot</h3>
+      <p>取 patch 涉及文件 + 同目录 sibling（<code>--sibling-window 4</code>），每个文件截断 8000 字符，前 5 个 = 5 个 slot。slot_id = <code>code_base:&lt;file path&gt;</code>（<b>内容派生</b>，非位置）。</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;">③ 5 agent 固定角色链</h3>
+      <p><code>implementer → debugger → reviewer → verifier → auditor</code></p>
+      <h3>④ per-agent 变换</h3>
+      <ul>
+        <li><b>--position-shift</b>：agent idx 按 <code>(idx-1)%5</code> 旋转 slot 顺序（同内容，不同绝对位置）。</li>
+        <li><b>--partial-share</b>：AST 找顶层函数/类，每个 agent 丢 1 个不同函数（slot 文本不同，其余函数共享）。</li>
+      </ul>
+      <h3>⑤ 顺序执行 + cache_salt</h3>
+      <p>agent 1 = source；agent 2..5 用不同 <code>cache_salt</code> → radix 冷 → 只能靠 <b>KVCOMM 跨位置 copy + RoPE</b> 复用。</p>
+    </div>
+  </div>
+  <h2>真实 prompt 模板（<code>build_slot_messages</code>）</h2>
+  <pre><span class="c"># system</span>
+You are a senior software engineering agent.
+<span class="c"># user</span>
+## Agent role
+{role}                       <span class="c"># implementer / debugger / ...</span>
+## Case
+{case_id}
+## Instruction
+Inspect the repeated repository code and answer with one concise implementation risk.
+## Upstream context
+Planner cached exact repository code objects for downstream agents. Previous agent index: {idx-1}.
+## code_base1: pandas/core/interchange/column.py
+&lt;真实 pandas 源码&gt;
+## code_base2: ...
+...
+## Output
+Return exactly one short sentence for agent {idx}.</pre>
+  <p style="margin-top:8px;">每 agent 输出一句「implementation risk」（下一页给真实样例）。</p>
+</section>
+
+<!-- 5. GIANT-CODEBASE BENCHMARK -->
+<section class="slide">
+  <h1>⑤ giant-codebase 大 benchmark · 测试条件与多 agent 协作</h1>
+  <p class="sub">真实 repo <code>pandas-dev/pandas</code> · SWE-Smith · 5-agent 角色链 · byte-exact KVCOMM regime · 驱动 <code>bench_giant_codebase_reuse.py</code></p>
+  <div class="kvgrid">
+    <div class="card">
+      <h3 style="margin-top:0;">① 测试条件</h3>
+      <ul>
+        <li>真实仓库 <code>pandas-dev/pandas</code>：<b>1502</b> 个 .py 文件；SWE-Smith pandas <b>1000</b> 任务池</li>
+        <li>模型 Qwen2.5-7B-Instruct；持久 server（跨 case 复用池保留）</li>
+        <li>每个 case = patch 涉及文件 + 同目录 sibling（<code>--sibling-window 4</code>）→ 切 <b>5 个 code_base slot</b>（每文件截 8000 字符）</li>
+        <li>fair A/B：同 case 跑 <b>lossless</b>（baseline，仅 radix 前缀）vs <b>code-aware</b>（KVCOMM 跨位置 copy+RoPE），同 prompt 同 seed</li>
+        <li>速度指标 = <b>reuser agent（2..5）的 TTFT</b>；agent 1 (implementer) 是 source，不参与加速统计</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;">② 多 agent 如何协作（顺序角色链 + upstream 交接）</h3>
+      <p>一个 case 内 5 个 agent <b>顺序</b>跑（非并行）：<code>implementer→debugger→reviewer→verifier→auditor</code>。</p>
+      <ul>
+        <li><b>agent 1 = source</b>：prompt 较短，其 code_base KV 入复用池。</li>
+        <li><b>agent 2..5 = reuser</b>：各自用<b>不同</b> <code>cache_salt</code>（<code>giant:{case_id}:…:{idx}</code>）→ radix 前缀<b>冷</b> → 只能靠 KVCOMM 把池中<b>跨位置</b>的 code_base KV copy+RoPE 过来省 prefill（这是被测对象）。</li>
+        <li><b>交接方式</b>：每 agent 的 <code>## Upstream context</code> 累加一句「{role} observed {N} cached tokens」—— 下游知道上游缓存命中，但<b>看不到上游输出</b>；各 agent 独立回一句「implementation risk」。</li>
+      </ul>
+    </div>
+  </div>
+  <h2>③ 多任务如何共享 KV（核心设计 · cross-task &amp; cross-position 复用）</h2>
+  <div class="card blue">
+    <p>复用池的 key 是 <b>内容派生</b>的，与任务/位置/角色<b>无关</b>，所以同一个文件被多个任务/多个 agent 读取时，KV 自动跨边界共享。两条共享路径：</p>
+    <ul>
+      <li><b>跨 agent（同 case）</b>：agent 2..5 旋转了 slot 顺序（同内容不同绝对位置）→ 旧的 positional key 会 miss；改用 <code>slot_id = code_base:&lt;file path&gt;</code> 后，<b>同文件在任何位置都用同一个 pool key</b> → 整 slot (L2) 或函数级 (L4) 字节精确匹配命中 → copy+RoPE 补位置差。</li>
+      <li><b>跨 task（同 repo）</b>：SWE-Smith 同一 patch 目录下的文件（如 <code>pandas/core/interchange/*.py</code>）在多个 task 重复出现 → 同 <code>slot_id</code> → 后续 task 命中前面 task 已入池的 KV。<code>--sibling-window 4</code> 刻意拉入同目录兄弟文件，正是为了制造这种跨任务 anchor 重叠。</li>
+      <li><b>隔离边界</b>：<code>cache_salt</code> 只隔离 <b>radix 前缀缓存</b>（让 reuser 的前缀冷、强制走 code-aware 路径）；它<b>不隔离</b> code-aware 复用池 —— 池按 <code>(slot_id, content_signature)</code> 全局共享。server 全程不重启（<code>--max-tasks</code> 一次跑完），池跨 case 累积。</li>
+      <li><b>命中条件</b>：byte-exact —— slot 文本（L2）或函数签名+bytespan+tokenids（L4）必须完全一致才复用；AST 锚点只决定对齐边界，不做模糊匹配。partial-share 下整 slot 文本变（各丢 1 函数）→ L2 miss，但共享函数 L4 仍命中。</li>
+    </ul>
+  </div>
+  <h2>真实结果（<code>giant_5_fair_*</code> · 5 case × 5 agent · per-agent TTFT ms）</h2>
+  <table>
+    <tr><th>配置</th><th>agent1 implementer</th><th>agent2 debugger</th><th>agent3 reviewer</th><th>agent4 verifier</th><th>agent5 auditor</th><th>reuser 均值</th><th>cached</th></tr>
+    <tr><td>lossless（baseline）</td><td>53.6</td><td>795.8</td><td>874.3</td><td>870.2</td><td>804.1</td><td>836.1</td><td>1412</td></tr>
+    <tr><td><b>code-aware (C2)</b></td><td>60.8</td><td>401.1</td><td>397.5</td><td>396.8</td><td>398.9</td><td class="good"><b>398.6</b></td><td><b>3793</b></td></tr>
+    <tr><td>l3（MiniLM · 已弃用）</td><td>71.1</td><td>111.6</td><td>114.5</td><td>111.4</td><td>114.9</td><td>113.1</td><td>6183</td></tr>
+  </table>
+  <div class="kvgrid">
+    <div class="card green">
+      <p><b>速度</b>：reuser TTFT 836→399ms = <b>2.10×</b>；cached 1412→3793（2.7×）。agent 1 几乎不变（source，短 prompt）→ 加速集中在 reuser。</p>
+    </div>
+    <div class="card red">
+      <p><b>精度 caveat</b>：表里 F1 列 = 默认 1.0（in-run 无 baseline 时占位），<b>非真实精度测量</b>。C2 是 raw copy+RoPE，按 slide ⑪ 的 fundamental limit，大量复用时 lossy（F1 0.46→0.00）。<b>2.10× 不等于"又快又准"</b>。</p>
+      <p style="margin-top:4px;"><s>旧 "1.31×/20% reuse"</s> = 已弃用 MiniLM 路径（上表 l3 行 6.5× 即该 lossy 路径），不作结论。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 6. REAL MULTI-AGENT PROMPT SAMPLE -->
+<section class="slide">
+  <h1>⑥ 真实多智能体推理样例</h1>
+  <p class="sub">case <code>pandas-dev__pandas.95280573.combine_file__11s6papj</code> · 真实 pandas 源码 + 真实 7B 输出（未起服务器）· 完整输入输出见 <a href="kvcomm_ab/PROMPT_SAMPLE.md">PROMPT_SAMPLE.md</a></p>
+  <h2>5 agent 看到的是<b>同样的 5 段代码</b> — 顺序旋转 + 各丢 1 个函数（颜色 = 文件，跨 agent 不变）</h2>
+  <div class="rotgrid">
+    <div></div><div class="rh">slot1</div><div class="rh">slot2</div><div class="rh">slot3</div><div class="rh">slot4</div><div class="rh">slot5</div>
+    <div class="rl">agent1</div>
+    <div class="chip c1">column</div><div class="chip c2">buffer</div><div class="chip c3">dataframe</div><div class="chip c4">df_protocol</div><div class="chip c5">from_df</div>
+    <div class="rl">agent2</div>
+    <div class="chip c2">buffer</div><div class="chip c3">dataframe</div><div class="chip c4">df_protocol</div><div class="chip c5">from_df</div><div class="chip c1">column</div>
+    <div class="rl">agent3</div>
+    <div class="chip c3">dataframe</div><div class="chip c4">df_protocol</div><div class="chip c5">from_df</div><div class="chip c1">column</div><div class="chip c2">buffer</div>
+    <div class="rl">agent4</div>
+    <div class="chip c4">df_protocol</div><div class="chip c5">from_df</div><div class="chip c1">column</div><div class="chip c2">buffer</div><div class="chip c3">dataframe</div>
+    <div class="rl">agent5</div>
+    <div class="chip c5">from_df</div><div class="chip c1">column</div><div class="chip c2">buffer</div><div class="chip c3">dataframe</div><div class="chip c4">df_protocol</div>
+  </div>
+  <p style="font-size:13px; color:var(--text-dim); margin:2px 0 8px;"><b>partial-share 丢弃的函数</b>（每个 agent 丢 1 个不同顶层函数，故整 slot 文本不同、但其余函数字节一致）：agent1 <code>from_dataframe</code> · agent2 <code>__init__</code> · agent3 <code>bufsize</code> · agent4 <code>metadata</code> · agent5 <code>num_columns</code>。agent1=source（KV 入池）；agent2..5 radix 冷 → 靠 KVCOMM 把池中<b>跨位置</b> code_base KV copy+RoPE 过来省 prefill。</p>
+  <h2>一个 agent 的完整 prompt（Agent 2 · debugger）</h2>
+  <div class="io-row">
+    <div class="promptbox"><span class="ph"># system</span>
+You are a senior software engineering agent.
+<span class="ph"># user</span>
+<span class="sec">## Agent role</span>
+debugger
+<span class="sec">## Case</span>
+pandas-dev__pandas.95280573.combine_file__11s6papj
+<span class="sec">## Instruction</span>
+Inspect the repeated repository code and answer with one concise implementation risk.
+<span class="sec">## Upstream context</span>
+Planner cached exact repository code objects for downstream agents. Previous agent index: 1.
+<span class="sec">## code_base1: pandas/core/interchange/buffer.py</span>
+<span class="ph">&lt;…真实 pandas 源码…&gt;</span>
+<span class="sec">## code_base2: pandas/core/interchange/dataframe.py</span>
+<span class="ph">&lt;…真实 pandas 源码…&gt;</span>
+<span class="sec">## code_base3 … code_base5</span>
+<span class="ph">&lt;…df_protocol / from_dataframe / column…&gt;</span>
+<span class="sec">## Output</span>
+Return exactly one short sentence for agent 2.</div>
+    <div class="promptbox out"><span class="ol"># 真实 7B 输出（Qwen2.5-Coder-7B）</span>
+
+Zero-copy approach is requested but not supported for non-contiguous buffers.
+
+<span class="ph">— agent2 (debugger) 丢函数 __init__；
+同 prompt 下 lossless 输出用于 F1 基线。</span></div>
+  </div>
+  <h2>5 agent 真实 7B 输出（每 agent 一句 risk）</h2>
+  <ul class="outlist">
+    <li><span class="r">implementer</span>: Memory management risk due to potential buffer leaks if not properly handled.</li>
+    <li><span class="r">debugger</span>: Zero-copy approach is requested but not supported for non-contiguous buffers.</li>
+    <li><span class="r">reviewer</span>: The codebase contains multiple implementations of the same functionality…</li>
+    <li><span class="r">verifier</span>: The codebase contains multiple implementations of similar functionality…</li>
+    <li><span class="r">auditor</span>: The codebase contains multiple implementations of the same functionality…</li>
+  </ul>
+  <p class="footer-link">完整 5 个 agent 的 system+user 输入（代码 slot 截断 12 行）+ 输出：<a href="kvcomm_ab/PROMPT_SAMPLE.md">kvcomm_ab/PROMPT_SAMPLE.md</a>（由 <code>gen_prompt_sample.py</code> 用驱动器真实函数重建）</p>
+</section>
+
+<!-- 6. RESULT: MULTI-SLOT CEILING -->
+<section class="slide">
+  <h1>⑦ 结果 · Full-share 位置旋转 — 多 slot 天花板（7B-Coder）</h1>
+  <p class="sub">fair A/B：分解计数 · 排除 source agent · real token-F1 vs lossless · <code>--position-shift --no-vary-code</code> · L3 OFF</p>
+  <table>
+    <tr><th>config</th><th>复用 (tok)</th><th>p50 TTFT</th><th>vs lossless</th><th>F1 vs lossless</th></tr>
+    <tr><td>lossless（参考）</td><td>0</td><td>932 ms</td><td>1.0×</td><td>1.000</td></tr>
+    <tr><td>single-slot staged（L2, 1 slot）</td><td>~1300</td><td>~820 ms</td><td>~1.14×</td><td>0.461</td></tr>
+    <tr><td><b>MULTI_SLOT（5 slots）</b></td><td><b>~7100</b></td><td><b>124 ms</b></td><td class="good"><b>7.5×</b></td><td class="bad"><b>0.000</b></td></tr>
+  </table>
+  <div class="kvgrid">
+    <div class="card green">
+      <div class="badge good">SPEED BAR · MET</div>
+      <p style="margin-top:8px;">MULTI_SLOT 证明<b>仅靠 code-aware 复用</b>就能拿到 <span class="big-num good">7.5×</span> TTFT 加速（97% slot 利用率）。速度问题已解。</p>
+    </div>
+    <div class="card red">
+      <div class="badge bad">ACCURACY BAR · NOT MET</div>
+      <p style="margin-top:8px;">大量复用时 F1=<span class="big-num bad">0.000</span>（输出空白/garbage）。复用越多越崩。<b>速度与精度不可兼得</b>。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 6. RESULT: 3B vs 7B -->
+<section class="slide">
+  <h1>⑧ 结果 · Single-slot staged — 3B vs 7B（full-share）</h1>
+  <table>
+    <tr><th>model</th><th>config</th><th>命中 (reuse hit)</th><th>avg codeaware</th><th>per-case sp (avg/p50)</th><th>F1</th></tr>
+    <tr><td>3B</td><td>L2 whole-slot STAGED</td><td>13/16</td><td>1252</td><td>1.085× / 1.052×</td><td>0.376</td></tr>
+    <tr><td>3B</td><td>L4 AST STAGED</td><td>11/16</td><td>642</td><td>0.998× / 0.958×</td><td>0.388</td></tr>
+    <tr><td><b>7B</b></td><td><b>L2 whole-slot STAGED</b></td><td><b>13/16</b></td><td><b>1259</b></td><td><b>1.136× / 1.144×</b></td><td class="good"><b>0.461</b></td></tr>
+    <tr><td>7B</td><td>L4 AST STAGED</td><td>16/16</td><td>1069</td><td>1.067× / 1.044×</td><td>0.399</td></tr>
+    <tr><td>7B</td><td>L4 AST STAGED + FILL_GAPS</td><td>14/16</td><td>1312</td><td>1.074×</td><td>0.414</td></tr>
+  </table>
+  <p style="font-size:13px; color:var(--text-dim); margin-top:6px;"><b>命中 (reuse hit) = n/16</b>：4 case × 4 reuser agent（agent 1 是 source，不计）= 16 个复用机会；<b>n</b> = 其中在 code-aware 复用池里真正匹配到、复用了非零 KV 的 agent 数（<code>placeholder_anchor_pool_hit_count &gt; 0</code>）。例如 13/16 = 16 个 reuser 里 13 个成功复用，3 个 miss（走全 prefill）。<b>avg codeaware</b> = 命中 reuser 的平均复用 token 数。</p>
+  <h2>结论</h2>
+  <ul>
+    <li>大模型同时放大加速与 F1（7B prefill ~2× 贵 → 复用省更多；coder 模型对 cross-context loss 更鲁棒）。</li>
+    <li>full-share 下 <b>整 slot (L2) 在两轴都优于 AST (L4)</b> — AST 的粒度在此是劣势（N 次拷贝 > 1 次），且 chunker 不带 fill 时漏掉模块级代码。</li>
+  </ul>
+</section>
+
+<!-- 7. RESULT: PARTIAL-SHARE -->
+<section class="slide">
+  <h1>⑨ 结果 · Partial-share + 旋转 — AST 的 niche（7B, 12-task/42-case）</h1>
+  <p class="sub">每个 agent 丢一个不同的顶层函数 → slot 文本不同（整 slot 匹配失败）但其余函数字节一致（AST 跨位置复用）</p>
+  <table>
+    <tr><th>metric</th><th>L2 whole-slot</th><th>L4 AST+fill</th><th>verdict</th></tr>
+    <tr><td>p50 TTFT（对齐 42 case）</td><td>927 ms</td><td>966 ms</td><td class="bad">L4/L2 = 0.96×（AST 更慢）</td></tr>
+    <tr><td>per-case sp vs lossless (p50)</td><td>1.046×</td><td>1.004×</td><td>两者勉强超 lossless</td></tr>
+    <tr><td>avg codeaware 复用</td><td>1399</td><td>516</td><td>AST 复用更少（只共享函数）</td></tr>
+    <tr><td>F1 vs lossless</td><td>0.513</td><td class="good"><b>0.622</b></td><td class="good">AST 更准</td></tr>
+  </table>
+  <div class="card blue">
+    <p>partial-share 下 AST <b>达标精度 bar</b>（只拷贝共享函数 → 更小的 cross-context 拷贝 → 更少 loss），<b>未达标速度 bar</b>（per-chunk alloc+move+RoPE 开销抵消复用优势）。早期 4-task "AST 1.205× 更快" 是噪声。</p>
+  </div>
+</section>
+
+<!-- 8. RESULT: GAP HANDLING -->
+<section class="slide">
+  <h1>⑩ 结果 · Gap 处理机制（3B, full-share, cross-position）</h1>
+  <table>
+    <tr><th>config</th><th>命中 (reuse hit)</th><th>avg codeaware</th><th>speedup (avg/p50)</th><th>F1</th></tr>
+    <tr><td>L2 whole-slot, gap-ZERO（C2-direct）</td><td>7/16</td><td>2751</td><td>2.533× / 1.015×</td><td class="bad">0.106（复用 case 0.008）</td></tr>
+    <tr><td>L4 AST, gap-ZERO</td><td>5/16</td><td>386</td><td>1.015× / 0.987×</td><td>0.197</td></tr>
+    <tr><td><b>L2 whole-slot, STAGED</b></td><td><b>13/16</b></td><td><b>1252</b></td><td><b>1.085× / 1.052×</b></td><td class="good"><b>0.376</b></td></tr>
+    <tr><td>L4 AST, STAGED</td><td>11/16</td><td>642</td><td>0.998× / 0.958×</td><td>0.388</td></tr>
+  </table>
+  <p style="font-size:13px; color:var(--text-dim); margin-top:6px;"><b>命中 n/16</b>：4 case × 4 reuser agent = 16 个复用机会；n = 命中 code-aware 池（复用非零 KV）的 agent 数。<b>gap-ZERO 命中少</b>（5-7/16）因置零破坏匹配；<b>STAGED 命中多</b>（11-13/16）。</p>
+  <h2>结论</h2>
+  <ul>
+    <li><span class="bad">gap-ZERO</span>（置零任务指令）→ garbage（F1=0.008）。</li>
+    <li><span class="good">STAGED</span>（用真实 KV prefill gap）→ valid-but-different（F1=0.376）。</li>
+    <li>这确立了 <b>leading gap 必须真实</b> — MULTI_SLOT 正是保留了这点，只置零小的内部 inter-slot header。</li>
+  </ul>
+</section>
+
+<!-- 9. FUNDAMENTAL LIMIT -->
+<section class="slide">
+  <h1>⑪ 已证 fundamental limit — Cross-Context KV Loss</h1>
+  <div class="card red">
+    <h3 style="margin-top:0;">Claim</h3>
+    <p>非前缀 KV 复用（raw copy + RoPE）是 <b>lossy</b> 的，且 loss 随复用量单调增加。</p>
+    <h3>Mechanism</h3>
+    <p>layer &gt; 0 的 KV 编码了它前面的 prefix。当一个 segment 在<b>新 prefix</b> 下被复用时，拷过去的 KV 是 stale 的 — 它是在不同的前文下算出来的。RoPE 只修<b>位置</b>，不修<b>内容条件</b>。</p>
+  </div>
+  <h2>Evidence（7B-Coder, full-share position-shift）</h2>
+  <table>
+    <tr><th>复用量</th><th>F1 vs lossless</th><th>输出特征</th></tr>
+    <tr><td>~0 tok（lossless）</td><td class="good">1.000</td><td>正确</td></tr>
+    <tr><td>~1400 tok（1 slot）</td><td class="warn">0.461</td><td>valid-but-different（切题但细节错）</td></tr>
+    <tr><td>~7100 tok（5 slots, MULTI_SLOT）</td><td class="bad">0.000</td><td>空白 / garbage</td></tr>
+  </table>
+  <p style="margin-top:12px;">~52 置零的 inter-slot header tok <b>不是</b>主因 — 7100 tok 的 stale slot KV 才是。single→multi 的单调崩坏即铁证。Radix (L1) 安全是因为它只复用<b>相同</b>前缀（同位置同前文）；每个非前缀层都某种程度 lossy。</p>
+</section>
+
+<!-- 10. CONCLUSION -->
+<section class="slide">
+  <h1>⑫ 结论 & 唯一出路</h1>
+  <div class="kvgrid">
+    <div class="card green">
+      <div class="badge good">SPEED · SOLVED</div>
+      <p style="margin-top:8px;">MULTI_SLOT 证明 code-aware 复用<b>本身</b>可给 <b>7.5×</b> TTFT 加速（97% 利用率）。速度 bar 达标。</p>
+    </div>
+    <div class="card red">
+      <div class="badge bad">ACCURACY · OPEN, 根因已证</div>
+      <p style="margin-top:8px;">大量 cross-context 复用（raw copy+RoPE）lossy：F1 0.46 → 0.00。这是 raw-copy+RoPE 的根本限制，<b>不是</b> chunking/copy 机制的问题。</p>
+    </div>
+  </div>
+  <h2>唯一出路：True CacheBlend</h2>
+  <div class="card blue">
+    <p>对每个拷贝的 chunk，在<b>新 context 下重算 attention</b>（而非 raw-copy + RoPE）。这是唯一能同时拿到速度与精度的机制。代价高（<code>c2-fundamental-limits</code> 的成本），<b>尚未实现</b>，待用户明确 sign-off。</p>
+  </div>
+  <p style="margin-top:14px;">Partial-share 仍是 AST chunking 有真实精度优势的 regime（F1 0.62 vs 0.51）— 可作 fallback/niche，但解不了大量复用的 loss。</p>
+</section>
+
+<!-- 11. ARTIFACTS -->
+<section class="slide">
+  <h1>⑬ Artifacts 索引</h1>
+  <h2>报告</h2>
+  <ul>
+    <li><code>kvcomm_ab/CROSS_POSITION_REPORT.md</code> — cross-position fix + 7B + partial-share</li>
+    <li><code>kvcomm_ab/KV_BREAKDOWN_REPORT.html</code> — KV prefix/suffix 分解 + multi-slot（视觉）</li>
+    <li><code>direction_3_phase_c_d_20260627.html</code> — L4 Phase C/D 架构（有效）</li>
+    <li><code>project_progress_20260627.html</code> — 06-27 快照（⚠️ 已加 RETRACTION banner）</li>
+  </ul>
+  <h2>可复现 launcher（<code>kvcomm_ab/run_*.sh</code>）</h2>
+  <ul>
+    <li>Lossless：run_lossless / run_7b_lossless / run_7b_ps{,12}_lossless</li>
+    <li>Single-slot staged：run_{l2_coarse,l4}_staged / run_7b_{l2,l4}_* / run_7b_ps{,12}_*</li>
+    <li>C2-direct gap-zero：run_l2_coarse / run_l4_c2</li>
+    <li><b>MULTI_SLOT</b>：run_7b_multislot_{l2,l4} / run_7b_ps12_multislot_l4</li>
+  </ul>
+  <h2>代码</h2>
+  <ul>
+    <li><code>python/sglang/srt/mem_cache/radix_cache.py</code> — L1/L2/L3(弃用)/L4/C2/MULTI_SLOT</li>
+    <li><code>python/sglang/srt/mem_cache/ast_chunker.py</code> — L4 server-side AST chunker</li>
+    <li><code>benchmark/multi_workflow/bench_giant_codebase_reuse.py</code> — 基准驱动</li>
+    <li><code>benchmark/multi_workflow/analyze_fair_ab.py</code> — fair A/B 分析器</li>
+  </ul>
+  <p class="footer-link" style="margin-top:auto; padding-top:14px;">数字均为诚实 fair-A/B 测量；所有已撤回声明均已标注。若与此处矛盾，以本 slide 为准。</p>
+</section>
+
+<!-- 13. ALGORITHM DIAGRAMS (hand-authored SVG) -->
+<section class="slide">
+  <h1>⑭ 算法图解（手写 SVG · 精确示意图）</h1>
+  <div class="alggrid">
+    <div class="algcell">
+      <div class="algcap">4-Layer Cache 分层</div>
+      <svg viewBox="0 0 440 230" xmlns="http://www.w3.org/2000/svg" style="width:100%;background:#0d1117;border-radius:8px;">
+        <rect x="60" y="14" width="320" height="40" rx="6" fill="#122117" stroke="#3fb950"/><text x="76" y="39" fill="#3fb950" font-size="14" font-family="monospace">L1 Radix 前缀（同位置·安全）</text>
+        <rect x="60" y="62" width="320" height="40" rx="6" fill="#0d1a2a" stroke="#58a6ff"/><text x="76" y="87" fill="#58a6ff" font-size="14" font-family="monospace">L2 whole-slot 字节精确 + RoPE</text>
+        <rect x="60" y="110" width="320" height="40" rx="6" fill="#1a1426" stroke="#bc8cff"/><text x="76" y="135" fill="#bc8cff" font-size="14" font-family="monospace">L4 AST chunk 字节精确</text>
+        <rect x="60" y="158" width="320" height="40" rx="6" fill="#2a1717" stroke="#f85149"/><text x="76" y="183" fill="#f85149" font-size="14" font-family="monospace">C2 / MULTI_SLOT 批量 copy</text>
+        <path d="M220 54 L220 62 M220 102 L220 110 M220 150 L220 158" stroke="#8b949e" stroke-width="2"/>
+        <text x="232" y="210" fill="#8b949e" font-size="12" font-family="monospace">↓ KV 复用逐层（L1 安全，其余 lossy）</text>
+      </svg>
+    </div>
+    <div class="algcell">
+      <div class="algcap">Cross-Position 旋转 + 内容派生 slot_id</div>
+      <svg viewBox="0 0 440 230" xmlns="http://www.w3.org/2000/svg" style="width:100%;background:#0d1117;border-radius:8px;">
+        <text x="10" y="20" fill="#8b949e" font-size="11" font-family="monospace">agent1</text><rect x="50" y="8" width="60" height="22" rx="4" fill="#58a6ff"/><rect x="114" y="8" width="60" height="22" rx="4" fill="#3fb950"/><rect x="178" y="8" width="60" height="22" rx="4" fill="#d29922"/><rect x="242" y="8" width="60" height="22" rx="4" fill="#bc8cff"/><rect x="306" y="8" width="60" height="22" rx="4" fill="#db6d28"/>
+        <text x="10" y="52" fill="#8b949e" font-size="11" font-family="monospace">agent2</text><rect x="50" y="40" width="60" height="22" rx="4" fill="#3fb950"/><rect x="114" y="40" width="60" height="22" rx="4" fill="#d29922"/><rect x="178" y="40" width="60" height="22" rx="4" fill="#bc8cff"/><rect x="242" y="40" width="60" height="22" rx="4" fill="#db6d28"/><rect x="306" y="40" width="60" height="22" rx="4" fill="#58a6ff"/>
+        <text x="10" y="84" fill="#8b949e" font-size="11" font-family="monospace">agent3</text><rect x="50" y="72" width="60" height="22" rx="4" fill="#d29922"/><rect x="114" y="72" width="60" height="22" rx="4" fill="#bc8cff"/><rect x="178" y="72" width="60" height="22" rx="4" fill="#db6d28"/><rect x="242" y="72" width="60" height="22" rx="4" fill="#58a6ff"/><rect x="306" y="72" width="60" height="22" rx="4" fill="#3fb950"/>
+        <text x="10" y="116" fill="#8b949e" font-size="11" font-family="monospace">agent4</text><rect x="50" y="104" width="60" height="22" rx="4" fill="#bc8cff"/><rect x="114" y="104" width="60" height="22" rx="4" fill="#db6d28"/><rect x="178" y="104" width="60" height="22" rx="4" fill="#58a6ff"/><rect x="242" y="104" width="60" height="22" rx="4" fill="#3fb950"/><rect x="306" y="104" width="60" height="22" rx="4" fill="#d29922"/>
+        <text x="10" y="148" fill="#8b949e" font-size="11" font-family="monospace">agent5</text><rect x="50" y="136" width="60" height="22" rx="4" fill="#db6d28"/><rect x="114" y="136" width="60" height="22" rx="4" fill="#58a6ff"/><rect x="178" y="136" width="60" height="22" rx="4" fill="#3fb950"/><rect x="242" y="136" width="60" height="22" rx="4" fill="#d29922"/><rect x="306" y="136" width="60" height="22" rx="4" fill="#bc8cff"/>
+        <rect x="10" y="172" width="420" height="46" rx="6" fill="#161b22" stroke="#30363d"/>
+        <text x="22" y="192" fill="#c9d1d9" font-size="12" font-family="monospace">slot_id = code_base:&lt;file&gt;  ← 内容派生（非位置）</text>
+        <text x="22" y="210" fill="#8b949e" font-size="11" font-family="monospace">同代码不同位置 → 同 pool key → 跨位置复用命中</text>
+      </svg>
+    </div>
+    <div class="algcell">
+      <div class="algcap">MULTI_SLOT copy 布局（一次 alloc+move+RoPE）</div>
+      <svg viewBox="0 0 440 230" xmlns="http://www.w3.org/2000/svg" style="width:100%;background:#0d1117;border-radius:8px;">
+        <rect x="10" y="40" width="34" height="60" rx="3" fill="#2a1717" stroke="#f85149"/><text x="12" y="32" fill="#f85149" font-size="10" font-family="monospace">gap0</text><text x="12" y="118" fill="#8b949e" font-size="9" font-family="monospace">real KV</text>
+        <rect x="48" y="40" width="70" height="60" rx="3" fill="#0d1a2a" stroke="#58a6ff"/><text x="58" y="32" fill="#58a6ff" font-size="10" font-family="monospace">chunk0</text>
+        <rect x="122" y="40" width="16" height="60" rx="3" fill="#2a1717" stroke="#f85149"/><text x="119" y="118" fill="#f85149" font-size="9" font-family="monospace">zeroed</text>
+        <rect x="142" y="40" width="70" height="60" rx="3" fill="#0d1a2a" stroke="#58a6ff"/><text x="152" y="32" fill="#58a6ff" font-size="10" font-family="monospace">chunk1</text>
+        <rect x="216" y="40" width="16" height="60" rx="3" fill="#2a1717" stroke="#f85149"/>
+        <rect x="236" y="40" width="70" height="60" rx="3" fill="#0d1a2a" stroke="#58a6ff"/><text x="246" y="32" fill="#58a6ff" font-size="10" font-family="monospace">chunk2</text>
+        <rect x="310" y="40" width="16" height="60" rx="3" fill="#2a1717" stroke="#f85149"/>
+        <rect x="330" y="40" width="60" height="60" rx="3" fill="#0d1a2a" stroke="#58a6ff"/><text x="340" y="32" fill="#58a6ff" font-size="10" font-family="monospace">chunk3…</text>
+        <path d="M10 130 L390 130" stroke="#3fb950" stroke-width="2" marker-end="url(#arr)"/>
+        <defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#3fb950"/></marker></defs>
+        <text x="120" y="150" fill="#3fb950" font-size="12" font-family="monospace">单次 alloc + move_kv_cache + RoPE（批量 5 slot）</text>
+        <rect x="10" y="168" width="420" height="50" rx="6" fill="#161b22" stroke="#30363d"/>
+        <text x="22" y="188" fill="#c9d1d9" font-size="12" font-family="monospace">leading gap = 真实 KV（不置零）</text>
+        <text x="22" y="206" fill="#8b949e" font-size="11" font-family="monospace">内部 inter-slot header（~13tok）置零 → 97% 利用率 → 7.5× 速度（但 F1=0）</text>
+      </svg>
+    </div>
+    <div class="algcell">
+      <div class="algcap">Cross-Context KV Loss（复用越多 → F1 越崩）</div>
+      <svg viewBox="0 0 440 230" xmlns="http://www.w3.org/2000/svg" style="width:100%;background:#0d1117;border-radius:8px;">
+        <line x1="50" y1="190" x2="410" y2="190" stroke="#444c56"/><line x1="50" y1="190" x2="50" y2="30" stroke="#444c56"/>
+        <text x="420" y="194" fill="#8b949e" font-size="11" font-family="monospace">tok</text>
+        <text x="40" y="34" fill="#8b949e" font-size="11" font-family="monospace" text-anchor="end">F1</text>
+        <rect x="80" y="40" width="80" height="150" fill="#3fb950" opacity="0.85"/>
+        <text x="120" y="34" fill="#3fb950" font-size="11" font-family="monospace" text-anchor="middle">0 tok</text>
+        <text x="120" y="205" fill="#3fb950" font-size="13" font-family="monospace" text-anchor="middle">F1=1.00</text>
+        <rect x="200" y="121" width="80" height="69" fill="#d29922" opacity="0.85"/>
+        <text x="240" y="34" fill="#d29922" font-size="11" font-family="monospace" text-anchor="middle">1400 tok</text>
+        <text x="240" y="205" fill="#d29922" font-size="13" font-family="monospace" text-anchor="middle">F1=0.46</text>
+        <rect x="320" y="186" width="80" height="4" fill="#f85149"/>
+        <text x="360" y="34" fill="#f85149" font-size="11" font-family="monospace" text-anchor="middle">7100 tok</text>
+        <text x="360" y="178" fill="#f85149" font-size="13" font-family="monospace" text-anchor="middle">F1=0.00</text>
+        <path d="M120 40 L240 121 L360 190" stroke="#f85149" stroke-width="2" fill="none" stroke-dasharray="4 3"/>
+      </svg>
+    </div>
+  </div>
+  <p class="footer-link">SVG 为手写精确示意图（标注正确）。另用硅基流动生图作装饰，见下一页。</p>
+</section>
+
+<!-- 14. SILICONFLOW IMAGE GEN (appendix) -->
+<section class="slide">
+  <h1>⑮ 硅基流动生图 · 附（Kolors · 装饰图）</h1>
+  <p class="sub">用 SiliconFlow MCP（<code>generate_image</code>）生成 · 模型 <code>Kwai-Kolors/Kolors</code>（FLUX.1-schnell / SDXL 在本账号 "Model disabled"）</p>
+  <div class="alggrid">
+    <div class="algcell"><img src="kvcomm_ab/img/alg_4layer.png" style="width:100%;border-radius:8px;border:1px solid var(--border);"><div class="algcap">4-Layer Cache（概念）</div></div>
+    <div class="algcell"><img src="kvcomm_ab/img/alg_crossposition.png" style="width:100%;border-radius:8px;border:1px solid var(--border);"><div class="algcap">Cross-Position（概念）</div></div>
+    <div class="algcell"><img src="kvcomm_ab/img/alg_multislot.png" style="width:100%;border-radius:8px;border:1px solid var(--border);"><div class="algcap">Multi-Slot（概念）</div></div>
+    <div class="algcell"><img src="kvcomm_ab/img/alg_loss.png" style="width:100%;border-radius:8px;border:1px solid var(--border);"><div class="algcap">KV Loss（概念）</div></div>
+  </div>
+  <div class="card red">
+    <p><b>诚实说明</b>：Kolors 生成的是<b>装饰性概念图</b>，文字渲染不可靠（柱状图甚至趋势相反），故<b>不</b>用作精确示意图——精确示意图用上一页手写 SVG。此处保留仅为展示硅基流动 MCP 已接通可用。脚本 <code>kvcomm_ab/gen_alg_images.py</code>；图在 <code>kvcomm_ab/img/</code>。</p>
+  </div>
+</section>
+
+  </div><!-- /track -->
+</div><!-- /deck -->
+
+<div class="hint">← → / space · 滚轮=翻页 · shift+滚轮=页内 · 圆点跳转</div>
+
+<div id="nav">
+  <button class="navbtn" id="prev" title="上一页 (←)">‹</button>
+  <div class="nav-center">
+    <div id="pager"><b id="cur">1</b> / <b id="total">16</b></div>
+    <span id="sectitle">Code-Aware Lossy KV Reuse</span>
+    <div id="dots"><div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  </div>
+  <button class="navbtn" id="next" title="下一页 (→)">›</button>
+</div>
+
+<script src="CODE_AWARE_LOSSY_KV_PROGRESS.js"></script>
+</body>
+</html>

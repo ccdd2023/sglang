@@ -2594,6 +2594,24 @@ class Scheduler(
 
         new_batch.prepare_for_extend()
 
+        # Offline-precomputed codebase KV (Phase 4A): if the prefill's
+        # match_prefix issued an async layered CPU->GPU load of host-resident
+        # chunks (via _load_host_chunks_to_device), each such req now carries
+        # codebase_kv_producer_id (a LayerDoneCounter producer slot). Wire it
+        # as the batch's hicache_consumer_index so tp_worker.set_hicache_consumer
+        # points the LayerDoneCounter consumer at our producer → prefill's
+        # per-layer get_key_buffer wait_until(layer_id) waits only until each
+        # layer's (load + RoPE) has landed, overlapping later layers' transfer
+        # with earlier layers' attention. Only when HiCache didn't already set
+        # a consumer (== -1). With --max-running-requests 1 the batch is a
+        # single req, so a per-batch index is correct.
+        if new_batch.hicache_consumer_index == -1:
+            for _r in new_batch.reqs:
+                _pid = getattr(_r, "codebase_kv_producer_id", None)
+                if _pid is not None and _pid >= 0:
+                    new_batch.hicache_consumer_index = _pid
+                    break
+
         # Record prefill stats for logging after forward
         new_batch.prefill_stats = PrefillStats.from_adder(
             adder, self.running_batch.reqs, self.enable_priority_scheduling

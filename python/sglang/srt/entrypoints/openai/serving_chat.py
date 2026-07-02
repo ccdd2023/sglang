@@ -745,6 +745,12 @@ class OpenAIServingChat(OpenAIServingBase):
                                 "placeholder_anchor_pool_miss_count",
                                 "placeholder_kv_prefill_matched_slots",
                                 "placeholder_kv_prefill_skipped_tokens",
+                                # A6: code-aware-vs-radix decomposition.
+                                "radix_only_prefix_len",
+                                "l2_wholeslot_reused_tokens",
+                                "l3_offset_reused_tokens",
+                                "c2_chunk_reused_tokens",
+                                "codeaware_reused_tokens",
                                 # Phase 2.4: cumulative trim overlap.
                                 "placeholder_kv_prefill_overlap_tokens",
                                 "placeholder_knn_topk_similarity_mean",
@@ -1225,6 +1231,12 @@ class OpenAIServingChat(OpenAIServingBase):
             "placeholder_anchor_pool_miss_count",
             "placeholder_kv_prefill_matched_slots",
             "placeholder_kv_prefill_skipped_tokens",
+            # A6: code-aware-vs-radix decomposition.
+            "radix_only_prefix_len",
+            "l2_wholeslot_reused_tokens",
+            "l3_offset_reused_tokens",
+            "c2_chunk_reused_tokens",
+            "codeaware_reused_tokens",
             # Phase 2.4: cumulative trim overlap.
             "placeholder_kv_prefill_overlap_tokens",
             "placeholder_knn_topk_similarity_mean",

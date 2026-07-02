@@ -1,0 +1,10 @@
+precompute vs lossless (7B-Coder, 5 task x 5 agent, position-shift, canonical-prefix)
+  reuse-hit rows: 19/25  avg reused=0867 tok  avg TTFT=959ms
+  no-reuse rows : 6/25   avg TTFT=826ms
+  lossless ref  : 25/25   avg TTFT=948ms
+  REAL token-F1 (precompute vs lossless): avg=0.374  (reuse-hit avg=0.281, no-reuse avg=0.668)
+
+verdict (CORRECTED — prior F1=1.000 was a measurement artifact from empty CSV output col):
+  accuracy: F1=0.374 — LOSSY as predicted (cross-context KV loss). canonical prefix does NOT make file-content reuse lossless.
+  speed: reuse-hit TTFT (959) ~= lossless (948); no speedup — sync CPU->GPU transfer cancels prefill savings.
+  Both bars NOT met. Next: async prefetch for speed; CacheBlend for accuracy.

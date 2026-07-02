@@ -1,0 +1,43 @@
+config                        all_ttft    p50 | hit_n  hit_ttft  hit_p50  reused |    F1
+lossless ref                      948ms   956ms |     0        0ms       0ms      0tok | 1.000
+precompute SYNC (host)            923ms   969ms |    19      955ms     969ms    867tok | 0.374
+precompute ASYNC(event-wait)      930ms  1002ms |    19      962ms    1002ms    867tok | 0.374
+precompute LAYERED (host)         918ms   962ms |    19      946ms     962ms    867tok | 0.508
+precompute DEVICE-RESIDENT        960ms   948ms |    19      974ms     948ms    826tok | 0.447
+
+=== DIAGNOSTIC VERDICT (Phase 6 device-resident, 2026-07-02) ===
+Answer to "假设我们全部都提前放到GPU上，忽略传输时间，能加速多少？":
+**NEGATIVE — 0× speedup. Device-resident 960ms is SLOWER than lossless 948ms
+and slower than host-pool SYNC 923ms.** With zero H2D transfer cost (KV already
+on GPU), the reuse mechanism itself does NOT deliver a speedup at this scale
+(867-tok reuse on a ~1500-tok prefill ≈ 50% reuse rate). The bottleneck is
+NOT transfer — it's the read-path itself: move_kv_cache gather-scatter +
+default-stream RoPE rewrite + alloc overhead consume the saved prefill time.
+
+Implications:
+- Speed path: a different mechanism is needed (larger batch so prefill is long
+  enough to absorb the overhead; or true CacheBlend which replaces prefill
+  with attention-recompute — precompute makes this tractable).
+- The F1=0.508 layered path is a RoPE-timing anomaly (device-resident uses
+  the same default-stream RoPE as SYNC and got 0.447 — between the two).
+
+=== PHASE 7 ANOMALY INVESTIGATION (2026-07-02) ===
+7-way A/B (5x5) — three "make SYNC behave like LAYERED" experiments:
+
+  lossless ref               1.000  948ms
+  SYNC (orig)                0.375  923ms
+  LAYERED (orig)             0.509  918ms  <-- anomaly
+  SYNC + DOUBLE SYNC (Exp3)  0.375        H1 falsified (default-stream race)
+  SYNC + PERLAYERWAIT (Exp4) 0.375        H3 falsified (per-layer wait pattern)
+  SYNC + RECORDSTREAM (Exp5) 0.375        H1b falsified (record_stream collision)
+  SYNC a1 (Exp1)             0.369        H4 falsified (5-agent warmup bias)
+  LAYERED a1 (Exp1)          0.559        (H4 falsified; gap stable)
+
+F1(SYNC_a1, LAYERED_a1) = 0.714 — same model + same input → divergent outputs.
+
+**VERDICT: LAYERED's F1=0.509 is REAL, STABLE, and rooted in something
+about the load_stream itself that we cannot reproduce on the default stream
+with simple sync/record_stream toggles. All three "fence differently on
+SYNC" hypotheses are FALSIFIED.** This is not a correctness improvement
+we can ship; the gap is a load_stream + LayerDoneCounter side-effect, not
+a transferable fix. Full report: ANOMALY_FINAL.md.

@@ -263,6 +263,19 @@ def launch_server(args: argparse.Namespace) -> subprocess.Popen:
     env["SGLANG_LOSSY_FUZZY_MATCH"] = "1"
     env["SGLANG_LOSSY_SKIP_TOKEN_CHECK"] = "1"
     env["SGLANG_LOSSY_MAX_ZERO_GAP"] = str(args.lossy_max_zero_gap)
+    # Offline-precomputed codebase KV (Phase 4). When --precompute-kv-dir is set,
+    # the server loads serialized per-chunk KV into a CPU host pool at start
+    # (placeholder_chunk_pool entries with location="host"); the read path
+    # transfers CPU->GPU on reuse. The canonical-prefix flag is propagated so
+    # the driver and server share the byte-exact preamble. Default OFF.
+    precompute_kv_dir = getattr(args, "precompute_kv_dir", None)
+    if precompute_kv_dir:
+        env["SGLANG_PRECOMPUTE_KV_DIR"] = str(precompute_kv_dir)
+        env["SGLANG_PRECOMPUTE_HOST_SIZE_GB"] = str(
+            getattr(args, "precompute_host_size_gb", 4.0)
+        )
+        if getattr(args, "precompute_canonical_prefix", False):
+            env["SGLANG_PRECOMPUTE_CANONICAL_PREFIX"] = "1"
     args.out_dir.mkdir(parents=True, exist_ok=True)
     log_path = args.out_dir / "sglang_server.log"
     cmd = [
@@ -288,6 +301,14 @@ def launch_server(args: argparse.Namespace) -> subprocess.Popen:
         "--log-level",
         "error",
     ]
+    # FAIR-MEASUREMENT / safety (B5): for >3-case runs, single-step the
+    # scheduler to dodge the `_delete_leaf` assertion that crashes the
+    # normal-evict path under multi-request interleaving (see memory
+    # `_delete-leaf-bug-2026-06-24`). NOTE: `--force-evict` is NOT a real
+    # server flag (no such arg in server_args.py) despite older docstrings;
+    # the load-bearing flags are these two. (workaround for _delete_leaf race)
+    if getattr(args, "max_cases", getattr(args, "max_tasks", 0)) > 3:
+        cmd.extend(["--disable-overlap-schedule", "--max-running-requests", "1"])
     if not args.disable_hierarchical_cache:
         cmd.extend(
             [
@@ -451,9 +472,24 @@ def build_slot_messages(
         # negative" if we try).  See radix_cache.py `_try_placeholder_knn_
         # lossy_match_body` for the guard.
         for idx, segment in enumerate(segments, 1):
+            # CROSS-POSITION (KVCOMM regime): slot_id is CONTENT-DERIVED
+            # (segment name = file path), NOT the positional index. The same
+            # code at a different absolute position (e.g. under --position-shift
+            # cyclic rotation) must share a pool key so the byte-exact lookup
+            # `(slot_id, chunk_signature)` (L4) and `content_signature`
+            # (L2 whole-slot) hit cross-position. The positional index `idx`
+            # is kept in the LABEL only (prompt display text, not a pool key);
+            # the RoPE delta (radix_cache._try_lossy_fuzzy_match /
+            # _apply_rope_delta_to_keys) handles the absolute-position shift.
+            # With the old `slot_id=f"code_base{idx}"`, agents 2..N rotating
+            # the segment order got a different key per position → 100%
+            # no_pool_entry misses, 0 reuse (see kvcomm-regime-positional-
+            # slotid-blocks-reuse memory). Segment names are unique per task
+            # (build_segments_for_task dedups via `seen`), so no key collision.
             slots.append(
                 PlaceholderSlot(
-                    slot_id=f"code_base{idx}", label=f"code_base{idx}: {segment.name}",
+                    slot_id=f"code_base:{segment.name}",
+                    label=f"code_base{idx}: {segment.name}",
                     text=segment.text,
                 ),
             )
@@ -477,13 +513,48 @@ def build_slot_messages(
         "## Output",
         f"Return exactly one short sentence for agent {agent_idx}.",
     ]
+    # Canonical shared prefix (accuracy lever for offline-precomputed KV).
+    # When SGLANG_PRECOMPUTE_CANONICAL_PREFIX=1, prepend the preamble.txt from
+    # the precompute dir to the SYSTEM message so it is byte-exact across
+    # agents/tasks → losslessly radix-prefix-cacheable AND a lossless prefix
+    # of every file's stored span. Only the preamble is lossless; file content
+    # at shifted positions stays lossy (proven fundamental limit).
+    system_content = "You are a senior software engineering agent."
+    preamble = _load_canonical_preamble()
+    if preamble:
+        system_content = preamble + "\n" + system_content
     return (
         [
-            {"role": "system", "content": "You are a senior software engineering agent."},
+            {"role": "system", "content": system_content},
             {"role": "user", "content": "\n".join(body)},
         ],
         slots,
     )
+
+
+def _load_canonical_preamble() -> str:
+    """Read the canonical preamble from the precompute dir (cached per-process).
+
+    Returns "" when SGLANG_PRECOMPUTE_CANONICAL_PREFIX != "1" or the dir/preamble
+    is absent — i.e. the pure lossy ablation. The same preamble.txt was written
+    by scripts/precompute_codebase_kv.py and is what the server loaded, so the
+    driver and server stay byte-exact.
+    """
+    if os.environ.get("SGLANG_PRECOMPUTE_CANONICAL_PREFIX", "0") != "1":
+        return ""
+    kv_dir = os.environ.get("SGLANG_PRECOMPUTE_KV_DIR", "").strip()
+    if not kv_dir:
+        return ""
+    cache = getattr(_load_canonical_preamble, "_cache", None)
+    if cache is None:
+        p = os.path.join(kv_dir, "preamble.txt")
+        try:
+            with open(p, encoding="utf-8") as f:
+                cache = f.read()
+        except FileNotFoundError:
+            cache = ""
+        _load_canonical_preamble._cache = cache  # type: ignore[attr-defined]
+    return cache
 
 
 def build_placeholder_anchor_fields(
@@ -542,6 +613,17 @@ def make_payload(
             case, segments, role, agent_idx, extra_context,
         )
         include_anchor = mode == "placeholder_knn_plus_exact"
+    elif mode == "placeholder_slot_lossless":
+        # FAIR-MEASUREMENT accuracy reference: SAME slot-decomposed prompt as
+        # `placeholder_knn_reuse` (build_slot_messages) but reuse_mode=lossless
+        # so NO reuse path fires → full prefill of the identical prompt. This is
+        # the valid F1 ground truth (lossless_full_prefill uses a DIFFERENT
+        # prompt via build_stress_messages, so its F1 vs lossy configs measures
+        # prompt-structure differences, not reuse lossiness).
+        messages, slots = build_slot_messages(
+            case, segments, role, agent_idx, extra_context,
+        )
+        include_anchor = False
     else:
         messages = build_stress_messages(case, segments, role, agent_idx, extra_context)
         slots = []
@@ -665,6 +747,19 @@ async def warm_planner(
     The placeholder warmup is what gives downstream agents (especially
     agent 1) something to match in their placeholder_anchor_pool, since
     the byte-exact warmup alone doesn't write to that pool.
+
+    FAIR-MEASUREMENT CHANGE (B1, 2026-06-30): the placeholder anchor-pool
+    warmup is now OPT-IN via --warm-anchor-pool (default OFF). Pre-populating
+    the (content-keyed, global) anchor pool let agent 1 — the *source* agent
+    that should generate code first and have nothing to reuse — match the
+    warmup's stored code via k-NN, inflating its cached_tokens (~7183) and
+    crediting the code-aware algorithm for reuse that cannot happen in a real
+    MAS (the implementer runs first). With the warmup OFF, agent 1's own
+    timed request is the natural source: it prefills cold and stores to the
+    pool on finish; agents 2..N then reuse from that store (agents run
+    sequentially in run_one_task, so the store is committed before agent 2).
+    The `--exclude-source-agent` flag (default ON) further drops agent 1 from
+    the speedup average so the reported number reflects the reusers only.
     """
     payload = make_payload(
         args,
@@ -681,18 +776,21 @@ async def warm_planner(
     # O9: warm the placeholder k-NN anchor pool so downstream agents
     # have something to match.  Uses placeholder_knn_reuse mode with
     # the same planner prompt structure so the slot texts are the same.
-    placeholder_payload = make_payload(
-        args,
-        tokenizer,
-        case,
-        segments,
-        "placeholder_knn_reuse",
-        max_tokens=8,
-        salt=f"placeholder_warmup:{case['case_id']}:{max_file_chars}:{segment_count}",
-        role="implementer",
-        agent_idx=0,
-    )
-    await post_chat(session, args.port, placeholder_payload)
+    # FAIR-MEASUREMENT: opt-in only (see docstring) — default OFF so agent 1
+    # is the natural source, not an artificial reuser.
+    if getattr(args, "warm_anchor_pool", False):
+        placeholder_payload = make_payload(
+            args,
+            tokenizer,
+            case,
+            segments,
+            "placeholder_knn_reuse",
+            max_tokens=8,
+            salt=f"placeholder_warmup:{case['case_id']}:{max_file_chars}:{segment_count}",
+            role="implementer",
+            agent_idx=0,
+        )
+        await post_chat(session, args.port, placeholder_payload)
 
 
 def row_from_response(
@@ -770,6 +868,18 @@ def row_from_response(
     chunk_pool_blend_stage = int(meta.get("placeholder_chunk_pool_blend_stage_count") or 0)
     chunk_pool_blend_gap_tokens = int(meta.get("placeholder_chunk_pool_blend_gap_tokens") or 0)
     chunk_pool_blend_run_tokens = int(meta.get("placeholder_chunk_pool_blend_run_tokens") or 0)
+    # FAIR-MEASUREMENT (B3): code-aware-vs-radix decomposition.
+    # radix_only_prefix_len = pure L1 radix prefix (the only part the
+    # prefix_cache_only baseline also sees — must cancel in a fair A/B).
+    # codeaware_reused_tokens = L3 offset-gate body copy + C2 chunk copy,
+    # EXCLUDING radix. radix_prefix_tokens = cached - codeaware (the radix
+    # portion of cached_tokens, used by the parity gate).
+    radix_only_prefix_len = int(meta.get("radix_only_prefix_len") or 0)
+    l2_wholeslot_reused_tokens = int(meta.get("l2_wholeslot_reused_tokens") or 0)
+    l3_offset_reused_tokens = int(meta.get("l3_offset_reused_tokens") or 0)
+    c2_chunk_reused_tokens = int(meta.get("c2_chunk_reused_tokens") or 0)
+    codeaware_reused_tokens = int(meta.get("codeaware_reused_tokens") or 0)
+    radix_prefix_tokens = max(cached - codeaware_reused_tokens, 0)
     if protected_tokens > 0 and consumed_count == 0 and device_hit_count > 0 and anchor_used:
         fast_path_status = "anchor_reuse_device_hit_consumed_counter_gap"
     elif protected_tokens > 0 and consumed_count == 0:
@@ -809,6 +919,13 @@ def row_from_response(
         "prompt_tokens": prompt_tokens,
         "cached_tokens": cached,
         "cached_ratio": round(cached / prompt_tokens, 6) if prompt_tokens else 0.0,
+        # FAIR-MEASUREMENT (B3): decomposition of cached_tokens.
+        "radix_only_prefix_len": radix_only_prefix_len,
+        "l2_wholeslot_reused_tokens": l2_wholeslot_reused_tokens,
+        "l3_offset_reused_tokens": l3_offset_reused_tokens,
+        "c2_chunk_reused_tokens": c2_chunk_reused_tokens,
+        "codeaware_reused_tokens": codeaware_reused_tokens,
+        "radix_prefix_tokens": radix_prefix_tokens,
         "exact_hit": match_reason == "exact_code_content_signature",
         "match_reason": match_reason,
         "matched_content_signature": matched_sig,
@@ -1076,6 +1193,9 @@ def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     for key, rs in grouped.items():
         ttft = [float(r["ttft_ms"]) for r in rs if r.get("agent_id") != "workflow" or r.get("experiment") == "agent_scaling_workflow"]
         cached = [float(r["cached_tokens"]) for r in rs]
+        radix_prefix = [float(r.get("radix_prefix_tokens") or 0) for r in rs]
+        codeaware = [float(r.get("codeaware_reused_tokens") or 0) for r in rs]
+        l2_wholeslot = [float(r.get("l2_wholeslot_reused_tokens") or 0) for r in rs]
         f1 = [float(r["output_token_f1_vs_baseline"]) for r in rs if str(r.get("output_token_f1_vs_baseline", "")) not in {"", "None"}]
         device_hits = [1.0 if int(r.get("codebase_prefetch_device_hit_count") or 0) > 0 else 0.0 for r in rs]
         consumed = [1.0 if int(r.get("agenttemplatekv_prefetch_consumed_count") or 0) > 0 else 0.0 for r in rs]
@@ -1087,6 +1207,9 @@ def summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
             "p90_ttft_ms": percentile(ttft, 0.9),
             "p99_ttft_ms": percentile(ttft, 0.99),
             "avg_cached_tokens": safe_mean(cached),
+            "avg_radix_prefix_tokens": safe_mean(radix_prefix),
+            "avg_codeaware_reused_tokens": safe_mean(codeaware),
+            "avg_l2_wholeslot_reused_tokens": safe_mean(l2_wholeslot),
             "exact_hit_rate": safe_mean([1.0 if str(r.get("exact_hit")).lower() == "true" else 0.0 for r in rs]),
             "device_hit_rate": safe_mean(device_hits),
             "consumed_rate": safe_mean(consumed),
@@ -1142,6 +1265,17 @@ def write_report(out_dir: Path, rows: list[dict[str, Any]], summary: dict[str, A
             f"- `{dims}`: p50={p50_speedup:.2f}x, p90={p90_speedup:.2f}x "
             f"(prefix={prefix['p50_ttft_ms']:.1f}/{prefix['p90_ttft_ms']:.1f} ms, "
             f"exact+hints={exact['p50_ttft_ms']:.1f}/{exact['p90_ttft_ms']:.1f} ms)"
+        )
+        # FAIR-MEASUREMENT (B3): decompose the speedup. radix_delta must be
+        # ~0 or the speedup is confounded with radix prefix warmth.
+        prefix_radix = float(prefix.get("avg_radix_prefix_tokens") or 0)
+        exact_radix = float(exact.get("avg_radix_prefix_tokens") or 0)
+        exact_codeaware = float(exact.get("avg_codeaware_reused_tokens") or 0)
+        radix_delta = exact_radix - prefix_radix
+        lines.append(
+            f"    radix_delta={radix_delta:.1f} (prefix_radix={prefix_radix:.1f}, "
+            f"exact_radix={exact_radix:.1f}, exact_codeaware={exact_codeaware:.1f}) "
+            f"{'<- PARITY OK' if abs(radix_delta) < 0.15 * max(prefix_radix, 1) else '<- PARITY VIOLATION'}"
         )
     (out_dir / "TTFT_STRESS_REPORT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     (out_dir / "TTFT_REPORT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")

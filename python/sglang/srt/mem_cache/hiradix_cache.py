@@ -179,6 +179,21 @@ class HiRadixCache(RadixCache):
 
         super().__init__(params=params)
 
+        # Offline-precomputed codebase KV (Phase 2): load serialized per-chunk
+        # KV into a dedicated CPU host pool, populating placeholder_chunk_pool
+        # with location="host" entries. No-op unless SGLANG_PRECOMPUTE_KV_DIR
+        # is set and SGLANG_PRECOMPUTE_HOST_SIZE_GB > 0 (default OFF). Runs in
+        # __init__ (not reset()) so a server relaunch re-loads from disk —
+        # the pool survives the 3-task relaunch workaround.
+        try:
+            from sglang.srt.mem_cache.codebase_kv_loader import (
+                load_precomputed_codebase_kv,
+            )
+
+            load_precomputed_codebase_kv(self)
+        except Exception:
+            logger.exception("precomputed codebase KV load failed; continuing without it")
+
     def shutdown(self):
         """Best-effort auto-detach of storage backend on process shutdown.
 
@@ -1424,6 +1439,21 @@ class HiRadixCache(RadixCache):
             key = key[:page_aligned_len]
 
         value, last_node = self._match_prefix_helper(self.root_node, key)
+        # A1 (fair-measurement): snapshot the PURE radix (L1) prefix length
+        # BEFORE any lossy / placeholder / chunk code-aware path appends copied
+        # slots to `value`. (HiRadixCache.match_prefix bypasses RadixCache.
+        # match_prefix, so this must be mirrored here — see hiradix_cache.py
+        # FIX notes above for the same class of omission.) Code-aware copies
+        # are reported separately via l3_offset_reused_tokens /
+        # c2_chunk_reused_tokens and must NOT be folded into this number.
+        if req is not None:
+            req.radix_only_prefix_len = sum(int(v.numel()) for v in value) if value else 0
+            if not hasattr(req, "l3_offset_reused_tokens"):
+                req.l3_offset_reused_tokens = 0
+            if not hasattr(req, "c2_chunk_reused_tokens"):
+                req.c2_chunk_reused_tokens = 0
+            if not hasattr(req, "l2_wholeslot_reused_tokens"):
+                req.l2_wholeslot_reused_tokens = 0
         if best_node is not None:
             value, last_node = self._try_lossy_fuzzy_match(
                 req, key, value, last_node, best_node
@@ -1458,6 +1488,18 @@ class HiRadixCache(RadixCache):
         ):
             value, last_node = self._try_placeholder_chunk_lossy_match(
                 req, key, value, last_node,
+            )
+        # A4 (fair-measurement): total code-aware-reused tokens for this
+        # request = L2 whole-slot + L3 (offset-gated) body copy + C2 chunk copy.
+        # EXCLUDES the radix L1 prefix (req.radix_only_prefix_len), so the bench
+        # can decompose cached_tokens. L2 included so the general-KVCOMM
+        # baseline and the AST path are comparable. Mirrored here because
+        # HiRadixCache.match_prefix does not call RadixCache.match_prefix.
+        if req is not None:
+            req.codeaware_reused_tokens = int(
+                getattr(req, "l2_wholeslot_reused_tokens", 0)
+            ) + int(getattr(req, "l3_offset_reused_tokens", 0)) + int(
+                getattr(req, "c2_chunk_reused_tokens", 0)
             )
         if value:
             value = torch.cat(value)
