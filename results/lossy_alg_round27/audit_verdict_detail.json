@@ -1,0 +1,961 @@
+{
+  "R19 lossy (7B × 5)": [
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 1,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 167
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 2,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 133
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 3,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 133
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 4,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 149
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 5,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 155
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 1,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 145
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 2,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 180
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 3,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 205
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 4,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 214
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 5,
+      "verdict": "UNKNOWN",
+      "unk_subtype": "other_format",
+      "len": 205
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 4,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 5,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 17
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 3,
+      "verdict": "UNKNOWN",
+      "unk_subtype": "other_format",
+      "len": 148
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 4,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 5,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 143
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 1,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 133
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 2,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 210
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 3,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 164
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 4,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 150
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 5,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 162
+    }
+  ],
+  "R19 lossless (7B × 5)": [
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 1,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 167
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 2,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 116
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 3,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 169
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 4,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 131
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 5,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 217
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 1,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 145
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 2,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 122
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 3,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 189
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 4,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 132
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 5,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 222
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 4,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 5,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 4,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 5,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 3,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 175
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 4,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 228
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 5,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 120
+    }
+  ],
+  "R17 lossy (7B × 5)": [
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 1,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 167
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 2,
+      "verdict": "UNKNOWN",
+      "unk_subtype": "other_format",
+      "len": 56
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 3,
+      "verdict": "UNKNOWN",
+      "unk_subtype": "other_format",
+      "len": 285
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 4,
+      "verdict": "UNKNOWN",
+      "unk_subtype": "other_format",
+      "len": 327
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 5,
+      "verdict": "UNKNOWN",
+      "unk_subtype": "other_format",
+      "len": 182
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 1,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 145
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 2,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 110
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 3,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 189
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 4,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 131
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 5,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 222
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 2,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 100
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 4,
+      "verdict": "UNKNOWN",
+      "unk_subtype": "other_format",
+      "len": 279
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 5,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 4,
+      "verdict": "UNKNOWN",
+      "unk_subtype": "other_format",
+      "len": 240
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 5,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 143
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 1,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 133
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 2,
+      "verdict": "UNKNOWN",
+      "unk_subtype": "other_format",
+      "len": 333
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 3,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 254
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 4,
+      "verdict": "UNKNOWN",
+      "unk_subtype": "other_format",
+      "len": 252
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 5,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 175
+    }
+  ],
+  "R26 lossy (3B-Gen × 3)": [
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 202
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 2,
+      "verdict": "UNKNOWN",
+      "unk_subtype": "c_code_leakage",
+      "len": 189
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 3,
+      "verdict": "UNKNOWN",
+      "unk_subtype": "other_format",
+      "len": 125
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 195
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 2,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 270
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 3,
+      "verdict": "UNKNOWN",
+      "unk_subtype": "other_format",
+      "len": 445
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 1,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 251
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 56
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 221
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 180
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 156
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 249
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 1,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 276
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 2,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 299
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 247
+    }
+  ],
+  "R26 lossless (3B-Gen × 3)": [
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 202
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 225
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 195
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 195
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 94
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 244
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 1,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 227
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 253
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 221
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 180
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 156
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 249
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 1,
+      "verdict": "FAIL",
+      "unk_subtype": "",
+      "len": 306
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 165
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 194
+    }
+  ],
+  "R27 lossy (3B-Cod × 3)": [
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 198
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 3,
+      "verdict": "UNKNOWN",
+      "unk_subtype": "too_short",
+      "len": 3
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 3,
+      "verdict": "UNKNOWN",
+      "unk_subtype": "too_short",
+      "len": 32
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    }
+  ],
+  "R27 lossless (3B-Cod × 3)": [
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__11s6papj",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__1eilbetv",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__2p4yneeo",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ddy6d59",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 1,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 2,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    },
+    {
+      "case_id": "pandas-dev__pandas.95280573.combine_file__3ra8xqln",
+      "agent_idx": 3,
+      "verdict": "PASS",
+      "unk_subtype": "",
+      "len": 13
+    }
+  ]
+}

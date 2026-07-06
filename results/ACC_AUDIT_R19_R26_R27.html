@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acc 判定审计报告 · R19/R26/R27</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg-elev: #161b22; --bg-card: #1c2129;
+    --border: #30363d; --border-strong: #484f58;
+    --text: #e6edf3; --text-dim: #8b949e; --text-faint: #6e7681;
+    --accent: #58a6ff; --green: #3fb950; --red: #f85149;
+    --yellow: #d29922; --orange: #db6d28; --purple: #bc8cff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
+                 "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text);
+    line-height: 1.6; padding: 40px 20px;
+  }
+  .container { max-width: 1180px; margin: 0 auto; }
+  header {
+    text-align: center; padding: 40px 0 40px;
+    border-bottom: 1px solid var(--border); margin-bottom: 40px;
+  }
+  header h1 {
+    font-size: 2.2rem; font-weight: 700; margin-bottom: 10px;
+    background: linear-gradient(135deg, var(--red), var(--yellow));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  header .subtitle { color: var(--text-dim); margin-bottom: 6px; }
+  header .meta { color: var(--text-faint); font-size: 0.9rem; }
+  h2 {
+    font-size: 1.55rem; margin: 45px 0 18px;
+    padding-bottom: 10px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2 .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 7px;
+    background: var(--bg-elev); color: var(--accent);
+    font-size: 0.95rem; font-weight: 600;
+  }
+  h3 { font-size: 1.15rem; margin: 24px 0 12px; color: var(--text); }
+  p, li { color: var(--text); margin-bottom: 10px; }
+  ul, ol { margin: 8px 0 10px 22px; }
+  li { margin-bottom: 5px; }
+  strong { color: var(--accent); font-weight: 600; }
+  em { color: var(--yellow); font-style: normal; }
+  code {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 0.86em; background: var(--bg-elev);
+    border: 1px solid var(--border); padding: 2px 6px;
+    border-radius: 4px; color: var(--cyan);
+  }
+  pre {
+    background: #0a0e13; border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 18px; overflow-x: auto;
+    margin: 12px 0; font-size: 0.84rem; line-height: 1.55;
+  }
+  pre code { background: transparent; border: none; padding: 0; color: var(--text); }
+  table {
+    width: 100%; border-collapse: collapse; margin: 16px 0;
+    background: var(--bg-card); border-radius: 10px;
+    overflow: hidden; border: 1px solid var(--border);
+    font-size: 0.88rem;
+  }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { background: var(--bg-elev); color: var(--text-dim); font-weight: 600;
+       text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.04em; }
+  tr:last-child td { border-bottom: none; }
+  td.num { font-family: "SFMono-Regular", Consolas, monospace; text-align: right; }
+  td.center { text-align: center; }
+  .best { color: var(--green); font-weight: 600; }
+  .worst { color: var(--red); font-weight: 600; }
+  .finding {
+    background: var(--bg-card); border-left: 4px solid var(--accent);
+    padding: 16px 20px; margin: 14px 0; border-radius: 0 8px 8px 0;
+  }
+  .finding.red { border-left-color: var(--red); }
+  .finding.green { border-left-color: var(--green); }
+  .finding.yellow { border-left-color: var(--yellow); }
+  .finding.purple { border-left-color: var(--purple); }
+  .finding .title { font-weight: 700; margin-bottom: 5px; }
+  .finding p { color: var(--text-dim); margin-bottom: 0; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 12px;
+    font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+  }
+  .badge.green { background: #3fb95020; color: var(--green); border: 1px solid var(--green); }
+  .badge.red { background: #f8514920; color: var(--red); border: 1px solid var(--red); }
+  .badge.yellow { background: #d2992220; color: var(--yellow); border: 1px solid var(--yellow); }
+  .badge.blue { background: #58a6ff20; color: var(--accent); border: 1px solid var(--accent); }
+  footer {
+    text-align: center; padding: 30px 0 15px; color: var(--text-faint);
+    font-size: 0.85rem; border-top: 1px solid var(--border); margin-top: 50px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>🔍 Acc 判定审计报告 · R19 / R26 / R27</h1>
+  <div class="subtitle">Re-measure FAIL_acc with full transparency — adds meaningful-rate, per-case stability, template-leakage, output-length analysis</div>
+  <div class="meta">2026-07-06 · audit script: <code>results/lossy_alg_round27/audit_verdict.py</code></div>
+</header>
+
+<!-- TL;DR -->
+<section>
+<h2><span class="num">1</span> TL;DR — 之前的解读有重大缺陷</h2>
+
+<div class="finding red">
+<div class="title">🎯 核心发现：FAIL_acc 不是"准确度"，是"模型走默认 FAIL 模板的频率"</div>
+<p>
+人工 spot-check 揭示：R19 的 60% FAIL_acc 不是"识别 bug 60%"，而是"模型倾向写 hallucinated FAIL reason"。
+R27 的 0% 不是"模型保守"，而是"模型完全 robotic 不分析（输出 13 字符模板）"。
+R26 的 27% 介于两者之间。
+</p>
+</div>
+
+<div class="finding yellow">
+<div class="title">⚠️ 之前 <em>Lossy doesn't degrade accuracy</em> 的 claim 需要 reframe</div>
+<p>
+R19 lossy 60% vs lossless 52% —— lossy 看起来提升 FAIL detection，但 reasoning 都是 boilerplate。
+"8% UNK 提升到 20% UNK"（R26）—— lossy 真的引入 c-code-leakage 失败模式。
+<strong>差异在噪声内，"不降低" ≠ "等价"</strong>。
+</p>
+</div>
+</section>
+
+<!-- Audit table -->
+<section>
+<h2><span class="num">2</span> 7-run 全审计（新 metric）</h2>
+
+<pre><code>config                          n  PASS  FAIL   UNK | mean% FAIL_acc FAIL_mean PASS_tend | tmpl_leak c_leak short | med_len  min  max
+-----------------------------------------------------------------------------------------------------------------------------------------
+R19 lossy (7B × 5)             25     8    15     2 |   92%    60.0%     65.2%     34.8% |         0      0     0 |     145   13  214
+R19 lossless (7B × 5)          25    12    13     0 |  100%    52.0%     52.0%     48.0% |         0      0     0 |     116   13  228
+R17 lossy (7B × 5)             25     6    11     8 |   68%    44.0%     64.7%     35.3% |         0      0     0 |     145   13  333
+R26 lossy (3B-Gen × 3)         15     8     4     3 |   80%    26.7%     33.3%     66.7% |         3      1     0 |     221   56  445
+R26 lossless (3B-Gen × 3)      15    13     2     0 |  100%    13.3%     13.3%     86.7% |         0      0     0 |     202   94  306
+R27 lossy (3B-Cod × 3)         15    13     0     2 |   87%     0.0%      0.0%    100.0% |         1      0     2 |      13    3  198
+R27 lossless (3B-Cod × 3)      15    15     0     0 |  100%     0.0%      0.0%    100.0% |         0      0     0 |      13   13   13</code></pre>
+
+<h3>列含义</h3>
+<table>
+  <thead><tr><th>列</th><th>含义</th></tr></thead>
+  <tbody>
+    <tr><td><code>mean%</code></td><td>meaningful verdict rate = (PASS+FAIL)/total —— 模型能否产出 verdict</td></tr>
+    <tr><td><code>FAIL_acc</code></td><td>旧指标：FAIL/total</td></tr>
+    <tr><td><code>FAIL_mean</code></td><td>新指标：FAIL/(PASS+FAIL) —— <strong>真正能比较的"在能产出 verdict 的样本中"</strong></td></tr>
+    <tr><td><code>PASS_tend</code></td><td>新指标：PASS/(PASS+FAIL) —— 模型偏向</td></tr>
+    <tr><td><code>tmpl_leak</code></td><td>含 <code>&lt;one-sentence reason&gt;</code> 模板占位符（模型没真分析）</td></tr>
+    <tr><td><code>c_leak</code></td><td>含 C 代码 leak（如 <code>is_dictionary</code>、<code>ColumnNullType</code>）—— lossy 把模型引导到 C 模式</td></tr>
+    <tr><td><code>short</code></td><td>&lt; 30 chars，模型没输出</td></tr>
+    <tr><td><code>med_len</code></td><td>输出中位数字符数</td></tr>
+  </tbody>
+</table>
+
+<div class="finding purple">
+<div class="title">🔑 median_len 是最 powerful 的诊断信号</div>
+<p>
+R27 (med 13) = 纯模板复读 ("VERDICT: PASS")，完全不分析。<br>
+R19 (med 145) = 有一些 boilerplate reasoning。<br>
+R26 (med 221) = 最长，但是经常是 c-code leakage（不是真 reasoning）。
+</p>
+</div>
+</section>
+
+<!-- Per-case detail -->
+<section>
+<h2><span class="num">3</span> Per-case verdict 稳定性</h2>
+
+<h3>R19 lossy（5 case × 5 agents）</h3>
+<table>
+  <thead><tr><th>Case</th><th>5 个 agent 的 verdict</th><th>是否 unanimous</th></tr></thead>
+  <tbody>
+    <tr><td>11s6papj</td><td>FAIL FAIL FAIL FAIL FAIL</td><td class="best">✓ unanimous FAIL（正确）</td></tr>
+    <tr><td>1eilbetv</td><td>FAIL FAIL FAIL FAIL <span class="worst">UNK</span></td><td>近 unanimous FAIL</td></tr>
+    <tr><td>2p4yneeo</td><td>PASS PASS PASS PASS PASS</td><td class="worst">✗ unanimous FAIL（错过）</td></tr>
+    <tr><td>3ddy6d59</td><td>PASS PASS <span class="worst">UNK</span> PASS <span class="best">FAIL</span></td><td>分裂 — 1 UNK + 1 FAIL + 3 PASS</td></tr>
+    <tr><td>3ra8xqln</td><td>FAIL FAIL FAIL FAIL FAIL</td><td class="best">✓ unanimous FAIL（正确）</td></tr>
+  </tbody>
+</table>
+
+<p>→ <strong>2/5 case unanimous 正确</strong>，1 case unanimous 错，2 case 分裂。</p>
+
+<h3>R26 lossy（5 case × 3 agents）</h3>
+<table>
+  <thead><tr><th>Case</th><th>3 个 agent 的 verdict</th><th>评价</th></tr></thead>
+  <tbody>
+    <tr><td>11s6papj</td><td>PASS <span class="worst">UNK</span> <span class="worst">UNK</span></td><td>2/3 失败</td></tr>
+    <tr><td>1eilbetv</td><td>PASS <span class="best">FAIL</span> <span class="worst">UNK</span></td><td>1 正确 + 1 UNK</td></tr>
+    <tr><td>2p4yneeo</td><td><span class="best">FAIL</span> PASS PASS</td><td>1 正确</td></tr>
+    <tr><td>3ddy6d59</td><td>PASS PASS PASS</td><td class="worst">全 PASS（错）</td></tr>
+    <tr><td>3ra8xqln</td><td><span class="best">FAIL</span> <span class="best">FAIL</span> PASS</td><td>2/3 正确</td></tr>
+  </tbody>
+</table>
+
+<p>→ <strong>1 case unanimous 错</strong>，2 case 有 ≥1 正确，2 case 大部分 UNK。</p>
+
+<h3>R27 lossy（5 case × 3 agents）</h3>
+<table>
+  <thead><tr><th>Case</th><th>3 个 agent 的 verdict</th><th>评价</th></tr></thead>
+  <tbody>
+    <tr><td>11s6papj</td><td>PASS PASS <span class="worst">UNK</span></td><td>1 UNK</td></tr>
+    <tr><td>1eilbetv</td><td>PASS PASS <span class="worst">UNK</span></td><td>1 UNK</td></tr>
+    <tr><td>2p4yneeo</td><td>PASS PASS PASS</td><td class="worst">全 PASS（错）</td></tr>
+    <tr><td>3ddy6d59</td><td>PASS PASS PASS</td><td class="worst">全 PASS（错）</td></tr>
+    <tr><td>3ra8xqln</td><td>PASS PASS PASS</td><td class="worst">全 PASS（错）</td></tr>
+  </tbody>
+</table>
+
+<h3>R27 lossless（5 case × 3 agents）</h3>
+<table>
+  <thead><tr><th>Case</th><th>3 个 agent 的 verdict</th><th>评价</th></tr></thead>
+  <tbody>
+    <tr><td>11s6papj</td><td>PASS PASS PASS</td><td>全 PASS</td></tr>
+    <tr><td>1eilbetv</td><td>PASS PASS PASS</td><td>全 PASS</td></tr>
+    <tr><td>2p4yneeo</td><td>PASS PASS PASS</td><td>全 PASS</td></tr>
+    <tr><td>3ddy6d59</td><td>PASS PASS PASS</td><td>全 PASS</td></tr>
+    <tr><td>3ra8xqln</td><td>PASS PASS PASS</td><td>全 PASS</td></tr>
+  </tbody>
+</table>
+
+<div class="finding red">
+<div class="title">R27 lossless = 完全 robotic</div>
+<p>
+5/5 case × 3 agents = 15 输出，全部 "VERDICT: PASS"（13 字符）。模型完全没分析，
+是 lossless mode 下 system prompt 触发的 reflex 输出。这不能算"0% FAIL_acc"，
+只能算"模型把这个 prompt 当模板填"。
+</p>
+</div>
+</section>
+
+<!-- Spot-check evidence -->
+<section>
+<h2><span class="num">4</span> 🎯 人工 spot-check — 之前的解读都是误读</h2>
+
+<h3>Evidence A: R19 "unanimous FAIL" — 但 reason 是 boilerplate</h3>
+<pre><code>### case 3ra8xqln (gt=FAIL, 5/5 agents say FAIL) — 看起来很好？
+
+agent 1: VERDICT: FAIL — The code contains multiple instances of the same
+              pattern, which suggests potential redundancy and maintenance issues.
+agent 2: VERDICT: FAIL — The code contains several issues, including unhandled
+              exceptions, missing imports, and syntax errors. Additionally, the
+              code is not PEP 8 compliant and lacks proper documentation.
+agent 3: VERDICT: FAIL — The code contains multiple instances of the same
+              pattern for creating blocks, which could lead to code duplication.
+agent 4: VERDICT: FAIL — The code contains multiple instances of repeated
+              logic and lacks proper documentation.
+agent 5: VERDICT: FAIL — The code contains multiple instances of deprecated
+              functions and methods, which could lead to maintenance issues.</code></pre>
+
+<div class="finding yellow">
+<div class="title">每个 agent 都 hallucinate 不同 boilerplate reason</div>
+<p>
+5 个 agent 都说"multiple instances" —— 这不是分析代码，是模型默认 FAIL template。
+代码里实际**没有**这些具体的 issue；模型在编 plausible-sounding reason。
+<strong>R19 60% FAIL_acc 不代表"识别 bug 60%"，代表"模型倾向写 hallucinated FAIL"</strong>。
+</p>
+</div>
+
+<h3>Evidence B: R26 lossy "c-code leakage" — KV 把模型引导到错误模式</h3>
+<pre><code>### R26 case 1eilbetv agent 3 (UNK, c_leak):
+    from
+        r
+            to
+                r
+                    # t
+                        r
+                    # t
+                        r
+                    ...
+                    r
+                        t
+                        r
+
+[len=445]</code></pre>
+
+<div class="finding red">
+<div class="title">Lossy KV 复用让模型进入了 Python AST 节点 walk 模式</div>
+<p>
+模型在 print Python token 的层级（"from → r → to → r"），完全不是 verdict 输出。
+这是 <strong>lossy 复用引入的失败模式</strong>，不是 accuracy 本身的问题，但确实让模型
+无法产出 verdict。R26 lossy 的 3 个 UNK 里 1 个就是这种。
+</p>
+</div>
+
+<h3>Evidence C: R27 lossy "too_short" — 模型完全崩溃</h3>
+<pre><code>### R27 case 11s6papj agent 3 (UNK, too_short):
+```
+
+[len=3]
+
+### R27 case 11s6papj agent 2 (template_leak):
+  VERDICT: PASS — &lt;one-sentence reason&gt;
+  VERDICT: PASS — &lt;one-sentence reason&gt;
+  VERDICT: PASS — &lt;one-sentence reason&gt;
+  VERDICT: PASS — &lt;one-sentence reason&gt;
+  VERDICT: PASS — &lt;one-sentence reason
+
+[len=198]</code></pre>
+
+<div class="finding red">
+<div class="title">R27 "0% FAIL" + "13.3% UNK" 的真相</div>
+<p>
+Agent 3 输出了 <code>```</code>（3 字符，空 markdown fence）；Agent 2 把 prompt 模板
+复读 5 遍。模型根本没在分析。R27 lossy 的 2 个 UNK 都是 catastrophic failure，
+不是"模型保守选 PASS"。
+</p>
+</div>
+
+<h3>Evidence D: R27 lossless 100% PASS 是纯模板</h3>
+<pre><code>### R27 lossless case 3ddy6d59:
+agent 1: VERDICT: PASS                    [len=13]
+agent 2: VERDICT: PASS                    [len=13]
+agent 3: VERDICT: PASS                    [len=13]
+
+### R27 lossless 全部 15 个输出都长这样</code></pre>
+
+<div class="finding red">
+<div class="title">13 字符 = 0 reasoning</div>
+<p>
+所有 R27 lossless 输出 100% 都是 "VERDICT: PASS"（13 字符），这是 prompt 模板的
+echo，不是 verdict。"0% FAIL_acc" 不是"模型保守"，而是"模型不思考"。
+<strong>这意味着 R27 lossless 本身就不能用作 baseline</strong>。
+</p>
+</div>
+</section>
+
+<!-- Revised interpretation -->
+<section>
+<h2><span class="num">5</span> 重新解读 R19/R26/R27</h2>
+
+<h3>FAIL_acc 真正的含义（基于 spot-check）</h3>
+<table>
+  <thead>
+    <tr><th>Config</th><th>FAIL_acc</th><th>实际行为</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>R19 7B-Coder</strong></td>
+      <td>60%</td>
+      <td>倾向写 hallucinated FAIL reason（"multiple instances", "deprecated"），
+          不是真分析</td>
+    </tr>
+    <tr>
+      <td><strong>R26 3B-Instruct</strong></td>
+      <td>27%</td>
+      <td>比 R19 倾向 PASS；在能产出 verdict 时（80%），1/3 命中 FAIL 默认模板；
+          20% UNK 里有 c-code leakage（lossy 副作用）</td>
+    </tr>
+    <tr>
+      <td><strong>R27 3B-Coder</strong></td>
+      <td>0%</td>
+      <td><strong>完全不分析</strong>：lossless 时 100% 模板复读 "VERDICT: PASS"；
+          lossy 时模型崩溃输出 3 字符或复读模板</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="finding yellow">
+<div class="title">⚠️ 之前"Lossy doesn't degrade accuracy"是 over-claim</div>
+<p>
+事实：R19 lossy 60% vs lossless 52% 在 ±10pp 的噪声范围内，无法判定"提升"或"等价"。
+R26 lossy 引入 20% UNK（其中 c-leak 是 lossy 直接造成的），是 lossy 的真实代价。
+<strong>更准确的表述</strong>："Lossy 引入新的失败模式（UNK、c-leak），但不显著改变 model
+对 PASS/FAIL 的倾向；总体 verdict 分布仍在 lossless ±15pp 范围内"。
+</p>
+</div>
+
+<h3>之前未发现的真相</h3>
+<ul>
+  <li><strong>R27 = 完全 robotic</strong>，不是"保守" —— 13 字符输出 = 0 reasoning</li>
+  <li><strong>R19 "60% FAIL_acc" 主要是 hallucinated</strong> —— 5/5 agent 给出不同的 plausible-sounding 但都不是从代码读出的</li>
+  <li><strong>R26 lossy 引入 c-leak</strong> —— 模型进入 Python AST 节点 walk 模式</li>
+  <li><strong>3B-Coder 在 lossless 下也不分析</strong>，不是 lossy 的副作用</li>
+</ul>
+</section>
+
+<!-- Methodological recommendations -->
+<section>
+<h2><span class="num">6</span> 方法论修正建议</h2>
+
+<h3>不可信的 claim（应撤回或重新表述）</h3>
+<table>
+  <thead><tr><th>之前说法</th><th>问题</th><th>重新表述</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>"R19 60% FAIL_acc 是 best"</td>
+      <td>60% 主要是 hallucinated default FAIL template</td>
+      <td>R19 倾向 FAIL 但 reason 是 boilerplate；不是真"识别 bug"</td>
+    </tr>
+    <tr>
+      <td>"R27 0% FAIL_acc 是 worst"</td>
+      <td>0% 是因为模型根本没分析（13 字符模板复读）</td>
+      <td>R27 在 verdict 任务上<strong>无推理能力</strong>，不是"过度保守"</td>
+    </tr>
+    <tr>
+      <td>"Lossy doesn't degrade accuracy"</td>
+      <td>差异在 ±10pp 噪声内，且 lossy 引入了 UNK / c-leak 失败模式</td>
+      <td>"Lossy 不显著改变 PASS/FAIL 分布，但引入 UNK 失败模式（R19 0%→R26 20%）"</td>
+    </tr>
+    <tr>
+      <td>"R26 27% 介于 R19 60% 和 R27 0% 之间"</td>
+      <td>数字看似线性，但 reasoning 质量不同</td>
+      <td>R26 是"弱 reasoning"，R19 是"幻觉 reasoning"，R27 是"无 reasoning"</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>应该补的实验</h3>
+<ol>
+  <li><strong>人工评分 reasoning 质量</strong>：3 个 reviewer 独立判断每个输出的"reason 与代码真实 issue 的对应程度"，1-5 分</li>
+  <li><strong>加 PASS 子集 ground truth</strong>：从 SWE-Smith manifest 找 5 个"未 mutate"的 case 做 negative control</li>
+  <li><strong>加 random/empty baseline</strong>：prompt 去掉 code 看模型默认行为</li>
+  <li><strong>看 reasoning 而不是 verdict</strong>：用 sentence-BERT 计算 model reasoning 与 manifest patch description 的相似度</li>
+  <li><strong>抽样 ≥30 case</strong>：当前 n=15 置信区间太宽（±22pp），差异都在噪声内</li>
+</ol>
+
+<h3>结论对原报告的影响</h3>
+<div class="finding yellow">
+<div class="title">Speed-accuracy trade-off 的真实情况</div>
+<p>
+之前的"决策矩阵"（speed first → R26, accuracy first → R19, avoid → R27）框架还在，
+但 "accuracy" 的实际含义不是"识别 bug"，而是"模型写得像在分析的程度"。
+R19 看起来"最准"，但写的是 boilerplate；R27 看起来"最不准"，但实际是 0 reasoning。
+<strong>三个 config 的真正区别是 reasoning 强度，不是 verdict 准确度</strong>。
+</p>
+</div>
+</section>
+
+<!-- Reproducibility -->
+<section>
+<h2><span class="num">7</span> 复现</h2>
+
+<pre><code># 跑 audit（无需起服务）
+python results/lossy_alg_round27/audit_verdict.py
+
+# 输出：每个 config 的新 metric + per-case verdict + UNK sub-classification
+# Detail JSON: results/lossy_alg_round27/audit_verdict_detail.json</code></pre>
+
+<p>Wall-clock: ~5 秒（纯 JSONL parse）。</p>
+
+<h3>Files of record</h3>
+<table>
+  <thead><tr><th>File</th><th>内容</th></tr></thead>
+  <tbody>
+    <tr><td><code>results/lossy_alg_round27/audit_verdict.py</code></td><td>审计脚本（新 metric + per-case + UNK sub-classification）</td></tr>
+    <tr><td><code>results/lossy_alg_round27/audit_verdict_detail.json</code></td><td>每行 verdict + UNK subtype + length</td></tr>
+    <tr><td><code>results/ACC_AUDIT_R19_R26_R27.html</code></td><td>本报告</td></tr>
+  </tbody>
+</table>
+</section>
+
+<footer>
+Generated 2026-07-06 · sglang-kvflow · Acc audit report · session 继续 R26/R27 wrap-up
+</footer>
+
+</div>
+</body>
+</html>
