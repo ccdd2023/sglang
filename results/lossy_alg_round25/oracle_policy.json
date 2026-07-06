@@ -1,0 +1,6 @@
+{
+  "policy": "skip if (agent>=3 AND c2_reuse>=600) OR (c2_reuse>=1800)",
+  "cv_unk_reduction_pct": 81.33333333333334,
+  "r19_pre_unk_pct": 8.0,
+  "r19_post_unk_pct": 0.0
+}

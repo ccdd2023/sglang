@@ -398,7 +398,46 @@ def build_stress_messages(
     role: str,
     agent_idx: int = 0,
     extra_context: str = "",
+    task_mode: str = "critique",
 ) -> list[dict[str, str]]:
+    """Build a stress-bench prompt.
+
+    task_mode:
+      - "critique" (default): "Return exactly one short sentence for agent N"
+        describing a code risk. Used to compute text F1 vs lossless.
+      - "verdict" (R21): single-line PASS/FAIL classification, used for
+        task-completion accuracy vs manifest patch ground-truth.
+    """
+    if task_mode == "verdict":
+        body = [
+            f"## Agent role\n{role}",
+            f"## Case\n{case['case_id']}",
+            "## Instruction",
+            "Inspect the repeated repository code. Decide if the code needs "
+            "a fix (any non-trivial bug, risk, or missing handling) or if it "
+            "is clean as-is.",
+        ]
+        if extra_context:
+            body += ["## Upstream context", extra_context]
+        for idx, segment in enumerate(segments, 1):
+            body += [
+                f"## code_base{idx}: {segment.name}",
+                "```python",
+                segment.text,
+                "```",
+            ]
+        body += [
+            "## Output",
+            "Output EXACTLY one line, no other text:\n"
+            "  VERDICT: FAIL — <one-sentence reason>\n"
+            "or\n"
+            "  VERDICT: PASS",
+        ]
+        return [
+            {"role": "system", "content": "You are a senior code reviewer."},
+            {"role": "user", "content": "\n".join(body)},
+        ]
+
     body = [
         f"## Agent role\n{role}",
         f"## Case\n{case['case_id']}",
@@ -449,6 +488,7 @@ def build_slot_messages(
     agent_idx: int = 0,
     extra_context: str = "",
     placeholder_slots: list[PlaceholderSlot] | None = None,
+    task_mode: str = "critique",
 ) -> tuple[list[dict[str, str]], list[PlaceholderSlot]]:
     """Build a slot-decomposed user message (Duke 2026 KVCOMM-style).
 
@@ -501,18 +541,37 @@ def build_slot_messages(
                 ),
             )
 
-    body = [
-        f"## Agent role\n{role}",
-        f"## Case\n{case['case_id']}",
-        "## Instruction",
-        "Inspect the repeated repository code and answer with one concise implementation risk.",
-    ]
+    if task_mode == "verdict":
+        body = [
+            f"## Agent role\n{role}",
+            f"## Case\n{case['case_id']}",
+            "## Instruction",
+            "Inspect the repeated repository code. Decide if the code needs "
+            "a fix (any non-trivial bug, risk, or missing handling) or if it "
+            "is clean as-is.",
+        ]
+    else:
+        body = [
+            f"## Agent role\n{role}",
+            f"## Case\n{case['case_id']}",
+            "## Instruction",
+            "Inspect the repeated repository code and answer with one concise implementation risk.",
+        ]
     for slot in slots:
         body += [f"## {slot.label}", slot.text]
-    body += [
-        "## Output",
-        f"Return exactly one short sentence for agent {agent_idx}.",
-    ]
+    if task_mode == "verdict":
+        body += [
+            "## Output",
+            "Output EXACTLY one line, no other text:\n"
+            "  VERDICT: FAIL — <one-sentence reason>\n"
+            "or\n"
+            "  VERDICT: PASS",
+        ]
+    else:
+        body += [
+            "## Output",
+            f"Return exactly one short sentence for agent {agent_idx}.",
+        ]
     # Canonical shared prefix (accuracy lever for offline-precomputed KV).
     # When SGLANG_PRECOMPUTE_CANONICAL_PREFIX=1, prepend the preamble.txt from
     # the precompute dir to the SYSTEM message so it is byte-exact across
@@ -521,6 +580,22 @@ def build_slot_messages(
     # at shifted positions stays lossy (proven fundamental limit).
     system_content = "You are a senior software engineering agent."
     preamble = _load_canonical_preamble()
+    # Round 17 — prompt alignment for tighter precompute prefix match.
+    # When SGLANG_PRECOMPUTE_PROMPT_ALIGN=1, move the preamble from the
+    # system message to the TOP of the user body. The prefix before the
+    # first code chunk then exactly matches the precompute preamble
+    # context (eliminating the system_msg + role + case gap from the
+    # cross-context prefix).
+    _align = os.environ.get("SGLANG_PRECOMPUTE_PROMPT_ALIGN", "0") == "1"
+    if preamble and _align:
+        body = [preamble] + body
+        return (
+            [
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": "\n".join(body)},
+            ],
+            slots,
+        )
     if preamble:
         system_content = preamble + "\n" + system_content
     return (
@@ -611,6 +686,7 @@ def make_payload(
         # in `match_prefix`.
         messages, slots = build_slot_messages(
             case, segments, role, agent_idx, extra_context,
+            task_mode=getattr(args, "task_mode", "critique"),
         )
         include_anchor = mode == "placeholder_knn_plus_exact"
     elif mode == "placeholder_slot_lossless":
@@ -622,10 +698,12 @@ def make_payload(
         # prompt-structure differences, not reuse lossiness).
         messages, slots = build_slot_messages(
             case, segments, role, agent_idx, extra_context,
+            task_mode=getattr(args, "task_mode", "critique"),
         )
         include_anchor = False
     else:
-        messages = build_stress_messages(case, segments, role, agent_idx, extra_context)
+        messages = build_stress_messages(case, segments, role, agent_idx, extra_context,
+                                          task_mode=getattr(args, "task_mode", "critique"))
         slots = []
         include_anchor = mode in {"exact_reuse_no_hints", "exact_reuse_plus_code_hints",
                                   "ablation_exact_gate_rope", "ablation_exact_no_hints"}
@@ -980,6 +1058,13 @@ def row_from_response(
         "placeholder_chunk_pool_skip_no_entry_count": chunk_pool_skip_no_entry,
         "placeholder_chunk_pool_skip_size_mismatch_count": chunk_pool_skip_size_mismatch,
         "placeholder_chunk_pool_skip_gap_count": chunk_pool_skip_gap,
+        # Selective Refresh (Round 2, 2026-07-02): chunks with byte-exact
+        # pool entry converted to dense_prefill by
+        # SGLANG_PRECOMPUTE_SELECTIVE_REFRESH_FRAC. Surfaced for telemetry
+        # verification.
+        "placeholder_chunk_pool_skip_selective_refresh_count": int(
+            meta.get("placeholder_chunk_pool_skip_selective_refresh_count") or 0
+        ),
         "placeholder_chunk_pool_total_tokens_reused": chunk_pool_tokens_reused,
         "placeholder_chunk_pool_total_tokens_dense": chunk_pool_tokens_dense,
         "placeholder_chunk_pool_blend_stage_count": chunk_pool_blend_stage,
@@ -1420,6 +1505,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-e8", action="store_true")
     parser.add_argument("--e8-cases", type=int, default=20)
     parser.add_argument("--e8-length", type=int, default=32000)
+    parser.add_argument("--task-mode", choices=["critique", "verdict"], default="critique",
+                        help="critique = single-sentence risk (R10-R19 default). "
+                             "verdict = single-line PASS/FAIL classification (R21).")
     return parser.parse_args()
 
 

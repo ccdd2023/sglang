@@ -783,6 +783,9 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--debug-first-task", action="store_true", help="Print placeholder pool status after first task's first agent")
+    parser.add_argument("--task-mode", choices=["critique", "verdict"], default="critique",
+                        help="critique = single-sentence risk (R10-R19 default). "
+                             "verdict = single-line PASS/FAIL (R21 task-completion accuracy).")
     parser.add_argument("--vary-code", action="store_true", default=True, help="Per-agent byte-level variation to force placeholder k-NN path (default on)")
     parser.add_argument("--no-vary-code", dest="vary_code", action="store_false", help="Disable per-agent byte-level variation")
     parser.add_argument(

@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KV 复用分解：Prefix vs Suffix · 大项目测试说明</title>
+<style>
+  :root{
+    --bg:#0d1117; --card:#161b22; --card2:#1c2330; --border:#30363d;
+    --fg:#e6edf3; --muted:#8b949e; --accent:#58a6ff; --green:#3fb950;
+    --orange:#d29922; --red:#f85149; --purple:#bc8cff; --teal:#39d0d8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,Segoe UI,Roboto,Noto Sans SC,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 24px 80px}
+  h1{font-size:26px;margin:0 0 4px}
+  h2{font-size:20px;margin:36px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+  h3{font-size:16px;margin:24px 0 8px;color:var(--accent)}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:8px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin:14px 0}
+  .tldr{background:linear-gradient(135deg,#1a2233,#161b22);border-color:#2a4a6a}
+  code,kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;
+    background:#0a0e14;padding:1px 6px;border-radius:5px;border:1px solid var(--border);color:var(--teal)}
+  .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;margin:0 4px 4px 0}
+  .p-green{background:#1a3a24;color:var(--green)}
+  .p-orange{background:#3a2e14;color:var(--orange)}
+  .p-red{background:#3a1818;color:var(--red)}
+  .p-blue{background:#13243a;color:var(--accent)}
+  .p-purple{background:#2a1f3a;color:var(--purple)}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin:10px 0}
+  th,td{padding:7px 10px;border:1px solid var(--border);text-align:right}
+  th{background:var(--card2);color:var(--muted);font-weight:600;text-align:left}
+  td:first-child,th:first-child{text-align:left}
+  tr:hover td{background:#1c2330}
+  .num{font-variant-numeric:tabular-nums}
+  .hl{color:var(--green);font-weight:700}
+  .bad{color:var(--red);font-weight:700}
+  .warn{color:var(--orange);font-weight:700}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted);margin:10px 0}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:13px;height:13px;border-radius:3px;display:inline-block}
+  .note{border-left:3px solid var(--orange);background:#2a2114;padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0;font-size:14px}
+  .note.b{border-color:var(--accent);background:#0f1a2a}
+  .flow{display:flex;flex-wrap:wrap;gap:0;align-items:stretch;margin:14px 0}
+  .flow .step{flex:1;min-width:130px;background:var(--card2);border:1px solid var(--border);padding:12px;border-radius:8px;margin:0 6px;position:relative;font-size:13px}
+  .flow .step b{color:var(--accent);display:block;margin-bottom:4px}
+  .flow .arr{display:flex;align-items:center;color:var(--muted);font-size:18px}
+  ul{margin:6px 0;padding-left:22px} li{margin:3px 0}
+  .kvbar{height:30px;border-radius:5px;display:flex;overflow:hidden;border:1px solid var(--border);margin:6px 0}
+  .kvbar div{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#0d1117;white-space:nowrap}
+  .small{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body><div class="wrap">
+
+<div style="background:#1c2128; border:1px solid #444c56; border-radius:8px; padding:10px 14px; margin:0 0 16px 0; font-size:13px;">
+  📄 完整开发时间线 + 全部结果表 + 已证 fundamental limit 见
+  <a href="../CODE_AWARE_LOSSY_KV_PROGRESS.md">CODE_AWARE_LOSSY_KV_PROGRESS.md</a>
+  &nbsp;·&nbsp; 目标/状态见 <a href="../../CANONICAL_TARGET.md">CANONICAL_TARGET.md</a>
+  &nbsp;·&nbsp; 本页是 KV prefix/suffix 分解 + multi-slot 结果的视觉伴生。
+</div>
+
+<h1>KV 复用分解：Prefix vs Suffix</h1>
+<div class="sub">sglang-kvflow · 大项目（giant-codebase / SWE-Smith）KVCOMM 位置旋转场景 · 7B-Coder · 2026-07-01</div>
+
+<div class="card tldr">
+  <h3 style="margin-top:0">一句话结论</h3>
+  <p style="margin:4px 0">在这个大项目测试里，<b>prefix（radix 同位置字节精确）KV 几乎为 0（~38 tokens，只有 system prompt）</b>——因为每个 agent 用不同的 <code>cache_salt</code>，radix 树对 agent 2..N 是冷的（公平测量要求）。所有真正的复用都是 <b>suffix（跨位置旋转拷贝）KV</b>，量级只有 prompt 的 <b>7%–19%</b>（~500–1400 tokens / ~7000 tokens prompt）。复用量这么小，正是加速只有 <b>1.0–1.14×</b> 的直接原因：<span class="warn">省下的 prefill 太少</span>。</p>
+  <p style="margin:8px 0 0">而且 per-case 方差极大：很多 case 复用 0，少数 case 命中 1000–1900 tokens——后者恰恰是 F1 崩到 0.00–0.06 的 case（cross-context KV loss）。</p>
+</div>
+
+<h2>① 测试样例是怎么做的</h2>
+
+<div class="card">
+<h3 style="margin-top:0">数据来源</h3>
+<table>
+<tr><th>项</th><th>值</th></tr>
+<tr><td>代码库</td><td class="num" style="text-align:left"><code>pandas-dev/pandas</code>（1502 个 .py 文件）</td></tr>
+<tr><td>任务集</td><td class="num" style="text-align:left">SWE-Smith（2354 个任务，patch + 涉及文件列表）</td></tr>
+<tr><td>manifest</td><td class="num" style="text-align:left"><code>results/giant_codebase/tasks/pandas__pandas__1000/manifest.jsonl</code></td></tr>
+<tr><td>每个 task 取</td><td class="num" style="text-align:left">patch 涉及的前 <b>5 个文件</b> → 5 个 segment（code_base 槽），每个截断到 8000 字符</td></tr>
+<tr><td>模型</td><td class="num" style="text-align:left"><code>Qwen/Qwen2.5-Coder-7B-Instruct</code>（RTX 4090, mem-fraction 0.85）</td></tr>
+<tr><td>agent 数</td><td class="num" style="text-align:left">5（implementer / debugger / reviewer / verifier / auditor）</td></tr>
+<tr><td>规模</td><td class="num" style="text-align:left">4-task（16 样本）与 12-task（42–48 样本）两轮</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">Prompt 结构（每个 agent 一条）</h3>
+<div class="kvbar">
+  <div style="width:6%;background:var(--purple)">system</div>
+  <div style="width:9%;background:var(--accent)">role/case/instr</div>
+  <div style="width:17%;background:#2d4a2d">code_base1</div>
+  <div style="width:17%;background:#2d4a2d">code_base2</div>
+  <div style="width:17%;background:#2d4a2d">code_base3</div>
+  <div style="width:17%;background:#2d4a2d">code_base4</div>
+  <div style="width:14%;background:#2d4a2d">code_base5</div>
+  <div style="width:3%;background:var(--orange)">out</div>
+</div>
+<div class="small">绿色 = 5 个代码文件槽（占 prompt 绝大部分，~6800 tokens）；任务指令 = "Inspect the repeated repository code and answer with one concise implementation risk"。</div>
+<p style="margin:14px 0 4px"><b>system + role + case + instruction</b> 这段对每个 agent 都一样 → 理论上是 radix prefix。但下面用 <code>cache_salt</code> 把它故意搞冷了。</p>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">两个关键变换（构造 KVCOMM 场景）</h3>
+
+<p><span class="pill p-blue">position-shift</span> <b>位置旋转</b>（核心 KVCOMM 场景）</p>
+<p style="margin:4px 0 10px">每个 agent 把 5 个 segment 的顺序循环移位 <code>idx-1</code> 位。<b>内容字节完全相同，只是绝对位置不同</b>。agent 1 = <code>[s0,s1,s2,s3,s4]</code>，agent 2 = <code>[s1,s2,s3,s4,s0]</code>，… 这正是 KVCOMM 描述的"相同 prompt 在不同位置"。</p>
+
+<p><span class="pill p-purple">partial-share</span> <b>部分共享</b>（让 AST 粒度有优势的场景）</p>
+<p style="margin:4px 0 10px">每个 agent <b>丢掉</b>一个不同的顶层函数（<code>defs[(idx-1) % len(defs)]</code>）。这样 segment 文本<em>各 agent 不同</em>（whole-slot 字节精确匹配失败），但<b>剩下的函数仍字节相同</b>（AST 按函数粒度仍能跨位置复用）。</p>
+
+<div class="note b">
+<b>公平性保证：</b>每个 agent 的 <code>cache_salt = giant:{case}:{seg_count}:{max_chars}:{agent_count}:{mode}:{idx}</code> 各不相同 → agent 2..N 的 radix 树是<b>冷的</b> → 共享代码<b>只能</b>通过 KVCOMM 旋转拷贝路径恢复，不能用 radix prefix 白嫖。这正是 <code>radix_prefix_tokens ≈ 38</code>（只有 system prompt）的原因。
+</div>
+
+<p style="margin:14px 0 4px"><b>agent 1（implementer）是 source</b>：它先跑、把代码 KV 存进 pool；agent 2–5 是 reuser，从 pool 里跨位置拷贝。所有统计排除 agent 1。</p>
+</div>
+
+<div class="card">
+<h3 style="margin-top:0">两个被比较的配置</h3>
+<table>
+<tr><th>配置</th><th>选择粒度</th><th>含义</th></tr>
+<tr><td><span class="pill p-blue">L2 whole-slot</span></td><td>1 个 "module" 粗粒度 chunk（<code>SGLANG_CHUNK_COARSE=1</code>）</td><td>通用 baseline：整个槽一次性拷贝 + RoPE</td></tr>
+<tr><td><span class="pill p-purple">L4 AST+fill</span></td><td>每个 FunctionDef/ClassDef 一个 chunk + 填充 module 间隙</td><td>code-aware：按函数粒度拷贝（部分共享下只拷共享的函数）</td></tr>
+</table>
+<p class="small">两者都走 staged gap-prefill（先 prefill gap，再拷 contiguous chunk run，非 lossy gap）。MiniLM L3 语义路径 OFF（wrong regime）。</p>
+</div>
+
+<h2>② Prefix vs Suffix KV 长度对比</h2>
+
+<div class="legend">
+  <span><span class="sw" style="background:var(--purple)"></span> PREFIX = radix_prefix_tokens（L1 同位置字节精确，无需旋转）</span>
+  <span><span class="sw" style="background:var(--green)"></span> SUFFIX = codeaware_reused_tokens（跨位置拷贝 + RoPE 旋转 = KVCOMM 复用）</span>
+  <span><span class="sw" style="background:#3a3f47)"></span> 剩余 prompt（需真实 prefill）</span>
+</div>
+
+<table>
+<tr><th>配置</th><th>n</th><th>prompt tokens</th><th>PREFIX (radix)</th><th>SUFFIX (rotated)</th><th>suffix 占 prompt</th><th>命中复用的 case</th><th>p50 TTFT</th></tr>
+<tr><td>L2 full-share 7B</td><td class="num">16</td><td class="num">6851</td><td class="num">38</td><td class="num hl">1259</td><td class="num">18.4%</td><td class="num">13/16</td><td class="num">822ms</td></tr>
+<tr><td>L4 full-share 7B (fill)</td><td class="num">16</td><td class="num">6852</td><td class="num">38</td><td class="num hl">1312</td><td class="num">19.1%</td><td class="num">14/16</td><td class="num">928ms</td></tr>
+<tr><td>L2 partial-share 7B (12t)</td><td class="num">42</td><td class="num">7551</td><td class="num">39</td><td class="num hl">1399</td><td class="num">18.5%</td><td class="num">35/42</td><td class="num">936ms</td></tr>
+<tr><td>L4 partial-share 7B (12t, fill)</td><td class="num">48</td><td class="num">6994</td><td class="num">42</td><td class="num warn">516</td><td class="num">7.4%</td><td class="num">29/48</td><td class="num">965ms</td></tr>
+</table>
+
+<h3>可视化（每条 = 平均一个 case 的 prompt 构成）</h3>
+
+<div style="margin:18px 0">
+<div class="small" style="margin-bottom:2px">L2 full-share — suffix 1259 tok (18.4%)</div>
+<div class="kvbar">
+  <div style="width:0.6%;background:var(--purple)" title="prefix 38">38</div>
+  <div style="width:18.4%;background:var(--green)" title="suffix 1259">1259 rotated</div>
+  <div style="width:81%;background:#3a3f47;color:var(--muted)" title="prefill 5554">prefill 5554</div>
+</div>
+
+<div class="small" style="margin:10px 0 2px">L4 full-share (fill) — suffix 1312 tok (19.1%)</div>
+<div class="kvbar">
+  <div style="width:0.6%;background:var(--purple)">38</div>
+  <div style="width:19.1%;background:var(--green)">1312 rotated</div>
+  <div style="width:80.3%;background:#3a3f47;color:var(--muted)">prefill 5502</div>
+</div>
+
+<div class="small" style="margin:10px 0 2px">L2 partial-share (12t) — suffix 1399 tok (18.5%)</div>
+<div class="kvbar">
+  <div style="width:0.5%;background:var(--purple)">39</div>
+  <div style="width:18.5%;background:var(--green)">1399 rotated</div>
+  <div style="width:81%;background:#3a3f47;color:var(--muted)">prefill 6113</div>
+</div>
+
+<div class="small" style="margin:10px 0 2px">L4 partial-share (12t, fill) — suffix 516 tok (7.4%)</div>
+<div class="kvbar">
+  <div style="width:0.6%;background:var(--purple)">42</div>
+  <div style="width:7.4%;background:var(--green)">516 rotated</div>
+  <div style="width:92%;background:#3a3f47;color:var(--muted)">prefill 6436</div>
+</div>
+</div>
+
+<div class="note">
+<b>读图要点：</b>
+<ul style="margin:4px 0">
+<li><b>PREFIX 永远 ≈ 38–42 tokens</b>（紫色那一小条）——公平测量的 cache_salt 让 radix 对 reuser 是冷的，系统 prompt 之外没有白嫖的 prefix。</li>
+<li><b>SUFFIX（绿色）才是真实复用</b>，且只有 7–19% of prompt。full-share 下 L2≈L4（~1300 tok）；partial-share 下 L4 只有 <b>516</b>——因为 AST 只拷贝<b>共享的函数</b>，whole-slot 拷的是整个槽（含 import 大块）。</li>
+<li><b>剩余 80–92% 仍要真实 prefill</b>——所以 TTFT 只能省下这 7–19% 对应的 prefill 时间，加速被天花板限制在 ~1.1×。</li>
+</ul>
+</div>
+
+<h2>③ 理论复用上限（忽略精度）</h2>
+
+<div class="card">
+<p style="margin-top:0">加速来自"有损复用更多 prompt 的 KV"。那么 prompt 里到底有多少 KV <b>理论上</b>可被跨位置旋转复用？用 Qwen2.5-Coder-7B tokenizer 实测 12 个 case（agent 2 reuser）：</p>
+
+<table>
+<tr><th>构成</th><th>tokens</th><th>占 prompt</th><th>能否旋转复用</th></tr>
+<tr><td>非槽 scaffolding<br><span class="small">system + role + case + instruction + output</span></td><td class="num">152</td><td class="num">2.1%</td><td><span class="pill p-red">否</span> 各 agent 文本不同（role/case 不同）→ 只能 radix prefix（被 cache_salt 搞冷）</td></tr>
+<tr><td>code_base 槽内容（5 个文件）</td><td class="num">7222</td><td class="num">97.9%</td><td><span class="pill p-green">是</span> full-share 下跨 agent 字节相同，仅位置不同 → KVCOMM 可全旋转</td></tr>
+<tr><td><b>prompt 总长</b></td><td class="num">7374</td><td class="num">100%</td><td></td></tr>
+</table>
+
+<h3>FULL-SHARE 理论上限 = 7222 tok = prompt 的 <span class="hl">97.9%</span></h3>
+<div class="kvbar">
+  <div style="width:2.1%;background:var(--red)" title="scaffold 152">152</div>
+  <div style="width:97.9%;background:var(--green)" title="slots 7222">7222 可旋转复用</div>
+</div>
+
+<h3>PARTIAL-SHARE 理论上限 = 6840 tok = prompt 的 <span class="hl">92.8%</span></h3>
+<div class="kvbar">
+  <div style="width:2.1%;background:var(--red)">152</div>
+  <div style="width:5.1%;background:var(--orange)" title="每 agent 丢的1函数">~382 丢弃</div>
+  <div style="width:92.8%;background:var(--green)">6840 共享函数可旋转</div>
+</div>
+<p class="small">partial-share：每个 agent 丢 1 个顶层函数 → 这部分不可复用；剩下 92.8% 仍跨 agent 共享。</p>
+
+<div class="note b">
+<b>这是忽略精度的硬上限</b>：在 full-share（内容完全相同、仅位置不同）下，理论上 <b>97.9% 的 prompt KV 都可被旋转复用</b>。若全部命中 + 无 per-chunk overhead，TTFT 可逼近"几乎不 prefill"的极限加速（7B 下 prefill 是主导成本）。
+</div>
+
+<h3>实际 vs 上限 —— 利用率极低</h3>
+<table>
+<tr><th>配置</th><th>理论上限</th><th>实际复用</th><th>利用率</th><th>还差多少</th></tr>
+<tr><td>L2 full-share 7B</td><td class="num">7222</td><td class="num">1259</td><td class="num bad">17%</td><td class="num">5963 tok 没复用</td></tr>
+<tr><td>L4 full-share 7B (fill)</td><td class="num">7222</td><td class="num">1312</td><td class="num bad">18%</td><td class="num">5910 tok 没复用</td></tr>
+<tr><td>L2 partial-share 12t</td><td class="num">6840</td><td class="num">1399</td><td class="num bad">20%</td><td class="num">5441 tok 没复用</td></tr>
+<tr><td>L4 partial-share 12t</td><td class="num">6840</td><td class="num">516</td><td class="num bad">8%</td><td class="num">6324 tok 没复用</td></tr>
+</table>
+
+<div class="note">
+<b>结论：当前只吃到了理论上限的 8–20%，80%+ 的可复用 KV 没被吃掉。</b>这不是"prompt 没多少可复用"——恰恰相反，prompt 有 97.9% 可复用——而是<b>当前 staged 机制只拷了第一个 contiguous chunk run</b>（gap 之后的连续段），且很多 case 因 source 未存 / 失配而 0 命中。把利用率从 ~18% 提到 ~60%+，加速就有数量级提升空间。这正是 batched-copy + 多 run 拷贝 + 提命中率 的价值所在。
+</div>
+
+<div class="small">注：上限按"code_base 槽内容字节相同"计算（full-share 下严格成立；partial-share 下扣掉每 agent 丢弃的 1 函数）。忽略 cross-context KV loss（即假设 raw-copy + RoPE 无损），仅回答"能复用多少"的容量问题。实测见 <code>results/kvcomm_ab/7b_*/rows.csv</code>。</div>
+</div>
+
+<h2>④ 为什么实际 suffix 这么少 + 方差这么大</h2>
+
+<div class="card">
+<h3 style="margin-top:0">per-case suffix 复用分布（L4 partial-share 12t，前 24 个 reuser）</h3>
+<table>
+<tr><th>case</th><th>agent</th><th>prompt</th><th>SUFFIX reused</th><th>cached</th></tr>
+<tr><td>…95280573…</td><td class="num">2</td><td class="num">6543</td><td class="num bad">0</td><td class="num">20</td></tr>
+<tr><td></td><td class="num">3</td><td class="num">6868</td><td class="num hl">818</td><td class="num">838</td></tr>
+<tr><td></td><td class="num">4</td><td class="num">7017</td><td class="num hl">1102</td><td class="num">1122</td></tr>
+<tr><td></td><td class="num">5</td><td class="num">6824</td><td class="num bad">0</td><td class="num">20</td></tr>
+<tr><td>…</td><td class="num">5</td><td class="num">5821</td><td class="num warn">1015</td><td class="num">1060</td></tr>
+<tr><td>…</td><td class="num">5</td><td class="num">8581</td><td class="num warn">1874</td><td class="num">1918</td></tr>
+<tr><td>…</td><td class="num">4</td><td class="num">4432</td><td class="num hl">1069</td><td class="num">1113</td></tr>
+<tr><td>…</td><td class="num">2–4</td><td class="num">~9700</td><td class="num bad">0,0,0</td><td class="num">44</td></tr>
+</table>
+<p class="small">完整数据见 <code>results/kvcomm_ab/7b_ps12_l4_fill/rows.csv</code>。</p>
+
+<div class="note">
+<b>两个极端：</b>
+<ul style="margin:4px 0">
+<li><b>suffix=0</b>：partial-share 下该 agent 丢的函数让 whole-slot 失配、且 AST 无共享函数命中（或 source 还没存）→ 零复用，退化为纯 prefill。</li>
+<li><b>suffix=1000–1900</b>：命中了大量共享函数 → 但这些 case 的 F1 恰恰崩到 <b>0.00–0.06</b>（cross-context KV loss：KV 在 layer&gt;0 编码了它前面的 prefix，重排后 prefix 变了 → 拷过去的 KV 是 stale 的）。<b>复用越多，越不准。</b></li>
+</ul>
+这是 KVCOMM raw-copy + RoPE 的根本张力：<span class="warn">无损 gap 必须先 prefill（staged）→ 只有 chunk run 省下来 → 量小 → 加速小；想多复用 → cross-context loss → F1 崩</span>。
+</div>
+</div>
+
+<h2>⑤ 结论与下一步</h2>
+<div class="card">
+<table>
+<tr><th>问题</th><th>答案</th></tr>
+<tr><td>大项目有没有加速？</td><td>有，但温和：<b>L2 full-share 1.144×</b>（7B 最好），partial-share 下仅 1.0–1.04×。</td></tr>
+<tr><td>PREFIX KV 多大？</td><td class="num">~38–42 tokens（几乎为 0，radix 被故意搞冷）。</td></tr>
+<tr><td>SUFFIX KV 多大？</td><td class="num">516–1399 tokens = prompt 的 7–19%。</td></tr>
+<tr><td><b>理论上限多大？</b></td><td class="num"><b>7222 tok = prompt 的 97.9%</b>（full-share）/ 6840 tok = 92.8%（partial-share）。</td></tr>
+<tr><td>利用率多少？</td><td class="num"><b>仅 8–20%</b>——80%+ 可复用 KV 没吃到（staged 只拷第一个 chunk run + 0 命中 case）。</td></tr>
+<tr><td>为什么加速不大？</td><td>不是没东西可复用（有 97.9%），而是<b>机制只吃到 18%</b>；且多复用会触发 cross-context loss（F1 崩）。</td></tr>
+<tr><td>AST（L4）赢过通用 L2 了吗？</td><td class="bad">没有。full-share 更慢；partial-share 12-task 鲁棒结果 L4/L2=0.96×（略慢），仅 accuracy 占优（F1 0.622 vs 0.513）。</td></tr>
+</table>
+
+<h3>剩余杠杆（按提升空间排序）</h3>
+<ul>
+<li><b>① 提高 KV 利用率（最大空间）</b>：当前只吃 8–20%，理论有 97.9%。staged 机制只拷第一个 contiguous chunk run → 改成<b>多 run 全拷贝</b>（每个共享函数/槽都拷，不只第一个连续段）+ 提命中率（source 预存、消除 0 命中 case）。利用率从 ~18% → 60%+ 是加速数量级提升的主路径。</li>
+<li><b>② 批量化 AST 拷贝</b>：把 N 个 per-chunk alloc+move+RoPE 合成 1 次 → 消除 per-chunk overhead，让 L4 的复用真正转成速度优势（未实现，待确认）。</li>
+<li><b>③ 修 cross-context loss（解锁"多复用"的精度代价）</b>：true CacheBlend attention-recompute（option C，贵）——不修这个，①提到 60%+ 时 F1 会崩（复用越多越不准）。这是上限能否落地的精度瓶颈。</li>
+</ul>
+</div>
+
+<h2>⑥ MULTI_SLOT 突破：拷全部 5 槽（2026-07-01）</h2>
+
+<div class="card">
+<p style="margin-top:0">实施了杠杆 ① —— <code>SGLANG_CACHEBLEND_MULTI_SLOT=1</code>：stage leading instruction gap（真实 KV），然后把<b>全部 5 个 code_base 槽</b>在一次 batched alloc/move/RoPE 里拷贝，只<b>置零 ~13-tok 的 inter-slot header</b>（<code>COMPACT=0</code>，位置正确）。打破"只拷 1 槽"的天花板。</p>
+
+<h3 style="margin-top:14px">结果（7B-Coder, full-share position-shift, 8 task, 65536 pool + --disable-hierarchical-cache）</h3>
+<table>
+<tr><th>配置</th><th>n</th><th>p50 TTFT</th><th>avg 复用</th><th>命中率</th><th>vs lossless</th></tr>
+<tr><td>lossless 7B</td><td class="num">16</td><td class="num">932ms</td><td class="num">0</td><td class="num">—</td><td class="num">1.0×</td></tr>
+<tr><td>single-slot L2（旧）</td><td class="num">16</td><td class="num">820ms</td><td class="num">1259 (18%)</td><td class="num">13/16</td><td class="num">1.14×</td></tr>
+<tr><td>MULTI_SLOT L2（全部）</td><td class="num">32</td><td class="num">539ms</td><td class="num">3107 (42%)</td><td class="num">17/32</td><td class="num">1.73×</td></tr>
+<tr><td><b>MULTI_SLOT L2（命中者）</b></td><td class="num">14</td><td class="num"><b>124ms</b></td><td class="num"><b>6804 (97%)</b></td><td class="num">14/14</td><td class="num"><b>7.5×</b></td></tr>
+</table>
+
+<div class="note b">
+<b>速度突破 + 精度灾难：</b>MULTI_SLOT 命中者 TTFT=124ms = 7.5× vs lossless (932ms)，97% 利用率（拷 5 槽，只 prefill ~51 tok）。<b>但 F1=0.000 —— 输出是空白/garbage（只有空格、<code>```json</code>）。</b>拷贝 7100 tok 很便宜（move_kv_cache+RoPE ~33ms），所以 TTFT 低；但拷过去的 KV 是 stale 的（cross-context loss），模型无法生成有效输出。
+</div>
+
+<h3>关键发现：复用越多 → 精度越崩（cross-context KV loss）</h3>
+<table>
+<tr><th>配置</th><th>复用量</th><th>F1 vs lossless</th><th>输出</th></tr>
+<tr><td>lossless（无复用）</td><td class="num">0</td><td class="num">1.000</td><td>完整正确</td></tr>
+<tr><td>single-slot staged（1 槽）</td><td class="num">~1400 tok</td><td class="num hl">0.46</td><td>valid-but-different</td></tr>
+<tr><td><b>MULTI_SLOT（5 槽）</b></td><td class="num">~7100 tok</td><td class="num bad">0.000</td><td>空白/garbage</td></tr>
+</table>
+<p>这是 <code>c2-cacheblend-lossy-not-safe</code> 的最终确认：raw-copy + RoPE 对<b>大量</b>跨上下文 KV 复用是 lossy 的。KV 在 layer&gt;0 编码了它前面的 prefix；agent 2 的 prefix 不同（旋转顺序 + 不同 leading gap）→ 拷过去的 slot KV 是 stale 的。复用 1 槽（1400 tok）损失可控（F1 0.46）；复用 5 槽（7100 tok）损失毁灭性（F1 0.00）。<b>置零的 ~52 tok header 不是主因 —— 7100 tok 的 stale slot KV 才是。</b></p>
+
+<div class="note">
+<b>结论：MULTI_SLOT 解决了利用率/速度天花板，但加剧了精度问题。</b>用户目标（好加速 + 可接受精度）<b>未达成</b>：multi-slot 给了 7.5× 速度但 F1=0。根本瓶颈是 cross-context KV loss，raw-copy+RoPE 无法修。唯一出路是 <b>true CacheBlend</b>（对拷贝的 chunk 在新 context 下重算 attention）—— option C，贵，是 <code>c2-fundamental-limits</code> 指出的已知路径。
+</div>
+
+<h3>剩余限制：KV pool OOM（已知）</h3>
+<p>MULTI_SLOT 每次拷 ~7160 tok（single-slot 的 5×）。paged allocator 的 <code>alloc</code> 满时返回 None 且<b>不触发 radix 驱逐</b>（allocator.py:170），所以跨 task 累积的 radix prefix 耗尽 pool → 后续 reuser <code>alloc=NONE</code> → 0 复用（17/32 未命中，拖高 aggregate 到 539ms）。</p>
+<ul>
+<li><b>已修</b>：batched executor 的 cap 原本只算 copied chunks 不算 zeroed gaps → <code>device_indices &gt; input_len</code> → flashinfer 崩溃（task 7）。改成 cap on <code>total_new</code>（gaps+chunks）。</li>
+<li><b>尝试但失败</b>：① <code>EVICT_ON_ALLOC</code>（alloc 失败时 mid-match 触发驱逐）→ 崩溃（释放 in-use exact_node）。② graceful trailing-chunk drop（拷不下就少拷几槽）→ KV slot leak（runtime checker 检测到未记账 token）。两者均已回退。</li>
+<li><b>当前</b>：warn-only mem check（<code>SGLANG_ENABLE_STRICT_MEM_CHECK_DURING_IDLE=0</code>）让 run 不崩；leak 有界（pool 耗尽 → 0 复用，graceful，无损坏）。</li>
+<li><b>根因（待修）</b>：MULTI_SLOT 拷贝的 span 偶尔没被正确 insert 进 radix tree（不可驱逐也不释放）→ leak。彻底修需要 ephemeral copy（拷贝 span 不持久化，用完即释放），是 prior ephemeral attempt 留下的已知难题。</li>
+</ul>
+<div class="small">Launchers: <code>results/kvcomm_ab/run_7b_multislot_{l2,l4}.sh</code>, <code>run_7b_ps12_multislot_l4.sh</code>（65536 + --disable-hierarchical + MULTI_SLOT=1 + COMPACT=0）。代码: <code>radix_cache.py</code> <code>_build_chunk_plan</code> MULTI_SLOT 分支 + <code>_execute_chunk_plan_batched</code> cap 修复。</div>
+</div>
+
+<div class="small" style="margin-top:24px;color:var(--muted)">
+数据来源：<code>results/kvcomm_ab/7b_{l2_staged,l4_fill,ps12_l2_staged,ps12_l4_fill,multislot_l2_dbg4}/rows.csv</code> · 分析器 <code>benchmark/multi_workflow/analyze_fair_ab.py</code> · 场景 <code>benchmark/multi_workflow/bench_giant_codebase_reuse.py</code> + <code>bench_kvcomm_ttft_stress.py:build_slot_messages</code> · 本页 <code>results/kvcomm_ab/KV_BREAKDOWN_REPORT.html</code>
+</div>
+
+</div></body></html>

@@ -852,6 +852,11 @@ class RadixCache(BasePrefixCache):
         # Phase D telemetry: per-decision skip-reason counters. byte-exact
         # is binary (1.0 hit / 0.0 dense), so these tell us WHY we skipped.
         self.placeholder_chunk_pool_skip_no_entry_count = 0
+        # Selective Refresh telemetry (Round 2, 2026-07-02): chunks that
+        # had a byte-exact pool entry but were converted to dense_prefill
+        # by SGLANG_PRECOMPUTE_SELECTIVE_REFRESH_FRAC. Counts accuracy-
+        # recovery skips separate from "no entry" misses.
+        self.placeholder_chunk_pool_skip_selective_refresh_count = 0
         self.placeholder_chunk_pool_skip_byte_drift_count = 0
         self.placeholder_chunk_pool_skip_size_mismatch_count = 0
         self.placeholder_chunk_pool_skip_alloc_failed_count = 0
@@ -2206,6 +2211,88 @@ class RadixCache(BasePrefixCache):
             )
             return exact_values, exact_node
         _t1 = time.perf_counter() if _dbg else 0.0
+        # --- Selective Refresh (Round 2 algorithm, 2026-07-02) ---
+        # Convert a fraction of `copy_pool` decisions back to dense_prefill
+        # so the model dense-prefills them and gets FRESH KV (no cross-
+        # context loss). Skip the LARGEST chunks first (they carry the
+        # most stale KV per token → highest accuracy recovery per token
+        # given up). Gated by SGLANG_PRECOMPUTE_SELECTIVE_REFRESH_FRAC
+        # (default 0 = raw copy, off by default).
+        _sel_frac = float(
+            os.environ.get("SGLANG_PRECOMPUTE_SELECTIVE_REFRESH_FRAC", "0") or 0
+        )
+        if _sel_frac > 0 and plan.copy_count > 0:
+            if os.environ.get("SGLANG_CACHEBLEND_DEBUG", "0") == "1":
+                print(f"[SEL_DBG] rid={getattr(req,'rid','?')} frac={_sel_frac} copy_count_before={plan.copy_count}", flush=True)
+            copy_indices = [
+                i for i, d in enumerate(plan.decisions)
+                if d.action == "copy_pool"
+            ]
+            # Hardcoded per-chunk F1 oracle gate: skip chunks whose size
+            # exceeds SGLANG_PRECOMPUTE_SKIP_CHUNK_SIZE_MIN (per-chunk threshold).
+            # Built offline by measuring F1 contribution per chunk.
+            _oracle_size_min = os.environ.get(
+                "SGLANG_PRECOMPUTE_SKIP_CHUNK_SIZE_MIN", ""
+            )
+            if _oracle_size_min:
+                try:
+                    _min_size = int(_oracle_size_min)
+                    _before = len(copy_indices)
+                    copy_indices = [
+                        i for i in copy_indices
+                        if len(plan.decisions[i].pool_entry.kv_indices) <= _min_size
+                    ]
+                    _oracle_log = os.environ.get(
+                        "SGLANG_PRECOMPUTE_ORACLE_LOG", ""
+                    )
+                    if _oracle_log:
+                        try:
+                            with open(_oracle_log, "a") as _f:
+                                _f.write(
+                                    f"# size_min={_min_size}: filtered "
+                                    f"{_before - len(copy_indices)} chunks\n"
+                                )
+                        except Exception:
+                            pass
+                except ValueError:
+                    pass
+            # Sort by chunk size — strategy selectable via env var.
+            # Default: largest first (most stale KV per token, skipping helps most).
+            # Alternative: smallest first (least stale KV, skipping is safer).
+            sort_strategy = os.environ.get(
+                "SGLANG_PRECOMPUTE_SELECTIVE_STRATEGY", "largest_first"
+            )
+            if sort_strategy == "smallest_first":
+                copy_indices.sort(
+                    key=lambda i: int(len(plan.decisions[i].pool_entry.kv_indices))
+                )
+            else:  # default largest_first
+                copy_indices.sort(
+                    key=lambda i: -int(len(plan.decisions[i].pool_entry.kv_indices))
+                )
+            n_skip = int(round(_sel_frac * len(copy_indices)))
+            if os.environ.get("SGLANG_CACHEBLEND_DEBUG", "0") == "1":
+                print(f"[SEL_DBG] rid={getattr(req,'rid','?')} n_copy_indices={len(copy_indices)} n_skip={n_skip}", flush=True)
+            for i in copy_indices[:n_skip]:
+                d = plan.decisions[i]
+                # Per-chunk F1 oracle: log skipped chunk signature
+                _oracle_log = os.environ.get("SGLANG_PRECOMPUTE_ORACLE_LOG", "")
+                if _oracle_log:
+                    try:
+                        with open(_oracle_log, "a") as _f:
+                            _f.write(f"{d.slot_id}\t{d.chunk_signature}\t{len(d.pool_entry.kv_indices) if d.pool_entry else 0}\n")
+                    except Exception:
+                        pass
+                d.action = "dense_prefill"
+                d.pool_entry = None
+                d.confidence = 0.0
+                d.skip_reason = "selective_refresh"
+            plan.copy_count = sum(
+                1 for d in plan.decisions if d.action == "copy_pool"
+            )
+            plan.dense_count = sum(
+                1 for d in plan.decisions if d.action == "dense_prefill"
+            )
         # Phase D: bump per-skip-reason counters unconditionally. The
         # decisions carry their skip_reason; we tally here so the
         # counters reflect every ChunkPlan execution, not just the
@@ -2214,6 +2301,7 @@ class RadixCache(BasePrefixCache):
         skip_byte_drift = 0
         skip_size_mismatch = 0
         skip_gap = 0
+        skip_selective_refresh = 0
         for d in plan.decisions:
             if d.action != "dense_prefill":
                 continue
@@ -2225,12 +2313,22 @@ class RadixCache(BasePrefixCache):
                 skip_size_mismatch += 1
             elif d.skip_reason == "gap":
                 skip_gap += 1
+            elif d.skip_reason == "selective_refresh":
+                skip_selective_refresh += 1
         self.placeholder_chunk_pool_skip_no_entry_count += skip_no_entry
         self.placeholder_chunk_pool_skip_byte_drift_count += skip_byte_drift
         self.placeholder_chunk_pool_skip_size_mismatch_count += (
             skip_size_mismatch
         )
         self.placeholder_chunk_pool_skip_gap_count += skip_gap
+        # Selective Refresh counter (Round 2, 2026-07-02): a chunk that had
+        # a byte-exact pool entry but was converted to dense_prefill to
+        # recover accuracy. Not in the original Phase D set — we attribute
+        # it to the global miss_count instead (it ends up dense, same as
+        # a no_pool_entry). Bump a dedicated counter for traceability.
+        self.placeholder_chunk_pool_skip_selective_refresh_count += (
+            skip_selective_refresh
+        )
         # MULTI_SLOT loss telemetry: internal-gap tokens zeroed to copy
         # non-contiguous slots beyond the first (set in _build_chunk_plan).
         # Bumped here unconditionally so it covers both the staging round

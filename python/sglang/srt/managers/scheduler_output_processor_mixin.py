@@ -118,6 +118,9 @@ class SchedulerOutputProcessorMixin:
                     "placeholder_chunk_pool_skip_size_mismatch_count",
                     "placeholder_chunk_pool_skip_alloc_failed_count",
                     "placeholder_chunk_pool_skip_gap_count",
+                    # Selective Refresh (Round 2, 2026-07-02): chunks with
+                    # byte-exact pool entry converted to dense_prefill.
+                    "placeholder_chunk_pool_skip_selective_refresh_count",
                     "placeholder_chunk_pool_rope_ops_count",
                     "placeholder_chunk_pool_total_tokens_reused",
                     "placeholder_chunk_pool_total_tokens_dense",
@@ -313,6 +316,12 @@ class SchedulerOutputProcessorMixin:
             ),
             "placeholder_chunk_pool_skip_gap_count": _dbg_chunk.get(
                 "placeholder_chunk_pool_skip_gap_count"
+            ),
+            # Selective Refresh counter (Round 2, 2026-07-02): chunks
+            # that had a byte-exact pool entry but were converted to
+            # dense_prefill by SGLANG_PRECOMPUTE_SELECTIVE_REFRESH_FRAC.
+            "placeholder_chunk_pool_skip_selective_refresh_count": _dbg_chunk.get(
+                "placeholder_chunk_pool_skip_selective_refresh_count"
             ),
             "placeholder_chunk_pool_rope_ops_count": _dbg_chunk.get(
                 "placeholder_chunk_pool_rope_ops_count"

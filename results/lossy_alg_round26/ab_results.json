@@ -1,0 +1,14 @@
+{
+  "lossy_ttft_mean": 258.412,
+  "lossless_ttft_mean": 520.4590000000001,
+  "speedup_mean": 2.014066684209712,
+  "speedup_p50": 1.8448320191978058,
+  "speedup_p90": 2.0583750441517266,
+  "lossy_unk_pct": 20.0,
+  "lossless_unk_pct": 0.0,
+  "accuracy_agreement_pct": 75.0,
+  "n_pairs": 12,
+  "lossy_codeaware_avg": 2886.5,
+  "lossy_c2_chunk_avg": 2886.5,
+  "r19_baseline": "1.29\u00d7 + 8% UNK + 80% agreement (7B-Coder \u00d7 5 agents)"
+}

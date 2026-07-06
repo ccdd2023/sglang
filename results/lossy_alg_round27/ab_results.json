@@ -1,0 +1,14 @@
+{
+  "speedup_mean": 1.8999694272097836,
+  "speedup_p50": 1.7568646002591581,
+  "speedup_p90": 2.0529816813975095,
+  "lossy_fail_acc": 0.0,
+  "lossless_fail_acc": 0.0,
+  "lossy_unk_pct": 13.333333333333334,
+  "lossless_unk_pct": 0.0,
+  "lossy_pass": 13,
+  "lossy_fail": 0,
+  "lossless_pass": 15,
+  "lossless_fail": 0,
+  "codeaware_avg": 2552.5
+}
