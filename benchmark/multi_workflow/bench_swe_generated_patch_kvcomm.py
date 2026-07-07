@@ -754,14 +754,109 @@ def make_payload(
     return payload
 
 
-def extract_unified_diff(text: str) -> str:
+def _drop_repetitive_hunks(diff: str, max_hunks_per_file: int = 4,
+                           similarity_threshold: float = 0.7) -> str:
+    """Drop hunks beyond a per-file cap and any hunk whose body is
+    >similarity_threshold identical to an earlier kept hunk in the same
+    file. Defends against model repetition failure mode (R33 — Qwen-Coder
+    emitted 11 near-identical hunks, last truncated mid-token). Default
+    params only affect degenerate patches; well-formed 1–3 hunk patches
+    are unchanged."""
+    if not diff or max_hunks_per_file <= 0:
+        return diff
+    sections = re.split(r"(?=^diff --git )", diff, flags=re.M)
+    out: list[str] = []
+    for section in sections:
+        if not section.startswith("diff --git "):
+            out.append(section)
+            continue
+        parts = re.split(r"(?=^@@ )", section, flags=re.M)
+        header_block = parts[0]
+        hunks = parts[1:]
+        if len(hunks) <= max_hunks_per_file:
+            out.append(section)
+            continue
+        kept = list(hunks[:max_hunks_per_file])
+        seen_bodies = [hunk.splitlines()[1:] for hunk in kept]
+        for hunk in hunks[max_hunks_per_file:]:
+            body = hunk.splitlines()[1:]
+            if any(
+                difflib.SequenceMatcher(None, body, prior).ratio() > similarity_threshold
+                for prior in seen_bodies
+            ):
+                continue  # drop repetitive hunk
+            kept.append(hunk)
+            seen_bodies.append(body)
+        out.append(header_block + "".join(kept))
+    return "".join(out)
+
+
+def extract_unified_diff(text: str, max_hunks_per_file: int = 4,
+                         similarity_threshold: float = 0.7) -> str:
+    """Extract a unified diff from model output, then drop repetitive hunks.
+
+    Default cap (4 hunks per file) is defensive against the R33 model
+    repetition failure mode where Qwen-Coder emitted 11 near-identical
+    hunks in one file and was truncated mid-token. Pass
+    max_hunks_per_file=0 to disable.
+    """
     fenced = re.search(r"```(?:diff|patch)?\s*(diff --git .*?)```", text, re.S)
     if fenced:
-        return fenced.group(1).strip() + "\n"
-    idx = text.find("diff --git ")
-    if idx >= 0:
-        return text[idx:].strip() + "\n"
-    return ""
+        raw = fenced.group(1).strip() + "\n"
+    else:
+        idx = text.find("diff --git ")
+        if idx < 0:
+            return ""
+        raw = text[idx:].strip() + "\n"
+    return _drop_repetitive_hunks(raw, max_hunks_per_file, similarity_threshold)
+
+
+FIRST_HUNK_RE = re.compile(
+    r"^diff --git a/(?P<path>[^\s]+) b/(?P<path2>[^\s]+)\n"
+    r"---[^\n]*\n\+\+\+[^\n]*\n"
+    r"@@ -(?P<old_start>\d+)[^\n]*\n"
+    r"(?:[^\n]*\n){0,5}",
+    re.M,
+)
+
+
+def first_hunk_summary(diff_text: str) -> dict:
+    """Extract first hunk metadata: target file and old-start line.
+
+    Returns {"extracted": False} when the diff is empty or unparseable.
+    """
+    if not diff_text:
+        return {"extracted": False}
+    m = FIRST_HUNK_RE.search(diff_text)
+    if not m:
+        return {"extracted": False}
+    return {
+        "extracted": True,
+        "target_path": m.group("path"),
+        "old_start_line": int(m.group("old_start")),
+    }
+
+
+def first_hunk_vs_gold(model_patch: str, gold_patch: str) -> dict:
+    """Weak correctness signal — does model's first hunk target gold's file/line?
+
+    Useful as a coarse signal when apply_check cannot run (env broken).
+    A True file_match means the model understood the issue domain even if
+    it picked the wrong sub-routine.
+    """
+    m = first_hunk_summary(model_patch)
+    g = first_hunk_summary(gold_patch)
+    if not (m["extracted"] and g["extracted"]):
+        return {"comparable": False}
+    return {
+        "comparable": True,
+        "model_path": m["target_path"],
+        "gold_path": g["target_path"],
+        "file_match": m["target_path"] == g["target_path"],
+        "model_line": m["old_start_line"],
+        "gold_line": g["old_start_line"],
+        "line_delta_abs": abs(m["old_start_line"] - g["old_start_line"]),
+    }
 
 
 def extract_json_object(text: str) -> str:
@@ -1012,7 +1107,8 @@ async def run_benchmark(args: argparse.Namespace):
                         if args.output_schema == "json-edit":
                             diff, synthesis = synthesize_patch_from_json_edits(instance_id, output)
                         else:
-                            diff = extract_unified_diff(output)
+                            diff = extract_unified_diff(output, args.max_hunks_per_file,
+                                                        args.hunk_similarity_threshold)
                             synthesis = {"ok": bool(diff.strip()), "error": "" if diff.strip() else "no diff extracted", "edits": None}
                         raw_path.write_text(output, encoding="utf-8")
                         patch_path.write_text(diff, encoding="utf-8")
@@ -1062,7 +1158,8 @@ async def run_benchmark(args: argparse.Namespace):
                             if args.output_schema == "json-edit":
                                 repair_diff, repair_synthesis = synthesize_patch_from_json_edits(instance_id, repair_output)
                             else:
-                                repair_diff = extract_unified_diff(repair_output)
+                                repair_diff = extract_unified_diff(repair_output, args.max_hunks_per_file,
+                                                                   args.hunk_similarity_threshold)
                                 repair_synthesis = {
                                     "ok": bool(repair_diff.strip()),
                                     "error": "" if repair_diff.strip() else "no diff extracted",
@@ -1114,6 +1211,11 @@ async def run_benchmark(args: argparse.Namespace):
                                     "stdout_tail": "",
                                     "stderr_tail": "not evaluated yet",
                                 },
+                                **(
+                                    {"first_hunk_vs_gold": first_hunk_vs_gold(diff, instance.get("patch", ""))}
+                                    if args.emit_first_hunk_vs_gold
+                                    else {}
+                                ),
                             }
                         )
                     except Exception as exc:
@@ -1292,6 +1394,16 @@ def parse_args() -> argparse.Namespace:
                         help="Optional per-bundle char cap before mapping graph bundles to prompt-resident anchors. 0 disables truncation.")
     parser.add_argument("--emit-ttft", action="store_true",
                         help="Use streaming post_chat_stream and record per-mode ttft_ms in the result rows.")
+    parser.add_argument("--max-hunks-per-file", type=int, default=4,
+                        help="Per-file hunk cap passed to extract_unified_diff for defensive "
+                             "truncation of model repetition (R33 Qwen-Coder 11-hunk bug). "
+                             "Set to 0 to disable.")
+    parser.add_argument("--hunk-similarity-threshold", type=float, default=0.7,
+                        help="Hunks with body diff ratio > threshold vs an earlier kept hunk "
+                             "in the same file are dropped as repetitive.")
+    parser.add_argument("--emit-first-hunk-vs-gold", action="store_true",
+                        help="Record first_hunk_vs_gold() per mode per instance in summary.json. "
+                             "Weak signal — does model's first hunk target the gold file/line?")
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
     return parser.parse_args()
 
