@@ -1,0 +1,14 @@
+diff --git a/django/core/validators.py b/django/core/validators.py
+--- a/django/core/validators.py
++++ b/django/core/validators.py
+@@ -100,6 +100,10 @@ class URLValidator(RegexValidator):
+         if scheme not in self.schemes:
+             raise ValidationError(self.message, code=self.code)
+ 
++        # Check for invalid characters in the username and password
++        if '@' in value and not all(c in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~:/?#@[\\]^`{|}=' for c in value.split('@')[0]):
++            raise ValidationError(self.message, code=self.code)
++
+         # Then check full URL
+         try:
+             super().__call__(value)

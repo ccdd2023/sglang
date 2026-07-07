@@ -1,0 +1,13 @@
+diff --git a/lib/matplotlib/axes/_axes.py b/lib/matplotlib/axes/_axes.py
+--- a/lib/matplotlib/axes/_axes.py
++++ b/lib/matplotlib/axes/_axes.py
+@@ -1234,7 +1234,7 @@ def _make_inset_locator(bounds, trans, parent):
+     return inset_locator
+
+
+class Axes(_AxesBase):
+-    """
++    """
+     The `Axes` contains most of the figure elements: `~.axis.Axis`,
+     `~.axis.Tick`, `~.lines.Line2D`, `~.text.Text`, `~.patches.Polygon`, etc.,
+     and sets the coordinate system.

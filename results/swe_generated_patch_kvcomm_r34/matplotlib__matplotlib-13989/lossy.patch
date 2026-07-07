@@ -1,0 +1,12 @@
+diff --git a/lib/matplotlib/axes/_axes.py b/lib/matplotlib/axes/_axes.py
+--- a/lib/matplotlib/axes/_axes.py
++++ b/lib/matplotlib/axes/_axes.py
+@@ -1000,7 +1000,7 @@ def hist(self, x, bins='auto', range=None, density=False, weights=None, cumulative
+         if range is not None:
+             x = np.clip(x, range[0], range[1])
+ 
+-        if density:
++        if density and not cumulative:
+             x = x / np.diff(range)
+ 
+         return self._hist(x, bins, weights, cumulative, bottom, align, rwidth, log, orientation, density, **kwargs)
