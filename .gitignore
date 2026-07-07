@@ -292,5 +292,6 @@ results/codebase_kv/
 # Session run stdout/stderr logs (regenerate by re-running launchers).
 # Keep COMPARISON.md / analyze_ab.py / launchers/*.sh tracked.
 results/**/*.stdout
+results/**/*.log
 results/**/precompute*.log
 results/kvcomm_ab/*.stdout

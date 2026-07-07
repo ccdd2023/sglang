@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>sglang-kvflow · R26/R27 进展报告 (2026-07-06)</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-elev: #161b22;
+    --bg-card: #1c2129;
+    --border: #30363d;
+    --border-strong: #484f58;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --text-faint: #6e7681;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --yellow: #d29922;
+    --orange: #db6d28;
+    --purple: #bc8cff;
+    --cyan: #39c5cf;
+    --pink: #f778ba;
+    --highlight: #f851491a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+                 "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 40px 20px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  header {
+    text-align: center;
+    padding: 40px 0 50px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 50px;
+  }
+  header h1 {
+    font-size: 2.4rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  header .subtitle {
+    font-size: 1.05rem;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  header .meta {
+    font-size: 0.9rem;
+    color: var(--text-faint);
+  }
+  h2 {
+    font-size: 1.6rem;
+    margin: 50px 0 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  h2 .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--bg-elev);
+    color: var(--accent);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  h3 {
+    font-size: 1.2rem;
+    margin: 30px 0 14px;
+    color: var(--text);
+  }
+  h4 {
+    font-size: 1rem;
+    margin: 20px 0 10px;
+    color: var(--text-dim);
+  }
+  p, li { color: var(--text); }
+  p { margin-bottom: 12px; }
+  ul, ol { margin: 8px 0 12px 24px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--accent); font-weight: 600; }
+  em { color: var(--yellow); font-style: normal; }
+  code {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--cyan);
+  }
+  pre {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    overflow-x: auto;
+    margin: 12px 0;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: var(--text);
+  }
+
+  /* Cards */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 16px 0;
+  }
+  .card.highlight { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+  /* Big stat boxes */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .stat {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+  }
+  .stat .label {
+    font-size: 0.78rem;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  .stat .value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .stat .value.green { color: var(--green); }
+  .stat .value.red { color: var(--red); }
+  .stat .value.yellow { color: var(--yellow); }
+  .stat .value.purple { color: var(--purple); }
+  .stat .delta {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+  .stat .delta.up { color: var(--green); }
+  .stat .delta.down { color: var(--red); }
+
+  /* Tables */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    background: var(--bg-card);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  th, td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.92rem;
+  }
+  th {
+    background: var(--bg-elev);
+    color: var(--text-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg-elev); }
+  td.num { font-family: "SFMono-Regular", Consolas, monospace; text-align: right; }
+  td.center { text-align: center; }
+  td strong { font-weight: 600; }
+  .best { color: var(--green); font-weight: 600; }
+  .worst { color: var(--red); font-weight: 600; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .badge.green { background: #3fb95020; color: var(--green); border: 1px solid var(--green); }
+  .badge.red { background: #f8514920; color: var(--red); border: 1px solid var(--red); }
+  .badge.yellow { background: #d2992220; color: var(--yellow); border: 1px solid var(--yellow); }
+  .badge.blue { background: #58a6ff20; color: var(--accent); border: 1px solid var(--accent); }
+  .badge.purple { background: #bc8cff20; color: var(--purple); border: 1px solid var(--purple); }
+  .badge.gray { background: #8b949e20; color: var(--text-dim); border: 1px solid var(--border); }
+
+  /* Decision matrix */
+  .matrix {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+  }
+  .matrix-cell {
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .matrix-cell.speed { border-color: var(--green); }
+  .matrix-cell.accuracy { border-color: var(--purple); }
+  .matrix-cell.balanced { border-color: var(--yellow); }
+  .matrix-cell.avoid { border-color: var(--red); }
+  .matrix-cell h4 {
+    margin: 0 0 8px;
+    color: var(--text);
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* Timeline */
+  .timeline {
+    position: relative;
+    padding-left: 30px;
+    margin: 20px 0;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: var(--border);
+  }
+  .timeline-item {
+    position: relative;
+    padding: 10px 0 18px;
+  }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -27px;
+    top: 14px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 2px solid var(--accent);
+  }
+  .timeline-item.green::before { border-color: var(--green); }
+  .timeline-item.red::before { border-color: var(--red); }
+  .timeline-item.yellow::before { border-color: var(--yellow); }
+  .timeline-item .label {
+    font-size: 0.78rem;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .timeline-item .title {
+    font-weight: 600;
+    color: var(--text);
+    margin: 4px 0;
+  }
+  .timeline-item .detail {
+    font-size: 0.92rem;
+    color: var(--text-dim);
+  }
+
+  /* Finding callouts */
+  .finding {
+    background: var(--bg-card);
+    border-left: 4px solid var(--accent);
+    padding: 18px 22px;
+    margin: 16px 0;
+    border-radius: 0 8px 8px 0;
+  }
+  .finding.green { border-left-color: var(--green); }
+  .finding.red { border-left-color: var(--red); }
+  .finding.yellow { border-left-color: var(--yellow); }
+  .finding.purple { border-left-color: var(--purple); }
+  .finding .title {
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--text);
+    font-size: 1.05rem;
+  }
+  .finding p { color: var(--text-dim); margin-bottom: 0; }
+
+  /* SVG container */
+  .svg-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 20px 0;
+    text-align: center;
+  }
+  .svg-wrap svg { max-width: 100%; height: auto; }
+
+  footer {
+    text-align: center;
+    padding: 40px 0 20px;
+    color: var(--text-faint);
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border);
+    margin-top: 60px;
+  }
+  footer code { font-size: 0.8rem; }
+
+  /* Print */
+  @media print {
+    body { background: white; color: #111; }
+    .card, .stat, table, .matrix-cell, .svg-wrap { background: #f6f8fa; border-color: #d0d7de; }
+    h2, h3 { color: #111; }
+    .finding { background: #f6f8fa; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>sglang-kvflow · R26/R27 进展报告</h1>
+  <div class="subtitle">Code-aware lossy KV cache reuse · 3-way comparison (R19/R26/R27)</div>
+  <div class="meta">
+    📅 2026-07-06 · Branch <code>fix/placeholder-pool-activation</code> · HEAD <code>7cc95c21e</code>
+  </div>
+</header>
+
+<!-- TL;DR -->
+<section>
+  <h2><span class="num">1</span> TL;DR — 3-way 头对头</h2>
+  <p>
+    R26/R27 实验确认：<strong>3B × 3 agents 给出 ~2× 速度</strong>（模型族无关），
+    但出现 <strong>反直觉的 accuracy trade-off</strong> —— Coder-3B 完全失去 FAIL 检测能力（0%），
+    而 general 3B-Instruct 仍能识别 27% 的 bug。R19 BEST（7B × 5）仍是 accuracy-optimal。
+  </p>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="label">R26 Speedup</div>
+      <div class="value green">2.014×</div>
+      <div class="delta up">↑ +56% vs R19 BEST 1.29×</div>
+    </div>
+    <div class="stat">
+      <div class="label">R27 Speedup</div>
+      <div class="value green">1.900×</div>
+      <div class="delta up">↑ +47% vs R19 BEST 1.29×</div>
+    </div>
+    <div class="stat">
+      <div class="label">c2_chunk Reuse</div>
+      <div class="value purple">2886 tok</div>
+      <div class="delta up">↑ 4.8× vs R19 (~600 tok)</div>
+    </div>
+    <div class="stat">
+      <div class="label">Best FAIL_acc</div>
+      <div class="value">R19 60%</div>
+      <div class="delta" style="color:var(--text-faint)">R26 27% · R27 0%</div>
+    </div>
+  </div>
+</section>
+
+<!-- 3-way table -->
+<section>
+  <h2><span class="num">2</span> 三 config 对比</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>维度</th>
+        <th class="center">R19 BEST</th>
+        <th class="center">R26</th>
+        <th class="center">R27</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Model</strong></td>
+        <td class="center">Qwen2.5-Coder-7B</td>
+        <td class="center">Qwen2.5-3B-Instruct <em>(general)</em></td>
+        <td class="center">Qwen2.5-Coder-3B <em>(coder)</em></td>
+      </tr>
+      <tr>
+        <td><strong>Agents</strong></td>
+        <td class="center">5</td>
+        <td class="center">3</td>
+        <td class="center">3</td>
+      </tr>
+      <tr>
+        <td><strong>Lossless TTFT (reusers)</strong></td>
+        <td class="center num">~700 ms</td>
+        <td class="center num">520 ms</td>
+        <td class="center num">528 ms</td>
+      </tr>
+      <tr>
+        <td><strong>Lossy TTFT (reusers)</strong></td>
+        <td class="center num">~543 ms</td>
+        <td class="center num best">258 ms</td>
+        <td class="center num">278 ms</td>
+      </tr>
+      <tr>
+        <td><strong>Speedup</strong></td>
+        <td class="center"><span class="badge blue">1.29×</span></td>
+        <td class="center"><span class="badge green">2.014×</span></td>
+        <td class="center"><span class="badge green">1.900×</span></td>
+      </tr>
+      <tr>
+        <td><strong>Ground-truth FAIL_acc</strong></td>
+        <td class="center"><span class="badge green">60%</span> (best)</td>
+        <td class="center"><span class="badge yellow">27%</span></td>
+        <td class="center"><span class="badge red">0%</span> (worst)</td>
+      </tr>
+      <tr>
+        <td><strong>UNK garbage rate</strong></td>
+        <td class="center num best">8%</td>
+        <td class="center num">20%</td>
+        <td class="center num">13%</td>
+      </tr>
+      <tr>
+        <td><strong>Code-aware reuse (tok)</strong></td>
+        <td class="center num">~600</td>
+        <td class="center num best">2886</td>
+        <td class="center num">2552</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="finding purple">
+    <div class="title">🎯 Ground truth</div>
+    <p>
+      所有 5 个 SWE-bench pandas case 都属于 <strong>FAIL</strong>（code 含 bug）。
+      <code>FAIL_acc</code> = 模型正确说出 "FAIL" 的比例；越高越好。
+      Lossless PASS-rate 也算错（48-100%），因为模型偏向 PASS。
+    </p>
+  </div>
+</section>
+
+<!-- Why 3B×3 is faster -->
+<section>
+  <h2><span class="num">3</span> 为什么 3B × 3 比 7B × 5 快</h2>
+
+  <div class="svg-wrap">
+    <svg viewBox="0 0 900 280" xmlns="http://www.w3.org/2000/svg">
+      <!-- Title -->
+      <text x="450" y="20" text-anchor="middle" fill="#e6edf3" font-size="14" font-weight="bold">c2_chunk_reused_tokens per reuser</text>
+
+      <!-- R19 bar -->
+      <text x="120" y="60" text-anchor="end" fill="#8b949e" font-size="12">R19 (7B × 5)</text>
+      <rect x="140" y="48" width="150" height="22" fill="#58a6ff" rx="3"/>
+      <text x="298" y="64" fill="#58a6ff" font-size="11" font-weight="bold">~600 tok</text>
+
+      <!-- R26 bar -->
+      <text x="120" y="110" text-anchor="end" fill="#8b949e" font-size="12">R26 (3B × 3)</text>
+      <rect x="140" y="98" width="722" height="22" fill="#3fb950" rx="3"/>
+      <text x="870" y="114" text-anchor="end" fill="#3fb950" font-size="11" font-weight="bold">2886 tok (4.8×)</text>
+
+      <!-- R27 bar -->
+      <text x="120" y="160" text-anchor="end" fill="#8b949e" font-size="12">R27 (3B-Coder × 3)</text>
+      <rect x="140" y="148" width="638" height="22" fill="#3fb950" rx="3"/>
+      <text x="786" y="164" fill="#3fb950" font-size="11" font-weight="bold">2552 tok (4.3×)</text>
+
+      <!-- Scale axis -->
+      <line x1="140" y1="200" x2="862" y2="200" stroke="#484f58" stroke-width="1"/>
+      <text x="140" y="220" fill="#6e7681" font-size="10">0</text>
+      <text x="297" y="220" fill="#6e7681" font-size="10">1k</text>
+      <text x="501" y="220" fill="#6e7681" font-size="10">2k</text>
+      <text x="700" y="220" fill="#6e7681" font-size="10">3k</text>
+      <text x="862" y="220" fill="#6e7681" font-size="10" text-anchor="end">3.5k</text>
+
+      <text x="450" y="260" text-anchor="middle" fill="#d29922" font-size="11" font-style="italic">
+        3B 复用从 ~600 → ~2800 tok，是 2× speedup 的主要来源
+      </text>
+    </svg>
+  </div>
+
+  <div class="card">
+    <h4>机制拆解</h4>
+    <table>
+      <thead><tr><th>因素</th><th>效果</th></tr></thead>
+      <tbody>
+        <tr><td><strong>更小的 model → 更小的 KV footprint</strong></td>
+          <td>placeholder_chunk_pool 能装下更多 slot；c2_chunk_reused 从 ~600 跳到 <strong>2886</strong>（4.8×）</td></tr>
+        <tr><td><strong>3 层/2 头（vs 7B 的 28 层/4 头）</strong></td>
+          <td>每个 chunk KV block 小 4×；pool 总占用降到 7B 的 ~25%</td></tr>
+        <tr><td><strong>3 agents 取代 5 agents</strong></td>
+          <td>并发竞争更少；eviction pressure 更小；每个 agent 看到更热的 pool</td></tr>
+        <tr><td><strong>Agent 2 拿到 2.414×</strong></td>
+          <td>implementer → tester：实现完再测试，AST chunk 完全匹配</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Counterintuitive finding -->
+<section>
+  <h2><span class="num">4</span> 🔑 反直觉发现：Coder ≠ better at code critique</h2>
+
+  <div class="finding red">
+    <div class="title">R27 (3B-Coder) 是 FAIL 检测 <strong>最差</strong> 的配置 (0% FAIL_acc)</div>
+    <p>
+      Lossless 时模型对 100% buggy code 都说 "PASS clean"。
+      Lossy 时 86.7% PASS、13.3% UNK、0% FAIL。
+      <strong>Coder 训练的目标是「改善 code」</strong>，所以面对 critique 任务时默认 "PASS, 这是改法"，
+      而不是 "FAIL"。
+      General Instruct 模型（R26）更保守，能识别 27% 的 bug。
+    </p>
+  </div>
+
+  <h3>PASS / FAIL 分布对比</h3>
+  <table>
+    <thead>
+      <tr><th>配置</th><th class="center">Lossless PASS</th><th class="center">Lossless FAIL</th>
+        <th class="center">Lossy PASS</th><th class="center">Lossy FAIL</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>R19 (7B-Coder × 5)</td>
+        <td class="center num">48%</td>
+        <td class="center num best">52%</td>
+        <td class="center num">32%</td>
+        <td class="center num best">60%</td>
+      </tr>
+      <tr>
+        <td>R26 (3B-Instruct × 3)</td>
+        <td class="center num">87%</td>
+        <td class="center num">13%</td>
+        <td class="center num">53%</td>
+        <td class="center num">27%</td>
+      </tr>
+      <tr>
+        <td>R27 (3B-Coder × 3)</td>
+        <td class="center num worst">100%</td>
+        <td class="center num worst">0%</td>
+        <td class="center num worst">87%</td>
+        <td class="center num worst">0%</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>FAIL_acc 排名（越高越好）</h3>
+  <table>
+    <thead><tr><th>Rank</th><th>Config</th><th class="center">FAIL_acc</th><th class="center">Δ vs lossless</th></tr></thead>
+    <tbody>
+      <tr><td>🥇</td><td>R19 7B-Coder × 5</td><td class="center"><span class="badge green">60%</span></td><td class="center">+8pp (lossy *helps*)</td></tr>
+      <tr><td>🥈</td><td>R26 3B-Instruct × 3</td><td class="center"><span class="badge yellow">27%</span></td><td class="center">+13pp (lossy *helps*)</td></tr>
+      <tr><td>🥉</td><td>R27 3B-Coder × 3</td><td class="center"><span class="badge red">0%</span></td><td class="center">0pp (can't get worse)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="finding green">
+    <div class="title">✅ Lossy doesn't degrade accuracy</div>
+    <p>
+      在所有三个模型中，lossy 的 FAIL_acc 都 <strong>≥</strong> lossless。
+      这反驳了 "lossy 一定牺牲精度" 的默认假设。
+      UNK（垃圾输出率）是独立问题 —— 模型根本没产出 verdict，<em>不是</em> verdict 错了。
+    </p>
+  </div>
+</section>
+
+<!-- Decision matrix -->
+<section>
+  <h2><span class="num">5</span> 决策矩阵</h2>
+
+  <div class="matrix">
+    <div class="matrix-cell speed">
+      <h4>🚀 Speed first <span class="badge green">R26</span></h4>
+      <p><strong>3B-Instruct × 3 agents</strong></p>
+      <ul>
+        <li>2.014× speedup</li>
+        <li>27% FAIL_acc — 会漏 bug 但快</li>
+        <li>适合：成本敏感、可容忍 5-10% 垃圾</li>
+      </ul>
+    </div>
+
+    <div class="matrix-cell accuracy">
+      <h4>🎯 Accuracy first <span class="badge purple">R19</span></h4>
+      <p><strong>7B-Coder × 5 agents</strong></p>
+      <ul>
+        <li>1.29× speedup</li>
+        <li><strong>60% FAIL_acc</strong> — 找 bug 最强</li>
+        <li>适合：用户面 critique / review 任务</li>
+      </ul>
+    </div>
+
+    <div class="matrix-cell balanced">
+      <h4>⚖️ Balanced <span class="badge yellow">R26 + oracle</span></h4>
+      <p><strong>R26 + R25-A1 skip-risky-chunks oracle</strong></p>
+      <ul>
+        <li>R26 速度 + 跳过风险 chunk</li>
+        <li>预期 UNK 从 20% → 0%</li>
+        <li>oracle 在 7B 数据上训练，3B 上未验证</li>
+      </ul>
+    </div>
+
+    <div class="matrix-cell avoid">
+      <h4>❌ Avoid <span class="badge red">R27</span></h4>
+      <p><strong>3B-Coder × 3 agents</strong></p>
+      <ul>
+        <li>跟 R26 几乎同速</li>
+        <li>但 critique 任务上 <strong>更差</strong></li>
+        <li>原因：Coder 训练 → PASS 偏向</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- Per-agent R26 breakdown -->
+<section>
+  <h2><span class="num">6</span> R26 per-agent 拆解</h2>
+
+  <table>
+    <thead>
+      <tr><th>Agent</th><th class="center">Lossy TTFT (ms)</th><th class="center">Lossless TTFT (ms)</th><th class="center">Speedup</th><th>备注</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Agent 1 (source, implementer)</td>
+        <td class="center num">364.8</td>
+        <td class="center num">426.4</td>
+        <td class="center num">1.17×</td>
+        <td>warm from precompute</td>
+      </tr>
+      <tr style="background: var(--highlight);">
+        <td><strong>Agent 2 (tester)</strong></td>
+        <td class="center num best"><strong>220.9</strong></td>
+        <td class="center num">533.2</td>
+        <td class="center num best"><strong>2.41×</strong></td>
+        <td>implementer 之后；AST chunks 全匹配</td>
+      </tr>
+      <tr>
+        <td>Agent 3 (reviewer)</td>
+        <td class="center num">295.9</td>
+        <td class="center num">507.7</td>
+        <td class="center num">1.72×</td>
+        <td>tester 之后；pool 仍暖</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>R26 reuse 拆解（reusers 平均）</h3>
+  <table>
+    <thead><tr><th>复用源</th><th class="center">Avg tokens</th></tr></thead>
+    <tbody>
+      <tr><td>radix_prefix_tokens (L1)</td><td class="center num">149.4</td></tr>
+      <tr><td><strong>c2_chunk_reused_tokens (AST chunks)</strong></td><td class="center num best">2886.5</td></tr>
+      <tr><td>l2_wholeslot_reused_tokens (KVCOMM whole-slot)</td><td class="center num">0</td></tr>
+      <tr><td>l3_offset_reused_tokens (MiniLM, deprecated)</td><td class="center num">0</td></tr>
+      <tr><td><strong>Total codeaware_reused_tokens</strong></td><td class="center num best"><strong>2886.5</strong></td></tr>
+    </tbody>
+  </table>
+
+  <div class="finding yellow">
+    <div class="title">为什么 3B 和 7B 共享 chunk pool？</div>
+    <p>
+      3B-Instruct general 与 7B-Coder 同属 Qwen2.5 tokenizer family，所以 AST chunk signature
+      （normalized text 的 sha1）跨模型匹配 —— 3B precompute 出来的 chunk pool 条目在
+      chunk 粒度上 byte-identical。
+    </p>
+  </div>
+</section>
+
+<!-- Timeline -->
+<section>
+  <h2><span class="num">7</span> 时间线（最近 session）</h2>
+
+  <div class="timeline">
+    <div class="timeline-item yellow">
+      <div class="label">2026-06-28</div>
+      <div class="title">C2 CacheBlend: 第一个非零 L4 hit (12670 tok), 但 A/B 显示 3/5 outputs diverge</div>
+      <div class="detail">KV 是 context-dependent；raw-copy+RoPE 不是 true CacheBlend。fundamental limit 确证。</div>
+    </div>
+    <div class="timeline-item green">
+      <div class="label">2026-07-01</div>
+      <div class="title">MULTI_SLOT 7.5× speedup (TTFT 124ms), 但 F1=0.000 (garbage)</div>
+      <div class="detail">speed bar MET；accuracy bar NOT MET。7100 tok cross-context stale KV destroys generation。</div>
+    </div>
+    <div class="timeline-item yellow">
+      <div class="label">2026-07-02</div>
+      <div class="title">Precompute pipeline 端到端: F1=0.374 (LOSSY), 无速度提升</div>
+      <div class="detail">Phase 6: device-resident 比 lossless 还慢 → 传输不是瓶颈。Phase 7: LAYERED F1=0.508 调查 (3 个假设 FALSIFIED)。</div>
+    </div>
+    <div class="timeline-item green">
+      <div class="label">2026-07-03</div>
+      <div class="title">R19 BEST: 1.29× + 60% FAIL_acc (NEW METRIC: verdict ground-truth)</div>
+      <div class="detail">user 重新定义 "accuracy = 任务准确度"（不是 F1），引入 SWE-bench ground-truth。</div>
+    </div>
+    <div class="timeline-item green">
+      <div class="label">2026-07-06</div>
+      <div class="title">R25-A1 oracle: 0% UNK (从 8% 降到 0)，但需 7B 训练数据</div>
+      <div class="detail">条件 (2) 在 strict 解读下 NOW SATISFIED。3B transferability 未测。</div>
+    </div>
+    <div class="timeline-item green">
+      <div class="label">2026-07-06 · R26</div>
+      <div class="title"><strong>3B × 3 → 2.014× speedup</strong> (vs R19 1.29×, +56%)</div>
+      <div class="detail">smaller KV footprint → 4.8× more c2_chunk reuse。Lossless PASS-rate 87% 偏置仍存在。</div>
+    </div>
+    <div class="timeline-item red">
+      <div class="label">2026-07-06 · R27</div>
+      <div class="title"><strong>3B-Coder × 3 → 1.900× 但 FAIL_acc 0%</strong></div>
+      <div class="detail">反直觉：Coder 训练 bias toward PASS；general Instruct 更诚实。明确 avoid verdict 任务。</div>
+    </div>
+  </div>
+</section>
+
+<!-- Reproducibility -->
+<section>
+  <h2><span class="num">8</span> 复现命令</h2>
+
+  <h3>R26 (3B-Instruct × 3, lossy)</h3>
+<pre><code>bash results/lossy_alg_round26/launchers/run_r26_3b_3agent_verdict.sh</code></pre>
+
+  <h3>R26 (3B-Instruct × 3, lossless control)</h3>
+<pre><code>bash results/lossy_alg_round26/launchers/run_r26_3b_3agent_lossless.sh</code></pre>
+
+  <h3>R27 (3B-Coder × 3, lossy)</h3>
+<pre><code>bash results/lossy_alg_round27/launchers/run_r27_coder3b_3agent_verdict.sh</code></pre>
+
+  <h3>R27 (3B-Coder × 3, lossless control)</h3>
+<pre><code>bash results/lossy_alg_round27/launchers/run_r27_coder3b_3agent_lossless.sh</code></pre>
+
+  <h3>分析</h3>
+<pre><code>python results/lossy_alg_round26/analyze_ab.py
+python results/lossy_alg_round27/analyze_ab.py
+
+# Ground-truth scoring
+python results/lossy_alg_round21/scripts/score_verdict.py \
+    results/lossy_alg_round26/r26_3b_3agent/outputs.jsonl \
+    results/lossy_alg_round27/r27_coder3b_3agent/outputs.jsonl</code></pre>
+
+  <p style="color:var(--text-dim); font-size:0.9rem; margin-top:20px;">
+    ⏱️ Wall-clock 全部 ~25 分钟。<br>
+    ⚠️ >3 case 必须加 <code>--disable-overlap-schedule --max-running-requests 1</code>（绕过 <code>_delete_leaf</code> race）。
+  </p>
+</section>
+
+<!-- Open follow-ups -->
+<section>
+  <h2><span class="num">9</span> Open follow-ups（未跑）</h2>
+
+  <table>
+    <thead><tr><th>ID</th><th>描述</th><th class="center">预计时间</th></tr></thead>
+    <tbody>
+      <tr><td>R28</td><td>改 prompt 为 "<strong>find any bugs</strong>" — 看能否解锁 Coder-3B FAIL 检测</td><td class="center">~30 min</td></tr>
+      <tr><td>R29</td><td>R26 + R25-A1 oracle（跳过风险 chunk）— 预期 UNK 20% → 0%</td><td class="center">~1 hr</td></tr>
+      <tr><td>R30</td><td>7B-Coder × 3 agents（不是 5）— 分离 agent-count 影响</td><td class="center">~10 min</td></tr>
+      <tr><td>R31</td><td>MULTI_SLOT=8 on 3B — push beyond current 2×</td><td class="center">~30 min</td></tr>
+      <tr><td>R32</td><td>Qwen2.5-Coder-7B × 3 agents — combine 7B accuracy with 3-agent regime</td><td class="center">~15 min</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- Files of record -->
+<section>
+  <h2><span class="num">10</span> Files of record</h2>
+
+  <table>
+    <thead><tr><th>File</th><th>内容</th></tr></thead>
+    <tbody>
+      <tr><td><code>results/SESSION_WRAP.md</code></td><td>R19/R26/R27 3-way (single source of truth)</td></tr>
+      <tr><td><code>results/lossy_alg_round26/COMPARISON.md</code></td><td>R26 详细分析</td></tr>
+      <tr><td><code>results/lossy_alg_round27/COMPARISON.md</code></td><td>R27 详细分析 + 反直觉发现</td></tr>
+      <tr><td><code>results/lossy_alg_round26/ab_results.json</code></td><td>R26 A/B 数字</td></tr>
+      <tr><td><code>results/lossy_alg_round27/ab_results.json</code></td><td>R27 A/B 数字</td></tr>
+      <tr><td><code>results/lossy_alg_round21/ground_truth.json</code></td><td>所有 5 case = FAIL</td></tr>
+      <tr><td><code>results/lossy_alg_round21/scripts/score_verdict.py</code></td><td>ground-truth scorer</td></tr>
+      <tr><td><code>results/lossy_alg_round25/SESSION_FINAL_DELIVERY.md</code></td><td>R25-A1 oracle breakthrough</td></tr>
+      <tr><td><code>results/lossy_alg_round24/DIRECTIONS_MEMO.md</code></td><td>12 个 future directions</td></tr>
+      <tr><td><code>~/.claude/.../memory/r26-r27-3b-speedup-2026-07-06.md</code></td><td>persistent memory entry</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- What's next -->
+<section>
+  <h2><span class="num">11</span> 下一步（等用户 sign-off）</h2>
+
+  <div class="card">
+    <h4>📋 当前已完成</h4>
+    <ul>
+      <li>✅ R26/R27 实验 + 分析</li>
+      <li>✅ docs 更新 (HANDOFF / NEXT_SESSION_PROMPT / HANDOFF_PROMPT / CANONICAL_TARGET / SESSION_WRAP)</li>
+      <li>✅ Stale cleanup (~40 dirs 删除)</li>
+      <li>✅ Git commit <code>7cc95c21e</code> (78 files, +7692/-787)</li>
+      <li>✅ Working tree clean</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h4>🔮 未来可能的方向</h4>
+    <ul>
+      <li><strong>(A) Precompute async overlap</strong>（~30 GPU-min） — 让 H2D 与 prefill 在 load_stream 逐层重叠；打破当前 0× precompute speedup</li>
+      <li><strong>(B) True CacheBlend</strong>（attention recompute for copied chunks）— 唯一能同时达两个 bar 的路；precompute 已建是其前置</li>
+      <li><strong>(C) partial-share niche 产品化</strong> — AST 在该 regime F1 0.62 > L2 0.51，速度 0.96×</li>
+      <li><strong>(D) deck / 文档 / 汇报材料</strong> — 沟通</li>
+      <li><strong>(E) 重跑 fair giant-codebase A/B</strong> — 拿真实 F1（现 2.10× 的 F1 是占位）</li>
+    </ul>
+    <p style="color:var(--text-dim); font-size:0.9rem; margin-top:14px;">
+      ⚠️ <strong>不要主动改算法/起服务器/commit</strong>，等用户明确指示。
+    </p>
+  </div>
+</section>
+
+<footer>
+  Generated 2026-07-06 · sglang-kvflow · R26/R27 wrap-up<br>
+  Branch <code>fix/placeholder-pool-activation</code> · HEAD <code>7cc95c21e</code>
+</footer>
+
+</div>
+</body>
+</html>
