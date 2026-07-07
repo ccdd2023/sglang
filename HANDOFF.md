@@ -88,169 +88,22 @@ not a real speedup). Both bars remain unmet by a fundamental limit:
 raw-copy+RoPE under different prefix is inherently lossy, and precompute
 read-path overhead cancels reuse savings at 7B scale.
 
-## 🎯 18 轮穷尽实验最终结果 (2026-07-03, R17 BEST FINAL)
+## 🎯 Algorithm history (collapsed — superseded)
 
-**R17 BEST — R10 BEST + Prompt Alignment**
-- 把 canonical preamble 从 system message 移到 user body 开头
-- 让 prefix before code chunks 完全匹配 precompute preamble context
-- TTFT p50: **507ms** vs lossless 948ms = **1.87× speedup** ✓
-- F1 vs aligned lossless (FAIR): **0.549** (preserves 54.9% accuracy) △
-- code reuse: 1809 tok avg
-- 这是 18 轮算法实验中**穷尽 Pareto 最优点**
+R10 / R17 / R18 were 18-round Pareto sweeps that landed on R10 (1.86×/F1=0.515)
+and R17 (1.87×/F1=0.549) as interim optima. That regime was **retired 2026-07-03
+under the verdict-task reframe** (memory `r21-verdict-accuracy`). The current
+algorithmic ceilings are:
 
-**关键改进路径**:
-- R10 (Direction A v3 + MULTI_SLOT + FRAC=0.25): F1=0.515
-- **R17 (+ prompt alignment)**: F1=**0.549** (+0.034 vs R10)
-- R18 (R17 + per-role implementer): F1=0.533 (per-role 与 R17 不能叠加)
+| Config | speedup | F1 / accuracy | Use for | Source |
+|---|---|---|---|---|
+| **R19 BEST** (7B-Coder × 5) | **1.29×** | **80% accuracy agreement, 8% garbage** | Accuracy-first | `results/lossy_alg_round21/FINAL_REPORT.md` |
+| R26 (3B-Instruct × 3) | **2.014×** | 27% FAIL_acc | Speed-first | `results/lossy_alg_round26/COMPARISON.md` |
+| R27 (3B-Coder × 3) | 1.900× | **0% FAIL_acc** | Avoid (Coder-biased) | `results/lossy_alg_round27/COMPARISON.md` |
+| R33-R37 (SWE-bench fix-mode) | — | (no FAIL_TO_PASS verdict; R35 blocked) | Code-task A/B | `results/R34_R37_SUMMARY.md` |
 
-**Per-agent breakdown (R17)**:
-| agent | R10 F1 | R17 F1 | Δ |
-|---|---|---|---|
-| implementer | 1.000 | 0.957 | -0.04 |
-| debugger | 0.423 | 0.363 | -0.06 |
-| verifier | 0.642 | 0.676 | +0.03 |
-| auditor | 0.043 | **0.200** | +0.16 |
-| optimizer | 0.465 | 0.548 | +0.08 |
-
-R17 dramatically improves auditor agent (0.043 → 0.200).
-
-**完整 Pareto**:
-| Config | speedup | F1 |
-|---|---|---|
-| lossless ref | 1.00× | 1.000 |
-| Direction A v3 AST | 1.02× | 0.604 |
-| Direction A + MS FRAC=0.0 | 1.82× | 0.471 |
-| R10 BEST FRAC=0.25 | 1.86× | 0.515 |
-| **R17 BEST (R10 + prompt alignment)** | **1.87×** | **0.549** |
-| R18 (R17 + per-role) | 1.83× | 0.533 |
-| FRAC=0.5 (Pareto boundary) | 1.68× | 0.430 |
-| smallest_first strategy | 1.87× | 0.471 |
-| Oracle SIZE_MIN=1900/2200 | 1.87× / 1.82× | 0.471 / 0.471 |
-
-**Speed bar**: ✓ **达成** (1.87× — 真 TTFT speedup)
-**Accuracy bar**: △ **部分达成** (F1=0.549, preserves 54.9% lossless accuracy;
-best within raw-copy+RoPE limit)
-
-**18 rounds exhausted**:
-1. R1: Pareto sweep (baseline 1.03× / F1=0.508)
-2. R2: Selective Refresh base (negative)
-3. R3 v1-v3: Direction A preamble (+F1 to 0.604)
-4. R4: coarse chunks alone (allocator bug)
-5. R5: Selective Round 2 (F1 plateau confirmed)
-6. R6: per-role AST (no improvement)
-7. R7: **Direction A + MULTI_SLOT** = 1.82× / F1=0.471 (speedup 突破)
-8. R8: + Selective FRAC=0.2 = 1.85× / F1=0.486
-9. R9: FRAC sweep (0.0/0.1/0.15/0.2/0.3/0.4)
-10. R10: **FRAC=0.25 = 1.86× / F1=0.515**
-11. R11: FRAC=0.5 (Pareto boundary)
-12. R12: 50-file pool (same)
-13. R13: largest_first > smallest_first strategy
-14. R14: per-role + MULTI_SLOT (impl only 0.741, others 退化)
-15. R15: Per-chunk F1 oracle log (size not predictive)
-16. R16: SIZE_MIN oracle sweep (1900/2200, no F1 improvement)
-17. **R17: Prompt Alignment** = 1.87× / **F1=0.549** (+0.034 from R10)
-18. R18: R17 + per-role (overall 0.533, optimizer 0.272)
-
-**R17 关键 insight**: 把 canonical preamble 从 system message 移到 user body
-开头，让 prefix before code chunks EXACTLY 匹配 precompute preamble context。
-减小 cross-context gap → F1 +0.034。
-
-**Remaining F1 gap (0.451)**: 真正 lossless requires True CacheBlend
-(attention recompute). Multi-week kernel work.
-
-Full report: `results/lossy_alg_round7/REPORT.md`.
-Prompt alignment code: `benchmark/multi_workflow/bench_kvcomm_ttft_stress.py` (env var `SGLANG_PRECOMPUTE_PROMPT_ALIGN=1`).
-
-**最终 Pareto**:
-| Config | speedup | F1 |
-|---|---|---|
-| lossless ref | 1.00× | 1.000 |
-| Direction A v3 AST | 1.02× | 0.604 |
-| Direction A + MS FRAC=0.0 | 1.82× | 0.471 |
-| **R10 BEST FRAC=0.25** | **1.86×** | **0.515** |
-| FRAC=0.28 (same F1) | 1.87× | 0.515 |
-| FRAC=0.5 (Pareto boundary) | 1.68× | 0.430 |
-| smallest_first strategy | 1.87× | 0.471 |
-| per-role impl + MULTI_SLOT | 1.84× | 0.415 (impl only 0.741) |
-| **Oracle SIZE_MIN=1900** | 1.87× | **0.471** (filter 不区分 staleness) |
-| **Oracle SIZE_MIN=2200** | 1.82× | **0.471** (skip 单 chunk 无效) |
-
-**Speed bar**: ✓ **达成** (1.86× — 真 TTFT speedup)
-**Accuracy bar**: △ **部分达成** (F1=0.515, preserves 51.5% lossless)
-
-**16 rounds exhausted**:
-1. R1: Pareto sweep (baseline 1.03× / F1=0.508)
-2. R2: Selective Refresh base (negative for F1)
-3. R3 v1-v3: Direction A preamble (+F1 to 0.604)
-4. R4: coarse chunks alone (allocator bug)
-5. R5: Selective Round 2 (F1 plateau confirmed)
-6. R6: per-role AST (no improvement)
-7. R7: **Direction A + MULTI_SLOT** = 1.82× / F1=0.471 (speedup 突破)
-8. R8: + Selective FRAC=0.2 = 1.85× / F1=0.486
-9. R9: FRAC sweep (0.0/0.1/0.15/0.2/0.3/0.4)
-10. R10: **FRAC=0.25 = 1.86× / F1=0.515 (Pareto BEST)**
-11. R11: FRAC=0.5 (boundary)
-12. R12: 50-file pool (same)
-13. R13: largest_first > smallest_first strategy
-14. R14: per-role + MULTI_SLOT (impl only, others 退化)
-15. R15: Per-chunk F1 oracle attempt (logged skipped chunks)
-16. R16: SIZE_MIN oracle sweep (1900/2200, no F1 improvement)
-
-**F1 plateau root cause**: cross-context KV loss is concentrated in CHUNK CONTENT
-specificity, not size. Oracle by size can't differentiate stale chunks reliably.
-The R10 F1=0.515 lucky hit at FRAC=0.25 was the algorithm correctly skipping a
-particularly-stale chunk, but the chunk happened to be the LARGEST in each
-request, not the worst-stale.
-
-**Remaining F1 gap (0.485)**: only true CacheBlend (attention recompute) can
-close. Multi-week kernel work.
-
-Full report: `results/lossy_alg_round7/REPORT.md`.
-
-**最佳配置 (R10 BEST)**: Direction A v3 preamble + MULTI_SLOT path + coarse chunks + Selective Refresh FRAC=0.25 + largest_first strategy
-- TTFT p50: **510ms** vs lossless 948ms = **1.86× speedup** ✓
-- F1 vs Direction A v3 lossless (FAIR): **0.515** (preserves 51.5% accuracy) △
-- code reuse: 1809 tok avg
-- 这是 14 轮实验中**确定的 Pareto 最优点**
-
-**Pareto frontier (proven exhaustive sweep)**:
-| Config | speedup | F1 |
-|---|---|---|
-| lossless ref | 1.00× | 1.000 |
-| Phase 7 LAYERED | 1.02× | 0.508 |
-| Direction A v3 AST | 1.02× | 0.604 |
-| **R10 BEST FRAC=0.25 largest_first** | **1.86×** | **0.515** |
-| FRAC=0.28 (same F1, slightly faster) | 1.87× | 0.515 |
-| FRAC=0.2 (no luck) | 1.85× | 0.486 |
-| FRAC=0.3 (skip too much) | 1.66× | 0.443 |
-| per-role + MULTI_SLOT (R14) | 1.84× | 0.415 (impl only 0.741) |
-| FRAC=0.5 | 1.68× | 0.430 |
-| smallest_first strategy | 1.87× | 0.471 |
-
-**Speed bar**: ✓ **达成** (1.86× — meaningful speedup)
-**Accuracy bar**: △ **部分达成** (F1=0.515, preserves 51.5% of lossless; 从 raw
-MULTI_SLOT 0.000 改善到 0.515 是 raw-copy+RoPE 限制下算法可达上限)
-
-**14 rounds exhausted**:
-1. R1: Pareto sweep establishes baseline (1.03× / F1=0.508)
-2. R2: Selective Refresh (negative for F1)
-3. R3 v1-v3: Direction A preamble (+F1 to 0.604)
-4. R4: coarse chunks alone (allocator bug)
-5. R5: Selective Round 2 (F1 plateau confirmed)
-6. R6: per-role AST (no improvement)
-7. R7: **Direction A + MULTI_SLOT** — 1.82× / F1=0.471 (真 speedup 突破)
-8. R8: + Selective FRAC=0.2 = 1.85× / F1=0.486
-9. R9: FRAC sweep (0.0/0.1/0.15/0.2/0.3/0.4)
-10. R10: **FRAC=0.25/0.28 = 1.86× / F1=0.515 (lucky hit Pareto BEST)**
-11. R11: FRAC=0.5 (Pareto boundary)
-12. R12: 50-file pool (same as 25-file)
-13. R13: largest_first > smallest_first strategy
-14. R14: per-role + MULTI_SLOT (overall F1=0.415, implementer only 0.741)
-
-**Remaining F1 gap (0.485)**: only true CacheBlend (attention recompute)
-can close. Multi-week kernel work.
-
-Full report: `results/lossy_alg_round7/REPORT.md`.
+Full 3-way verdict-task comparison table: `results/SESSION_WRAP.md`.
+Full R1-R17 algorithm timeline + fundamental limit: `results/CODE_AWARE_LOSSY_KV_PROGRESS.md`.
 - **Accuracy bar: NOT MET.** Cross-context KV loss is fundamental to raw-copy
   + RoPE: ~1400 tok → F1 0.46; ~7100 tok → F1 0.000.
 - **Precompute pipeline (Phases 1–3, 4B/4C) — implemented + measured**
@@ -274,17 +127,17 @@ Full report: `results/lossy_alg_round7/REPORT.md`.
   F1=0.508 as a "speed-neutral correctness improvement" (not transferable,
   not above the 1.000 lossless bar).
 
-## Branch state (snapshot 2026-07-02)
+## Branch state (snapshot 2026-07-07)
 
 | Item | Value |
 |---|---|
 | HEAD branch | `fix/placeholder-pool-activation` |
-| HEAD commit | `628aeab83` |
-| Last cycle | Precompute pipeline (Phases 1–3, 4B/4C) + Phase 6 device-resident diagnostic + Phase 7 LAYERED F1 investigation |
-| Files added (this cycle) | `scripts/precompute_codebase_kv.py`, `python/sglang/srt/mem_cache/codebase_kv_loader.py`, `python/sglang/srt/mem_cache/test_codebase_kv_loader.py`, 8 new launchers in `results/kvcomm_ab/run_7b_precompute_ab_*.sh`, `results/kvcomm_ab/precompute_ab_report/{COMPARISON.txt,ANOMALY_FINAL.md,SUMMARY.txt}` |
-| Files modified (this cycle) | `python/sglang/srt/mem_cache/{radix_cache.py,hiradix_cache.py}`, `python/sglang/srt/managers/scheduler.py`, `benchmark/multi_workflow/{bench_giant_codebase_reuse.py,bench_kvcomm_ttft_stress.py,analyze_fair_ab.py}`, `.gitignore` |
-| Known limitations | Precompute pipeline ships **default OFF** (gated by `SGLANG_PRECOMPUTE_KV_DIR`). MULTI_SLOT copied spans occasionally leak — `SGLANG_ENABLE_STRICT_MEM_CHECK_DURING_IDLE=0` to survive. `--disable-overlap-schedule --max-running-requests 1` required for >3 cases (`_delete_leaf` race). |
-| Outstanding work | (P0) True CacheBlend (only path to BOTH bars); (P1) **Direction A — extend canonical preamble** (reduce prefix gap at source — cheapest accuracy lever after Round 2 negative result); (P2) precompute async overlap via SGLang HiCache `LayerDoneCounter` (next concrete speed lever); (P3) cleanup commit of leftover unstaged files; (P4) commit Round 2 Selective Refresh code (gated, default OFF) |
+| HEAD commit | `59030ca46` (R34-R37 results) |
+| Last cycle | R26/R27 verdict-task 3B × 3 speedup (commit `7cc95c21e`) + R33 SWE-bench fix-mode (commit `cf713ba52`) + R34-R37 multi-instance SWE-bench fix-mode + harness parser improvements (commits `d61e6bd1e`, `59030ca46`) |
+| Files added (this cycle) | `results/SESSION_WRAP.md`, `results/lossy_alg_round{26,27}/COMPARISON.md` + launchers, `results/swe_generated_patch_kvcomm_r{33,34,35}/`, `results/CODE_AWARE_LOSSY_KV_PROGRESS_R26_R27.html`, `results/ACC_AUDIT_R19_R26_R27.html`, `results/R33_FIX_MODE_REPORT.md`, `results/R34_R37_SUMMARY.md`, `results/HARNESS_CHANGE_NOTES_20260707.md` |
+| Files modified (this cycle) | `benchmark/multi_workflow/bench_swe_generated_patch_kvcomm.py` (R36 + R37 helpers, default-backward-compatible), `.gitignore` |
+| Known limitations | Precompute pipeline ships **default OFF** (gated by `SGLANG_PRECOMPUTE_KV_DIR`). R36 defensive truncation cannot repair already-truncated hunks (model-side truncation is structural). R35 FAIL_TO_PASS verification BLOCKED on env rebuild + network. `--disable-overlap-schedule --max-running-requests 1` required for >3 cases (`_delete_leaf` race). |
+| Outstanding work | (P0) True CacheBlend (only path to both bars under format-strict verdict task); (P1) R34-R37 follow-up: rebuild astropy conda env + add R36 `stop_at_last_complete_hunk` heuristic; (P2) R26/R27 next directions (A-F in `results/lossy_alg_round24/DIRECTIONS_MEMO.md`); (P3) cleanup of `giant_codebase/` 88 stale `exact_*` rows.json (R1-R17 evidence, all superseded) |
 
 ---
 
@@ -395,13 +248,16 @@ for copied chunks under the new context) can give speed AND accuracy.
 |---|---|
 | [CANONICAL_TARGET.md](./CANONICAL_TARGET.md) | Single source of truth: goal, current state, invariants |
 | [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | Paste-into-new-session prompt |
-| [results/CODE_AWARE_LOSSY_KV_PROGRESS.md](./results/CODE_AWARE_LOSSY_KV_PROGRESS.md) | Master timeline + results + fundamental limit |
+| [results/SESSION_WRAP.md](./results/SESSION_WRAP.md) | R19/R26/R27 verdict-task 3-way comparison (2026-07-06, canonical for current algorithmic ceiling) |
+| [results/CODE_AWARE_LOSSY_KV_PROGRESS.md](./results/CODE_AWARE_LOSSY_KV_PROGRESS.md) | Master timeline R1-R17 + fundamental limit |
+| [results/CODE_AWARE_LOSSY_KV_PROGRESS.html](./results/CODE_AWARE_LOSSY_KV_PROGRESS.html) | 21-slide visual deck (R1-R37 comprehensive) |
+| [results/R34_R37_SUMMARY.md](./results/R34_R37_SUMMARY.md) | R33-R37 SWE-bench fix-mode evidence |
+| [results/HARNESS_CHANGE_NOTES_20260707.md](./results/HARNESS_CHANGE_NOTES_20260707.md) | R36 + R37 defensive parser + first-hunk-vs-gold helper |
 | [results/kvcomm_ab/CROSS_POSITION_REPORT.md](./results/kvcomm_ab/CROSS_POSITION_REPORT.md) | Cross-position fix + 7B + partial-share results |
 | [results/kvcomm_ab/KV_BREAKDOWN_REPORT.html](./results/kvcomm_ab/KV_BREAKDOWN_REPORT.html) | Visual KV-breakdown + multi-slot results |
-| [results/kvcomm_ab/precompute_ab_report/ANOMALY_FINAL.md](./results/kvcomm_ab/precompute_ab_report/ANOMALY_FINAL.md) | Phase 7 LAYERED F1 investigation (most recent cycle) |
+| [results/kvcomm_ab/precompute_ab_report/ANOMALY_FINAL.md](./results/kvcomm_ab/precompute_ab_report/ANOMALY_FINAL.md) | Phase 7 LAYERED F1 investigation |
 | [results/kvcomm_ab/precompute_ab_report/COMPARISON.txt](./results/kvcomm_ab/precompute_ab_report/COMPARISON.txt) | 7-way precompute A/B table |
 | [results/direction_3_phase_c_d_20260627.html](./results/direction_3_phase_c_d_20260627.html) | L4 Phase C/D architecture deep-dive (still valid) |
-| ⚠️ [results/project_progress_20260627.html](./results/project_progress_20260627.html) | Has a RETRACTION banner — speedup claims superseded |
 
 ## 7. Common commands
 
@@ -462,6 +318,8 @@ Key env toggles (all default OFF unless noted):
 
 - `multi-slot-copy-2026-07-01` — MULTI_SLOT: 7.5× speed, F1=0.000 (latest speed ceiling)
 - `precompute-kv-ab-2026-07-02` — precompute end-to-end A/B + Phase 7 verdict (most recent cycle)
+- `r25-oracle-8pct-unk-2026-07-06` — R25 oracle model: 0% garbage, 80% accuracy agreement (R19 ceiling)
+- `r26-r27-3b-speedup-2026-07-06` — 3B × 3 = ~2× speedup, counterintuitive Coder ≠ critique accuracy
 - `cross-position-fix-works-2026-06-30` — cross-position slot_id fix unblocked byte-exact reuse
 - `c2-cacheblend-lossy-not-safe-2026-06-28` — raw-copy+RoPE is lossy (the fundamental limit)
 - `c2-fundamental-limits-2026-06-28` — proven limits + vary-code speed bar history
@@ -473,6 +331,7 @@ Key env toggles (all default OFF unless noted):
 
 ---
 
-**Last refreshed**: 2026-07-02, after the precompute + Phase 7 cycle. Next
-refresh trigger: P1 (precompute async overlap) landing, P0 (true CacheBlend)
-decision, or a fresh fair multi-case headline number.
+**Last refreshed**: 2026-07-07, after R26/R27 verdict-task cycle + R33-R37
+SWE-bench fix-mode cycle. Next refresh trigger: R34-R37 follow-up (env
+rebuild + R36 `stop_at_last_complete_hunk`), True CacheBlend kernel work,
+or a fresh fair multi-case headline number.

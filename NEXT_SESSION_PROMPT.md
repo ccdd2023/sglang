@@ -1,4 +1,4 @@
-# NEXT_SESSION_PROMPT — sglang-kvflow (2026-07-06)
+# NEXT_SESSION_PROMPT — sglang-kvflow (2026-07-07)
 
 > Paste this into a new Claude Code session at
 > `/home/gfy/CodeMAS_Project/sglang-kvflow` to resume with full context.
@@ -19,9 +19,10 @@ serving 又快又准。两个 bar：
 
 ## 当前 HEAD
 
-`fix/placeholder-pool-activation`，HEAD is at the R26/R27 wrap-up commit
-(2026-07-06). Working tree should be clean. The wrap-up captures R26/R27
-findings + memory entry `r26-r27-3b-speedup-2026-07-06.md`.
+`fix/placeholder-pool-activation`，HEAD is at `59030ca46` (R34-R37 results,
+2026-07-07). Working tree should be clean after the housekeeping commit.
+The wrap-up captures R26/R27 findings + R33-R37 SWE-bench fix-mode +
+memory entry `r26-r27-3b-speedup-2026-07-06.md`.
 
 ## 硬约束（务必遵守）
 
@@ -46,18 +47,32 @@ findings + memory entry `r26-r27-3b-speedup-2026-07-06.md`.
 - **Lossy doesn't degrade accuracy** in any model tested (R19/R26/R27 all show
   lossy FAIL_acc >= lossless).
 
+## R33-R37 关键发现 (2026-07-07, SWE-bench fix-mode)
+
+- **First ever `codeaware_reused_tokens > 0`** (matplotlib lossy copied 1548 tokens
+  from prior astropy+django pool). Multi-instance is required to fill the pool.
+- **Lossy changed model target function**: matplotlib lossless → `_make_inset_locator`
+  (wrong); lossy / lossy_prefetch → `hist` (right, matches gold).
+- **Django all 3 modes pass `git apply`** (model produces valid patches).
+- **Astropy same failure as R33** — model truncation is structural (R36 defensive
+  parser cannot repair).
+- **R35 FAIL_TO_PASS blocked** — conda envs gone + no network.
+- **R36 + R37 harness helpers added** (default backward-compatible, CLI-flagged).
+- All 9 R34 patches: 9/9 target the gold file (R37 first-hunk-vs-gold helper).
+
 ## 必读文件（按顺序）
 
 1. **`CANONICAL_TARGET.md`** — 单一项目目标 + 当前状态（SINGLE SOURCE OF TRUTH）。
 2. **`HANDOFF.md`** — 当前 session/branch 状态、bug 细节、open items、文件清单。
 3. **`results/SESSION_WRAP.md`** — R19 / R26 / R27 3-way comparison (post-2026-07-06)。
-4. **`results/CODE_AWARE_LOSSY_KV_PROGRESS.md`** — 完整开发时间线 + 结果表 + 已证
+4. **`results/R34_R37_SUMMARY.md`** — R33-R37 SWE-bench fix-mode evidence (post-2026-07-07)。
+5. **`results/CODE_AWARE_LOSSY_KV_PROGRESS.md`** — 完整开发时间线 + 结果表 + 已证
    fundamental limit（诚实数字，含已撤回声明标注）。
-5. auto-loaded memory index `~/.claude/projects/-home-gfy/memory/MEMORY.md`
+6. auto-loaded memory index `~/.claude/projects/-home-gfy/memory/MEMORY.md`
    有关键不变量；尤其读 `r26-r27-3b-speedup-2026-07-06`、`r25-oracle-8pct-unk`、
    `c2-cacheblend-lossy-not-safe`、`multi-slot-copy-2026-07-01`。
 
-## 当前状态（2026-07-06，诚实）
+## 当前状态（2026-07-07，诚实）
 
 迭代过 6 个复用机制（L3 MiniLM → L4 AST chunk → cross-position slot_id 修复 →
 C2 CacheBlend gap-prefill → MULTI_SLOT copy → PRECOMPUTE pipeline）。
@@ -192,18 +207,13 @@ precompute ~870 tok → 0.374。**这不是 chunking/copy 机制的问题，是 
 
 ## Branch 状态
 
-`fix/placeholder-pool-activation`，HEAD `628aeab83`（precompute + Phase 7
-完整 commit，33 files / +4713 / -474）。working tree 有未提交改动：
-
-- 10 个旧 status doc 删除（KVFLOW_OVERVIEW.md, PHASE2_*.md, PLACEHOLDER_KNN_STATUS.md,
-  SESSION_HANDOFF_2026-06-23.md, docs/experiment_plan.md, docs/kvflow_priority_fix_progress.md,
-  results/HANDOFF_2026-06-04.md, results/PROJECT_STATE.md,
-  results/contribution_summary_20260629.html）
-- 未 track 原始结果目录：`results/diag_*`、`results/fair_smoke_*`、
-  `results/kvcomm_ab/{7b_*,l2_*,l4_*,lossless,ps*}`（每跑 879MB）
-- 新增本文档 + HANDOFF.md + CANONICAL_TARGET.md + 进度 doc 增量更新
-
-**未主动 commit，等用户指示 cleanup commit 形状。**
+`fix/placeholder-pool-activation`，HEAD `59030ca46` (R34-R37 results,
+2026-07-07). Working tree is clean — 2 commits ahead of
+`origin/fix/placeholder-pool-activation` (`d61e6bd1e` harness parser +
+`59030ca46` R34-R37 results). Pushed 2026-07-07. Untracked but
+gitignored dirs (kept on disk, never commit): `results/codebase_kv/`,
+`results/swebench_local_envs/`, `results/giant_codebase/{pandas_src,
+tasks/pandas__pandas__1000/manifest.jsonl}`, `results/ttft_agenttemplatekv/`.
 
 ## 开始时做什么
 

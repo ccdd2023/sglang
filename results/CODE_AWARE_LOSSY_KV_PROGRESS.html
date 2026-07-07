@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Code-Aware Lossy KV Reuse — Progress Slides (2026-07-01)</title>
+<title>Code-Aware Lossy KV Reuse — Progress Slides (2026-07-07)</title>
 <style>
   :root {
     --bg: #0d1117;
@@ -584,9 +584,176 @@ Zero-copy approach is requested but not supported for non-contiguous buffers.
   <p style="margin-top:14px;">Partial-share 仍是 AST chunking 有真实精度优势的 regime（F1 0.62 vs 0.51）— 可作 fallback/niche，但解不了大量复用的 loss。</p>
 </section>
 
+<!-- 12. VERDICT BREAKTHROUGH (R26/R27) -->
+<section class="slide">
+  <h1>⑬ Verdict-task 突破：3B × 3 = ~2× speedup (2026-07-06)</h1>
+  <div class="kvgrid">
+    <div class="card green">
+      <div class="badge good">R26 · 3B-Instruct × 3</div>
+      <p style="margin-top:8px;"><b>2.014×</b> speedup vs lossless · 27% FAIL_acc<br/>c2_chunk reuse: <b>2886 tok</b> avg (vs R19 ~600)</p>
+    </div>
+    <div class="card yellow">
+      <div class="badge warn">R27 · 3B-Coder × 3</div>
+      <p style="margin-top:8px;"><b>1.900×</b> speedup · <b class="bad">0% FAIL_acc</b> (avoid for verdict)<br/>c2_chunk reuse: 2552 tok</p>
+    </div>
+    <div class="card blue">
+      <div class="badge accent">R19 BEST · 7B-Coder × 5</div>
+      <p style="margin-top:8px;"><b>1.29×</b> speedup · <b class="good">80% accuracy agreement</b>, 8% garbage<br/>c2_chunk reuse: 600 tok (accuracy-first baseline)</p>
+    </div>
+  </div>
+  <h2>Mechanism — smaller KV footprint → 4.8× more c2_chunk reuse</h2>
+  <p>3B 模型 KV footprint 比 7B 小约一半 → cache pool 里能装下更多 chunk signatures → 实际复用率从 R19 的 ~600 tok 跳到 R26 的 2886 tok（<b>4.8×</b>）。R26 速度破纪录 2.014× 是复用率提升的直接结果。</p>
+  <svg viewBox="0 0 800 140" style="max-width:100%;margin-top:8px;">
+    <defs><marker id="arr17" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#58a6ff"/></marker></defs>
+    <rect x="40" y="20" width="60" height="100" fill="#58a6ff" opacity="0.7" rx="4"/>
+    <text x="70" y="14" text-anchor="middle" fill="#c9d1d9" font-size="13">R19 · 7B × 5</text>
+    <text x="70" y="74" text-anchor="middle" fill="#0d1117" font-size="14" font-weight="bold">600 tok</text>
+    <rect x="240" y="6" width="60" height="114" fill="#3fb950" opacity="0.7" rx="4"/>
+    <text x="270" y="0" text-anchor="middle" fill="#c9d1d9" font-size="13">R26 · 3B-Gen × 3</text>
+    <text x="270" y="62" text-anchor="middle" fill="#0d1117" font-size="14" font-weight="bold">2886 tok</text>
+    <rect x="440" y="12" width="60" height="108" fill="#d29922" opacity="0.7" rx="4"/>
+    <text x="470" y="6" text-anchor="middle" fill="#c9d1d9" font-size="13">R27 · 3B-Cod × 3</text>
+    <text x="470" y="68" text-anchor="middle" fill="#0d1117" font-size="14" font-weight="bold">2552 tok</text>
+    <line x1="100" y1="70" x2="240" y2="60" stroke="#bc8cff" stroke-width="2" marker-end="url(#arr17)"/>
+    <text x="170" y="55" text-anchor="middle" fill="#bc8cff" font-size="12" font-weight="bold">4.8×</text>
+    <text x="400" y="135" fill="#8b949e" font-size="11">c2_chunk reused tokens per reuser (avg)</text>
+  </svg>
+</section>
+
+<!-- 13. COUNTERINTUITIVE: 3B-CODER = WORST -->
+<section class="slide">
+  <h1>⑭ Counterintuitive: 3B-Coder = 0% FAIL_acc (worst!)</h1>
+  <div class="card red">
+    <h3 style="margin-top:0;">Key finding</h3>
+    <p>3B-Coder 在 verdict (PASS/FAIL) 任务上 <b>比 3B-Instruct 更差</b>，比 7B-Coder 更差 — coder 训练让模型倾向"通过"而非"批判"。</p>
+  </div>
+  <h2>FAIL_acc (FAIL 占 verdicts 比例 — ground-truth 都是 FAIL)</h2>
+  <table>
+    <tr><th>Config</th><th>Model × Agents</th><th>FAIL_acc</th><th>Verdict</th></tr>
+    <tr><td><b>R19 (BEST)</b></td><td>7B-Coder × 5</td><td class="good">60%</td><td>correct but hallucinated reasoning</td></tr>
+    <tr><td>R26</td><td>3B-Instruct × 3</td><td class="warn">27%</td><td>honest but cautious</td></tr>
+    <tr><td><b>R27 (avoid)</b></td><td>3B-Coder × 3</td><td class="bad">0%</td><td>Coder-biased → only PASS</td></tr>
+  </table>
+  <h3>Why?</h3>
+  <p>Coder 模型在 instruction tuning 阶段大量接触"修复代码 / 让它工作"的数据 → 学到"任务总是可以完成的"先验。Verdict 任务需要的是<b>诚实识别失败</b> — 这与 coder 训练目标反向。</p>
+  <p><b>Implication</b>: 选模型不仅看 size，<b>model family 也关键</b>。3B-Instruct (general) 比 3B-Coder 更适合 critique 任务。</p>
+</section>
+
+<!-- 14. DECISION MATRIX -->
+<section class="slide">
+  <h1>⑮ Decision Matrix — R19 / R26 / R27</h1>
+  <div class="kvgrid">
+    <div class="card green">
+      <div class="badge good">SPEED-FIRST → R26</div>
+      <p style="margin-top:8px;"><b>3B-Instruct × 3</b><br/>2.014× speedup, 27% FAIL_acc<br/>Best when raw speed matters and verdict accuracy is acceptable (~3/10 fail detection)</p>
+    </div>
+    <div class="card blue">
+      <div class="badge accent">ACCURACY-FIRST → R19</div>
+      <p style="margin-top:8px;"><b>7B-Coder × 5</b><br/>1.29× speedup, 80% accuracy agreement<br/>Best for format-strict verdict / critique tasks; deliver honest fail detection</p>
+    </div>
+    <div class="card red">
+      <div class="badge bad">AVOID → R27</div>
+      <p style="margin-top:8px;"><b>3B-Coder × 3</b><br/>1.900× speedup, <b>0% FAIL_acc</b><br/>Coder training bias toward PASS → useless for failure detection</p>
+    </div>
+  </div>
+  <h3>Reproducible launchers</h3>
+  <pre><code># R19 (7B-Coder × 5 verdict)
+python benchmark/multi_workflow/bench_kvcomm_ttft_stress.py \
+  --model "$QWEN_CODER_7B" --agents 5 --schema verdict \
+  --sglang-lossy-fuzzy-match=1 --codebase-prefetch=1
+
+# R26 (3B-Instruct × 3 verdict) — speed-first
+python benchmark/multi_workflow/bench_kvcomm_ttft_stress.py \
+  --model "$QWEN_3B_INSTRUCT" --agents 3 --schema verdict \
+  --sglang-lossy-fuzzy-match=1 --codebase-prefetch=1</code></pre>
+</section>
+
+<!-- 15. R33 SWE-BENCH FIX-MODE -->
+<section class="slide">
+  <h1>⑯ R33 SWE-bench Fix-Mode (2026-07-07)</h1>
+  <div class="kvgrid">
+    <div class="card yellow">
+      <div class="badge warn">HARNESS BUGS FIXED</div>
+      <p style="margin-top:8px;"><b>2 bugs</b> in <code>bench_swe_generated_patch_kvcomm.py</code>:<br/>① <code>--emit-ttft</code> streaming vs <code>extract_text</code> non-streaming (raw 0 bytes → 4183 chars)<br/>② model repetition truncation (11 hunks → R36 defense)</p>
+    </div>
+    <div class="card red">
+      <div class="badge bad">HEADLINE</div>
+      <p style="margin-top:8px;">3 modes (lossless / lossy / lossy_prefetch) produced <b>byte-identical patch</b> on astropy 12907 — MD5 <code>c18390c1…</code>. Lossy pool was empty (single instance, single agent) → no real reuse triggered.</p>
+    </div>
+  </div>
+  <h2>Why apply check failed: model repetition failure mode</h2>
+  <p>Qwen2.5-Coder-7B emitted 11 near-identical hunks for <code>astropy/modeling/separable.py</code>; the 11th was truncated mid-token at <code>return</code>. <code>git apply</code> rejects at line 25 of the truncated hunk.</p>
+  <svg viewBox="0 0 800 110" style="max-width:100%;margin-top:6px;">
+    <defs><marker id="arr18" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#f85149"/></marker></defs>
+    <text x="20" y="50" fill="#c9d1d9" font-size="14">11 hunks</text>
+    <g transform="translate(100,30)">
+      <rect width="50" height="14" y="0" fill="#d29922" opacity="0.7" rx="2"/>
+      <rect width="50" height="14" y="18" fill="#d29922" opacity="0.7" rx="2"/>
+      <rect width="50" height="14" y="36" fill="#d29922" opacity="0.7" rx="2"/>
+      <rect width="50" height="14" y="54" fill="#d29922" opacity="0.7" rx="2"/>
+      <rect width="50" height="14" y="72" fill="#f85149" opacity="0.9" rx="2"/>
+    </g>
+    <line x1="160" y1="55" x2="240" y2="55" stroke="#f85149" stroke-width="2" marker-end="url(#arr18)"/>
+    <g transform="translate(250,30)">
+      <rect width="50" height="14" y="0" fill="#3fb950" opacity="0.7" rx="2"/>
+      <rect width="50" height="14" y="18" fill="#3fb950" opacity="0.7" rx="2"/>
+      <rect width="50" height="14" y="36" fill="#3fb950" opacity="0.7" rx="2"/>
+      <rect width="50" height="14" y="54" fill="#3fb950" opacity="0.7" rx="2"/>
+    </g>
+    <text x="310" y="40" fill="#c9d1d9" font-size="13">4 kept (cap=4)</text>
+    <text x="310" y="60" fill="#8b949e" font-size="11">+1 dropped as &gt;70% similar to an earlier kept hunk</text>
+    <text x="20" y="100" fill="#8b949e" font-size="11">Note: structurally-truncated hunk (#11) is NOT caught by similar-detect; only raw copy+RoPE truncation can repair it (out of scope).</text>
+  </svg>
+</section>
+
+<!-- 16. R34-R37 POOL-FILL + TARGET-FUNCTION SWITCH -->
+<section class="slide">
+  <h1>⑰ R34-R37 — Pool fills + matplotlib target-function switch (2026-07-07)</h1>
+  <h2>First ever <code>codeaware_reused_tokens &gt; 0</code> in this harness</h2>
+  <div class="kvgrid">
+    <div class="card green">
+      <div class="badge good">MATPLOTLIB · LOSSY</div>
+      <p style="margin-top:8px;"><b>1548 code-aware tokens copied</b> from prior astropy+django pool<br/>Lossy changed model target function: <code>_make_inset_locator</code> → <code>hist</code> (matches gold)</p>
+    </div>
+    <div class="card blue">
+      <div class="badge accent">DJANGO · ALL 3 MODES</div>
+      <p style="margin-top:8px;">apply_rc = <b class="good">0</b> (valid patches)<br/>Target file: <code>django/core/validators.py</code> ✓<br/>Class: <code>URLValidator</code> ✓ (matches gold)</p>
+    </div>
+    <div class="card yellow">
+      <div class="badge warn">ASTROPY · ALL 3 MODES</div>
+      <p style="margin-top:8px;">Same R33 failure: model repetition → truncated → apply_rc = 128<br/>R36 defensive truncation cannot repair structurally-truncated hunks</p>
+    </div>
+  </div>
+  <h2>Pool-filling across instances (matplotlib is 3rd)</h2>
+  <svg viewBox="0 0 800 150" style="max-width:100%;margin-top:6px;">
+    <defs><linearGradient id="poolGrad" x1="0" x2="1"><stop offset="0" stop-color="#58a6ff" stop-opacity="0.3"/><stop offset="1" stop-color="#3fb950" stop-opacity="0.3"/></linearGradient></defs>
+    <rect x="20" y="20" width="180" height="50" fill="#1f6feb" opacity="0.4" rx="6"/>
+    <text x="110" y="42" text-anchor="middle" fill="#c9d1d9" font-size="13" font-weight="bold">astropy 12907</text>
+    <text x="110" y="60" text-anchor="middle" fill="#8b949e" font-size="11">codeaware=0 (pool empty)</text>
+
+    <rect x="240" y="20" width="180" height="50" fill="#1f6feb" opacity="0.6" rx="6"/>
+    <text x="330" y="42" text-anchor="middle" fill="#c9d1d9" font-size="13" font-weight="bold">django 10097</text>
+    <text x="330" y="60" text-anchor="middle" fill="#8b949e" font-size="11">codeaware=0 (matched, no copy)</text>
+
+    <rect x="460" y="20" width="180" height="50" fill="#3fb950" opacity="0.8" rx="6"/>
+    <text x="550" y="42" text-anchor="middle" fill="#c9d1d9" font-size="13" font-weight="bold">matplotlib 13989</text>
+    <text x="550" y="60" text-anchor="middle" fill="#0d1117" font-size="11" font-weight="bold">codeaware=1548 ✓</text>
+
+    <!-- Pool band -->
+    <rect x="20" y="90" width="620" height="30" fill="url(#poolGrad)" stroke="#58a6ff" stroke-width="1" rx="4"/>
+    <rect x="20" y="90" width="200" height="30" fill="#58a6ff" opacity="0.4" rx="4"/>
+    <rect x="220" y="90" width="220" height="30" fill="#58a6ff" opacity="0.6" rx="4"/>
+    <rect x="440" y="90" width="200" height="30" fill="#3fb950" opacity="0.8" rx="4"/>
+    <text x="110" y="110" text-anchor="middle" fill="#c9d1d9" font-size="11">pool: 0 tok</text>
+    <text x="330" y="110" text-anchor="middle" fill="#c9d1d9" font-size="11">pool: +matches</text>
+    <text x="540" y="110" text-anchor="middle" fill="#0d1117" font-size="11" font-weight="bold">pool: full → 1548 tok copy</text>
+    <text x="20" y="142" fill="#8b949e" font-size="11">R37 weak signal: 9/9 patches target the gold file. Lossy changed matplotlib's chosen function: _make_inset_locator → hist (gold).</text>
+  </svg>
+</section>
+
 <!-- 11. ARTIFACTS -->
 <section class="slide">
-  <h1>⑬ Artifacts 索引</h1>
+  <h1>⑱ Artifacts 索引</h1>
   <h2>报告</h2>
   <ul>
     <li><code>kvcomm_ab/CROSS_POSITION_REPORT.md</code> — cross-position fix + 7B + partial-share</li>
@@ -613,7 +780,7 @@ Zero-copy approach is requested but not supported for non-contiguous buffers.
 
 <!-- 13. ALGORITHM DIAGRAMS (hand-authored SVG) -->
 <section class="slide">
-  <h1>⑭ 算法图解（手写 SVG · 精确示意图）</h1>
+  <h1>⑲ 算法图解（手写 SVG · 精确示意图）</h1>
   <div class="alggrid">
     <div class="algcell">
       <div class="algcap">4-Layer Cache 分层</div>
@@ -682,7 +849,7 @@ Zero-copy approach is requested but not supported for non-contiguous buffers.
 
 <!-- 14. SILICONFLOW IMAGE GEN (appendix) -->
 <section class="slide">
-  <h1>⑮ 硅基流动生图 · 附（Kolors · 装饰图）</h1>
+  <h1>⑳ 硅基流动生图 · 附（Kolors · 装饰图）</h1>
   <p class="sub">用 SiliconFlow MCP（<code>generate_image</code>）生成 · 模型 <code>Kwai-Kolors/Kolors</code>（FLUX.1-schnell / SDXL 在本账号 "Model disabled"）</p>
   <div class="alggrid">
     <div class="algcell"><img src="kvcomm_ab/img/alg_4layer.png" style="width:100%;border-radius:8px;border:1px solid var(--border);"><div class="algcap">4-Layer Cache（概念）</div></div>
@@ -703,9 +870,9 @@ Zero-copy approach is requested but not supported for non-contiguous buffers.
 <div id="nav">
   <button class="navbtn" id="prev" title="上一页 (←)">‹</button>
   <div class="nav-center">
-    <div id="pager"><b id="cur">1</b> / <b id="total">16</b></div>
+    <div id="pager"><b id="cur">1</b> / <b id="total">21</b></div>
     <span id="sectitle">Code-Aware Lossy KV Reuse</span>
-    <div id="dots"><div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    <div id="dots"><div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
   </div>
   <button class="navbtn" id="next" title="下一页 (→)">›</button>
 </div>

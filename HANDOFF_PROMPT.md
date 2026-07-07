@@ -1,4 +1,4 @@
-# HANDOFF PROMPT — sglang-kvflow (2026-07-02)
+# HANDOFF PROMPT — sglang-kvflow (2026-07-07)
 
 > **Quick-start card.** Paste this into a new Claude Code session at
 > `/home/gfy/CodeMAS_Project/sglang-kvflow` to resume with full context
@@ -23,7 +23,7 @@ KV cache reuse ONLY (no scheduling tricks).
 
 ---
 
-## Current State (2026-07-02)
+## Current State (2026-07-07)
 
 | Mechanism | Reuse | TTFT | F1 vs lossless | Status |
 |---|---|---|---|---|
@@ -168,7 +168,7 @@ bash results/kvcomm_ab/run_7b_lossless.sh
 
 ---
 
-**Last refreshed:** 2026-07-02, after precompute + Phase 7 cycle.
+**Last refreshed:** 2026-07-07, after R26/R27 verdict-task + R33-R37 SWE-bench fix-mode cycle.
 **Next refresh trigger:** direction A (precompute async overlap) lands,
 direction B (true CacheBlend) decision, or a fresh fair multi-case
 headline number.

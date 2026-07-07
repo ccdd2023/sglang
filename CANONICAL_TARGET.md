@@ -1,4 +1,4 @@
-# CANONICAL TARGET — sglang-kvflow (2026-07-02)
+# CANONICAL TARGET — sglang-kvflow (2026-07-07)
 
 > **THIS FILE IS THE SINGLE SOURCE OF TRUTH FOR PROJECT GOAL AND STATE.**
 > Read this FIRST when starting any new session. For the full development
@@ -34,23 +34,25 @@ scheduling tricks. The two bars:
 
 ---
 
-## Current State (2026-07-02) — honest
+## Current State (2026-07-07) — post-R37 honest
 
 The code-aware lossy KV reuse path was iterated through six mechanisms
 (L3 MiniLM → L4 AST chunk → cross-position slot_id fix → C2 CacheBlend
-gap-prefill → MULTI_SLOT copy → PRECOMPUTE pipeline). The speed bar is
-**solved by MULTI_SLOT**; the accuracy bar is **the open problem**, and
-its root cause is proven. Precompute validates the end-to-end pipeline
-as a building block but does not change the fundamental limit.
+gap-prefill → MULTI_SLOT copy → PRECOMPUTE pipeline). After R26/R27
+verdict-task cycle + R33-R37 SWE-bench fix-mode, the current algorithmic
+ceilings are:
 
-| Mechanism | Reuse (7B, full-share) | p50 TTFT | F1 vs lossless | Status |
+| Mechanism | Reuse | p50 TTFT | F1 / Accuracy | Status |
 |---|---|---|---|---|
 | lossless (no reuse) | 0 tok | 932 ms | 1.000 | reference |
 | single-slot staged (1 slot ≈ 1400 tok) | ~1300 tok | ~820 ms | 0.461 | valid-but-different |
 | **MULTI_SLOT (5 slots ≈ 7100 tok)** | ~7100 tok | **124 ms (7.5×)** | **0.000** | garbage |
+| **R19 BEST (7B-Coder × 5 verdict)** | ~600 tok | **1.29× speedup** | **80% accuracy agreement, 8% garbage** | Accuracy-first |
+| **R26 (3B-Instruct × 3 verdict)** | ~2886 tok | **2.014× speedup** | 27% FAIL_acc | Speed-first |
 | precompute SYNC (host pool) | ~870 tok | ~923 ms | 0.374 | lossy, no speedup |
 | precompute LAYERED (host pool) | ~870 tok | ~918 ms | 0.508 | lossy + load_stream side-effect |
 | precompute DEVICE-RESIDENT (diagnostic) | ~830 tok | ~960 ms | 0.447 | lossy, slower than lossless |
+| R34 SWE-bench fix-mode (3 instances) | 1548 codeaware tok (matplotlib lossy) | per-mode 3-18s | n/a (R35 FAIL_TO_PASS blocked) | code-task A/B |
 
 - **Speed bar: MET.** MULTI_SLOT breaks the 1-slot reuse ceiling (97%
   utilization, 7.5× vs lossless for hitters). Precompute's diagnostic
@@ -166,18 +168,24 @@ investigation, all fence-hypotheses falsified). See
 
 | Path | Why current |
 |---|---|
-| `HANDOFF.md` | Active session handoff (refreshed 2026-07-02). |
-| `NEXT_SESSION_PROMPT.md` | Paste-into-new-session prompt. |
-| `results/CODE_AWARE_LOSSY_KV_PROGRESS.md` | Master progress + timeline + results + fundamental limit. |
+| `HANDOFF.md` | Active session handoff (refreshed 2026-07-07). |
+| `NEXT_SESSION_PROMPT.md` | Paste-into-new-session prompt (refreshed 2026-07-07). |
+| `results/SESSION_WRAP.md` | R19/R26/R27 verdict-task 3-way comparison (canonical for current algorithmic ceiling). |
+| `results/CODE_AWARE_LOSSY_KV_PROGRESS.md` | Master progress + timeline R1-R17 + fundamental limit. |
+| `results/CODE_AWARE_LOSSY_KV_PROGRESS.html` | 21-slide visual deck (R1-R37 comprehensive). |
+| `results/R34_R37_SUMMARY.md` | R33-R37 SWE-bench fix-mode evidence (most recent cycle). |
+| `results/HARNESS_CHANGE_NOTES_20260707.md` | R36 + R37 defensive parser + first-hunk-vs-gold helper diff. |
+| `results/lossy_alg_round{21..27}/` | Verdict-task rounds R19-R27 with FINAL_REPORT / COMPARISON / oracle policy. |
 | `results/kvcomm_ab/CROSS_POSITION_REPORT.md` | Cross-position fix + 7B + partial-share results. |
 | `results/kvcomm_ab/KV_BREAKDOWN_REPORT.html` | Visual KV-breakdown + multi-slot results. |
-| `results/kvcomm_ab/precompute_ab_report/ANOMALY_FINAL.md` | Phase 7 LAYERED F1 investigation (most recent cycle). |
+| `results/kvcomm_ab/precompute_ab_report/ANOMALY_FINAL.md` | Phase 7 LAYERED F1 investigation. |
 | `results/kvcomm_ab/precompute_ab_report/COMPARISON.txt` | 7-way precompute A/B table. |
 | `scripts/precompute_codebase_kv.py` | Offline KV precompute extractor. |
 | `python/sglang/srt/mem_cache/codebase_kv_loader.py` | Server-start disk→CPU loader + read-path residency branching. |
 | `python/sglang/srt/m_cache/radix_cache.py` | L1/L2/L3(deprecated)/L4/C2/MULTI_SLOT/PRECOMPUTE implementation + Phase 7 hooks (default OFF). |
 | `python/sglang/srt/mem_cache/ast_chunker.py` | L4 server-side AST chunker. |
 | `benchmark/multi_workflow/bench_giant_codebase_reuse.py` | giant-codebase benchmark driver (`--partial-share`, `--position-shift`, `--precompute-*`). |
+| `benchmark/multi_workflow/bench_swe_generated_patch_kvcomm.py` | SWE-bench fix-mode benchmark driver (R33-R37). |
 | `benchmark/multi_workflow/analyze_fair_ab.py` | Fair A/B analyzer (decomposed counters, source-exclusion, parity gate). |
 | `results/kvcomm_ab/run_*.sh` | Reproducible launchers for every measured config. |
 | `test/registered/unit/mem_cache/test_ast_chunker.py`, `test_placeholder_chunk_pool*.py`, `test_codebase_kv_loader.py` | L4 + precompute tests. |
@@ -189,16 +197,21 @@ investigation, all fence-hypotheses falsified). See
 ## How to apply this
 
 - **Starting a new session**: read `CANONICAL_TARGET.md` (this file), then
-  `HANDOFF.md`, then `results/CODE_AWARE_LOSSY_KV_PROGRESS.md`. For a
-  paste-into-prompt summary, use `NEXT_SESSION_PROMPT.md`.
+  `HANDOFF.md`, then `results/SESSION_WRAP.md` (R19/R26/R27 3-way), then
+  `results/CODE_AWARE_LOSSY_KV_PROGRESS.md` (R1-R17 + fundamental limit).
+  For a paste-into-prompt summary, use `NEXT_SESSION_PROMPT.md`.
 - **"What should I work on next?"**: the only identified path to BOTH
-  bars is true CacheBlend (attention recompute). Precompute is the
-  prerequisite for it (now built). The concrete next speed lever
-  is precompute async overlap via SGLang's HiCache `LayerDoneCounter`
-  mechanism (see plan Phase 4A-REVISED). Both await user sign-off.
+  bars under the format-strict verdict task is true CacheBlend (attention
+  recompute). Precompute is the prerequisite (now built). Open follow-ups
+  documented in `results/lossy_alg_round24/DIRECTIONS_MEMO.md` (A-F) +
+  R34-R37 follow-ups (env rebuild + R36 `stop_at_last_complete_hunk`).
+  All await user sign-off.
 - **Confused by an old doc that contradicts this**: that doc is stale.
   Refer here. If a doc still references `SGLANG_PLACEHOLDER_KNN_MATCH=1`
-  as default, "~1.49× production-ready", "1.448× both bars met", or
-  "LAYERED F1=0.508 as a correctness fix", it is wrong / retracted.
+  as default, "~1.49× production-ready", "1.448× both bars met",
+  "LAYERED F1=0.508 as a correctness fix", or "R17 BEST FINAL", it is
+  wrong / retracted. R19 is the verdict-task BEST (80% accuracy agreement);
+  R26 is the speed-first opt (2.014× with 27% FAIL_acc); R27 is to be
+  avoided for critique tasks (0% FAIL_acc = Coder-biased).
 - **Want to revisit L3 / pre-rotation / KVCOMM offset blend?** Don't,
   unless the user explicitly asks — deprecated for documented reasons.

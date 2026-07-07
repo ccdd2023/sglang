@@ -1,4 +1,4 @@
-# Code-Aware Lossy KV Reuse — Progress, Timeline & Results (2026-07-02)
+# Code-Aware Lossy KV Reuse — Progress, Timeline & Results (2026-07-07)
 
 > **Master document** for the code-aware KV reuse workstream in sglang-kvflow.
 > This is the single place for the development timeline, all measured results,
@@ -6,9 +6,11 @@
 > [`CANONICAL_TARGET.md`](../CANONICAL_TARGET.md) (goal/state) and
 > [`HANDOFF.md`](../HANDOFF.md) (session state).
 >
-> Most recent cycle (precompute + Phase 7): see
-> [`kvcomm_ab/precompute_ab_report/ANOMALY_FINAL.md`](kvcomm_ab/precompute_ab_report/ANOMALY_FINAL.md).
-> Visual companion: [`kvcomm_ab/KV_BREAKDOWN_REPORT.html`](kvcomm_ab/KV_BREAKDOWN_REPORT.html).
+> Most recent cycle: R26/R27 verdict-task 3B × 3 = ~2× speedup (see
+> [`SESSION_WRAP.md`](SESSION_WRAP.md)) + R33-R37 SWE-bench fix-mode (see
+> [`R34_R37_SUMMARY.md`](R34_R37_SUMMARY.md)).
+> 21-slide visual deck: [`CODE_AWARE_LOSSY_KV_PROGRESS.html`](CODE_AWARE_LOSSY_KV_PROGRESS.html)
+> (expanded 2026-07-07 to cover R1-R37 comprehensively).
 
 ---
 
