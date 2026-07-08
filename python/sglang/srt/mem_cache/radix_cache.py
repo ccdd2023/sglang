@@ -2392,6 +2392,17 @@ class RadixCache(BasePrefixCache):
           3. Otherwise call ``_find_byte_exact_chunk_entry`` for strict
              byte/token alignment. If no exact match → dense with
              skip_reason = "byte_drift" or "size_mismatch".
+          3.5 (Round 28, 2026-07-07) **anchor_type whitelist gate**: if
+             ``SGLANG_AST_REUSE_TYPES`` is set (comma-separated list of
+             ``function``, ``class``, ``for``, ``while``, ``if``, ``try``),
+             chunks whose ``anchor_type`` is not in the whitelist are
+             skipped with ``skip_reason="anchor_type_filtered"`` (treated
+             as dense — the model re-prefills those regions fresh). This
+             is the structural-feature-driven selective reuse: module-level
+             / control-flow chunks tend to be lossy hotspots (cross-context
+             KV loss concentrates there in partial-share workloads), while
+             function/class bodies are byte-stable enough that byte-exact
+             reuse is safe. Default OFF (no filter; behavior unchanged).
           4. On hit → compute the chunk's absolute input token position
              (``span_start + token_offset_of_byte_start`` via the request's
              tokenizer) and apply the **contiguity gate** (M1.5 fix):
@@ -2409,6 +2420,12 @@ class RadixCache(BasePrefixCache):
         action — telemetry needs both hits and misses to surface.
         """
         plan = ChunkPlan(decisions=[])
+        # R37 (2026-07-08) per-chunk-position counter. Counts how many
+        # byte-exact chunk hits (copy_pool decisions) have been
+        # appended so far in THIS plan. Used to pick EARLY vs LATE
+        # FRAC when SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC_EARLY/LATE are
+        # set. Reset to 0 per request.
+        _chunk_pool_hit_counter = 0
         chunker = self._get_ast_chunker()
         if chunker is None:
             return plan
@@ -2496,9 +2513,135 @@ class RadixCache(BasePrefixCache):
                     )
                 chunk_len = len(best.token_ids)
                 chunk_start = span_start + int(token_start_within)
-                candidates.append(
-                    (chunk_start, chunk_len, best, chunk, slot_id)
+                # Round 28 (2026-07-07): anchor_type whitelist filter. If set,
+                # only chunks whose anchor_type is in the whitelist become
+                # copy candidates; others fall back to dense prefill with
+                # skip_reason="anchor_type_filtered" (counted as a miss in
+                # telemetry so we can measure the speed/accuracy tradeoff).
+                _reuse_types_raw = os.environ.get(
+                    "SGLANG_AST_REUSE_TYPES", ""
+                ).strip()
+                if _reuse_types_raw:
+                    _allowed_types = {
+                        t.strip() for t in _reuse_types_raw.split(",")
+                        if t.strip()
+                    }
+                    if chunk.anchor_type not in _allowed_types:
+                        plan.decisions.append(ChunkDecision(
+                            chunk_signature=chunk.signature,
+                            slot_id=slot_id,
+                            name=chunk.name,
+                            anchor_type=chunk.anchor_type,
+                            start_token=chunk_start,
+                            end_token=chunk_start + chunk_len,
+                            action="dense_prefill",
+                            pool_entry=None,
+                            confidence=0.0,
+                            skip_reason="anchor_type_filtered",
+                        ))
+                        continue
+                # Round 32 (2026-07-07): CacheBlend-inspired selective
+                # recompute (arXiv:2405.16444 §4.3 / Figure 16). For each
+                # byte-exact chunk candidate, recompute the leading K tokens
+                # (K = ceil(p × chunk_len), p = SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC)
+                # via dense prefill; only the chunk body (tokens K..end) is
+                # copied from the pool + RoPE delta. Approximates the
+                # layer-by-layer HKVD filter without a reference full-prefill
+                # anchor (we lack layer-1 ground truth here). Hypothesis:
+                # leading-token recompute recovers cross-context KV loss at
+                # the chunk-prefix boundary (where stale-KV contamination is
+                # worst in code-aware reuse) at ~p × reuse-token cost.
+                # Default OFF. Mapped from R31 deep-research finding that
+                # CacheBlend is the only surveyed algorithm proven to recover
+                # cross-context accuracy (max 0.002 F1/Rouge-L gap at
+                # recompute ratio 5-18%; default 15%).
+                _recompute_frac = float(
+                    os.environ.get(
+                        "SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC", "0",
+                    ) or 0
                 )
+                # R37 (2026-07-08) per-chunk-position-stratified FRAC.
+                # When SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC_EARLY and
+                # SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC_LATE are set, use
+                # _early_frac for the first N chunks per request
+                # (N = SGLANG_CHUNK_HEAD_RECOMPUTE_EARLY_N, default 2)
+                # and _late_frac for the rest. Hypothesis: early-
+                # position chunks have higher cross-context KV loss
+                # (closer to the prefix boundary, more attention
+                # disturbed by the live query's preamble); later
+                # chunks can be copied more aggressively. Default
+                # behavior (when EARLY/LATE not set) is unchanged.
+                _early_frac = float(
+                    os.environ.get(
+                        "SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC_EARLY",
+                        "0",
+                    ) or 0
+                )
+                _late_frac = float(
+                    os.environ.get(
+                        "SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC_LATE",
+                        "0",
+                    ) or 0
+                )
+                _early_n = int(
+                    os.environ.get(
+                        "SGLANG_CHUNK_HEAD_RECOMPUTE_EARLY_N", "2",
+                    ) or 2
+                )
+                if _early_frac > 0 and _late_frac > 0:
+                    # _chunk_pool_hit_counter tracks how many
+                    # copy_pool decisions have been appended to
+                    # this plan so far — use it to pick EARLY vs
+                    # LATE.
+                    if _chunk_pool_hit_counter < _early_n:
+                        _recompute_frac = _early_frac
+                    else:
+                        _recompute_frac = _late_frac
+                # R34 sig-gated recompute (RETRACTED 2026-07-08 — see
+                # results/lossy_alg_round34/FINAL_REPORT.md): helper
+                # kept in ast_chunker.py for future reuse, but
+                # invocation retired: pandas 5-case 5-chunks are
+                # essentially all untyped (legacy pandas 0.x with no
+                # annotations), so the gate fires on essentially no
+                # chunks — and on the few it does, the result is a
+                # global FRAC bump from 0.30 → 0.50 that regresses
+                # failure-type agreement 41.7% → 33.3%.
+                if (
+                    _recompute_frac > 0
+                    and _recompute_frac < 1.0
+                    and chunk_len > 4
+                ):
+                    _head_k = max(1, int(
+                        (_recompute_frac * chunk_len) + 0.5
+                    ))
+                    _chunk_pool_hit_counter += 1
+                    # Cap head recompute so body copy is still meaningful.
+                    if _head_k >= chunk_len - 1:
+                        _head_k = max(1, chunk_len // 2)
+                    plan.decisions.append(ChunkDecision(
+                        chunk_signature=chunk.signature,
+                        slot_id=slot_id,
+                        name=chunk.name,
+                        anchor_type=chunk.anchor_type,
+                        start_token=chunk_start,
+                        end_token=chunk_start + _head_k,
+                        action="dense_prefill",
+                        pool_entry=None,
+                        confidence=0.0,
+                        skip_reason="head_recompute",
+                    ))
+                    # Body: shift chunk_start by _head_k, chunk_len -= _head_k.
+                    candidates.append((
+                        chunk_start + _head_k,
+                        chunk_len - _head_k,
+                        best,
+                        chunk,
+                        slot_id,
+                    ))
+                else:
+                    candidates.append(
+                        (chunk_start, chunk_len, best, chunk, slot_id)
+                    )
 
         # Contiguity gate: walk hits in input order, extend the prefix
         # contiguously. cursor = running length of device_indices built so

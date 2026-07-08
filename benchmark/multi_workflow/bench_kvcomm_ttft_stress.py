@@ -9,6 +9,7 @@ requests, and multi-agent reuse sweeps.
 from __future__ import annotations
 
 import argparse
+import ast
 import asyncio
 import csv
 import json
@@ -559,6 +560,15 @@ def build_slot_messages(
         ]
     for slot in slots:
         body += [f"## {slot.label}", slot.text]
+
+    # R33 imports prelude (SGLANG_PY_IMPORTS_PRELUDE=1) is RETRACTED
+    # 2026-07-08 — see results/lossy_alg_round33/FINAL_REPORT.md:
+    # prompt-structure injection caused failure-type agreement to collapse
+    # 41.7% → 0.0% (verdict task). Violates the "完全一致的 prompt 来进行
+    # 复用" user constraint. Helper kept for future controlled re-test
+    # under server-side prompt-only injection that does not break
+    # cross-context prefix byte-stability.
+
     if task_mode == "verdict":
         body += [
             "## Output",
@@ -605,6 +615,46 @@ def build_slot_messages(
         ],
         slots,
     )
+
+
+def _extract_top_level_imports(segment_texts: list[str]) -> str:
+    """Round 33 (2026-07-08) helper.
+
+    Extract top-level `import` and `from ... import ...` statements from each
+    segment via stdlib ``ast``, deduplicate (preserving first-seen order),
+    and serialize as a single multi-line string suitable for embedding in
+    a `## Shared imports` block at the top of the user body.
+
+    Graceful degradation: if any segment text fails to parse (``SyntaxError``,
+    ``ValueError``), that segment is skipped silently — partial coverage is
+    better than crashing the run. Imports are surfaced as written in source
+    (uses ``ast.unparse``); aliases / ``as`` clauses are preserved.
+
+    Returns "" when no imports are found (caller can skip the injection).
+    """
+    seen: dict[str, None] = {}
+    for text in segment_texts:
+        if not text:
+            continue
+        try:
+            tree = ast.parse(text)
+        except (SyntaxError, ValueError):
+            continue
+        try:
+            body = getattr(tree, "body", None) or []
+        except Exception:
+            continue
+        for node in body:
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                try:
+                    line = ast.unparse(node).strip()
+                except Exception:
+                    continue
+                if line and line not in seen:
+                    seen[line] = None
+    if not seen:
+        return ""
+    return "\n".join(seen.keys())
 
 
 def _load_canonical_preamble() -> str:

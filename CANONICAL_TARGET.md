@@ -8,6 +8,8 @@
 > For a paste-into-new-session prompt, see [`NEXT_SESSION_PROMPT.md`](./NEXT_SESSION_PROMPT.md).
 > For the most recent precompute + Phase 7 cycle, see
 > [`results/kvcomm_ab/precompute_ab_report/ANOMALY_FINAL.md`](./results/kvcomm_ab/precompute_ab_report/ANOMALY_FINAL.md).
+> For the **authoritative long-form LaTeX report** (YYYYMMDD-versioned), see
+> [`reports/code_aware_lossy_kv_progress_YYYYMMDD.tex`](./reports/).
 
 ---
 

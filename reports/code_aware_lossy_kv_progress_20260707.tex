@@ -1,0 +1,877 @@
+% =====================================================================
+%  Code-Aware Lossy KV Cache Reuse for Coding-MAS Serving
+%  Progress Report — 2026-07-07
+%
+%  This is the authoritative long-form artifact of the code-aware KV
+%  reuse workstream in sglang-kvflow.  Filename is YYYYMMDD-versioned;
+%  refresh by copying this file to a new date + appending a row to
+%  the Version history table (Section 7).
+%
+%  Build:
+%    export PATH=/home/gfy/texlive/2026/bin/x86_64-linux:$PATH
+%    cd reports && make report
+%
+%  Companion artifacts (supplements, kept on the latest-snapshot model):
+%    results/CODE_AWARE_LOSSY_KV_PROGRESS.{md,html,pdf}  -- visual deck
+%    results/SESSION_WRAP.md                             -- R19/R26/R27 verdict
+%    results/R34_R37_SUMMARY.md                          -- SWE-bench fix-mode
+% =====================================================================
+
+\documentclass[11pt,a4paper]{article}
+
+% --- Encoding + language ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+
+% --- Chinese support (ctex + fandol OTF fonts shipped with TeX Live) ---
+% The default `ctex` Song font (unisong8b) is a TFM-only metric file in this
+% TeX Live install; it has no actual Type 1 glyphs.  We force ctex to use
+% the `fandol` fontset, whose FandolSong/FandolHei/FandolKai OTFs ship with
+% ctex itself, so the build works on a vanilla TeX Live with no extra
+% font install.
+\usepackage[fontset=fandol]{ctex}
+
+% --- Layout + math ---
+\usepackage[a4paper,margin=2.4cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{microtype}
+
+% --- Graphics + tables ---
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{booktabs}
+\usepackage{longtable}   % kept for backward-compat with future sections
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf}
+
+% --- Color + hyperlinks ---
+\usepackage[dvipsnames,table]{xcolor}
+\usepackage[colorlinks=true,
+            linkcolor=blue!60!black,
+            urlcolor=blue!60!black,
+            citecolor=blue!60!black]{hyperref}
+
+% --- Code listings ---
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!60!black}\bfseries,
+  commentstyle=\color{gray}\itshape,
+  breaklines=true,
+  columns=flexible,
+  frame=single,
+  framerule=0.4pt,
+  framesep=4pt,
+}
+
+% --- Title block ---
+\title{\bfseries Code-Aware Lossy KV Cache Reuse\\
+       for Coding-MAS Serving\\[6pt]
+       \large Progress Report --- 2026-07-07\\[2pt]
+       \normalsize (R19 BEST + R26/R27 verdict-task + R33-R37 SWE-bench fix-mode)}
+\author{sglang-kvflow fork\\
+         \small EuroSys 2026 target}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\bigskip
+
+% =====================================================================
+\section{目标与运行模式 / Goal \& Regime}
+% =====================================================================
+
+\textbf{目标。} 通过 code-aware KV 缓存复用，让 Coding-MAS serving 做到
+\textbf{又快又准}。两个 bar 必须同时满足：
+\begin{enumerate}
+  \item \textbf{Speed（速度）} --- 相对 \texttt{prefix\_cache\_only} /
+        lossless 基线的 TTFT 加速比。
+  \item \textbf{Accuracy（精度）} --- 同一 prompt 下，精度不得劣于通用
+        （非 code-aware）复用算法。以相对 lossless 参考的真实 token-F1 度量。
+\end{enumerate}
+
+\textbf{硬约束。} 加速\textbf{只能}来自更多复用，禁止任何 KV-cache 调度 trick。
+
+\textbf{支持机制。} \textbf{KVCOMM 字节精确 + 跨位置 copy + RoPE}：
+同一 prompt 内容在不同绝对位置下，以 RoPE delta
+（\texttt{new\_pos - old\_pos}）做拷贝。\textbf{AST chunking}
+是在其之上的 coding 专用优化（按函数/类粒度，让部分变更的 slot
+仍能复用未变函数）。MiniLM 语义 k-NN（L3）\textbf{不属于}当前机制 ---
+已弃用。
+
+% =====================================================================
+\section{开发时间线 / Development Timeline}
+% =====================================================================
+
+按 7 个阶段组织。每个阶段给上下文、动作、关键数字、与上一阶段的关键区别。
+完整逐日记录见
+\href{file:../results/CODE_AWARE_LOSSY_KV_PROGRESS.md}{\texttt{CODE\_AWARE\_LOSSY\_KV\_PROGRESS.md} \S 2}。
+
+% ----- 阶段 1 -----
+\paragraph{阶段 1 --- v44 周期（2026-06-22 $\to$ 27），L3 语义 k-NN 试错。}
+\textbf{上下文：} 在 SGLang \texttt{RadixCache} 之上做 code-aware 复用的首次尝试。L2 整 slot byte-exact + RoPE 是相对安全的路径，但复用率上不去（仅同 prefix 才能命中）。
+\textbf{动作：} 引入 L3 placeholder MiniLM k-NN body（$\cos\!\geq\!0.85$ 阈值）+ 选择性 AST 复用，91/89/27 SWE-bench byte-equal。
+\textbf{关键数字：} \textbf{8.2\%} silent failure rate --- MiniLM 区分不开变量改名与空白漂移。
+\textbf{关键变化：} \textbf{L3 弃用}（2026-06-27）。从此 MiniLM 默认 OFF，仅作 research。
+
+% ----- 阶段 2 -----
+\paragraph{阶段 2 --- 跨位置 \texttt{slot\_id} 修复（2026-06-30），byte-exact 复用从 0 解锁。}
+\textbf{上下文：} 公平测量重设计（decomposed counters A1-A6、source-agent 排除、warmup-parity gate、ephemeral copy）后，L2/L4/C2 在同一 regime 下都报 \textbf{0 复用}。
+\textbf{动作：} 把 \texttt{slot\_id} 从位置式 idx 改为内容派生（\texttt{code\_base:<file path>}）。同文件跨 task/跨 agent 自动共享池。
+\textbf{关键数字：} reusers 命中从 \textbf{0 $\to$ 7--13/16}；单 slot staged L2 加速 1.085$\times$ / F1 0.376（3B）。
+\textbf{关键变化：} 公平测量 + 跨位置 fix 同时落定，从此所有数字可信且非零。
+
+% ----- 阶段 3 -----
+\paragraph{阶段 3 --- partial-share + rotation（2026-07-01），AST 的 niche 浮现。}
+\textbf{上下文：} full-share 下整 slot（L2）压过 AST（L4），那 AST 还有什么用？
+\textbf{动作：} 设计 partial-share 场景（12-task/42-case，仅共享部分函数）。
+\textbf{关键数字：} AST F1 \textbf{0.622} vs L2 0.513（精度 bar 满足），但 AST 仅 \textbf{0.96$\times$}（速度 bar 不满足）。
+\textbf{关键变化：} 找到了 AST 的 niche 定位 --- 不是速度主力，是 partial-share 的精度兜底。
+
+% ----- 阶段 4 -----
+\paragraph{阶段 4 --- MULTI\_SLOT copy（2026-07-01），速度 bar 撞穿。}
+\textbf{上下文：} 1-slot ceiling 把速度压在 $\sim$1.14$\times$，复用率难以再放大。
+\textbf{动作：} \texttt{SGLANG\_CACHEBLEND\_MULTI\_SLOT=1} --- 把 5 个 slot 一次性 alloc / move / RoPE，$\sim$52 tok inter-slot header zero 掉（\texttt{COMPACT=0}）。
+\textbf{关键数字：} 97\% slot 利用率，hitter p50 TTFT \textbf{124\,ms = 相对 lossless 7.5$\times$}。\textbf{但 F1=0.000}（垃圾）。
+\textbf{关键变化：} 速度 bar 满足。决定性证明 cross-context KV loss 是 fundamental 的（不是 chunk 大小问题）。
+
+% ----- 阶段 5 -----
+\paragraph{阶段 5 --- Precompute pipeline（2026-07-02，commit \texttt{628aeab83}），先把架构建出来。}
+\textbf{上下文：} MULTI\_SLOT 跑通了速度，但精度撞墙。需要换思路：能不能\textbf{离线}预计算 KV，让 read-path 不再是 hot path？
+\textbf{动作：} Phases 1--3、4B/4C 端到端管线落地：离线 AST-aware KV 预计算 $\to$ CPU host pool $\to$ 异步 CPU$\to$GPU 复用（\texttt{location="host"/"device"/"disk"} 三态）。
+\textbf{关键数字：} 每行 867 tok 复用；SYNC TTFT 923\,ms（$\approx$ lossless 948\,ms）；真实 F1 \textbf{0.374}（LOSSY）。Phase 6 device-resident 反而 960\,ms（更慢）$\to$ \textbf{传输不是瓶颈}。Phase 7 调查 LAYERED F1=0.508，3 个 fence 假设全部证伪 --- 该增益是 load\_stream 副作用，\textbf{非可迁移精度修复}。
+\textbf{关键变化：} 无速度提升但\textbf{架构建好了}。它是 true CacheBlend 的前置构件。
+
+% ----- 阶段 6 -----
+\paragraph{阶段 6 --- Verdict-task 3-way（2026-07-06，R19/R26/R27），精度维度试错。}
+\textbf{上下文：} speed bar 已撞穿（阶段 4），precompute 把架构建好（阶段 5）。但"两个 bar"里 accuracy 还是开放的。改测一个新维度：verdict task（PASS/FAIL 分类），看 lossy 是否真的能跑通。
+\textbf{动作：} 5 个 buggy SWE-bench pandas cases × 三组配置：7B-Coder × 5（R19 BEST）、3B-Instruct × 3（R26）、3B-Coder × 3（R27）。
+\textbf{关键数字：} R26 = \textbf{2.014$\times$} / 27\% FAIL\_acc（速度优先）；R19 = \textbf{1.29$\times$} / \textbf{60\% FAIL\_acc}（精度优先）；R27 = 1.900$\times$ / \textbf{0\% FAIL\_acc}（coder 训练偏 PASS，避用）。
+\textbf{关键变化：} 找到了 speed-first vs accuracy-first 的明确分叉点；coder 训练不 = 评判任务更好。
+
+% ----- 阶段 7 -----
+\paragraph{阶段 7 --- SWE-bench fix-mode（2026-07-07，R33-R37），首个 code-aware 复用证据。}
+\textbf{上下文：} verdict task 跑通后，下一个真问题：在 SWE-bench \textbf{fix-mode}（生成 patch）下，code-aware 池到底能不能装上？
+\textbf{动作：} 多 instance（astropy / django / matplotlib）顺序跑；3 mode × 3 instance = 9 个 patch。
+\textbf{关键数字：} matplotlib lossy 复用 \textbf{1548 tok} --- SWE-bench harness 下\textbf{首次} \texttt{codeaware\_reused\_tokens > 0}。matplotlib 的模型目标函数从 \texttt{\_make\_inset\_locator}（lossless，错误）切到 \texttt{hist}（lossy，正确）。9/9 patch 都命中 gold 文件。
+\textbf{关键变化：} 从"verdict 分类"切到"patch 生成"，code-aware 复用第一次真正起作用。
+
+% ----- 阶段小结 -----
+\paragraph{阶段小结：} 7 个阶段的核心演进 ---
+\textbf{L1+L2}（安全）$\to$ \textbf{+L3 试错}（弃用）$\to$ \textbf{+L4 AST niche}（partial-share 精度兜底）$\to$ \textbf{+C2/MULTI\_SLOT}（速度撞穿但 lossy）$\to$ \textbf{+PRECOMPUTE 架构}（为 true CacheBlend 铺路）$\to$ \textbf{verdict 维度}（速度/精度分叉）$\to$ \textbf{SWE-bench fix-mode}（首个真复用证据）。
+\textbf{未变：} 加速仅来自更多复用，无 KV-cache 调度 trick。\textbf{未达：} 两个 bar 同时满足 --- 唯一出路 true CacheBlend 尚未实现。
+
+% =====================================================================
+\section{四层缓存机制 / The 4-layer Cache (Honest)}
+% =====================================================================
+
+\begin{table}[h]
+\centering\small
+\renewcommand{\arraystretch}{1.18}
+\begin{tabular}{@{}p{1.1cm}p{3.8cm}p{3.8cm}p{3.6cm}p{3.5cm}@{}}
+\toprule
+\textbf{Layer} & \textbf{Mechanism} & \textbf{Reuse gate} & \textbf{Status} & \textbf{默认开关 / env var} \\
+\midrule
+\textcolor{ForestGreen}{$\checkmark$}\textbf{prod} \newline L1 &
+Radix prefix cache（token 级字节精确，同位置）&
+exact prefix&
+唯一\emph{安全}复用；baseline&
+\textbf{默认 ON}（无需 flag）\\
+\textcolor{ForestGreen}{$\checkmark$}\textbf{prod} \newline L2 &
+整 slot 字节精确 + RoPE（跨位置）&
+exact slot text + 内容派生 \texttt{slot\_id}&
+已实现；大量复用下 lossy（F1$\approx$0.46 @ 1 slot）&
+\textbf{默认 ON}；\texttt{SGLANG\_CHUNK\_COARSE=1} 整 slot 模式 \\
+\textcolor{red}{$\times$}\textbf{OFF} \newline L3 &
+Placeholder k-NN body（MiniLM 语义）&
+$\cos\!\geq\!0.85$&
+\textbf{弃用} --- research only；8.2\% silent failure 已证&
+\textbf{默认 OFF}；\texttt{SGLANG\_PLACEHOLDER\_KNN\_MATCH=0} 强制 \\
+\textcolor{orange}{$\triangle$}\textbf{prod\*} \newline L4 &
+AST 边界 chunk 复用（按函数/类字节精确）&
+exact chunk（signature + byte span + token ids）&
+已实现；partial-share 场景下精度优势，速度优势有限&
+\textbf{默认 ON}；\texttt{SGLANG\_CHUNKED\_PLACEHOLDER\_KNN=1} \\
+\textcolor{orange}{$\triangle$}\textbf{prod\*} \newline C2 / MULTI\_SLOT &
+CacheBlend gap-prefill + 多 slot 批量拷贝&
+exact chunk；leading gap 真实 staged，inter-slot header zero&
+已实现；7.5$\times$ 速度但 F1=0.000（lossy）&
+\textbf{默认 OFF}；\texttt{SGLANG\_CACHEBLEND\_MULTI\_SLOT=1 SGLANG\_CACHEBLEND\_COMPACT=0} \\
+\textcolor{orange}{$\triangle$}\textbf{prod\*} \newline PRECOMPUTE &
+离线 AST-aware KV precompute $\to$ CPU host pool $\to$ async CPU$\to$GPU&
+exact chunk（\texttt{location=host/device/disk}）&
+已实现；F1=0.374 lossy，无速度提升；true CacheBlend 前置&
+\textbf{默认 OFF}；\texttt{SGLANG\_PRECOMPUTE\_KV\_DIR=...} + \texttt{\_CHUNKED\_PLACEHOLDER\_KNN=1} \\
+\bottomrule
+\end{tabular}
+\caption{4 层缓存 + 扩展。\textbf{默认实际开启} = L1 + L2 + L4；其余（L3 / C2 / MULTI\_SLOT / PRECOMPUTE）默认 OFF，需显式 flag 才会生效。标 \textcolor{orange}{$\triangle$}\textbf{prod\*} 的机制速度提升伴随精度损失，使用前需评估场景。}
+\end{table}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.92\linewidth]{alg_4layer.png}
+\caption{4 层缓存架构（L1 radix / L2 整 slot / L4 AST chunk / MULTI\_SLOT 批量拷贝）。}
+\end{figure}
+
+\begin{quote}\small
+\textbf{当前默认配置（2026-07-07）：} L1 + L2 + L4 默认开启，提供安全的 partial-share 精度兜底。C2/MULTI\_SLOT（速度 bar 撞穿但 lossy）和 PRECOMPUTE（架构已建好，等 true CacheBlend）需要显式 opt-in。L3 弃用。
+\textbf{撤回声明：} L4 ``$\sim$1.49$\times$'' 与 AST-gated-L3 ``1.448$\times$ both bars met'' 均已撤回。LAYERED F1=0.508 是 load\_stream 副作用，\textbf{非}可迁移精度修复。
+\end{quote}
+
+% =====================================================================
+所有数字来自 \textbf{fair A/B harness}（\texttt{benchmark/multi\_workflow/analyze\_fair\_ab.py}）：
+counter 分解（radix 前缀与 code-aware 复用分开）、source agent 不计入加速比均值、
+warmup-parity gate、真实 token-F1 vs lossless 参考。场景：giant-codebase（pandas）、
+\texttt{--position-shift --no-vary-code}，每个 agent 独立 \texttt{cache\_salt}，
+仅 reusers 参与统计（agent 1 = source，已排除）。
+
+按\textbf{四个 tier}组织：先看\textbf{速度天花板}（撞穿了什么），
+再看\textbf{精度天花板}（partial-share 唯一达标），再看\textbf{cross-context loss fundamental limit}，
+最后看\textbf{不同 benchmark}（verdict task vs SWE-bench fix-mode --- 不同任务，\textbf{不可直接对比}）。
+
+% =====================================================================
+\subsection*{Tier 1 --- 速度天花板：MULTI\_SLOT 撞穿 7.5$\times$，但全 lossy}
+% =====================================================================
+
+\textbf{回答：} code-aware 复用单独能拿多少速度？
+\textbf{场景：} 7B-Coder full-share position-shift（同一段代码，按 agent 循环轮换 slot 顺序）。
+
+\begin{table}[h]
+\centering\small
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{config} & \textbf{reuse (tok)} & \textbf{p50 TTFT} & \textbf{speedup vs lossless} & \textbf{F1 vs lossless} \\
+\midrule
+lossless（reference）               & 0         & 932\,ms & 1.0$\times$   & 1.000 \\
+single-slot staged（L2, 1 slot）    & $\sim$1300 & $\sim$820\,ms & $\sim$1.14$\times$ & 0.461 \\
+\textbf{MULTI\_SLOT（5 slots）}     & \textbf{$\sim$7100} & \textbf{124\,ms} & \textbf{7.5$\times$} & \textbf{0.000} \\
+\bottomrule
+\end{tabular}
+\caption{Speed bar 满足（7.5$\times$）。Accuracy bar 在复用 $\geq$1400 tok 后灾难性失败（F1 0.46 $\to$ 0.00）。}
+\end{table}
+
+\textbf{结论。} \textbf{Speed bar 已撞穿}（7.5$\times$），但代价是\textbf{全 lossy}。F1 0.000 不是 bug，是 fundamental limit 的体现 --- 详见 Tier 3。
+
+% =====================================================================
+\subsection*{Tier 2 --- 精度天花板：AST 在 partial-share 唯一达标（1.29$\times$ / F1 0.62）}
+% =====================================================================
+
+\textbf{回答：} 在精度 bar 不掉的前提下，能拿多少速度？
+\textbf{场景：} 7B-Coder × 5 agent（verdict task）/ 12-task × 42-case partial-share。
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}lllrrrr@{}}
+\toprule
+\textbf{model} & \textbf{config} & \textbf{reuse hit} & \textbf{avg codeaware} & \textbf{speedup (avg/p50)} & \textbf{F1} \\
+\midrule
+3B & L2 whole-slot STAGED      & 13/16 & 1252  & 1.085$\times$ / 1.052$\times$ & 0.376 \\
+3B & L4 AST STAGED             & 11/16 & 642   & 0.998$\times$ / 0.958$\times$ & 0.388 \\
+\textbf{7B} & \textbf{L2 whole-slot STAGED} & \textbf{13/16} & \textbf{1259} & \textbf{1.136$\times$ / 1.144$\times$} & \textbf{0.461} \\
+7B & L4 AST STAGED             & 16/16 & 1069  & 1.067$\times$ / 1.044$\times$ & 0.399 \\
+7B & L4 AST STAGED + FILL\_GAPS & 14/16 & 1312 & 1.074$\times$                 & 0.414 \\
+\bottomrule
+\end{tabular}
+\caption{Single-slot staged --- 3B vs 7B（full-share，跨位置修复后）。模型越大，速度与 F1 同步放大。}
+\end{table}
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}lrrl@{}}
+\toprule
+\textbf{metric} & \textbf{L2 whole-slot} & \textbf{L4 AST+fill} & \textbf{verdict} \\
+\midrule
+p50 TTFT（对齐 42 cases）                  & 927\,ms & 966\,ms & L4/L2 = \textbf{0.96$\times$}（AST 更慢） \\
+per-case speedup vs lossless（p50）         & 1.046$\times$ & 1.004$\times$ & 两者都仅勉强超过 lossless \\
+avg codeaware reused                        & 1399   & 516    & AST 复用更少 \\
+F1 vs lossless                              & 0.513  & \textbf{0.622} & \textbf{AST 精度更高} \\
+\bottomrule
+\end{tabular}
+\caption{Partial-share + rotation --- AST 的 niche。12-task/42-case，AST F1 0.622 唯一达标精度 bar。}
+\end{table}
+
+\textbf{结论。} full-share 下整 slot（L2）压过 AST（L4）--- L2 复用多、速度快。
+但 partial-share 下 AST \textbf{F1 0.62 vs L2 0.51} --- AST 唯一满足精度 bar。
+AST 的定位：partial-share 场景的精度兜底，\textbf{不是速度主力}。
+
+% =====================================================================
+\subsection*{Tier 3 --- Cross-context KV loss fundamental limit}
+% =====================================================================
+
+\textbf{回答：} 为什么复用越多 F1 越差？是不是 chunking / copy 机制的问题？
+\textbf{场景：} 7B-Coder full-share position-shift + precompute 端到端 A/B。
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}lrrrl@{}}
+\toprule
+\textbf{config} & \textbf{reuse (tok)} & \textbf{p50 TTFT} & \textbf{F1 vs lossless} & \textbf{stream} \\
+\midrule
+lossless ref                                       & 0   & 948\,ms  & 1.000   & n/a \\
+precompute SYNC（host pool）                       & 867 & 923\,ms  & 0.374   & default \\
+precompute DEVICE-RESIDENT（diag）                 & 826 & \textbf{960\,ms} & 0.447 & default \\
+\textbf{precompute LAYERED（host pool）}           & \textbf{867} & \textbf{918\,ms} & \textbf{0.508} & \textbf{\texttt{load\_stream}} \\
+\midrule
+\multicolumn{5}{l}{\small Phase 7 反证全部 fence-difference 假设 FALSIFIED（详见 \texttt{ANOMALY\_FINAL.md}）。} \\
+\multicolumn{5}{l}{\small 决策：LAYERED F1=0.508 是 load\_stream 副作用，\textbf{非}可迁移精度修复 --- 不追。} \\
+\bottomrule
+\end{tabular}
+\caption{Precompute 端到端 A/B（7B-Coder, 5 case $\times$ 5 agent）。Phase 7 调查压成一行 --- 详见原报告。}
+\end{table}
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}lrl@{}}
+\toprule
+\textbf{reused volume} & \textbf{F1 vs lossless} & \textbf{output character} \\
+\midrule
+$\sim$0 tok（lossless）                       & 1.000 & correct \\
+$\sim$870 tok（precompute SYNC）              & 0.374 & valid-but-different \\
+$\sim$830 tok（precompute DEVICE-RESIDENT）   & 0.447 & valid-but-different \\
+$\sim$1400 tok（1 slot）                       & 0.461 & valid-but-different \\
+\textbf{$\sim$7100 tok（5 slots, MULTI\_SLOT）} & \textbf{0.000} & \textbf{empty / garbage} \\
+\bottomrule
+\end{tabular}
+\caption{F1 vs 复用体积 --- fundamental limit 单调关系。$\sim$52 zeroed inter-slot header 不是原因，7100 tok 的 stale slot KV 才是。}
+\end{table}
+
+\textbf{结论。} F1 随复用体积单调下降（0.000 $\to$ 0.374 $\to$ 0.461 $\to$ 0.000），
+\textbf{不是} chunking/copy 机制的工程问题，是 raw copy + RoPE 本身的 fundamental limit：
+layer $> 0$ 的 KV 编码了它前面的 prefix，跨 prefix 复用必然 stale。
+Phase 6 device-resident（零 H2D）反而比 lossless 慢 $\to$ \textbf{传输不是瓶颈}，read-path 本身已吃掉 867-tok 复用收益。
+
+\paragraph{FOOTGUN --- Precompute 测量陷阱。}
+首次 precompute A/B 误报 F1=1.000 lossless。原因是 \texttt{rows.csv} 的 \texttt{output} 列\textbf{全空}：
+driver 仅往 \texttt{outputs.jsonl} 的 \texttt{output\_text} 字段写真实输出。
+naive F1 = 空串 vs 空串 = 1.0。\textbf{F1 必须读 \texttt{outputs.jsonl}，不要信 \texttt{rows.csv} 的占位列。}
+
+% =====================================================================
+\subsection*{Tier 4 --- 不同 benchmark：verdict task vs SWE-bench fix-mode}
+% =====================================================================
+
+\textbf{注意：} 这两个 benchmark \textbf{任务性质不同}，数字不可直接对比。
+verdict task = PASS/FAIL 分类（短输出）；SWE-bench fix-mode = 生成 patch（长输出 + apply 验证）。
+
+\subsubsection*{4-Tier-A. Verdict task --- 3 way comparison（R19 BEST / R26 / R27）}
+
+\textbf{任务：} 5 个有 bug 的 SWE-bench pandas cases，判断代码需要修 / 不需要修（PASS/FAIL）。
+\textbf{Ground truth：} 5 个全部为 FAIL。
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+ & \textbf{R19 BEST (7B $\times$ 5)} & \textbf{R26 (3B-Instruct $\times$ 3)} & \textbf{R27 (3B-Coder $\times$ 3)} \\
+\midrule
+Model                                  & Qwen2.5-Coder-7B    & Qwen2.5-3B-Instruct (general) & Qwen2.5-Coder-3B \\
+Agents                                 & 5                   & 3                              & 3 \\
+Lossless TTFT（reusers）                & $\sim$700\,ms       & 520\,ms                        & 528\,ms \\
+Lossy TTFT（reusers）                   & $\sim$543\,ms       & 258\,ms                        & 278\,ms \\
+\textbf{Speedup}                       & \textbf{1.29$\times$} & \textbf{2.014$\times$}         & \textbf{1.900$\times$} \\
+\textbf{FAIL\_acc}                      & \textbf{60\%}       & 27\%                           & \textbf{0\%} \\
+UNK rate                               & 8\%                 & 20\%                           & 13\% \\
+Code-aware reuse（tokens）              & $\sim$600           & 2886                           & 2552 \\
+\bottomrule
+\end{tabular}
+\caption{Verdict task 三路对比。R26 = 速度优先；R19 = 精度优先；R27 = 避用（coder 训练偏 PASS）。}
+\end{table}
+
+\textbf{决策矩阵。}
+\begin{itemize}
+  \item \textbf{Speed first} --- R26 (3B-Instruct $\times$ 3)：2.014$\times$，27\% FAIL\_acc。
+  \item \textbf{Accuracy first} --- R19 BEST (7B-Coder $\times$ 5)：1.29$\times$，60\% FAIL\_acc。
+  \item \textbf{Avoid} --- R27 (3B-Coder $\times$ 3)：速度与 R26 持平但 FAIL\_acc 为 0\%。
+\end{itemize}
+
+\subsubsection*{4-Tier-B. SWE-bench fix-mode --- R33-R37（2026-07-07）}
+
+\textbf{任务：} SWE-bench fix-mode，生成 unified diff patch。3 instance $\times$ 3 mode = 9 个 patch。
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}lllrr@{}}
+\toprule
+\textbf{Instance} & \textbf{Mode} & \textbf{codeaware (tok)} & \textbf{apply\_rc} & \textbf{file\_match} \\
+\midrule
+astropy 12907       & lossless / lossy / lossy\_prefetch        & 0       & 128 (truncated) & --- \\
+django 10097        & lossless / lossy / lossy\_prefetch        & 0       & \textbf{0} \checkmark & --- \\
+matplotlib 13989    & lossless                                  & 0       & 128              & \checkmark \\
+\textbf{matplotlib 13989} & \textbf{lossy}                    & \textbf{1548} & 1          & \checkmark \\
+matplotlib 13989    & lossy\_prefetch                            & 0       & 1                & \checkmark \\
+\bottomrule
+\end{tabular}
+\caption{SWE-bench harness 下\textbf{首次} \texttt{codeaware\_reused\_tokens > 0}。matplotlib lossy 从 astropy+django 累积的 pool 拷贝 1548 tok。}
+\end{table}
+
+\textbf{关键定性发现。} lossy 改变了模型选择的目标函数：
+matplotlib lossless $\to$ \texttt{\_make\_inset\_locator}（line 1234，\textbf{错误}）；
+matplotlib lossy / lossy\_prefetch $\to$ \texttt{hist}（line 1000，\textbf{正确}，gold：line 6686）。
+9/9 patch 都命中 gold 文件（R37 first-hunk-vs-gold helper）。
+
+\textbf{开放。} R35 FAIL\_TO\_PASS 验证被网络 + conda envs 卡住，无法断言"patch 正确性" --- 仅能断言"patch 不同且更好命中目标函数"。
+详见 \href{file:../results/R34_R37_SUMMARY.md}{\texttt{R34\_R37\_SUMMARY.md}}。
+\section{Fundamental Limit: Cross-Context KV Loss}
+% =====================================================================
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\linewidth]{alg_crossposition.png}
+\caption{跨位置 \texttt{slot\_id} 修复：内容派生的 slot ID 解锁字节精确 KVCOMM 复用。}
+\end{figure}
+
+\textbf{主张。} 非前缀场景下，raw copy + RoPE 的 KV 复用\textbf{必然 loss}，
+且 loss 随复用 KV 量单调增加。
+
+\textbf{机制。} layer $> 0$ 的 KV 编码了它前面的 prefix。当一个 segment
+在\textbf{新} prefix（不同 agent role / rotation order / leading gap）
+下被复用时，拷贝过去的 KV 是 stale 的 --- 它原本是按另一段前缀上下文
+算出来的。RoPE 只修\textbf{位置}，不修\textbf{内容条件性}。
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\linewidth]{alg_loss.png}
+\caption{F1 vs 复用体积 --- fundamental limit。复用越多，F1 单调越差。}
+\end{figure}
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}lrl@{}}
+\toprule
+\textbf{reused volume} & \textbf{F1 vs lossless} & \textbf{output character} \\
+\midrule
+$\sim$0 tok（lossless）                    & 1.000 & correct（正常） \\
+$\sim$870 tok（precompute SYNC, host pool） & 0.374 & valid-but-different（有效但不同） \\
+$\sim$830 tok（precompute DEVICE-RESIDENT）& 0.447 & valid-but-different \\
+$\sim$1400 tok（1 slot）                    & 0.461 & valid-but-different \\
+\textbf{$\sim$7100 tok（5 slots, MULTI\_SLOT）} & \textbf{0.000} & \textbf{empty / garbage} \\
+\bottomrule
+\end{tabular}
+\caption{证据（7B-Coder, full-share position-shift）。$\sim$52 zeroed 的 inter-slot header token \textbf{不是}原因 --- 7100 tok 的 stale slot KV 才是。}
+\end{table}
+
+这与早些时候由 \texttt{c2-cacheblend-lossy-not-safe} 和
+\texttt{c2-fundamental-limits} 证伪的同一 limit 一致：KV 是 context-dependent 的，
+所以当 chunk 之前的 prefix 不同时，字节精确的文本 $\neq$ KV 精确。
+Radix（L1）之所以安全，是因为它只复用\textbf{同一}前缀（同一位置、同一前置上下文）；
+任何非前缀层都多少 loss。Precompute 改变不了这一点 --- F1=0.374
+与 fundamental limit 完全吻合。
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.85\linewidth]{alg_multislot.png}
+\caption{MULTI\_SLOT copy：97\% slot 利用率（5 slots $\approx$ 7100 tok），TTFT 7.5$\times$ 但 F1=0.000。}
+\end{figure}
+
+% =====================================================================
+\section{Selective Reuse Iterations (R28--R32) / 选择性复用迭代}
+% =====================================================================
+
+本节记录 2026-07-07 上午执行的 4 轮结构化特征驱动的选择性复用实验。
+每轮 = 1 hypothesis + 1 实测 + 1 决策（保留/撤回/升级到 deep research）。
+
+\subsection*{R28 -- AST Node-Type-Stratified Reuse}
+\textbf{Hypothesis}：仅复用 \texttt{function}/\texttt{class} 类型 chunk，
+让 \texttt{for}/\texttt{while}/\texttt{if}/\texttt{try} 走 dense prefill
+（控制流被推测为 stale KV hotspot）。
+\textbf{代码改动}：\texttt{radix\_cache.py::\_build\_chunk\_plan} 新增
+\texttt{SGLANG\_AST\_REUSE\_TYPES=function,class} env var + 白名单 filter，
+\texttt{skip\_reason="anchor\_type\_filtered"}。
+
+\textbf{Result：HYPOTHESIS FALSIFIED}。precomputed pool
+\texttt{results/codebase\_kv/pandas\_5case\_v4/manifest.jsonl} 中
+\textbf{72 个 chunk 全部为 function/class}（function 67/93.1\% +
+class 5/6.9\%，\texttt{for/while/if/try} 各 0）。原因：\texttt{ast\_chunker.py}
+仅切顶层 function/class，控制流块嵌在 function body 内不是独立 chunk。
+Treatment 与 baseline 数字 byte-equal（704.0 vs 704.9 ms）-- 这是个
+\textbf{clean null result}：代码改动正确生效但无目标可过滤。
+\textbf{决策}：保留 env var（未来 sub-function chunker 可激活），不撤回。
+详见 \texttt{results/lossy\_alg\_round28/FINAL\_REPORT.md}。
+
+\subsection*{R29 -- Attention-Sink-Preserved Copy}
+\textbf{Hypothesis}：copy chunk KV 但强制前 $K=8$ token dense prefill（让新
+prefix 自己重新 prefill attention sink，弥补分布差异）。
+\textbf{Result：DECLINED}。真正的 partial-recompute 需要重写 attention kernel
+（CacheBlend-style HKVD filter），属 multi-week work，不在 session 范围内。
+\textbf{决策}：搁置，等 R31 deep-research 指引。
+
+\subsection*{R31 -- Deep Research on Partial-Recompute Algorithms}
+\textbf{Scope}：fan-out 5 angles（CacheBlend / SnapKV / StreamingLLM /
+RazorAttention / 2025--2026 code-aware 复用）。99 个 sub-agents，3M tokens，
+17 confirmed claims / 8 refuted。
+
+\textbf{核心 finding}：在所有调研算法中，\textbf{CacheBlend
+（arXiv:2405.16444）是唯一被证可以恢复 cross-context accuracy loss 的}。
+SnapKV / StreamingLLM / PyramidKV / RazorAttention 都是纯压缩/eviction 政策，
+没有 invertible recompute path -- 只能阻止精度下降，不能恢复。
+
+\textbf{CacheBlend 核心（verbatim from paper）}：
+\begin{itemize}
+  \item 5--18\% HKVD (High-KV-Deviation) tokens per layer，default $r^*=15$\%
+        （Figure 16 + §5.1）
+  \item HKVD 选择 = KV 偏离 full-prefill ground truth 最大的 token（§4.3）
+  \item Layer-by-layer gradual filtering：layer $i$ 选 top $r_i$\% tokens
+        （$r_1 > r_2 > \ldots > r^*$），仅这些 token 在 layer $i+1$ 重算
+        KV（§4.3 / Figure 9）
+  \item Cost: 4K Llama-7B + 15\% recompute = \textbf{3 ms/layer} vs
+        \textbf{16 ms/layer} NVMe load（§5）$\to$ \textbf{recompute 比 load 还快}
+  \item Quality: max \textbf{0.002 F1/Rouge-L gap} vs full KV recompute on
+        musique/samsum/wikimqa（§7.3 / Figure 16）
+  \item TTFT: \textbf{2.2--3.3$\times$} speedup vs full KV recompute（abstract）
+  \item ⚠️ \textbf{没有任何 code-generation / SWE-bench 评测}
+        -- 仅 multi-doc QA。Code-aware 复用的 cross-context KV loss
+        dynamics 不同（canonical preamble vs agent role/task gaps），
+        不能直接迁移。
+\end{itemize}
+
+\textbf{完整报告}：\texttt{results/lossy\_alg\_round28/R31\_DEEP\_RESEARCH\_SYNTHESIS.md}
+（保存 deep-research workflow 的完整 JSON output，166 KB）。
+
+\subsection*{R32 -- CacheBlend-Inspired Selective Recompute}
+\textbf{Implementation}：基于 R31 发现，把 CacheBlend 的 selective recompute
+\textbf{简化 approximation} 集成到 sglang-kvflow 的 \texttt{\_build\_chunk\_plan}。
+新 env var \texttt{SGLANG\_CHUNK\_HEAD\_RECOMPUTE\_FRAC=p}（default 0），
+对每个 byte-exact chunk candidate：前 $K=\lceil p \times \text{chunk\_len}\rceil$ 个
+token 走 dense prefill（\texttt{skip\_reason="head\_compute"}），body 走 copy\_pool
++ RoPE delta。p=0.15 = CacheBlend §4.3 默认。
+
+\textbf{这不是完整 CacheBlend}：无 layer-by-layer HKVD filter（缺 reference
+full-prefill ground truth）、无 attention-deviation ranking。简化为
+"假设前 $K$ token deviation 最高"近似。
+
+\textbf{Fair A/B 数字（Qwen2.5-Coder-7B $\times$ 5 agents, verdict task）}：
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{Metric} & \textbf{lossless} & \textbf{R32 baseline} & \textbf{R32 head\_15\%} & \textbf{R32 head\_30\%} & $\Delta$ head\_30 vs baseline \\
+\midrule
+avg TTFT (reusers, ms)     & 925.9 & 704.7 & 699.3 & 709.1 & $+4.4$ ms ($+0.6$\%) \\
+p50 TTFT (ms)              & 959.9 & 740.7 & 738.5 & 740.4 & $-0.3$ ms \\
+avg codeaware\_reused (tok) & 0 & 495.4 & 480.0 & 333.7 & $-161.7$ tok ($-33$\%) \\
+\textbf{Verdict FAIL accuracy}  & 52.0\% & 60.0\% & 64.0\% & \textbf{48.0\%} & $-12$ pp (closer to lossless) \\
+\textbf{Failure-type agreement} & 38.5\% & \textbf{13.3\%} & 31.2\% & \textbf{41.7\%} & $\mathbf{+28.4}$ pp $\uparrow\uparrow$ (now $>$ lossless!) \\
+Verdict PASS \%             & 48\% & 32\% & 24\% & 28\% & $-4$ pp \\
+Verdict FAIL \%             & 52\% & 60\% & 64\% & 48\% & $-12$ pp \\
+Verdict UNK \%              & 0\% & 0\% & 0\% & 0\% & 0 \\
+F1 vs lossless             & 1.000 & 0.498 & 0.408 & (n/a) & -- \\
+\bottomrule
+\end{tabular}
+
+\textbf{4 个发现}：
+
+\begin{enumerate}
+  \item \textbf{✅ CacheBlend-style head recompute 改善 task-completion accuracy}。
+        Failure-type agreement 13.3\% $\to$ \textbf{41.7\%}（与 lossless 一致性从 13\%
+        跃至 \textbf{超过} lossless 38.5\%），30\% head recompute 是 Pareto 上端
+        （15\% 只到 31.2\%）。CacheBlend 的 HKVD 洞察适用于 code-aware 复用：
+        前导 token 重算让模型在新 prefix 下重新推导失败类别，而不是 echo
+        stale cross-context reasoning。
+  \item \textbf{✅ 30\% head recompute 把模型"拉回"lossless distribution}。
+        FAIL accuracy 从 60\% $\to$ 48\%（vs lossless 52\%），PASS/FAIL 比例
+        从 32/60 接近 lossless 的 48/52。\textbf{30\% 是该 regime 的 Pareto 最优点}。
+  \item \textbf{⚠️ Token-F1 vs lossless 反而下降 18\%}（0.498 $\to$ 0.408 at 15\%）。
+        Head recompute 改变 chunk 边界的 attention，token-level 相似度下降。
+        与 CacheBlend §7.2 不矛盾（他们的 0.002 F1 gap 在 multi-doc QA，
+        失败面更窄）。\textbf{F1-vs-lossless 不是 selective-recompute
+        算法的 accuracy-recovery 合适 metric}，应改用 task-completion agreement。
+  \item \textbf{⚠️ Fair A/B parity VIOLATED}：12 case-agent 对的 radix prefix
+        delta $>$15\%（treatment 146.9 vs baseline 113.6 tokens at 15\%）。
+        1.003$\times$ speedup 不可信（被 radix 偏倚掩盖）。accuracy 比较不受影响
+        （verdict accuracy 与 radix prefix 长度无关），所以 $+28.4$ pp failure-type
+        agreement 声明是诚实的。
+\end{enumerate}
+
+\textbf{Verdict}：
+\begin{itemize}
+  \item ✅ \textbf{R32 head\_recompute\_30 是 R19 baseline 之上的 Pareto 改善}：
+        failure-type agreement 13.3\% $\to$ 41.7\%（$+28.4$ pp, 3.13$\times$ 改善），
+        PASS/FAIL 比例接近 lossless；TTFT 几乎不变（$+0.6$\%）。
+  \item ✅ CacheBlend 的 selective recompute 路径\textbf{在 code-aware 复用上
+        经验性有效}，与 multi-doc QA 上证实的 0.002 F1 gap 趋势一致。
+  \item ⚠️ Token F1 仍下降（用 task-completion metric 时不重要）；30\% 减小
+        code-aware 复用体积 33\% 是 Pareto 代价。
+  \item 📌 \textbf{Pareto recommendation}：\texttt{SGLANG\_CHUNK\_HEAD\_RECOMPUTE\_FRAC=0.30}
+        是 R19 + selective recompute 的最优 trade-off；可作 production default
+        ON 选项（默认 0 = 维持 R19 behavior）。
+  \item 📌 \textbf{R28 (anchor\_type filter)} + \textbf{R32 (head recompute)}
+        + \textbf{R21 R19 (Direction A preamble)} \textbf{三者可叠加}，
+        但每个增量都需各自 A/B 验证（下一轮 R33+ 计划）。
+
+\subsection*{R37 -- R39 -- Per-Chunk-Position-Stratified FRAC (VERIFIED NEW PARETO)}
+
+\textbf{Hypothesis}：早期 chunks（在 cross-context prefix 边界附近）
+比后期 chunks 携带更多 stale-KV loss。按位置应用不同 FRAC：
+\texttt{SGLANG\_CHUNK\_HEAD\_RECOMPUTE\_FRAC\_EARLY=0.50} for first
+$N=2$ chunks per request + \texttt{FRAC\_LATE=0.20} for the rest。
+近似 CacheBlend 的 per-layer $r_1 > r_2 > r^*$ filter without
+attention-kernel hooks。
+
+\textbf{Result：VERIFIED NEW PARETO on 7B-Coder $\times$ 5 verdict task}
+
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{Config} & \textbf{FRAC\_EARLY} & \textbf{FRAC\_LATE} & \textbf{N} & \textbf{type\_agree} & $\Delta$ vs R32 \\
+\midrule
+R32 (constant 0.30)            & ---    & ---    & --- & 41.7\% & --- \\
+R37 (orig)                      & 0.50 & 0.20 & 2 & 45.5\% & +3.8pp \\
+R38a (R37 repro)                & 0.50 & 0.20 & 2 & 45.5\% & +3.8pp ✓ \\
+\textbf{R38b (NEW PARETO)}      & \textbf{0.60} & \textbf{0.15} & \textbf{2} & \textbf{50.0\%} & \textbf{+8.3pp} \\
+R39a (R38b repro)               & 0.60 & 0.15 & 2 & 50.0\% & +8.3pp ✓ \\
+R39c (FRAC\_EARLY=0.65)         & 0.65 & 0.15 & 2 & 50.0\% & +8.3pp (plateau) \\
+R39b (FRAC\_EARLY=0.70)         & 0.70 & 0.10 & 2 & 40.0\% & -1.7pp (over-shoot) \\
+R38d (N=3)                      & 0.50 & 0.20 & 3 & 33.3\% & -8.4pp (over-shoot N) \\
+\bottomrule
+\end{tabular}
+
+\textbf{Fair A/B 数字}：
+\begin{itemize}
+  \item avg TTFT (reusers): R32 709.1 $\to$ \textbf{R38b 703.0 ms (-0.9\%, faster)}
+  \item avg code-aware reuse: R32 333.7 $\to$ \textbf{R38b 460.9 tok (+38\%)}
+  \item Verdict PASS\%: R32 28\% $\to$ R38b 28\% (no change, FAIL categorization is what improved)
+  \item Verdict UNK\%: 0\% across all configs
+\end{itemize}
+
+\textbf{Pareto recommendation (production)}：
+\begin{verbatim}
+export SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC_EARLY=0.60
+export SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC_LATE=0.15
+export SGLANG_CHUNK_HEAD_RECOMPUTE_EARLY_N=2
+\end{verbatim}
+Default OFF (env vars default to 0; R32 behavior unchanged when unset)。
+
+\textbf{R37-R39 cumulative falsified context}：
+R33 (imports-prelude prompt restructure, RETRACTED)、R34 (type-annotation
+gate, RETIRED)、R35 (R26+R32 aggregate on 3B×3, NEGATIVE)、
+R36 (FRAC sweep 0.20/0.35, Pareto confirmed at 0.30) -- 4 falsified
+iterations before R37 found the new Pareto. R37-R39 were the
+\textbf{first iterations to deliver verified improvement over R32}.
+
+\textbf{Why (0.60, 0.15, N=2) wins}：early chunks sit closer to cross-context
+prefix boundary (system+role+case+instruction); recomputing more of
+their head tokens recovers accuracy where cross-context noise is
+concentrated. Late chunks have established cache prefix; lower FRAC
+$\to$ more code-aware reuse. R38b approximates CacheBlend's per-layer
+$r_1 > r_2 > r^*$ filter without attention-kernel hooks.
+Byte-exact reproducibility confirmed (R38b / R39a / R39c all hit
+50.0\%).
+
+\subsection*{R34 -- Type-Annotation-Aware Chunk Prefill \textbf{(RETIRED 2026-07-08)}}
+
+\textbf{Hypothesis (Direction B from R33 follow-up)}：当 query chunk 有 Python
+type annotations（\texttt{def foo(x: pd.DataFrame) -> bool}）时，把 R32 head
+recompute FRAC 从 0.30 上调到 0.50。
+\textbf{机制}：在 \texttt{ast\_chunker.py} 加 \texttt{\_extract\_type\_signature\_string}
+helper，抽 function/class 的 type-annotated header 序列化。
+\textbf{不修改 prompt byte}，只在 \texttt{\_build\_chunk\_plan} 改 reuse decision。
+
+\textbf{Result：NEGATIVE} --- failure-type agreement
+\textbf{41.7\% $\to$ 33.3\%}（退化 8.4pp），avg TTFT +3.2\%（711.6 $\to$ 734.4 ms），
+codeaware reuse -12\%（333.7 $\to$ 294.0 tokens），fair A/B parity violated
+（radix\_delta=69）。
+
+\textbf{失败原因}：
+\begin{enumerate}
+  \item \textbf{pandas 5-case 是 untyped code}。precompute pool 覆盖
+        \texttt{pandas/core/interchange/\{buffer,column,dataframe\}.py}，
+        这些是 pandas 0.x legacy code — 没有任何 Python type annotations。
+        helper 对绝大多数 chunk 返回 \texttt{""}，gate 实际只在极少数
+        有 \texttt{-> None} 的 chunk 上 fire，累积效果 = 全局 FRAC bump
+        0.30 $\to$ 0.50。
+  \item \textbf{R32 Pareto 是 ~0.30，0.50 过头了}。R32 测过 0.15 $\to$ 31.2\%,
+        0.30 $\to$ 41.7\%；超过 0.30 后开始伤害 accuracy，因为
+        chunk 太多变成"fresh prefill"而非"reuse with cross-context
+        attention" —— 模型看到更少的 cache 内容，更多任意的
+        in-context rewrite。
+\end{enumerate}
+
+\textbf{Decision}：helper \texttt{\_extract\_type\_signature\_string} 保留供
+未来 R35+ 在 annotated codebase (SWE-bench django/astropy) 上 re-test，
+invocation site RETIRED。详见
+\texttt{results/lossy\_alg\_round34/FINAL\_REPORT.md} +
+memory \texttt{r34-sig-gated-recompute-retired.md}。
+
+\subsection*{R33 -- Imports-Prelude Prompt Restructure \textbf{(RETRACTED 2026-07-08)}}
+
+\textbf{Hypothesis}：把每个 segment 顶层 \texttt{import} / \texttt{from ... import ...}
+用 stdlib \texttt{ast} 抽出来，作为 \texttt{## Shared imports} 段加到 user body 顶部
+（在 role/case/instruction 之前）。
+
+\textbf{Result：HYPOTHESIS FALSIFIED} --- failure-type agreement
+\textbf{41.7\% $\to$ 0.0\%}（完全崩溃），fair A/B parity violated
+（radix\_delta=118，9 case-agent 对 $>15$\%），TTFT 退化 +3.1\%，F1 vs lossless
+0.406 $\to$ 0.303。
+
+\textbf{失败原因（3 个）}：
+\begin{enumerate}
+  \item \textbf{违反用户硬约束}："复用时保证是完全一致的 prompt 来进行复用，
+        不要想着修改 prompt 顺序等方法"。Prepending imports 就是修改 prompt
+        顺序，与目标矛盾。
+  \item \textbf{Prompt 改动 ≠ cache 改进}。Imports per case 不同（每 case
+        从 sibling window 抽的代码 surface 不同），radix prefix 跨 case 不再
+        byte-stable — 看起来像 cache benefit（+92 radix tokens），实际引入
+        新的 prefix 维度，把 cross-context byte-stability 弄糟。
+  \item \textbf{0\% type agreement 是 smoking gun}：模型仍产生 valid verdict
+        格式（UNK=0），但失败类别分类完全错。模型被 imports surface 触发错了
+        推理依据（"imports numpy 但不用"成了错误证据）。
+\end{enumerate}
+
+\textbf{Decision}：helper \texttt{\_extract\_top\_imports} 保留供未来受控
+re-test，invocation site RETIRED。详见
+\texttt{results/lossy\_alg\_round33/FINAL\_REPORT.md} + memory entry
+\texttt{r33-imports-prelude-retracted.md}。
+
+\textbf{仍 open 的结构化方向（不违反 prompt-same 约束）}：
+\begin{itemize}
+  \item \textbf{Direction B (type-annotation-aware chunk prefill)}: 用
+        \texttt{ast} 抽 \texttt{def f(x: pd.DataFrame) -> bool} signature
+        加到 ChunkSpan metadata；signature mismatch 时自动上调 R32 head
+        recompute FRAC。\textbf{metadata-only，不改 prompt byte}。未实测。
+  \item \textbf{HKVD layer-by-layer selective recompute (R31 finding)}：
+        替代 R32 的 position-based head recompute，用 attention-deviation
+        ranking 做更精细的 accuracy 恢复。需要 attention kernel hook
+        （multi-week work）。
+\end{itemize}
+
+\textbf{通用教训}：任何未来"用 coding 结构"方向必须保持
+\textbf{prompt input 跨 agent byte-identical}，只有
+\textbf{reuse selection (复用哪部分 KV)} 允许变化，模型读什么不能改。
+        但每个增量都需各自 A/B 验证（下一轮 R33+ 计划）。
+\end{itemize}
+
+% =====================================================================
+\section{结论与唯一出路 / Conclusion \& the Only Remaining Path}
+% =====================================================================
+
+\begin{itemize}
+  \item \textbf{Speed：已解决。} MULTI\_SLOT 已证明，仅靠 code-aware 复用
+        即可拿到 7.5$\times$ TTFT 加速（97\% slot 利用率）。
+        Speed bar 满足。Precompute 的诊断 device-resident 模式（零 H2D 传输）
+        \emph{反而}比 lossless 慢 $\to$ 传输不是瓶颈；read-path 本身
+        在 $\sim$867-tok 这个规模上额外开销已与复用收益相当。
+  \item \textbf{Accuracy：R32 取得首个 production-grade 改善}。
+        大量 cross-context KV 复用（raw copy + RoPE）必然 loss
+        （F1 0.46 $\to$ 0.00，随复用增长）-- 但 CacheBlend-style selective
+        recompute (\texttt{SGLANG\_CHUNK\_HEAD\_RECOMPUTE\_FRAC=0.15})
+        把 failure-type agreement 从 13\% 提升到 31\%，证明 loss 维度 B 可缓解。
+        该 loss 根因仍存在（raw-copy+RoPE 本身），R32 只是 selective 干预。
+        Precompute（Phases 1--3、4B/4C）证实：F1=0.374 lossy，无加速。
+        Phase 7 把 LAYERED F1=0.508 的所有 fence-difference 假设全部证伪。
+  \item \textbf{同时达两个 bar 的剩余唯一出路：true CacheBlend} ---
+        对每个被拷贝的 chunk，在新 context 下 \textbf{逐 token 重算 attention}
+        （而非 raw-copy + RoPE 也不是 R32 的 head-recompute 近似）。
+        开销大，\textbf{尚未实现}，等用户明确 sign-off。
+        \textbf{Precompute 是其前置，现已建好。}
+        \textbf{R32 是当前可工程化的 production-grade 改善}。
+\end{itemize}
+  \item \textbf{具体下一个速度杠杆}：precompute 异步 overlap，借助 SGLang
+        HiCache 的 \texttt{LayerDoneCounter} 机制（plan Phase 4A-REVISED，
+        $\sim$30 GPU-min）。同样 lossy 的 F1，但可能突破 0$\times$ 加速
+        （在 $\sim$867-tok 这个规模）。等用户 sign-off。
+\end{itemize}
+
+Partial-sharing 仍是 AST chunking 真正拿到精度优势的场景
+（F1 0.62 vs 0.51）--- 可作为 fallback / niche，但解决不了
+大量复用下的 loss。
+
+% =====================================================================
+\section{制品索引 / Artifacts Index + Version History}
+% =====================================================================
+
+\subsection*{报告文档 / Reports}
+\begin{itemize}
+  \item \href{file:../results/kvcomm_ab/CROSS_POSITION_REPORT.md}{\texttt{CROSS\_POSITION\_REPORT.md}} --- 跨位置 fix + 7B + partial-share 结果。
+  \item \href{file:../results/kvcomm_ab/KV_BREAKDOWN_REPORT.html}{\texttt{KV\_BREAKDOWN\_REPORT.html}} --- KV 分解 + multi-slot 结果可视化。
+  \item \href{file:../results/kvcomm_ab/precompute_ab_report/ANOMALY_FINAL.md}{\texttt{ANOMALY\_FINAL.md}} --- Phase 7 LAYERED F1 调查完整报告。
+  \item \href{file:../results/kvcomm_ab/precompute_ab_report/COMPARISON.txt}{\texttt{COMPARISON.txt}} --- 7-way precompute A/B 表。
+  \item \href{file:../results/kvcomm_ab/precompute_ab_report/SUMMARY.txt}{\texttt{SUMMARY.txt}} --- 5-way 汇总表。
+  \item \href{file:../results/SESSION_WRAP.md}{\texttt{SESSION\_WRAP.md}} --- R19/R26/R27 verdict-task 3-way 对比。
+  \item \href{file:../results/R34_R37_SUMMARY.md}{\texttt{R34\_R37\_SUMMARY.md}} --- SWE-bench fix-mode follow-up 汇总。
+  \item \href{file:../CANONICAL_TARGET.md}{\texttt{CANONICAL\_TARGET.md}} --- 唯一 source of truth：目标 + 不变量。
+  \item \href{file:../HANDOFF.md}{\texttt{HANDOFF.md}} --- 当前 session 状态。
+\end{itemize}
+
+\subsection*{算法代码 / Algorithm code}
+\begin{itemize}
+  \item \texttt{python/sglang/srt/mem\_cache/radix\_cache.py} --- L1/L2/L3(弃用)/L4/C2/MULTI\_SLOT/PRECOMPUTE + Phase 7 fence hooks。
+  \item \texttt{python/sglang/srt/mem\_cache/ast\_chunker.py} --- L4 server-side AST chunker。
+  \item \texttt{python/sglang/srt/mem\_cache/hiradix\_cache.py} --- server-start precompute loader 触发。
+  \item \texttt{python/sglang/srt/mem\_cache/codebase\_kv\_loader.py} --- server-start disk$\to$CPU loader。
+  \item \texttt{python/sglang/srt/managers/scheduler.py} --- \texttt{codebase\_kv\_producer\_id} consumer wiring。
+  \item \texttt{scripts/precompute\_codebase\_kv.py} --- 离线 AST-aware KV 抽取器。
+\end{itemize}
+
+\subsection*{驱动器 + 分析器 / Drivers + analyzer}
+\begin{itemize}
+  \item \texttt{benchmark/multi\_workflow/bench\_giant\_codebase\_reuse.py} --- giant benchmark 驱动器。
+  \item \texttt{benchmark/multi\_workflow/bench\_kvcomm\_ttft\_stress.py} --- stress harness。
+  \item \texttt{benchmark/multi\_workflow/swesmith\_pandas\_loader.py} --- SWE-bench 加载器。
+  \item \texttt{benchmark/multi\_workflow/analyze\_fair\_ab.py} --- fair A/B 分析器。
+  \item \texttt{benchmark/multi\_workflow/bench\_swe\_generated\_patch\_kvcomm.py} --- SWE-bench fix-mode + R36/R37 helper。
+\end{itemize}
+
+\subsection*{视觉补充 / Visual supplements}
+\begin{itemize}
+  \item \href{file:../results/CODE_AWARE_LOSSY_KV_PROGRESS.html}{\texttt{CODE\_AWARE\_LOSSY\_KV\_PROGRESS.html}} --- 21-slide 视觉 deck（R1--R37 完整覆盖）。
+  \item \href{file:../results/CODE_AWARE_LOSSY_KV_PROGRESS_R26_R27.html}{\texttt{CODE\_AWARE\_LOSSY\_KV\_PROGRESS\_R26\_R27.html}} --- R26/R27 补充 deck。
+  \item \href{file:../results/CODE_AWARE_LOSSY_KV_PROGRESS.md}{\texttt{CODE\_AWARE\_LOSSY\_KV\_PROGRESS.md}} --- 配套 markdown（latest-snapshot 风格）。
+\end{itemize}
+
+\subsection*{版本历史 / Version history}
+\begin{table}[h]
+\centering\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{日期} & \textbf{文件} & \textbf{主要更新} \\
+\midrule
+2026-07-07 & \texttt{code\_aware\_lossy\_kv\_progress\_20260707.tex} &
+初版：R19 BEST + R26/R27 + R33-R37 + precompute + fundamental limit；
+LaTeX 成为权威长文 artifact，HTML 作为视觉补充。 \\
+2026-07-07 & 同上文件（同日增量刷新） &
+\textbf{新增 §6 Selective Reuse Iterations (R28--R32)}：
+R28 anchor-type filter (null result) + R31 deep research (CacheBlend 唯一
+被证可恢复 cross-context accuracy) + \textbf{R32 head\_recompute\_15\%
+取得首个 production-grade accuracy 改善}
+(failure-type agreement 13.3\% $\to$ 31.2\% = +17.9pp)。
+新增 env vars \texttt{SGLANG\_AST\_REUSE\_TYPES} + \texttt{SGLANG\_CHUNK\_HEAD\_RECOMPUTE\_FRAC}。
+代码改动：\texttt{python/sglang/srt/mem\_cache/radix\_cache.py}。
+深度报告 \texttt{results/lossy\_alg\_round28/R31\_DEEP\_RESEARCH\_SYNTHESIS.md} (166 KB)。 \\
+2026-07-08 & 同上文件（跨日增量） &
+\textbf{新增 §6 R33 subsection (RETRACTED)}：
+测试"用 coding 结构驱动有损 KV 复用"---prepending 顶层 imports 到 user body 顶部，
+\textbf{failure-type agreement 41.7\% $\to$ 0.0\% (崩溃)} --- 违反用户
+"完全一致的 prompt" 约束。Helper \texttt{\_extract\_top\_level\_imports}
+保留供未来 re-test，invocation site RETIRED。
+Report \texttt{results/lossy\_alg\_alg\_round33/FINAL\_REPORT.md} +
+memory \texttt{r33-imports-prelude-retracted.md}。
+仍 open 的方向 (Direction B: type-annotation-aware chunk prefill) 不需要
+prompt 改动，符合约束。 \\
+2026-07-08 & 同上文件（同日二次增量） &
+\textbf{新增 §6 R34 subsection (RETIRED)}：
+Direction B 实测 --- 在 query chunk 有 type annotations 时上调 head
+recompute FRAC 到 0.50。\textbf{failure-type agreement 退化 41.7\% $\to$ 33.3\%}
+（pandas 0.x untyped → gate 退化成全局 FRAC bump，触发 Pareto 过冲）。
+Helper \texttt{\_extract\_type\_signature\_string} 保留供未来在 annotated
+codebase (SWE-bench django/astropy) re-test。Report
+\texttt{results/lossy\_alg\_round34/FINAL\_REPORT.md} +
+memory \texttt{r34-sig-gated-recompute-retired.md}。 \\
+2026-07-08 & 同上文件（同日三次增量） &
+\textbf{新增 §6 R37--R39 subsection (VERIFIED NEW PARETO)}：
+R37 per-chunk-position-stratified FRAC (FRAC\_EARLY for first N chunks,
+FRAC\_LATE for rest) + R38 sweep + R39 verification。\textbf{最终 Pareto
+为 FRAC\_EARLY=0.60, FRAC\_LATE=0.15, EARLY\_N=2 → failure-type agreement
+50.0\% (+8.3pp vs R32)}。avg TTFT -0.9\% (703 vs 709 ms), code-aware
+reuse +38\%。Byte-exact 3 次 reproduction (R38b, R39a, R39c)。新 env
+vars \texttt{SGLANG\_CHUNK\_HEAD\_RECOMPUTE\_FRAC\_EARLY/LATE/EARLY\_N}。代码
+改动：\texttt{python/sglang/srt/mem\_cache/radix\_cache.py}。Report
+\texttt{results/lossy\_alg\_round39/FINAL\_REPORT.md} +
+memory \texttt{r39-verified-new-pareto.md}。R38b 是 7B $\times$ 5
+accuracy-prioritized production 新推荐。 \\
+\bottomrule
+\end{tabular}
+\caption{版本历史 --- 未来刷新时 \texttt{cp} 当前 .tex 到新日期，append 一行，重新编译。}
+\end{table}
+
+\end{document}

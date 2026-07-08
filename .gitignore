@@ -188,6 +188,14 @@ tl_out/
 *.png
 *.pdf
 
+# Allow tracked artifacts under reports/ (LaTeX progress report, YYYYMMDD-versioned).
+# Overrides the generic *.png / *.pdf ignores above so the compiled PDFs
+# and the resolved figure PNGs in reports/figures/ can be version-controlled.
+!reports/*.pdf
+!reports/code_aware_lossy_kv_progress_*.pdf
+!reports/code_aware_lossy_kv_progress_*.synctex.gz
+!reports/figures/*.png
+
 # personnal
 work_dirs/
 *.csv

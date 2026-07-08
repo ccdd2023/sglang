@@ -1,4 +1,4 @@
-# HANDOFF — sglang-kvflow (2026-07-06)
+# HANDOFF — sglang-kvflow (2026-07-07)
 
 > **READ FIRST**:
 > 1. [CANONICAL_TARGET.md](./CANONICAL_TARGET.md) — single project goal + current state.
@@ -258,8 +258,20 @@ for copied chunks under the new context) can give speed AND accuracy.
 | [results/kvcomm_ab/precompute_ab_report/ANOMALY_FINAL.md](./results/kvcomm_ab/precompute_ab_report/ANOMALY_FINAL.md) | Phase 7 LAYERED F1 investigation |
 | [results/kvcomm_ab/precompute_ab_report/COMPARISON.txt](./results/kvcomm_ab/precompute_ab_report/COMPARISON.txt) | 7-way precompute A/B table |
 | [results/direction_3_phase_c_d_20260627.html](./results/direction_3_phase_c_d_20260627.html) | L4 Phase C/D architecture deep-dive (still valid) |
+| [reports/code_aware_lossy_kv_progress_YYYYMMDD.tex](./reports/) + `.pdf` | **Authoritative long-form report (LaTeX, YYYYMMDD-versioned)** — refresh workflow below |
 
-## 7. Common commands
+## 7. LaTeX progress report (refresh workflow)
+
+- **主源**: `reports/code_aware_lossy_kv_progress_YYYYMMDD.tex`（每日版本号）
+- **编译**: `cd reports && export PATH=/home/gfy/texlive/2026/bin/x86_64-linux:$PATH && make report`
+- **输出**: `reports/code_aware_lossy_kv_progress_YYYYMMDD.pdf`（tracked via `.gitignore` allowlist）
+- **构建配置**: `latexmkrc`（xelatex + fandol OTF + synctex）+ `reports/Makefile`
+- **图资源**: `reports/figures/*.png`（symlinks → `results/kvcomm_ab/img/`）
+- **历史 PDF**: `reports/archive/`
+- **每次有重大发现时**：cp 当前 .tex → 新日期 .tex，append 版本历史表行，重新编译；
+  不要就地覆盖旧版本。
+
+## 8. Common commands
 
 ```bash
 # L4 chunker + pool unit tests
@@ -303,7 +315,7 @@ Key env toggles (all default OFF unless noted):
 - `SGLANG_KVFLOW_{DOUBLE_SYNC,PERLAYERWAIT,RECORDSTREAM_SYNC,BYTECMP_DUMP}=1` — Phase 7 hooks (all default OFF)
 - `SGLANG_ENABLE_STRICT_MEM_CHECK_DURING_IDLE=0` — warn-only (multi-slot leak workaround)
 
-## 8. What NOT to do
+## 9. What NOT to do
 
 1. **Don't re-enable L3 (MiniLM k-NN body).** Deprecated; 8.2% silent failure.
 2. **Don't propose drift tolerance / MiniLM fallback at the reuse layer.** Byte-exact only.
@@ -314,7 +326,7 @@ Key env toggles (all default OFF unless noted):
 7. **Don't trust `rows.csv`'s output / output_token_f1 columns.** Read `outputs.jsonl`.
 8. **Don't cite 2.10× giant-codebase fair A/B** as "fast + accurate" — its F1 column is a default 1.0 placeholder (no in-run baseline), not real accuracy.
 
-## 9. Memory pointers (auto-load each session)
+## 10. Memory pointers (auto-load each session)
 
 - `multi-slot-copy-2026-07-01` — MULTI_SLOT: 7.5× speed, F1=0.000 (latest speed ceiling)
 - `precompute-kv-ab-2026-07-02` — precompute end-to-end A/B + Phase 7 verdict (most recent cycle)
@@ -332,6 +344,8 @@ Key env toggles (all default OFF unless noted):
 ---
 
 **Last refreshed**: 2026-07-07, after R26/R27 verdict-task cycle + R33-R37
-SWE-bench fix-mode cycle. Next refresh trigger: R34-R37 follow-up (env
-rebuild + R36 `stop_at_last_complete_hunk`), True CacheBlend kernel work,
-or a fresh fair multi-case headline number.
+SWE-bench fix-mode cycle + LaTeX versioned progress report
+(`reports/code_aware_lossy_kv_progress_20260707.{tex,pdf}`).
+Next refresh trigger: R34-R37 follow-up (env rebuild + R36
+`stop_at_last_complete_hunk`), True CacheBlend kernel work,
+or a fresh fair multi-case headline number (→ new dated .tex snapshot).

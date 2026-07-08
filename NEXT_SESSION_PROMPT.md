@@ -68,6 +68,9 @@ memory entry `r26-r27-3b-speedup-2026-07-06.md`.
 4. **`results/R34_R37_SUMMARY.md`** — R33-R37 SWE-bench fix-mode evidence (post-2026-07-07)。
 5. **`results/CODE_AWARE_LOSSY_KV_PROGRESS.md`** — 完整开发时间线 + 结果表 + 已证
    fundamental limit（诚实数字，含已撤回声明标注）。
+6. **`reports/code_aware_lossy_kv_progress_YYYYMMDD.{tex,pdf}`** — **LaTeX 版本化长文报告**（每日快照，
+   authoritative artifact）。Build: `cd reports && export PATH=/home/gfy/texlive/2026/bin/x86_64-linux:$PATH && make report`。
+   Refresh: `cp` 当前 .tex → 新日期 .tex，append 版本历史表行，重新编译。
 6. auto-loaded memory index `~/.claude/projects/-home-gfy/memory/MEMORY.md`
    有关键不变量；尤其读 `r26-r27-3b-speedup-2026-07-06`、`r25-oracle-8pct-unk`、
    `c2-cacheblend-lossy-not-safe`、`multi-slot-copy-2026-07-01`。
@@ -174,6 +177,9 @@ precompute ~870 tok → 0.374。**这不是 chunking/copy 机制的问题，是 
 
 ## 关键文件
 
+- **主报告（LaTeX 版本化）**：`reports/code_aware_lossy_kv_progress_YYYYMMDD.{tex,pdf}`（每日快照）。
+  Build: `cd reports && export PATH=/home/gfy/texlive/2026/bin/x86_64-linux:$PATH && make report`。
+  配置: `latexmkrc`（xelatex + fandol OTF）+ `reports/Makefile`。图资源: `reports/figures/` symlink → `results/kvcomm_ab/img/`。
 - 主视觉 deck：`results/CODE_AWARE_LOSSY_KV_PROGRESS.html`（16 页横向 scroll-snap）
   + `results/CODE_AWARE_LOSSY_KV_PROGRESS.pdf`（16 页 PDF）+ 同名 `.md`。
   - 翻页 JS 外链 `results/CODE_AWARE_LOSSY_KV_PROGRESS.js`（IO + 滚轮离散翻页 +
@@ -207,10 +213,10 @@ precompute ~870 tok → 0.374。**这不是 chunking/copy 机制的问题，是 
 
 ## Branch 状态
 
-`fix/placeholder-pool-activation`，HEAD `59030ca46` (R34-R37 results,
-2026-07-07). Working tree is clean — 2 commits ahead of
-`origin/fix/placeholder-pool-activation` (`d61e6bd1e` harness parser +
-`59030ca46` R34-R37 results). Pushed 2026-07-07. Untracked but
+`fix/placeholder-pool-activation`，HEAD `f5f7c4744` (R26/R27 housekeeping
++ Playwright PDF tool, 2026-07-07). Working tree is dirty — new
+uncommitted `reports/` + `latexmkrc` + `.gitignore` allowlist edits
+(LaTeX versioned progress report). Pushed 2026-07-07. Untracked but
 gitignored dirs (kept on disk, never commit): `results/codebase_kv/`,
 `results/swebench_local_envs/`, `results/giant_codebase/{pandas_src,
 tasks/pandas__pandas__1000/manifest.jsonl}`, `results/ttft_agenttemplatekv/`.

@@ -78,6 +78,52 @@ def _normalize_snippet(text: str) -> str:
     return normalized[:240]
 
 
+# Round 34 (2026-07-08): Type-annotation signature extraction.
+# Returns a stable hash of the chunk's type-annotated def line
+# (def <name>(arg: type, ...) -> return_type:) WITHOUT body content.
+# Two chunks that share the same hash have byte-equal function
+# interfaces — strong signal that cross-context reuse is safe
+# (interface unchanged even if body changes).
+# Returns "" for chunks that are not type-annotated (legacy pandas
+# code with no annotations) — caller can fall back to default reuse
+# policy.
+_TYPE_SIG_PATTERN = re.compile(r"[a-zA-Z_][a-zA-Z0-9_\.]*")
+
+
+def _extract_type_signature_string(text: str, anchor_type: str, name: str) -> str:
+    """Return a stable string of the function/class header WITHOUT body.
+
+    For ``anchor_type in {"function","class"}`` returns the AST-node-style
+    serialization of the first annotated function/class declaration found
+    whose name matches ``name`` (best-effort). Returns "" for untyped
+    code or parse failures.
+
+    Used by R34 type-annotation-aware chunk prefill in radix_cache.py:
+    hashes for two chunks differ iff at least one argument type
+    annotation or the return type annotation differs.
+    """
+    if anchor_type not in {"function", "class"} or not text or not name:
+        return ""
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError):
+        return ""
+    for node in getattr(tree, "body", []) or []:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and anchor_type == "function":
+            if node.name != name:
+                continue
+            try:
+                return ast.unparse(node.args) + "->" + ast.unparse(node.returns) if node.returns else ast.unparse(node.args)
+            except Exception:
+                continue
+        if isinstance(node, ast.ClassDef) and anchor_type == "class":
+            if node.name != name:
+                continue
+            bases = ", ".join(ast.unparse(b) for b in node.bases) if getattr(node, "bases", None) else ""
+            return f"class {name}({bases})"
+    return ""
+
+
 def _slice_source(lines: list[str], start: int, end: int) -> str:
     """Mirror of MAScoder._slice_source (code_anchor.py:211-214)."""
     lo = max(1, start)
