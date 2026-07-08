@@ -1,0 +1,5 @@
+  case=pandas-dev__pandas.95280573.combine_file__11s6papj agent=debugger: baseline_radix=371 exp_radix=89 delta=76% > 15%
+  case=pandas-dev__pandas.95280573.combine_file__2p4yneeo agent=debugger: baseline_radix=113 exp_radix=135 delta=16% > 15%
+  case=pandas-dev__pandas.95280573.combine_file__3ddy6d59 agent=debugger: baseline_radix=224 exp_radix=113 delta=50% > 15%
+  case=pandas-dev__pandas.95280573.combine_file__3ra8xqln agent=auditor: baseline_radix=148 exp_radix=89 delta=40% > 15%
+  case=pandas-dev__pandas.95280573.combine_file__3ra8xqln agent=reviewer: baseline_radix=150 exp_radix=296 delta=49% > 15%
