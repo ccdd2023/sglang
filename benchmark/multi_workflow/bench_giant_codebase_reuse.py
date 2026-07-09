@@ -215,6 +215,15 @@ class ServerHandle:
     chunk_id: int
 
     def is_alive(self) -> bool:
+        if self.proc is None:
+            # R40: external-prelaunched server; the bench never owns the
+            # subprocess. Treat as alive until /health proves otherwise.
+            import urllib.request
+            try:
+                with urllib.request.urlopen(f"http://127.0.0.1:{self.port}/health", timeout=2) as resp:
+                    return resp.status == 200
+            except Exception:
+                return False
         return self.proc.poll() is None
 
 
@@ -232,12 +241,27 @@ def launch_or_relaunch(handle: ServerHandle | None, args: argparse.Namespace, ch
         if handle.is_alive():
             print(f"[giant_driver] chunk {chunk_id}: server still alive, reusing", flush=True)
             return handle
-        print(f"[giant_driver] chunk {chunk_id}: previous server died (rc={handle.proc.returncode}), relaunching", flush=True)
-        try:
-            handle.proc.kill()
-            handle.proc.wait(timeout=10)
-        except Exception:
-            pass
+    # R40 (2026-07-09): if a server is already healthy on args.port, skip
+    # the launch entirely. This lets us pre-launch sglang with tuned mem
+    # + flags (e.g. reduced --max-total-tokens to avoid OOM during long
+    # coder diffs) without the bench's auto-launch path clobbering it.
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{args.port}/health", timeout=2) as resp:
+            if resp.status == 200:
+                print(f"[giant_driver] chunk {chunk_id}: pre-existing server on :{args.port} healthy, reusing", flush=True)
+                # Return a sentinel handle with no live proc — is_alive() returns
+                # True for None.proc so reuse path doesn't try to relaunch.
+                return ServerHandle(proc=None, port=args.port, out_dir=args.out_dir, chunk_id=chunk_id)
+    except Exception:
+        # R40: handle may have proc=None (prelaunched server); skip the kill.
+        if handle is not None and handle.proc is not None:
+            print(f"[giant_driver] chunk {chunk_id}: previous server died (rc={handle.proc.returncode}), relaunching", flush=True)
+            try:
+                handle.proc.kill()
+                handle.proc.wait(timeout=10)
+            except Exception:
+                pass
     # Force placeholder k-NN env vars BEFORE launch_server spawns the subprocess.
     # L3 (placeholder k-NN body) is deprecated for production (2026-06-27);
     # it reuses K/V from byte-different code which silently produces
@@ -409,7 +433,29 @@ async def run_one_task(
 
     upstream = "Planner cached exact repository code objects for downstream agents."
     role_list = AGENT_ROLES[: args.agent_count]
+    # R40 (2026-07-08): in coding_pipeline mode, the integrator (agent 5)
+    # needs to see the prior 4 agents' outputs in its extra_context. We collect
+    # them here, indexed by agent_idx.
+    prior_outputs: dict[int, str] = {}
     for idx, (role, segs) in enumerate(zip(role_list, agent_segments), 1):
+        # Build extra_context. coding_pipeline agents 2-5 get richer context
+        # than the simple "previous agent index: N" string.
+        if getattr(args, "task_mode", "critique") == "coding_pipeline" and idx == 5:
+            extra_ctx_parts = [upstream, "Prior agent outputs (this case):"]
+            for prior_idx in range(1, 5):
+                if prior_idx in prior_outputs:
+                    role_name = role_list[prior_idx - 1]
+                    extra_ctx_parts.append(
+                        f"--- {role_name} (agent {prior_idx}) ---\n"
+                        + (prior_outputs[prior_idx] or "<no output>")
+                    )
+                else:
+                    extra_ctx_parts.append(
+                        f"--- agent {prior_idx} ---\n<no output captured>"
+                    )
+            extra_context = "\n\n".join(extra_ctx_parts)
+        else:
+            extra_context = upstream + f" Previous agent index: {idx - 1}."
         salt = f"giant:{case['case_id']}:{args.segment_count}:{args.max_file_chars}:{args.agent_count}:{args.mode}:{idx}"
         payload = make_payload(
             args,
@@ -421,7 +467,7 @@ async def run_one_task(
             salt=salt,
             role=role,
             agent_idx=idx,
-            extra_context=upstream + f" Previous agent index: {idx - 1}.",
+            extra_context=extra_context,
         )
         # DEBUG: verify placeholder spans are in payload
         if case_idx == 0 and idx == 1 and args.debug_first_task:
@@ -469,6 +515,12 @@ async def run_one_task(
                     "role": role,
                     "output_text": _out_text,
                 }) + "\n")
+            # R40 (2026-07-08): store for the coding_pipeline integrator
+            # (agent 5) to read back as extra_context.
+            if getattr(args, "task_mode", "critique") == "coding_pipeline":
+                # Truncate very long outputs to keep the integrator prompt
+                # manageable (~4 KB per prior agent is plenty).
+                prior_outputs[idx] = _out_text[:4096]
         except Exception:
             pass
         cached = row.get("cached_tokens", 0)
@@ -783,9 +835,10 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--debug-first-task", action="store_true", help="Print placeholder pool status after first task's first agent")
-    parser.add_argument("--task-mode", choices=["critique", "verdict"], default="critique",
+    parser.add_argument("--task-mode", choices=["critique", "verdict", "coding_pipeline"], default="critique",
                         help="critique = single-sentence risk (R10-R19 default). "
-                             "verdict = single-line PASS/FAIL (R21 task-completion accuracy).")
+                             "verdict = single-line PASS/FAIL (R21 task-completion accuracy). "
+                             "coding_pipeline = 5-agent pipeline (coder/tester/reviewer/refactorer/integrator; R40).")
     parser.add_argument("--vary-code", action="store_true", default=True, help="Per-agent byte-level variation to force placeholder k-NN path (default on)")
     parser.add_argument("--no-vary-code", dest="vary_code", action="store_false", help="Disable per-agent byte-level variation")
     parser.add_argument(
