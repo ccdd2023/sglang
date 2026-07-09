@@ -540,7 +540,7 @@ class Req(ReqDllmMixin):
         dimensions: Optional[int] = None,
         http_worker_ipc: Optional[str] = None,
         time_stats: Optional[
-            Union[APIServerReqTimeStats, DPControllerReqTimeStats]
+            Union[APIServerReqTimeStats, SchedulerReqTimeStats, DPControllerReqTimeStats]
         ] = None,
         # DAG-aware: critical path distance from node to leaf.
         # Used by PriorityStrategy v3 for critical-path protection.

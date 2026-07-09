@@ -304,6 +304,19 @@ class APIServerReqTimeStats(ReqTimeStatsBase):
     api_server_dispatch_finish_time: float = 0.0
     response_sent_to_client_time: float = 0.0
 
+    # TTFT breakdown (R40, 2026-07-08): per-stage ms recorded by the radix code.
+    # Tokenize_ms is derived from tokenize_finish_time - created_time at
+    # convert_to_output_meta_info time. The remaining fields are written by
+    # HiRadixCache._try_placeholder_chunk_lossy_match / _execute_chunk_plan_batched
+    # (radix_cache.py) and tokenizer_manager.py on first-token emission.
+    radix_prefix_ms: float = 0.0
+    chunk_plan_ms: float = 0.0
+    copy_ms: float = 0.0
+    gap_prefill_ms: float = 0.0
+    head_recompute_early_ms: float = 0.0
+    head_recompute_late_ms: float = 0.0
+    chunk_plan_done_time: float = 0.0  # wall-clock anchor for decode_first_token_ms derivation
+
     def __getstate__(self) -> object:
         state = {}
         # send to DP controller or Scheduler
@@ -376,6 +389,54 @@ class APIServerReqTimeStats(ReqTimeStatsBase):
             ts = time.perf_counter()
         self.response_sent_to_client_time = ts
 
+    # ----- R40 TTFT breakdown setters (radix-side) -----
+    def set_radix_prefix_ms(self, ms: float) -> None:
+        self.radix_prefix_ms += ms  # additive in case multiple radix walks happen
+
+    def set_chunk_plan_ms(self, ms: float) -> None:
+        self.chunk_plan_ms += ms
+
+    def set_copy_ms(self, ms: float) -> None:
+        self.copy_ms += ms
+
+    def set_gap_prefill_ms(self, ms: float) -> None:
+        self.gap_prefill_ms += ms
+
+    def set_head_recompute_early_ms(self, ms: float) -> None:
+        self.head_recompute_early_ms += ms
+
+    def set_head_recompute_late_ms(self, ms: float) -> None:
+        self.head_recompute_late_ms += ms
+
+    def set_chunk_plan_done_time(self, ts=None) -> None:
+        """Wall-clock anchor after the chunk-plan/execute path completes.
+        Used by tokenizer_manager to derive decode_first_token_ms.
+        Stored as a `time.perf_counter()` value (matches created_time scale)."""
+        if ts is None:
+            ts = time.perf_counter()
+        self.chunk_plan_done_time = ts
+
+    def get_ttft_breakdown_ms(self) -> Dict[str, float]:
+        """Return the 8-stage TTFT breakdown in ms (tokenize_ms is derived)."""
+        tokenize_ms = 0.0
+        if self.created_time > 0.0 and self.tokenize_finish_time > 0.0:
+            tokenize_ms = max(0.0, (self.tokenize_finish_time - self.created_time) * 1000.0)
+        decode_first_token_ms = 0.0
+        if self.chunk_plan_done_time > 0.0 and self.first_token_time > 0.0:
+            decode_first_token_ms = max(
+                0.0, (self.first_token_time - self.chunk_plan_done_time) * 1000.0
+            )
+        return {
+            "tokenize_ms": round(tokenize_ms, 3),
+            "radix_prefix_ms": round(self.radix_prefix_ms, 3),
+            "chunk_plan_ms": round(self.chunk_plan_ms, 3),
+            "copy_ms": round(self.copy_ms, 3),
+            "gap_prefill_ms": round(self.gap_prefill_ms, 3),
+            "head_recompute_early_ms": round(self.head_recompute_early_ms, 3),
+            "head_recompute_late_ms": round(self.head_recompute_late_ms, 3),
+            "decode_first_token_ms": round(decode_first_token_ms, 3),
+        }
+
     def get_interval(self):
         return time.perf_counter() - self.last_time
 
@@ -424,6 +485,16 @@ class APIServerReqTimeStats(ReqTimeStatsBase):
         decode_latency = self.get_decode_latency()
         if decode_latency > 0.0 and completion_tokens > 0:
             meta_info["decode_throughput"] = completion_tokens / decode_latency
+
+        # R40 (2026-07-08): per-stage TTFT breakdown surfaced to the client
+        # so bench row_from_response can emit per-stage ms into rows.csv
+        # and analyze_fair_ab.py can render the per-stage breakdown.
+        # Only emit when at least one stage has been written, to avoid
+        # noise on non-radix paths (e.g., pure prefix cache hits with no
+        # chunk plan execution).
+        _bd = self.get_ttft_breakdown_ms()
+        if any(_bd.values()):
+            meta_info["ttft_breakdown"] = _bd
         return meta_info
 
     def convert_to_gen_ai_span_attrs(self):
@@ -526,6 +597,20 @@ class SchedulerReqTimeStats(ReqTimeStatsBase):
     prefill_finished_time: float = 0.0
     completion_time: float = 0.0
 
+    # R40 (2026-07-08): TTFT breakdown fields — mirror of APIServerReqTimeStats
+    # so radix_cache.py can record per-stage ms after new_from_obj() copies them.
+    # The tokenizer_manager picks these up via meta_info["ttft_breakdown"] on
+    # the API server's APIServerReqTimeStats (the radix side writes to SchedulerReqTimeStats;
+    # the breakdown is then copied back to APIServerReqTimeStats on return path).
+    # In practice, for the local single-process case the values flow directly.
+    radix_prefix_ms: float = 0.0
+    chunk_plan_ms: float = 0.0
+    copy_ms: float = 0.0
+    gap_prefill_ms: float = 0.0
+    head_recompute_early_ms: float = 0.0
+    head_recompute_late_ms: float = 0.0
+    chunk_plan_done_time: float = 0.0
+
     # prefill node, get by time.perf_counter()
     prefill_bootstrap_queue_entry_time: float = 0.0
     prefill_transfer_queue_entry_time: float = 0.0
@@ -568,6 +653,32 @@ class SchedulerReqTimeStats(ReqTimeStatsBase):
             "diff_realtime_monotonic": global_diff_realtime_monotonic,
         }
         return state
+
+    # R40 FIX (2026-07-09): add 7 TTFT-breakdown setters so radix_cache.py can
+    # write to SchedulerReqTimeStats. Without these, hasattr(_ts, "set_chunk_plan_ms")
+    # returns False and all 7 columns stay 0.0 in rows.csv. Mirror the API-server
+    # setters exactly so the radix path is uniform across both classes.
+
+    def set_radix_prefix_ms(self, ms: float) -> None:
+        self.radix_prefix_ms += ms  # additive in case multiple radix walks happen
+
+    def set_chunk_plan_ms(self, ms: float) -> None:
+        self.chunk_plan_ms += ms
+
+    def set_copy_ms(self, ms: float) -> None:
+        self.copy_ms += ms
+
+    def set_gap_prefill_ms(self, ms: float) -> None:
+        self.gap_prefill_ms += ms
+
+    def set_head_recompute_early_ms(self, ms: float) -> None:
+        self.head_recompute_early_ms += ms
+
+    def set_head_recompute_late_ms(self, ms: float) -> None:
+        self.head_recompute_late_ms += ms
+
+    def set_chunk_plan_done_time(self, ts=None) -> None:
+        self.chunk_plan_done_time = ts if ts is not None else time.perf_counter()
 
     def set_scheduler_recv_time(self, ts=None):
         calibrate_time_diff()

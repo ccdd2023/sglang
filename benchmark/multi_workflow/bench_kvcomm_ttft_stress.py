@@ -195,6 +195,45 @@ def extract_lossy_meta(body: dict[str, Any]) -> dict[str, Any]:
         return {}
 
 
+# R40 (2026-07-08): pull the per-stage TTFT breakdown dict that the server
+# emits into body["metadata"]["ttft_breakdown"] (see req_time_stats.py
+# APIServerReqTimeStats.convert_to_output_meta_info). Defaults to {}.
+def extract_ttft_breakdown(body: dict[str, Any]) -> dict[str, float]:
+    # R40 FIX (2026-07-09): try two locations for ttft_breakdown.
+    # 1. body["metadata"]["ttft_breakdown"] — the non-streaming ChatCompletion
+    #    path emits it under the top-level metadata field (same place as
+    #    lossy_reuse).
+    # 2. body itself may carry it when the bench harness post-processes the
+    #    streaming response into a top-level metadata dict (see
+    #    post_chat_stream's return).
+    try:
+        bd = body.get("metadata", {}).get("ttft_breakdown", {})
+        if bd:
+            return {k: float(v) for k, v in bd.items()}
+        # Fallback: some call sites pass a row dict (not a streaming body).
+        bd = body.get("ttft_breakdown", {})
+        if bd:
+            return {k: float(v) for k, v in bd.items()}
+        return {}
+    except Exception:
+        return {}
+
+
+def _emit_ttft_breakdown(bd: dict[str, float]) -> dict[str, float]:
+    """Convert the dict returned by extract_ttft_breakdown into the 8-row CSV
+    dict that row_from_response can splat with **."""
+    return {
+        "ttft_tokenize_ms": float(bd.get("tokenize_ms", 0.0)),
+        "ttft_radix_prefix_ms": float(bd.get("radix_prefix_ms", 0.0)),
+        "ttft_chunk_plan_ms": float(bd.get("chunk_plan_ms", 0.0)),
+        "ttft_copy_ms": float(bd.get("copy_ms", 0.0)),
+        "ttft_gap_prefill_ms": float(bd.get("gap_prefill_ms", 0.0)),
+        "ttft_head_recompute_early_ms": float(bd.get("head_recompute_early_ms", 0.0)),
+        "ttft_head_recompute_late_ms": float(bd.get("head_recompute_late_ms", 0.0)),
+        "ttft_decode_first_token_ms": float(bd.get("decode_first_token_ms", 0.0)),
+    }
+
+
 def kill_port(port: int) -> None:
     try:
         with open("/proc/net/tcp") as f:
@@ -551,6 +590,55 @@ def build_slot_messages(
             "a fix (any non-trivial bug, risk, or missing handling) or if it "
             "is clean as-is.",
         ]
+    elif task_mode == "coding_pipeline":
+        # R40 (2026-07-08): 5-agent coding pipeline (modeled after MetaGPT +
+        # SWE-Agent + OpenHands). Each agent does a DIFFERENT task on the
+        # same 5 code segments — agent_idx 1=coder, 2=tester, 3=reviewer,
+        # 4=refactorer, 5=integrator. The shared 5 code segments keep the
+        # byte-exact chunk-pool reuse working (slot_id is content-derived so
+        # cross-agent KV copy still hits); only ## Instruction + ## Output
+        # differ per agent. The integrator (agent 5) sees the prior 4
+        # outputs via `extra_context` (injected by bench_giant_codebase_reuse).
+        coding_instructions = {
+            1: (
+                "You are the CODER. Read the repeated repository code below "
+                "and write a UNIFIED GIT DIFF (in `diff --git a/... b/...` "
+                "format) that fixes any non-trivial bug, risk, or missing "
+                "handling. The diff must apply cleanly with `git apply`."
+            ),
+            2: (
+                "You are the TESTER. The CODER's diff has been applied. "
+                "Read the patched code and reason about whether the fix is "
+                "correct. Decide if the patch should pass or fail tests."
+            ),
+            3: (
+                "You are the REVIEWER. Read the CODER's proposed diff and "
+                "write a brief code review (correctness, style, completeness). "
+                "Then issue a verdict (PASS/FAIL) for the patch."
+            ),
+            4: (
+                "You are the REFACTORER. Read the CODER's diff and propose "
+                "optional refactorings (style, naming, type hints) without "
+                "changing behavior. If the diff is already clean, say so."
+            ),
+            5: (
+                "You are the INTEGRATOR. The CODER, TESTER, REVIEWER, and "
+                "REFACTORER have all reported above (in Upstream context). "
+                "Synthesize their outputs and issue the final verdict "
+                "(PASS/FAIL). PASS only if the patch applies AND the tester "
+                "did not flag a critical failure AND no reviewer-blocker."
+            ),
+        }
+        body = [
+            f"## Agent role\n{role}",
+            f"## Case\n{case['case_id']}",
+            "## Instruction",
+            coding_instructions.get(
+                agent_idx,
+                "Read the repeated repository code. (Unknown agent_idx; "
+                "fallback instruction.)",
+            ),
+        ]
     else:
         body = [
             f"## Agent role\n{role}",
@@ -576,6 +664,42 @@ def build_slot_messages(
             "  VERDICT: FAIL — <one-sentence reason>\n"
             "or\n"
             "  VERDICT: PASS",
+        ]
+    elif task_mode == "coding_pipeline":
+        # R40 (2026-07-08): each agent emits a different output format.
+        coding_outputs = {
+            1: (
+                "Output ONLY a unified git diff that applies with `git apply`. "
+                "Start the first line with `diff --git ` and end with a "
+                "trailing newline. No commentary, no markdown fence."
+            ),
+            2: (
+                "Output EXACTLY one line, no other text:\n"
+                "  <test_result>PASS</test_result>\n"
+                "or\n"
+                "  <test_result>FAIL — <one-sentence reason></test_result>"
+            ),
+            3: (
+                "Output two parts in this order:\n"
+                "<review>...your review...</review>\n"
+                "<verdict>PASS</verdict> or <verdict>FAIL</verdict>"
+            ),
+            4: (
+                "Output one block:\n"
+                "<refactor>...optional suggestions or 'no changes needed'...</refactor>"
+            ),
+            5: (
+                "Output EXACTLY one line, no other text:\n"
+                "<final_verdict>PASS</final_verdict>\n"
+                "or\n"
+                "<final_verdict>FAIL — <one-sentence reason></final_verdict>"
+            ),
+        }
+        body += [
+            "## Output",
+            coding_outputs.get(
+                agent_idx, "Output something appropriate to your role."
+            ),
         ]
     else:
         body += [
@@ -843,9 +967,22 @@ async def post_chat_stream(session: aiohttp.ClientSession, port: int, payload: d
             chunk_meta = chunk.get("metadata") or {}
             if chunk_meta.get("lossy_reuse"):
                 meta = dict(chunk_meta["lossy_reuse"])
+            # R40 FIX (2026-07-09): pick up ttft_breakdown from streaming chunk
+            # metadata. The non-streaming path also exposes it under
+            # body["metadata"]["ttft_breakdown"]; this branch is for stream.
+            # Always update from the latest chunk that has the field (so we
+            # survive final_body = last_content_chunk having no metadata).
+            if chunk_meta.get("ttft_breakdown"):
+                meta["ttft_breakdown"] = chunk_meta["ttft_breakdown"]
     e2e_ms = now_ms() - start
     if ttft_ms is None:
         ttft_ms = e2e_ms
+    # R40 FIX (2026-07-09): split ttft_breakdown out of `meta` so it lives at
+    # the top level of the returned metadata dict. extract_ttft_breakdown()
+    # reads body["metadata"]["ttft_breakdown"]; without the split, the field
+    # was nested under metadata["lossy_reuse"]["ttft_breakdown"] and missed.
+    lossy_reuse_only = {k: v for k, v in meta.items() if k != "ttft_breakdown"}
+    ttft_breakdown = meta.get("ttft_breakdown")
     return {
         "elapsed_ms": round(e2e_ms, 2),
         "e2e_ms": round(e2e_ms, 2),
@@ -854,7 +991,10 @@ async def post_chat_stream(session: aiohttp.ClientSession, port: int, payload: d
         "cached_tokens": cached_tokens,
         "prompt_tokens": prompt_tokens,
         "body": final_body,
-        "metadata": {"lossy_reuse": meta} if meta else {},
+        "metadata": {
+            **({"lossy_reuse": lossy_reuse_only} if lossy_reuse_only else {}),
+            **({"ttft_breakdown": ttft_breakdown} if ttft_breakdown else {}),
+        },
     }
 
 
@@ -1121,6 +1261,16 @@ def row_from_response(
         "placeholder_chunk_pool_blend_gap_tokens": chunk_pool_blend_gap_tokens,
         "placeholder_chunk_pool_blend_run_tokens": chunk_pool_blend_run_tokens,
         "fast_path_status": fast_path_status,
+        # R40 (2026-07-08): per-stage TTFT breakdown (8 fields). All default
+        # to 0.0 when the server didn't emit the dict (e.g., non-radix path).
+        # For streaming responses, post_chat_stream hoists the per-stage
+        # fields up to response["metadata"]["ttft_breakdown"]; for
+        # non-streaming, it sits at body["metadata"]["ttft_breakdown"].
+        # Check both.
+        **_emit_ttft_breakdown(
+            extract_ttft_breakdown(response.get("body", {}))
+            or extract_ttft_breakdown({"metadata": response.get("metadata", {})})
+        ),
         "output_exact_match_vs_baseline": bool(baseline_text) and text == baseline_text,
         "output_token_f1_vs_baseline": round(token_f1(text, baseline_text), 4) if baseline_text else 1.0,
         "output_chars": len(text),

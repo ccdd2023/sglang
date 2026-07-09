@@ -161,6 +161,16 @@ def config_stats(
         "avg_l2_wholeslot_reused": safe_mean([_f(r, "l2_wholeslot_reused_tokens") for r in rr]),
         "avg_l3_offset_reused": safe_mean([_f(r, "l3_offset_reused_tokens") for r in rr]),
         "avg_c2_chunk_reused": safe_mean([_f(r, "c2_chunk_reused_tokens") for r in rr]),
+        # R40 (2026-07-08): per-stage TTFT breakdown (8 fields). Default 0.0
+        # for non-radix paths or older rows.csv files.
+        "avg_ttft_tokenize_ms": safe_mean([_f(r, "ttft_tokenize_ms") for r in rr]),
+        "avg_ttft_radix_prefix_ms": safe_mean([_f(r, "ttft_radix_prefix_ms") for r in rr]),
+        "avg_ttft_chunk_plan_ms": safe_mean([_f(r, "ttft_chunk_plan_ms") for r in rr]),
+        "avg_ttft_copy_ms": safe_mean([_f(r, "ttft_copy_ms") for r in rr]),
+        "avg_ttft_gap_prefill_ms": safe_mean([_f(r, "ttft_gap_prefill_ms") for r in rr]),
+        "avg_ttft_head_recompute_early_ms": safe_mean([_f(r, "ttft_head_recompute_early_ms") for r in rr]),
+        "avg_ttft_head_recompute_late_ms": safe_mean([_f(r, "ttft_head_recompute_late_ms") for r in rr]),
+        "avg_ttft_decode_first_token_ms": safe_mean([_f(r, "ttft_decode_first_token_ms") for r in rr]),
         "avg_f1": safe_mean(f1_vals),
         "f1_source": f1_source,
         "f1_n": len(f1_vals),
@@ -281,6 +291,52 @@ def main() -> int:
             f"{s['avg_f1']:.3f} | {s['f1_n']} |"
         )
     lines.append(f"- F1 source: {stats[EXP]['f1_source']}")
+    lines.append("")
+
+    # R40 (2026-07-08): per-stage TTFT breakdown. Renders the 8 measured stages
+    # with each config's avg + % of total. Lets us see at a glance where
+    # precompute / radix / chunk plan / head_recompute actually consume time.
+    lines.append("## Per-stage TTFT breakdown (avg ms, % of total) — R40 instrumentation")
+    lines.append("")
+    stage_labels = [
+        ("avg_ttft_tokenize_ms", "tokenize"),
+        ("avg_ttft_radix_prefix_ms", "radix_prefix"),
+        ("avg_ttft_chunk_plan_ms", "chunk_plan"),
+        ("avg_ttft_copy_ms", "copy"),
+        ("avg_ttft_gap_prefill_ms", "gap_prefill"),
+        ("avg_ttft_head_recompute_early_ms", "head_recompute_early"),
+        ("avg_ttft_head_recompute_late_ms", "head_recompute_late"),
+        ("avg_ttft_decode_first_token_ms", "decode_first_token"),
+    ]
+    header = "| stage | " + " | ".join(stats.keys()) + " |"
+    sep = "|---|" + "|".join(["---"] * len(stats)) + "|"
+    lines.append(header)
+    lines.append(sep)
+    for key, label in stage_labels:
+        row = [label]
+        for name, s in stats.items():
+            ms = s.get(key, 0.0)
+            row.append(f"{ms:.1f}")
+        lines.append("| " + " | ".join(row) + " |")
+    # Total row (sum of all stages) and % of TTFT
+    lines.append(sep)
+    total_row = ["**total summed**"]
+    pct_row = ["**% of avg_TTFT**"]
+    for name, s in stats.items():
+        stage_sum = sum(s.get(k, 0.0) for k, _ in stage_labels)
+        total_row.append(f"{stage_sum:.1f}")
+        if s["avg_ttft"] > 0.0:
+            pct_row.append(f"{100.0 * stage_sum / s['avg_ttft']:.1f}%")
+        else:
+            pct_row.append("n/a")
+    lines.append("| " + " | ".join(total_row) + " |")
+    lines.append("| " + " | ".join(pct_row) + " |")
+    lines.append("")
+    lines.append(
+        "- Stage sum is a lower bound on TTFT (excludes scheduler queue + dispatch + "
+        "GPU kernel launch + miscellaneous overhead). A well-instrumented run "
+        "should land in the 60–90% range of avg_TTFT."
+    )
     lines.append("")
 
     # Parity gate.

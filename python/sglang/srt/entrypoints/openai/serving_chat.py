@@ -1022,7 +1022,12 @@ class OpenAIServingChat(OpenAIServingBase):
                     choices=[],  # Empty choices array as per OpenAI spec
                     model=request.model,
                     usage=usage,
-                    metadata={"lossy_reuse": lossy_metadata} if lossy_metadata else None,
+                    metadata=(
+                        {**{"lossy_reuse": lossy_metadata},
+                         **{"ttft_breakdown": content["meta_info"]["ttft_breakdown"]}}
+                        if (lossy_metadata or content["meta_info"].get("ttft_breakdown"))
+                        else None
+                    ),
                 )
                 yield f"data: {usage_chunk.model_dump_json()}\n\n"
 
@@ -1284,6 +1289,16 @@ class OpenAIServingChat(OpenAIServingBase):
         }
         if lossy_metadata:
             response_metadata["lossy_reuse"] = lossy_metadata
+
+        # R40 FIX (2026-07-09): also surface the per-stage TTFT breakdown to
+        # the client. The OpenAI ChatCompletion spec does not include a
+        # meta_info field on choices (it's a sglang-internal concept), so we
+        # piggyback on the top-level `metadata` field — the same place
+        # `lossy_reuse` lives — for the bench CSV consumer to pick up.
+        # Without this, `body["metadata"]["ttft_breakdown"]` is always absent
+        # and rows.csv shows 0 across the 8 new columns.
+        if ret and ret[0].get("meta_info", {}).get("ttft_breakdown"):
+            response_metadata["ttft_breakdown"] = ret[0]["meta_info"]["ttft_breakdown"]
 
         return ChatCompletionResponse(
             id=ret[0]["meta_info"]["id"],

@@ -1654,6 +1654,80 @@ class TokenizerManager(TokenizerCommunicatorMixin, TokenizerManagerMultiItemMixi
             if state.time_stats.first_token_time == 0.0:
                 state.time_stats.set_first_token_time()
 
+            # R40 FIX (2026-07-09): propagate per-stage TTFT breakdown on
+            # EVERY recv_obj batch (not only when state.finished), so the
+            # streaming path's first content chunk already carries the
+            # radix/chunk timing that the scheduler set during prefill.
+            # Old code only ran this inside `if state.finished`, which made
+            # the streaming chat path emit radix_prefix_ms=0 because the
+            # first chunk (where the client picks up ttft_breakdown) is
+            # always non-finished. We re-snapshot on each batch to catch
+            # late writes (chunk_pool / head_recompute_early may not be
+            # populated at the first content chunk). IMPORTANT: snapshot
+            # with REPLACE not accumulate — set_radix_prefix_ms is
+            # additive on both Scheduler and APIServer time_stats, so a
+            # naive `setattr(state.time_stats, attr, sched_attr)` would
+            # turn the APIServer side additive on top of whatever was
+            # already copied, double-counting across batches. We track
+            # the last snapshotted radix_prefix_ms value and only update
+            # the delta to avoid this.
+            _sched_ts = (
+                recv_obj.time_stats[i]
+                if recv_obj.time_stats is not None
+                else None
+            )
+            if _sched_ts is not None:
+                # Only run the per-batch snapshot for the streaming case
+                # where state.finished is False; once finished, the
+                # existing in-finished block re-snapshots.
+                if not state.finished:
+                    _snap_attr = "_r40_ttft_last_snap_radix_ms"
+                    _last = getattr(state.time_stats, _snap_attr, 0.0)
+                    _cur = getattr(_sched_ts, "radix_prefix_ms", 0.0)
+                    if _cur != _last:
+                        _delta = _cur - _last
+                        state.time_stats.set_radix_prefix_ms(_delta)
+                        setattr(state.time_stats, _snap_attr, _cur)
+                    _snap_attr = "_r40_ttft_last_snap_chunk_ms"
+                    _last = getattr(state.time_stats, _snap_attr, 0.0)
+                    _cur = getattr(_sched_ts, "chunk_plan_ms", 0.0)
+                    if _cur != _last:
+                        _delta = _cur - _last
+                        state.time_stats.set_chunk_plan_ms(_delta)
+                        setattr(state.time_stats, _snap_attr, _cur)
+                    _snap_attr = "_r40_ttft_last_snap_copy_ms"
+                    _last = getattr(state.time_stats, _snap_attr, 0.0)
+                    _cur = getattr(_sched_ts, "copy_ms", 0.0)
+                    if _cur != _last:
+                        _delta = _cur - _last
+                        state.time_stats.set_copy_ms(_delta)
+                        setattr(state.time_stats, _snap_attr, _cur)
+                    _snap_attr = "_r40_ttft_last_snap_gap_ms"
+                    _last = getattr(state.time_stats, _snap_attr, 0.0)
+                    _cur = getattr(_sched_ts, "gap_prefill_ms", 0.0)
+                    if _cur != _last:
+                        _delta = _cur - _last
+                        state.time_stats.set_gap_prefill_ms(_delta)
+                        setattr(state.time_stats, _snap_attr, _cur)
+                    _snap_attr = "_r40_ttft_last_snap_hre_ms"
+                    _last = getattr(state.time_stats, _snap_attr, 0.0)
+                    _cur = getattr(_sched_ts, "head_recompute_early_ms", 0.0)
+                    if _cur != _last:
+                        _delta = _cur - _last
+                        state.time_stats.set_head_recompute_early_ms(_delta)
+                        setattr(state.time_stats, _snap_attr, _cur)
+                    _snap_attr = "_r40_ttft_last_snap_hrl_ms"
+                    _last = getattr(state.time_stats, _snap_attr, 0.0)
+                    _cur = getattr(_sched_ts, "head_recompute_late_ms", 0.0)
+                    if _cur != _last:
+                        _delta = _cur - _last
+                        state.time_stats.set_head_recompute_late_ms(_delta)
+                        setattr(state.time_stats, _snap_attr, _cur)
+                    # chunk_plan_done_time is a timestamp, set replace-style
+                    _cpdt = getattr(_sched_ts, "chunk_plan_done_time", 0.0)
+                    if _cpdt:
+                        state.time_stats.set_chunk_plan_done_time(_cpdt)
+
             if state.finished:
                 state.time_stats.trace_ctx.trace_set_root_attrs(
                     self.convert_to_span_attrs(state, recv_obj, i)
@@ -1663,22 +1737,25 @@ class TokenizerManager(TokenizerCommunicatorMixin, TokenizerManagerMultiItemMixi
 
                 if self.server_args.speculative_algorithm:
                     self._calculate_spec_decoding_metrics(meta_info, recv_obj, i)
-                if self.enable_metrics:
-                    scheduler_time_stats = (
-                        recv_obj.time_stats[i]
-                        if recv_obj.time_stats is not None
-                        else None
+                # R40 FIX (2026-07-09): always call convert_to_output_meta_info
+                # so the 8-field ttft_breakdown dict lands in meta_info, even
+                # when --enable-metrics is off. The bench CSV consumer reads
+                # body["metadata"]["ttft_breakdown"]; if this isn't called the
+                # field stays absent and rows.csv shows 0 across the 8 new
+                # columns. Convert_to_output_meta_info is idempotent for the
+                # non-breakdown fields when called outside enable_metrics
+                # (those same fields are still populated by the outer code
+                # for prefix-cache output).
+                completion_tokens = (
+                    recv_obj.completion_tokens[i]
+                    if not isinstance(recv_obj, BatchEmbeddingOutput)
+                    else 0
+                )
+                meta_info.update(
+                    state.time_stats.convert_to_output_meta_info(
+                        _sched_ts, completion_tokens
                     )
-                    completion_tokens = (
-                        recv_obj.completion_tokens[i]
-                        if not isinstance(recv_obj, BatchEmbeddingOutput)
-                        else 0
-                    )
-                    meta_info.update(
-                        state.time_stats.convert_to_output_meta_info(
-                            scheduler_time_stats, completion_tokens
-                        )
-                    )
+                )
 
                 del self.rid_to_state[rid]
 

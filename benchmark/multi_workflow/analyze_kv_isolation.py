@@ -585,8 +585,301 @@ def _similarity_summary_overall(results: list[dict], n_layers: int) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: KV replacement accuracy
+# Phase 3: KV replacement accuracy (PPL under aggressive KV swap)
 # ---------------------------------------------------------------------------
+#
+# Methodology
+# -----------
+# For each pair (A, B) of code blocks:
+#   1. Build two identical prompts: prompt_A = [system] + [A] + [instr] and
+#      prompt_B = [system] + [B] + [instr] (where [instr] is a fixed
+#      instruction suffix).
+#   2. Prefill prompt_A once → save past_kv_A and per-token logits on the
+#      instruction suffix.
+#   3. Prefill prompt_B once → save past_kv_B.
+#   4. Prefill prompt_A AGAIN, but this time override past_kv_A's [A] region
+#      with past_kv_B (truncate to the same number of token positions).
+#      Measure per-token logits on the instruction suffix.
+#   5. base_ppl = PPL(instr | prompt_A, no swap)
+#      same_ppl = PPL(instr | prompt_A, swapped with A's own KV, sanity check,
+#                     should equal base_ppl)
+#      same_func_swap_ppl = PPL(instr | prompt_A, swapped with same-func KV)
+#      diff_func_swap_ppl = PPL(instr | prompt_A, swapped with diff-func KV)
+#   6. Report ratios: ratio_same_func = same_func_swap_ppl / base_ppl,
+#                     ratio_diff_func = diff_func_swap_ppl / base_ppl.
+#
+# Hypothesis: ratio_diff_func > ratio_same_func >= 1.0. If ratio_diff_func
+# >> 1.0 with same_size blocks, this proves the KV cache of B is destructive
+# when dropped into A's position, supporting the "cross-context KV loss is
+# fundamental" claim in the deck.
+#
+# Implementation note: the model uses HuggingFace `transformers`, which
+# exposes `past_key_values` as a tuple of (k, v) tuples per layer. Each
+# (k, v) is (B, H, T, D). We override the [a_start : a_end] region of every
+# layer's K and V with the corresponding region from the other block's
+# past_kv (truncated/padded to the same number of positions). We then
+# continue the forward pass to obtain logits on the instruction tokens.
+
+
+def _unpack_kv(layer):
+    """Unpack a past_key_values layer entry to (k, v).
+
+    Newer transformers versions return 3-tuples (k, v, _) where the third
+    element is the index. Older versions return 2-tuples (k, v).
+    """
+    if len(layer) == 2:
+        return layer[0], layer[1]
+    elif len(layer) == 3:
+        return layer[0], layer[1]
+    else:
+        raise ValueError(f"Unexpected past_kv layer length: {len(layer)}")
+
+
+def _kv_slice(past_kv, start: int, end: int):
+    """Slice the [start:end] token position from every (k, v) in past_kv."""
+    sliced = []
+    for layer in past_kv:
+        k, v = _unpack_kv(layer)
+        sliced.append((k[:, :, start:end, :].contiguous(), v[:, :, start:end, :].contiguous()))
+    return tuple(sliced)
+
+
+def _kv_concat(head, tail):
+    """Concatenate two past_kv lists along the token dimension (head first)."""
+    assert len(head) == len(tail)
+    out = []
+    for layer_h, layer_t in zip(head, tail):
+        kh, vh = _unpack_kv(layer_h)
+        kt, vt = _unpack_kv(layer_t)
+        k = torch.cat([kh, kt], dim=2)
+        v = torch.cat([vh, vt], dim=2)
+        out.append((k, v))
+    return tuple(out)
+
+
+def _kv_truncate(past_kv, n_tokens: int):
+    """Truncate every (k, v) in past_kv to the first n_tokens positions."""
+    out = []
+    for layer in past_kv:
+        k, v = _unpack_kv(layer)
+        out.append((k[:, :, :n_tokens, :].contiguous(), v[:, :, :n_tokens, :].contiguous()))
+    return tuple(out)
+
+
+def _ppl_from_logits(logits: torch.Tensor, target_ids: torch.Tensor) -> float:
+    """Compute per-token cross-entropy PPL from logits [1, T, V] and target [1, T]."""
+    # Align: logits at position i predicts target at position i+1 (causal LM)
+    shift_logits = logits[:, :-1, :].float()
+    shift_labels = target_ids[:, 1:]
+    loss = F.cross_entropy(
+        shift_logits.reshape(-1, shift_logits.size(-1)),
+        shift_labels.reshape(-1),
+        reduction="mean",
+    )
+    return float(torch.exp(loss).item())
+
+
+def _forward_get_past_and_logits(model, input_ids):
+    """Forward pass returning (past_key_values, logits)."""
+    out = model(input_ids, use_cache=True, output_hidden_states=False)
+    return out.past_key_values, out.logits
+
+
+def _forward_with_past(model, prefix_ids, suffix_ids, past_kv_override):
+    """Forward pass with pre-supplied past_kv, returns logits on the suffix.
+
+    prefix_ids: [1, T_prefix]   the prompt up to and including the code block
+    suffix_ids: [1, T_suffix]   the instruction tokens we want logits for
+    past_kv_override: past_kv to use (replaces the freshly computed one)
+    """
+    # We use the model's built-in past_kv_path via `past_key_values=`.
+    out = model(
+        input_ids=suffix_ids,
+        past_key_values=past_kv_override,
+        use_cache=True,
+    )
+    return out.logits
+
+
+def run_phase3_replacement(
+    model_path: str,
+    output_dir: Path,
+    block_pairs: list[tuple[str, str, str, str]] | None = None,
+) -> dict:
+    """Phase 3: KV replacement → PPL under aggressive swap.
+
+    For each (cat_a, var_a, cat_b, var_b) pair, measures PPL on a fixed
+    instruction suffix under four conditions:
+      - base          : no swap (fresh prefill on prompt_A)
+      - same_func     : swap [A] region with same-function KV (e.g. sort/v2)
+      - diff_func     : swap [A] region with different-function KV
+      - sanity_same   : swap [A] region with A's OWN KV (should ~= base)
+    """
+    tok, model = _load_model(model_path, eager_attn=False)
+    device = next(model.parameters()).device
+
+    if block_pairs is None:
+        block_pairs = [
+            ("sort", "v1", "sort", "v2"),       # same func, diff impl
+            ("sort", "v1", "sort", "v3"),       # same func, very diff impl
+            ("sort", "v1", "search", "v1"),     # diff func
+            ("sort", "v1", "string", "v1"),     # very diff func
+            ("sort", "v1", "graph", "v1"),      # unrelated func
+        ]
+
+    INSTR = "Describe what the code above does in plain English."
+
+    # Build a [system]+[A]+[instr] prompt and a [system]+[B]+[instr] prompt
+    # for the same instruction suffix. Tokenize once for the instruction
+    # so we have target_ids to compute PPL against.
+    def _build_prompt_with_block(block_text: str) -> str:
+        return (
+            f"<|im_start|>system\n{SYSTEM_PROMPT}<|im_end|>\n"
+            f"<|im_start|>user\n{block_text.strip()}<|im_end|>\n"
+            f"<|im_start|>user\n{INSTR}<|im_end|>\n<|im_start|>assistant\n"
+        )
+
+    results: list[dict] = []
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with torch.no_grad():
+        for (cat_a, var_a, cat_b, var_b) in block_pairs:
+            text_a = CODE_BLOCKS[cat_a][var_a]
+            text_b = CODE_BLOCKS[cat_b][var_b]
+            same_func = cat_a == cat_b
+
+            # Build prompts and tokenize
+            prompt_a_text = _build_prompt_with_block(text_a)
+            prompt_b_text = _build_prompt_with_block(text_b)
+            full_a_ids = tok.encode(prompt_a_text, return_tensors="pt", add_special_tokens=False).to(device)
+            full_b_list = tok.encode(prompt_b_text, add_special_tokens=False)
+            full_b_ids = torch.tensor([full_b_list], device=device)
+
+            # Find the [A] region token boundaries in full_a_ids by sublist search
+            a_block_ids = tok.encode(text_a.strip(), add_special_tokens=False)
+            a_start = _find_sublist(full_a_ids[0].tolist(), a_block_ids, 0)
+            if a_start < 0:
+                print(f"  WARN: could not locate block A tokens in prompt for pair ({cat_a}/{var_a}, {cat_b}/{var_b})")
+                continue
+            a_end = a_start + len(a_block_ids)
+
+            # Find the [B] region in full_b_ids
+            b_block_ids = tok.encode(text_b.strip(), add_special_tokens=False)
+            b_start = _find_sublist(full_b_ids[0].tolist(), b_block_ids, 0)
+            if b_start < 0:
+                print(f"  WARN: could not locate block B tokens for pair ({cat_a}/{var_a}, {cat_b}/{var_b})")
+                continue
+            b_end = b_start + len(b_block_ids)
+
+            n_a = a_end - a_start
+            n_b = b_end - b_start
+
+            # Condition 0: full prefill on prompt_A → base PPL on full_a_ids
+            past_a, logits_a = _forward_get_past_and_logits(model, full_a_ids)
+            base_ppl = _ppl_from_logits(logits_a, full_a_ids)
+
+            # Condition 1: full prefill on prompt_B → past_kv_B
+            past_b, _ = _forward_get_past_and_logits(model, full_b_ids)
+
+            # Slice B's [b_start:b_end] region and A's [a_start:a_end] region.
+            # Pad/truncate to common length.
+            common = min(n_a, n_b)
+            kv_a_block = _kv_slice(past_a, a_start, a_start + common)
+            kv_b_block = _kv_slice(past_b, b_start, b_start + common)
+
+            # Compose: prefix = system + assistant_open of prompt_A (tokens
+            # BEFORE a_start), then we replace [a_start:a_end] with B's KV.
+            # The suffix = the rest of prompt_A (from a_end onwards).
+            # We need: (prefix_kv, replaced_block_kv, suffix_kv) such that
+            # the model sees (prefix) → (B-KV) → (suffix tokens).
+            #
+            # past_a already has the entire KV of prompt_A. We just need to
+            # rebuild it as: prefix_kv + kv_b_block + suffix_kv.
+            prefix_kv = _kv_slice(past_a, 0, a_start)
+            suffix_kv = _kv_slice(past_a, a_end, past_a[0][0].shape[2])
+
+            # Condition 2 (sanity): swap with A's OWN KV → should ~= base
+            sanity_past = _kv_concat(prefix_kv, kv_a_block)
+            sanity_past = _kv_concat(sanity_past, suffix_kv)
+            # Continue forward with the suffix using the sanity past
+            suffix_ids = full_a_ids[:, a_start + common:]
+            # The past_kv we built is sized to (a_start + common + suffix_len)
+            # but the model will predict the NEXT tokens from this past.
+            # The logits returned are for the suffix_ids positions.
+            # However, the past_kv already encodes the prefix + replaced block.
+            # To make logits align with suffix_ids tokens, we need suffix_ids
+            # to start from a_start+common in the original prompt.
+            # HuggingFace's `model(input, past_key_values)` with `input` of
+            # length T returns logits of shape [1, T, V] predicting input[i+1]
+            # from input[:i+1] plus the past. So the i-th logit corresponds
+            # to predicting the (i+1)-th input token.
+            # We pass suffix_ids of length (T_full - (a_start + common)) and
+            # get T logits; the first logit is conditioned on the past (which
+            # ends at position a_start+common-1 in the original) plus the
+            # first suffix token. That is exactly correct: it predicts
+            # the (a_start+common+1)-th token of the original prompt, which
+            # is the second suffix token.
+            sanity_logits = _forward_with_past(model, None, suffix_ids, sanity_past)
+            # To compute PPL, we need aligned (logits, targets) over the
+            # original prompt's positions [a_start+common : end]. The model
+            # returned T-1 "next-token" predictions (logits[:-1]). We compare
+            # them to suffix_ids[1:].
+            sanity_ppl = _ppl_from_logits(sanity_logits, suffix_ids)
+            # If base_ppl was computed over the WHOLE prompt, the
+            # instruction-suffix PPL is what we want for an apples-to-apples
+            # comparison. Recompute base PPL restricted to suffix positions
+            # for consistency.
+            base_logits = logits_a[:, a_start + common - 1:, :]  # predict from this point on
+            base_targets = full_a_ids[:, a_start + common:]
+            base_suffix_ppl = _ppl_from_logits(base_logits, base_targets)
+
+            # Condition 3: swap with B's KV (cross-block)
+            cross_past = _kv_concat(prefix_kv, kv_b_block)
+            cross_past = _kv_concat(cross_past, suffix_kv)
+            cross_logits = _forward_with_past(model, None, suffix_ids, cross_past)
+            cross_suffix_ppl = _ppl_from_logits(cross_logits, suffix_ids)
+
+            results.append({
+                "cat_a": cat_a, "var_a": var_a,
+                "cat_b": cat_b, "var_b": var_b,
+                "same_function": same_func,
+                "n_a_tokens": n_a,
+                "n_b_tokens": n_b,
+                "common_tokens": common,
+                "base_ppl": base_suffix_ppl,
+                "sanity_ppl": sanity_ppl,
+                "cross_ppl": cross_suffix_ppl,
+                "ratio_sanity": sanity_ppl / base_suffix_ppl if base_suffix_ppl > 0 else 0,
+                "ratio_cross": cross_suffix_ppl / base_suffix_ppl if base_suffix_ppl > 0 else 0,
+            })
+            print(
+                f"  pair ({cat_a}/{var_a}, {cat_b}/{var_b}) "
+                f"same={same_func} common={common} "
+                f"base_ppl={base_suffix_ppl:.2f} sanity={sanity_ppl:.2f} ({results[-1]['ratio_sanity']:.2f}x) "
+                f"cross={cross_suffix_ppl:.2f} ({results[-1]['ratio_cross']:.2f}x)"
+            )
+
+    # Summarize
+    same = [r for r in results if r["same_function"]]
+    diff = [r for r in results if not r["same_function"]]
+    summary = {
+        "model": model_path,
+        "n_pairs": len(results),
+        "pairs": results,
+        "overall": {
+            "same_func_base_ppl_mean": float(np.mean([r["base_ppl"] for r in same])) if same else 0,
+            "same_func_cross_ppl_mean": float(np.mean([r["cross_ppl"] for r in same])) if same else 0,
+            "diff_func_base_ppl_mean": float(np.mean([r["base_ppl"] for r in diff])) if diff else 0,
+            "diff_func_cross_ppl_mean": float(np.mean([r["cross_ppl"] for r in diff])) if diff else 0,
+            "same_func_ratio_mean": float(np.mean([r["ratio_cross"] for r in same])) if same else 0,
+            "diff_func_ratio_mean": float(np.mean([r["ratio_cross"] for r in diff])) if diff else 0,
+        },
+    }
+    (output_dir / "phase3_replacement.json").write_text(
+        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    return summary
+
 
 
 # ---------------------------------------------------------------------------
@@ -594,8 +887,8 @@ def _similarity_summary_overall(results: list[dict], n_layers: int) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def build_html_report(phase1: dict | None, phase2: dict | None, output_dir: Path) -> str:
-    """Generate an interactive HTML report from Phase 1+2 results."""
+def build_html_report(phase1: dict | None, phase2: dict | None, phase3: dict | None, output_dir: Path) -> str:
+    """Generate an interactive HTML report from Phase 1+2+3 results."""
     sections = []
 
     if phase1 and phase1.get("pairs"):
@@ -606,7 +899,16 @@ def build_html_report(phase1: dict | None, phase2: dict | None, output_dir: Path
         sections.append(_phase2_html(phase2))
     elif phase2:
         sections.append("<h2>Phase 2: No results</h2>")
+    if phase3 and phase3.get("pairs"):
+        sections.append(_phase3_html(phase3))
+    elif phase3:
+        sections.append("<h2>Phase 3: No results</h2>")
 
+    model_name = (
+        phase1.get("model", "") if phase1
+        else (phase2.get("model", "") if phase2
+              else (phase3.get("model", "") if phase3 else "N/A"))
+    )
     return f"""<!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -624,13 +926,14 @@ td {{ padding: 6px 10px; border-bottom: 1px solid #eee; }}
 .good {{ color: #2e7d32; font-weight: 600; }}
 .bad {{ color: #b71c1c; font-weight: 600; }}
 .neutral {{ color: #555; }}
+.warn {{ color: #d4a73a; font-weight: 600; }}
 .bar-container {{ display: flex; align-items: center; gap: 8px; }}
 .bar {{ height: 20px; border-radius: 3px; }}
 </style>
 </head>
 <body>
 <h1>Code-Block KV Isolation Analysis</h1>
-<p>模型: {phase1.get('model', '') if phase1 else (phase2.get('model', '') if phase2 else 'N/A')}</p>
+<p>模型: {model_name}</p>
 {"".join(sections)}
 </body>
 </html>"""
@@ -700,6 +1003,43 @@ def _phase2_html(data: dict) -> str:
 """
 
 
+def _phase3_html(data: dict) -> str:
+    rows = []
+    for pair in data.get("pairs", []):
+        same = pair["same_function"]
+        label = "✓ 同功能" if same else "✗ 不同功能"
+        ratio_cross = pair["ratio_cross"]
+        # color: ratio > 1.5 = red (destructive), 1.0-1.5 = warn, ~1.0 = good
+        css = "good" if ratio_cross < 1.2 else ("warn" if ratio_cross < 2.0 else "bad")
+        rows.append(
+            f"<tr>"
+            f"<td>{pair['cat_a']}/{pair['var_a']} → {pair['cat_b']}/{pair['var_b']}</td>"
+            f"<td>{label}</td>"
+            f"<td>{pair['base_ppl']:.2f}</td>"
+            f"<td>{pair['sanity_ppl']:.2f}</td>"
+            f"<td>{pair['cross_ppl']:.2f}</td>"
+            f"<td class='good'>{pair['ratio_sanity']:.2f}x</td>"
+            f"<td class='{css}'>{ratio_cross:.2f}x</td>"
+            f"</tr>"
+        )
+    overall = data.get("overall", {})
+    s_ratio = overall.get("same_func_ratio_mean", 0)
+    d_ratio = overall.get("diff_func_ratio_mean", 0)
+    s_color = "good" if s_ratio < 1.2 else ("warn" if s_ratio < 2.0 else "bad")
+    d_color = "good" if d_ratio < 1.2 else ("warn" if d_ratio < 2.0 else "bad")
+    return f"""
+<h2>Phase 3: KV Replacement Accuracy (PPL under cross-block swap)</h2>
+<p>对每对 (A, B)，把 B 的 past_kv 替换到 A 的 token 位置，测量 instruction 后缀的 PPL。
+   ratio_cross = PPL(swapped) / PPL(base)。ratio &gt; 1 表明 cross-block KV 损失。</p>
+<p>汇总: 同功能 swap ratio = <b class='{s_color}'>{s_ratio:.2f}x</b> |
+   不同功能 swap ratio = <b class='{d_color}'>{d_ratio:.2f}x</b></p>
+<table>
+<thead><tr><th>Block Pair (A → B)</th><th>类型</th><th>base PPL</th><th>sanity PPL</th><th>cross PPL</th><th>ratio_sanity</th><th>ratio_cross</th></tr></thead>
+<tbody>{"".join(rows)}</tbody>
+</table>
+"""
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -709,8 +1049,8 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Code-block KV isolation analysis")
     p.add_argument("--mode", default="attention",
                    choices=["attention", "similarity", "replacement", "full"])
-    p.add_argument("--model-path", default="/home/gfy/models/Qwen2.5-3B-Instruct")
-    p.add_argument("--output-dir", default="/tmp/kv_isolation")
+    p.add_argument("--model-path", default="/home/gfy/models/Qwen2.5-Coder-7B-Instruct")
+    p.add_argument("--output-dir", default="results/kv_isolation")
     return p.parse_args()
 
 
@@ -723,6 +1063,7 @@ def main():
 
     phase1 = None
     phase2 = None
+    phase3 = None
 
     if mode in ("attention", "full"):
         print("\n=== Phase 1: Cross-Block Attention Analysis ===")
@@ -736,8 +1077,14 @@ def main():
         phase2 = run_phase2_similarity(args.model_path, output_dir)
         print(f"Phase 2 done in {time.perf_counter() - t0:.1f}s")
 
+    if mode in ("replacement", "full"):
+        print("\n=== Phase 3: KV Replacement Accuracy ===")
+        t0 = time.perf_counter()
+        phase3 = run_phase3_replacement(args.model_path, output_dir)
+        print(f"Phase 3 done in {time.perf_counter() - t0:.1f}s")
+
     # Build HTML report
-    html = build_html_report(phase1, phase2, output_dir)
+    html = build_html_report(phase1, phase2, phase3, output_dir)
     report_path = output_dir / "kv_isolation_report.html"
     report_path.write_text(html, encoding="utf-8")
     print(f"\nReport written to {report_path}")
