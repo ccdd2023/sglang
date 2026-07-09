@@ -457,7 +457,7 @@
   <p class="slidemeta" style="margin-top:8px;color:var(--rust);font-size:10px;letter-spacing:0.16em;"><span style="color:var(--text-dim);">阅读路径：</span> 主体 27 张（本周交付的方法）· 附录 5 张（被淘汰的候选）</p>
   <h1 style="margin-top:14px;font-size:36px;line-height:1.1;">代码感知 <span class="accent">有损</span> KV 缓存复用</h1>
   <p class="sub" style="font-size:14px;margin-bottom:4px;">R28–R40 周进展 · 2026-07-07 → 2026-07-09</p>
-  <p class="sub" style="font-size:11.5px;">branch fix/placeholder-pool-activation · HEAD 21900d017 · Qwen2.5-Coder-7B × 5 verdict + 5 coding_pipeline</p>
+  <p class="sub" style="font-size:11.5px;">branch fix/placeholder-pool-activation · HEAD bc3e7f3fb · Qwen2.5-Coder-7B × 5 verdict + 5 coding_pipeline</p>
   <div class="numgrid" style="margin-top:18px;max-width:1100px;margin-left:0;margin-right:0;">
     <div class="numcell">
       <div class="label">constant-FRAC head_recompute (R32)</div>
@@ -495,9 +495,9 @@
       <!-- R32 41.7% / 709 毫秒 (prior Pareto) -->
       <circle cx="375" cy="67" r="3.6" fill="#a4644a" stroke="#0e1726" stroke-width="1.2"/>
       <text x="370" y="60" fill="#a4644a" font-family="ui-monospace, monospace" font-size="8" text-anchor="end">R32 41.7% / 709 毫秒</text>
-      <!-- R37 45.5% / 718 ms -->
+      <!-- R37 45.5% / 714 ms -->
       <circle cx="330" cy="63" r="3.2" fill="#d4a73a" stroke="#0e1726" stroke-width="1.2"/>
-      <text x="325" y="56" fill="#d4a73a" font-family="ui-monospace, monospace" font-size="8" text-anchor="end">R37 45.5% / 718 毫秒</text>
+      <text x="325" y="56" fill="#d4a73a" font-family="ui-monospace, monospace" font-size="8" text-anchor="end">R37 45.5% / 714 毫秒</text>
       <!-- R38b 50.0% / 703 毫秒 (NEW PARETO) — highlighted -->
       <circle cx="340" cy="58" r="7" fill="#4ec9d4" stroke="#0e1726" stroke-width="1.5"/>
       <circle cx="340" cy="58" r="11" fill="none" stroke="#4ec9d4" stroke-width="1" opacity="0.5"/>
@@ -508,7 +508,7 @@
             fill="none" stroke="#4ec9d4" stroke-width="1.2" opacity="0.55" stroke-dasharray="3 2"/>
     </svg>
   </figure>
-  <p class="meta" style="margin-top:8px;font-size:10px;">branch fix/placeholder-pool-activation · HEAD c841b568c</p>
+  <p class="meta" style="margin-top:8px;font-size:10px;">branch fix/placeholder-pool-activation · HEAD bc3e7f3fb</p>
   <div class="slidefooter">
     <span class="left">EuroSys 2026 投稿目标 · 代码感知有损 KV 缓存复用</span>
     <span class="right">按块位置分层的 FRAC · 2026-07-08</span>
@@ -528,7 +528,7 @@
     <li><span class="accent">可用 deep research</span> — 寻找算法候选</li>
   </ul>
   <h2>本周交付的核心 Pareto</h2>
-  <p>按块位置分层的 FRAC (R38b) = (FRAC_EARLY=0.60, FRAC_LATE=0.15, EARLY_N=2) — 7B-Coder × 5 verdict task; +8.3pp type_agreement, -0.9% TTFT, +38% code-aware 复用; 3× 字节级精确复现duction. 详细 benchmark 配置见下页.</p>
+  <p>按块位置分层的 FRAC (R38b) = (FRAC_EARLY=0.60, FRAC_LATE=0.15, EARLY_N=2) — 7B-Coder × 5 verdict task; +8.3pp type_agreement, -0.9% TTFT, +38% code-aware 复用; 3× 字节级精确复现。详细 benchmark 配置见下页。</p>
 </section>
 
 <section class="slide" data-tag="实验设计" data-index="主体 2 / 32 · (2)">
@@ -652,7 +652,7 @@ or
   <pre style="font-size:11.5px;padding:4px 12px;line-height:1.45;"><span class="c">time ─────────────────────────────────────────────────────────►  (ms)</span>
 <span class="c">0       100      200      300      400      500      600      700      800      900</span>
 <span class="r">|tokenize|████████████ full prefill of 7396 prompt tokens ████████████████████████|TTFT|
-        ~12ms      ≈ 920 ms（7B model, ~7 ms/token × 7396）</span></pre>
+        ~12ms      ≈ 920 ms（7B model, ~0.12 ms/token × 7396）</span></pre>
 
   <h2 style="margin:6px 0 4px 20px;">R38b（按块位置分层的 FRAC）— ~703 ms（−24%）</h2>
   <pre style="font-size:11.5px;padding:4px 12px;line-height:1.45;"><span class="c">time ─────────────────────────────────────────────────────────►  (ms)</span>
@@ -683,7 +683,7 @@ or
     <tr><th style="width:14%;">迭代</th><th style="width:16%;">核心技术</th><th>type_agreement</th><th>avg TTFT</th><th>code-aware 复用</th><th>关键限制</th></tr>
     <tr><td>R19</td><td>AST-chunk pool（无 head_recompute）</td><td>40.0%</td><td>705 ms</td><td>~340 tok</td><td>不选择性重算 → stale KV 全量注入</td></tr>
     <tr><td>R32</td><td>常数 FRAC=0.30</td><td>41.7%</td><td>709 ms</td><td>333.7 tok</td><td>所有 chunk 同等对待，前期 over-copy</td></tr>
-    <tr><td>R37</td><td>分层 FRAC（0.50/0.20/N=2）</td><td>45.5%</td><td>718 ms</td><td>~400 tok</td><td>EARLY/LATE 比例不够极端</td></tr>
+    <tr><td>R37</td><td>分层 FRAC（0.50/0.20/N=2）</td><td>45.5%</td><td>714 ms</td><td>~400 tok</td><td>EARLY/LATE 比例不够极端</td></tr>
     <tr style="background:#122117;"><td><b>R38b</b></td><td><b>分层 FRAC（0.60/0.15/N=2）</b></td><td><b style="color:var(--accent);">50.0%</b></td><td><b>703 ms</b></td><td><b>460.9 tok</b></td><td><b>NEW PARETO</b>，但仍未触顶</td></tr>
   </table>
 
@@ -709,7 +709,7 @@ or
   <h1><span class="num">(8)</span> 为什么非前缀复用会丢失精度 — 定量证据</h1>
   <h2>Phase 1（跨块 attention）— 代码块基本是自包含的</h2>
   <p>块内 attention ≈ 块间 attention，比值按 head × layer 报告。（完整数据见 <code>结果s/kv_isolation_quant_20260708/phase1_attention.json</code>；比值随 layer/head 变化，HTML 报告中有全量扫描。）</p>
-  <h2>Phase 2（KV 分布相似度）— Qwen2.5-7B-Instruct，5 对 pandas 代码</h2>
+  <h2>Phase 2（KV 分布相似度）— Qwen2.5-7B-Instruct，4 对 pandas 代码（<code>n_pairs=4</code> in <code>phase2_similarity.json</code>）</h2>
   <div class="numgrid" style="margin-top:6px;">
     <div class="numcell">
       <div class="label">同功能 K 余弦相似度</div>
@@ -728,7 +728,7 @@ or
     </div>
   </div>
   <h2>Phase 3（KV 替换 → 跨块 swap 下的 PPL）— 直接的功能性测试</h2>
-  <p>对每对 (A, B)，把 B 的 past_kv 替换进 A 的 token 位置，测量固定 instruction 后缀的 PPL。完整数据见 <code>结果s/kv_isolation_quant_20260708/phase3_replacement.json</code>。</p>
+  <p>对每对 (A, B)，把 B 的 past_kv 替换进 A 的 token 位置，测量固定 instruction 后缀的 PPL。 <span class="warn">数据缺失</span>：<code>phase3_replacement.json</code> 未随 commit 落地（仅有 phase1 / phase2）— 这条 Phase 3 仅作方法学描述；本 deck 不依赖 Phase 3 数字。</p>
   <h2>结论</h2>
   <p>Phase 2 K 余弦分离度 = <b style="color:var(--accent);">0.040</b> ≈ <b>4%</b> 的 K 信息与上下文相关。剩下 96% 是结构而非内容，但这 4% 正好处于跨上下文边界，是 live query 中 attention 的聚焦位置，所以产生了丢失精度的效果。 <span class="warn">推论</span>：字节级精确的非前缀复用本质上就是有损的；选择性重算（R32/R38b）是原则上的缓解方案。</p>
   <p class="sub">通过 <code>benchmark/multi_workflow/analyze_kv_isolation.py --mode full</code> 在 Qwen2.5-7B-Instruct 上计算。完整报告: <code>结果s/kv_isolation_quant_20260708/kv_isolation_report.html</code>。</p>
@@ -1033,7 +1033,7 @@ R38b 的简化版（per-chunk-position，不是 per-layer）:
     <tr>
       <td>L2 whole-slot KVCOMM</td>
       <td>0/25</td>
-      <td>~870 ms (复用者 = 0)</td>
+      <td>~696 ms (复用者 = 0)</td>
       <td><b>33.3%</b></td>
       <td>60.0%</td>
       <td>whole-slot MiniLM，不开 selective recompute</td>
@@ -1041,7 +1041,7 @@ R38b 的简化版（per-chunk-position，不是 per-layer）:
     <tr>
       <td>L4 AST-chunk KVCOMM</td>
       <td>~19/25</td>
-      <td>约 890 毫秒</td>
+      <td>约 705 ms</td>
       <td><b style="color:var(--rust);">13.3%</b></td>
       <td>60.0%</td>
       <td>AST-chunk 池，不开 selective recompute</td>
@@ -1195,7 +1195,7 @@ e46a35145 feat(R40-Phase1): TTFT breakdown instrumentation + 5x5 verification</p
     <li><code>python/sglang/srt/mem_cache/ast_chunker.py</code> — R34 <code>_extract_type_signature_string</code>（已退役） + R40 Phase3 <code>typed_signature</code> + <code>type_complexity</code> 字段</li>
     <li><code>python/sglang/srt/observability/req_time_stats.py</code> — R40 Phase1: 加 7 个 setter 到 <code>SchedulerReqTimeStats</code>（之前只在 <code>APIServerReqTimeStats</code> 上有）</li>
     <li><code>benchmark/multi_workflow/bench_kvcomm_ttft_stress.py</code> — R33 辅助函数（已退役） + R40 Phase1 TTFT 拆解 + R40 Phase2 <code>task_mode="coding_pipeline"</code> 分支</li>
-    <li><code>结果s/lossy_alg_round{28,32,33,34,35,36,37,38,39}/</code> + <code>结果s/coding_pipeline_5x5/</code> + <code>结果s/type_aware_frac_verify/</code> — 12 round dirs</li>
+    <li><code>结果s/lossy_alg_round{28,32,33,34,35,36,37,38,39}/</code> + <code>结果s/coding_pipeline_5x5/</code> + <code>结果s/type_aware_frac_verify/</code> — 11 round dirs (9 lossy_alg_round + 2 R40 dirs)</li>
   </ul>
   <h2>LaTeX 报告</h2>
   <p>完整长文报告: <code>reports/code_aware_lossy_kv_progress_20260707.pdf</code>（16 页，4.0 MB，xelatex + fandol）</p>
@@ -1224,7 +1224,7 @@ e46a35145 feat(R40-Phase1): TTFT breakdown instrumentation + 5x5 verification</p
   <h2>状态</h2>
   <ul>
     <li>✅ 已 commit &amp; push 到 <code>fix/placeholder-pool-activation</code></li>
-    <li>✅ 9 round dirs + LaTeX 报告 in remote</li>
+    <li>✅ 11 round dirs (9 lossy_alg_round + 2 R40 dirs) + LaTeX 报告 in remote</li>
     <li>✅ R38b = 7B × 5 accuracy-prioritized 的新 production 推荐</li>
     <li>✅ R26（3B × 3）= speed-prioritized（不同的 Pareto）</li>
   </ul>
@@ -1235,13 +1235,13 @@ e46a35145 feat(R40-Phase1): TTFT breakdown instrumentation + 5x5 verification</p
     <li>预计算池里加入类型签名 hash key（重跑 precompute）</li>
     <li>在 <code>--task-mode critique</code>（R21 主任务）上做交叉验证</li>
   </ul>
-  <p class="sub" style="margin-top:18px;">当前 HEAD: <code>21900d017</code> · R40 三个 phase commits 已 push 到 <code>fix/placeholder-pool-activation</code></p>
+  <p class="sub" style="margin-top:18px;">当前 HEAD: <code>bc3e7f3fb</code> · R40 三个 phase commits 已 push 到 <code>fix/placeholder-pool-activation</code></p>
 </section>
 
 <section class="slide" data-tag="R40 Phase 1" data-tag-class="partial" data-index="主体 25 / 32 · (25)">
   <h1><span class="num">(25)</span> R40 · Phase 1 — TTFT 拆解 instrumentation（PARTIAL）</h1>
   <h2>把 TTFT 拆成 8 段单独测，不靠估算</h2>
-  <p>slide (6) 之前只能从 <code>FAIR_SUMMARY.md</code> 估算各段耗时；R40 Phase 1 加了 8 个新 CSV 列 + 把 <code>ttft_breakdown</code> 通过 <code>response_metadata</code> 端到端传到 client。</p>
+  <p>slide (6) 之前只能从 <code>FAIR_SUMMARY.md</code> 估算各段耗时；R40 Phase 1 加了 7 个新 CSV 列（set_radix_prefix_ms / set_chunk_plan_ms / set_copy_ms / set_gap_prefill_ms / set_head_recompute_early_ms / set_head_recompute_late_ms / set_chunk_plan_done_time）+ 1 个已有的 <code>ttft_tokenize_ms</code>，共 8 个 timing 字段，并把它们打包到 <code>ttft_breakdown</code> 通过 <code>response_metadata</code> 端到端传到 client。</p>
   <div class="numgrid" style="margin-top:8px;">
     <div class="numcell verified">
       <div class="label">ttft_tokenize_ms</div>
@@ -1249,12 +1249,12 @@ e46a35145 feat(R40-Phase1): TTFT breakdown instrumentation + 5x5 verification</p
       <div class="sub">25/25 nonzero ✓（APIServer 进程内字段，无跨进程 hop）</div>
     </div>
     <div class="numcell" style="border-color:var(--gold);background:#1c1a0e;">
-      <div class="label">radix_prefix + chunk_plan + copy + head_recompute</div>
+      <div class="label">radix_prefix + chunk_plan + copy + gap_prefill + head_recompute_early + head_recompute_late + decode_first_token</div>
       <div class="val" style="color:var(--gold);">0.0 毫秒</div>
-      <div class="sub">6 个字段全 0 · 25/25 · 架构 block</div>
+      <div class="sub">7 个字段全 0 · 25/25 · 架构 block</div>
     </div>
   </div>
-  <h2>架构 block — 为什么 6 个字段是 0</h2>
+  <h2>架构 block — 为什么 7 个字段是 0</h2>
   <div class="card gold">
     <p><b>radix walk 在 scheduler 进程内的 <code>req.time_stats</code> 写入时机晚于 prefill 第一次 batch output 的 pickle snapshot</b>，所以 client 的第一个 content chunk 抓到的是空 snapshot。Server 端 debug 确认 <code>radix_prefix set SchedulerReqTimeStats ms=0.191 cum=0.191</code> 在 server log 里每次都 fire，但 pickle 边界之前没发生。</p>
   </div>
@@ -1303,8 +1303,8 @@ e46a35145 feat(R40-Phase1): TTFT breakdown instrumentation + 5x5 verification</p
   <table>
     <tr><th>检查项</th><th>off</th><th>on</th><th>差异</th></tr>
     <tr><td><b>outputs.jsonl（模型输出文本）</b></td><td colspan="2">byte-equal</td><td style="color:var(--leaf);">0</td></tr>
-    <tr><td><b>rows.csv 26 个 semantic 列</b>（case_id, agent_id, agent_idx, mode, radix_only_prefix_len, l2/c2/codeaware_reused_tokens, placeholder_chunk_pool_*, output_chars, 6 个 radix/chunk ms）</td><td colspan="2">byte-equal 跨全部 25 行</td><td style="color:var(--leaf);">0</td></tr>
-    <tr><td>ttft_ms / e2e_ms / ttft_tokenize_ms</td><td colspan="2">正常运行时波动</td><td style="color:var(--text-dim);">n/a</td></tr>
+    <tr><td><b>rows.csv 81 个非 timing 列</b>（85 total - 4 timing；case_id, agent_id, agent_idx, mode, radix_only_prefix_len, l2/c2/codeaware_reused_tokens, placeholder_chunk_pool_*, output_chars, 7 个 radix/chunk ms 等）</td><td colspan="2">byte-equal 跨全部 25 行</td><td style="color:var(--leaf);">0</td></tr>
+    <tr><td>ttft_ms / e2e_ms / elapsed_ms / ttft_tokenize_ms</td><td colspan="2">正常运行时波动（4 个 timing 列）</td><td style="color:var(--text-dim);">n/a</td></tr>
   </table>
   <div class="card leaf">
     <p><b>结论</b>：type-aware FRAC 在 pandas 0.x 上是真 no-op（无类型 annotation → <code>chunk.typed_signature == ""</code> → 整个分支跳过），零回归。要真正跑通需要 typed codebase（pylint / astropy / typeshed）— out of scope for this session。</p>
@@ -1473,10 +1473,13 @@ else:
 <div id="nav">
   <button class="navbtn" id="prev" title="上一页 (←)">‹</button>
   <div class="nav-center">
-    <div id="pager"><b id="cur">1</b> / <b id="total">30</b></div>
+    <div id="pager"><b id="cur">1</b> / <b id="total">33</b></div>
     <span id="sectitle">代码感知有损 KV 缓存复用</span>
     <div id="dots">
       <div class="dot active"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
       <div class="dot"></div>
       <div class="dot"></div>
       <div class="dot"></div>
