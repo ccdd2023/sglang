@@ -51,6 +51,16 @@ class ChunkSpan:
     is the same sha1[:16] seed MAScoder uses for its
     ``CodeAnchor.signature`` field, so consumers can join by signature
     without recomputing.
+
+    R40 (2026-07-08): ``typed_signature`` is the type-annotated function
+    header (e.g., ``"(x: int, y: str) -> bool"``) computed once at chunk
+    creation time via ``ast.unparse``. Empty string for untyped legacy
+    code (pandas 0.x). ``type_complexity`` is a coarse 0-10 score: count
+    of annotated params + AST-depth of return type + dynamic-dispatch
+    sites. Drives the SGLANG_CHUNK_TYPE_AWARE_FRAC override in
+    radix_cache.py — type-complex chunks get a higher FRAC (more
+    recompute) because their KV state is more sensitive to call-site
+    context drift.
     """
 
     byte_start: int
@@ -61,6 +71,10 @@ class ChunkSpan:
     name: str
     signature: str  # sha1[:16] of "lang:type:name:normalized"
     nesting_depth: int
+    # R40 (2026-07-08) — type-aware FRAC signal. Default to empty/0 so
+    # legacy callers that ignore these fields continue to work.
+    typed_signature: str = ""
+    type_complexity: int = 0
 
 
 # Maximum anchors per parse, mirroring MAScoder's bounds at line 107.
@@ -71,7 +85,7 @@ _MAX_ANCHORS = 32
 def _normalize_snippet(text: str) -> str:
     """Mirror of MAScoder._normalize_snippet (code_anchor.py:206-208).
 
-    Collapses whitespace via ``re.sub(r"\s+", " ", ...)`` and truncates
+    Collapses whitespace via ``re.sub(r"\\s+", " ", ...)`` and truncates
     to 240 chars. Used as input to the ``signature`` sha1 seed.
     """
     normalized = re.sub(r"\s+", " ", (text or "").strip())
@@ -147,6 +161,70 @@ def _nesting_depth(parents: dict[int, ast.AST], node: ast.AST) -> int:
     return depth
 
 
+def _compute_type_complexity(node: ast.AST) -> int:
+    """R40 (2026-07-08): coarse 0-10 type-complexity score for a chunk.
+
+    Heuristic:
+      - count annotated params (pos_only + pos_or_kw + kw_only) → score += n_annot
+      - AST-depth of return-type annotation → score += depth (capped at 3)
+      - any dynamic-dispatch indicator (ast.Subscript, ast.Call, *args/**kwargs
+        unpacking in args.vararg / args.kwarg) → score += 1 each, capped at 2
+
+    Returns 0 if the node has no type annotations whatsoever (legacy pandas 0.x
+    code) — caller can then SKIP the type-aware FRAC override.
+    """
+    score = 0
+    n_annot = 0
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        args = node.args
+        for a in (
+            list(args.posonlyargs)
+            + list(args.args)
+            + list(args.kwonlyargs)
+        ):
+            if a.annotation is not None:
+                n_annot += 1
+        score += min(n_annot, 5)  # cap param contribution at 5
+        # return-type AST depth
+        if node.returns is not None:
+            for d in range(3):
+                if _ast_depth(node.returns) > d + 1:
+                    score += 1
+                    break
+        # dynamic-dispatch indicators
+        dyn_hits = 0
+        if args.vararg is not None or args.kwarg is not None:
+            dyn_hits += 1
+        for a in (
+            list(args.posonlyargs)
+            + list(args.args)
+            + list(args.kwonlyargs)
+        ):
+            if a.annotation is not None and isinstance(
+                a.annotation, (ast.Subscript, ast.Call)
+            ):
+                dyn_hits += 1
+        score += min(dyn_hits, 2)
+    elif isinstance(node, ast.ClassDef):
+        # Classes: count annotated base classes + 1 per typed method (best-effort)
+        for b in node.bases:
+            if b.annotation is not None:
+                score += 1
+        # cap at 5 for class-level summary
+        score = min(score, 5)
+    return min(score, 10)
+
+
+def _ast_depth(node: ast.AST) -> int:
+    """Return the AST tree depth (1 = leaf)."""
+    if not isinstance(node, ast.AST):
+        return 0
+    children = list(ast.iter_child_nodes(node))
+    if not children:
+        return 1
+    return 1 + max(_ast_depth(c) for c in children)
+
+
 def _build_chunk_span(
     language: str,
     anchor_type: str,
@@ -179,6 +257,11 @@ def _build_chunk_span(
         end_col_off = getattr(node, "end_col_offset", 0) or 0
         byte_end = leading_offset + end_line_off + end_col_off
 
+    # R40 (2026-07-08): type-aware signal. Empty for untyped legacy code →
+    # radix_cache.py SGLANG_CHUNK_TYPE_AWARE_FRAC path becomes a no-op.
+    typed_sig = _extract_type_signature_string(exact_text, anchor_type, name)
+    type_complexity = _compute_type_complexity(node) if typed_sig else 0
+
     return ChunkSpan(
         byte_start=byte_start,
         byte_end=byte_end,
@@ -188,6 +271,8 @@ def _build_chunk_span(
         name=name,
         signature=signature,
         nesting_depth=_nesting_depth(parents, node),
+        typed_signature=typed_sig,
+        type_complexity=type_complexity,
     )
 
 
@@ -223,6 +308,8 @@ def _build_module_chunk_span(
         name="module",
         signature=signature,
         nesting_depth=0,
+        typed_signature="",  # module-level span; not a typed function
+        type_complexity=0,
     )
 
 
