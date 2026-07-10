@@ -857,6 +857,12 @@ class RadixCache(BasePrefixCache):
         # by SGLANG_PRECOMPUTE_SELECTIVE_REFRESH_FRAC. Counts accuracy-
         # recovery skips separate from "no entry" misses.
         self.placeholder_chunk_pool_skip_selective_refresh_count = 0
+        # P1 node-kind interface recompute (2026-07-10, direction A): count
+        # of copy_pool candidates whose head K was set from the AST interface
+        # boundary (SGLANG_CHUNK_HEAD_RECOMPUTE_NODE_KIND=1) instead of frac.
+        # Lets the ablation verify the path fires on most chunks (R34 no-op
+        # guard) rather than silently falling back to the frac path.
+        self.placeholder_chunk_pool_node_kind_k_count = 0
         self.placeholder_chunk_pool_skip_byte_drift_count = 0
         self.placeholder_chunk_pool_skip_size_mismatch_count = 0
         self.placeholder_chunk_pool_skip_alloc_failed_count = 0
@@ -2110,6 +2116,24 @@ class RadixCache(BasePrefixCache):
             out = tokenizer(text, add_special_tokens=False,
                             return_offsets_mapping=True)
             offsets = out["offset_mapping"] if isinstance(out, dict) else out
+            # transformers 5.x: calling a HF tokenizer on a single string with
+            # return_offsets_mapping=True returns a BatchEncoding whose
+            # [offset_mapping] is a list of tokenizers.Encoding objects (not a
+            # plain (start, end) tuple list). Unwrap to the per-token (start,
+            # end) offsets so the bisect below works; without this the tuple
+            # unpack raises, the except swallows it, and the whole map silently
+            # returns None - forcing the O(chunks x text) per-chunk re-encode
+            # fallback and defeating SGLANG_CHUNK_HEAD_RECOMPUTE_NODE_KIND
+            # (which needs the map). Verified: bisect on these ends matches
+            # len(encode(text[:byte])) on chunk-start boundaries (0/120 diff)
+            # so R32/R38b offsets are unchanged, only faster. Older tokenizers
+            # / list inputs already return (start, end) tuples.
+            if offsets:
+                _first = offsets[0]
+                if hasattr(_first, "offsets"):
+                    offsets = list(_first.offsets)
+                elif not isinstance(_first, tuple):
+                    offsets = list(_first)
             if not offsets:
                 return None
             # offsets must be (start, end) tuples; some tokenizers ignore the
@@ -2650,18 +2674,82 @@ class RadixCache(BasePrefixCache):
                 # chunks — and on the few it does, the result is a
                 # global FRAC bump from 0.30 → 0.50 that regresses
                 # failure-type agreement 41.7% → 33.3%.
+                # P1 node-kind interface boundary (2026-07-10, direction A).
+                # When SGLANG_CHUNK_HEAD_RECOMPUTE_NODE_KIND=1, set K from the
+                # chunk's AST interface boundary (signature, or signature +
+                # docstring) instead of frac * chunk_len, so code structure
+                # decides what to recompute at equal budget. Fires on every
+                # function/class chunk with a non-zero boundary - avoids R34's
+                # rare-feature no-op. Falls back to the frac path below when the
+                # boundary is 0/unavailable or the byte->token map is missing.
+                _node_kind_k = 0
+                _node_kind_active = False
                 if (
+                    os.environ.get("SGLANG_CHUNK_HEAD_RECOMPUTE_NODE_KIND", "0") == "1"
+                    and chunk_len > 4
+                ):
+                    _boundary_kind = (
+                        os.environ.get("SGLANG_CHUNK_NODE_KIND_BOUNDARY", "interface")
+                        .strip().lower() or "interface"
+                    )
+                    _boundary_byte = (
+                        getattr(chunk, "interface_end_byte", 0)
+                        if _boundary_kind != "signature"
+                        else getattr(chunk, "signature_end_byte", 0)
+                    )
+                    if _boundary_byte > 0:
+                        # Use the SAME byte->token method as token_start_within
+                        # above (byte_to_tok O(1) fast path when available, else
+                        # the per-chunk re-encode fallback) so K stays in the
+                        # same token units as the frac path's offsets.
+                        if byte_to_tok is not None:
+                            _iface_tok = self._lookup_byte_offset(
+                                byte_to_tok, int(_boundary_byte)
+                            )
+                        else:
+                            _iface_tok = self._byte_to_token_offset(
+                                text, int(_boundary_byte), tokenizer
+                            )
+                        _node_kind_k = max(
+                            0, int(_iface_tok) - int(token_start_within)
+                        )
+                        if 0 < _node_kind_k < chunk_len:
+                            _node_kind_active = True
+                        # DEBUG (P1.2): why does node-kind fire / not fire?
+                        # Gated by SGLANG_NK_DEBUG=1 (off by default, no cost).
+                        if os.environ.get("SGLANG_NK_DEBUG", "0") == "1":
+                            _nkdbg = getattr(self, "_nkdbg_n", 0)
+                            if _nkdbg < 20:
+                                print(f"[NKDBG] anchor={chunk.anchor_type} name={chunk.name[:24]} "
+                                      f"chunk_len={chunk_len} iface_end={getattr(chunk,'interface_end_byte',0)} "
+                                      f"sig_end={getattr(chunk,'signature_end_byte',0)} "
+                                      f"btok={'None' if byte_to_tok is None else 'ok'} "
+                                      f"tok={'None' if tokenizer is None else 'ok'} "
+                                      f"tok_start={token_start_within} iface_tok={_iface_tok} "
+                                      f"nk_k={_node_kind_k} active={_node_kind_active}", flush=True)
+                                self._nkdbg_n = _nkdbg + 1
+                if _node_kind_active or (
                     _recompute_frac > 0
                     and _recompute_frac < 1.0
                     and chunk_len > 4
                 ):
-                    _head_k = max(1, int(
-                        (_recompute_frac * chunk_len) + 0.5
-                    ))
+                    if _node_kind_active:
+                        _head_k = _node_kind_k
+                        _skip_reason = "head_recompute_nodekind"
+                        self.placeholder_chunk_pool_node_kind_k_count += 1
+                        if os.environ.get("SGLANG_NK_DEBUG", "0") == "1":
+                            print(f"[NKDBG2] INCR counter={self.placeholder_chunk_pool_node_kind_k_count} "
+                                  f"name={chunk.name[:20]} head_k={_head_k} chunk_len={chunk_len} "
+                                  f"frac={_recompute_frac}", flush=True)
+                    else:
+                        _head_k = max(1, int(
+                            (_recompute_frac * chunk_len) + 0.5
+                        ))
+                        # Cap head recompute so body copy is still meaningful.
+                        if _head_k >= chunk_len - 1:
+                            _head_k = max(1, chunk_len // 2)
+                        _skip_reason = "head_recompute"
                     _chunk_pool_hit_counter += 1
-                    # Cap head recompute so body copy is still meaningful.
-                    if _head_k >= chunk_len - 1:
-                        _head_k = max(1, chunk_len // 2)
                     plan.decisions.append(ChunkDecision(
                         chunk_signature=chunk.signature,
                         slot_id=slot_id,
@@ -2672,7 +2760,7 @@ class RadixCache(BasePrefixCache):
                         action="dense_prefill",
                         pool_entry=None,
                         confidence=0.0,
-                        skip_reason="head_recompute",
+                        skip_reason=_skip_reason,
                     ))
                     # Body: shift chunk_start by _head_k, chunk_len -= _head_k.
                     candidates.append((
@@ -3853,10 +3941,12 @@ class RadixCache(BasePrefixCache):
                 logger.debug("[placeholder_chunk_pool] batch rope skipped: %s", re_)
         _bt2 = time.perf_counter()
         # R40: record copy_ms + gap_prefill_ms + head_recompute_early/late_ms.
-        # Splitting head_recompute into early vs late requires the FRAC position
-        # counter that flows from _build_chunk_plan via `plan`. We approximate
-        # by attributing the head-recompute delta proportionally to EARLY_N
-        # (early chunks = first N hits, late chunks = rest) using plan.copy_count.
+        # Splitting head_recompute into early vs late approximates by attributing
+        # the head-recompute delta proportionally to EARLY_N (early chunks = first
+        # N hits, late chunks = rest) using len(layout) as the total chunk-copy
+        # count. (P4 2026-07-10: previously referenced an undefined `plan`
+        # variable -> NameError silently swallowed by the except below, leaving
+        # head_recompute_early/late_ms stuck at 0.0.)
         _ts = getattr(req, "time_stats", None)
         if _ts is not None and hasattr(_ts, "set_copy_ms"):
             try:
@@ -3872,7 +3962,7 @@ class RadixCache(BasePrefixCache):
                 _early_n = int(
                     os.environ.get("SGLANG_CHUNK_HEAD_RECOMPUTE_EARLY_N", "2") or 2
                 )
-                _plan_copies = getattr(plan, "copy_count", 1) or 1
+                _plan_copies = len(layout) if layout else 1
                 _early_share = min(1.0, _early_n / _plan_copies)
                 _rope_no_gap = _rope_ms * 0.70
                 _ts.set_head_recompute_early_ms(_rope_no_gap * _early_share)

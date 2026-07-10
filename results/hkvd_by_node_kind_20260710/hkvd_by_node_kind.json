@@ -1,0 +1,818 @@
+{
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "n_sampled": 40,
+  "n_candidates_with_iface": 120,
+  "fire_rate": 1.0,
+  "summary": {
+    "interface": {
+      "n": 40,
+      "K_dev": 0.08432670533657075,
+      "V_dev": 0.010016086431486267,
+      "K_std": 0.00531936308676657,
+      "V_std": 0.006829392983172821
+    },
+    "body": {
+      "n": 40,
+      "K_dev": 0.08858355065541608,
+      "V_dev": 0.006093884844865118,
+      "K_std": 0.004612522036731687,
+      "V_std": 0.0055160712355014265
+    },
+    "per_anchor_type": {
+      "class": {
+        "interface": {
+          "n": 8,
+          "K_dev": 0.08771055298192161,
+          "V_dev": 0.005588480138352939,
+          "K_std": 0.006148356809820788,
+          "V_std": 0.0012619963136869317
+        },
+        "body": {
+          "n": 8,
+          "K_dev": 0.08782689725714071,
+          "V_dev": 0.004367134666868619,
+          "K_std": 0.0015987732159132373,
+          "V_std": 0.0014713016535983245
+        }
+      },
+      "function": {
+        "interface": {
+          "n": 32,
+          "K_dev": 0.08348074342523303,
+          "V_dev": 0.011122988004769598,
+          "K_std": 0.0047265948545099825,
+          "V_std": 0.007195585209671084
+        },
+        "body": {
+          "n": 32,
+          "K_dev": 0.08877271400498492,
+          "V_dev": 0.0065255723893642426,
+          "K_std": 0.005077033248964239,
+          "V_std": 0.006046556832161514
+        }
+      }
+    },
+    "paired": {
+      "n": 40,
+      "mean_delta_iface_minus_body_K": -0.004256845318845341,
+      "std_delta": 0.0065945777591804615,
+      "n_iface_gt_body": 9,
+      "n_body_gt_iface": 31,
+      "n_tie": 0,
+      "wilcoxon_p_one_sided_iface_gt_body": 0.9998833620584264
+    }
+  },
+  "per_layer": {
+    "interface": {
+      "0": {
+        "K_mean": 0.0012624695897102355,
+        "V_mean": 2.4721026420593263e-06
+      },
+      "1": {
+        "K_mean": 0.08045301586389542,
+        "V_mean": 0.000713503360748291
+      },
+      "2": {
+        "K_mean": 0.07711457461118698,
+        "V_mean": 0.0009684145450592041
+      },
+      "3": {
+        "K_mean": 0.062130439281463626,
+        "V_mean": 0.0012803524732589722
+      },
+      "4": {
+        "K_mean": 0.14574251025915147,
+        "V_mean": 0.0015920668840408326
+      },
+      "5": {
+        "K_mean": 0.10475529581308365,
+        "V_mean": 0.002070663869380951
+      },
+      "6": {
+        "K_mean": 0.20287262499332429,
+        "V_mean": 0.0032783567905426024
+      },
+      "7": {
+        "K_mean": 0.1641198292374611,
+        "V_mean": 0.0035894453525543214
+      },
+      "8": {
+        "K_mean": 0.1390071451663971,
+        "V_mean": 0.005942384898662567
+      },
+      "9": {
+        "K_mean": 0.09731265008449555,
+        "V_mean": 0.007062853872776031
+      },
+      "10": {
+        "K_mean": 0.17966074496507645,
+        "V_mean": 0.007667027413845062
+      },
+      "11": {
+        "K_mean": 0.1022094503045082,
+        "V_mean": 0.007759515941143036
+      },
+      "12": {
+        "K_mean": 0.10425253212451935,
+        "V_mean": 0.012364594638347626
+      },
+      "13": {
+        "K_mean": 0.05674800723791122,
+        "V_mean": 0.013789907097816467
+      },
+      "14": {
+        "K_mean": 0.04380163252353668,
+        "V_mean": 0.016678328812122344
+      },
+      "15": {
+        "K_mean": 0.09500390887260438,
+        "V_mean": 0.02179386168718338
+      },
+      "16": {
+        "K_mean": 0.06380235403776169,
+        "V_mean": 0.02020859569311142
+      },
+      "17": {
+        "K_mean": 0.07052999436855316,
+        "V_mean": 0.022982762753963472
+      },
+      "18": {
+        "K_mean": 0.05020047724246979,
+        "V_mean": 0.030305732786655427
+      },
+      "19": {
+        "K_mean": 0.032768557965755465,
+        "V_mean": 0.016283459961414337
+      },
+      "20": {
+        "K_mean": 0.0456713005900383,
+        "V_mean": 0.018681639432907106
+      },
+      "21": {
+        "K_mean": 0.08003652542829513,
+        "V_mean": 0.0118251234292984
+      },
+      "22": {
+        "K_mean": 0.039138133823871615,
+        "V_mean": 0.007269825041294098
+      },
+      "23": {
+        "K_mean": 0.07189948856830597,
+        "V_mean": 0.006139427423477173
+      },
+      "24": {
+        "K_mean": 0.06946382969617844,
+        "V_mean": 0.009697045385837554
+      },
+      "25": {
+        "K_mean": 0.08867574334144593,
+        "V_mean": 0.009350590407848358
+      },
+      "26": {
+        "K_mean": 0.07094300240278244,
+        "V_mean": 0.010582633316516876
+      },
+      "27": {
+        "K_mean": 0.021571511030197145,
+        "V_mean": 0.01056983470916748
+      }
+    },
+    "body": {
+      "0": {
+        "K_mean": 0.0013297200202941895,
+        "V_mean": 2.112984657287598e-06
+      },
+      "1": {
+        "K_mean": 0.08302474021911621,
+        "V_mean": 0.00034461021423339846
+      },
+      "2": {
+        "K_mean": 0.087510085105896,
+        "V_mean": 0.0005078837275505066
+      },
+      "3": {
+        "K_mean": 0.06901048719882966,
+        "V_mean": 0.0005768373608589173
+      },
+      "4": {
+        "K_mean": 0.15998933762311934,
+        "V_mean": 0.0007369622588157653
+      },
+      "5": {
+        "K_mean": 0.1142009139060974,
+        "V_mean": 0.0009525805711746216
+      },
+      "6": {
+        "K_mean": 0.2068597748875618,
+        "V_mean": 0.001457907259464264
+      },
+      "7": {
+        "K_mean": 0.17398692667484283,
+        "V_mean": 0.0014608442783355714
+      },
+      "8": {
+        "K_mean": 0.1514182686805725,
+        "V_mean": 0.0022700101137161253
+      },
+      "9": {
+        "K_mean": 0.1042744442820549,
+        "V_mean": 0.0030277907848358155
+      },
+      "10": {
+        "K_mean": 0.18093142211437224,
+        "V_mean": 0.003058791160583496
+      },
+      "11": {
+        "K_mean": 0.10619370341300964,
+        "V_mean": 0.0033163443207740785
+      },
+      "12": {
+        "K_mean": 0.10989121943712235,
+        "V_mean": 0.005474115908145905
+      },
+      "13": {
+        "K_mean": 0.06370335519313812,
+        "V_mean": 0.006979608535766601
+      },
+      "14": {
+        "K_mean": 0.047748564183712004,
+        "V_mean": 0.008343510329723358
+      },
+      "15": {
+        "K_mean": 0.10244802385568619,
+        "V_mean": 0.009750519692897797
+      },
+      "16": {
+        "K_mean": 0.0597993016242981,
+        "V_mean": 0.01020454615354538
+      },
+      "17": {
+        "K_mean": 0.0719215601682663,
+        "V_mean": 0.011788824200630188
+      },
+      "18": {
+        "K_mean": 0.05285852700471878,
+        "V_mean": 0.01571035236120224
+      },
+      "19": {
+        "K_mean": 0.03324980586767197,
+        "V_mean": 0.010315044224262238
+      },
+      "20": {
+        "K_mean": 0.04847845435142517,
+        "V_mean": 0.011309106647968293
+      },
+      "21": {
+        "K_mean": 0.0774535983800888,
+        "V_mean": 0.007991670072078705
+      },
+      "22": {
+        "K_mean": 0.03913305103778839,
+        "V_mean": 0.00561826080083847
+      },
+      "23": {
+        "K_mean": 0.07242316156625747,
+        "V_mean": 0.005302450060844422
+      },
+      "24": {
+        "K_mean": 0.07349364161491394,
+        "V_mean": 0.009630416333675385
+      },
+      "25": {
+        "K_mean": 0.09241179823875427,
+        "V_mean": 0.009769962728023529
+      },
+      "26": {
+        "K_mean": 0.07267850637435913,
+        "V_mean": 0.012026709318161011
+      },
+      "27": {
+        "K_mean": 0.023917025327682494,
+        "V_mean": 0.01270100325345993
+      }
+    }
+  },
+  "per_chunk": [
+    {
+      "slot_id": "code_base:pandas/io/excel/_xlrd.py",
+      "name": "XlrdReader",
+      "anchor_type": "class",
+      "n_tokens": 836,
+      "iface_byte": 105,
+      "n_iface_toks": 26,
+      "n_body_toks": 811,
+      "iface_k_dev": 0.08665573809828077,
+      "iface_v_dev": 0.004591801336833409,
+      "body_k_dev": 0.08938467928341456,
+      "body_v_dev": 0.00295431911945343
+    },
+    {
+      "slot_id": "code_base:pandas/tseries/frequencies.py",
+      "name": "_FrequencyInferer",
+      "anchor_type": "class",
+      "n_tokens": 902,
+      "iface_byte": 91,
+      "n_iface_toks": 23,
+      "n_body_toks": 880,
+      "iface_k_dev": 0.08609598236424583,
+      "iface_v_dev": 0.004554499472890582,
+      "body_k_dev": 0.08878816025597709,
+      "body_v_dev": 0.004251724907330104
+    },
+    {
+      "slot_id": "code_base:pandas/io/excel/_odswriter.py",
+      "name": "ODSWriter",
+      "anchor_type": "class",
+      "n_tokens": 1526,
+      "iface_byte": 34,
+      "n_iface_toks": 10,
+      "n_body_toks": 1517,
+      "iface_k_dev": 0.07572103823934283,
+      "iface_v_dev": 0.008151539734431676,
+      "body_k_dev": 0.08564285933971405,
+      "body_v_dev": 0.003922475235802787
+    },
+    {
+      "slot_id": "code_base:pandas/core/interchange/buffer.py",
+      "name": "PandasBuffer",
+      "anchor_type": "class",
+      "n_tokens": 417,
+      "iface_byte": 108,
+      "n_iface_toks": 23,
+      "n_body_toks": 395,
+      "iface_k_dev": 0.08805272621767861,
+      "iface_v_dev": 0.007008729236466544,
+      "body_k_dev": 0.08921946159430913,
+      "body_v_dev": 0.005795242530958993
+    },
+    {
+      "slot_id": "code_base:pandas/core/interchange/dataframe.py",
+      "name": "PandasDataFrameXchg",
+      "anchor_type": "class",
+      "n_tokens": 789,
+      "iface_byte": 314,
+      "n_iface_toks": 69,
+      "n_body_toks": 721,
+      "iface_k_dev": 0.09340828018529075,
+      "iface_v_dev": 0.005650907754898071,
+      "body_k_dev": 0.08719213945525033,
+      "body_v_dev": 0.006259200828416007
+    },
+    {
+      "slot_id": "code_base:pandas/core/interchange/buffer.py",
+      "name": "PandasBufferPyarrow",
+      "anchor_type": "class",
+      "n_tokens": 283,
+      "iface_byte": 115,
+      "n_iface_toks": 25,
+      "n_body_toks": 259,
+      "iface_k_dev": 0.0862000925200326,
+      "iface_v_dev": 0.005142716424805778,
+      "body_k_dev": 0.08581915284906115,
+      "body_v_dev": 0.005712730543954032
+    },
+    {
+      "slot_id": "code_base:pandas/core/interchange/column.py",
+      "name": "PandasColumn",
+      "anchor_type": "class",
+      "n_tokens": 1267,
+      "iface_byte": 540,
+      "n_iface_toks": 118,
+      "n_body_toks": 1150,
+      "iface_k_dev": 0.09863978411470141,
+      "iface_v_dev": 0.005377511892999921,
+      "body_k_dev": 0.08994811347552709,
+      "body_v_dev": 0.0015968084335327148
+    },
+    {
+      "slot_id": "code_base:pandas/io/excel/_calamine.py",
+      "name": "CalamineReader",
+      "anchor_type": "class",
+      "n_tokens": 576,
+      "iface_byte": 121,
+      "n_iface_toks": 27,
+      "n_body_toks": 550,
+      "iface_k_dev": 0.08691078211580004,
+      "iface_v_dev": 0.004230135253497532,
+      "body_k_dev": 0.08662061180387225,
+      "body_v_dev": 0.004444575735500881
+    },
+    {
+      "slot_id": "code_base:pandas/core/interchange/buffer.py",
+      "name": "__init__",
+      "anchor_type": "function",
+      "n_tokens": 164,
+      "iface_byte": 153,
+      "n_iface_toks": 37,
+      "n_body_toks": 128,
+      "iface_k_dev": 0.08479058529649462,
+      "iface_v_dev": 0.015446892806461878,
+      "body_k_dev": 0.09310648696763175,
+      "body_v_dev": 0.002755610006196158
+    },
+    {
+      "slot_id": "code_base:pandas/tseries/frequencies.py",
+      "name": "deltas",
+      "anchor_type": "function",
+      "n_tokens": 25,
+      "iface_byte": 51,
+      "n_iface_toks": 17,
+      "n_body_toks": 9,
+      "iface_k_dev": 0.08627567546708244,
+      "iface_v_dev": 0.025559825556618825,
+      "body_k_dev": 0.08944407956940788,
+      "body_v_dev": 0.005781239696911403
+    },
+    {
+      "slot_id": "code_base:pandas/core/window/doc.py",
+      "name": "window_agg_numba_parameters",
+      "anchor_type": "function",
+      "n_tokens": 261,
+      "iface_byte": 66,
+      "n_iface_toks": 20,
+      "n_body_toks": 242,
+      "iface_k_dev": 0.08077367288725716,
+      "iface_v_dev": 0.011144567813192095,
+      "body_k_dev": 0.08982148553643908,
+      "body_v_dev": 0.0029309988021850586
+    },
+    {
+      "slot_id": "code_base:pandas/core/arrays/datetimelike.py",
+      "name": "_box_values",
+      "anchor_type": "function",
+      "n_tokens": 40,
+      "iface_byte": 108,
+      "n_iface_toks": 24,
+      "n_body_toks": 17,
+      "iface_k_dev": 0.07967754134110042,
+      "iface_v_dev": 0.005346911294119698,
+      "body_k_dev": 0.08889524851526533,
+      "body_v_dev": 0.002763469304357256
+    },
+    {
+      "slot_id": "code_base:pandas/core/window/common.py",
+      "name": "zsqrt",
+      "anchor_type": "function",
+      "n_tokens": 71,
+      "iface_byte": 18,
+      "n_iface_toks": 7,
+      "n_body_toks": 65,
+      "iface_k_dev": 0.0842122733592987,
+      "iface_v_dev": 0.03307724850518363,
+      "body_k_dev": 0.09086796854223524,
+      "body_v_dev": 0.01011574694088527
+    },
+    {
+      "slot_id": "code_base:pandas/core/interchange/dataframe.py",
+      "name": "get_column",
+      "anchor_type": "function",
+      "n_tokens": 33,
+      "iface_byte": 54,
+      "n_iface_toks": 16,
+      "n_body_toks": 18,
+      "iface_k_dev": 0.0788425441299166,
+      "iface_v_dev": 0.010887837835720606,
+      "body_k_dev": 0.09176733664103917,
+      "body_v_dev": 0.004744763885225568
+    },
+    {
+      "slot_id": "code_base:pandas/core/window/common.py",
+      "name": "prep_binary",
+      "anchor_type": "function",
+      "n_tokens": 51,
+      "iface_byte": 90,
+      "n_iface_toks": 24,
+      "n_body_toks": 28,
+      "iface_k_dev": 0.09426455199718475,
+      "iface_v_dev": 0.012654340692928858,
+      "body_k_dev": 0.09606657070772988,
+      "body_v_dev": 0.03432635750089373
+    },
+    {
+      "slot_id": "code_base:pandas/tseries/frequencies.py",
+      "name": "is_unique_asi8",
+      "anchor_type": "function",
+      "n_tokens": 24,
+      "iface_byte": 42,
+      "n_iface_toks": 13,
+      "n_body_toks": 12,
+      "iface_k_dev": 0.07867991711412158,
+      "iface_v_dev": 0.022015256541115896,
+      "body_k_dev": 0.08879810358796801,
+      "body_v_dev": 0.019271356718880788
+    },
+    {
+      "slot_id": "code_base:pandas/core/dtypes/astype.py",
+      "name": "_astype_nansafe",
+      "anchor_type": "function",
+      "n_tokens": 35,
+      "iface_byte": 113,
+      "n_iface_toks": 35,
+      "n_body_toks": 1,
+      "iface_k_dev": 0.0823047970022474,
+      "iface_v_dev": 0.0048827507666179115,
+      "body_k_dev": 0.07413598895072937,
+      "body_v_dev": 0.005592226982116699
+    },
+    {
+      "slot_id": "code_base:pandas/core/arrays/datetimelike.py",
+      "name": "_scalar_type",
+      "anchor_type": "function",
+      "n_tokens": 58,
+      "iface_byte": 229,
+      "n_iface_toks": 51,
+      "n_body_toks": 8,
+      "iface_k_dev": 0.08953773762498583,
+      "iface_v_dev": 0.005644832338605609,
+      "body_k_dev": 0.08249853977135249,
+      "body_v_dev": 0.0032231658697128296
+    },
+    {
+      "slot_id": "code_base:pandas/io/formats/console.py",
+      "name": "in_ipython_frontend",
+      "anchor_type": "function",
+      "n_tokens": 89,
+      "iface_byte": 135,
+      "n_iface_toks": 33,
+      "n_body_toks": 57,
+      "iface_k_dev": 0.08520294725894928,
+      "iface_v_dev": 0.011212744883128576,
+      "body_k_dev": 0.08881057585988726,
+      "body_v_dev": 0.0040633635861533025
+    },
+    {
+      "slot_id": "code_base:pandas/io/excel/_calamine.py",
+      "name": "_convert_cell",
+      "anchor_type": "function",
+      "n_tokens": 90,
+      "iface_byte": 77,
+      "n_iface_toks": 20,
+      "n_body_toks": 71,
+      "iface_k_dev": 0.08552895699228559,
+      "iface_v_dev": 0.005545720458030701,
+      "body_k_dev": 0.09116249637944358,
+      "body_v_dev": 0.006549624460084098
+    },
+    {
+      "slot_id": "code_base:pandas/tseries/frequencies.py",
+      "name": "get_freq",
+      "anchor_type": "function",
+      "n_tokens": 435,
+      "iface_byte": 216,
+      "n_iface_toks": 43,
+      "n_body_toks": 393,
+      "iface_k_dev": 0.08373636433056422,
+      "iface_v_dev": 0.007322771208626884,
+      "body_k_dev": 0.09230866602488927,
+      "body_v_dev": 0.005545439464705331
+    },
+    {
+      "slot_id": "code_base:pandas/core/interchange/dataframe.py",
+      "name": "get_columns",
+      "anchor_type": "function",
+      "n_tokens": 41,
+      "iface_byte": 53,
+      "n_iface_toks": 13,
+      "n_body_toks": 29,
+      "iface_k_dev": 0.07951929952417101,
+      "iface_v_dev": 0.011340969375201635,
+      "body_k_dev": 0.08833745121955872,
+      "body_v_dev": 0.0057808565241949895
+    },
+    {
+      "slot_id": "code_base:pandas/core/interchange/buffer.py",
+      "name": "__init__",
+      "anchor_type": "function",
+      "n_tokens": 50,
+      "iface_byte": 164,
+      "n_iface_toks": 37,
+      "n_body_toks": 14,
+      "iface_k_dev": 0.08058075819696699,
+      "iface_v_dev": 0.00836563961846488,
+      "body_k_dev": 0.08171026834419795,
+      "body_v_dev": 0.00447351166180202
+    },
+    {
+      "slot_id": "code_base:pandas/core/dtypes/astype.py",
+      "name": "_astype_nansafe",
+      "anchor_type": "function",
+      "n_tokens": 36,
+      "iface_byte": 123,
+      "n_iface_toks": 36,
+      "n_body_toks": 1,
+      "iface_k_dev": 0.08277492225170135,
+      "iface_v_dev": 0.004789303456033979,
+      "body_k_dev": 0.07370392552443913,
+      "body_v_dev": 0.006171137094497681
+    },
+    {
+      "slot_id": "code_base:pandas/io/excel/_xlrd.py",
+      "name": "get_sheet_by_index",
+      "anchor_type": "function",
+      "n_tokens": 28,
+      "iface_byte": 45,
+      "n_iface_toks": 11,
+      "n_body_toks": 18,
+      "iface_k_dev": 0.07668508376394,
+      "iface_v_dev": 0.012090929916926793,
+      "body_k_dev": 0.09478612244129181,
+      "body_v_dev": 0.004854902625083923
+    },
+    {
+      "slot_id": "code_base:pandas/io/excel/_odswriter.py",
+      "name": "_process_style",
+      "anchor_type": "function",
+      "n_tokens": 104,
+      "iface_byte": 353,
+      "n_iface_toks": 71,
+      "n_body_toks": 34,
+      "iface_k_dev": 0.08599599983010973,
+      "iface_v_dev": 0.006176886813981193,
+      "body_k_dev": 0.08369210149560656,
+      "body_v_dev": 0.002274460026196071
+    },
+    {
+      "slot_id": "code_base:pandas/core/dtypes/astype.py",
+      "name": "_astype_nansafe",
+      "anchor_type": "function",
+      "n_tokens": 692,
+      "iface_byte": 636,
+      "n_iface_toks": 164,
+      "n_body_toks": 529,
+      "iface_k_dev": 0.09060637865747724,
+      "iface_v_dev": 0.0036003440618515015,
+      "body_k_dev": 0.09149650165012904,
+      "body_v_dev": 0.001876507486615862
+    },
+    {
+      "slot_id": "code_base:pandas/core/arrays/datetimelike.py",
+      "name": "__init__",
+      "anchor_type": "function",
+      "n_tokens": 38,
+      "iface_byte": 115,
+      "n_iface_toks": 33,
+      "n_body_toks": 6,
+      "iface_k_dev": 0.08202755451202393,
+      "iface_v_dev": 0.007614406091826302,
+      "body_k_dev": 0.09017189698559898,
+      "body_v_dev": 0.003002396651676723
+    },
+    {
+      "slot_id": "code_base:pandas/core/interchange/column.py",
+      "name": "describe_null",
+      "anchor_type": "function",
+      "n_tokens": 133,
+      "iface_byte": 33,
+      "n_iface_toks": 7,
+      "n_body_toks": 127,
+      "iface_k_dev": 0.07540556575570788,
+      "iface_v_dev": 0.010372721723147802,
+      "body_k_dev": 0.09219898922102791,
+      "body_v_dev": 0.0028073489665985107
+    },
+    {
+      "slot_id": "code_base:pandas/core/interchange/column.py",
+      "name": "__init__",
+      "anchor_type": "function",
+      "n_tokens": 177,
+      "iface_byte": 203,
+      "n_iface_toks": 49,
+      "n_body_toks": 129,
+      "iface_k_dev": 0.09064260763781411,
+      "iface_v_dev": 0.0194540513413293,
+      "body_k_dev": 0.09223957146917071,
+      "body_v_dev": 0.003740681069237845
+    },
+    {
+      "slot_id": "code_base:pandas/io/excel/_calamine.py",
+      "name": "get_sheet_data",
+      "anchor_type": "function",
+      "n_tokens": 178,
+      "iface_byte": 146,
+      "n_iface_toks": 40,
+      "n_body_toks": 139,
+      "iface_k_dev": 0.083203558410917,
+      "iface_v_dev": 0.006884930389268058,
+      "body_k_dev": 0.08839646194662366,
+      "body_v_dev": 0.0033063675676073346
+    },
+    {
+      "slot_id": "code_base:pandas/io/excel/_xlrd.py",
+      "name": "_parse_cell",
+      "anchor_type": "function",
+      "n_tokens": 337,
+      "iface_byte": 152,
+      "n_iface_toks": 27,
+      "n_body_toks": 311,
+      "iface_k_dev": 0.08262270263263158,
+      "iface_v_dev": 0.006599021809441703,
+      "body_k_dev": 0.09404295895780836,
+      "body_v_dev": 0.005421178681509835
+    },
+    {
+      "slot_id": "code_base:pandas/core/interchange/dataframe.py",
+      "name": "num_columns",
+      "anchor_type": "function",
+      "n_tokens": 16,
+      "iface_byte": 38,
+      "n_iface_toks": 10,
+      "n_body_toks": 7,
+      "iface_k_dev": 0.07696331185953957,
+      "iface_v_dev": 0.010171168616839818,
+      "body_k_dev": 0.08376841247081757,
+      "body_v_dev": 0.00628661470753806
+    },
+    {
+      "slot_id": "code_base:pandas/tseries/frequencies.py",
+      "name": "get_period_alias",
+      "anchor_type": "function",
+      "n_tokens": 43,
+      "iface_byte": 115,
+      "n_iface_toks": 30,
+      "n_body_toks": 14,
+      "iface_k_dev": 0.08515400758811406,
+      "iface_v_dev": 0.008482190115111215,
+      "body_k_dev": 0.08691040320055825,
+      "body_v_dev": 0.010041277323450361
+    },
+    {
+      "slot_id": "code_base:pandas/core/interchange/buffer.py",
+      "name": "__repr__",
+      "anchor_type": "function",
+      "n_tokens": 60,
+      "iface_byte": 35,
+      "n_iface_toks": 11,
+      "n_body_toks": 50,
+      "iface_k_dev": 0.0791870653629303,
+      "iface_v_dev": 0.0292756302016122,
+      "body_k_dev": 0.08796584393296923,
+      "body_v_dev": 0.008944332599639893
+    },
+    {
+      "slot_id": "code_base:pandas/io/excel/_odswriter.py",
+      "name": "__init__",
+      "anchor_type": "function",
+      "n_tokens": 226,
+      "iface_byte": 498,
+      "n_iface_toks": 121,
+      "n_body_toks": 106,
+      "iface_k_dev": 0.09317668420927865,
+      "iface_v_dev": 0.008942440152168274,
+      "body_k_dev": 0.08958846543516431,
+      "body_v_dev": 0.008811605828148978
+    },
+    {
+      "slot_id": "code_base:pandas/io/formats/printing.py",
+      "name": "as_escaped_string",
+      "anchor_type": "function",
+      "n_tokens": 143,
+      "iface_byte": 113,
+      "n_iface_toks": 29,
+      "n_body_toks": 115,
+      "iface_k_dev": 0.08356690619673048,
+      "iface_v_dev": 0.011883882539612907,
+      "body_k_dev": 0.09334021380969457,
+      "body_v_dev": 0.0060083695820399696
+    },
+    {
+      "slot_id": "code_base:pandas/core/reshape/encoding.py",
+      "name": "_get_dummies_1d",
+      "anchor_type": "function",
+      "n_tokens": 106,
+      "iface_byte": 241,
+      "n_iface_toks": 74,
+      "n_body_toks": 33,
+      "iface_k_dev": 0.08507214273725237,
+      "iface_v_dev": 0.004012135522706168,
+      "body_k_dev": 0.09248727134295873,
+      "body_v_dev": 0.0018384818519864763
+    },
+    {
+      "slot_id": "code_base:pandas/io/excel/_xlrd.py",
+      "name": "sheet_names",
+      "anchor_type": "function",
+      "n_tokens": 12,
+      "iface_byte": 31,
+      "n_iface_toks": 7,
+      "n_body_toks": 6,
+      "iface_k_dev": 0.076442437512534,
+      "iface_v_dev": 0.009782156773975917,
+      "body_k_dev": 0.08831205538340978,
+      "body_v_dev": 0.004911722881453378
+    },
+    {
+      "slot_id": "code_base:pandas/io/formats/printing.py",
+      "name": "_pprint_dict",
+      "anchor_type": "function",
+      "n_tokens": 247,
+      "iface_byte": 243,
+      "n_iface_toks": 68,
+      "n_body_toks": 180,
+      "iface_k_dev": 0.08792923816612788,
+      "iface_v_dev": 0.005355106932776315,
+      "body_k_dev": 0.089894386274474,
+      "body_v_dev": 0.010603200112070357
+    }
+  ],
+  "interpretation": "deviation_g = 1 - cos(KV(g|canonical_prefix), KV(g|live_prefix)). interface = [chunk_start, interface_end_byte); body = rest. Verdict: interface_dev > body_dev => structure signal real => P3 motive strong; else entire code-structure-recompute line dead."
+}

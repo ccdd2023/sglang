@@ -5,19 +5,19 @@
 - vary_code: False
 - warm_anchor_pool: False
 - exclude_source_agent: False (source role = `implementer`)
-- total rows: 60 (reusers counted: 60)
+- total rows: 15 (reusers counted: 15)
 
 ## TTFT (reusers only, unless source included)
-- avg TTFT = 721.4 ms, p50 = 751.6 ms, p90 = 841.3 ms
-- source agent avg TTFT = 743.3 ms (prefill-bound; not a reuse beneficiary)
+- avg TTFT = 719.0 ms, p50 = 697.4 ms, p90 = 773.9 ms
+- source agent avg TTFT = 786.7 ms (prefill-bound; not a reuse beneficiary)
 
 ## cached_tokens decomposition (reusers only)
-- avg cached_tokens = 394.2
-- avg radix_prefix_tokens = 111.5  (radix L1 prefix — the ONLY part the prefix_cache_only baseline also sees; must cancel in a fair A/B)
-- avg codeaware_reused_tokens = 282.6  (L2 whole-slot + L3 offset-gate body copy + C2 chunk copy — the code-aware contribution)
+- avg cached_tokens = 726.1
+- avg radix_prefix_tokens = 122.9  (radix L1 prefix — the ONLY part the prefix_cache_only baseline also sees; must cancel in a fair A/B)
+- avg codeaware_reused_tokens = 603.1  (L2 whole-slot + L3 offset-gate body copy + C2 chunk copy — the code-aware contribution)
   - l2_wholeslot_reused_tokens = 0.0  (general KVCOMM baseline)
   - l3_offset_reused_tokens = 0.0  (MiniLM — deprecated regime)
-  - c2_chunk_reused_tokens = 282.6  (AST chunk path)
+  - c2_chunk_reused_tokens = 603.1  (AST chunk path)
 
 ## Interpretation
 - If `radix_prefix_tokens` ≈ matches the prefix_cache_only run's `cached_tokens`,

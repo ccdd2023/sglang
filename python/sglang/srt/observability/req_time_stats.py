@@ -641,8 +641,31 @@ class SchedulerReqTimeStats(ReqTimeStatsBase):
 
     def __getstate__(self) -> object:
         # send to detokenizer/tokenizer
+        # R40 (2026-07-10 fix): the 6 TTFT-breakdown ms fields + chunk_plan_done_time
+        # MUST cross the scheduler->tokenizer zmq boundary even when
+        # --enable-metrics is off, because the API-server assembles the
+        # ttft_breakdown dict from them on the return path. Previously a bare
+        # `if not self.enable_metrics: return {}` dropped ALL fields, so the 6
+        # radix/chunk columns stayed 0.0 in rows.csv (only tokenize_ms worked,
+        # because it is derived from timestamps that live entirely in the
+        # API-server process and never cross the boundary). diff_realtime_monotonic
+        # is included unconditionally because __setstate__ uses it to convert
+        # cross-process monotonic timestamps (chunk_plan_done_time ends with
+        # "time" and is subject to that conversion); without it __setstate__
+        # would KeyError. The 7 floats + 1 timestamp + 1 diff is negligible
+        # serialization overhead. The heavier metrics fields below stay gated.
+        r40 = {
+            "radix_prefix_ms": self.radix_prefix_ms,
+            "chunk_plan_ms": self.chunk_plan_ms,
+            "copy_ms": self.copy_ms,
+            "gap_prefill_ms": self.gap_prefill_ms,
+            "head_recompute_early_ms": self.head_recompute_early_ms,
+            "head_recompute_late_ms": self.head_recompute_late_ms,
+            "chunk_plan_done_time": self.chunk_plan_done_time,
+            "diff_realtime_monotonic": global_diff_realtime_monotonic,
+        }
         if not self.enable_metrics:
-            return {}
+            return r40
 
         state = {
             "wait_queue_entry_time": self.wait_queue_entry_time,
@@ -652,6 +675,7 @@ class SchedulerReqTimeStats(ReqTimeStatsBase):
             "prefill_finished_time": self.prefill_finished_time,
             "diff_realtime_monotonic": global_diff_realtime_monotonic,
         }
+        state.update(r40)
         return state
 
     # R40 FIX (2026-07-09): add 7 TTFT-breakdown setters so radix_cache.py can

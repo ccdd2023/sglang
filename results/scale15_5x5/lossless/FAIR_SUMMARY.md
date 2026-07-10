@@ -8,8 +8,8 @@
 - total rows: 75 (reusers counted: 60)
 
 ## TTFT (reusers only, unless source included)
-- avg TTFT = 1024.6 ms, p50 = 1021.3 ms, p90 = 1224.2 ms
-- source agent avg TTFT = 1059.7 ms (prefill-bound; not a reuse beneficiary)
+- avg TTFT = 1021.0 ms, p50 = 1022.6 ms, p90 = 1222.5 ms
+- source agent avg TTFT = 1054.3 ms (prefill-bound; not a reuse beneficiary)
 
 ## cached_tokens decomposition (reusers only)
 - avg cached_tokens = 89.0

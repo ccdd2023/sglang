@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction A 等预算判决 · node-kind interface-recompute (2026-07-10)</title>
+<style>
+  /* 16:9 PPT aspect - 1280×720 viewport, 720px page.
+     Design: pre-print / scientific-typesetting aesthetic. Midnight ink + parchment text,
+     a single cyan accent for the Pareto point, a faded rust for falsified.
+     Signature: a left "lab notebook margin" rail (rule) with iteration index + tag,
+     and a small SVG equal-budget slice on title.
+     Body type: Inter (sans). Code/data: JetBrains Mono. Display: STIX (serif) - for H1 only.
+     This deliberately avoids the three AI-default looks. */
+  :root {
+    --ink:        #0e1726;
+    --ink-2:      #14223a;
+    --ink-3:      #1d2e4d;
+    --rule:       #2a3a5c;
+    --text:       #e8e1d3;
+    --text-dim:   #a8a094;
+    --text-mute:  #6b6b6b;
+
+    --accent:     #4ec9d4;   /* cyan - new finding / R32_f045 */
+    --rust:       #a4644a;   /* rust - falsified / negative */
+    --gold:       #d4a73a;   /* gold - warning / caveat */
+    --leaf:       #7ab07a;   /* green - verified / fixed */
+
+    --serif:     "STIX Two Text", "Source Serif 4", "Songti SC", "宋体", Georgia, "Times New Roman", serif;
+    --body:      "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Helvetica, Arial, sans-serif;
+    --mono:      "JetBrains Mono", "Fira Code", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--body);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  #deck { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+  #track {
+    display: flex; height: 100%; width: 100%;
+    overflow-x: auto; overflow-y: hidden;
+    scroll-snap-type: x mandatory; scroll-behavior: smooth;
+    scrollbar-width: none;
+  }
+  #track::-webkit-scrollbar { display: none; }
+  .slide {
+    flex: 0 0 100%; width: 100%; height: 100%;
+    padding: 16px 48px 40px 48px;
+    display: flex; flex-direction: column;
+    overflow-y: auto; scroll-snap-align: start; position: relative;
+  }
+  .slide::before {
+    content: ""; position: absolute; top: 0; left: 24px; bottom: 0;
+    width: 1px; background: var(--rule);
+  }
+  .slide::after {
+    content: ""; position: absolute; top: 0; left: 24px;
+    width: 8px; height: 8px; background: var(--accent); transform: translateX(-3.5px);
+  }
+  .slidemeta {
+    display: flex; align-items: center; gap: 14px;
+    margin-left: 20px; margin-bottom: 12px;
+    font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-mute);
+  }
+  .slidemeta .tag { color: var(--accent); }
+  .slidemeta .tag.falsified { color: var(--rust); }
+  .slidemeta .tag.retired   { color: var(--gold); }
+  .slidemeta .tag.verified  { color: var(--leaf); }
+  .slidemeta .index { color: var(--text-dim); }
+
+  .slide h1 {
+    font-family: var(--body); font-size: 30px; font-weight: 700;
+    letter-spacing: -0.2px; line-height: 1.15;
+    margin-bottom: 10px; margin-left: 20px; color: var(--text);
+    max-width: 100%; overflow: visible; overflow-wrap: anywhere; word-break: break-word;
+  }
+  .slide h1 .num { color: var(--accent); font-style: italic; margin-right: 6px; }
+  .slide h2 {
+    font-family: var(--body); font-size: 12px; font-weight: 600;
+    color: var(--text-mute); margin: 10px 0 6px 20px; padding-bottom: 4px;
+    border-bottom: 1px solid var(--rule); letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .slide h3 {
+    font-family: var(--body); font-size: 14px; font-weight: 600;
+    color: var(--accent); margin: 10px 0 4px 20px;
+  }
+  .slide p, .slide li {
+    font-size: 15px; line-height: 1.55; color: var(--text);
+    margin-left: 20px; margin-right: 8px;
+  }
+  .slide ul, .slide ol { margin: 6px 0 6px 38px; }
+  .slide li { margin: 5px 0; }
+  .sub { color: var(--text-dim); font-size: 13px; margin: 4px 0 6px 20px; line-height: 1.4; }
+  .slide code {
+    font-family: var(--mono); font-size: 13px;
+    background: rgba(78,201,212,0.10); padding: 2px 8px; border-radius: 3px; color: var(--accent);
+  }
+  pre {
+    font-family: var(--mono); font-size: 12px;
+    background: var(--ink-2); border: 1px solid var(--rule); border-radius: 2px;
+    padding: 6px 14px; line-height: 1.5; overflow-x: auto; color: var(--text);
+    margin-left: 20px; margin-right: 8px;
+  }
+  pre .c { color: var(--text-mute); }
+  pre .g { color: var(--leaf); }
+  pre .r { color: var(--rust); }
+  pre .y { color: var(--gold); }
+  pre .a { color: var(--accent); }
+  table { border-collapse: collapse; width: calc(100% - 40px); margin: 6px 20px; font-size: 13px; }
+  th, td { border: 1px solid var(--rule); padding: 5px 9px; text-align: left; vertical-align: top; }
+  th {
+    background: var(--ink-2); color: var(--text-dim); font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase; font-size: 11.5px;
+  }
+  tr:nth-child(even) td { background: rgba(20,34,58,0.6); }
+  td b { color: var(--text); }
+  .good { color: var(--leaf); font-weight: 600; }
+  .bad { color: var(--rust); font-weight: 600; }
+  .warn { color: var(--gold); font-weight: 600; }
+  .accent { color: var(--accent); font-weight: 600; }
+  .card {
+    background: var(--ink-2); border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+    border-radius: 0; padding: 6px 14px; margin: 6px 8px 6px 20px;
+  }
+  .card.rust { border-left-color: var(--rust); }
+  .card.leaf { border-left-color: var(--leaf); }
+  .card.gold { border-left-color: var(--gold); }
+  .numgrid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 6px 20px; }
+  .numcell {
+    background: var(--ink-2); border: 1px solid var(--rule); border-top: 2px solid var(--rule);
+    border-radius: 0; padding: 10px 14px; text-align: left; position: relative;
+  }
+  .numcell.verified { border-top-color: var(--accent); }
+  .numcell.rust { border-top-color: var(--rust); }
+  .numcell.leaf { border-top-color: var(--leaf); }
+  .numcell .label {
+    font-family: var(--mono); font-size: 11px; color: var(--text-mute);
+    margin-bottom: 4px; letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .numcell .val { font-family: var(--serif); font-size: 40px; font-weight: 600; line-height: 1.05; color: var(--text); }
+  .numcell .val.good { color: var(--leaf); }
+  .numcell .val.bad  { color: var(--rust); }
+  .numcell .val.acc  { color: var(--accent); }
+  .numcell .sub { font-size: 12.5px; color: var(--text-dim); margin: 6px 0 0 0; }
+  .badge {
+    display: inline-block; padding: 2px 9px; border-radius: 2px;
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid;
+  }
+  .badge.good { background: transparent; color: var(--leaf); border-color: var(--leaf); }
+  .badge.bad  { background: transparent; color: var(--rust); border-color: var(--rust); }
+  .badge.warn { background: transparent; color: var(--gold); border-color: var(--gold); }
+  .badge.acc  { background: transparent; color: var(--accent); border-color: var(--accent); }
+
+  .slidefooter {
+    position: absolute; bottom: 12px; left: 48px; right: 48px;
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 10px; color: var(--text-mute);
+    letter-spacing: 0.14em; text-transform: uppercase; pointer-events: none;
+  }
+  .slidefooter .left  { color: var(--accent); }
+  .slidefooter .right { color: var(--text-mute); }
+
+  #nav {
+    position: fixed; bottom: 0; left: 0; right: 0; height: 44px;
+    background: var(--ink); border-top: 1px solid var(--rule);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; z-index: 10;
+  }
+  #progress { position: fixed; top: 0; left: 0; height: 2px; width: 0; background: var(--accent); z-index: 11; }
+  #track { scroll-timeline-name: --deck; scroll-timeline-axis: x; }
+  @supports (animation-timeline: --deck) {
+    #progress { animation: 1ms linear bar-tl both; animation-timeline: --deck; }
+    @keyframes bar-tl { from { width: 0%; } to { width: 100%; } }
+  }
+  .navbtn {
+    background: transparent; border: 1px solid var(--rule); color: var(--text);
+    width: 30px; height: 30px; border-radius: 2px; cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .navbtn:hover { border-color: var(--accent); color: var(--accent); }
+  .navbtn:disabled { opacity: 0.25; cursor: default; }
+  #pager { font-size: 12px; color: var(--text-dim); font-family: var(--mono); white-space: nowrap; letter-spacing: 0.1em; }
+  #pager b { color: var(--accent); }
+  #sectitle {
+    font-family: var(--serif); font-size: 13px; color: var(--text); font-style: italic;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 50vw;
+  }
+  .nav-center { display: flex; align-items: center; gap: 18px; flex: 1; justify-content: center; overflow: hidden; }
+  #dots { display: flex; gap: 4px; }
+  .dot { width: 18px; height: 2px; background: var(--rule); cursor: pointer; transition: background 0.15s; flex: 0 0 auto; }
+  .dot.active { background: var(--accent); }
+  .dot.passed { background: var(--text-mute); }
+  @media (max-width: 760px) { #sectitle, #dots { display: none; } }
+  .hint { position: fixed; bottom: 52px; right: 24px; font-size: 10.5px; color: var(--text-mute); font-family: var(--mono); z-index: 10; pointer-events: none; letter-spacing: 0.1em; }
+
+  .title-slide { justify-content: flex-start; padding: 28px 60px 40px 60px; align-items: stretch; }
+  .title-slide h1 {
+    font-family: var(--serif); font-size: 42px; font-weight: 500;
+    letter-spacing: -0.3px; margin: 6px 0 12px 0; line-height: 1.1; overflow-wrap: normal;
+  }
+  .title-slide h1 .accent { color: var(--accent); font-style: italic; }
+  .title-slide h1 .rust { color: var(--rust); font-style: italic; }
+  .title-slide .sub { font-family: var(--serif); font-size: 15px; font-style: italic; color: var(--text-dim); margin: 0 0 6px 0; }
+  .title-slide .meta { font-family: var(--mono); font-size: 11px; color: var(--text-mute); margin-top: 16px; letter-spacing: 0.12em; text-transform: uppercase; }
+  .title-slide .pareto-svg { margin: 14px auto 0 auto; display: block; }
+
+  .appendix-banner {
+    display: inline-block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold);
+    border: 1px solid var(--gold); padding: 3px 10px; margin-left: 20px; margin-bottom: 8px;
+    background: rgba(212, 167, 58, 0.06);
+  }
+
+  .slide h1 { font-variant-numeric: normal; }
+  .num { font-family: "Noto Sans Symbols2", "DejaVu Sans", "Symbola", "Arial Unicode MS", sans-serif; font-weight: 600; }
+
+  figure.svgfig { margin: 14px 0 14px 20px; display: flex; align-items: center; gap: 18px; }
+  figure.svgfig svg { display: block; }
+  figure.svgfig figcaption { font-family: var(--mono); font-size: 12px; color: var(--text-dim); line-height: 1.55; max-width: 260px; }
+  figure.svgfig figcaption .pt { color: var(--accent); }
+
+  @media print {
+    @page { size: 1280px 720px; margin: 0; }
+    html, body { height: auto; overflow: visible; background: var(--ink); }
+    #progress, #nav, .hint { display: none !important; }
+    #deck { width: 1280px; height: auto; overflow: visible; }
+    #track { display: block; width: 1280px; height: auto; overflow: visible; scroll-snap-type: none; }
+    .slide { flex: none; width: 1280px; min-height: 720px; overflow: hidden; }
+    .slide:not(:last-child) { page-break-after: always; break-after: page; }
+    .slidefooter { display: flex; }
+  }
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="deck">
+  <div id="track">
+
+<section class="slide title-slide" data-tag="Direction A 判决" data-tag-class="falsified" data-index="R40 · Direction A / 2026-07-10">
+  <p class="slidemeta" style="margin-top:0;"><span class="index">sglang-kvflow</span> · <span class="tag falsified">等预算判决</span></p>
+  <p class="slidemeta" style="margin-top:8px;color:var(--gold);font-size:10px;letter-spacing:0.16em;"><span style="color:var(--text-dim);">本 deck：</span> 主体 15 张（Direction A 实现 + 8-config 等预算消融 + 判决）· 附录 1 张（局限）</p>
+  <h1 style="margin-top:14px;font-size:34px;line-height:1.12;">代码结构能决定<span class="rust">「重算什么」</span>吗？<br>Direction A · <span class="rust">等预算判决</span></h1>
+  <p class="sub" style="font-size:14px;margin-bottom:4px;">node-kind interface-recompute · 上一份 deck slide 18 的 lever A 落地验证</p>
+  <p class="sub" style="font-size:11.5px;">branch fix/placeholder-pool-activation · Qwen2.5-Coder-7B × 5 verdict · n=15 × 8 configs · 默认 OFF（未 commit）</p>
+  <div class="numgrid" style="margin-top:16px;max-width:1100px;margin-left:0;margin-right:0;">
+    <div class="numcell rust">
+      <div class="label">判决 (equal budget B)</div>
+      <div class="val bad">−3.3<span style="font-size:18px;color:var(--text-dim);">pp</span></div>
+      <div class="sub">nodekind 6.6% vs R32 9.8% @ 等预算 · FALSIFIED</div>
+    </div>
+    <div class="numcell leaf">
+      <div class="label">副产品 · 静默 bug 修复</div>
+      <div class="val good">byte_to_tok ✓</div>
+      <div class="sub">运行时 None 被吞；修后 R32 更快 745→715ms</div>
+    </div>
+    <div class="numcell verified">
+      <div class="label">次要正向</div>
+      <div class="val acc">1.43<span style="font-size:18px;color:var(--text-dim);">×</span></div>
+      <div class="sub">R32_f045 11.5% ≈ lossless 10.7% · 更优 operating point</div>
+    </div>
+  </div>
+  <figure class="svgfig" style="margin:14px auto 0 auto;justify-content:center;">
+<svg width="560" height="150" viewBox="0 0 560 150" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-label="Equal-budget slice: type_match vs c2_reuse">
+      <!-- axes -->
+      <line x1="40" y1="122" x2="540" y2="122" stroke="#2a3a5c" stroke-width="0.6"/>
+      <line x1="40" y1="18"  x2="40"  y2="122" stroke="#2a3a5c" stroke-width="0.6"/>
+      <text x="44" y="20" fill="#6b6b6b" font-family="ui-monospace, monospace" font-size="8.5" letter-spacing="0.5">type_match %</text>
+      <text x="430" y="140" fill="#6b6b6b" font-family="ui-monospace, monospace" font-size="8.5" letter-spacing="0.5">c2_reuse (↑ 更多复用 = 更少重算 = 更快但更险)</text>
+      <!-- lossless (reuse=0, 10.7%) dim -->
+      <circle cx="40" cy="40" r="3.2" fill="#a8a094" stroke="#0e1726" stroke-width="1.2"/>
+      <text x="46" y="44" fill="#a8a094" font-family="ui-monospace, monospace" font-size="7.5">lossless 10.7%</text>
+      <!-- R32 sweep polyline (gold) f045(269,34)->f030(335,46)->f026(365,46)->f015(437,67) -->
+      <polyline points="269,34 335,46 365,46 437,67" fill="none" stroke="#d4a73a" stroke-width="1.4" opacity="0.85"/>
+      <circle cx="269" cy="34" r="3.4" fill="#d4a73a" stroke="#0e1726" stroke-width="1.1"/>
+      <text x="263" y="28" fill="#d4a73a" font-family="ui-monospace, monospace" font-size="7.5" text-anchor="end">R32_f045 11.5%</text>
+      <circle cx="335" cy="46" r="3" fill="#d4a73a" stroke="#0e1726" stroke-width="1.1"/>
+      <circle cx="365" cy="46" r="3" fill="#d4a73a" stroke="#0e1726" stroke-width="1.1"/>
+      <text x="372" y="50" fill="#d4a73a" font-family="ui-monospace, monospace" font-size="7">R32_f030/f026 9.8%</text>
+      <circle cx="437" cy="67" r="3" fill="#d4a73a" stroke="#0e1726" stroke-width="1.1"/>
+      <text x="443" y="71" fill="#d4a73a" font-family="ui-monospace, monospace" font-size="7">R32_f015 6.6%</text>
+      <text x="470" y="58" fill="#d4a73a" font-family="ui-monospace, monospace" font-size="7" font-style="italic">R32 sweep 单调</text>
+      <!-- R38b dim (282,66) -->
+      <circle cx="282" cy="66" r="2.6" fill="#a8a094" stroke="#0e1726" stroke-width="1"/>
+      <text x="286" y="62" fill="#6b6b6b" font-family="ui-monospace, monospace" font-size="6.5">R38b</text>
+      <!-- nodekind (349,67) rust big - below curve at equal budget -->
+      <circle cx="349" cy="67" r="6.5" fill="#a4644a" stroke="#0e1726" stroke-width="1.5"/>
+      <circle cx="349" cy="67" r="10.5" fill="none" stroke="#a4644a" stroke-width="1" opacity="0.5"/>
+      <text x="356" y="64" fill="#a4644a" font-family="ui-monospace, monospace" font-size="8" font-weight="600">nodekind 6.6%</text>
+      <!-- nodekind_sig (487,88) rust -->
+      <circle cx="487" cy="88" r="3.4" fill="#a4644a" stroke="#0e1726" stroke-width="1.1"/>
+      <text x="492" y="92" fill="#a4644a" font-family="ui-monospace, monospace" font-size="7">nodekind_sig 3.3%</text>
+      <!-- equal-budget vertical slice at x=349 (nodekind reuse=362) -->
+      <line x1="349" y1="46" x2="349" y2="67" stroke="#a4644a" stroke-width="1.2" stroke-dasharray="3 2"/>
+      <line x1="346" y1="46" x2="352" y2="46" stroke="#a4644a" stroke-width="1.2"/>
+      <line x1="346" y1="67" x2="352" y2="67" stroke="#a4644a" stroke-width="1.2"/>
+      <text x="318" y="60" fill="#a4644a" font-family="ui-monospace, monospace" font-size="8" font-weight="600">−3.3pp @ equal B</text>
+      <text x="300" y="118" fill="#6b6b6b" font-family="ui-monospace, monospace" font-size="6.5">↑ R32 在同预算 ≈9.8%</text>
+    </svg>
+  </figure>
+  <p class="meta" style="margin-top:8px;font-size:10px;">branch fix/placeholder-pool-activation · 默认 OFF · 未 commit</p>
+  <div class="slidefooter">
+    <span class="left">EuroSys 2026 投稿目标 · 代码感知有损 KV 缓存复用</span>
+    <span class="right">Direction A 等预算判决 · 2026-07-10</span>
+  </div>
+</section>
+
+<section class="slide" data-tag="背景" data-index="主体 1 / 15 · (1)">
+  <h1><span class="num">(1)</span> 背景 · novelty 缺口与 slide 18 的三个 lever</h1>
+  <h2>上一份 deck 的诊断（slide 17 不足②）</h2>
+  <p>code structure (AST) 只驱动「<b>在哪切</b>」-> 影响复用率(速度)；accuracy 杠杆 <b>FRAC =「recompute 前 N token」= 位置驱动、代码无关</b>。code structure 从未碰过 accuracy 侧 -> 方法本质 = KVCOMM(pool) + CacheBlend-lite(位置代理)，<b>无 code-aware accuracy 杠杆</b>。</p>
+  <h2>slide 18 提出的三个补救 lever（让 code structure 决定「重算什么」）</h2>
+  <table>
+    <tr><th style="width:14%;">方向</th><th style="width:34%;">机制</th><th style="width:20%;">信号</th><th style="width:11%;">可行性</th><th>novelty vs CacheBlend</th></tr>
+    <tr style="background:#2a1717;"><td><b style="color:var(--rust);">A · node-kind FRAC</b><br><span class="badge bad">本 deck · FALSIFIED</span></td><td>recompute 签名/控制流节点，copy docstring/boilerplate</td><td>AST 节点类型（<b>永远存在</b>）</td><td><span class="good">本周</span></td><td>按语义角色 gate，非 per-layer KV deviation</td></tr>
+    <tr><td><b>B · dataflow</b></td><td>只 recompute 引用「上游已变 symbol」的 token，其余 copy</td><td>symbol def-use chain</td><td>中（静态分析）</td><td><b>高</b>：无 KV 方法用 code dataflow</td></tr>
+    <tr><td><b>C · task-cycle</b></td><td>AST-diff 跨迭代，未变区域复用 KV，diff 区域 recompute</td><td>agent 迭代周期</td><td>中（接 R40-P2）</td><td><b>高</b>：跨 agent lifecycle</td></tr>
+  </table>
+  <h2>R34 教训（避免重蹈）</h2>
+  <div class="card gold" style="padding:5px 14px;">
+    <p style="margin:2px 0;font-size:12.5px;">R34/R40-P3 把 gate 挂在 <b>type annotation（罕见）</b>上 -> pandas 0.x no-op retired。<b>本 deck 修法</b>：① gate 在 <b>AST node kind</b>（永远存在，100% fire）；② <b>等预算消融</b>（R34 缺消融 -> 被当 global FRAC bump）；③ 信号验证折入判决测试（用户选择跳过 P0 proxy 预检，直接 P1+P2）。</p>
+  </div>
+  <p class="sub">本 deck = lever A 的<b>判决性等预算实验</b>：固定总 recompute budget B，比 uniform(R32) / position(R38b) / node-kind(A) 的 accuracy。</p>
+</section>
+
+<section class="slide" data-tag="假设" data-index="主体 2 / 15 · (2)">
+  <h1><span class="num">(2)</span> Direction A 假设 · interface 敏感、body 安全</h1>
+  <h2>核心假设</h2>
+  <p>一个函数的 <b>interface</b>（signature + docstring）是<b>跨上下文敏感区</b>：callers 依赖它；它位于 chunk-prefix 边界，正是 HKVD 偏差最高的位置（slide 8 实测 pos1 K 偏差 +7.2%）。而 <b>body</b> 是 byte-stable 的实现细节，安全 copy。</p>
+  <div class="card leaf" style="margin-top:6px;">
+    <p style="margin:2px 0;font-size:13px;"><b>推论</b>：recompute 到每个 chunk 的<b>真实 interface 边界</b>（而非均匀 <code>frac × chunk_len</code>）应在<b>更低 recompute 成本</b>恢复精度 -> <b>等预算 B 下 node-kind ≥ R32 type_match</b>。</p>
+  </div>
+  <h2>判决判据</h2>
+  <table>
+    <tr><th style="width:30%;">结果</th><th>含义</th></tr>
+    <tr><td>per-chunk 自适应边界 <b>&gt;</b> uniform frac @ equal B</td><td>code structure 买精度 -> <span class="good">Direction A confirmed</span>，补 novelty 缺口</td></tr>
+    <tr style="background:#2a1717;"><td>per-chunk 自适应边界 <b>≤</b> uniform frac @ equal B</td><td>contiguous form 证伪 -> <span class="bad">FALSIFICATION</span>，回 slide 18 选 B/C</td></tr>
+  </table>
+  <p class="sub">关键设计：等预算 B 是核心。R34 没控预算 -> 效果被归为「全局 FRAC bump」。本 deck 固定 B 比 accuracy，才能区分「code structure 买精度」vs「只是多算了」。</p>
+</section>
+
+<section class="slide" data-tag="连续性约束" data-index="主体 3 / 15 · (3)">
+  <h1><span class="num">(3)</span> 连续性约束 · 为什么 scattered 不可行 -> contiguous</h1>
+  <h2>slide 18 的完整 Direction A 需要非连续 recompute</h2>
+  <p>「recompute signature + <b>scattered</b> 控制流 token，copy docstring + boilerplate」-> 控制流在 body 中段，recompute 的 token 不连续。</p>
+  <h2>sglang prefill 强制 contiguous cached prefix</h2>
+  <div class="card rust" style="padding:5px 14px;">
+    <p style="margin:2px 0;font-size:13px;"><code>radix_cache.py:2432-2437</code>：非连续 copy 膨胀 <code>device_indices</code> 超过 <code>input_len</code> -> <b>负 <code>num_extend</code></b> -> flashinfer crash。prefill 把 device_indices 当作<b>连续前缀</b>处理。</p>
+  </div>
+  <h2>scattered 的代价 -> 对 TTFT 论文自毁</h2>
+  <p>scattered recompute 需多轮 gap staging（<code>recompute_gap_chunk</code>），每轮 prefill 吃 TTFT。现有 2 轮 inter-chunk gap-prefill 仍达 1.38×，但<b>许多 intra-chunk 控制流 gap 不会</b>。</p>
+  <h2>落地：contiguous interface-recompute</h2>
+  <pre>recompute  [chunk_start, <span class="a">interface_end</span>)   <span class="c"># 签名 + docstring，连续头部</span>
+copy       [<span class="a">interface_end</span>, chunk_end)   <span class="c"># body，整段 copy + RoPE</span></pre>
+  <p style="margin-top:4px;">契合现有 head-recompute executor（无需改 kernel），每个 function/class chunk 都触发，是「code structure 决定 recompute 边界」的<b>干净（但较弱）测试</b>。<span class="warn">强 scattered form 因 TTFT 不可行被排除（§附录）</span>。</p>
+</section>
+
+<section class="slide" data-tag="实现 P1.1" data-tag-class="verified" data-index="主体 4 / 15 · (4)">
+  <h1><span class="num">(4)</span> 实现 P1.1 · ast_chunker interface 边界</h1>
+  <h2>ChunkSpan 新增两个 byte 坐标（与 byte_start/byte_end 同系）</h2>
+  <pre><span class="c"># ast_chunker.py · _build_chunk_span 内</span>
+signature_end_byte = <span class="a">leading_offset + byte_offsets[body[0].lineno-1] + body[0].col_offset</span>
+                      <span class="c"># = 第一个 body statement 的起点 = def/class header 结束</span>
+interface_end_byte = signature_end_byte
+if isinstance(body[0], ast.Expr) and isinstance(getattr(body[0],'value',None), ast.Constant) \
+   and isinstance(body[0].value.value, str):
+    interface_end_byte = <span class="a">docstring 结束 byte</span>   <span class="c"># 跨 leading docstring 延伸</span>
+<span class="c"># 防御性 clamp 到 byte_end</span></pre>
+  <h2>验证（不是 R34 no-op）</h2>
+  <div class="numgrid" style="margin-top:6px;">
+    <div class="numcell leaf"><div class="label">pool chunks 有非零边界</div><div class="val good">120/120</div><div class="sub">100% fire rate · gate 在 node kind（永远存在）</div></div>
+    <div class="numcell"><div class="label">sample 校验</div><div class="val" style="font-size:22px;">foo / Bar ✓</div><div class="sub">带 docstring 的函数/class 正确延伸；method/if 不延伸</div></div>
+    <div class="numcell"><div class="label">vs R34</div><div class="val" style="font-size:22px;color:var(--leaf);">非 no-op</div><div class="sub">R34 gate 在 type annotation（pandas 0.x 罕见 -> 0% fire）</div></div>
+  </div>
+  <p class="sub">interface = signature + docstring；signature-only = 仅 header。<code>SGLANG_CHUNK_NODE_KIND_BOUNDARY={interface|signature}</code> 选其一。</p>
+</section>
+
+<section class="slide" data-tag="副产品 · bug 修复" data-tag-class="verified" data-index="主体 5 / 15 · (5)">
+  <h1><span class="num">(5)</span> 副产品 · byte_to_tok 静默 None bug 修复（pre-existing）</h1>
+  <h2>症状：_build_byte_to_token_map 运行时静默返回 None</h2>
+  <pre><span class="c"># radix_cache.py · 修复前</span>
+def _build_byte_to_token_map(text, tokenizer):
+    offsets = tokenizer(text, return_offsets_mapping=True)["offset_mapping"]  <span class="c"># HF Encoding 对象</span>
+    for (_st, en) in offsets:        <span class="r"># <- ValueError: too many values to unpack</span>
+        ...
+    <span class="r">except Exception:</span>  <span class="r"># bare except 吞掉</span>
+        return None                  <span class="r"># 静默 None</span></pre>
+  <h2>根因 + 后果</h2>
+  <ul>
+    <li>sglang 的 <code>get_tokenizer</code> 返回 raw HF <code>Qwen2Tokenizer</code>；<code>return_offsets_mapping=True</code> 返回 <code>BatchEncoding</code> of <code>tokenizers.Encoding</code> 对象 -> tuple unpack raise -> bare <code>except</code> 吞掉。</li>
+    <li><b>后果</b>：R32/R38b 一直走 <b>O(chunks×text) per-chunk re-encode fallback</b>。<span class="warn">这掩盖了 bug</span> — R32 仍工作（fallback 给出正确 offset），只是慢。</li>
+  </ul>
+  <h2>修复 + 验证</h2>
+  <pre>if offsets:
+    _first = offsets[0]
+    if hasattr(_first, "offsets"):   <span class="g"># 解包 Encoding 对象</span>
+        offsets = list(_first.offsets)</pre>
+  <div class="card leaf" style="padding:5px 14px;">
+    <p style="margin:2px 0;font-size:13px;"><b>验证</b>：chunk-start 边界上 <code>bisect_right(ends, byte) == len(encode(text[:byte]))</code>，<b>0/120 偏差</b> -> R32/R38b 的 offset/accuracy <b>不变</b>，仅<b>更快</b>（R32 745→715ms）。<b>这个 fix 也是 node-kind 能触发的前提</b> — 它需要 map；否则静默退回 frac = R34 no-op 陷阱。</p>
+  </div>
+  <p class="sub"><span class="accent">关键</span>：这是 pre-existing bug，被本次工作 uncover。memory: <code>byte-to-tok-broken-encoding-fix-2026-07-10</code>。</p>
+</section>
+
+<section class="slide" data-tag="实现 P1.2" data-index="主体 6 / 15 · (6)">
+  <h1><span class="num">(6)</span> 实现 P1.2 · radix_cache node-kind head boundary</h1>
+  <h2>新环境变量（默认 OFF，backward-compatible）</h2>
+  <pre>export SGLANG_CHUNK_HEAD_RECOMPUTE_NODE_KIND=1          <span class="c"># 开关</span>
+export SGLANG_CHUNK_NODE_KIND_BOUNDARY=interface         <span class="c"># interface | signature</span></pre>
+  <h2>_build_chunk_plan 内的决策（在 type-aware 之后、head-recompute if-block 之前）</h2>
+  <pre>if _node_kind_active and chunk.interface_end_byte &gt; 0:
+    K = byte_to_tok(interface_end_byte, chunk)   <span class="a"># = interface token 数，而非 frac×len</span>
+    _head_k = K
+    skip_reason = "head_recompute_nodekind"
+    placeholder_chunk_pool_node_kind_k_count += 1
+<span class="c"># if-block 改为: if _node_kind_active or (frac path): fire head_recompute</span>
+<span class="c"># 边界为 0 或 map 缺失 -> 退回 frac path（安全 fallback）</span></pre>
+  <h2>关键属性</h2>
+  <ul>
+    <li><b>K 来自代码结构</b>（interface 边界），而非固定比例 -> 这是「code structure 决定重算边界」的体现。</li>
+    <li><b>contiguous</b>：[chunk_start, interface_end) 是连续头部，契合 head-recompute executor，不触发连续性约束 crash。</li>
+    <li><b>counter</b> <code>placeholder_chunk_pool_node_kind_k_count</code> 记录触发数（见下页 telemetry）。</li>
+    <li>gated debug（<code>SGLANG_NK_DEBUG=1</code>，默认关）。</li>
+  </ul>
+  <p class="sub">改动 ~102 行（radix_cache.py）+ ast_chunker.py 字段。default OFF：不设 env = R32 行为。</p>
+</section>
+
+<section class="slide" data-tag="telemetry" data-index="主体 7 / 15 · (7)">
+  <h1><span class="num">(7)</span> telemetry 三处接线 · chunk-pool counter 两路 gotcha</h1>
+  <h2>新 counter 到 rows.csv 需要三处</h2>
+  <table>
+    <tr><th>位置</th><th>作用</th></tr>
+    <tr><td><code>scheduler_output_processor_mixin.py</code></td><td>从 req state 读取 counter（_dbg_chunk getattr list + emission dict）</td></tr>
+    <tr><td><code>serving_chat.py</code>（<b>两个</b> emission list，~L789 + ~L1280）</td><td>把 counter 写进 response_metadata</td></tr>
+    <tr><td><code>bench_kvcomm_ttft_stress.py</code></td><td>client 端提取 + 写进 rows.csv 列</td></tr>
+  </table>
+  <h2>gotcha：只加一处 -> rows.csv 显示 0</h2>
+  <div class="card gold" style="padding:5px 14px;">
+    <p style="margin:2px 0;font-size:13px;"><b>症状</b>：NKDBG2 server 端确认 counter 涨到 82，但 rows.csv 显示 0。<b>根因</b>：chunk-pool counter 有<b>两条 emission path</b>（serving_chat 的两个 list），只加 scheduler_output_processor_mixin 不够。<b>修法</b>：同时加到 serving_chat 的两个 list。memory: <code>chunk-pool-telemetry-two-emission-paths</code>。</p>
+  </div>
+  <h2>教训（写入 memory）</h2>
+  <ul>
+    <li>加 chunk-pool telemetry 要<b>同时改 serving_chat 的两个 list</b> + scheduler_output_processor_mixin + bench client。</li>
+    <li>server 端 debug print（NKDBG2）确认 counter 在涨 ≠ client 收到；跨进程边界（scheduler -> tokenizer -> client）是断点。</li>
+  </ul>
+</section>
+
+<section class="slide" data-tag="等预算方法论" data-tag-class="verified" data-index="主体 8 / 15 · (8)">
+  <h1><span class="num">(8)</span> 等预算消融方法论 + 离线预算估算</h1>
+  <h2>离线预算（compute_nodekind_budget.py · 120-chunk pool）</h2>
+  <div class="numgrid" style="margin-top:6px;">
+    <div class="numcell"><div class="label">frac*_interface</div><div class="val" style="font-size:34px;">0.261</div><div class="sub">node-kind(interface) 的总 B = R32@0.26 的总 B</div></div>
+    <div class="numcell"><div class="label">frac*_signature</div><div class="val" style="font-size:34px;">0.106</div><div class="sub">signature-only 的总 B = R32@0.106</div></div>
+    <div class="numcell leaf"><div class="label">fire rate</div><div class="val good">100%</div><div class="sub">120/120 chunks 有非零 interface 边界</div></div>
+  </div>
+  <h2>等预算判据（核心）</h2>
+  <div class="card" style="padding:5px 14px;">
+    <p style="margin:2px 0;font-size:13px;">固定总 recompute budget <b>B = total_chunk_tokens − c2_reused</b>。<b>total 跨 config 常数</b> -> <b>equal c2_reused ⇔ equal B</b>。所以比较同 c2_reuse 处的 type_match 即等预算比较。</p>
+  </div>
+  <h2>预算代理选择</h2>
+  <ul>
+    <li><b>用</b> <code>c2_chunk_reused_tokens</code>（per-request，正确）。<span class="warn">不用</span> <code>placeholder_chunk_pool_total_tokens_dense</code>：它是 <b>cumulative + counts decisions</b>（非 token），不可用于 per-request budget。</li>
+    <li><b>common-complete-cases subset</b>（5 FAIL agents in all configs, same-pass）消除 OOM row-drop 差异。</li>
+  </ul>
+  <p class="sub">R32 sweep 跨 f015/f026/f030/f045 提供 budget->accuracy 曲线；node-kind 的 frac*=0.261 落在 f026(0.26) 附近 -> vertical slice 可比。</p>
+</section>
+
+<section class="slide" data-tag="实验设置" data-index="主体 9 / 15 · (9)">
+  <h1><span class="num">(9)</span> 实验设置 · 8 configs × n=15 × 5 agents</h1>
+  <h2>统一 harness</h2>
+  <ul>
+    <li>n=15 diverse pandas cases（5 instance family）× 5 agents，verdict mode</li>
+    <li>同 pool <code>pandas_15case_v1</code>，同 fixed <code>byte_to_tok</code> path</li>
+    <li>Model: <code>Qwen2.5-Coder-7B-Instruct</code> · stable config（mem 0.72, max-total 16384）</li>
+    <li>硬约束：<code>--disable-overlap-schedule --max-running-requests 1</code>（&gt;3 case）；输出到 <code>results/</code>；F1 从 <code>outputs.jsonl</code> 的 <code>output_text</code>；L3 k-NN OFF；reuse real（<code>codeaware_reused_tokens &gt; 0</code>）</li>
+  </ul>
+  <h2>8 configs</h2>
+  <table>
+    <tr><th style="width:20%;">config</th><th>head-recompute 规则</th></tr>
+    <tr><td>lossless</td><td>无复用（baseline accuracy + 最慢 TTFT）</td></tr>
+    <tr><td>R32_f015 / f026 / f030 / f045</td><td>uniform <code>frac × chunk_len</code>（Pareto sweep + frac*=0.26）</td></tr>
+    <tr><td>R38b</td><td>position-stratified EARLY=0.60 / LATE=0.15 / N=2</td></tr>
+    <tr style="background:#2a1717;"><td><b>nodekind</b></td><td><b>K = signature + docstring（interface）</b></td></tr>
+    <tr style="background:#2a1717;"><td><b>nodekind_sig</b></td><td><b>K = signature only</b></td></tr>
+  </table>
+  <p class="sub">指标：type_match（outputs.jsonl output_text via score_r38.py，固定 /n 分母）；TTFT（rows.csv ttft_ms）；reuse budget proxy = c2_chunk_reused_tokens；node-kind fire rate。</p>
+</section>
+
+<section class="slide" data-tag="结果 · 全表" data-index="主体 10 / 15 · (10)">
+  <h1 style="margin-bottom:6px;"><span class="num">(10)</span> 结果 · 8 configs 全表（n=15, verdict）</h1>
+  <p class="sub" style="margin-top:0;">rows 因长 case OOM 掉到 60-61/75；type_match = outputs.jsonl output_text 的故障类型一致率，固定 /n 分母。</p>
+  <table style="margin-top:2px;">
+    <tr><th>config</th><th>n</th><th>type_match</th><th>/n%</th><th>CI95</th><th>TTFT</th><th>c2_reuse</th><th>fire</th></tr>
+    <tr><td>lossless</td><td>75</td><td>8</td><td>10.7%</td><td>[3.6, 29.1]</td><td>1028</td><td>0</td><td>-</td></tr>
+    <tr><td>R32_f015</td><td>61</td><td>4</td><td>6.6%</td><td>[0.0, 18.2]</td><td>707</td><td>465</td><td>-</td></tr>
+    <tr><td>R32_f026</td><td>61</td><td>6</td><td>9.8%</td><td>[0.0, 23.6]</td><td>713</td><td>380</td><td>-</td></tr>
+    <tr><td>R32_f030</td><td>61</td><td>6</td><td>9.8%</td><td>[0.0, 26.0]</td><td>715</td><td>345</td><td>-</td></tr>
+    <tr style="background:#122117;"><td><b>R32_f045</b></td><td>61</td><td>7</td><td><b>11.5%</b></td><td>[0.0, 29.1]</td><td>720</td><td>268</td><td>-</td></tr>
+    <tr><td>R38b</td><td>60</td><td>4</td><td>6.7%</td><td>[0.0, 30.0]</td><td>721</td><td>283</td><td>-</td></tr>
+    <tr style="background:#2a1717;"><td><b>nodekind</b></td><td>61</td><td>4</td><td><b style="color:var(--rust);">6.6%</b></td><td>[0.0, 15.0]</td><td>715</td><td>362</td><td><b>fires</b></td></tr>
+    <tr style="background:#2a1717;"><td><b>nodekind_sig</b></td><td>61</td><td>2</td><td><b style="color:var(--rust);">3.3%</b></td><td>[0.0, 9.1]</td><td>701</td><td>523</td><td><b>fires</b></td></tr>
+  </table>
+  <p class="sub">读法：nodekind (6.6%, reuse=362) 与 nodekind_sig (3.3%, reuse=523) 都在 R32 sweep 曲线<b>下方</b>。lossless 10.7% 是 accuracy 上限；R32_f045 11.5% 反而略超（CI 重叠，统计噪声）。</p>
+</section>
+
+<section class="slide" data-tag="R32 sweep 单调性" data-tag-class="verified" data-index="主体 11 / 15 · (11)">
+  <h1><span class="num">(11)</span> R32 sweep 干净单调 · budget→accuracy 关系验证</h1>
+  <h2>更多 recompute（更低 c2_reuse）-> 更高 type_match</h2>
+  <table>
+    <tr><th>R32 config</th><th>c2_reuse (↑=更多复用=更少重算)</th><th>type_match</th><th>方向</th></tr>
+    <tr><td>R32_f015</td><td>465</td><td>6.6%</td><td>最少重算 -> 最低</td></tr>
+    <tr><td>R32_f026</td><td>380</td><td>9.8%</td><td>↑</td></tr>
+    <tr><td>R32_f030</td><td>345</td><td>9.8%</td><td>→</td></tr>
+    <tr style="background:#122117;"><td><b>R32_f045</b></td><td><b>268</b></td><td><b>11.5%</b></td><td>最多重算 -> 最高</td></tr>
+  </table>
+  <div class="card leaf" style="padding:5px 14px;">
+    <p style="margin:2px 0;font-size:13px;"><b>这验证了两件事</b>：① <b>budget→accuracy 关系真实</b>（recompute 越多越准，符合「跨上下文 KV copy 有损、重算恢复」的机制）；② <b>c2_chunk_reused_tokens 是有效的预算代理</b>（单调性确认 total 跨 config 常数 + c2_reused 正确反映 B）。</p>
+  </div>
+  <h2>为什么这很重要</h2>
+  <p>R32 sweep 单调性是<b>等预算判决的前提</b>：只有 budget→accuracy 单调，才能在同 c2_reuse 处 vertical-slice 比较 nodekind vs R32。若 sweep 不单调，-3.3pp 无法归因于 code structure。</p>
+  <p class="sub">注：f026 与 f030 都 9.8%（plateau），说明 0.26-0.30 区间精度对 FRAC 鲁棒（与 R36 sweep 结论一致）。</p>
+</section>
+
+<section class="slide" data-tag="判决" data-tag-class="falsified" data-index="主体 12 / 15 · (12)">
+  <h1><span class="num">(12)</span> 判决 · FALSIFICATION（vertical slice @ equal B）</h1>
+  <h2>等预算 vertical slice</h2>
+  <div class="numgrid" style="margin-top:4px;">
+    <div class="numcell rust"><div class="label">nodekind @ reuse=362</div><div class="val bad">6.6%</div><div class="sub">interface boundary · fires</div></div>
+    <div class="numcell"><div class="label">R32 @ reuse≈362</div><div class="val" style="font-size:34px;">≈9.8%</div><div class="sub">介于 f026@380 与 f030@345</div></div>
+    <div class="numcell rust"><div class="label">delta @ equal B</div><div class="val bad">−3.3pp</div><div class="sub">nodekind &lt; R32 · 方向一致</div></div>
+  </div>
+  <h2>Pareto frontier（最大化 reuse AND type_match）</h2>
+  <p><code>nodekind_sig, R32_f015, R32_f026, R32_f045</code>。<b>nodekind 被 R32_f026 Pareto 支配</b>（reuse 380 &gt; 362 <b>且</b> 9.8% &gt; 6.6%）。nodekind_sig (3.3%) 更差。</p>
+  <h2>caveat：n=15 + OOM 噪声</h2>
+  <div class="card gold" style="padding:5px 14px;">
+    <p style="margin:2px 0;font-size:13px;"><b>common-complete-cases subset = 0</b>：没有 case 在全部 8 configs 都有 5 FAIL agents（OOM row-drop 差异 + 部分 case 出 PASS/UNK）-> 不能 subset 收紧，只能用固定 /n% 比较。<b>CI 重叠</b>（nodekind [0,15] vs R32 [0,23.6]）-> <b>方向一致但不统计显著</b>。R32 sweep 单调性 + nodekind 一致在曲线下方支撑方向。</p>
+  </div>
+  <p class="sub">判决标 <b>tentative</b>：consistent direction, within CI noise。需 n=30+ 或 common-subset 收紧才能定论。</p>
+</section>
+
+<section class="slide" data-tag="机制解读" data-index="主体 13 / 15 · (13)">
+  <h1><span class="num">(13)</span> 机制解读 · 假设被推翻（body 比 docstring 更关键）</h1>
+  <h2>原假设</h2>
+  <p>interface（signature + docstring）是跨上下文敏感区，body 是 byte-stable 实现细节、安全 copy -> recompute interface、copy body 应在等预算下胜出。</p>
+  <h2>数据暗示相反</h2>
+  <div class="card rust" style="padding:6px 14px;">
+    <p style="margin:3px 0;"><b>body（R32 uniform head 重算的部分）比 docstring（nodekind 重算的部分）更精度关键</b>。</p>
+    <ul style="margin:4px 0 4px 38px;">
+      <li>R32 重算「前 K token」（= signature + 部分 body），把 copy 损失恢复到曲线。</li>
+      <li>nodekind 重算到 interface_end（= signature + docstring），<b>把 body 全部 copy</b> -> body 的 stale KV 没被重算 -> 精度落在曲线下方。</li>
+      <li>nodekind_sig（只重算 signature，连 docstring 都 copy）更差（3.3%）-> <b>copy 得越多越差</b>，进一步印证 body 敏感。</li>
+    </ul>
+  </div>
+  <h2>结论</h2>
+  <p><b>position-driven head recompute（R32）beats code-structure-driven interface recompute at equal B</b>。code structure（node-kind）<b>不买精度</b>。这<b>强化 CLAUDE.md §2a</b>：method 是 speed optimization（Pareto trade），<b>非 accuracy-preserving</b>；code-structure-driven recompute selection 不胜 position-driven。</p>
+  <p class="sub">与上一份 deck 的诊断一致：accuracy 杠杆 = 位置（FRAC），代码结构只驱动 chunking（速度）。Direction A 未能打破这个分工。</p>
+</section>
+
+<section class="slide" data-tag="次要正向" data-tag-class="verified" data-index="主体 14 / 15 · (14)">
+  <h1><span class="num">(14)</span> 次要正向 · R32_f045 ≈ lossless @ 1.43× speedup</h1>
+  <h2>R32 sweep 推到 FRAC=0.45 的发现</h2>
+  <div class="numgrid" style="margin-top:6px;">
+    <div class="numcell"><div class="label">lossless (n=15)</div><div class="val">10.7%</div><div class="sub">1028ms · accuracy 上限</div></div>
+    <div class="numcell verified"><div class="label">R32_f045</div><div class="val acc">11.5%</div><div class="sub">720ms · CI 重叠 lossless</div></div>
+    <div class="numcell"><div class="label">speedup vs lossless</div><div class="val good">1.43<span style="font-size:16px;color:var(--text-dim);">×</span></div><div class="sub">1028 / 720</div></div>
+  </div>
+  <h2>更优的 operating point</h2>
+  <ul>
+    <li>R32_f045 (11.5%) <b>≈ lossless (10.7%)</b>（CI 重叠，统计上不可区分），同时 1.43× 加速。</li>
+    <li>比当前推荐 R32@0.30 (9.8%) <b>更准</b>且<code>byte_to_tok</code> fix 后更快（715ms vs 旧 745ms）。</li>
+    <li>含义：verdict 任务上，FRAC=0.45 可能是 lossless-matched 精度下的<b>新速度 Pareto</b>。</li>
+  </ul>
+  <div class="card gold" style="padding:5px 14px;">
+    <p style="margin:2px 0;font-size:13px;"><b>但需 follow-up 确认</b>：n=15 + OOM 下 11.5% vs 10.7% 在 CI 内（[0,29.1] vs [3.6,29.1]）。需 n=30+ 或 common-subset 确认 R32_f045 真等价 lossless，再更新 production 推荐（当前仍 R32@0.30）。</p>
+  </div>
+  <p class="sub">这是本 cycle 的正向副产品：Direction A 证伪的同时，R32 sweep 顺带发现了更优 operating point。</p>
+</section>
+
+<section class="slide" data-tag="总结 · 下一步" data-index="主体 15 / 15 · (15)">
+  <h1><span class="num">(15)</span> 总结 · R34 教训全 addressed + 下一步 levers</h1>
+  <h2>R34 三教训（全部 addressed）</h2>
+  <table>
+    <tr><th>教训</th><th>修法</th><th>状态</th></tr>
+    <tr><td>① gate 在 type annotation（罕见）-> no-op</td><td>gate 在 AST node kind（永远存在）</td><td><span class="good">✓ 100% fire</span></td></tr>
+    <tr><td>② 缺等预算消融 -> 被当 global bump</td><td>本 run 8-config 等预算</td><td><span class="good">✓</span></td></tr>
+    <tr><td>③ 信号未验证</td><td>信号验证折入判决（equal-B 本身即 falsification）</td><td><span class="good">✓ 跳过 P0</span></td></tr>
+  </table>
+  <h2>状态</h2>
+  <ul>
+    <li>✅ Direction A（contiguous form）<b>FALSIFIED</b>（tentative：方向一致，CI 内）；强 scattered form 因连续性约束 TTFT 不可行。</li>
+    <li>✅ 副产品：<code>byte_to_tok</code> pre-existing bug 修复（R32 更快）；R32_f045 ≈ lossless 候选（待确认）。</li>
+    <li>✅ 代码 default OFF，backward-compatible；<b>未 commit</b>（需要时提交）。</li>
+  </ul>
+  <h2>下一步 levers（slide 18，回选）</h2>
+  <div class="card" style="padding:5px 14px;">
+    <p style="margin:2px 0;font-size:13px;"><b>P1' · dataflow (B)</b>：recompute 引用「上游已变 symbol」的 token，其余 copy。真 novelty（无 KV 方法用 code dataflow），需跨 chunk 依赖分析。<b>P1'' · R32_f045 确认</b>：复跑确认是否真超 lossless，更新 production 推荐。<b>P1''' · task-cycle (C)</b>：AST-diff 跨 agent 迭代。B/C 都比 contiguous 难。</p>
+  </div>
+  <p class="sub">交付物：6 modified source + report/launchers/analyzer/budget + 8 ablation dirs + <code>results/ABLATION_NODEKIND_REPORT.md</code> + 3 memory。</p>
+</section>
+
+<section class="slide" data-tag="附录 · 局限" data-tag-class="retired" data-index="附录 1 / 1 · F">
+  <div class="appendix-banner">附录 F · Direction A 局限与 caveat · 不进入主体叙事</div>
+  <h1>附录 F · 局限：contiguous only / OOM / 宽 CI / verdict ≠ capability</h1>
+  <h2>四个 caveat</h2>
+  <table>
+    <tr><th style="width:22%;">局限</th><th>影响</th></tr>
+    <tr><td><b>contiguous only</b></td><td>强「recompute scattered control-flow」claim 因连续性约束 TTFT 不可行。本 run 只测较弱的「code structure 决定边界」claim。强 form 未被直接证伪（但被排除为不可行）。</td></tr>
+    <tr><td><b>OOM</b></td><td>长 case crash（rc=-9, system RAM），每 config 掉到 ~60-61/75 rows；common-complete-cases subset 缓解但减少 n。</td></tr>
+    <tr><td><b>宽 CI</b></td><td>n=15 + OOM 给噪声 type_match（CI 跨 ~15-26pp）；等预算 delta（-3.3pp）须对照此噪声读 -> tentative。</td></tr>
+    <tr><td><b>verdict accuracy ≠ task capability</b></td><td>type_match 测 verdict 任务的故障类型一致率，非 code-gen 正确性（CLAUDE.md）。R40-P2 coding_pipeline 是更客观的 judge，本 run 未用。</td></tr>
+  </table>
+  <h2>排除的强 form（连续性约束）</h2>
+  <p>slide 18 完整 Direction A 要求 recompute scattered 控制流 token。探索确认 sglang prefill 的 <code>device_indices</code> 必须是 contiguous prefix（<code>radix_cache.py:2432-2437</code>），非连续 copy -> 负 <code>num_extend</code> -> flashinfer crash。多轮 gap staging 可绕过但每轮吃 TTFT，对 TTFT 论文自毁。故落地为 contiguous interface-recompute。</p>
+  <h2>files</h2>
+  <p class="sub">code: ast_chunker.py, radix_cache.py, serving_chat.py, scheduler_output_processor_mixin.py, bench_kvcomm_ttft_stress.py · budget: results/compute_nodekind_budget.py + nodekind_budget.json · launchers: results/scale15_5x5/launchers/run_{nodekind,nodekind_sig,r32_frac}.sh · analyzer: results/scale15_5x5/analyze_ablation_nodekind.py · report: results/ABLATION_NODEKIND_REPORT.md · 8 output dirs: results/scale15_5x5/{lossless,r32,r32_f015,r32_f026,r32_f045,r38b,nodekind,nodekind_sig}/</p>
+  <div class="slidefooter">
+    <span class="left">代码感知有损 KV 缓存复用 · 附录</span>
+    <span class="right">附录 F · Direction A 局限 · 2026-07-10</span>
+  </div>
+</section>
+
+  </div><!-- /track -->
+</div><!-- /deck -->
+
+<div class="hint">← -> / space · 滚轮=翻页 · shift+滚轮=页内 · 圆点跳转</div>
+
+<div id="nav">
+  <button class="navbtn" id="prev" title="上一页 (←)">‹</button>
+  <div class="nav-center">
+    <div id="pager"><b id="cur">1</b> / <b id="total">17</b></div>
+    <span id="sectitle">Direction A 等预算判决</span>
+    <div id="dots"></div>
+  </div>
+  <button class="navbtn" id="next" title="下一页 (->)">›</button>
+</div>
+
+<script>
+/* === H1 auto-shrink === */
+(function(){
+  const slides = document.querySelectorAll('.slide:not(.title-slide) h1');
+  for (const h1 of slides) {
+    h1.style.fontSize = '';
+    const slide = h1.closest('.slide');
+    if (!slide) continue;
+    const maxW = slide.clientWidth - 100;
+    let size = 30;
+    h1.style.fontSize = size + 'px';
+    while (h1.scrollWidth > maxW && size > 18) {
+      size -= 0.5;
+      h1.style.fontSize = size + 'px';
+    }
+  }
+})();
+
+/* === Inject slidemeta + footer on every slide with data-* (title slide left alone) === */
+(function () {
+  var slides = document.querySelectorAll('.slide:not(.title-slide)');
+  for (var i = 0; i < slides.length; i++) {
+    var s = slides[i];
+    var tag = s.getAttribute('data-tag');
+    var tagClass = s.getAttribute('data-tag-class') || '';
+    var idx = s.getAttribute('data-index') || '';
+    var left = s.getAttribute('data-footer-left') || '代码感知有损 KV 缓存复用';
+    var right = s.getAttribute('data-footer-right') || 'Direction A 等预算判决 · 2026-07-10';
+    if (tag) {
+      var meta = document.createElement('p');
+      meta.className = 'slidemeta';
+      meta.style.marginTop = '0';
+      if (idx) {
+        var span = document.createElement('span');
+        span.className = 'index';
+        span.textContent = idx;
+        meta.appendChild(span);
+        meta.appendChild(document.createTextNode(' · '));
+      }
+      var tagSpan = document.createElement('span');
+      tagSpan.className = 'tag' + (tagClass ? ' ' + tagClass : '');
+      tagSpan.textContent = tag;
+      meta.appendChild(tagSpan);
+      s.insertBefore(meta, s.firstChild);
+    }
+    var footer = document.createElement('div');
+    footer.className = 'slidefooter';
+    footer.innerHTML = '<span class="left">' + left + '</span><span class="right">' + right + '</span>';
+    s.appendChild(footer);
+  }
+})();
+
+/* === Nav: pager, dots (generated), keyboard, wheel, scroll, swipe === */
+(function () {
+  var track = document.getElementById('track');
+  if (!track) return;
+  var slides = document.querySelectorAll('.slide');
+  var n = slides.length;
+  var i = 0;
+  var prev = document.getElementById('prev');
+  var next = document.getElementById('next');
+  var cur = document.getElementById('cur');
+  var total = document.getElementById('total');
+  var sectitle = document.getElementById('sectitle');
+  var dotsBox = document.getElementById('dots');
+
+  if (total) total.textContent = n;
+  slides.forEach(function (s, k) { s.dataset.idx = k; });
+
+  /* generate dots (last 1 = appendix, rust border) */
+  if (dotsBox) {
+    for (var k = 0; k < n; k++) {
+      var d = document.createElement('div');
+      d.className = 'dot';
+      if (k >= n - 1) { d.style.background = 'transparent'; d.style.border = '1px solid var(--rust)'; d.style.opacity = '0.5'; }
+      (function (kk) { d.addEventListener('click', function () { go(kk); }); })(k);
+      dotsBox.appendChild(d);
+    }
+  }
+  var dots = dotsBox ? dotsBox.querySelectorAll('.dot') : [];
+
+  function titleOf(k) {
+    var h = slides[k] && slides[k].querySelector('h1');
+    return h ? h.textContent.trim() : '';
+  }
+  function render() {
+    if (cur) cur.textContent = i + 1;
+    if (sectitle) sectitle.textContent = titleOf(i);
+    dots.forEach(function (d, k) {
+      d.classList.toggle('active', k === i);
+      d.classList.toggle('passed', k < i && !(k >= n - 1));
+    });
+    if (prev) prev.disabled = i === 0;
+    if (next) next.disabled = i === n - 1;
+  }
+  function go(k) {
+    i = Math.max(0, Math.min(n - 1, k));
+    track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' });
+    render();
+  }
+  function fwd() { if (i < n - 1) { i++; go(i); } }
+  function back() { if (i > 0) { i--; go(i); } }
+  if (next) next.addEventListener('click', fwd);
+  if (prev) prev.addEventListener('click', back);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); fwd(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); back(); }
+    else if (e.key === 'Home') { go(0); }
+    else if (e.key === 'End') { go(n - 1); }
+  });
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (e.isIntersecting && e.intersectionRatio > 0.55) {
+          var k = Number(e.target.dataset.idx);
+          if (k !== i) { i = k; render(); }
+        }
+      });
+    }, { root: track, threshold: [0.55, 0.75] });
+    slides.forEach(function (s) { io.observe(s); });
+  }
+  var ticking = false;
+  track.addEventListener('scroll', function () {
+    if (ticking) return; ticking = true;
+    requestAnimationFrame(function () {
+      var w = track.clientWidth || 1;
+      var k = Math.max(0, Math.min(n - 1, Math.round(track.scrollLeft / w)));
+      if (k !== i) { i = k; render(); }
+      ticking = false;
+    });
+  }, { passive: true });
+  var wacc = 0; var WTH = 60;
+  track.addEventListener('wheel', function (e) {
+    if (e.shiftKey) return;
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    e.preventDefault();
+    wacc += e.deltaY;
+    if (wacc > WTH) { wacc = 0; fwd(); }
+    else if (wacc < -WTH) { wacc = 0; back(); }
+  }, { passive: false });
+  var sx = 0;
+  document.addEventListener('touchstart', function (e) { sx = e.touches[0].clientX; }, { passive: true });
+  document.addEventListener('touchend', function (e) {
+    var dx = e.changedTouches[0].clientX - sx;
+    if (dx < -50) fwd(); else if (dx > 50) back();
+  }, { passive: true });
+  window.addEventListener('resize', function () { track.scrollTo({ left: i * track.clientWidth }); });
+  render();
+})();
+</script>
+
+<!-- Hidden pre-render to force PDF font subset to include all circled-number glyphs ①-⑲ -->
+<div style="position:absolute;left:-9999px;top:-9999px;font-family:var(--body);font-size:1px;color:transparent;">①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮</div>
+
+</body>
+</html>

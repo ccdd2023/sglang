@@ -75,6 +75,20 @@ class ChunkSpan:
     # legacy callers that ignore these fields continue to work.
     typed_signature: str = ""
     type_complexity: int = 0
+    # P1 node-kind interface boundary (2026-07-10, direction A). Byte
+    # offset in the SAME coordinate system as byte_start/byte_end of the
+    # end of the chunk's "interface" prefix to recompute (body copied):
+    #   signature_end_byte = start of the first body statement = end of
+    #     the def/class header (the `:`). 0 for module/control-flow.
+    #   interface_end_byte = end of the leading docstring if present
+    #     (signature + docstring), else signature_end_byte.
+    # Drives SGLANG_CHUNK_HEAD_RECOMPUTE_NODE_KIND in radix_cache.py: K is
+    # set to the interface's token count instead of frac * chunk_len, so
+    # code structure (where the interface ends) decides the recompute
+    # boundary at equal recompute budget. 0 -> radix falls back to frac.
+    # Default 0 keeps legacy callers unchanged.
+    signature_end_byte: int = 0
+    interface_end_byte: int = 0
 
 
 # Maximum anchors per parse, mirroring MAScoder's bounds at line 107.
@@ -264,6 +278,40 @@ def _build_chunk_span(
     typed_sig = _extract_type_signature_string(exact_text, anchor_type, name)
     type_complexity = _compute_type_complexity(node) if typed_sig else 0
 
+    # P1 node-kind interface boundary (2026-07-10, direction A). Same byte
+    # coordinate system as byte_start/byte_end (leading_offset + line_byte_offsets
+    # + col). signature_end_byte = start of the first body statement (end of the
+    # def/class header). interface_end_byte extends it across a leading docstring
+    # (ast.Expr -> ast.Constant str) so the whole "interface" prefix (signature +
+    # docstring) is recomputed and the body copied. 0 when there is no body or
+    # the offset is out of range -> radix_cache falls back to the frac path.
+    signature_end_byte = 0
+    interface_end_byte = 0
+    body = getattr(node, "body", None) or []
+    if body and byte_offsets:
+        first = body[0]
+        fl = getattr(first, "lineno", 0) or 0
+        fc = getattr(first, "col_offset", 0) or 0
+        if 0 < fl <= len(byte_offsets):
+            signature_end_byte = leading_offset + byte_offsets[fl - 1] + fc
+            interface_end_byte = signature_end_byte
+            fval = getattr(first, "value", None)
+            if (
+                isinstance(first, ast.Expr)
+                and isinstance(fval, ast.Constant)
+                and isinstance(getattr(fval, "value", None), str)
+            ):
+                dl = getattr(first, "end_lineno", fl) or fl
+                dc = getattr(first, "end_col_offset", fc) or 0
+                if 0 < dl <= len(byte_offsets):
+                    interface_end_byte = leading_offset + byte_offsets[dl - 1] + dc
+    # Defensive clamp: the interface must stay within the chunk's own byte range.
+    if byte_end:
+        if signature_end_byte > byte_end:
+            signature_end_byte = byte_end
+        if interface_end_byte > byte_end:
+            interface_end_byte = byte_end
+
     return ChunkSpan(
         byte_start=byte_start,
         byte_end=byte_end,
@@ -275,6 +323,8 @@ def _build_chunk_span(
         nesting_depth=_nesting_depth(parents, node),
         typed_signature=typed_sig,
         type_complexity=type_complexity,
+        signature_end_byte=signature_end_byte,
+        interface_end_byte=interface_end_byte,
     )
 
 
