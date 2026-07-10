@@ -93,6 +93,17 @@ paired: mean_delta(iface−body)=**-0.0043**, 9 iface>body vs 31 body>iface, **W
 
 **下一步研究方向**：per-token HKVD（non-AST，找真正敏感 token）/ P4 R40 zmq pickle 修复（解锁测量）/ 换 code-gen task 看是否有信号 / 或重新定位为纯 speed-accuracy 权衡（R32）。
 
+### 2f. Literature validation (2026-07-10 deepresearch)
+
+Deep research synthesis (5 parallel agents, ~150 papers scanned, see `results/DEEPRESEARCH_*.md`) confirms our triple falsification is part of a **broader pattern**:
+- **CodeBERT** (EMNLP'20) reports AST traversal "does not bring improvements on generation tasks"; **GraphCodeBERT** (ICLR'21) deliberately chose **data-flow over AST** because "AST has unnecessarily deep hierarchy."
+- **StreamingLLM / Scissorhands / SnapKV** (NeurIPS'23-'24) all win via **positional or attention-history signals** — none use AST.
+- **Hahn TACL'20** theoretical limit + **Jain NAACL'19 "Attention is not Explanation"** give theoretical backing: AST boundaries likely don't survive as reusable KV features.
+- **No production coding AI system** (Cursor, Copilot, Codeium, Aider, Cline, Continue, Cody, Claude Code) does code-structure-aware lossy KV reuse. They use one of three regimes: (1) keep prefix verbatim + cache_control, (2) smaller model → fast prefill, (3) async workflow tolerating hours.
+- **Closest related work**: CacheBlend (ICML'25, 2.2-3.3× TTFT lossless-quality on RAG), CortexCache (Mar'25, 1.5-2.5× on code completion), Position-Aware Recomputation (2502.08201). R32 = 1-axis generalization of CacheBlend. **CortexCache parity benchmark is the cheapest Tier-A win** if work resumes.
+- **Unclaimed territory**: DroidSpeak (Nov'24, Microsoft) is the only published system transferring actual KV tensors across distinct LLM instances (1.7-3.1× prefill ↓); applying to our 5-agent verdict pipeline is a novel cross-agent contribution.
+- **Honest reframe**: R32 (1.43× for ~13% type-match consistency loss) is competitive but **not best-in-class**; CortexCache's 1.5-2.5× on code suggests ~0.5-1× headroom via per-corpus FRAC tuning.
+
 ## 3. 推荐配置 (production-ready, 7B-Coder × 5 verdict 任务)
 
 ```bash
@@ -188,6 +199,7 @@ export SGLANG_PRECOMPUTE_SELECTIVE_REFRESH_FRAC=0.25
 
 ## 8. Memory 指针 (auto-persisted)
 
+- `deepresearch-coding-inference-accel-2026-07-10` — 5-agent parallel deepresearch 验证三重证伪是 broader pattern；CacheBlend/CortexCache 是 R32 的 SOTA 等价；production 不做 code-aware lossy KV reuse；DroidSpeak 是唯一 cross-agent KV 工作
 - `direction-a-contiguous-node-kind` — Direction A contiguous node-kind interface-recompute 等预算 -3.3pp vs R32；R32_f045 ≈ lossless @ 1.43×；code structure 不买精度
 - `direction-b-dataflow-p0-falsified-2026-07-10` — contiguous head 无法表达 selective per-token；K=last=0.845 (lossless) 或 K=first=0.156 (≈ R32_f015)；per-token mask 需 CacheBlend 多段重写 (1.5-2 周)；FALSIFIED at P0
 - `p1pp-r32-f045-retracted-2026-07-10` — §2c "次要正向" 撤回；paired test 12 cases × 5 agents: R32_f045 mean delta -0.67/5 (-13% type-match) CI [-1.33, +0.08]；R32 是 speed-accuracy 权衡非 accuracy-preserving
