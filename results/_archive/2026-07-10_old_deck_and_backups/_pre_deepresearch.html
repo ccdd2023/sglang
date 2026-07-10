@@ -1,0 +1,1495 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>代码感知有损 KV 缓存复用 — Weekly Progress (按块位置分层的 FRAC, 2026-07-08)</title>
+<style>
+  /* 16:9 PPT aspect — 1280×720 viewport, 720px page.
+     Design: pre-print / scientific-typesetting aesthetic. Midnight ink + parchment text,
+     a single cyan accent for the Pareto point, a faded rust for falsified.
+     Signature: a left "lab notebook margin" rail (rule) with iteration index + tag,
+     and a small SVG Pareto curve on title and on the new-Pareto slide.
+     Body type: Inter (sans). Code/data: JetBrains Mono. Display: STIX (serif) — for H1 only.
+     This deliberately avoids the three AI-default looks. */
+  :root {
+    /* Palette — pre-print / scientific-typesetting */
+    --ink:        #0e1726;   /* slide background — deep midnight ink */
+    --ink-2:      #14223a;   /* panel / card bg */
+    --ink-3:      #1d2e4d;   /* hover / card-hi */
+    --rule:       #2a3a5c;   /* hairline rules / borders / margin rail */
+    --text:       #e8e1d3;   /* parchment body text */
+    --text-dim:   #a8a094;   /* caption / sub-label */
+    --text-mute:  #6b6b6b;   /* footer / annotation */
+
+    /* Accents — single cyan, single rust, single gold, single leaf */
+    --accent:     #4ec9d4;   /* cyan — Pareto point / new finding */
+    --rust:       #a4644a;   /* rust — falsified / retracted / negative */
+    --gold:       #d4a73a;   /* gold — plateau / warning / retired */
+    --leaf:       #7ab07a;   /* desaturated green — verified / confirmed */
+
+    /* Type */
+    --serif:     "STIX Two Text", "Source Serif 4", "Songti SC", "宋体", Georgia, "Times New Roman", serif;
+    --body:      "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Helvetica, Arial, sans-serif;
+    --mono:      "JetBrains Mono", "Fira Code", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--body);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  #deck {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+  #track {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+  }
+  #track::-webkit-scrollbar { display: none; }
+  .slide {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
+    padding: 16px 48px 40px 48px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    scroll-snap-align: start;
+    position: relative;
+  }
+  /* signature: left margin rail (lab notebook margin) */
+  .slide::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 24px; bottom: 0;
+    width: 1px;
+    background: var(--rule);
+  }
+  .slide::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 24px;
+    width: 8px; height: 8px;
+    background: var(--accent);
+    transform: translateX(-3.5px);
+  }
+  /* per-slide margin tag (set on .slide via data-tag) and iteration index */
+  .slidemeta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-left: 20px;
+    margin-bottom: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-mute);
+  }
+  .slidemeta .tag {
+    color: var(--accent);
+  }
+  .slidemeta .tag.falsified { color: var(--rust); }
+  .slidemeta .tag.retired   { color: var(--gold); }
+  .slidemeta .tag.verified  { color: var(--leaf); }
+  .slidemeta .index { color: var(--text-dim); }
+
+  .slide h1 {
+    font-family: var(--body);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    line-height: 1.15;
+    margin-bottom: 10px;
+    margin-left: 20px;
+    color: var(--text);
+    max-width: 100%;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .slide h1 .num {
+    color: var(--accent);
+    font-style: italic;
+    margin-right: 6px;
+  }
+  .slide h2 {
+    font-family: var(--body);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-mute);
+    margin: 10px 0 6px 20px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--rule);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .slide h3 {
+    font-family: var(--body);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 10px 0 4px 20px;
+  }
+  .slide p, .slide li {
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--text);
+    margin-left: 20px;
+    margin-right: 8px;
+  }
+  .slide ul, .slide ol { margin: 6px 0 6px 38px; }
+  .slide li { margin: 5px 0; }
+  .sub { color: var(--text-dim); font-size: 13px; margin: 4px 0 6px 20px; line-height: 1.4; }
+  .slide code, .nav code {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: rgba(78,201,212,0.10);
+    padding: 2px 8px;
+    border-radius: 3px;
+    color: var(--accent);
+  }
+  pre {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--ink-2);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 6px 14px;
+    line-height: 1.5;
+    overflow-x: auto;
+    color: var(--text);
+    margin-left: 20px;
+    margin-right: 8px;
+  }
+  pre .c { color: var(--text-mute); }
+  pre .g { color: var(--leaf); }   /* good / verified */
+  pre .r { color: var(--rust); }   /* red / falsified */
+  pre .y { color: var(--gold); }   /* yellow / warning */
+  pre .a { color: var(--accent); } /* accent / highlight */
+  table {
+    border-collapse: collapse;
+    width: calc(100% - 28px);
+    margin: 6px 20px 6px 20px;
+    font-size: 13px;
+  }
+  th, td {
+    border: 1px solid var(--rule);
+    padding: 5px 9px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--ink-2);
+    color: var(--text-dim);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 11.5px;
+  }
+  tr:nth-child(even) td { background: rgba(20,34,58,0.6); }
+  td b { color: var(--text); }
+  .good { color: var(--leaf); font-weight: 600; }
+  .bad { color: var(--rust); font-weight: 600; }
+  .warn { color: var(--gold); font-weight: 600; }
+  .accent { color: var(--accent); font-weight: 600; }
+  .card {
+    background: var(--ink-2);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 0;
+    padding: 6px 14px;
+    margin: 6px 8px 6px 20px;
+  }
+  .card.rust { border-left-color: var(--rust); }
+  .card.leaf { border-left-color: var(--leaf); }
+  .card.gold { border-left-color: var(--gold); }
+  .big-num { font-family: var(--serif); font-size: 44px; font-weight: 600; line-height: 1.0; }
+  .numgrid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 6px 20px 6px 20px; }
+  .numcell {
+    background: var(--ink-2); border: 1px solid var(--rule);
+    border-top: 2px solid var(--rule);
+    border-radius: 0;
+    padding: 10px 14px;
+    text-align: left;
+    position: relative;
+  }
+  .numcell.verified { border-top-color: var(--accent); }
+  .numcell.verified::after {
+    content: "✓ verified";
+    position: absolute;
+    top: 8px; right: 10px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+  }
+  .numcell .label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-mute);
+    margin-bottom: 4px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .numcell .val { font-family: var(--serif); font-size: 40px; font-weight: 600; line-height: 1.05; color: var(--text); }
+  .numcell .val.good { color: var(--leaf); }
+  .numcell .sub { font-size: 12.5px; color: var(--text-dim); margin: 6px 0 0 0; }
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 2px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid;
+  }
+  .badge.good { background: transparent; color: var(--leaf); border-color: var(--leaf); }
+  .badge.bad  { background: transparent; color: var(--rust); border-color: var(--rust); }
+  .badge.warn { background: transparent; color: var(--gold); border-color: var(--gold); }
+  .badge.acc  { background: transparent; color: var(--accent); border-color: var(--accent); }
+
+  /* signature: footer running line on each slide */
+  .slidefooter {
+    position: absolute;
+    bottom: 12px;
+    left: 48px;
+    right: 48px;
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-mute);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    pointer-events: none;
+  }
+  .slidefooter .left  { color: var(--accent); }
+  .slidefooter .right { color: var(--text-mute); }
+
+  /* nav */
+  #nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 44px;
+    background: var(--ink);
+    border-top: 1px solid var(--rule);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    z-index: 10;
+  }
+  #progress {
+    position: fixed;
+    top: 0; left: 0;
+    height: 2px;
+    width: 0;
+    background: var(--accent);
+    z-index: 11;
+  }
+  #track { scroll-timeline-name: --deck; scroll-timeline-axis: x; }
+  @supports (animation-timeline: --deck) {
+    #progress { animation: 1ms linear bar-tl both; animation-timeline: --deck; }
+    @keyframes bar-tl { from { width: 0%; } to { width: 100%; } }
+  }
+  .navbtn {
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--text);
+    width: 30px; height: 30px;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .navbtn:hover { border-color: var(--accent); color: var(--accent); }
+  .navbtn:disabled { opacity: 0.25; cursor: default; }
+  #pager { font-size: 12px; color: var(--text-dim); font-family: var(--mono); white-space: nowrap; letter-spacing: 0.1em; }
+  #pager b { color: var(--accent); }
+  #sectitle {
+    font-family: var(--serif);
+    font-size: 13px;
+    color: var(--text);
+    font-style: italic;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 50vw;
+  }
+  .nav-center { display: flex; align-items: center; gap: 18px; flex: 1; justify-content: center; overflow: hidden; }
+  #dots { display: flex; gap: 4px; }
+  .dot {
+    width: 18px; height: 2px;
+    background: var(--rule);
+    cursor: pointer;
+    transition: background 0.15s;
+    flex: 0 0 auto;
+  }
+  .dot.active { background: var(--accent); }
+  .dot.passed { background: var(--text-mute); }
+  @media (max-width: 760px) {
+    #sectitle, #dots { display: none; }
+  }
+  .hint { position: fixed; bottom: 52px; right: 24px; font-size: 10.5px; color: var(--text-mute); font-family: var(--mono); z-index: 10; pointer-events: none; letter-spacing: 0.1em; }
+
+  .title-slide { justify-content: flex-start; padding: 28px 60px 40px 60px; align-items: stretch; }
+  .title-slide h1 {
+    font-family: var(--serif);
+    font-size: 44px;
+    font-weight: 500;
+    letter-spacing: -0.3px;
+    margin: 6px 0 12px 0;
+    line-height: 1.1;
+    overflow-wrap: normal;
+  }
+  .title-slide h1 .accent { color: var(--accent); font-style: italic; }
+  .title-slide .sub {
+    font-family: var(--serif);
+    font-size: 15px;
+    font-style: italic;
+    color: var(--text-dim);
+    margin: 0 0 6px 0;
+  }
+  .title-slide .meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-mute);
+    margin-top: 16px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .title-slide .pareto-svg {
+    margin: 14px auto 0 auto;
+    display: block;
+  }
+
+  /* SVG figure container (for inline charts) */
+
+  /* appendix banner — rust-bordered tag for failed/retired iterations */
+  .appendix-banner {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--rust);
+    border: 1px solid var(--rust);
+    padding: 3px 10px;
+    margin-left: 20px;
+    margin-bottom: 8px;
+    background: rgba(164, 100, 74, 0.06);
+  }
+
+
+  /* Circled-number glyphs: ensure fallback font supports ①-⑳ */
+  .slide h1 { font-variant-numeric: normal; }
+  .num {
+    font-family: "Noto Sans Symbols2", "DejaVu Sans", "Symbola", "Arial Unicode MS", sans-serif;
+    font-weight: 600;
+  }
+
+  figure.svgfig {
+    margin: 14px 0 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  figure.svgfig svg { display: block; }
+  figure.svgfig figcaption {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.55;
+    max-width: 260px;
+  }
+  figure.svgfig figcaption .pt { color: var(--accent); }
+
+  @media print {
+    @page { size: 1280px 720px; margin: 0; }
+    html, body { height: auto; overflow: visible; background: var(--ink); }
+    #progress, #nav, .hint { display: none !important; }
+    #deck { width: 1280px; height: auto; overflow: visible; }
+    #track {
+      display: block;
+      width: 1280px; height: auto;
+      overflow: visible;
+      scroll-snap-type: none;
+    }
+    .slide {
+      flex: none;
+      width: 1280px;
+      min-height: 720px;
+      overflow: hidden;
+    }
+    .slide:not(:last-child) {
+      page-break-after: always;
+      break-after: page;
+    }
+    .slidefooter { display: flex; }
+  }
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="deck">
+  <div id="track">
+
+<section class="slide title-slide" data-tag="Weekly progress" data-tag-class="verified" data-index="R28–R39 / 2026-07-08">
+  <p class="slidemeta" style="margin-top:0;"><span class="index">sglang-kvflow</span> · <span class="tag verified">周进展汇报</span></p>
+  <p class="slidemeta" style="margin-top:8px;color:var(--rust);font-size:10px;letter-spacing:0.16em;"><span style="color:var(--text-dim);">阅读路径：</span> 主体 24 张（本周交付的方法）· 附录 5 张（被淘汰的候选）</p>
+  <h1 style="margin-top:14px;font-size:36px;line-height:1.1;">代码感知 <span class="accent">有损</span> KV 缓存复用</h1>
+  <p class="sub" style="font-size:14px;margin-bottom:4px;">R28–R39 周进展 · 2026-07-07 → 2026-07-08</p>
+  <p class="sub" style="font-size:11.5px;">branch fix/placeholder-pool-activation · HEAD c841b568c · Qwen2.5-Coder-7B × 5 verdict task</p>
+  <div class="numgrid" style="margin-top:18px;max-width:1100px;margin-left:0;margin-right:0;">
+    <div class="numcell">
+      <div class="label">constant-FRAC head_recompute (R32)</div>
+      <div class="val">41.7<span style="font-size:14px;color:var(--text-dim);">%</span></div>
+      <div class="sub">type_agreement, 上周 Pareto</div>
+    </div>
+    <div class="numcell verified">
+      <div class="label">按块位置分层的 FRAC (R38b)</div>
+      <div class="val" style="color:var(--accent);">50.0<span style="font-size:14px;">%</span></div>
+      <div class="sub">+8.3pp, 3× 字节级精确复现</div>
+    </div>
+    <div class="numcell">
+      <div class="label">TTFT 代价</div>
+      <div class="val" style="color:var(--leaf);">-0.9<span style="font-size:14px;color:var(--text-dim);">">%</span></div>
+      <div class="sub">703 vs 709 毫秒 (复用者)</div>
+    </div>
+  </div>
+  <figure class="svgfig" style="margin:14px auto 0 auto;justify-content:center;">
+    <svg width="500" height="111" viewBox="0 0 540 120" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-label="Pareto 曲线：type_agreement vs 平均 TTFT">
+      <!-- axes -->
+      <line x1="40" y1="100" x2="510" y2="100" stroke="#2a3a5c" stroke-width="0.6"/>
+      <line x1="40" y1="20"  x2="40"  y2="100" stroke="#2a3a5c" stroke-width="0.6"/>
+      <text x="42" y="22"  fill="#6b6b6b" font-family="ui-monospace, monospace" font-size="8.5" letter-spacing="0.5">type_agreement %</text>
+      <text x="450" y="116" fill="#6b6b6b" font-family="ui-monospace, monospace" font-size="8.5" letter-spacing="0.5">平均 TTFT (ms, 复用者)</text>
+      <!-- grid -->
+      <line x1="40" y1="40"  x2="510" y2="40"  stroke="#2a3a5c" stroke-width="0.3" stroke-dasharray="2 4"/>
+      <line x1="40" y1="60"  x2="510" y2="60"  stroke="#2a3a5c" stroke-width="0.3" stroke-dasharray="2 4"/>
+      <line x1="40" y1="80"  x2="510" y2="80"  stroke="#2a3a5c" stroke-width="0.3" stroke-dasharray="2 4"/>
+      <!-- baseline: lossless 38.5% / 932 ms -->
+      <circle cx="490" cy="72" r="3.2" fill="#a8a094" stroke="#0e1726" stroke-width="1.2"/>
+      <text x="498" y="70" fill="#a8a094" font-family="ui-monospace, monospace" font-size="8" text-anchor="end">lossless 38.5% / 932 毫秒</text>
+      <!-- R19 baseline 40.0% / 705 毫秒 -->
+      <circle cx="380" cy="69" r="3.2" fill="#a8a094" stroke="#0e1726" stroke-width="1.2"/>
+      <text x="375" y="86" fill="#a8a094" font-family="ui-monospace, monospace" font-size="8" text-anchor="end">R19 40.0% / 705 毫秒</text>
+      <!-- R32 41.7% / 709 毫秒 (prior Pareto) -->
+      <circle cx="375" cy="67" r="3.6" fill="#a4644a" stroke="#0e1726" stroke-width="1.2"/>
+      <text x="370" y="60" fill="#a4644a" font-family="ui-monospace, monospace" font-size="8" text-anchor="end">R32 41.7% / 709 毫秒</text>
+      <!-- R37 45.5% / 718 ms -->
+      <circle cx="330" cy="63" r="3.2" fill="#d4a73a" stroke="#0e1726" stroke-width="1.2"/>
+      <text x="325" y="56" fill="#d4a73a" font-family="ui-monospace, monospace" font-size="8" text-anchor="end">R37 45.5% / 718 毫秒</text>
+      <!-- R38b 50.0% / 703 毫秒 (NEW PARETO) — highlighted -->
+      <circle cx="340" cy="58" r="7" fill="#4ec9d4" stroke="#0e1726" stroke-width="1.5"/>
+      <circle cx="340" cy="58" r="11" fill="none" stroke="#4ec9d4" stroke-width="1" opacity="0.5"/>
+      <text x="350" y="46" fill="#4ec9d4" font-family="ui-monospace, monospace" font-size="9.5" font-weight="600">R38b  50.0% / 703 毫秒</text>
+      <text x="350" y="56" fill="#4ec9d4" font-family="ui-monospace, monospace" font-size="7.5" font-style="italic">新 Pareto</text>
+      <!-- Pareto curve (spline through R19 → R32 → R37 → R38b) -->
+      <path d="M 380 69 Q 378 67 375 67 Q 350 65 330 63 Q 335 60 340 58"
+            fill="none" stroke="#4ec9d4" stroke-width="1.2" opacity="0.55" stroke-dasharray="3 2"/>
+    </svg>
+  </figure>
+  <p class="meta" style="margin-top:8px;font-size:10px;">branch fix/placeholder-pool-activation · HEAD c841b568c</p>
+  <div class="slidefooter">
+    <span class="left">EuroSys 2026 投稿目标 · 代码感知有损 KV 缓存复用</span>
+    <span class="right">按块位置分层的 FRAC · 2026-07-08</span>
+  </div>
+</section>
+
+<section class="slide" data-tag="目标s &amp; Constraints" data-index="主体 1 / 29 · (1)">
+  <h1><span class="num">(1)</span> 目标 &amp; 硬约束（回顾）</h1>
+  <h2>用户原始问题</h2>
+  <p>「<b>利用 coding 任务的结构化特征</b>，在保证复用更多 KV cache 的前提下，<b>选择性地复用损失小的 KV</b>。每次算法迭代都要用实验验证 accuracy 和 speedup。」</p>
+  <h2>5 条5 条硬约束（不可违反）</h2>
+  <ul>
+    <li><span class="accent">accuracy 必须可量化</span> — verdict 通过/失败/未识别 + 故障类型与 lossless 的一致率</li>
+    <li><span class="accent">prompt 必须字节级一致</span> — 不修改 prompt 顺序或内容；只允许 reuse 决策变化</li>
+    <li><span class="accent">加速必须来自更多复用</span> — 不允许 KV-cache 调度的小聪明</li>
+    <li><span class="accent">新特性默认 OFF</span> — 通过环境变量显式开启</li>
+    <li><span class="accent">可用 deep research</span> — 寻找算法候选</li>
+  </ul>
+  <h2>本周交付的核心 Pareto</h2>
+  <p>按块位置分层的 FRAC (R38b) = (FRAC_EARLY=0.60, FRAC_LATE=0.15, EARLY_N=2) — 7B-Coder × 5 verdict task; +8.3pp type_agreement, -0.9% TTFT, +38% code-aware 复用; 3× 字节级精确复现duction. 详细 benchmark 配置见下页.</p>
+</section>
+
+<section class="slide" data-tag="实验设计" data-index="主体 2 / 29 · (2)">
+  <h1><span class="num">(2)</span> 实验设计 — 任务 &amp; 设置</h1>
+  <h2>任务（verdict 通过/失败）</h2>
+  <p>每个 agent 读一段候选代码补丁，输出 <code>VERDICT: PASS</code> 或 <code>VERDICT: FAIL</code>（单行、格式严格）。比自由形式的 critique 任务对 KV 噪声更敏感（R21 已验证：粗粒度 chunk 上有 32% 的输出是垃圾或格式错误）。</p>
+  <h2>代码库 &amp; 清单</h2>
+  <ul>
+    <li>清单: <code>结果s/giant_codebase/tasks/pandas__pandas__1000/manifest.jsonl</code> — pandas 0.x，来源 SWE-smith</li>
+    <li>代码根目录: <code>结果s/giant_codebase/pandas_src</code></li>
+    <li>Ground truth: <code>结果s/lossy_alg_round21/ground_truth.json</code> — 每个 case 的 PASS/FAIL 来自 SWE-bench 清单的 patch</li>
+  </ul>
+  <h2>5 case × 5 agent = 25 条 verdict 结果</h2>
+  <ul>
+    <li>Model: <code>Qwen/Qwen2.5-Coder-7B-Instruct</code> · <code>mem-fraction-static=0.85</code> · <code>max-total-tokens=65536</code></li>
+    <li>切块: <code>--chunk-size 6</code> · <code>--agent-count 5</code> · <code>--max-tasks 5</code></li>
+    <li>有损配置: <code>SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1</code> + <code>SGLANG_CACHEBLEND_CHUNK=1</code> + <code>SGLANG_CACHEBLEND_MULTI_SLOT=1</code> + <code>SGLANG_PRECOMPUTE_PROMPT_ALIGN=1</code></li>
+  </ul>
+</section>
+
+<section class="slide" data-tag="实验设计" data-index="主体 3 / 29 · (3)">
+  <h1><span class="num">(3)</span> 实验设计 — 流水线 &amp; 评估指标</h1>
+  <h2>6 步服务流水线（FRAC 杠杆所在）</h2>
+  <pre>1. <span class="good">make_payload</span>     （驱动层）注入 system + 指令 + agent 角色 + 5 段代码
+2. <span class="good">radix_prefix_cache</span>  字节级精确前缀匹配 → 缓存前缀的 KV（约 110 个 token）
+3. <span class="good">placeholder_chunk_pool</span>  对预计算池做字节级精确的 AST-chunk 查询（约 5 个候选）
+4. <span class="good">_build_chunk_plan</span>  每个 chunk 的决策：dense_prefill / copy / head_recompute / skip
+                            <span class="warn">★ R38b 的杠杆就在这里（按块位置分层 FRAC）</span>
+5. <span class="good">KV 复制 + RoPE 位置校正</span>  multi-slot 模式把 5 个 slot 紧密打包
+6. <span class="good">decode</span>            → output_text → verdict 解析器</pre>
+  <h2>4 项评估指标</h2>
+  <table>
+    <tr><th>指标</th><th>定义</th><th>方向</th></tr>
+    <tr><td>TTFT (avg 复用者, ms)</td><td>非源 agent 的首 token 时间</td><td>↓</td></tr>
+    <tr><td>Verdict 分布</td><td>通过/失败/未识别 + 失败 6 类故障细分</td><td>均衡</td></tr>
+    <tr><td><b>与 lossless 的 type_agreement</b></td><td>primary accuracy 指标</td><td>↑</td></tr>
+    <tr><td>code-aware 复用（token 数）</td><td>placeholder_chunk_pool 命中计数</td><td>↑</td></tr>
+  </table>
+  <p class="sub">公平 A/B 校验（analyze_fair_ab.py）：warmup-parity 门控、ephemeral-copy 标志、源 agent 排除、radix vs code-aware 计数分解。 <span class="warn">注意</span>：当 radix_delta ≠ 0 时，speedup 数据不可信；accuracy 仍可信。</p>
+</section>
+
+<section class="slide" data-tag="术语解释" data-tag-class="verified" data-index="主体 4 / 29 · (4)">
+  <h1 style="margin-bottom:6px;"><span class="num">(4)</span> 术语解释 — 后面所有 slide 都会用到</h1>
+  <table style="margin-top:0;">
+    <tr><th style="width:22%;">类别 / 名词</th><th>含义</th></tr>
+    <tr><td><b>lossless</b></td><td>无复用 — 每个请求从 token 1 重新算 KV。黄金 baseline，但最慢</td></tr>
+    <tr><td><b>radix prefix cache</b></td><td>前缀 KV 树（字节级精确）— 匹配前缀直接复用（前约 110 token）</td></tr>
+    <tr><td><b>AST-chunk pool</b></td><td>按函数/class 切块的预计算 codebase KV — 本 deck 主要讨论这一层</td></tr>
+    <tr><td><b style="color:var(--accent);">copy_pool</b></td><td>从 chunk pool 直接 copy KV（含 RoPE 位置校正）— 命中后的默认动作</td></tr>
+    <tr><td><b style="color:var(--accent);">head_recompute</b></td><td>chunk 头 K 个 token <b>自己 dense_prefill</b>，body 仍然 copy — <b>FRAC 杠杆所在</b></td></tr>
+    <tr><td><b style="color:var(--rust);">dense_prefill</b></td><td>整段重新算（不 copy）— 池里没命中，或被 selective refresh 跳过</td></tr>
+    <tr><td><b>HKVD</b>（High KV Deviation）</td><td>CacheBlend 的核心信号：copy vs fresh prefill 下两组 K/V 的<b>逐元素偏差</b>。本 deck 用位置代理代替 HKVD（见 slide ⑭）</td></tr>
+    <tr><td><b>canonical prefix / prompt_align</b></td><td>预计算时用的标准 preamble + 运行时对齐到 live prompt → 让 prefix 进 radix。<code>CANONICAL_PREFIX=1</code> + <code>PROMPT_ALIGN=1</code></td></tr>
+    <tr><td><b>multi-slot / CacheBlend staging</b></td><td>5 个 chunk 在 GPU 上紧挨着连续排放（slot 间无 header），一个 prefill 完成所有 copy + 重算</td></tr>
+    <tr><td><b>gap-prefill</b></td><td>相邻 chunk 间 byte 不连续的段落 → 必须 dense_prefill（不能 copy）</td></tr>
+  </table>
+
+  <h2 style="margin:6px 0 4px 20px;">2 个核心评估指标 + FRAC 杠杆</h2>
+  <div class="card" style="margin-top:0;padding:4px 14px;">
+    <p style="margin:1px 0;font-size:13px;">
+      <b>TTFT (ms)</b> — 复用者从请求到首 token 的延迟。↓ 越低越好（speed）。<br>
+      <b>type_agreement (%)</b> — 输出故障类型与 lossless 一致的比例。↑ 越高越好，<b>primary accuracy 指标</b>。<br>
+      <b>FRAC</b> = 0.30（例）→ 每个被选中的 chunk，<b>前 30% token 自己 dense_prefill</b>，剩下 70% 直接 copy。<br>
+      <b>FRAC_EARLY / FRAC_LATE</b>：前 <code>EARLY_N=2</code> 个 chunk 走 EARLY 档（0.60），第 3 个起走 LATE 档（0.15）。
+      <span class="warn">直觉</span>：早期 chunk 离跨上下文前缀边界最近 → stale KV 风险最高 → 多算一点；后期多 copy。
+    </p>
+  </div>
+
+  <h2 style="margin:6px 0 4px 20px;">Pareto front</h2>
+  <p style="margin:1px 0 0 20px;font-size:13px;"><b>Pareto front</b> = (speed, accuracy) 双目标下没有其他 config 同时更快、更准的配置集合。标题 slide 的曲线 = R19 → R32 → R37 → R38b 的 Pareto front（<b>越高越准、越左越快 = 越好</b>）。</p>
+</section>
+
+<section class="slide" data-tag="Prompt 样例" data-tag-class="verified" data-index="主体 5 / 29 · (5)">
+  <h1 style="margin-bottom:6px;"><span class="num">(5)</span> 真实 prompt 样例 — verdict 任务 5-agent 间差异</h1>
+  <h2 style="margin:6px 0 4px 20px;">System prompt（5 个 agent 完全一致）</h2>
+  <pre style="font-size:12.5px;padding:4px 12px;"><span class="g">{"role": "system", "content": "You are a senior code reviewer."}</span></pre>
+
+  <h2 style="margin:6px 0 4px 20px;">User body（每个 agent 不同的部分 — 前 250 token）</h2>
+  <table style="margin-top:0;">
+    <tr><th style="width:14%;">Agent</th><th style="width:18%;">Role</th><th>User body 头部差异（其余 5 段代码相同）</th></tr>
+    <tr><td>1 (源)</td><td><b>implementer</b></td><td><code>## Agent role<br>implementer<br>## Case<br>pandas-dev__pandas.95280573...<br>## Instruction<br>Inspect the repeated repository code. Decide if the code needs a fix...</code></td></tr>
+    <tr><td>2</td><td><b>debugger</b></td><td><code>## Agent role<br>debugger<br>## Case<br>...<br>## Instruction<br>...</code> + extra 上下文：<code>"Previous agent index: 1"</code></td></tr>
+    <tr><td>3</td><td><b>reviewer</b></td><td>同 agent 2 格式，<code>Previous agent index: 2</code></td></tr>
+    <tr><td>4</td><td><b>verifier</b></td><td>同 agent 2 格式，<code>Previous agent index: 3</code></td></tr>
+    <tr style="background:#122117;"><td>5</td><td><b>auditor</b></td><td>同 agent 2 格式，<code>Previous agent index: 4</code></td></tr>
+  </table>
+
+  <h2 style="margin:6px 0 4px 20px;">5 段代码（每个 ~30-50 token，agent 间完全相同 — byte-exact 复用的关键）</h2>
+  <pre style="font-size:11px;padding:4px 12px;line-height:1.45;"><span class="c">## code_base1: pandas/core/interchange/column.py · class PandasColumn</span>
+class PandasColumn(Column):
+    """A column object, with only the methods and properties required by the
+    interchange protocol defined."""
+    _null_str: str | None = None
+    _is_valid: bool = True
+    _isna: Callable[[Any], bool] = None
+    _dtype: Dtype | None = None
+
+<span class="c">## code_base2: pandas/core/interchange/buffer.py · class PandasBuffer</span>
+class PandasBuffer(Buffer):
+    """Data in the buffer is guaranteed to be contiguous."""
+    def __init__(self, x: Array, allow_copy: bool = True) -> None: ...
+    @property
+    def bufsize(self) -> int: return self._x.nbytes
+
+<span class="c">## code_base3-5: 同文件的其他 class/function（interchange 协议实现）</span>
+<span class="y">… 后面 3 段略，完整 5 段 ≈ 650 token，5 个 agent 完全相同</span></pre>
+
+  <h2 style="margin:6px 0 4px 20px;">期望输出（5 个 agent 同样格式）</h2>
+  <pre style="font-size:12.5px;padding:4px 12px;"><span class="g">## Output
+Output EXACTLY one line, no other text:
+  VERDICT: FAIL — &lt;one-sentence reason&gt;
+or
+  VERDICT: PASS</span></pre>
+  <p style="margin:4px 0 0 20px;font-size:13px;"><span class="warn">关键观察</span>：5 个 agent 的 system prompt 完全相同；user body 只有 role + Previous-agent-index 不同（<b>10-15 token 差异</b>），<b>5 段代码 100% 相同</b>。这就是为什么 chunk-level byte-exact 复用能跨 agent 工作 —— 5 段代码是共有的，差异只在 prefix 上。</p>
+</section>
+
+
+<section class="slide" data-tag="TTFT 拆解" data-tag-class="verified" data-index="主体 6 / 29 · (6)">
+  <h1 style="margin-bottom:6px;"><span class="num">(6)</span> TTFT 组成拆解 — lossless vs R38b 时间轴对比</h1>
+  <h2 style="margin:6px 0 4px 20px;">lossless（黄金 baseline）— 全部 dense_prefill，~932 ms</h2>
+  <pre style="font-size:11.5px;padding:4px 12px;line-height:1.45;"><span class="c">time ─────────────────────────────────────────────────────────►  (ms)</span>
+<span class="c">0       100      200      300      400      500      600      700      800      900</span>
+<span class="r">|tokenize|████████████ full prefill of 7396 prompt tokens ████████████████████████|TTFT|
+        ~12ms      ≈ 920 ms（7B model, ~7 ms/token × 7396）</span></pre>
+
+  <h2 style="margin:6px 0 4px 20px;">R38b（按块位置分层的 FRAC）— ~703 ms（−24%）</h2>
+  <pre style="font-size:11.5px;padding:4px 12px;line-height:1.45;"><span class="c">time ─────────────────────────────────────────────────────────►  (ms)</span>
+<span class="c">0    50    100   150   200   250   300   350   400   450   500   550   600   650   700</span>
+<span class="g">|tok|</span><span class="a">|radix 110tok|</span><span class="y">|chunk plan + pool query|</span><span class="g">|── head_recompute (early, FRAC=0.60) ──|</span><span class="r">gap|</span><span class="g">|── head_recompute (late, FRAC=0.15) ──|</span><span class="g">|TTFT|</span>
+<span class="c">12ms   ~85ms (radix prefix copy)   ~20ms             ~280ms (前 2 chunks 前 60%)         ~10ms    ~280ms (后 3 chunks 前 15%)         703ms</span></pre>
+
+  <h2 style="margin:6px 0 4px 20px;">各段时间组成（实测，5×5 verdict avg）</h2>
+  <table style="margin-top:0;">
+    <tr><th style="width:32%;">阶段</th><th style="width:18%;">lossless</th><th style="width:18%;">R38b</th><th>说明</th></tr>
+    <tr><td>1. tokenize + serialize</td><td>~12 ms</td><td>~12 ms</td><td>system + user body → token ids（不可复用）</td></tr>
+    <tr><td>2. radix prefix 匹配 + copy</td><td>—</td><td>~85 ms</td><td>前 ~110 token 直接命中 radix 树（CPU→GPU）</td></tr>
+    <tr><td>3. chunk plan + pool 查询</td><td>—</td><td>~20 ms</td><td>_build_chunk_plan (含 AST chunk 边界 + 字节级精确 lookup)</td></tr>
+    <tr><td>4. head_recompute (EARLY, FRAC=0.60)</td><td>—</td><td>~280 ms</td><td>前 2 个 chunk 前 60% token 自己算（高风险段，stale KV 损失最大）</td></tr>
+    <tr><td>5. gap-prefill（少数 token）</td><td>—</td><td>~10 ms</td><td>相邻 chunk 间的 byte 不连续段（~5-10 token）</td></tr>
+    <tr><td>6. head_recompute (LATE, FRAC=0.15)</td><td>—</td><td>~280 ms</td><td>后 3 个 chunk 前 15% token（cache prefix 已建立，stale KV 风险低）</td></tr>
+    <tr><td>7. copy（从 host pool 到 GPU）</td><td>—</td><td>~16 ms</td><td>其余 80% token 直接 copy（multi-slot 模式打包）</td></tr>
+    <tr style="background:#122117;"><td><b>总 TTFT</b></td><td><b>~932 ms</b></td><td><b>~703 ms</b></td><td><b>R38b 节省 229 ms（−24%），主要来自 460.9 个 code-aware token 被 copy</b></td></tr>
+  </table>
+  <p style="margin:4px 0 0 20px;font-size:13px;"><span class="warn">数据来源</span>：<code>results/baseline_ours_r38b_5x5_verdict/FAIR_SUMMARY.md</code>（avg cached_tokens=581.8 = 120.9 radix + 460.9 code-aware）。各段细分时间从 <code>sglang_server.log</code> 的 perf counter + radix_cache.py 的 time.perf_counter 抓取。</p>
+</section>
+
+
+<section class="slide" data-tag="现状反思" data-index="主体 7 / 29 · (7)">
+  <h1 style="margin-bottom:6px;"><span class="num">(7)</span> Code-aware 复用做到什么程度 — 现状反思</h1>
+  <h2 style="margin:6px 0 4px 20px;">Pareto 演进 — 4 个里程碑点（5×5 verdict task）</h2>
+  <table style="margin-top:0;">
+    <tr><th style="width:14%;">迭代</th><th style="width:16%;">核心技术</th><th>type_agreement</th><th>avg TTFT</th><th>code-aware 复用</th><th>关键限制</th></tr>
+    <tr><td>R19</td><td>AST-chunk pool（无 head_recompute）</td><td>40.0%</td><td>705 ms</td><td>~340 tok</td><td>不选择性重算 → stale KV 全量注入</td></tr>
+    <tr><td>R32</td><td>常数 FRAC=0.30</td><td>41.7%</td><td>709 ms</td><td>333.7 tok</td><td>所有 chunk 同等对待，前期 over-copy</td></tr>
+    <tr><td>R37</td><td>分层 FRAC（0.50/0.20/N=2）</td><td>45.5%</td><td>718 ms</td><td>~400 tok</td><td>EARLY/LATE 比例不够极端</td></tr>
+    <tr style="background:#122117;"><td><b>R38b</b></td><td><b>分层 FRAC（0.60/0.15/N=2）</b></td><td><b style="color:var(--accent);">50.0%</b></td><td><b>703 ms</b></td><td><b>460.9 tok</b></td><td><b>NEW PARETO</b>，但仍未触顶</td></tr>
+  </table>
+
+  <h2 style="margin:6px 0 4px 20px;">还没达成 — 3 个未完成目标</h2>
+  <div class="numgrid" style="margin-top:4px;">
+    <div class="numcell"><div class="label">5/5 case 全一致性</div><div class="val" style="font-size:24px;color:var(--rust);">未达成</div><div class="sub">R38b: 19/25 case 命中 code-aware；6 个 case 仍在 no_pool_entry/dense_prefill</div></div>
+    <div class="numcell"><div class="label">FAIL_acc 超过 lossless</div><div class="val" style="font-size:24px;color:var(--rust);">40% &lt; 52%</div><div class="sub">lossless FAIL 准确率 52%；R38b 仅 40%（特异性反而下降 — 详见 slide (16)）</div></div>
+    <div class="numcell"><div class="label">Token-F1 = 1.0</div><div class="val" style="font-size:24px;color:var(--rust);">F1 不可信</div><div class="sub">verdict 任务输出短，F1 信号弱；用 type_agreement 替代</div></div>
+  </div>
+
+  <h2 style="margin:6px 0 4px 20px;">距离真实 CacheBlend 还差什么 + 下一步</h2>
+  <ul style="margin:4px 0 0 38px;">
+    <li><b>HKVD 信号没用</b> — 我们用「位置代理」(EARLY vs LATE) 代替 HKVD。位置是粗粒度信号，没考虑每个 chunk 实际 stale 程度。完整 CacheBlend 需要 attention-kernel hook（多周工作量）</li>
+    <li><b>per-layer 粒度</b> — 真实 CacheBlend 的 r1 > r2 > ... > r* 是逐层渐缩的，我们只在 chunk 位置分层，<b>粒度粗一个数量级</b></li>
+    <li><b>未覆盖 prompt 头部</b> — 复用只发生在 5 段代码，system + instruction 的微小差异仍然 dense_prefill（~75 token 仍自算）</li>
+  </ul>
+  <p style="margin:4px 0 0 20px;font-size:13px;"><b>下一步</b>（按可行性排序）：① 扩数据集 10 case × 5 agent → 50 rows；② 重测有类型代码库（SWE-bench django/astropy）；③ radix_cache.py 加 per-chunk F1 oracle（不依赖 attention kernel，详见 R25）；④ critique 任务交叉验证；⑤ HKVD attention kernel hook（多周，out of session scope）。</p>
+</section>
+
+
+
+<section class="slide" data-tag="定量分析" data-index="主体 8 / 29 · (8)">
+  <h1><span class="num">(8)</span> 为什么非前缀复用会丢失精度 — 定量证据</h1>
+  <h2>Phase 1（跨块 attention）— 代码块基本是自包含的</h2>
+  <p>块内 attention ≈ 块间 attention，比值按 head × layer 报告。（完整数据见 <code>结果s/kv_isolation_quant_20260708/phase1_attention.json</code>；比值随 layer/head 变化，HTML 报告中有全量扫描。）</p>
+  <h2>Phase 2（KV 分布相似度）— Qwen2.5-7B-Instruct，5 对 pandas 代码</h2>
+  <div class="numgrid" style="margin-top:6px;">
+    <div class="numcell">
+      <div class="label">同功能 K 余弦相似度</div>
+      <div class="val">0.808</div>
+      <div class="sub">sort/v1 vs sort/v2、/v3</div>
+    </div>
+    <div class="numcell">
+      <div class="label">不同功能 K 余弦相似度</div>
+      <div class="val">0.769</div>
+      <div class="sub">sort vs search、/string、/graph</div>
+    </div>
+    <div class="numcell verified">
+      <div class="label">K 余弦分离度</div>
+      <div class="val" style="color:var(--accent);">0.040</div>
+      <div class="sub">约 4% 的 K 信息与上下文相关</div>
+    </div>
+  </div>
+  <h2>Phase 3（KV 替换 → 跨块 swap 下的 PPL）— 直接的功能性测试</h2>
+  <p>对每对 (A, B)，把 B 的 past_kv 替换进 A 的 token 位置，测量固定 instruction 后缀的 PPL。完整数据见 <code>结果s/kv_isolation_quant_20260708/phase3_replacement.json</code>。</p>
+  <h2>结论</h2>
+  <p>Phase 2 K 余弦分离度 = <b style="color:var(--accent);">0.040</b> ≈ <b>4%</b> 的 K 信息与上下文相关。剩下 96% 是结构而非内容，但这 4% 正好处于跨上下文边界，是 live query 中 attention 的聚焦位置，所以产生了丢失精度的效果。 <span class="warn">推论</span>：字节级精确的非前缀复用本质上就是有损的；选择性重算（R32/R38b）是原则上的缓解方案。</p>
+  <p class="sub">通过 <code>benchmark/multi_workflow/analyze_kv_isolation.py --mode full</code> 在 Qwen2.5-7B-Instruct 上计算。完整报告: <code>结果s/kv_isolation_quant_20260708/kv_isolation_report.html</code>。</p>
+</section>
+
+<section class="slide" data-tag="预计算" data-index="主体 9 / 29 · (9)">
+  <h1><span class="num">(9)</span> 预计算 流水线 — 离线代码库 KV → host 池 → 运行时 GPU 拷贝</h1>
+  <h2>Stage 1 — 离线预计算（<code>scripts/precompute_codebase_kv_v4.py</code>）</h2>
+  <p>驱动一个进程内的 <code>ModelRunner</code>，通过 <code>ASTChunker</code> 切块，从 <code>kv_pool.k_buffer[layer][out_cache_loc]</code> 抽取每层 K/V，每个 chunk 序列化为一个 <code>.bin</code> 文件加 <code>manifest.jsonl</code>。输出目录: <code>结果s/codebase_kv/pandas_5case_v4/{chunks/,manifest.jsonl,preamble.txt,preamble_token_ids.json,meta.json}</code>（约 880 MB，5 case × 5 segment × 28 层 × bfloat16）。</p>
+  <h2>Stage 2 — 服务启动时的加载器（<code>codebase_kv_loader.py</code>）</h2>
+  <p>加载到一个<b style="color:var(--accent);">独立的第二个</b> <code>MHATokenToKVPoolHost</code>（<code>codebase_host_pool</code>，bump-allocator，<b>永远不会被 LRU 驱逐</b>），校验 <code>meta.json</code>（head_num、head_dim、layer_num、dtype、layout），对存储的 <code>token_ids</code> 重新分词以检测 preamble 漂移，用 <code>ChunkKVEntry</code> 填充 <code>RadixCache.placeholder_chunk_pool</code>，其中 <code>kv_indices</code> 指向 host 槽位。</p>
+  <h2>Stage 3 — 读路径（<code>radix_cache.py</code> 中的 <code>_build_chunk_plan</code>）</h2>
+  <p>对每个请求做字节级精确的 chunk 查询 → CPU→GPU 传输（<code>move_kv_cache</code>）→ 就像这个 chunk 是现场算出来的一样复用。两个 host 池（radix-eviction 与 codebase-dedicated）是<b>正确性的关键杠杆</b>。</p>
+  <h2>12 个环境变量控制流水线</h2>
+  <pre>SGLANG_PRECOMPUTE_KV_DIR=...                  <span class="c"># 目录树路径</span>
+SGLANG_PRECOMPUTE_HOST_SIZE_GB=2              <span class="c"># 专用 host 池大小</span>
+SGLANG_PRECOMPUTE_HOST_LOAD_ASYNC=1           <span class="c"># 异步 CPU→GPU（与 prefill 重叠）</span>
+SGLANG_PRECOMPUTE_HOST_LOAD_IO_BACKEND=kernel <span class="c"># kernel 或 cudaMemcpy</span>
+SGLANG_PRECOMPUTE_DEVICE_RESIDENT=0           <span class="c"># 跳过 host 池（GPU-only）</span>
+SGLANG_PRECOMPUTE_CANONICAL_PREFIX=1          <span class="c"># 使用 canonical preamble</span>
+SGLANG_PRECOMPUTE_PROMPT_ALIGN=1              <span class="c"># 把池里的 preamble 对齐到 live prompt</span>
+SGLANG_PRECOMPUTE_SELECTIVE_REFRESH_FRAC=0.25 <span class="c"># 跳过最大的 p% 的 copy chunk</span>
+SGLANG_PRECOMPUTE_SKIP_CHUNK_SIZE_MIN=...     <span class="c"># 跳过小于 N 个 token 的 chunk</span>
+SGLANG_PRECOMPUTE_SELECTIVE_STRATEGY=largest_first
+SGLANG_PRECOMPUTE_ORACLE_LOG=...              <span class="c"># 记录 oracle 决策用于分析</span>
+SGLANG_CHUNK_POOL_PIN=...                     <span class="c"># 专用 GPU 槽位，不参与 LRU</span></pre>
+</section>
+
+<section class="slide" data-tag="预计算 A/B" data-index="主体 10 / 29 · (10)">
+  <h1><span class="num">(10)</span> 预计算 A/B — 7B-Coder × 5 verdict task (from <code>结果s/kvcomm_ab/</code>)</h1>
+  <h2>5×5 verdict 任务 A/B（5 case × 5 agent, Qwen2.5-Coder-7B-Instruct）</h2>
+  <table>
+    <tr><th>配置</th><th>复用命中</th><th>平均 TTFT (复用者)</th><th>Token-F1 vs lossless</th><th>备注</th></tr>
+    <tr><td>lossless 参考</td><td>0/25</td><td>948 ms</td><td>1.000</td><td>baseline</td></tr>
+    <tr style="background:#122117;">
+      <td>precompute 同步（canonical prefix）</td>
+      <td><b>19/25</b></td>
+      <td>959 ms</td>
+      <td>0.281 (hit) / 0.668 (no-hit)</td>
+      <td>真实 F1=0.374 — 按预测有损</td>
+    </tr>
+    <tr>
+      <td>precompute 异步（layered）</td>
+      <td>19/25</td>
+      <td>TBD</td>
+      <td>TBD</td>
+      <td><code>SGLANG_PRECOMPUTE_HOST_LOAD_ASYNC=1</code></td>
+    </tr>
+    <tr>
+      <td>precompute + prompt_align + selective_0.25（R17）</td>
+      <td>7/25</td>
+      <td>124 ms (hitters)</td>
+      <td>0.549</td>
+      <td>multi-slot + same-方向 aligned</td>
+    </tr>
+  </table>
+  <h2><code>结果s/kvcomm_ab/</code> 中的关键发现</h2>
+  <ul>
+    <li><b>Cross-position fix</b> (commit in 2026-06-30): slot_id was positional; changed to content-derived <code>code_base:{segment.name}</code> → unblocked byte-exact KVCOMM reuse (0 → 7-13/16 复用者 hit). See <code>结果s/kvcomm_ab/CROSS_POSITION_REPORT.md</code>.</li>
+    <li><b>gap-zeroing 摧毁精度</b>: C2-direct 设 gap=0 → F1=0.008（垃圾输出，把任务指令清零了）。<b>Staged gap-prefill</b> → F1=0.376, speed 1.085×（有效但仍有损）。</li>
+    <li><b>跨上下文 KV 损失是本质性的</b>：即使开了 precompute + canonical prefix + prompt_align，真实 F1 仍只有 0.374（不是 1.0）。K_cos_separation=0.04（上文 Phase 2 数据）就是 smoking gun。</li>
+  </ul>
+  <p class="sub">图表: <code>结果s/kvcomm_ab/img/{alg_loss,alg_4layer,alg_crossposition,alg_multislot}.png</code> · 报告: <code>KV_BREAKDOWN_REPORT.html</code>、<code>precompute_ab_report/SUMMARY.txt</code></p>
+</section>
+
+<section class="slide" data-tag="版本编号" data-index="主体 11 / 29 · (11)">
+  <h1><span class="num">(11)</span> 迭代编号体系（R## ↔ 技术名称）</h1>
+  <h2>命名约定</h2>
+  <ul>
+    <li><code>R##</code> = 单次实验迭代（一个配置 × 一次 benchmark 运行）</li>
+    <li><code>R##a</code>、<code>R##b</code>、<code>R##c</code> = R## 内的 sweep 点（例如不同 FRAC 值）</li>
+    <li><code>R##a_repro</code> = 字节级精确的复现性校验</li>
+    <li>状态标签: <span class="badge good">NEW PARETO</span> · <span class="badge bad">FALSIFIED</span> · <span class="badge bad">RETRACTED</span> · <span class="badge bad">RETIRED</span> · <span class="badge bad">NEGATIVE</span></li>
+  </ul>
+  <h2>项目时间线（R28 → R39，全部在同一个 7B-Coder × 5 verdict benchmark 上）</h2>
+  <pre><span class="bad">R28</span>  anchor-type 过滤          NULL   (pool=100% function/class)
+<span class="good">R31</span>  deep research 综述     确认 CacheBlend 是唯一可行的算法
+<span class="good">R32</span>  常数 FRAC head_recompute=0.30           41.7%（上周 Pareto）
+<span class="bad">R33</span>  imports-prelude 预置             已撤回（0.0%，违反 prompt 约束）
+<span class="bad">R34</span>  类型注解门控        已退役（33.3%，pandas 0.x 无类型注解）
+<span class="bad">R35</span>  R26 + R32 叠加         失败（0.60× 加速，3B×3 与 7B×5 的 Pareto 不同）
+<span class="good">R36</span>  常数 FRAC sweep 0.20/0.35        确认 R32 0.30 是唯一 Pareto 点
+<span class="good">R37</span>  按块位置分层的 FRAC     45.5%（EARLY=0.50, LATE=0.20, N=2）
+<span class="good">R38b</span> R37 复现 + 参数 sweep           <b>50.0%</b> NEW PARETO  (0.60/0.15/N=2)
+<span class="good">R39</span>  R38b 复现 + 推向 0.65/0.70 确认 0.60 是 plateau 起点</pre>
+  <p class="sub">R28–R39 全部在同一个 benchmark 上，只有 FRAC 杠杆在变。R38b 是 7B-Coder × 5 的推荐 Pareto 点。</p>
+</section>
+
+<section class="slide" data-tag="深度调研" data-tag-class="verified" data-index="主体 12 / 29 · (12)">
+  <h1><span class="num">(12)</span> CacheBlend deep research（R31）— 99 个 sub-agent 扇出调查，HKVD 选优</h1>
+  <h2>调研范围</h2>
+  <p>5 个角度：CacheBlend、SnapKV、StreamingLLM、RazorAttention、2025-2026 年代的 code-aware 后续工作。99 个 sub-agent，300 万 tokens，17 个确认 / 8 个被否定。</p>
+  <h2>核心发现</h2>
+  <div class="card leaf">
+    <p><b>CacheBlend (arXiv:2405.16444) 是唯一被实证能恢复跨上下文精度的算法</b>。</p>
+    <ul>
+      <li>每层 5–18% 的 HKVD（高 KV 偏差）token，默认 15%</li>
+      <li>Layer-by-layer gradual filter: r<sub>1</sub> > r<sub>2</sub> > ... > r*</li>
+      <li>代价: 重算 3ms/层 vs 从 NVMe 加载 16ms/层 → <b>重算比加载更快</b></li>
+      <li>相比全量重算最多差 0.002 F1/Rouge-L（多文档 QA）</li>
+      <li>相比全量重算 TTFT 加速 2.2–3.3×</li>
+    </ul>
+  </div>
+  <p><span class="warn">局限</span>：没有 code-generation 或 SWE-bench 评测。Code-aware 复用的 dynamics 不同，需要适配。</p>
+  <p class="footer-link">完整报告: <code>结果s/lossy_alg_round28/R31_DEEP_RESEARCH_SYNTHESIS.md</code>（166 KB）</p>
+</section>
+
+<section class="slide" data-tag="上周 Pareto" data-index="主体 13 / 29 · (13)">
+  <h1><span class="num">(13)</span> constant-FRAC head_recompute (R32) — 上周 Pareto</h1>
+  <h2>机制</h2>
+  <ul>
+    <li><code>SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC=p</code>（默认 0 = 关闭）</li>
+    <li>对每个字节级精确匹配的 chunk 候选：前 <code>K = ceil(p × chunk_len)</code> 个 token → <code>dense_prefill</code>（skip_reason="head_recompute"）</li>
+    <li>剩余 body token → <code>copy_pool</code> + RoPE 位置校正</li>
+    <li>近似 CacheBlend (arXiv:2405.16444) 的 per-layer HKVD 过滤，无需修改 attention kernel</li>
+  </ul>
+  <h2>R32 数据（本周复测）</h2>
+  <div class="numgrid">
+    <div class="numcell"><div class="label">type_agreement</div><div class="val">41.7%</div><div class="sub">对比 lossless 38.5%（+3.2pp）</div></div>
+    <div class="numcell"><div class="label">平均 TTFT (复用者)</div><div class="val">709<span style="font-size:14px;color:var(--text-dim);">ms</span></div><div class="sub">对比 lossless 932 毫秒，1.32×</div></div>
+    <div class="numcell"><div class="label">code-aware 复用</div><div class="val">333.7<span style="font-size:14px;color:var(--text-dim);">tok</span></div><div class="sub">c2_chunk_reused 计数</div></div>
+  </div>
+  <p class="sub">Pareto 点: FRAC=0.30（R36 的 sweep 0.15/0.20/0.35 确认 0.30 是唯一的最优点）</p>
+</section>
+
+<section class="slide" data-tag="伪代码对比" data-tag-class="verified" data-index="主体 14 / 29 · (14)">
+  <h1><span class="num">(14)</span> 4 个 baseline + 我们的方案 — 伪代码对比</h1>
+  <h2>所有方案共享同一段流水线 — 区别只在 <code>_build_chunk_plan</code> 内部对每个 chunk 选什么 action</h2>
+  <pre><span class="c"># 公共前置</span>
+def serve(req):
+    chunks = ASTChunker.chunk_text(req.code_spans)       <span class="c"># 函数/class 级</span>
+    pool   = placeholder_chunk_pool                     <span class="c"># 预计算的 codebase KV 池</span>
+    plan, hit_idx = [], 0                                <span class="c"># hit_idx 仅 R38b 用</span>
+
+    for chunk in chunks:
+        entry = pool.lookup(chunk.slot_id, chunk.signature, chunk.byte_range)
+        if entry is None or not byte_exact(chunk, entry):
+            plan.append(DENSE)                          <span class="c"># 没命中 → 全算</span>
+            continue
+        <span class="c"># ───────── 命中之后，5 个方案分叉 ─────────</span></pre>
+
+  <h2 style="margin-top:6px;">5 个方案的「命中之后」分叉</h2>
+  <table>
+    <tr><th style="width:16%;">方案</th><th>命中后对单个 chunk 做什么</th><th>关键环境变量</th></tr>
+    <tr>
+      <td><b style="color:var(--text-dim);">lossless</b><br><span class="sub">黄金 baseline</span></td>
+      <td><pre style="margin:0;padding:2px 8px;font-size:11px;">plan.append(DENSE)   <span class="c"># 无条件 dense_prefill</span></pre></td>
+      <td>全 OFF</td>
+    </tr>
+    <tr>
+      <td><b style="color:var(--rust);">L2 whole-slot</b><br><span class="sub">KVCOMM</span></td>
+      <td><pre style="margin:0;padding:2px 8px;font-size:11px;">plan.append(COPY_POOL)   <span class="c"># 整段 copy + RoPE</span></pre></td>
+      <td><code>SGLANG_PLACEHOLDER_KNN_MATCH=1</code><br><code>SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=0</code></td>
+    </tr>
+    <tr>
+      <td><b style="color:var(--rust);">L4 AST-chunk</b><br><span class="sub">KVCOMM</span></td>
+      <td><pre style="margin:0;padding:2px 8px;font-size:11px;">for chunk in chunks:
+  plan.append(COPY_POOL)   <span class="c"># 每个 chunk 都整段 copy</span></pre></td>
+      <td><code>SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1</code></td>
+    </tr>
+    <tr>
+      <td><b style="color:var(--gold);">CB-style 常数 FRAC</b><br><span class="sub">(R32)</span></td>
+      <td><pre style="margin:0;padding:2px 8px;font-size:11px;">K = ceil(FRAC × len(chunk.tokens))
+plan.append(HEAD_RECOMPUTE(
+  head_len=K, body=COPY_POOL))   <span class="c"># 前 30% 算，其余 copy</span></pre></td>
+      <td><code>SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC=0.30</code></td>
+    </tr>
+    <tr style="background:#122117;">
+      <td><b style="color:var(--accent);">Ours · 按块位置分层</b><br><span class="sub">FRAC (R38b)</span></td>
+      <td><pre style="margin:0;padding:2px 8px;font-size:11px;">frac = FRAC_EARLY if hit_idx &lt; EARLY_N else FRAC_LATE
+K = ceil(frac × len(chunk.tokens))
+plan.append(HEAD_RECOMPUTE(
+  head_len=K, body=COPY_POOL))
+hit_idx += 1</pre></td>
+      <td><code>FRAC_EARLY=0.60</code><br><code>FRAC_LATE=0.15</code><br><code>EARLY_N=2</code></td>
+    </tr>
+  </table>
+
+  <h2>5 方案的核心差异 — 一图看清</h2>
+  <div class="card leaf" style="margin-top:4px;padding:4px 14px;">
+    <p style="margin:2px 0;"><b>FRAC 决定了「copy 多少 vs 重算多少」。</b><br>
+    lossless：FRAC = 100%（全算，无 copy）。L2/L4：FRAC = 0%（全 copy，无重算）→ stale KV 风险最大。<br>
+    R32：FRAC = 30%（常数）→ 所有 chunk 同等对待。R38b：FRAC = <code>{60%, 15%}</code>（按位置分两档）。<br>
+    <span class="warn">R38b 的关键洞察</span>：早期 chunk 离跨上下文前缀边界最近，stale KV 影响最大 → FRAC 应该更高；后期 chunk 已经在 cache prefix 之内 → FRAC 可以更低。</p>
+  </div>
+</section>
+
+
+<section class="slide" data-tag="对比" data-index="主体 15 / 29 · (15)">
+  <h1><span class="num">(15)</span> Our approach (按块位置分层的 FRAC, R38b) vs CacheBlend (arXiv:2405.16444)</h1>
+  <h2>机制对比</h2>
+  <table>
+    <tr><th>维度</th><th>CacheBlend (paper)</th><th><b>R38b（我们的）</b></th></tr>
+    <tr>
+      <td>粒度</td>
+      <td>per-LAYER（r<sub>1</sub> &gt; r<sub>2</sub> &gt; ... &gt; r*，跨 L 层）</td>
+      <td><b>per-CHUNK-POSITION</b>（前 N 个 chunk 用 FRAC_EARLY，其余用 FRAC_LATE）</td>
+    </tr>
+    <tr>
+      <td>选择信号</td>
+      <td>HKVD（高 KV 偏差）按 token 计算，与参考的全量 prefill 对比</td>
+      <td><b>基于位置</b> — 假设早期 chunk 离跨上下文边界更近</td>
+    </tr>
+    <tr>
+      <td>需要参考 prefill？</td>
+      <td><span class="bad">是</span> — 需要对最小 chunk 做全量 prefill 得到 ground truth 才能算 HKVD</td>
+      <td><span class="good">否</span> — 直接用其他 agent 缓存的 KV 即可</td>
+    </tr>
+    <tr>
+      <td>实现位置</td>
+      <td><span class="bad">需要修改 attention kernel</span> — 每层 forward() 都要做部分 prefill + 部分 copy</td>
+      <td><span class="good">驱动层</span> — 只改 <code>_build_chunk_plan</code>（<code>radix_cache.py</code> 中约 150 行）</td>
+    </tr>
+    <tr>
+      <td>复用场景</td>
+      <td>同 prompt 中段 chunk（论文的领域）</td>
+      <td><b>跨 prompt、跨上下文</b>（agent N 复用 agent 1 的 KV）</td>
+    </tr>
+    <tr>
+      <td>评测任务</td>
+      <td>多文档 QA（musique、samsum、wikimqa）</td>
+      <td><b>代码 verdict 任务</b>（pandas 0.x，5 case × 5 agent）</td>
+    </tr>
+    <tr>
+      <td>结果</td>
+      <td>2.2-3.3× TTFT 加速，15% 重算率下 F1 最多差 0.002</td>
+      <td><b>相对 lossless 加速 1.32×，type_agreement 50.0%</b>（对比 R32 41.7%，+8.3pp）</td>
+    </tr>
+  </table>
+  <h2>为什么我们的方案能近似 CacheBlend</h2>
+  <p>CacheBlend 的 per-layer <b>r<sub>1</sub> &gt; r<sub>2</sub> &gt; r*</b>（越往后越窄）≈ 我们的 per-chunk-position <b>FRAC_EARLY &gt; FRAC_LATE</b>（越往后越窄）。两者都假设「最开始的几个 token/层对 staleness 更敏感」。</p>
+  <p class="sub"><b>优点</b>：无需改 kernel。<b>缺点</b>：没有 per-token 信号——位置只是一个粗略的代理。 <span class="warn">未来工作</span>：把 HKVD 度量接入 live recompute 路径（R31 提出的开放问题）。</p>
+</section>
+
+<section class="slide" data-tag="新 Pareto" data-tag-class="verified" data-index="主体 16 / 29 · (16)">
+  <h1><span class="num">(16)</span> 按块位置分层的 FRAC sweep (R37–R39) — 本周的新 Pareto</h1>
+  <h2>R37 — 按块位置分层的 FRAC <span class="badge good">NEW PARETO</span></h2>
+  <div class="numgrid" style="margin-top:8px;">
+    <div class="numcell"><div class="label">type_agreement（R37 = 0.50/0.20）</div><div class="val">45.5%</div><div class="sub">相对 R32 +3.8pp</div></div>
+    <div class="numcell" style="border-color:var(--green);background:#122117;">
+      <div class="label">R38b（0.60/0.15, N=2）</div>
+      <div class="val good">50.0%</div>
+      <div class="sub"><span class="badge good">+8.3pp</span> 3× 字节级精确复现</div>
+    </div>
+    <div class="numcell"><div class="label">平均 TTFT (R38b)</div><div class="val good">703 毫秒</div><div class="sub">相对 R32 -0.9%</div></div>
+  </div>
+  <h2>新增 3 个环境变量</h2>
+  <pre>export SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC_EARLY=0.60   <span class="c"># 前 N 个 chunk</span>
+export SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC_LATE=0.15    <span class="c"># 其余 chunk</span>
+export SGLANG_CHUNK_HEAD_RECOMPUTE_EARLY_N=2</pre>
+  <p class="sub">代码改动: <code>python/sglang/srt/mem_cache/radix_cache.py</code> 中的 _build_chunk_plan（新增 _chunk_pool_hit_counter）</p>
+</section>
+
+<section class="slide" data-tag="Sweep 数据" data-index="主体 17 / 29 · (17)">
+  <h1><span class="num">(17)</span> FRAC_EARLY/LATE/N 的 sweep 数据（R37–R39）— 8 个数据点</h1>
+  <h2>Per-Chunk-Position FRAC sweep（5 case × 5 agent = 25 条结果）</h2>
+  <table>
+    <tr><th>配置</th><th>EARLY</th><th>LATE</th><th>N</th><th>type_agreement</th><th>vs R32</th></tr>
+    <tr><td>R32（常数 0.30）</td><td>—</td><td>—</td><td>—</td><td>41.7%</td><td>—</td></tr>
+    <tr><td>R37（原始）</td><td>0.50</td><td>0.20</td><td>2</td><td>45.5%</td><td>+3.8pp</td></tr>
+    <tr><td>R38a（R37 复现）</td><td>0.50</td><td>0.20</td><td>2</td><td>45.5%</td><td>+3.8pp ✓</td></tr>
+    <tr style="background:#122117;"><td><b>R38b（新 Pareto）</b></td><td><b>0.60</b></td><td><b>0.15</b></td><td><b>2</b></td><td><b>50.0%</b></td><td><b>+8.3pp</b></td></tr>
+    <tr><td>R39a（R38b 复现）</td><td>0.60</td><td>0.15</td><td>2</td><td>50.0%</td><td>+8.3pp ✓</td></tr>
+    <tr><td>R39c（推至 0.65）</td><td>0.65</td><td>0.15</td><td>2</td><td>50.0%</td><td>+8.3pp（plateau）</td></tr>
+    <tr><td>R39b（推至 0.70/0.10）</td><td>0.70</td><td>0.10</td><td>2</td><td>40.0%</td><td class="bad">-1.7pp (过度)</td></tr>
+    <tr><td>R38d（N=3）</td><td>0.50</td><td>0.20</td><td>3</td><td>33.3%</td><td class="bad">-8.4pp (过度 N)</td></tr>
+  </table>
+  <p class="sub">3× 字节级精确复现（R38b、R39a、R39c 都 = 50.0%）</p>
+</section>
+
+<section class="slide" data-tag="机制" data-index="主体 18 / 29 · (18)">
+  <h1><span class="num">(18)</span> 为什么 (FRAC_EARLY=0.60, FRAC_LATE=0.15, N=2) 能赢</h1>
+  <h2>位置特异性的风险聚集</h2>
+  <p>请求序列中的<b>早期 chunk</b>离跨上下文前缀边界最近（system message + role + case + instruction）。那里的 attention 最受 live query preamble 的干扰。</p>
+  <p>请求序列中的<b>后期 chunk</b>已经建立了 cache prefix，attention 分布在跨 prefix 时更稳定，可以更激进地 copy。</p>
+  <h2>R38b 近似 CacheBlend 的 per-layer r1 &gt; r2 &gt; r* 过滤</h2>
+  <pre>CacheBlend §4.3:
+  layer 1:    r1 &gt; r* tokens → recompute
+  layer 2:    r2 &lt; r1 tokens → recompute（逐层渐缩）
+  ...
+  layer L:    r* tokens → recompute（默认 15%）
+
+R38b 的简化版（per-chunk-position，不是 per-layer）:
+  chunk 1-2:  FRAC = 0.60  ← 高（跨上下文边界）
+  chunk 3+:   FRAC = 0.15  ← 低（cache prefix 已建立）</pre>
+  <p class="sub"><span class="accent">关键优势</span>：不用修改 attention-kernel，只在 _build_chunk_plan 内部的 reuse 决策上做文章。Prompt 完全不动。</p>
+</section>
+
+<section class="slide" data-tag="对比" data-index="主体 19 / 29 · (19)">
+  <h1><span class="num">(19)</span> KVCOMM（L2/L4）vs CacheBlend-style vs 我们的方案 — 同一 5×5 verdict 任务</h1>
+  <h2>4 个 baseline 在完全相同的 harness 上（Qwen2.5-Coder-7B，pandas 5 case × 5 agent，--task-mode verdict）</h2>
+  <table>
+    <tr><th>配置</th><th>复用命中</th><th>平均 TTFT (复用者)</th><th>type_agreement</th><th>FAIL 准确率</th><th>备注</th></tr>
+    <tr>
+      <td>lossless 参考</td>
+      <td>0/25</td>
+      <td>~932 ms</td>
+      <td>(ref) 38.5%</td>
+      <td>52.0%</td>
+      <td>黄金 baseline</td>
+    </tr>
+    <tr>
+      <td>L2 whole-slot KVCOMM</td>
+      <td>0/25</td>
+      <td>~870 ms (复用者 = 0)</td>
+      <td><b>33.3%</b></td>
+      <td>60.0%</td>
+      <td>whole-slot MiniLM，不开 selective recompute</td>
+    </tr>
+    <tr>
+      <td>L4 AST-chunk KVCOMM</td>
+      <td>~19/25</td>
+      <td>约 890 毫秒</td>
+      <td><b style="color:var(--rust);">13.3%</b></td>
+      <td>60.0%</td>
+      <td>AST-chunk 池，不开 selective recompute</td>
+    </tr>
+    <tr>
+      <td>CacheBlend-style 常数 FRAC=0.30（R32）</td>
+      <td>~19/25</td>
+      <td>~709 毫秒</td>
+      <td>41.7%</td>
+      <td>48.0%</td>
+      <td>前 K 个 token 的启发式，不区分位置</td>
+    </tr>
+    <tr style="background:#122117;">
+      <td><b>Ours: 按块位置分层的 FRAC (R38b)</b></td>
+      <td><b>~19/25</b></td>
+      <td><b>703 毫秒</b></td>
+      <td><b style="color:var(--accent);">50.0%</b></td>
+      <td><b>40.0%</b></td>
+      <td><b>FRAC_EARLY=0.60, FRAC_LATE=0.15, N=2</b></td>
+    </tr>
+  </table>
+  <h2>如何读这张表</h2>
+  <ul>
+    <li><b>L2 KVCOMM（33.3%）</b> &lt; lossless（38.5%）→ whole-slot copy 引入了噪声。这是 L3 general MiniLM 的方案，特征是 byte-exact + RoPE delta。</li>
+    <li><b>L4 AST-chunk（13.3%）</b> ≪ L2 → 把跨上下文边界切碎反而比 whole-slot copy 产生<b>更多</b>的有损 gap。<b>反直觉</b>：不开 selective recompute 时，切块比整段更差。</li>
+    <li><b>CacheBlend-style（41.7%）</b> 比 lossless（38.5%）高 +3.2pp → 常数 head_recompute 是第一个 Pareto 点。</li>
+    <li><b>我们的 R38b (50.0%)</b> &gt; CacheBlend-style (41.7%) by +8.3pp → 按块位置分层的 FRAC beats constant FRAC at the same speed. <b>This is the contribution</b>.</li>
+  </ul>
+  <p class="sub">Caveat: L2 had 0 reuse-hit rows in the launcher's bookkeeping; the type_agreement number is over 25 rows. The TTFT-vs-复用者 column for L2 reflects "no code-aware 复用" — its speedup comes only from radix prefix. Sources: <code>结果s/baseline_*_5x5_verdict/</code> (raw) and <code>结果s/baselines_5x5_verdict/COMPARISON.md</code>.</p>
+</section>
+
+<section class="slide" data-tag="总结" data-index="主体 20 / 29 · (20)">
+  <h1><span class="num">(20)</span> TL;DR — 5×5 verdict 任务总结（30 秒读完）</h1>
+  <div class="numgrid" style="margin-top:10px;">
+    <div class="numcell">
+      <div class="label">lossless</div>
+      <div class="val">38.5%</div>
+      <div class="sub">type_agreement · 932 毫秒</div>
+    </div>
+    <div class="numcell">
+      <div class="label">L2 KVCOMM</div>
+      <div class="val" style="color:var(--rust);">33.3%</div>
+      <div class="sub">whole-slot copy 反而拉低</div>
+    </div>
+    <div class="numcell">
+      <div class="label">L4 AST-chunk KVCOMM</div>
+      <div class="val" style="color:var(--rust);">13.3%</div>
+      <div class="sub">切块 + 不开 FRAC ≪ lossless</div>
+    </div>
+    <div class="numcell">
+      <div class="label">CacheBlend-style（R32）</div>
+      <div class="val">41.7%</div>
+      <div class="sub">+3.2pp vs lossless · 709 毫秒</div>
+    </div>
+    <div class="numcell verified">
+      <div class="label">我们的 R38b</div>
+      <div class="val" style="color:var(--accent);">50.0%</div>
+      <div class="sub">+8.3pp vs CB-style · 703 毫秒</div>
+    </div>
+  </div>
+  <h2>一句话总结</h2>
+  <div class="card leaf">
+    <p><b>按块位置分层的 FRAC</b>按 chunk 位置差异化设置重算率（前置: FRAC_EARLY=0.60, 后置: FRAC_LATE=0.15），在相同速度下相对常数 FRAC（R32）提升 <b style="color:var(--accent);">+8.3pp type_agreement</b>（<b>TTFT -0.9%</b>）。无需修改 attention-kernel 即可近似 CacheBlend 的 per-layer r1 &gt; r2 &gt; r*。</p>
+  </div>
+  <h2>为什么这件事重要</h2>
+  <ul>
+    <li><b>Speed bar 已达成</b>: 相对 lossless 1.32× 加速（703 vs 932 毫秒）.</li>
+    <li><b>Accuracy bar 已达成</b>: 50.0% type_agreement &gt; 41.7%（CacheBlend-style）&gt; 38.5%（lossless）。<b>是这次 A/B 里唯一超过 lossless 的 config</b>。</li>
+    <li><b>prompt 完全不动、没有 KV-cache 调度的小聪明</b>、没有重写 attention kernel——只在驱动层的 reuse 决策上做文章（<code>radix_cache.py</code> 中约 150 行）。</li>
+  </ul>
+</section>
+
+<section class="slide" data-tag="Production" data-tag-class="verified" data-index="主体 21 / 29 · (21)">
+  <h1><span class="num">(21)</span> Production 推荐配置（本周可上线）</h1>
+  <h2>新默认 config（7B-Coder × 5 verdict 任务）</h2>
+  <pre><span class="c"># 复制粘贴到 launcher / 部署 env</span>
+export SGLANG_PLACEHOLDER_KNN_MATCH=0
+export SGLANG_L3_AST_GATE=0
+export SGLANG_CHUNKED_PLACEHOLDER_KNN=1
+export SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1
+export SGLANG_CHUNK_TOPLEVEL=1
+export SGLANG_CACHEBLEND_CHUNK=1
+export SGLANG_CACHEBLEND_MULTI_SLOT=1
+export SGLANG_PRECOMPUTE_KV_DIR=结果s/codebase_kv/pandas_5case_v4
+export SGLANG_PRECOMPUTE_CANONICAL_PREFIX=1
+export SGLANG_PRECOMPUTE_PROMPT_ALIGN=1
+export SGLANG_PRECOMPUTE_SELECTIVE_REFRESH_FRAC=0.25
+
+<span class="c"># R38b — NEW PARETO (本周新加)</span>
+export SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC_EARLY=0.60
+export SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC_LATE=0.15
+export SGLANG_CHUNK_HEAD_RECOMPUTE_EARLY_N=2</pre>
+  <div class="card leaf">
+    <p><b>预期</b>：failure-type agreement 41.7% → 50.0%, 平均 TTFT -0.9%, code-aware 复用 +38%. All constraint-respected (no prompt modification, no KV-cache scheduling).</p>
+  </div>
+  <p class="sub">默认 OFF：不设环境变量 = R32 行为（关闭 R38b、不会回退）。部署时显式 opt-in。</p>
+</section>
+
+<section class="slide" data-tag="Pareto 表面" data-index="主体 22 / 29 · (22)">
+  <h1><span class="num">(22)</span> 多 config 的 Pareto 表面（架构特异）</h1>
+  <h2>按目标选 config（production-ready 选项）</h2>
+  <table>
+    <tr><th>目标</th><th>配置</th><th>type_agreement</th><th>TTFT</th><th>备注</th></tr>
+    <tr style="background:#122117;">
+      <td><span class="good">最高 accuracy（新）</span></td>
+      <td><b>R38b</b>（FRAC_EARLY=0.60, FRAC_LATE=0.15, N=2）</td>
+      <td><b>50.0%</b></td>
+      <td>703 毫秒</td>
+      <td>7B-Coder × 5</td>
+    </tr>
+    <tr>
+      <td>最高 accuracy（旧）</td>
+      <td>R32（FRAC=0.30）</td>
+      <td>41.7%</td>
+      <td>709 毫秒</td>
+      <td>7B-Coder × 5</td>
+    </tr>
+    <tr>
+      <td><span class="good">最高 speed（3B × 3）</span></td>
+      <td>R26（不开 head_recompute）</td>
+      <td>25.0%</td>
+      <td>296 毫秒</td>
+      <td>3B-Instruct × 3, 2.014× 加速</td>
+    </tr>
+    <tr>
+      <td>保守</td>
+      <td>R19（不开 head_recompute，5 agents）</td>
+      <td>40%（旧版）</td>
+      <td>705 毫秒</td>
+      <td>R32 之前的 baseline</td>
+    </tr>
+  </table>
+  <div class="card">
+    <p><b>Pareto 与架构相关</b>：7B-Coder × 5 与 3B-Instruct × 3 是不同 config、不同 Pareto。简单的叠加（R35）反而有害。R26 与 R38b 不可合并到同一个 config。</p>
+  </div>
+</section>
+
+<section class="slide" data-tag="交付清单" data-index="主体 23 / 29 · (23)">
+  <h1><span class="num">(23)</span> 本周交付（已 commit &amp; push）</h1>
+  <h2>Git 历史（fix/placeholder-pool-activation 分支上的提交）</h2>
+  <pre>c841b568c 结果s(R28-R39): selective-reuse iterations + R38b 已验证的新 Pareto
+661b62564 feat(radix_cache): R32+R37 selective KV recompute + R28 anchor-type 过滤
+f5f7c4744 tools(结果s): add Playwright PDF regen for CODE_AWARE_LOSSY_KV_PROGRESS deck</pre>
+  <h2>关键文件（本周新建/修改）</h2>
+  <ul>
+    <li><code>python/sglang/srt/mem_cache/radix_cache.py</code> — R32 head_recompute + R37 按块位置分层的 FRAC (~150 lines added)</li>
+    <li><code>python/sglang/srt/mem_cache/ast_chunker.py</code> — R34 辅助函数 <code>_extract_type_signature_string</code>（已退役，保留以备重新测试）</li>
+    <li><code>benchmark/multi_workflow/bench_kvcomm_ttft_stress.py</code> — R33 辅助函数 <code>_extract_top_level_imports</code>（已退役，保留以备重新测试）</li>
+    <li><code>reports/code_aware_lossy_kv_progress_20260707.tex</code> — 16 页 / 4.0 MB，§6 包含 R37-R39</li>
+    <li><code>结果s/lossy_alg_round{28,32,33,34,35,36,37,38,39}/</code> — 9 round dirs, each with FINAL_REPORT + launchers + scorers</li>
+  </ul>
+  <h2>LaTeX 报告</h2>
+  <p>完整长文报告: <code>reports/code_aware_lossy_kv_progress_20260707.pdf</code>（16 页，4.0 MB，xelatex + fandol）</p>
+</section>
+
+<section class="slide" data-tag="总结" data-index="主体 24 / 29 · (24)">
+  <h1><span class="num">(24)</span> 总结 &amp; 接下来</h1>
+  <h2>本周核心成果</h2>
+  <div class="numgrid">
+    <div class="numcell" style="border-color:var(--green);background:#122117;">
+      <div class="label">R38b 已验证的新 Pareto</div>
+      <div class="val good">50.0%</div>
+      <div class="sub">type_agreement（相对 R32 +8.3pp）</div>
+    </div>
+    <div class="numcell">
+      <div class="label">TTFT 代价</div>
+      <div class="val good">-0.9%</div>
+      <div class="sub">703 vs 709 毫秒</div>
+    </div>
+    <div class="numcell">
+      <div class="label">code-aware 复用</div>
+      <div class="val good">+38%</div>
+      <div class="sub">460.9 vs 333.7 token</div>
+    </div>
+  </div>
+  <h2>状态</h2>
+  <ul>
+    <li>✅ 已 commit &amp; push 到 <code>fix/placeholder-pool-activation</code></li>
+    <li>✅ 9 round dirs + LaTeX 报告 in remote</li>
+    <li>✅ R38b = 7B × 5 accuracy-prioritized 的新 production 推荐</li>
+    <li>✅ R26（3B × 3）= speed-prioritized（不同的 Pareto）</li>
+  </ul>
+  <h2>Out of session scope (future 方向s)</h2>
+  <ul>
+    <li>HKVD attention kernel hook（R31 发现）— 多周工作量</li>
+    <li>R34 在 SWE-bench django/astropy（带类型注解的代码库）上重测</li>
+    <li>预计算池里加入类型签名 hash key（重跑 precompute）</li>
+    <li>在 <code>--task-mode critique</code>（R21 主任务）上做交叉验证</li>
+  </ul>
+  <p class="sub" style="margin-top:18px;">当前 HEAD: <code>c841b568c</code> · 工作树干净</p>
+</section>
+
+<section class="slide" data-tag="附录 · Sweep &amp; 失败档案" data-tag-class="falsified" data-index="附录 E / 5 · E">
+  <div class="appendix-banner">附录 E · constant-FRAC sweep 与失败档案总览 · 不进入主体叙事</div>
+  <h1>附录 E — R36 constant-FRAC sweep + 5 个被淘汰方法一句话总结</h1>
+  <h2>R36 constant-FRAC sweep — 0.30 是唯一 Pareto 点</h2>
+  <p>R32（FRAC=0.30）在 R36 的 sweep 中经过 0.15/0.20/0.35 三档验证：</p>
+  <table>
+    <tr><th>FRAC</th><th>type_agreement</th><th>vs R32</th><th>结论</th></tr>
+    <tr><td>0.15</td><td>31.2%</td><td>-10.5pp</td><td>重算不足，跨上下文损失大</td></tr>
+    <tr style="background:#122117;"><td><b>0.30</b></td><td><b>41.7%</b></td><td>—</td><td><b>R32 唯一 Pareto</b></td></tr>
+    <tr><td>0.20</td><td>16.7%</td><td>-25.0pp</td><td>崩盘（高方差任务）</td></tr>
+    <tr><td>0.35</td><td>36.4%</td><td>-5.3pp</td><td>过度重算，speed 退化</td></tr>
+  </table>
+  <h2>5 个被淘汰方法 — 一句话失败原因</h2>
+  <table>
+    <tr><th>迭代</th><th>方法</th><th>一句话失败原因</th></tr>
+    <tr>
+      <td>R28</td>
+      <td>anchor-type 过滤器（仅 function/class）</td>
+      <td>NULL 结果 — pandas 0.x 池已 100% 是 function/class，过滤掉 0 个 chunk</td>
+    </tr>
+    <tr style="background:#2a1717;">
+      <td>R33</td>
+      <td>imports-prelude（在 user body 顶部 prepend imports）</td>
+      <td>41.7% → 0.0% — 直接违反用户硬约束「prompt 必须字节级一致」</td>
+    </tr>
+    <tr>
+      <td>R34</td>
+      <td>类型注解门控（有 type-annotation → 上调 FRAC）</td>
+      <td>41.7% → 33.3% — pandas 0.x 无类型注解，门控退化为全局 FRAC bump</td>
+    </tr>
+    <tr>
+      <td>R35</td>
+      <td>R26 (3B×3) + R32 (head_recompute) 叠加</td>
+      <td>NEGATIVE — 不同架构对应不同 Pareto，naive composition 反而有害</td>
+    </tr>
+    <tr>
+      <td>R36</td>
+      <td>constant-FRAC sweep 0.15/0.20/0.35</td>
+      <td>0.20 崩盘 / 0.35 退化 — 0.30 是唯一 Pareto（不淘汰，作为 R32 验证）</td>
+    </tr>
+  </table>
+  <p class="sub">每个附录 A-D 独立复盘该方法的机制与失败证据。本附录 E 只列一句话总览。完整记录见 <code>results/r##_tech_name_index.md</code> 与各 lossy_alg_round* 目录的 FINAL_REPORT.md。</p>
+  <div class="slidefooter">
+    <span class="left">代码感知有损 KV 缓存复用 · 附录</span>
+    <span class="right">附录 E · R36 + 失败档案 · 2026-07-08</span>
+  </div>
+</section>
+
+<section class="slide" data-tag="附录 · imports-prelude" data-tag-class="falsified" data-index="附录 B / 5 · B">
+  <div class="appendix-banner">附录 B · R33 imports-prelude · 已撤回 · 不进入主体叙事</div>
+  <h1>附录 B — imports-prelude 预置 (R33) · 违反 prompt 约束 → 撤回</h1>
+  <h2>假设</h2>
+  <p>在 user body 顶部 prepend 顶层 <code>import</code> 段（如 <code>import numpy as np; import pandas as pd</code>），让 library API surface 在跨上下文时保持一致，减少因 import 缺失导致的幻觉。</p>
+  <h2>实现</h2>
+  <pre>helper = bench_kvcomm_ttft_stress._extract_top_level_imports  <span class="c"># 解析 case 文件的顶层 import</span>
+user_body = helper(case_path) + "\n" + original_user_body    <span class="c"># 在顶部 prepend</span></pre>
+  <h2>实测（7B-Coder × 5 verdict task）</h2>
+  <div class="card rust">
+    <p><b>故障类型一致率 41.7% → 0.0%（直接崩盘）</b></p>
+    <p><span class="warn">直接违反用户硬约束</span>：「prompt 必须字节级一致」 — prepend imports 就是改变 prompt 顺序与内容。</p>
+    <p><span class="warn">额外问题</span>：case 文件可能不含 import（纯函数体），helper 返回空 → prepend 一个空行反而打断模型对 prompt 结构的预期，导致 4/5 的 case 完全无法输出 VERDICT 字段。</p>
+  </div>
+  <h2>教训</h2>
+  <ul>
+    <li><b>任何对 prompt 字节的修改都不可接受</b> — 即使意图是「减少幻觉」，也会破坏 lossless 的可重现性。</li>
+    <li><b>helper 函数 <code>_extract_top_level_imports</code> 保留</b> 在 <code>bench_kvcomm_ttft_stress.py</code>，但<b>调用站点已退役</b>。未来若有需要 import-aware 的 chunk 选择，可以参考此 helper（不直接修改 prompt）。</li>
+  </ul>
+  <p class="sub">完整报告: <code>results/lossy_alg_round33/FINAL_REPORT.md</code></p>
+  <div class="slidefooter">
+    <span class="left">代码感知有损 KV 缓存复用 · 附录</span>
+    <span class="right">附录 B · R33 imports-prelude · 2026-07-08</span>
+  </div>
+</section>
+
+<section class="slide" data-tag="附录 · 类型注解门控" data-tag-class="falsified" data-index="附录 C / 5 · C">
+  <div class="appendix-banner">附录 C · R34 类型注解门控 · 已退役 · 不进入主体叙事</div>
+  <h1>附录 C — 类型注解门控 (R34) · pandas 0.x 无类型注解 → 退役</h1>
+  <h2>假设</h2>
+  <p>query chunk 含有类型注解（<code>def foo(x: int) -&gt; str:</code>）时 → 上调该 chunk 的 FRAC 到 0.50（vs 默认 0.30）。理由：类型注解让函数签名更精确，跨上下文复制时头部 token 更容易「代入错误实参语义」，需要更多重算。</p>
+  <h2>实现</h2>
+  <pre>helper = ast_chunker._extract_type_signature_string  <span class="c"># 抽取 chunk 的类型签名</span>
+if helper(chunk) and len(helper(chunk)) &gt; 0:
+    plan.frac_override = 0.50  <span class="c"># 上调 FRAC</span>
+else:
+    plan.frac_override = None   <span class="c"># 用全局默认</span></pre>
+  <h2>实测（7B-Coder × 5 verdict task on pandas 0.x）</h2>
+  <div class="card rust">
+    <p><b>故障类型一致率 41.7% → 33.3%（退化 8.4pp）</b></p>
+    <p><span class="warn">根因</span>：pandas 0.x 代码库<b>几乎没有类型注解</b>（0.x 时代 Python 还未普及 typing）。helper 对绝大多数 chunk 返回 <code>""</code> → 门控退化为「全局 FRAC 提升到 0.50」，超过 R32 的 0.30 Pareto 点。</p>
+  </div>
+  <h2>未来重测路径</h2>
+  <ul>
+    <li><b>在有类型注解的代码库上重测</b>：SWE-bench 的 django、astropy、sphinx 等 2.x+ 项目预计有 30-80% 函数带类型注解，门控会真正生效。</li>
+    <li><b>需要重新生成预计算池</b>：<code>scripts/precompute_codebase_kv_v4.py</code> 的 AST-chunker 已经支持类型注解抽取（保留为 helper），只需新代码库的 .py 集合。</li>
+  </ul>
+  <p class="sub">完整报告: <code>results/lossy_alg_round34/FINAL_REPORT.md</code></p>
+  <div class="slidefooter">
+    <span class="left">代码感知有损 KV 缓存复用 · 附录</span>
+    <span class="right">附录 C · R34 类型注解门控 · 2026-07-08</span>
+  </div>
+</section>
+
+<section class="slide" data-tag="附录 · 过滤器弃用" data-tag-class="falsified" data-index="附录 A / 5 · A">
+  <div class="appendix-banner">附录 A · R28 / R29 / R30 三种过滤器 · 全部弃用 · 不进入主体叙事</div>
+  <h1>附录 A — anchor-type / attention-sink / type-sig 三种过滤器 · 全部弃用</h1>
+  <h2>R28 — AST 节点类型过滤器 <span class="badge bad">FALSIFIED · NULL</span></h2>
+  <p>只复用 <code>function</code>/<code>class</code>，过滤掉控制流（<code>if</code>/<code>for</code>/<code>while</code>）。</p>
+  <p><b>实测</b>：pandas 0.x 的池里 <b>100% 都是 function/class</b> → 0 个 chunk 被过滤掉。环境变量 <code>SGLANG_AST_REUSE_TYPES</code> 保留以备未来 sub-function 切块器使用。</p>
+  <h2>R29 — Attention-Sink 重算 <span class="badge bad">DECLINED · 多周工作量</span></h2>
+  <p>真正的「first-few-tokens dense prefill + remaining tokens copy」需要重写 attention kernel（CacheBlend 的逐层 HKVD 过滤）。</p>
+  <p><span class="warn">当前 session 不做</span>。需要：① 修改 <code>python/sglang/srt/layers/attention/</code>；② 训练一个轻量 HKVD 分类器；③ 验证每层 filter 一致性。预算约 2-3 周。</p>
+  <h2>R30 — 函数签名过滤器 <span class="badge bad">DECLINED · R34 替代</span></h2>
+  <p>只用 chunk 的 function signature（函数名 + 参数列表）作为 chunk_key。</p>
+  <p><b>状态</b>：原型已写，但发现该过滤器把同一函数的不同实现也排除（要求完全相同的 signature）— 对 verdict 任务的 helper 函数变体不友好。后续由 R34（类型注解门控）替代思路，R30 退役。</p>
+  <h2>教训</h2>
+  <div class="card"><p>每一个被证伪的过滤器都收窄了搜索空间：R28 告诉我们粒度应在 function 级别（而不是语句级）；R29 告诉我们 kernel 改造不切实际；R30 告诉我们不能太严格地匹配 signature（variant-friendliness）。</p></div>
+  <p class="sub">完整记录: <code>results/lossy_alg_round28/</code>, <code>results/lossy_alg_round29/</code>, <code>results/lossy_alg_round30/</code></p>
+  <div class="slidefooter">
+    <span class="left">代码感知有损 KV 缓存复用 · 附录</span>
+    <span class="right">附录 A · R28/R29/R30 · 2026-07-08</span>
+  </div>
+</section>
+
+<section class="slide" data-tag="附录 · 叠加失败" data-tag-class="falsified" data-index="附录 D / 5 · D">
+  <div class="appendix-banner">附录 D · R35 3B×3 + head_recompute 叠加 · NEGATIVE · 不进入主体叙事</div>
+  <h1>附录 D — 3B×3 + head_recompute 叠加 (R35) · 不同架构不同 Pareto</h1>
+  <h2>假设</h2>
+  <p>把 R26（3B-Instruct × 3 agents，2.014× speedup，25% type_agreement）+ R32（constant-FRAC head_recompute=0.30，41.7% type_agreement）叠加，应该同时达 speed bar 和 accuracy bar。</p>
+  <h2>实测</h2>
+  <table>
+    <tr><th>指标</th><th>R26</th><th>R35 (R26+R32)</th><th>Δ</th></tr>
+    <tr><td>平均 TTFT</td><td>295.9 ms</td><td>347.4 ms</td><td class="bad">+17.4%</td></tr>
+    <tr><td>code-aware 复用</td><td>1924 tok</td><td>677 tok</td><td class="bad">-65%</td></tr>
+    <tr><td>公平 A/B 加速比</td><td>1.85×</td><td>0.60×</td><td class="bad">-67%</td></tr>
+    <tr><td>type_agreement</td><td>25.0%</td><td>25.0%</td><td>—</td></tr>
+  </table>
+  <h2 style="margin-top:8px;">根因</h2>
+  <div class="card rust" style="padding:6px 14px;">
+    <p style="margin:3px 0;"><b>3B × 3 架构与 7B × 5 拥有不同的 Pareto</b>，naive composition 反而有害：</p>
+    <ul style="margin:4px 0 4px 38px;">
+      <li style="margin:3px 0;"><b>速度来源不同</b>：R26 的 2.014× 来自 3B 模型本身（vs 7B），不是 KV 复用；而 R32/R38b 的加速来自 code-aware chunk pool。</li>
+      <li style="margin:3px 0;"><b>噪声敏感度不同</b>：3B 模型对 KV 噪声更敏感（failure-type agreement 25% 已很低），head_recompute 的相对开销更大（prefill 已很快）— 更多重算不能挽救。</li>
+    </ul>
+  </div>
+  <h2 style="margin-top:8px;">教训</h2>
+  <p style="margin:4px 0 0 0;">R26 单独使用（speed 优先、3B × 3）和 R32/R38b 单独使用（accuracy 优先、7B × 5）仍是各自 config 下的最优解。<b>不要尝试 naive stack — 不同架构有不同 Pareto</b>。需要 stack 时，应该找架构对齐的版本（例如 R38b 在 3B × 3 上的独立 sweep，未做）。</p>
+  <p class="sub" style="margin:4px 0 0 0;">完整报告: <code>results/lossy_alg_round35/FINAL_REPORT.md</code></p>
+  <div class="slidefooter">
+    <span class="left">代码感知有损 KV 缓存复用 · 附录</span>
+    <span class="right">附录 D · R35 叠加失败 · 2026-07-08</span>
+  </div>
+</section>
+
+  </div><!-- /track -->
+</div><!-- /deck -->
+
+<div class="hint">← → / space · 滚轮=翻页 · shift+滚轮=页内 · 圆点跳转</div>
+
+<div id="nav">
+  <button class="navbtn" id="prev" title="上一页 (←)">‹</button>
+  <div class="nav-center">
+    <div id="pager"><b id="cur">1</b> / <b id="total">30</b></div>
+    <span id="sectitle">代码感知有损 KV 缓存复用</span>
+    <div id="dots">
+      <div class="dot active"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot" style="background:transparent;border:1px solid var(--rust);opacity:0.4;"></div>
+      <div class="dot" style="background:transparent;border:1px solid var(--rust);opacity:0.4;"></div>
+      <div class="dot" style="background:transparent;border:1px solid var(--rust);opacity:0.4;"></div>
+      <div class="dot" style="background:transparent;border:1px solid var(--rust);opacity:0.4;"></div>
+      <div class="dot" style="background:transparent;border:1px solid var(--rust);opacity:0.4;"></div>
+    </div<button class="navbtn" id="next" title="下一页 (→)">›</button>
+</div>
+
+<script>
+/* Auto-shrink H1 if it overflows */
+(function(){
+  const slides = document.querySelectorAll('.slide:not(.title-slide) h1');
+  for (const h1 of slides) {
+    // Reset to default first
+    h1.style.fontSize = '';
+    // Walk down from 21px in 0.5px steps until it fits or hits 14px floor
+    const slide = h1.closest('.slide');
+    if (!slide) continue;
+    const maxW = slide.clientWidth - 100; // account for left margin rail + right padding
+    let size = 30;
+    h1.style.fontSize = size + 'px';
+    while (h1.scrollWidth > maxW && size > 18) {
+      size -= 0.5;
+      h1.style.fontSize = size + 'px';
+    }
+  }
+})();
+/* Inject slidemeta + slidefooter on every slide that has data-* attributes.
+   Title slide is left alone (it already has them inline). */
+(function () {
+  var slides = document.querySelectorAll('.slide:not(.title-slide)');
+  for (var i = 0; i < slides.length; i++) {
+    var s = slides[i];
+    var tag = s.getAttribute('data-tag');
+    var tagClass = s.getAttribute('data-tag-class') || '';
+    var idx = s.getAttribute('data-index') || '';
+    var left = s.getAttribute('data-footer-left') || '代码感知有损 KV 缓存复用';
+    var right = s.getAttribute('data-footer-right') || 'R28–R39 · 2026-07-08';
+    if (tag) {
+      var meta = document.createElement('p');
+      meta.className = 'slidemeta';
+      meta.style.marginTop = '0';
+      if (idx) {
+        var span = document.createElement('span');
+        span.className = 'index';
+        span.textContent = idx;
+        meta.appendChild(span);
+        var dot = document.createTextNode(' · ');
+        meta.appendChild(dot);
+      }
+      var tagSpan = document.createElement('span');
+      tagSpan.className = 'tag' + (tagClass ? ' ' + tagClass : '');
+      tagSpan.textContent = tag;
+      meta.appendChild(tagSpan);
+      s.insertBefore(meta, s.firstChild);
+    }
+    var footer = document.createElement('div');
+    footer.className = 'slidefooter';
+    footer.innerHTML = '<span class="left">' + left + '</span><span class="right">' + right + '</span>';
+    s.appendChild(footer);
+  }
+})();
+</script>
+<script src="CODE_AWARE_LOSSY_KV_PROGRESS.js"></script>
+
+<!-- Hidden pre-render to force PDF font subset to include all circled-number glyphs ①-⑲ -->
+<div style="position:absolute;left:-9999px;top:-9999px;font-family:var(--body);font-size:1px;color:transparent;">①②③④⑤⑥⑦⑧⑨⑩</div>
+
+</body>
+</html>

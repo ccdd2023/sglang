@@ -1,5 +1,11 @@
 # R40 — Combined report (2026-07-09)
 
+> ⚠ **n=15 supersedes n=5 (2026-07-09)** — 本报告 Phase 2 的 `git apply 0/5 vs 1/5` 数字来自 n=5 verdict harness，已被 n=15 scale-up 推翻。
+> - 当前推荐 **R32 (FRAC=0.30)** 而非 R38b（n=15 上 R38b 略慢且略差 — 6.7% vs R32 9.8% vs lossless 10.7% type_match/25）
+> - 客观 judge 是 R40 Phase 2 的 5-agent coding_pipeline + `git apply --check`（已部分保留作 code-gen 信号；见 deck slide 28）
+> - HKVD 机制经 `results/hkvd_by_position_20260709/` 实测验证（pos1 K_dev +7.2% > pos5）
+> - **权威源**：`results/SCALE15_HKVD_REPORT.md` + `results/CODE_AWARE_LOSSY_KV_PROGRESS_R28_R39.html` deck slide 20/28
+
 Three phases shipped: **TTFT breakdown instrumentation (P1)** +
 **5-agent coding_pipeline task with objective git-apply judge (P2)** +
 **type-aware FRAC override (P3)**.

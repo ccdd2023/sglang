@@ -306,3 +306,10 @@ results/**/*.stdout
 results/**/*.log
 results/**/precompute*.log
 results/kvcomm_ab/*.stdout
+
+# Manual deck snapshots — never commit (regenerable from git history).
+*.bak-*
+*.backup_*-pre_*
+
+# LaTeX build artifacts — regenerable via `make` in reports/.
+reports/build/

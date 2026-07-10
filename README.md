@@ -66,25 +66,28 @@ This repository is a fork of SGLang that adds **code-aware KV cache reuse for Co
 - **C2 / MULTI_SLOT** — CacheBlend gap-prefill + multi-slot batched copy (stage the leading gap with real KV, then copy all matching slots in one alloc/move/RoPE).
 - **L3** (MiniLM semantic k-NN) is **deprecated** — research only; byte-exact match is the reuse gate.
 
-**Current state (2026-07-07, post-R37 honest):** the speed bar is met (MULTI_SLOT
-gives 7.5× vs lossless for hitters; R26 3B × 3 verdict-task gives 2.014× at
-27% FAIL_acc; R19 7B × 5 verdict-task gives 1.29× at 80% accuracy agreement),
-but substantial cross-context KV reuse is **lossy** (F1 drops 0.46 → 0.00 as
-reuse grows 1400 → 7100 tok) because KV at layers > 0 encodes the preceding
-prefix. The only remaining path to both speed and accuracy is true
-CacheBlend (attention recompute). R33-R37 SWE-bench fix-mode confirms
+**Current state (2026-07-10, post-n=15 honest):** the speed bar is met
+(**R32 = 1.38× TTFT** at n=15, 745/753 vs 1032ms lossless), but at scale-15
+verdict-task the method is a **speed optimization not accuracy preservation**
+(lossless 10.7% > R32 9.8% > R38b 6.7% type_match on hard cases). HKVD-by-position
+mechanism is **empirically validated** (pos1 K_dev +7.2% > pos5, see
+`results/hkvd_by_position_20260709/`). **R32 (constant FRAC=0.30 head_recompute)
+is recommended over R38b** (per-chunk-position FRAC 0.60/0.15). Substantial
+cross-context KV reuse is still **lossy** because KV at layers > 0 encodes
+the preceding prefix — the only path to true accuracy is CacheBlend
+attention recompute (slide 18 roadmap). R33-R37 SWE-bench fix-mode confirms
 `codeaware_reused_tokens > 0` for the first time (1548 tok, matplotlib
-lossy after multi-instance pool fill). Full timeline, results tables,
-and the proven fundamental limit are in [`results/CODE_AWARE_LOSSY_KV_PROGRESS.md`](results/CODE_AWARE_LOSSY_KV_PROGRESS.md).
-21-slide visual deck: [`results/CODE_AWARE_LOSSY_KV_PROGRESS.html`](results/CODE_AWARE_LOSSY_KV_PROGRESS.html).
+lossy after multi-instance pool fill). **35-slide visual deck (current)**
+[`results/CODE_AWARE_LOSSY_KV_PROGRESS_R28_R39.html`](results/CODE_AWARE_LOSSY_KV_PROGRESS_R28_R39.html)
+(include novelty 不足② + slide 18 补救路线图). Handoff: [`CLAUDE.md`](CLAUDE.md).
 
 Quick links:
-- [CANONICAL_TARGET.md](CANONICAL_TARGET.md) — single source of truth: goal, current state, invariants
-- [HANDOFF.md](HANDOFF.md) — current session state
-- [results/SESSION_WRAP.md](results/SESSION_WRAP.md) — R19/R26/R27 verdict-task 3-way comparison (2026-07-06)
-- [results/CODE_AWARE_LOSSY_KV_PROGRESS.md](results/CODE_AWARE_LOSSY_KV_PROGRESS.md) — master progress + timeline + results
+- [CLAUDE.md](CLAUDE.md) — canonical next-session handoff (goal, state, files, constraints, open work)
+- [results/CODE_AWARE_LOSSY_KV_PROGRESS_R28_R39.html](results/CODE_AWARE_LOSSY_KV_PROGRESS_R28_R39.html) — 35-slide current deck
+- [results/SCALE15_HKVD_REPORT.md](results/SCALE15_HKVD_REPORT.md) — n=15 scale-up + HKVD measurement (authoritative for n>5)
+- [results/R40_COMBINED_REPORT.md](results/R40_COMBINED_REPORT.md) — R40 Phase 1/2/3 implementation (top has n=15 supersession banner)
 - [results/R34_R37_SUMMARY.md](results/R34_R37_SUMMARY.md) — R33-R37 SWE-bench fix-mode evidence
-- [results/kvcomm_ab/CROSS_POSITION_REPORT.md](results/kvcomm_ab/CROSS_POSITION_REPORT.md) — cross-position fix + 7B + partial-share results
+- [results/r##_tech_name_index.md](results/r##_tech_name_index.md) — R## → algorithm name map
 - [python/sglang/srt/mem_cache/radix_cache.py](python/sglang/srt/mem_cache/radix_cache.py) — L2/L4/C2/MULTI_SLOT reuse implementation
 - [python/sglang/srt/mem_cache/ast_chunker.py](python/sglang/srt/mem_cache/ast_chunker.py) — L4 server-side AST chunker
 
