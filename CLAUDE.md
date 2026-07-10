@@ -133,6 +133,8 @@ export SGLANG_PRECOMPUTE_SELECTIVE_REFRESH_FRAC=0.25
 5. `results/R40_COMBINED_REPORT.md` — R40 Phase 1/2/3 实现（顶部有 n=15 超越横幅）
 
 参考附录（保留，含原始数字 + 复现命令）：
+- `results/RELATED_WORK.md` — **paper-ready Related Work section**，23 个最相关系统的算法机制 + pseudocode + 适用性分析（2026-07-10 deepresearch 综合）
+- `results/DEEPRESEARCH_*.md` (7 份) — KV cache SOTA / speculative decoding / multi-agent coding / code-feature-driven / negative results / commercial systems / synthesis
 - `results/HARNESS_CHANGE_NOTES_20260707.md` — R36/R37 harness 变更
 - `results/research_code_aware_kv_reuse_2026-07-06.md` — 5-agent 文献综述（14 arxiv）
 - `results/r##_tech_name_index.md` — R## → 算法名映射
