@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>代码感知有损 KV 缓存复用 — Weekly Progress (按块位置分层的 FRAC, 2026-07-08)</title>
+<title>代码感知有损 KV 缓存复用 — Weekly Progress (按块位置分层的 FRAC, 2026-07-09)</title>
 <style>
   /* 16:9 PPT aspect — 1280×720 viewport, 720px page.
      Design: pre-print / scientific-typesetting aesthetic. Midnight ink + parchment text,
@@ -183,7 +183,7 @@
   pre .a { color: var(--accent); } /* accent / highlight */
   table {
     border-collapse: collapse;
-    width: calc(100% - 28px);
+    width: calc(100% - 40px);
     margin: 6px 20px 6px 20px;
     font-size: 13px;
   }
@@ -460,58 +460,59 @@
   <p class="sub" style="font-size:11.5px;">branch fix/placeholder-pool-activation · HEAD bc3e7f3fb · Qwen2.5-Coder-7B × 5 verdict + 5 coding_pipeline</p>
   <div class="numgrid" style="margin-top:18px;max-width:1100px;margin-left:0;margin-right:0;">
     <div class="numcell">
-      <div class="label">constant-FRAC head_recompute (R32)</div>
-      <div class="val">41.7<span style="font-size:14px;color:var(--text-dim);">%</span></div>
-      <div class="sub">type_agreement, 上周 Pareto</div>
+      <div class="label">TTFT 加速 (n=15, solid)</div>
+      <div class="val" style="color:var(--leaf);">1.38<span style="font-size:14px;color:var(--text-dim);">×</span></div>
+      <div class="sub">745/753 vs 1032ms · 真实 code-aware 复用</div>
     </div>
     <div class="numcell verified">
-      <div class="label">按块位置分层的 FRAC (R38b)</div>
-      <div class="val" style="color:var(--accent);">50.0<span style="font-size:14px;">%</span></div>
-      <div class="sub">+8.3pp, 3× 字节级精确复现</div>
+      <div class="label">HKVD 位置代理实测</div>
+      <div class="val" style="color:var(--accent);">✓ +7.2<span style="font-size:14px;">%</span></div>
+      <div class="sub">pos1 K 偏差 > pos5（slide 18，非假设）</div>
     </div>
     <div class="numcell">
-      <div class="label">TTFT 代价</div>
-      <div class="val" style="color:var(--leaf);">-0.9<span style="font-size:14px;color:var(--text-dim);">">%</span></div>
-      <div class="sub">703 vs 709 毫秒 (复用者)</div>
+      <div class="label">诚实修正 (n=5->15)</div>
+      <div class="val" style="color:var(--rust);">acc 未泛化</div>
+      <div class="sub">n=5 易 case 偏置；推荐 R32 > R38b</div>
     </div>
   </div>
   <figure class="svgfig" style="margin:14px auto 0 auto;justify-content:center;">
-    <svg width="500" height="111" viewBox="0 0 540 120" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-label="Pareto 曲线：type_agreement vs 平均 TTFT">
-      <!-- axes -->
-      <line x1="40" y1="100" x2="510" y2="100" stroke="#2a3a5c" stroke-width="0.6"/>
-      <line x1="40" y1="20"  x2="40"  y2="100" stroke="#2a3a5c" stroke-width="0.6"/>
-      <text x="42" y="22"  fill="#6b6b6b" font-family="ui-monospace, monospace" font-size="8.5" letter-spacing="0.5">type_agreement %</text>
-      <text x="450" y="116" fill="#6b6b6b" font-family="ui-monospace, monospace" font-size="8.5" letter-spacing="0.5">平均 TTFT (ms, 复用者)</text>
-      <!-- grid -->
-      <line x1="40" y1="40"  x2="510" y2="40"  stroke="#2a3a5c" stroke-width="0.3" stroke-dasharray="2 4"/>
-      <line x1="40" y1="60"  x2="510" y2="60"  stroke="#2a3a5c" stroke-width="0.3" stroke-dasharray="2 4"/>
-      <line x1="40" y1="80"  x2="510" y2="80"  stroke="#2a3a5c" stroke-width="0.3" stroke-dasharray="2 4"/>
-      <!-- baseline: lossless 38.5% / 932 ms -->
-      <circle cx="490" cy="72" r="3.2" fill="#a8a094" stroke="#0e1726" stroke-width="1.2"/>
-      <text x="498" y="70" fill="#a8a094" font-family="ui-monospace, monospace" font-size="8" text-anchor="end">lossless 38.5% / 932 毫秒</text>
-      <!-- R19 baseline 40.0% / 705 毫秒 -->
-      <circle cx="380" cy="69" r="3.2" fill="#a8a094" stroke="#0e1726" stroke-width="1.2"/>
-      <text x="375" y="86" fill="#a8a094" font-family="ui-monospace, monospace" font-size="8" text-anchor="end">R19 40.0% / 705 毫秒</text>
-      <!-- R32 41.7% / 709 毫秒 (prior Pareto) -->
-      <circle cx="375" cy="67" r="3.6" fill="#a4644a" stroke="#0e1726" stroke-width="1.2"/>
-      <text x="370" y="60" fill="#a4644a" font-family="ui-monospace, monospace" font-size="8" text-anchor="end">R32 41.7% / 709 毫秒</text>
-      <!-- R37 45.5% / 714 ms -->
-      <circle cx="330" cy="63" r="3.2" fill="#d4a73a" stroke="#0e1726" stroke-width="1.2"/>
-      <text x="325" y="56" fill="#d4a73a" font-family="ui-monospace, monospace" font-size="8" text-anchor="end">R37 45.5% / 714 毫秒</text>
-      <!-- R38b 50.0% / 703 毫秒 (NEW PARETO) — highlighted -->
-      <circle cx="340" cy="58" r="7" fill="#4ec9d4" stroke="#0e1726" stroke-width="1.5"/>
-      <circle cx="340" cy="58" r="11" fill="none" stroke="#4ec9d4" stroke-width="1" opacity="0.5"/>
-      <text x="350" y="46" fill="#4ec9d4" font-family="ui-monospace, monospace" font-size="9.5" font-weight="600">R38b  50.0% / 703 毫秒</text>
-      <text x="350" y="56" fill="#4ec9d4" font-family="ui-monospace, monospace" font-size="7.5" font-style="italic">新 Pareto</text>
-      <!-- Pareto curve (spline through R19 → R32 → R37 → R38b) -->
-      <path d="M 380 69 Q 378 67 375 67 Q 350 65 330 63 Q 335 60 340 58"
-            fill="none" stroke="#4ec9d4" stroke-width="1.2" opacity="0.55" stroke-dasharray="3 2"/>
+<svg width="500" height="118" viewBox="0 0 540 130" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-label="Pareto: type_match/25 vs TTFT">
+      <!-- axes: x=TTFT (left=fast), y=type_match (top=more correct) -->
+      <line x1="40" y1="110" x2="510" y2="110" stroke="#2a3a5c" stroke-width="0.6"/>
+      <line x1="40" y1="18"  x2="40"  y2="110" stroke="#2a3a5c" stroke-width="0.6"/>
+      <text x="44" y="20"  fill="#6b6b6b" font-family="ui-monospace, monospace" font-size="8.5" letter-spacing="0.5">type_match / 25</text>
+      <text x="430" y="126" fill="#6b6b6b" font-family="ui-monospace, monospace" font-size="8.5" letter-spacing="0.5">平均 TTFT (ms, 左=快)</text>
+      <!-- high band: match=5 (y=34) = lossless level -->
+      <line x1="40" y1="34" x2="510" y2="34" stroke="#2a3a5c" stroke-width="0.3" stroke-dasharray="2 4"/>
+      <text x="44" y="32" fill="#6b6b6b" font-family="ui-monospace, monospace" font-size="7">5/25 = 20% (= lossless)</text>
+      <!-- low band: match=2 (y=82) = copy-only loss -->
+      <line x1="40" y1="82" x2="510" y2="82" stroke="#2a3a5c" stroke-width="0.3" stroke-dasharray="2 4"/>
+      <text x="44" y="80" fill="#6b6b6b" font-family="ui-monospace, monospace" font-size="7">2/25 = 8% (copy-only)</text>
+      <!-- copy-only low band: R19 (705ms,2) L4 (705ms,2) -->
+      <circle cx="62" cy="82" r="3.2" fill="#a8a094" stroke="#0e1726" stroke-width="1.2"/>
+      <text x="68" y="86" fill="#a8a094" font-family="ui-monospace, monospace" font-size="7.5">R19/L4 copy-only 705ms</text>
+      <!-- lossless (939ms,5) far right top -->
+      <circle cx="488" cy="34" r="3.2" fill="#a8a094" stroke="#0e1726" stroke-width="1.2"/>
+      <text x="484" y="30" fill="#a8a094" font-family="ui-monospace, monospace" font-size="7.5" text-anchor="end">lossless 939ms</text>
+      <!-- R32 (709ms,5) recovery point -->
+      <circle cx="68" cy="34" r="3.6" fill="#a4644a" stroke="#0e1726" stroke-width="1.2"/>
+      <text x="74" y="30" fill="#a4644a" font-family="ui-monospace, monospace" font-size="7.5">R32 709ms (恢复 2->5)</text>
+      <!-- R37 (714ms,5) -->
+      <circle cx="77" cy="34" r="3" fill="#d4a73a" stroke="#0e1726" stroke-width="1.2"/>
+      <!-- R38b (703ms,5) speed-Pareto - highlighted, leftmost -->
+      <circle cx="58" cy="34" r="7" fill="#4ec9d4" stroke="#0e1726" stroke-width="1.5"/>
+      <circle cx="58" cy="34" r="11" fill="none" stroke="#4ec9d4" stroke-width="1" opacity="0.5"/>
+      <text x="64" y="22" fill="#4ec9d4" font-family="ui-monospace, monospace" font-size="8.5" font-weight="600">R38b 703ms speed-Pareto</text>
+      <!-- recovery arrow: R19(low) -> R32(high) -->
+      <path d="M 62 78 C 60 60 64 50 68 38" fill="none" stroke="#a4644a" stroke-width="1" opacity="0.6" stroke-dasharray="3 2" marker-end="url(#arr)"/>
+      <defs><marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#a4644a"/></marker></defs>
+      <text x="120" y="58" fill="#a4644a" font-family="ui-monospace, monospace" font-size="7" font-style="italic">head_recompute 恢复 2->5</text>
     </svg>
   </figure>
   <p class="meta" style="margin-top:8px;font-size:10px;">branch fix/placeholder-pool-activation · HEAD bc3e7f3fb</p>
   <div class="slidefooter">
     <span class="left">EuroSys 2026 投稿目标 · 代码感知有损 KV 缓存复用</span>
-    <span class="right">按块位置分层的 FRAC · 2026-07-08</span>
+    <span class="right">按块位置分层的 FRAC · 2026-07-09</span>
   </div>
 </section>
 
@@ -527,8 +528,8 @@
     <li><span class="accent">新特性默认 OFF</span> — 通过环境变量显式开启</li>
     <li><span class="accent">可用 deep research</span> — 寻找算法候选</li>
   </ul>
-  <h2>本周交付的核心 Pareto</h2>
-  <p>按块位置分层的 FRAC (R38b) = (FRAC_EARLY=0.60, FRAC_LATE=0.15, EARLY_N=2) — 7B-Coder × 5 verdict task; +8.3pp type_agreement, -0.9% TTFT, +38% code-aware 复用; 3× 字节级精确复现。详细 benchmark 配置见下页。</p>
+  <h2>本周交付的核心结论（诚实重算）</h2>
+  <p>跨上下文 KV copy 本质有损（copy-only 仅 2/25 正确分类故障类型）；<b>head_recompute (R32, FRAC=0.30) 把精度恢复到 lossless 水平 (5/25 = 20%)</b>--这是真贡献；<b>按块位置分层 FRAC (R38b, 0.60/0.15/N=2) 保持 5/25 精度同时复用 +38%、TTFT -0.9%</b>，是 lossless-matched 精度下的<b>速度</b> Pareto 点（非精度提升）。旧指标 type_match/FAIL（38.5/41.7/50%）分母敏感，已弃用。n=5 case，详见下页。</p>
 </section>
 
 <section class="slide" data-tag="实验设计" data-index="主体 2 / 32 · (2)">
@@ -563,11 +564,11 @@
   <table>
     <tr><th>指标</th><th>定义</th><th>方向</th></tr>
     <tr><td>TTFT (avg 复用者, ms)</td><td>非源 agent 的首 token 时间</td><td>↓</td></tr>
-    <tr><td>Verdict 分布</td><td>通过/失败/未识别 + 失败 6 类故障细分</td><td>均衡</td></tr>
-    <tr><td><b>与 lossless 的 type_agreement</b></td><td>primary accuracy 指标</td><td>↑</td></tr>
-    <tr><td>code-aware 复用（token 数）</td><td>placeholder_chunk_pool 命中计数</td><td>↑</td></tr>
+    <tr><td><b>type_match / 25</b>（固定分母）</td><td>正确分类的失败类型数 ÷ 25 行。<b>primary accuracy</b>。lossless=R32=R38b=5/25=20%（tie）</td><td>↑</td></tr>
+    <tr><td>FAIL_acc（特异性）</td><td>GT=FAIL 时模型也判 FAIL 的比例。lossless 52% &gt; R38b 40%（复用 regime 更宽松、更多 UNK）</td><td>↑</td></tr>
+    <tr><td>code-aware 复用（token 数）</td><td>placeholder_chunk_pool 命中 token（c2_chunk_reused）</td><td>↑</td></tr>
   </table>
-  <p class="sub">公平 A/B 校验（analyze_fair_ab.py）：warmup-parity 门控、ephemeral-copy 标志、源 agent 排除、radix vs code-aware 计数分解。 <span class="warn">注意</span>：当 radix_delta ≠ 0 时，speedup 数据不可信；accuracy 仍可信。</p>
+  <p class="sub">公平 A/B 校验（analyze_fair_ab.py）：warmup-parity 门控、ephemeral-copy 标志、源 agent 排除、radix vs code-aware 计数分解。 <span class="warn">指标修正</span>：旧版 type_match/FAIL 行（38.5/41.7/50%）分母 = FAIL verdict 数，受 verdict 频率影响（R38b 出 FAIL 更少→分母更小→%更高，但绝对正确数仍 5），已弃用为次级参考；primary 改用固定分母 type_match/25。</p>
 </section>
 
 <section class="slide" data-tag="术语解释" data-tag-class="verified" data-index="主体 4 / 32 · (4)">
@@ -589,11 +590,11 @@
   <h2 style="margin:6px 0 4px 20px;">2 个核心评估指标 + FRAC 杠杆</h2>
   <div class="card" style="margin-top:0;padding:4px 14px;">
     <p style="margin:1px 0;font-size:13px;">
-      <b>TTFT (ms)</b> — 复用者从请求到首 token 的延迟。↓ 越低越好（speed）。<br>
-      <b>type_agreement (%)</b> — 输出故障类型与 lossless 一致的比例。↑ 越高越好，<b>primary accuracy 指标</b>。<br>
-      <b>FRAC</b> = 0.30（例）→ 每个被选中的 chunk，<b>前 30% token 自己 dense_prefill</b>，剩下 70% 直接 copy。<br>
+      <b>TTFT (ms)</b> - 复用者从请求到首 token 的延迟。↓ 越低越好（speed）。<br>
+      <b>type_match / 25</b> - 正确分类的失败类型数 ÷ 25。↑ 越高越好，<b>primary accuracy</b>。lossless=R32=R38b=5/25=20%（tie）。<br>
+      <b>FRAC</b> = 0.30（例）-> 每个被选中的 chunk，<b>前 30% token 自己 dense_prefill</b>，剩下 70% 直接 copy。<br>
       <b>FRAC_EARLY / FRAC_LATE</b>：前 <code>EARLY_N=2</code> 个 chunk 走 EARLY 档（0.60），第 3 个起走 LATE 档（0.15）。
-      <span class="warn">直觉</span>：早期 chunk 离跨上下文前缀边界最近 → stale KV 风险最高 → 多算一点；后期多 copy。
+      <span class="badge good">实测验证 (slide 18)</span>：早期 chunk K 偏差比晚期高 7.2%（prefix swap 实测）-> stale KV 风险更高 -> 多算一点；后期多 copy。位置是 HKVD 的粗代理（粒度粗于 per-layer，但方向已实测）。
     </p>
   </div>
 
@@ -604,37 +605,12 @@
 <section class="slide" data-tag="Prompt 样例" data-tag-class="verified" data-index="主体 5 / 32 · (5)">
   <h1 style="margin-bottom:6px;"><span class="num">(5)</span> 真实 prompt 样例 — verdict 任务 5-agent 间差异</h1>
   <h2 style="margin:6px 0 4px 20px;">System prompt（5 个 agent 完全一致）</h2>
-  <pre style="font-size:12.5px;padding:4px 12px;"><span class="g">{"role": "system", "content": "You are a senior code reviewer."}</span></pre>
-
-  <h2 style="margin:6px 0 4px 20px;">User body（每个 agent 不同的部分 — 前 250 token）</h2>
-  <table style="margin-top:0;">
-    <tr><th style="width:14%;">Agent</th><th style="width:18%;">Role</th><th>User body 头部差异（其余 5 段代码相同）</th></tr>
-    <tr><td>1 (源)</td><td><b>implementer</b></td><td><code>## Agent role<br>implementer<br>## Case<br>pandas-dev__pandas.95280573...<br>## Instruction<br>Inspect the repeated repository code. Decide if the code needs a fix...</code></td></tr>
-    <tr><td>2</td><td><b>debugger</b></td><td><code>## Agent role<br>debugger<br>## Case<br>...<br>## Instruction<br>...</code> + extra 上下文：<code>"Previous agent index: 1"</code></td></tr>
-    <tr><td>3</td><td><b>reviewer</b></td><td>同 agent 2 格式，<code>Previous agent index: 2</code></td></tr>
-    <tr><td>4</td><td><b>verifier</b></td><td>同 agent 2 格式，<code>Previous agent index: 3</code></td></tr>
-    <tr style="background:#122117;"><td>5</td><td><b>auditor</b></td><td>同 agent 2 格式，<code>Previous agent index: 4</code></td></tr>
-  </table>
-
-  <h2 style="margin:6px 0 4px 20px;">5 段代码（每个 ~30-50 token，agent 间完全相同 — byte-exact 复用的关键）</h2>
-  <pre style="font-size:11px;padding:4px 12px;line-height:1.45;"><span class="c">## code_base1: pandas/core/interchange/column.py · class PandasColumn</span>
+  <pre style="font-size:11px;padding:4px 12px;line-height:1.4;"><span class="c">## code_base1: pandas/core/interchange/column.py · class PandasColumn</span>
 class PandasColumn(Column):
-    """A column object, with only the methods and properties required by the
-    interchange protocol defined."""
-    _null_str: str | None = None
-    _is_valid: bool = True
-    _isna: Callable[[Any], bool] = None
+    """A column object, with only the methods and properties required by the interchange protocol defined."""
     _dtype: Dtype | None = None
-
-<span class="c">## code_base2: pandas/core/interchange/buffer.py · class PandasBuffer</span>
-class PandasBuffer(Buffer):
-    """Data in the buffer is guaranteed to be contiguous."""
-    def __init__(self, x: Array, allow_copy: bool = True) -> None: ...
-    @property
-    def bufsize(self) -> int: return self._x.nbytes
-
-<span class="c">## code_base3-5: 同文件的其他 class/function（interchange 协议实现）</span>
-<span class="y">… 后面 3 段略，完整 5 段 ≈ 650 token，5 个 agent 完全相同</span></pre>
+<span class="c">## code_base2: pandas/core/interchange/buffer.py · class PandasBuffer（同样 ~6 行）</span>
+<span class="y">… code_base3-5 同文件其他 class/function；完整 5 段 ≈ 650 token，5 个 agent 完全相同（byte-exact 复用关键）</span></pre>
 
   <h2 style="margin:6px 0 4px 20px;">期望输出（5 个 agent 同样格式）</h2>
   <pre style="font-size:12.5px;padding:4px 12px;"><span class="g">## Output
@@ -649,13 +625,13 @@ or
 <section class="slide" data-tag="TTFT 拆解" data-tag-class="verified" data-index="主体 6 / 32 · (6)">
   <h1 style="margin-bottom:6px;"><span class="num">(6)</span> TTFT 组成拆解 — lossless vs R38b 时间轴对比</h1>
   <h2 style="margin:6px 0 4px 20px;">lossless（黄金 baseline）— 全部 dense_prefill，~932 ms</h2>
-  <pre style="font-size:11.5px;padding:4px 12px;line-height:1.45;"><span class="c">time ─────────────────────────────────────────────────────────►  (ms)</span>
+  <pre style="font-size:10.5px;padding:3px 12px;line-height:1.3;"><span class="c">time ─────────────────────────────────────────────────────────►  (ms)</span>
 <span class="c">0       100      200      300      400      500      600      700      800      900</span>
 <span class="r">|tokenize|████████████ full prefill of 7396 prompt tokens ████████████████████████|TTFT|
         ~12ms      ≈ 920 ms（7B model, ~0.12 ms/token × 7396）</span></pre>
 
   <h2 style="margin:6px 0 4px 20px;">R38b（按块位置分层的 FRAC）— ~703 ms（−24%）</h2>
-  <pre style="font-size:11.5px;padding:4px 12px;line-height:1.45;"><span class="c">time ─────────────────────────────────────────────────────────►  (ms)</span>
+  <pre style="font-size:10.5px;padding:3px 12px;line-height:1.3;"><span class="c">time ─────────────────────────────────────────────────────────►  (ms)</span>
 <span class="c">0    50    100   150   200   250   300   350   400   450   500   550   600   650   700</span>
 <span class="g">|tok|</span><span class="a">|radix 110tok|</span><span class="y">|chunk plan + pool query|</span><span class="g">|── head_recompute (early, FRAC=0.60) ──|</span><span class="r">gap|</span><span class="g">|── head_recompute (late, FRAC=0.15) ──|</span><span class="g">|TTFT|</span>
 <span class="c">12ms   ~85ms (radix prefix copy)   ~20ms             ~280ms (前 2 chunks 前 60%)         ~10ms    ~280ms (后 3 chunks 前 15%)         703ms</span></pre>
@@ -680,18 +656,18 @@ or
   <h1 style="margin-bottom:6px;"><span class="num">(7)</span> Code-aware 复用做到什么程度 — 现状反思</h1>
   <h2 style="margin:6px 0 4px 20px;">Pareto 演进 — 4 个里程碑点（5×5 verdict task）</h2>
   <table style="margin-top:0;">
-    <tr><th style="width:14%;">迭代</th><th style="width:16%;">核心技术</th><th>type_agreement</th><th>avg TTFT</th><th>code-aware 复用</th><th>关键限制</th></tr>
-    <tr><td>R19</td><td>AST-chunk pool（无 head_recompute）</td><td>40.0%</td><td>705 ms</td><td>~340 tok</td><td>不选择性重算 → stale KV 全量注入</td></tr>
-    <tr><td>R32</td><td>常数 FRAC=0.30</td><td>41.7%</td><td>709 ms</td><td>333.7 tok</td><td>所有 chunk 同等对待，前期 over-copy</td></tr>
-    <tr><td>R37</td><td>分层 FRAC（0.50/0.20/N=2）</td><td>45.5%</td><td>714 ms</td><td>~400 tok</td><td>EARLY/LATE 比例不够极端</td></tr>
-    <tr style="background:#122117;"><td><b>R38b</b></td><td><b>分层 FRAC（0.60/0.15/N=2）</b></td><td><b style="color:var(--accent);">50.0%</b></td><td><b>703 ms</b></td><td><b>460.9 tok</b></td><td><b>NEW PARETO</b>，但仍未触顶</td></tr>
+    <tr><th style="width:14%;">迭代</th><th style="width:16%;">核心技术</th><th>type_match/25</th><th>avg TTFT</th><th>code-aware 复用</th><th>关键限制</th></tr>
+    <tr><td>R19</td><td>AST-chunk pool（无 head_recompute）</td><td>2/25 = 8%</td><td>705 ms</td><td>495.4 tok</td><td>copy-only -> 跨上下文 KV 损失（仅 2 正确）</td></tr>
+    <tr><td>R32</td><td>常数 FRAC=0.30</td><td>5/25 = 20%</td><td>709 ms</td><td>333.7 tok</td><td>head_recompute 恢复到 lossless（2->5）</td></tr>
+    <tr><td>R37</td><td>分层 FRAC（0.50/0.20/N=2）</td><td>5/25 = 20%</td><td>714 ms</td><td>342.4 tok</td><td>= R32 精度，位置分层未提精度</td></tr>
+    <tr style="background:#122117;"><td><b>R38b</b></td><td><b>分层 FRAC（0.60/0.15/N=2）</b></td><td><b style="color:var(--accent);">5/25 = 20%</b></td><td><b>703 ms</b></td><td><b>460.9 tok</b></td><td><b>speed-Pareto</b>（=lossless 精度，复用 +38%）</td></tr>
   </table>
 
   <h2 style="margin:6px 0 4px 20px;">还没达成 — 3 个未完成目标</h2>
   <div class="numgrid" style="margin-top:4px;">
     <div class="numcell"><div class="label">5/5 case 全一致性</div><div class="val" style="font-size:24px;color:var(--rust);">未达成</div><div class="sub">R38b: 19/25 case 命中 code-aware；6 个 case 仍在 no_pool_entry/dense_prefill</div></div>
     <div class="numcell"><div class="label">FAIL_acc 超过 lossless</div><div class="val" style="font-size:24px;color:var(--rust);">40% &lt; 52%</div><div class="sub">lossless FAIL 准确率 52%；R38b 仅 40%（特异性反而下降 — 详见 slide (16)）</div></div>
-    <div class="numcell"><div class="label">Token-F1 = 1.0</div><div class="val" style="font-size:24px;color:var(--rust);">F1 不可信</div><div class="sub">verdict 任务输出短，F1 信号弱；用 type_agreement 替代</div></div>
+    <div class="numcell"><div class="label">Token-F1 = 1.0</div><div class="val" style="font-size:24px;color:var(--rust);">F1 不可信</div><div class="sub">verdict 输出短，F1 信号弱；改用 type_match/25（固定分母）</div></div>
   </div>
 
   <h2 style="margin:6px 0 4px 20px;">距离真实 CacheBlend 还差什么 + 下一步</h2>
@@ -758,8 +734,10 @@ SGLANG_CHUNK_POOL_PIN=...                     <span class="c"># 专用 GPU 槽�
 </section>
 
 <section class="slide" data-tag="预计算 A/B" data-index="主体 10 / 32 · (10)">
-  <h1><span class="num">(10)</span> 预计算 A/B — 7B-Coder × 5 verdict task (from <code>结果s/kvcomm_ab/</code>)</h1>
-  <h2>5×5 verdict 任务 A/B（5 case × 5 agent, Qwen2.5-Coder-7B-Instruct）</h2>
+  <h1><span class="num">(10)</span> 预计算 A/B — 历史 <code>kvcomm_ab</code> sweep vs canonical 7B×5 verdict harness</h1>
+  <p class="sub" style="margin-top:0;"><b>两套数据来源不同 harness</b>。上 3 行 = <code>kvcomm_ab</code> 早期 sweep（chunk-size=2, max-tasks=4, pandas_5case v1, max-tokens=32768）。下 1 行 = R21 canonical 7B×5 verdict（chunk-size=6, max-tasks=5, v4, 65536）。<b>不直接可比，不进 Pareto</b>。</p>
+
+  <h2 style="margin-top:8px;">A · <code>kvcomm_ab</code> 早期 sweep（chunk-size=2, max-tasks=4, pandas_5case v1, max-tokens=32768）</h2>
   <table>
     <tr><th>配置</th><th>复用命中</th><th>平均 TTFT (复用者)</th><th>Token-F1 vs lossless</th><th>备注</th></tr>
     <tr><td>lossless 参考</td><td>0/25</td><td>948 ms</td><td>1.000</td><td>baseline</td></tr>
@@ -777,6 +755,11 @@ SGLANG_CHUNK_POOL_PIN=...                     <span class="c"># 专用 GPU 槽�
       <td>TBD</td>
       <td><code>SGLANG_PRECOMPUTE_HOST_LOAD_ASYNC=1</code></td>
     </tr>
+  </table>
+
+  <h2 style="margin-top:14px;">B · Canonical 7B×5 verdict harness（chunk-size=6, max-tasks=5, pandas_5case_v4, max-tokens=65536）</h2>
+  <table>
+    <tr><th>配置</th><th>复用命中</th><th>平均 TTFT (复用者)</th><th>Token-F1 vs lossless</th><th>备注</th></tr>
     <tr>
       <td>precompute + prompt_align + selective_0.25（R17）</td>
       <td>7/25</td>
@@ -785,13 +768,14 @@ SGLANG_CHUNK_POOL_PIN=...                     <span class="c"># 专用 GPU 槽�
       <td>multi-slot + same-方向 aligned</td>
     </tr>
   </table>
+  <p class="sub" style="margin-top:6px;"><b>读法</b>：A 表论证 cross-context KV 损失本质性（F1=0.374 即便开 canonical prefix）；B 表是 R17-R39 主体 harness 早期样本（prompt_align+selective 让 F1 0.374->0.549）。<b>不直接可比，不进 Pareto</b>。</p>
   <h2><code>结果s/kvcomm_ab/</code> 中的关键发现</h2>
   <ul>
-    <li><b>Cross-position fix</b> (commit in 2026-06-30): slot_id was positional; changed to content-derived <code>code_base:{segment.name}</code> → unblocked byte-exact KVCOMM reuse (0 → 7-13/16 复用者 hit). See <code>结果s/kvcomm_ab/CROSS_POSITION_REPORT.md</code>.</li>
-    <li><b>gap-zeroing 摧毁精度</b>: C2-direct 设 gap=0 → F1=0.008（垃圾输出，把任务指令清零了）。<b>Staged gap-prefill</b> → F1=0.376, speed 1.085×（有效但仍有损）。</li>
-    <li><b>跨上下文 KV 损失是本质性的</b>：即使开了 precompute + canonical prefix + prompt_align，真实 F1 仍只有 0.374（不是 1.0）。K_cos_separation=0.04（上文 Phase 2 数据）就是 smoking gun。</li>
+    <li><b>Cross-position fix</b> (06-30): slot_id 从 positional 改为 content-derived <code>code_base:{name}</code> -> 解锁 byte-exact KVCOMM 复用（0->7-13/16 hit）。</li>
+    <li><b>gap-zeroing 摧毁精度</b>: gap=0 -> F1=0.008（垃圾）；<b>staged gap-prefill</b> -> F1=0.376, 1.085×（有效仍损）。</li>
+    <li><b>跨上下文 KV 损失本质性</b>：precompute + canonical prefix + prompt_align 全开后真实 F1 仍 0.374（非 1.0）。K_cos_separation=0.04 是 smoking gun。</li>
   </ul>
-  <p class="sub">图表: <code>结果s/kvcomm_ab/img/{alg_loss,alg_4layer,alg_crossposition,alg_multislot}.png</code> · 报告: <code>KV_BREAKDOWN_REPORT.html</code>、<code>precompute_ab_report/SUMMARY.txt</code></p>
+  <p class="sub">图表: <code>kvcomm_ab/img/{alg_loss,alg_crossposition,alg_multislot}.png</code> · 报告: <code>precompute_ab_report/SUMMARY.txt</code></p>
 </section>
 
 <section class="slide" data-tag="版本编号" data-index="主体 11 / 32 · (11)">
@@ -804,17 +788,15 @@ SGLANG_CHUNK_POOL_PIN=...                     <span class="c"># 专用 GPU 槽�
     <li>状态标签: <span class="badge good">NEW PARETO</span> · <span class="badge bad">FALSIFIED</span> · <span class="badge bad">RETRACTED</span> · <span class="badge bad">RETIRED</span> · <span class="badge bad">NEGATIVE</span></li>
   </ul>
   <h2>项目时间线（R28 → R39，全部在同一个 7B-Coder × 5 verdict benchmark 上）</h2>
-  <pre><span class="bad">R28</span>  anchor-type 过滤          NULL   (pool=100% function/class)
+<span class="bad">R28</span>  anchor-type 过滤          NULL   (pool=100% function/class)
 <span class="good">R31</span>  deep research 综述     确认 CacheBlend 是唯一可行的算法
-<span class="good">R32</span>  常数 FRAC head_recompute=0.30           41.7%（上周 Pareto）
-<span class="bad">R33</span>  imports-prelude 预置             已撤回（0.0%，违反 prompt 约束）
-<span class="bad">R34</span>  类型注解门控        已退役（33.3%，pandas 0.x 无类型注解）
-<span class="bad">R35</span>  R26 + R32 叠加         失败（0.60× 加速，3B×3 与 7B×5 的 Pareto 不同）
-<span class="good">R36</span>  常数 FRAC sweep 0.20/0.35        确认 R32 0.30 是唯一 Pareto 点
-<span class="good">R37</span>  按块位置分层的 FRAC     45.5%（EARLY=0.50, LATE=0.20, N=2）
-<span class="good">R38b</span> R37 复现 + 参数 sweep           <b>50.0%</b> NEW PARETO  (0.60/0.15/N=2)
-<span class="good">R39</span>  R38b 复现 + 推向 0.65/0.70 确认 0.60 是 plateau 起点</pre>
-  <p class="sub">R28–R39 全部在同一个 benchmark 上，只有 FRAC 杠杆在变。R38b 是 7B-Coder × 5 的推荐 Pareto 点。</p>
+<span class="good">R32</span>  常数 FRAC head_recompute=0.30   type_match 5/25=20%（恢复到 lossless；copy-only 仅 2）
+<span class="bad">R33/34</span> imports-prelude / 类型注解门控        已撤回/退役（违反约束 / pandas 无类型注解）
+<span class="bad">R35</span>  R26+R32 叠加失败   ·   <span class="good">R36</span> sweep 确认 0.30 合理（精度对 FRAC 鲁棒）
+<span class="good">R37</span>  按块位置分层的 FRAC     5/25=20%（=R32，仅提速）
+<span class="good">R38b</span> R37 复现 + 参数 sweep           5/25=20% speed-Pareto（非精度提升）
+<span class="good">R39</span>  R38b 复现 + 推向 0.65/0.70   0.50-0.65 全 20%；0.70/0.10 跌到 16%
+  <p class="sub">type_match/25：copy-only 2 -> +head_recompute 5（=lossless）。R38b = lossless-matched 精度下的速度 Pareto（非精度优于 lossless）。旧 /FAIL 指标弃用。</p>
 </section>
 
 <section class="slide" data-tag="深度调研" data-tag-class="verified" data-index="主体 12 / 32 · (12)">
@@ -837,38 +819,34 @@ SGLANG_CHUNK_POOL_PIN=...                     <span class="c"># 专用 GPU 槽�
 </section>
 
 <section class="slide" data-tag="上周 Pareto" data-index="主体 13 / 32 · (13)">
-  <h1><span class="num">(13)</span> constant-FRAC head_recompute (R32) — 上周 Pareto</h1>
+  <h1><span class="num">(13)</span> constant-FRAC head_recompute (R32) - 精度恢复点</h1>
   <h2>机制</h2>
   <ul>
     <li><code>SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC=p</code>（默认 0 = 关闭）</li>
     <li>对每个字节级精确匹配的 chunk 候选：前 <code>K = ceil(p × chunk_len)</code> 个 token → <code>dense_prefill</code>（skip_reason="head_recompute"）</li>
     <li>剩余 body token → <code>copy_pool</code> + RoPE 位置校正</li>
-    <li>近似 CacheBlend (arXiv:2405.16444) 的 per-layer HKVD 过滤，无需修改 attention kernel</li>
+    <li>CacheBlend-inspired（<b>非</b> per-layer HKVD）：连续头部 K token 重算代替散落 token 过滤，无需改 attention kernel</li>
   </ul>
   <h2>R32 数据（本周复测）</h2>
   <div class="numgrid">
-    <div class="numcell"><div class="label">type_agreement</div><div class="val">41.7%</div><div class="sub">对比 lossless 38.5%（+3.2pp）</div></div>
-    <div class="numcell"><div class="label">平均 TTFT (复用者)</div><div class="val">709<span style="font-size:14px;color:var(--text-dim);">ms</span></div><div class="sub">对比 lossless 932 毫秒，1.32×</div></div>
+    <div class="numcell"><div class="label">type_match</div><div class="val">5/25 = 20%</div><div class="sub">= lossless（从 copy-only 的 2/25 恢复）</div></div>
+      <div class="sub">对比 lossless 939 毫秒，1.32×</div>
     <div class="numcell"><div class="label">code-aware 复用</div><div class="val">333.7<span style="font-size:14px;color:var(--text-dim);">tok</span></div><div class="sub">c2_chunk_reused 计数</div></div>
   </div>
-  <p class="sub">Pareto 点: FRAC=0.30（R36 的 sweep 0.15/0.20/0.35 确认 0.30 是唯一的最优点）</p>
+  <p class="sub">精度恢复点: FRAC=0.30 把 copy-only 的 2/25 拉回 5/25（=lossless）。R36 sweep 确认 0.30 合理（精度对 FRAC 鲁棒，0.30 选的是速度/复用平衡点）。</p>
 </section>
 
 <section class="slide" data-tag="伪代码对比" data-tag-class="verified" data-index="主体 14 / 32 · (14)">
   <h1><span class="num">(14)</span> 4 个 baseline + 我们的方案 — 伪代码对比</h1>
   <h2>所有方案共享同一段流水线 — 区别只在 <code>_build_chunk_plan</code> 内部对每个 chunk 选什么 action</h2>
-  <pre><span class="c"># 公共前置</span>
+<pre><span class="c"># 公共前置 - 区别只在 _build_chunk_plan 内每个 chunk 选什么 action</span>
 def serve(req):
     chunks = ASTChunker.chunk_text(req.code_spans)       <span class="c"># 函数/class 级</span>
-    pool   = placeholder_chunk_pool                     <span class="c"># 预计算的 codebase KV 池</span>
-    plan, hit_idx = [], 0                                <span class="c"># hit_idx 仅 R38b 用</span>
-
+    pool   = placeholder_chunk_pool                     <span class="c"># 预计算 codebase KV 池</span>
     for chunk in chunks:
         entry = pool.lookup(chunk.slot_id, chunk.signature, chunk.byte_range)
-        if entry is None or not byte_exact(chunk, entry):
-            plan.append(DENSE)                          <span class="c"># 没命中 → 全算</span>
-            continue
-        <span class="c"># ───────── 命中之后，5 个方案分叉 ─────────</span></pre>
+        <span class="c"># ───── 字节精确命中后 5 方案分叉（下表）；未命中 -> DENSE ─────</span></pre>
+
 
   <h2 style="margin-top:6px;">5 个方案的「命中之后」分叉</h2>
   <table>
@@ -890,7 +868,7 @@ def serve(req):
       <td><code>SGLANG_CHUNKED_PLACEHOLDER_KNN_MATCH=1</code></td>
     </tr>
     <tr>
-      <td><b style="color:var(--gold);">CB-style 常数 FRAC</b><br><span class="sub">(R32)</span></td>
+      <td><b style="color:var(--gold);">head_recompute 常数 FRAC</b><br><span class="sub">(R32)</span></td>
       <td><pre style="margin:0;padding:2px 8px;font-size:11px;">K = ceil(FRAC × len(chunk.tokens))
 plan.append(HEAD_RECOMPUTE(
   head_len=K, body=COPY_POOL))   <span class="c"># 前 30% 算，其余 copy</span></pre></td>
@@ -899,21 +877,12 @@ plan.append(HEAD_RECOMPUTE(
     <tr style="background:#122117;">
       <td><b style="color:var(--accent);">Ours · 按块位置分层</b><br><span class="sub">FRAC (R38b)</span></td>
       <td><pre style="margin:0;padding:2px 8px;font-size:11px;">frac = FRAC_EARLY if hit_idx &lt; EARLY_N else FRAC_LATE
-K = ceil(frac × len(chunk.tokens))
-plan.append(HEAD_RECOMPUTE(
-  head_len=K, body=COPY_POOL))
-hit_idx += 1</pre></td>
+plan.append(HEAD_RECOMPUTE(head_len=ceil(frac×len), body=COPY_POOL)); hit_idx+=1</pre></td>
       <td><code>FRAC_EARLY=0.60</code><br><code>FRAC_LATE=0.15</code><br><code>EARLY_N=2</code></td>
     </tr>
   </table>
 
-  <h2>5 方案的核心差异 — 一图看清</h2>
-  <div class="card leaf" style="margin-top:4px;padding:4px 14px;">
-    <p style="margin:2px 0;"><b>FRAC 决定了「copy 多少 vs 重算多少」。</b><br>
-    lossless：FRAC = 100%（全算，无 copy）。L2/L4：FRAC = 0%（全 copy，无重算）→ stale KV 风险最大。<br>
-    R32：FRAC = 30%（常数）→ 所有 chunk 同等对待。R38b：FRAC = <code>{60%, 15%}</code>（按位置分两档）。<br>
-    <span class="warn">R38b 的关键洞察</span>：早期 chunk 离跨上下文前缀边界最近，stale KV 影响最大 → FRAC 应该更高；后期 chunk 已经在 cache prefix 之内 → FRAC 可以更低。</p>
-  </div>
+  <h2>核心差异：FRAC = copy vs 重算（lossless 100% / L2·L4 0% 全 copy / R32 30% 常数 / R38b {60%,15%} 按位置 2 档）</h2>
 </section>
 
 
@@ -930,7 +899,7 @@ hit_idx += 1</pre></td>
     <tr>
       <td>选择信号</td>
       <td>HKVD（高 KV 偏差）按 token 计算，与参考的全量 prefill 对比</td>
-      <td><b>基于位置</b> — 假设早期 chunk 离跨上下文边界更近</td>
+      <td><b>基于位置</b> — <span class="good">实测</span>：早期 chunk K 偏差 +7.2%（slide 18）</td>
     </tr>
     <tr>
       <td>需要参考 prefill？</td>
@@ -955,23 +924,23 @@ hit_idx += 1</pre></td>
     <tr>
       <td>结果</td>
       <td>2.2-3.3× TTFT 加速，15% 重算率下 F1 最多差 0.002</td>
-      <td><b>相对 lossless 加速 1.32×，type_agreement 50.0%</b>（对比 R32 41.7%，+8.3pp）</td>
+      <td><b>相对 lossless 加速 1.32×，type_match 5/25=20%</b>（= lossless = R32；R38b 仅提速非提精度）</td>
     </tr>
   </table>
-  <h2>为什么我们的方案能近似 CacheBlend</h2>
-  <p>CacheBlend 的 per-layer <b>r<sub>1</sub> &gt; r<sub>2</sub> &gt; r*</b>（越往后越窄）≈ 我们的 per-chunk-position <b>FRAC_EARLY &gt; FRAC_LATE</b>（越往后越窄）。两者都假设「最开始的几个 token/层对 staleness 更敏感」。</p>
+  <h2>我们的方案与 CacheBlend 的关系（inspired，非实现）</h2>
+  <p>CacheBlend <b>逐层</b> r<sub>1</sub> &gt; r<sub>2</sub> &gt; r*（渐缩）vs 我们 <b>per-chunk-position 2 档</b>（FRAC_EARLY &gt; FRAC_LATE）。共享直觉「靠前的更敏感」，但<b>粒度差一个数量级</b>（逐层 vs 2 桶），且我们用<b>位置代理 HKVD</b>（未实测 KV 偏差）。</p>
   <p class="sub"><b>优点</b>：无需改 kernel。<b>缺点</b>：没有 per-token 信号——位置只是一个粗略的代理。 <span class="warn">未来工作</span>：把 HKVD 度量接入 live recompute 路径（R31 提出的开放问题）。</p>
 </section>
 
 <section class="slide" data-tag="新 Pareto" data-tag-class="verified" data-index="主体 16 / 32 · (16)">
-  <h1><span class="num">(16)</span> 按块位置分层的 FRAC sweep (R37–R39) — 本周的新 Pareto</h1>
-  <h2>R37 — 按块位置分层的 FRAC <span class="badge good">NEW PARETO</span></h2>
+  <h1><span class="num">(16)</span> 按块位置分层的 FRAC sweep (R37–R39) - 本周的 speed-Pareto</h1>
+  <h2>R37/R38b - 按块位置分层的 FRAC <span class="badge good">speed-Pareto</span></h2>
   <div class="numgrid" style="margin-top:8px;">
-    <div class="numcell"><div class="label">type_agreement（R37 = 0.50/0.20）</div><div class="val">45.5%</div><div class="sub">相对 R32 +3.8pp</div></div>
+    <div class="numcell"><div class="label">type_match（R37 = 0.50/0.20）</div><div class="val">5/25 = 20%</div><div class="sub">= R32 = lossless</div></div>
     <div class="numcell" style="border-color:var(--green);background:#122117;">
       <div class="label">R38b（0.60/0.15, N=2）</div>
-      <div class="val good">50.0%</div>
-      <div class="sub"><span class="badge good">+8.3pp</span> 3× 字节级精确复现</div>
+      <div class="val good">5/25 = 20%</div>
+      <div class="sub"><span class="badge good">= lossless</span> speed-Pareto（非精度提升）</div>
     </div>
     <div class="numcell"><div class="label">平均 TTFT (R38b)</div><div class="val good">703 毫秒</div><div class="sub">相对 R32 -0.9%</div></div>
   </div>
@@ -986,131 +955,117 @@ export SGLANG_CHUNK_HEAD_RECOMPUTE_EARLY_N=2</pre>
   <h1><span class="num">(17)</span> FRAC_EARLY/LATE/N 的 sweep 数据（R37–R39）— 8 个数据点</h1>
   <h2>Per-Chunk-Position FRAC sweep（5 case × 5 agent = 25 条结果）</h2>
   <table>
-    <tr><th>配置</th><th>EARLY</th><th>LATE</th><th>N</th><th>type_agreement</th><th>vs R32</th></tr>
-    <tr><td>R32（常数 0.30）</td><td>—</td><td>—</td><td>—</td><td>41.7%</td><td>—</td></tr>
-    <tr><td>R37（原始）</td><td>0.50</td><td>0.20</td><td>2</td><td>45.5%</td><td>+3.8pp</td></tr>
-    <tr><td>R38a（R37 复现）</td><td>0.50</td><td>0.20</td><td>2</td><td>45.5%</td><td>+3.8pp ✓</td></tr>
-    <tr style="background:#122117;"><td><b>R38b（新 Pareto）</b></td><td><b>0.60</b></td><td><b>0.15</b></td><td><b>2</b></td><td><b>50.0%</b></td><td><b>+8.3pp</b></td></tr>
-    <tr><td>R39a（R38b 复现）</td><td>0.60</td><td>0.15</td><td>2</td><td>50.0%</td><td>+8.3pp ✓</td></tr>
-    <tr><td>R39c（推至 0.65）</td><td>0.65</td><td>0.15</td><td>2</td><td>50.0%</td><td>+8.3pp（plateau）</td></tr>
-    <tr><td>R39b（推至 0.70/0.10）</td><td>0.70</td><td>0.10</td><td>2</td><td>40.0%</td><td class="bad">-1.7pp (过度)</td></tr>
-    <tr><td>R38d（N=3）</td><td>0.50</td><td>0.20</td><td>3</td><td>33.3%</td><td class="bad">-8.4pp (过度 N)</td></tr>
+    <tr><th>配置</th><th>EARLY</th><th>LATE</th><th>N</th><th>type_match/25</th><th>vs R32</th></tr>
+    <tr><td>R32（常数 0.30）</td><td>-</td><td>-</td><td>-</td><td>5/25 = 20%</td><td>-</td></tr>
+    <tr><td>R37（原始）</td><td>0.50</td><td>0.20</td><td>2</td><td>5/25 = 20%</td><td>0（=lossless）</td></tr>
+    <tr><td>R38a（R37 复现）</td><td>0.50</td><td>0.20</td><td>2</td><td>5/25 = 20%</td><td>0 ✓</td></tr>
+    <tr style="background:#122117;"><td><b>R38b（speed-Pareto）</b></td><td><b>0.60</b></td><td><b>0.15</b></td><td><b>2</b></td><td><b>5/25 = 20%</b></td><td><b>0（复用 +38%）</b></td></tr>
+    <tr><td>R39a（R38b 复现）</td><td>0.60</td><td>0.15</td><td>2</td><td>5/25 = 20%</td><td>0 ✓</td></tr>
+    <tr><td>R39c（推至 0.65）</td><td>0.65</td><td>0.15</td><td>2</td><td>5/25 = 20%</td><td>0（plateau）</td></tr>
+    <tr><td>R39b（推至 0.70/0.10）</td><td>0.70</td><td>0.10</td><td>2</td><td>4/25 = 16%</td><td class="bad">-1 case（过度）</td></tr>
+    <tr><td>R38d（N=3）</td><td>0.50</td><td>0.20</td><td>3</td><td>4/25 = 16%</td><td class="bad">-1 case（过度 N）</td></tr>
   </table>
-  <p class="sub">3× 字节级精确复现（R38b、R39a、R39c 都 = 50.0%）</p>
+  <p class="sub">type_match/25 在 0.50-0.65 全 = 5（20%）；0.70 或 N=3 跌到 4（16%）。精度对 FRAC <b>鲁棒</b>；R38b 选 0.60/0.15 是为速度（复用 +38%），<b>非</b>精度。旧 /FAIL 指标（45.5/50.0%）的分母差异是 verdict 频率，已弃用。</p>
 </section>
 
 <section class="slide" data-tag="机制" data-index="主体 18 / 32 · (18)">
-  <h1><span class="num">(18)</span> 为什么 (FRAC_EARLY=0.60, FRAC_LATE=0.15, N=2) 能赢</h1>
-  <h2>位置特异性的风险聚集</h2>
-  <p>请求序列中的<b>早期 chunk</b>离跨上下文前缀边界最近（system message + role + case + instruction）。那里的 attention 最受 live query preamble 的干扰。</p>
-  <p>请求序列中的<b>后期 chunk</b>已经建立了 cache prefix，attention 分布在跨 prefix 时更稳定，可以更激进地 copy。</p>
-  <h2>R38b 近似 CacheBlend 的 per-layer r1 &gt; r2 &gt; r* 过滤</h2>
-  <pre>CacheBlend §4.3:
-  layer 1:    r1 &gt; r* tokens → recompute
-  layer 2:    r2 &lt; r1 tokens → recompute（逐层渐缩）
-  ...
-  layer L:    r* tokens → recompute（默认 15%）
-
-R38b 的简化版（per-chunk-position，不是 per-layer）:
-  chunk 1-2:  FRAC = 0.60  ← 高（跨上下文边界）
-  chunk 3+:   FRAC = 0.15  ← 低（cache prefix 已建立）</pre>
-  <p class="sub"><span class="accent">关键优势</span>：不用修改 attention-kernel，只在 _build_chunk_plan 内部的 reuse 决策上做文章。Prompt 完全不动。</p>
+  <h1><span class="num">(18)</span> 为什么 (FRAC_EARLY=0.60, FRAC_LATE=0.15, N=2) 能赢 - 机制实测验证 (2026-07-09)</h1>
+  <h2>位置特异性的风险聚集 - <span class="badge good">实测验证</span></h2>
+  <p>池里每个 chunk 的 KV 用 <b>canonical preamble</b>（ROLE/CASE/UPSTREAM 占位符）预计算；运行时 live prompt 填入真实 role/case/instruction -> prefix 不匹配 -> KV stale。因 attention 因果，chunk 的 KV 只取决于其前缀；早期 chunk 离 prefix 边界最近，受干扰最大。</p>
+  <p><b>实测</b>（5 case × 5 chunk, Qwen2.5-Coder-7B）：交换 prefix（canonical->live），测每个位置的 KV 偏差 deviation_i = 1 - cos(KV_i|canonical, KV_i|live)。</p>
+  <div style="display:flex;gap:14px;align-items:center;margin:6px 0 0 20px;">
+    <svg width="340" height="190" viewBox="0 0 340 190" xmlns="http://www.w3.org/2000/svg">
+      <line x1="30" y1="160" x2="320" y2="160" stroke="#2a3a5c" stroke-width="0.6"/>
+      <line x1="30" y1="30" x2="30" y2="160" stroke="#2a3a5c" stroke-width="0.6"/>
+      <text x="34" y="40" fill="#6b6b6b" font-family="ui-monospace,monospace" font-size="8">KV 偏差 (1-cos)</text>
+      <line x1="30" y1="95" x2="320" y2="95" stroke="#2a3a5c" stroke-width="0.3" stroke-dasharray="2 4"/>
+      <circle cx="70" cy="65" r="6" fill="#4ec9d4" stroke="#0e1726" stroke-width="1.2"/><text x="70" y="55" fill="#4ec9d4" font-family="ui-monospace,monospace" font-size="8.5" text-anchor="middle" font-weight="600">0.0997</text>
+      <circle cx="130" cy="114" r="5" fill="#4ec9d4" stroke="#0e1726" stroke-width="1.2"/><text x="130" y="104" fill="#6b8b9a" font-family="ui-monospace,monospace" font-size="8" text-anchor="middle">0.0937</text>
+      <circle cx="190" cy="98" r="5" fill="#4ec9d4" stroke="#0e1726" stroke-width="1.2"/><text x="190" y="88" fill="#6b8b9a" font-family="ui-monospace,monospace" font-size="8" text-anchor="middle">0.0956</text>
+      <circle cx="250" cy="128" r="5" fill="#4ec9d4" stroke="#0e1726" stroke-width="1.2"/><text x="250" y="118" fill="#6b8b9a" font-family="ui-monospace,monospace" font-size="8" text-anchor="middle">0.0920</text>
+      <circle cx="310" cy="120" r="5" fill="#4ec9d4" stroke="#0e1726" stroke-width="1.2"/><text x="310" y="110" fill="#6b8b9a" font-family="ui-monospace,monospace" font-size="8" text-anchor="middle">0.0929</text>
+      <text x="70" y="174" fill="#a8a094" font-family="ui-monospace,monospace" font-size="7.5" text-anchor="middle">pos1</text>
+      <text x="310" y="174" fill="#a8a094" font-family="ui-monospace,monospace" font-size="7.5" text-anchor="middle">pos5</text>
+      <text x="70" y="184" fill="#a8a094" font-family="ui-monospace,monospace" font-size="7" text-anchor="middle">EARLY</text>
+      <text x="310" y="184" fill="#a8a094" font-family="ui-monospace,monospace" font-size="7" text-anchor="middle">LATE</text>
+    </svg>
+    <div style="font-size:12.5px;line-height:1.5;">
+      <table style="margin:0;width:220px;">
+        <tr><th>pos</th><th>K_dev</th><th>V_dev</th></tr>
+        <tr><td>1 (早)</td><td><b>0.0997</b></td><td>0.0026</td></tr>
+        <tr><td>2</td><td>0.0937</td><td>0.0022</td></tr>
+        <tr><td>3</td><td>0.0956</td><td>0.0017</td></tr>
+        <tr><td>4</td><td>0.0920</td><td>0.0009</td></tr>
+        <tr><td>5 (晚)</td><td><b>0.0929</b></td><td>0.0009</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="card leaf" style="margin:8px 0 0 20px;padding:5px 14px;">
+    <p style="margin:2px 0;font-size:13px;"><b>结论：假设方向验证</b>。早期 chunk（pos 1）K 偏差 0.0997 &gt; 晚期（pos 5）0.0929，<b style="color:var(--accent);">+7.2%</b>；V 偏差 pos1 0.0026 &gt; pos5 0.0009（<b>3×</b>）。<b>K 比 V 对上下文敏感 38×</b> -> 跨上下文信号主要在 K。位置代理 HKVD 有实测支撑（幅度 7% 适中，小于真 CacheBlend 的 per-layer 5-18%，因我们只在 chunk 位置分层、粒度粗）。</p>
+  </div>
+  <p class="sub"><span class="accent">关键优势</span>：不改 attention-kernel，只在 _build_chunk_plan 的 reuse 决策做文章，Prompt 完全不动。Source: <code>results/hkvd_by_position_20260709/</code>（measure_hkvd_by_position.py, 5 case × 5 chunk）。</p>
 </section>
 
 <section class="slide" data-tag="对比" data-index="主体 19 / 32 · (19)">
-  <h1><span class="num">(19)</span> KVCOMM（L2/L4）vs CacheBlend-style vs 我们的方案 — 同一 5×5 verdict 任务</h1>
+  <h2>KVCOMM（L4）vs head_recompute vs 我们的方案 - 同一 5×5 verdict 任务</h2>
   <h2>4 个 baseline 在完全相同的 harness 上（Qwen2.5-Coder-7B，pandas 5 case × 5 agent，--task-mode verdict）</h2>
   <table>
-    <tr><th>配置</th><th>复用命中</th><th>平均 TTFT (复用者)</th><th>type_agreement</th><th>FAIL 准确率</th><th>备注</th></tr>
-    <tr>
-      <td>lossless 参考</td>
-      <td>0/25</td>
-      <td>~932 ms</td>
-      <td>(ref) 38.5%</td>
-      <td>52.0%</td>
-      <td>黄金 baseline</td>
-    </tr>
-    <tr>
-      <td>L2 whole-slot KVCOMM</td>
-      <td>0/25</td>
-      <td>~696 ms (复用者 = 0)</td>
-      <td><b>33.3%</b></td>
-      <td>60.0%</td>
-      <td>whole-slot MiniLM，不开 selective recompute</td>
-    </tr>
-    <tr>
-      <td>L4 AST-chunk KVCOMM</td>
-      <td>~19/25</td>
-      <td>约 705 ms</td>
-      <td><b style="color:var(--rust);">13.3%</b></td>
-      <td>60.0%</td>
-      <td>AST-chunk 池，不开 selective recompute</td>
-    </tr>
-    <tr>
-      <td>CacheBlend-style 常数 FRAC=0.30（R32）</td>
-      <td>~19/25</td>
-      <td>~709 毫秒</td>
-      <td>41.7%</td>
-      <td>48.0%</td>
-      <td>前 K 个 token 的启发式，不区分位置</td>
-    </tr>
-    <tr style="background:#122117;">
-      <td><b>Ours: 按块位置分层的 FRAC (R38b)</b></td>
-      <td><b>~19/25</b></td>
-      <td><b>703 毫秒</b></td>
-      <td><b style="color:var(--accent);">50.0%</b></td>
-      <td><b>40.0%</b></td>
-      <td><b>FRAC_EARLY=0.60, FRAC_LATE=0.15, N=2</b></td>
-    </tr>
+    <tr><th>配置</th><th>复用命中</th><th>平均 TTFT (复用者)</th><th>type_match/25</th><th>FAIL_acc</th><th>备注</th></tr>
+    <tr><td>lossless 参考</td><td>0/25</td><td>~939 ms</td><td>5/25 = 20%</td><td>52.0%</td><td>黄金 baseline</td></tr>
+    <tr><td>L2 whole-slot KVCOMM</td><td>0/25</td><td>~696 ms</td><td>5/25 = 20%</td><td>60.0%</td><td><b>0 code-aware 复用</b>（仅 radix prefix；非真 KVCOMM 对比）</td></tr>
+    <tr><td>L4 AST-chunk KVCOMM</td><td>~19/25</td><td>~705 ms</td><td>2/25 = 8%</td><td>60.0%</td><td>纯 copy 无 recompute -> 跨上下文损失</td></tr>
+    <tr><td>head_recompute FRAC=0.30（R32）</td><td>~19/25</td><td>~709 毫秒</td><td>5/25 = 20%</td><td>48.0%</td><td>+头部重算，恢复到 lossless（2->5）</td></tr>
+    <tr style="background:#122117;"><td><b>Ours: 按块位置分层 FRAC (R38b)</b></td><td><b>~19/25</b></td><td><b>703 毫秒</b></td><td><b>5/25 = 20%</b></td><td><b>40.0%</b></td><td><b>= lossless 精度，speed-Pareto</b>（0.60/0.15/N=2）</td></tr>
   </table>
   <h2>如何读这张表</h2>
   <ul>
-    <li><b>L2 KVCOMM（33.3%）</b> &lt; lossless（38.5%）→ whole-slot copy 引入了噪声。这是 L3 general MiniLM 的方案，特征是 byte-exact + RoPE delta。</li>
-    <li><b>L4 AST-chunk（13.3%）</b> ≪ L2 → 把跨上下文边界切碎反而比 whole-slot copy 产生<b>更多</b>的有损 gap。<b>反直觉</b>：不开 selective recompute 时，切块比整段更差。</li>
-    <li><b>CacheBlend-style（41.7%）</b> 比 lossless（38.5%）高 +3.2pp → 常数 head_recompute 是第一个 Pareto 点。</li>
-    <li><b>我们的 R38b (50.0%)</b> &gt; CacheBlend-style (41.7%) by +8.3pp → 按块位置分层的 FRAC beats constant FRAC at the same speed. <b>This is the contribution</b>.</li>
+    <li><b>L4（2/25=8%）≪ lossless（5/25=20%）</b> -> 纯跨上下文 copy 有损。这是 KVCOMM（无 recompute）的真实代价。</li>
+    <li><b>R32 head_recompute（5/25=20%）= lossless</b> -> 选择性重算把 copy 的损失恢复到 lossless 水平。<b>这是真贡献</b>。</li>
+    <li><b>R38b（5/25=20%）= R32 = lossless</b>，但复用 +38%、TTFT -0.9% -> 位置分层是<b>速度</b>优化，非精度提升。</li>
+    <li><b>L2（5/25=20%，但 0 复用）</b> -> L2 的 20% 来自 radix prefix，不是 KVCOMM；不应作为 KVCOMM baseline 对比。</li>
+    <li><b>FAIL_acc</b>：lossless 52% &gt; R32 48% &gt; R38b 40%。复用 regime 更宽松（更多 UNK/PASS），特异性下降。</li>
   </ul>
   <p class="sub">Caveat: L2 had 0 reuse-hit rows in the launcher's bookkeeping; the type_agreement number is over 25 rows. The TTFT-vs-复用者 column for L2 reflects "no code-aware 复用" — its speedup comes only from radix prefix. Sources: <code>结果s/baseline_*_5x5_verdict/</code> (raw) and <code>结果s/baselines_5x5_verdict/COMPARISON.md</code>.</p>
+</section>
+
+<section class="slide" data-tag="Scale-15 验证" data-tag-class="verified" data-index="主体 19b / 33 · (19b)">
+  <h1><span class="num">(19b)</span> Scale-15 多样化复测 - 诚实结果（5 family × 15 case, 2026-07-09）</h1>
+  <p class="sub">把 n=5（全 combine_file，易）扩到 n=15（5 个 instance family）。stable config（mem 0.72, max-total 16384）；R32/R38b 在长 case OOM 自动恢复（部分 case <5 agent，按 per-row 比）。</p>
+  <table>
+    <tr><th>config</th><th>n_rows</th><th>PASS</th><th>FAIL</th><th>UNK</th><th>type_match</th><th>/rows</th><th>FAIL_acc</th><th>TTFT</th><th>c2_reuse</th></tr>
+    <tr><td>lossless</td><td>75</td><td>38</td><td>37</td><td>0</td><td>8</td><td>10.7%</td><td>49%</td><td>1032ms</td><td>0</td></tr>
+    <tr><td>R32 (FRAC=0.30)</td><td>61</td><td>21</td><td>26</td><td>14</td><td>6</td><td>9.8%</td><td>43%</td><td>745ms</td><td>345</td></tr>
+    <tr style="background:#122117;"><td><b>R38b (0.60/0.15)</b></td><td>60</td><td>24</td><td>24</td><td>12</td><td>4</td><td>6.7%</td><td>40%</td><td>753ms</td><td>283</td></tr>
+  </table>
+  <h2>诚实结论（n=5 -> n=15 的修正）</h2>
+  <div class="card leaf" style="padding:5px 14px;">
+    <p style="margin:2px 0;font-size:13px;"><b>① 速度仍 solid</b>：R32/R38b 相对 lossless <b style="color:var(--accent);">1.38× TTFT 加速</b>（745/753 vs 1032ms），来自真实 code-aware 复用（283-345 tok）。速度优势随 n 增大更明显（n=5 是 1.33×）。</p>
+    <p style="margin:2px 0;font-size:13px;"><b>② 精度未超 lossless</b>：n=5 的 R32=R38b=lossless=5/25 是<b>易 case 偏置</b>（5 case 全 combine_file，1 个 case 贡献 4/5）。n=15 多样化后 type_match 降到 7-11%，<b>lossless &gt; R32 &gt; R38b</b>。复用 regime 在硬 case 产生更多 UNK（R32 14, R38b 12），特异性下降。</p>
+    <p style="margin:2px 0;font-size:13px;"><b>③ R38b 不优于 R32</b>：n=15 上 R32 (745ms, 6 match) 略快且略准于 R38b (753ms, 4 match)。<b>位置分层在多样化数据上无收益、甚至略有害</b>。R32 是更稳的配置。</p>
+  </div>
+  <p class="sub">读法：method 是<b>速度优化</b>（latency-sensitive verdict 任务可接受轻微精度折损），<b>非精度保持</b>。n=5 的"恢复到 lossless"是易 case 偏置；HKVD 机制实测仍成立（slide 18），但 accuracy benefit 不泛化。Source: <code>results/scale15_5x5/</code>。</p>
 </section>
 
 <section class="slide" data-tag="总结" data-index="主体 20 / 32 · (20)">
   <h1><span class="num">(20)</span> TL;DR — 5×5 verdict 任务总结（30 秒读完）</h1>
   <div class="numgrid" style="margin-top:10px;">
-    <div class="numcell">
-      <div class="label">lossless</div>
-      <div class="val">38.5%</div>
-      <div class="sub">type_agreement · 932 毫秒</div>
-    </div>
-    <div class="numcell">
-      <div class="label">L2 KVCOMM</div>
-      <div class="val" style="color:var(--rust);">33.3%</div>
-      <div class="sub">whole-slot copy 反而拉低</div>
-    </div>
-    <div class="numcell">
-      <div class="label">L4 AST-chunk KVCOMM</div>
-      <div class="val" style="color:var(--rust);">13.3%</div>
-      <div class="sub">切块 + 不开 FRAC ≪ lossless</div>
-    </div>
-    <div class="numcell">
-      <div class="label">CacheBlend-style（R32）</div>
-      <div class="val">41.7%</div>
-      <div class="sub">+3.2pp vs lossless · 709 毫秒</div>
-    </div>
-    <div class="numcell verified">
-      <div class="label">我们的 R38b</div>
-      <div class="val" style="color:var(--accent);">50.0%</div>
-      <div class="sub">+8.3pp vs CB-style · 703 毫秒</div>
-    </div>
+    <div class="numcell"><div class="label">lossless (n=15)</div><div class="val">8/75 = 10.7%</div><div class="sub">type_match · 1032 毫秒 · ref</div></div>
+    <div class="numcell verified"><div class="label">R32 head_recompute (n=15)</div><div class="val" style="color:var(--accent);">1.38×</div><div class="sub">745ms · 6 match · 345 tok 复用</div></div>
+    <div class="numcell"><div class="label">R38b 位置分层 (n=15)</div><div class="val">1.37×</div><div class="sub">753ms · 4 match · 不优于 R32</div></div>
+    <div class="numcell"><div class="label">HKVD 机制</div><div class="val" style="color:var(--leaf);">实测✓</div><div class="sub">pos1 K 偏差 +7.2% vs pos5</div></div>
   </div>
-  <h2>一句话总结</h2>
+  <h2>一句话总结（n=5 -> n=15 诚实修正）</h2>
   <div class="card leaf">
-    <p><b>按块位置分层的 FRAC</b>按 chunk 位置差异化设置重算率（前置: FRAC_EARLY=0.60, 后置: FRAC_LATE=0.15），在相同速度下相对常数 FRAC（R32）提升 <b style="color:var(--accent);">+8.3pp type_agreement</b>（<b>TTFT -0.9%</b>）。无需修改 attention-kernel 即可近似 CacheBlend 的 per-layer r1 &gt; r2 &gt; r*。</p>
+    <p><b>Speed（solid）</b>：R32/R38b 相对 lossless <b style="color:var(--accent);">1.38× TTFT 加速</b>（n=15: 745/753 vs 1032ms），来自真实 code-aware 复用，速度优势随 n 增大更明显（n=5 是 1.33×）。<b>HKVD 位置代理实测验证</b>（slide 18: 早期 chunk K 偏差 +7.2%）。</p>
+    <p><b>Accuracy（诚实）</b>：n=5（易 case）显示 head_recompute 恢复到 lossless（2->5），但 <b>n=15 多样化复测推翻了这点</b>（slide 19b）：type_match 降到 7-11%，<b>lossless &gt; R32 &gt; R38b</b>。复用 regime 是<b>速度优化非精度保持</b>，硬 case 上更多 UNK。</p>
+    <p><b>推荐 R32 &gt; R38b</b>：位置分层在 n=15 上无收益（甚至略有害）。latency-sensitive verdict 任务可用，accuracy-critical 不适用。</p>
   </div>
   <h2>为什么这件事重要</h2>
   <ul>
-    <li><b>Speed bar 已达成</b>: 相对 lossless 1.32× 加速（703 vs 932 毫秒）.</li>
-    <li><b>Accuracy bar 已达成</b>: 50.0% type_agreement &gt; 41.7%（CacheBlend-style）&gt; 38.5%（lossless）。<b>是这次 A/B 里唯一超过 lossless 的 config</b>。</li>
-    <li><b>prompt 完全不动、没有 KV-cache 调度的小聪明</b>、没有重写 attention kernel——只在驱动层的 reuse 决策上做文章（<code>radix_cache.py</code> 中约 150 行）。</li>
+    <li><b>真贡献 = 速度 + 机制</b>：1.38× 加速（实测，scales to n=15）+ HKVD 位置代理实测验证。无需改 attention-kernel（radix_cache.py ~150 行）。</li>
+    <li><b>诚实修正</b>：n=5 的"恢复到 lossless"是易 case 偏置（5 case 全 combine_file，1 case 贡献 4/5）；n=15 多样化后不成立。旧 /FAIL 指标 50%&gt;41.7% 是分母假象。</li>
+    <li><b>prompt 完全不动、没有 KV-cache 调度</b>、没有重写 attention kernel--只在驱动层 reuse 决策做文章。</li>
+    <li><span class="warn">局限</span>：accuracy benefit 不泛化到多样化 code；verdict 精度未迁移到 code-gen（slide 26）；n=15 部分 case OOM（按 per-row 比）。</li>
   </ul>
 </section>
 
@@ -1130,52 +1085,52 @@ export SGLANG_PRECOMPUTE_CANONICAL_PREFIX=1
 export SGLANG_PRECOMPUTE_PROMPT_ALIGN=1
 export SGLANG_PRECOMPUTE_SELECTIVE_REFRESH_FRAC=0.25
 
-<span class="c"># R38b — NEW PARETO (本周新加)</span>
+<span class="c"># R38b - speed-Pareto (本周新加)</span>
 export SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC_EARLY=0.60
 export SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC_LATE=0.15
 export SGLANG_CHUNK_HEAD_RECOMPUTE_EARLY_N=2</pre>
   <div class="card leaf">
-    <p><b>预期</b>：failure-type agreement 41.7% → 50.0%, 平均 TTFT -0.9%, code-aware 复用 +38%. All constraint-respected (no prompt modification, no KV-cache scheduling).</p>
+    <p><b>预期</b>：1.38× TTFT 加速（n=15: 745/753 vs 1032ms），真实 code-aware 复用 283-345 tok。<b>推荐 R32（常数 FRAC=0.30）&gt; R38b</b>：n=15 显示位置分层无收益。<b>定位为速度优化</b>（latency-sensitive verdict 任务），<b>非精度保持</b>（n=15 type_match lossless &gt; R32 &gt; R38b）。All constraint-respected (no prompt modification, no KV-cache scheduling)。</p>
   </div>
-  <p class="sub">默认 OFF：不设环境变量 = R32 行为（关闭 R38b、不会回退）。部署时显式 opt-in。</p>
+  <p class="sub">默认 OFF：不设环境变量 = R32 行为。部署时显式 opt-in。<span class="warn">范围</span>：仅 verdict/低风险复用任务；code-gen 任务 R38b 反而亏（见 slide 26）。</p>
 </section>
 
 <section class="slide" data-tag="Pareto 表面" data-index="主体 22 / 32 · (22)">
   <h1><span class="num">(22)</span> 多 config 的 Pareto 表面（架构特异）</h1>
   <h2>按目标选 config（production-ready 选项）</h2>
   <table>
-    <tr><th>目标</th><th>配置</th><th>type_agreement</th><th>TTFT</th><th>备注</th></tr>
+    <tr><th>目标</th><th>配置</th><th>type_match/25</th><th>TTFT</th><th>备注</th></tr>
     <tr style="background:#122117;">
-      <td><span class="good">最高 accuracy（新）</span></td>
+      <td><span class="good">lossless-matched + 最快</span></td>
       <td><b>R38b</b>（FRAC_EARLY=0.60, FRAC_LATE=0.15, N=2）</td>
-      <td><b>50.0%</b></td>
+      <td><b>5/25 = 20%</b></td>
       <td>703 毫秒</td>
-      <td>7B-Coder × 5</td>
+      <td>7B-Coder × 5 · speed-Pareto</td>
     </tr>
     <tr>
-      <td>最高 accuracy（旧）</td>
+      <td>精度恢复点</td>
       <td>R32（FRAC=0.30）</td>
-      <td>41.7%</td>
+      <td>5/25 = 20%</td>
       <td>709 毫秒</td>
-      <td>7B-Coder × 5</td>
+      <td>7B-Coder × 5 · = lossless（2->5）</td>
     </tr>
     <tr>
       <td><span class="good">最高 speed（3B × 3）</span></td>
       <td>R26（不开 head_recompute）</td>
-      <td>25.0%</td>
+      <td>不同架构</td>
       <td>296 毫秒</td>
-      <td>3B-Instruct × 3, 2.014× 加速</td>
+      <td>3B-Instruct × 3, 2.014× 加速（type_match 不可直接比）</td>
     </tr>
     <tr>
-      <td>保守</td>
+      <td>保守（copy-only）</td>
       <td>R19（不开 head_recompute，5 agents）</td>
-      <td>40%（旧版）</td>
+      <td>2/25 = 8%</td>
       <td>705 毫秒</td>
-      <td>R32 之前的 baseline</td>
+      <td>无 recompute -> 跨上下文损失</td>
     </tr>
   </table>
   <div class="card">
-    <p><b>Pareto 与架构相关</b>：7B-Coder × 5 与 3B-Instruct × 3 是不同 config、不同 Pareto。简单的叠加（R35）反而有害。R26 与 R38b 不可合并到同一个 config。</p>
+    <p><b>Pareto 与架构相关</b>：7B-Coder × 5 与 3B-Instruct × 3 是不同 config、不同 Pareto。简单的叠加（R35）反而有害。R26 与 R38b 不可合并到同一个 config。<b>注</b>：R38b/R32/lossless 在 type_match/25 上 tie（5/25=20%），差异只在速度/复用。</p>
   </div>
 </section>
 
@@ -1185,17 +1140,17 @@ export SGLANG_CHUNK_HEAD_RECOMPUTE_EARLY_N=2</pre>
   <pre>c841b568c 结果s(R28-R39): selective-reuse iterations + R38b 已验证的新 Pareto
 661b62564 feat(radix_cache): R32+R37 selective KV recompute + R28 anchor-type 过滤
 f5f7c4744 tools(结果s): add Playwright PDF regen for CODE_AWARE_LOSSY_KV_PROGRESS deck
-<span class="c"># 2026-07-09 R40 (本日) — 3 phase commits:</span>
+<span class="c"># 2026-07-09 R40 (本日) - 3 phase commits:</span>
 21900d017 feat(R40-Phase3): type-aware FRAC override + R40 combined report
 a05c47e09 feat(R40-Phase2): 5-agent coding_pipeline task + objective git-apply judge
 e46a35145 feat(R40-Phase1): TTFT breakdown instrumentation + 5x5 verification</pre>
   <h2>关键文件（本周新建/修改）</h2>
   <ul>
-    <li><code>python/sglang/srt/mem_cache/radix_cache.py</code> — R32 head_recompute + R37 按块位置分层的 FRAC + R40 Phase3 type-aware 入口 (~234 lines added)</li>
-    <li><code>python/sglang/srt/mem_cache/ast_chunker.py</code> — R34 <code>_extract_type_signature_string</code>（已退役） + R40 Phase3 <code>typed_signature</code> + <code>type_complexity</code> 字段</li>
-    <li><code>python/sglang/srt/observability/req_time_stats.py</code> — R40 Phase1: 加 7 个 setter 到 <code>SchedulerReqTimeStats</code>（之前只在 <code>APIServerReqTimeStats</code> 上有）</li>
-    <li><code>benchmark/multi_workflow/bench_kvcomm_ttft_stress.py</code> — R33 辅助函数（已退役） + R40 Phase1 TTFT 拆解 + R40 Phase2 <code>task_mode="coding_pipeline"</code> 分支</li>
-    <li><code>结果s/lossy_alg_round{28,32,33,34,35,36,37,38,39}/</code> + <code>结果s/coding_pipeline_5x5/</code> + <code>结果s/type_aware_frac_verify/</code> — 11 round dirs (9 lossy_alg_round + 2 R40 dirs)</li>
+    <li><code>python/sglang/srt/mem_cache/radix_cache.py</code> - R32 head_recompute + R37 按块位置分层的 FRAC + R40 Phase3 type-aware 入口 (~234 lines added)</li>
+    <li><code>python/sglang/srt/mem_cache/ast_chunker.py</code> - R34 <code>_extract_type_signature_string</code>（已退役） + R40 Phase3 <code>typed_signature</code> + <code>type_complexity</code> 字段</li>
+    <li><code>python/sglang/srt/observability/req_time_stats.py</code> - R40 Phase1: 加 7 个 setter 到 <code>SchedulerReqTimeStats</code>（之前只在 <code>APIServerReqTimeStats</code> 上有）</li>
+    <li><code>benchmark/multi_workflow/bench_kvcomm_ttft_stress.py</code> - R33 辅助函数（已退役） + R40 Phase1 TTFT 拆解 + R40 Phase2 <code>task_mode="coding_pipeline"</code> 分支</li>
+    <li><code>结果s/lossy_alg_round{28,32,33,34,35,36,37,38,39}/</code> + <code>结果s/coding_pipeline_5x5/</code> + <code>结果s/type_aware_frac_verify/</code> - 11 round dirs (9 lossy_alg_round + 2 R40 dirs)</li>
   </ul>
   <h2>LaTeX 报告</h2>
   <p>完整长文报告: <code>reports/code_aware_lossy_kv_progress_20260707.pdf</code>（16 页，4.0 MB，xelatex + fandol）</p>
@@ -1203,39 +1158,38 @@ e46a35145 feat(R40-Phase1): TTFT breakdown instrumentation + 5x5 verification</p
 
 <section class="slide" data-tag="总结" data-index="主体 24 / 32 · (24)">
   <h1><span class="num">(24)</span> 总结 &amp; 接下来</h1>
-  <h2>本周核心成果</h2>
+  <h2>本周核心成果（诚实重算）</h2>
   <div class="numgrid">
     <div class="numcell" style="border-color:var(--green);background:#122117;">
-      <div class="label">R38b 已验证的新 Pareto</div>
-      <div class="val good">50.0%</div>
-      <div class="sub">type_agreement（相对 R32 +8.3pp）</div>
+      <div class="label">R32 速度优化 (n=15)</div>
+      <div class="val good">1.38×</div>
+      <div class="sub">745 vs 1032ms · 推荐 R32 &gt; R38b</div>
     </div>
     <div class="numcell">
-      <div class="label">TTFT 代价</div>
-      <div class="val good">-0.9%</div>
-      <div class="sub">703 vs 709 毫秒</div>
+      <div class="label">HKVD 机制实测</div>
+      <div class="val good">✓ +7.2%</div>
+      <div class="sub">pos1 K 偏差 &gt; pos5（slide 18）</div>
     </div>
     <div class="numcell">
-      <div class="label">code-aware 复用</div>
-      <div class="val good">+38%</div>
-      <div class="sub">460.9 vs 333.7 token</div>
+      <div class="label">诚实修正</div>
+      <div class="val" style="color:var(--rust);">acc 未泛化</div>
+      <div class="sub">n=5 易 case 偏置；n=15 lossless &gt; R32 &gt; R38b</div>
     </div>
   </div>
   <h2>状态</h2>
   <ul>
     <li>✅ 已 commit &amp; push 到 <code>fix/placeholder-pool-activation</code></li>
-    <li>✅ 11 round dirs (9 lossy_alg_round + 2 R40 dirs) + LaTeX 报告 in remote</li>
-    <li>✅ R38b = 7B × 5 accuracy-prioritized 的新 production 推荐</li>
+    <li>✅ 11 round dirs + scale-15 + HKVD 实测（本日 2026-07-09）</li>
+    <li>✅ <b>推荐 R32（常数 FRAC=0.30）</b>：1.38× 加速，latency-sensitive verdict 任务；accuracy-critical 不适用（n=15 未超 lossless）</li>
     <li>✅ R26（3B × 3）= speed-prioritized（不同的 Pareto）</li>
   </ul>
   <h2>Out of session scope (future 方向s)</h2>
   <ul>
-    <li>HKVD attention kernel hook（R31 发现）— 多周工作量</li>
-    <li>R34 在 SWE-bench django/astropy（带类型注解的代码库）上重测</li>
-    <li>预计算池里加入类型签名 hash key（重跑 precompute）</li>
-    <li>在 <code>--task-mode critique</code>（R21 主任务）上做交叉验证</li>
+    <li>扩数据集（n=5 太窄，信号集中在 1 case）+ 重测有类型代码库（django/astropy）</li>
+    <li>HKVD attention kernel hook（R31 发现）- 多周工作量；接入后才算真 CacheBlend</li>
+    <li>用固定分母 metric（type_match/25）重测 3B×3 与 R26 的可比 type_match</li>
   </ul>
-  <p class="sub" style="margin-top:18px;">当前 HEAD: <code>bc3e7f3fb</code> · R40 三个 phase commits 已 push 到 <code>fix/placeholder-pool-activation</code></p>
+  <p class="sub" style="margin-top:18px;">当前 HEAD: <code>bc3e7f3fb</code> · 本 deck 已按诚实重算更新（type_match/25）；旧 /FAIL 指标弃用</p>
 </section>
 
 <section class="slide" data-tag="R40 Phase 1" data-tag-class="partial" data-index="主体 25 / 32 · (25)">
@@ -1249,7 +1203,7 @@ e46a35145 feat(R40-Phase1): TTFT breakdown instrumentation + 5x5 verification</p
       <div class="sub">25/25 nonzero ✓（APIServer 进程内字段，无跨进程 hop）</div>
     </div>
     <div class="numcell" style="border-color:var(--gold);background:#1c1a0e;">
-      <div class="label">radix_prefix + chunk_plan + copy + gap_prefill + head_recompute_early + head_recompute_late + decode_first_token</div>
+      <div class="label">其余 7 段 (radix_prefix…decode_first_token)</div>
       <div class="val" style="color:var(--gold);">0.0 毫秒</div>
       <div class="sub">7 个字段全 0 · 25/25 · 架构 block</div>
     </div>
@@ -1264,7 +1218,7 @@ e46a35145 feat(R40-Phase1): TTFT breakdown instrumentation + 5x5 verification</p
     <li><b>Option B</b>: scheduler 直接 publish Prometheus <code>/metrics</code>，bench 跑完每个 batch 后 scrape，跨进程边界消失。</li>
     <li><b>Option C</b>: <code>analyze_fair_ab.py</code> post-process 阶段用 <code>radix_only_prefix_len</code> + <code>c2_chunk_reused_tokens</code> + server-side timing event log 重建各段时间。</li>
   </ul>
-  <p class="sub" style="margin-top:10px;">5 处 source fix 已落地（<code>req_time_stats.py</code> / <code>tokenizer_manager.py</code> / <code>serving_chat.py</code> / <code>schedule_batch.py</code> / <code>bench_kvcomm_ttft_stress.py</code>）— 是后续 A/B/C 任一方案的基础。</p>
+  <p class="sub" style="margin-top:8px;">5 处 source fix 已落地（req_time_stats / tokenizer_manager / serving_chat / schedule_batch / bench）- 是 A/B/C 任一方案的基础。</p>
 </section>
 
 <section class="slide" data-tag="R40 Phase 2" data-tag-class="verified" data-index="主体 26 / 32 · (26)">
@@ -1286,7 +1240,7 @@ e46a35145 feat(R40-Phase1): TTFT breakdown instrumentation + 5x5 verification</p
     <tr style="background:#1c0d0a;"><td><b>R38b</b></td><td>5/5 = 100%</td><td><b>0/5 = 0%</b></td><td>4/5 = 80%</td><td>2/5 = 40% (3 UNK)</td><td style="color:var(--rust);"><b>0/5 = 0%</b></td></tr>
   </table>
   <div class="card gold">
-    <p><b>新发现 — R38b 在 coder 环节的 chunk-reuse overhead 是亏的</b>。60% early-FRAC + 15% late-FRAC 让 head recompute 主导 agent-1 prefill，生成的 diff 不如 lossless。旧 verdict 任务上是 50.0% agreement vs lossless（+11.5pp），新 coding_pipeline 任务是 0/5 vs 1/5 — <b>新客观 judge 比旧 agreement 更能区分 config</b>。</p>
+    <p><b>R38b 在 coder 环节亏（与 verdict 精度结论矛盾）</b>。60% early-FRAC + 15% late-FRAC 让 head recompute 主导 agent-1 prefill，生成 diff 不如 lossless（git apply 0/5 vs 1/5）。<b>这推翻了"verdict 精度恢复 -> 任务能力恢复"的假设</b>：verdict 任务上 R38b 与 lossless 同为 type_match 5/25（n=5；n=15 见 slide 19b：lossless &gt; R32 &gt; R38b），但 code-gen 任务上 R38b 0/5 vs lossless 1/5。结论：<b>R38b 的 speed-Pareto 推荐仅限 verdict/低风险复用，不适用于 code-gen</b>；新客观 judge（git apply）比旧 type_agreement 更能区分 config。</p>
   </div>
   <p class="sub" style="margin-top:8px;">Source: <code>bench_kvcomm_ttft_stress.py</code> + <code>bench_giant_codebase_reuse.py</code> + new <code>结果s/lossy_alg_round21/scripts/score_coding_pipeline.py</code> (273 lines) · 2 个新 launcher</p>
 </section>
@@ -1315,14 +1269,15 @@ e46a35145 feat(R40-Phase1): TTFT breakdown instrumentation + 5x5 verification</p
 <section class="slide" data-tag="附录 · Sweep &amp; 失败档案" data-tag-class="falsified" data-index="附录 E / 5 · E">
   <div class="appendix-banner">附录 E · constant-FRAC sweep 与失败档案总览 · 不进入主体叙事</div>
   <h1>附录 E — R36 constant-FRAC sweep + 5 个被淘汰方法一句话总结</h1>
-  <h2>R36 constant-FRAC sweep — 0.30 是唯一 Pareto 点</h2>
-  <p>R32（FRAC=0.30）在 R36 的 sweep 中经过 0.15/0.20/0.35 三档验证：</p>
+  <p class="sub" style="color:var(--gold);"><b>附录指标说明</b>：附录 E 的 sweep 已标 type_match/25（固定分母）；附录 B/C/D 的回归比较仍用旧 type_match/FAIL 指标（分母敏感、已弃用），仅看相对退化方向。所有附录不进入主体 Pareto。</p>
+  <h2>R36 constant-FRAC sweep - 0.15/0.30 都恢复到 lossless</h2>
+  <p>R32（FRAC=0.30）在 R36 的 sweep 中经过 0.15/0.20/0.35 三档验证（type_match/25，固定分母）：</p>
   <table>
-    <tr><th>FRAC</th><th>type_agreement</th><th>vs R32</th><th>结论</th></tr>
-    <tr><td>0.15</td><td>31.2%</td><td>-10.5pp</td><td>重算不足，跨上下文损失大</td></tr>
-    <tr style="background:#122117;"><td><b>0.30</b></td><td><b>41.7%</b></td><td>—</td><td><b>R32 唯一 Pareto</b></td></tr>
-    <tr><td>0.20</td><td>16.7%</td><td>-25.0pp</td><td>崩盘（高方差任务）</td></tr>
-    <tr><td>0.35</td><td>36.4%</td><td>-5.3pp</td><td>过度重算，speed 退化</td></tr>
+    <tr><th>FRAC</th><th>type_match/25</th><th>vs R32</th><th>结论</th></tr>
+    <tr><td>0.15</td><td>5/25 = 20%</td><td>0（=lossless）</td><td>也恢复（与 0.30 同）</td></tr>
+    <tr style="background:#122117;"><td><b>0.30</b></td><td><b>5/25 = 20%</b></td><td>-</td><td><b>R32 精度恢复点</b>（0.15 也行，0.30 是速度平衡）</td></tr>
+    <tr><td>0.20</td><td>2/25 = 8%</td><td>-3</td><td>崩盘（仅 2 正确，比 copy-only 还差）</td></tr>
+    <tr><td>0.35</td><td>4/25 = 16%</td><td>-1</td><td>过度重算，退化</td></tr>
   </table>
   <h2>5 个被淘汰方法 — 一句话失败原因</h2>
   <table>
@@ -1473,7 +1428,7 @@ else:
 <div id="nav">
   <button class="navbtn" id="prev" title="上一页 (←)">‹</button>
   <div class="nav-center">
-    <div id="pager"><b id="cur">1</b> / <b id="total">33</b></div>
+    <div id="pager"><b id="cur">1</b> / <b id="total">34</b></div>
     <span id="sectitle">代码感知有损 KV 缓存复用</span>
     <div id="dots">
       <div class="dot active"></div>

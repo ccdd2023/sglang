@@ -206,9 +206,11 @@ def _compute_type_complexity(node: ast.AST) -> int:
                 dyn_hits += 1
         score += min(dyn_hits, 2)
     elif isinstance(node, ast.ClassDef):
-        # Classes: count annotated base classes + 1 per typed method (best-effort)
+        # Classes: count parameterized generic bases (e.g. Generic[T], List[int])
+        # as typed-complexity signal. ``node.bases`` are expressions (Name /
+        # Attribute / Subscript), NOT ``ast.arg`` - they have no ``.annotation``.
         for b in node.bases:
-            if b.annotation is not None:
+            if isinstance(b, ast.Subscript):
                 score += 1
         # cap at 5 for class-level summary
         score = min(score, 5)

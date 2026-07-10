@@ -1,0 +1,172 @@
+{
+  "lossless": {
+    "n": 75,
+    "PASS": 38,
+    "FAIL": 37,
+    "UNK": 0,
+    "type_match": 8,
+    "type_match_over_25": 0.10666666666666667,
+    "type_match_over_FAIL": 0.21621621621621623,
+    "FAIL_acc": 0.49333333333333335,
+    "per_case": {
+      "pandas-dev__pandas.95280573.combine_file__11s6papj": {
+        "fail": 5,
+        "agree": 4
+      },
+      "pandas-dev__pandas.95280573.combine_file__1eilbetv": {
+        "fail": 5,
+        "agree": 1
+      },
+      "pandas-dev__pandas.95280573.combine_module__0jihprar": {
+        "fail": 3,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.combine_module__1pp9tokz": {
+        "fail": 5,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_rm_base__06bgq9ir": {
+        "fail": 2,
+        "agree": 1
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_rm_base__10da8v2t": {
+        "fail": 3,
+        "agree": 1
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_rm_funcs__069qd7fn": {
+        "fail": 4,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_rm_funcs__0frzywwz": {
+        "fail": 3,
+        "agree": 1
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_rm_funcs__0leu19pj": {
+        "fail": 1,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_shuffle_funcs__fiam3jy5": {
+        "fail": 3,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_shuffle_funcs__gqf5y5ad": {
+        "fail": 3,
+        "agree": 0
+      }
+    },
+    "ci_95": [
+      0.03636363636363636,
+      0.2909090909090909
+    ],
+    "ttft_avg": 1031.5808,
+    "c2_reused_avg": 0.0
+  },
+  "R32": {
+    "n": 61,
+    "PASS": 21,
+    "FAIL": 26,
+    "UNK": 14,
+    "type_match": 6,
+    "type_match_over_25": 0.09836065573770492,
+    "type_match_over_FAIL": 0.23076923076923078,
+    "FAIL_acc": 0.4262295081967213,
+    "per_case": {
+      "pandas-dev__pandas.95280573.combine_file__11s6papj": {
+        "fail": 5,
+        "agree": 3
+      },
+      "pandas-dev__pandas.95280573.combine_file__1eilbetv": {
+        "fail": 1,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.combine_module__0jihprar": {
+        "fail": 1,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.combine_module__1pp9tokz": {
+        "fail": 3,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_rm_funcs__069qd7fn": {
+        "fail": 4,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_rm_funcs__0frzywwz": {
+        "fail": 2,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_rm_funcs__0leu19pj": {
+        "fail": 2,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_shuffle_funcs__cehcmi03": {
+        "fail": 2,
+        "agree": 2
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_shuffle_funcs__fiam3jy5": {
+        "fail": 5,
+        "agree": 1
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_shuffle_funcs__gqf5y5ad": {
+        "fail": 1,
+        "agree": 0
+      }
+    },
+    "ci_95": [
+      0.0,
+      0.26
+    ],
+    "ttft_avg": 744.7954098360656,
+    "c2_reused_avg": 345.24590163934425
+  },
+  "R38b": {
+    "n": 60,
+    "PASS": 24,
+    "FAIL": 24,
+    "UNK": 12,
+    "type_match": 4,
+    "type_match_over_25": 0.06666666666666667,
+    "type_match_over_FAIL": 0.16666666666666666,
+    "FAIL_acc": 0.4,
+    "per_case": {
+      "pandas-dev__pandas.95280573.combine_file__11s6papj": {
+        "fail": 5,
+        "agree": 4
+      },
+      "pandas-dev__pandas.95280573.combine_file__1eilbetv": {
+        "fail": 1,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.combine_module__0jihprar": {
+        "fail": 3,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.combine_module__1pp9tokz": {
+        "fail": 3,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_rm_funcs__069qd7fn": {
+        "fail": 4,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_rm_funcs__0frzywwz": {
+        "fail": 2,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_rm_funcs__0leu19pj": {
+        "fail": 3,
+        "agree": 0
+      },
+      "pandas-dev__pandas.95280573.func_pm_class_shuffle_funcs__fiam3jy5": {
+        "fail": 3,
+        "agree": 0
+      }
+    },
+    "ci_95": [
+      0.0,
+      0.3
+    ],
+    "ttft_avg": 752.9386666666667,
+    "c2_reused_avg": 282.6333333333333
+  }
+}
