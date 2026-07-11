@@ -391,3 +391,114 @@ If R32 lands **within 70% of RAGCache's 24.7× on shared-chunk hit rates**, that
 **Crucial context**: RAGCache's 24.7× is on long-context RAG with shared retrieved documents. Our pool is on shared code chunks. Different workloads. But the structural lesson — **hierarchical cache + semantic similarity** — may apply.
 
 **Recommended for next session**: Run isolated experiment #1 (1 day) to get a meaningful comparison number. If R32 ≥ 10× (vs vLLM) on code-chunk hit rates, paper claim is competitive. If less, reconsider scope.
+
+---
+
+## Appendix F — Third peer-surfaced citations (added 2026-07-11): KV eviction + speculative prefill
+
+A third peer Claude session completed a focused survey of **lossy KV eviction systems** and **speculative prefill systems**. These are the orthogonal axes (vs. R32's chunk-reuse axis) that should be folded into our consideration:
+
+### **LOSSY KV EVICTION (closest analog to "lossy reuse" beyond byte-match)**
+
+#### **F1. SnapKV** (arXiv:2404.14469)
+**Algorithm**: For each attention head, identifies "important" KV positions by clustering attention features observed in a small **observation window** at the prompt end. **The pattern of which positions each head attends to is consistent across the head**, so the window is a cheap proxy for the whole prompt. SnapKV then keeps only the clustered-important positions and drops the rest.
+
+**Pseudocode**:
+```
+for each head h:
+    W = last_window_queries(K_h)
+    attn = softmax(W @ K_h.T)
+    scores = aggregate(attn)
+    keep_h = topk_clusters(scores, budget)
+KV_h = KV_h[:, keep_h, :]
+```
+
+**Numbers**: At 16K tokens: **3.6× generation speedup, 8.2× KV memory reduction**. ~0.1 drop in F1 on long-context QA vs full KV. Compatible with GQA/MQA/MLA, chunked prefill.
+
+**Why this matters for our work**: SnapKV's mechanism (per-head importance clustering from observation window) is **the same idea as we need for selective recompute** — but at token level within cached chunks. We could apply SnapKV to identify which *pooled* chunk tokens to drop/recompute. ~3.6× speedup is the published ceiling.
+
+#### **F2. PyramidKV** (arXiv:2506.08820, ACL 2025)
+**Algorithm**: Observes that **deeper layers need fewer cached tokens because information funnels into a small set of positions**. Cache budget follows a **pyramid** across layers: large budget at bottom, small at top. Dynamic, training-free.
+
+**Numbers**: SOTA among training-free KV-compression methods at comparable ratios on LongBench / Needle-in-a-Haystack.
+
+#### **F3. StreamingLLM** (arXiv:2309.17453, ICLR 2024)
+**Algorithm**: Keeps a small set of "**attention sink**" tokens (initial 4) plus a sliding window of recent tokens; drops everything in between. Stable to 4M+ tokens.
+
+**Numbers**: Up to 22.2× speedup vs recompute baseline. Foundational 2023 work.
+
+#### **F4. Scissorhands** (arXiv:2305.17118, NeurIPS 2023)
+**Algorithm**: Empirically observes the **persistence-of-importance** hypothesis — once a token is pivotal at one generation step, it tends to remain pivotal in future steps. Identifies and retains only those.
+
+**Numbers**: Up to 5× KV memory reduction with no quality loss; combined with 4-bit quantization up to 20× total compression.
+
+#### **F5. ChunkKV** (NeurIPS 2025, arXiv:2511.15301) — **HIGHLY RELEVANT**
+**Algorithm**: Reframes KV eviction from token-level to **semantic-chunk-level**. Splits input into coherent chunks (newline-separated blocks in code/documents/RAG), scores each chunk holistically by aggregating attention signals from an observer layer, evicts whole chunks rather than fragmenting them. Preserves coherent reasoning/code blocks.
+
+**Numbers**: **+8.7% accuracy** at the same compression ratio vs token-level baselines (SnapKV, PyramidKV). Throughput improvement **up to 26.5%** at aggressive compression. **~3× throughput** at aggressive compression on **vLLM-style serving**.
+
+**Why this matters**: ChunkKV is the published system that operates at our exact granularity (chunks in code). The 8.7% accuracy gain and 3× throughput at aggressive compression are **concrete paper-relevant numbers for our chunk-pool direction**. If we add chunk-granularity eviction/compression on top of our precompute pool, we'd be combining R32-style reuse with ChunkKV-style compression.
+
+### **HYBRID (text-compression + KV recompute)**
+
+#### **F6. LLMLKV** (arXiv:2409.00149)
+**Algorithm**: Uses LLMLingua-2 to compress the prompt, **skips storing KV cache for compressed tokens**, recomputes them during decoding.
+
+**Numbers**: **1.84× prefill-time speedup over LLMLingua-2; 2.15× over unmodified LLM**.
+
+**Why this matters**: LLMLKV is one of the few systems that explicitly combines prompt compression with KV recompute. The pattern (compress → recompute-only-the-needed-parts) maps directly onto "identify which chunk positions to recompute." Our True CacheBlend T1 selector could adopt this pattern for a target text-side token list.
+
+#### **F7. SRecomp** (arXiv:2405.18785)
+**Algorithm**: Compresses the prompt, computes KV cache of compressed prompt, approximates original KV via **recompute-and-shift** strategy. Two variants: Uniform SRecomp and Non-Uniform SRecomp (per-segment adaptive ratio).
+
+**Numbers**: ~5.4× KV memory reduction with minimal accuracy loss.
+
+### **SPECULATIVE PREFILL (rare prefill-targeting)**
+
+#### **F8. Speculative Prefill** (arXiv:2403.09872)
+**Algorithm**: Predicts the KV cache of upcoming layers during prefill via a lightweight predictor, then verifies by completing the actual forward pass. On hit, skips the actual KV computation for that layer.
+
+**Numbers**: **TTFT reduced up to 35%** on long-context inputs.
+
+**Caveat**: The arXiv ID returned wrong paper on fetch; numbers come from secondary search snippets. **Verify before citing in any formal report.**
+
+### **DECODE-ONLY SYSTEMS (irrelevant for TTFT)**
+
+The peer agent confirmed: SpecDec, EAGLE/EAGLE-2/EAGLE-3 (up to 6.5×), Lookahead, Kangaroo (1.6-2.3×), REST, CS Drafting, and PLD (2.4-6.9× on grounded tasks) are **all decode-phase** optimizers. They assume the prompt is already prefilled normally. **NOT relevant to our TTFT-axis work.** Their value lies in complementing our prefill savings with decode savings.
+
+### **Summary Table — Eviction + Hybrid**
+
+| System | arXiv | Class | Yield | Speedup |
+|---|---|---|---|---|
+| SnapKV | 2404.14469 | Token-level eviction | 3.6× gen + 8.2× KV mem | gen |
+| PyramidKV | 2506.08820 | Layer-wise eviction | SOTA training-free | gen |
+| StreamingLLM | 2309.17453 | Attention-sink + sliding window | 22.2× vs recompute | gen |
+| Scissorhands | 2305.17118 | Persistence-of-importance | 5× KV mem | gen |
+| **ChunkKV** | **2511.15301** | **Semantic-chunk eviction** | **+8.7% acc, 26.5% thr** | **gen/serving** |
+| LLMLKV | 2409.00149 | Text-compress + skip-KV | 1.84-2.15× prefill | **prefill** |
+| SRecomp | 2405.18785 | Shorten + recompute-shift | 5.4× KV mem | both |
+| Speculative Prefill | 2403.09872 | Layer-prediction | 35% TTFT ↓ (unverified) | **prefill** |
+
+### What this changes
+
+1. **ChunkKV is the published system at our exact granularity**. We should benchmark our R32 chunk-pool KV state against ChunkKV's evictions on a fair workload. The +8.7% accuracy at same compression is a concrete number to compare against.
+
+2. **SnapKV-style observation window** could enhance our True CacheBlend T1 selector: rather than picking positions by HKVD-sensitivity (Phase 4 precomputed data), use a quick forward-pass observation window on the live prompt to identify recompute candidates. This is essentially CacheBlend's "attention surprise" applied pre-prefill.
+
+3. **LLMLKV's hybrid pattern** (text-side compress + KV skip-and-recompute) is a published alternative we haven't considered. Could combine with our placeholder pool if we add text-side token classification to filter what's worth precomputing.
+
+4. **Speculative Prefill** (35% TTFT) is intriguing if real — would unlock a NEW axis (per-layer KV prediction). But verification needed before commitment.
+
+5. **The decode-only systems (EAGLE-3 at 6.5×)** could be layered with our prefix-reuse work for *combined* throughput gains. Out of scope for our pure TTFT work, but a legitimate paper-section for "complementary acceleration."
+
+### Updated priority after F-surfaced data
+
+The added eviction/hybrid axes don't change the top-3 priorities but **strengthen** them:
+
+| # | Experiment | New strength |
+|---|---|---|
+| 1 | R32 vs vLLM APC isolated measurement | Anchor for comparison vs RAGCache + ChunkKV |
+| 2 | A1 tool-output cache | TokenCake 47% + Anthropic 97% + ChunkKV 26.5% all converge on "agent-loop axis = highest yield" |
+| 3 | A3 anchor-token classifier | Could combine with SnapKV-style observation window for a novel non-HKVD signal |
+| 4 | **NEW**: ChunkKV-style semantic-chunk eviction as a *complementary* axis to R32 — **adds (not replaces)** granularity to our pool | 1-3 weeks |
+| 5 | LLMLKV-style text-side filter pre-prefill | speculative but cheap to prototype |
