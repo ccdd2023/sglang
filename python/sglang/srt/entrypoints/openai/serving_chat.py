@@ -113,6 +113,16 @@ class OpenAIServingChat(OpenAIServingBase):
             )
             OpenAIServingChat._default_sampling_params_logged = True
 
+        # Phase A1 (2026-07-11): tool-output + system-prompt KV cache
+        # instrumentation. Default OFF (SGLANG_TOOL_OUTPUT_CACHE=0).
+        # When OFF the .enabled property is False and observe_* methods
+        # no-op, so this object carries no overhead. See
+        # python/sglang/srt/mem_cache/tool_output_cache.py for full model
+        # and the externally-validated motivation (TokenCake arXiv:2510.18586
+        # + Anthropic cache_control: ephemeral).
+        from sglang.srt.mem_cache.tool_output_cache import ToolOutputCache
+        self._tool_output_cache = ToolOutputCache()
+
         # Check if the model is a GPT-OSS model
         self.is_gpt_oss = (
             hasattr(self.tokenizer_manager.model_config, "hf_config")
@@ -367,6 +377,17 @@ class OpenAIServingChat(OpenAIServingBase):
                 ]
             else:
                 tools = [item.model_dump() for item in request.tools]
+
+            # Phase A1 (2026-07-11): observe the tool-definition bucket.
+            # Tools (schemas) are a big share of Anthropic's 97% system-prompt
+            # sharing claim; emitting the hash here lets us measure whether
+            # they're stable across requests in our benchmark.
+            # Default OFF (SGLANG_TOOL_OUTPUT_CACHE=0); when OFF this is a
+            # no-op. See python/sglang/srt/mem_cache/tool_output_cache.py.
+            _toc = getattr(self, "_tool_output_cache", None)
+            if _toc is not None and _toc.enabled:
+                _toc.observe_tool_definitions(tools)
+
             if self.tool_call_parser:
                 parser = FunctionCallParser(request.tools, self.tool_call_parser)
                 tool_call_constraint = parser.get_structure_constraint(
@@ -481,6 +502,38 @@ class OpenAIServingChat(OpenAIServingBase):
                             item["function"]["arguments"] = orjson.loads(
                                 item["function"]["arguments"]
                             )
+
+                # Phase A1 (2026-07-11): tool-output + system-prompt KV cache
+                # instrumentation. Observes 4 cacheable buckets (system prompt,
+                # tool definitions, tool calls, tool outputs) for hit-rate
+                # measurement. Default OFF (SGLANG_TOOL_OUTPUT_CACHE=0); when
+                # OFF the observe_* methods return False without retaining
+                # anything. See python/sglang/srt/mem_cache/tool_output_cache.py
+                # for the bucket model and external validation (TokenCake
+                # arXiv:2510.18586 + Anthropic cache_control: ephemeral).
+                _toc = self._tool_output_cache
+                if _toc is not None and _toc.enabled:
+                    role = processed_msg.get("role")
+                    if role == "system":
+                        _content = processed_msg.get("content") or ""
+                        if isinstance(_content, str):
+                            _toc.observe_system_prompt(_content)
+                    elif role == "tool":
+                        _content = processed_msg.get("content") or ""
+                        if isinstance(_content, str):
+                            _toc.observe_tool_output(
+                                processed_msg.get("tool_call_id"), _content
+                            )
+                    elif role == "assistant":
+                        _tools = processed_msg.get("tool_calls") or []
+                        if isinstance(_tools, list):
+                            for _item in _tools:
+                                _fn = _item.get("function") or {}
+                                if _fn.get("name"):
+                                    _toc.observe_tool_call(
+                                        _fn.get("name"),
+                                        _fn.get("arguments"),
+                                    )
 
                 openai_compatible_messages.append(processed_msg)
 
