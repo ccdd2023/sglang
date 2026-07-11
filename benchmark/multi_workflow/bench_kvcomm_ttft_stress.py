@@ -1139,6 +1139,13 @@ def row_from_response(
     chunk_pool_node_kind_k = int(meta.get("placeholder_chunk_pool_node_kind_k_count") or 0)
     # Phase 5 (2026-07-11): control-flow-selective recompute. Same no-op guard.
     chunk_pool_control_flow_k = int(meta.get("placeholder_chunk_pool_control_flow_k_count") or 0)
+    # Phase T1 (True CacheBlend prototype, 2026-07-11): total per-token
+    # selective-recompute positions emitted across the run. Each position
+    # corresponds to one planned 1-token chunked-prefill pass; the T1
+    # overhead gate reads this to decide if Path A is viable.
+    chunk_pool_true_cacheblend_positions = int(
+        meta.get("placeholder_chunk_pool_true_cacheblend_positions_count") or 0
+    )
     chunk_pool_blend_stage = int(meta.get("placeholder_chunk_pool_blend_stage_count") or 0)
     chunk_pool_blend_gap_tokens = int(meta.get("placeholder_chunk_pool_blend_gap_tokens") or 0)
     chunk_pool_blend_run_tokens = int(meta.get("placeholder_chunk_pool_blend_run_tokens") or 0)
@@ -1265,6 +1272,7 @@ def row_from_response(
         "placeholder_chunk_pool_total_tokens_dense": chunk_pool_tokens_dense,
         "placeholder_chunk_pool_node_kind_k_count": chunk_pool_node_kind_k,
         "placeholder_chunk_pool_control_flow_k_count": chunk_pool_control_flow_k,
+        "placeholder_chunk_pool_true_cacheblend_positions_count": chunk_pool_true_cacheblend_positions,
         "placeholder_chunk_pool_blend_stage_count": chunk_pool_blend_stage,
         "placeholder_chunk_pool_blend_gap_tokens": chunk_pool_blend_gap_tokens,
         "placeholder_chunk_pool_blend_run_tokens": chunk_pool_blend_run_tokens,

@@ -126,6 +126,7 @@ class SchedulerOutputProcessorMixin:
                     "placeholder_chunk_pool_total_tokens_dense",
                     "placeholder_chunk_pool_node_kind_k_count",
                     "placeholder_chunk_pool_control_flow_k_count",
+                    "placeholder_chunk_pool_true_cacheblend_positions_count",
                     "placeholder_chunk_pool_blend_stage_count",
                     "placeholder_chunk_pool_blend_gap_tokens",
                     "placeholder_chunk_pool_blend_run_tokens",
@@ -339,6 +340,14 @@ class SchedulerOutputProcessorMixin:
             ),
             "placeholder_chunk_pool_control_flow_k_count": _dbg_chunk.get(
                 "placeholder_chunk_pool_control_flow_k_count"
+            ),
+            # Phase T1 (True CacheBlend prototype): per-process total of
+            # per-token selective-recompute positions emitted across all
+            # requests so far. Each position is one planned 1-token
+            # chunked-prefill pass; the Phase T1 overhead gate reads this
+            # to decide if Path A is viable (see ABLATION_TRUE_CACHEBLEND).
+            "placeholder_chunk_pool_true_cacheblend_positions_count": _dbg_chunk.get(
+                "placeholder_chunk_pool_true_cacheblend_positions_count"
             ),
             "placeholder_chunk_pool_blend_stage_count": _dbg_chunk.get(
                 "placeholder_chunk_pool_blend_stage_count"

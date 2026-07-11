@@ -33,7 +33,7 @@ import threading
 import time
 from collections import defaultdict
 from pathlib import Path
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache, partial
 from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Tuple, Union
 
@@ -320,6 +320,17 @@ class ChunkDecision:
     copy_offset: int = 0
     copy_len: int = 0
     gap_len: int = 0
+    # Phase T1 (True CacheBlend prototype) — per-token selective recompute
+    # positions INSIDE [start_token, end_token), absolute token indices in the
+    # current request's prompt. Empty for all non-True-CacheBlend paths so
+    # the field has zero cost on R32 / R38b / node-kind / control-flow.
+    # The scheduler consumes them by issuing one 1-token chunked-prefill
+    # pass per position (see schedule_policy.cacheblend_stage and
+    # scheduler.init_next_round_input).
+    selected_token_positions: List[int] = field(default_factory=list)
+    # Selection source tag for telemetry + replay; one of
+    # "uniform_p" | "hkvd_label" | "control_flow_hint" | "first_n" | "".
+    selection_signal_source: str = ""
 
     @property
     def token_len(self) -> int:
@@ -356,6 +367,11 @@ class ChunkPlan:
     # non-contiguous matching slots beyond the first. Telemetry/loss metric —
     # the zeroed-gap KV is lossy (unlike the staged real leading gap).
     multi_slot_zeroed_gap_tokens: int = 0
+    # Phase T1 (True CacheBlend prototype): total number of per-token
+    # selective-recompute sites across the entire request (sum of
+    # len(d.selected_token_positions) over all decisions). Zero on
+    # non-True-CacheBlend paths so this stays zero-cost on R32/R38b/etc.
+    per_token_recompute_count: int = 0
 
     def __post_init__(self):
         if self.copy_count == 0 and self.dense_count == 0 and self.decisions:
@@ -869,6 +885,13 @@ class RadixCache(BasePrefixCache):
         # guard as node_kind: path must fire on most chunks or the policy
         # silently degrades to the frac fallback.
         self.placeholder_chunk_pool_control_flow_k_count = 0
+        # Phase T1 (True CacheBlend prototype, 2026-07-11): total per-token
+        # selective-recompute positions emitted across the process. Fires
+        # only when SGLANG_TRUE_CACHEBLEND=1. Each position becomes one
+        # 1-token chunked-prefill pass in the scheduler (overhead is the
+        # Phase T1 measurement target — see ABLATION_TRUE_CACHEBLEND when
+        # written).
+        self.placeholder_chunk_pool_true_cacheblend_positions_count = 0
         self.placeholder_chunk_pool_skip_byte_drift_count = 0
         self.placeholder_chunk_pool_skip_size_mismatch_count = 0
         self.placeholder_chunk_pool_skip_alloc_failed_count = 0
@@ -2487,6 +2510,19 @@ class RadixCache(BasePrefixCache):
         new_values, new_node = self._execute_chunk_plan(
             req, key, exact_values, exact_node, plan,
         )
+        # Phase T1 (True CacheBlend prototype): publish the per-token
+        # recompute positions to the request so the scheduler can issue
+        # 1-token chunked-prefills per position. Default-zero list keeps
+        # all non-True-CacheBlend paths at zero cost.
+        if plan.per_token_recompute_count > 0:
+            positions = []
+            for d in plan.decisions:
+                positions.extend(d.selected_token_positions)
+            setattr(req, "true_cacheblend_positions", positions)
+            setattr(req, "true_cacheblend_total_positions", len(positions))
+            setattr(req, "true_cacheblend_signal_source",
+                    next((d.selection_signal_source for d in plan.decisions
+                          if d.selected_token_positions), ""))
         _t2 = time.perf_counter()
         # R40: record TTFT breakdown to the req's SchedulerReqTimeStats.
         # We use the per-stage setter (additive) so multiple radix walks on the
@@ -3166,7 +3202,83 @@ class RadixCache(BasePrefixCache):
         plan.dense_count = sum(
             1 for d in plan.decisions if d.action == "dense_prefill"
         )
+        # Phase T1 (True CacheBlend prototype): per-token selective recompute.
+        # Off by default; flipped only when SGLANG_TRUE_CACHEBLEND=1. Operates
+        # on COPY_POOL decisions only (a recompute on a dense chunk would
+        # double-pay). selection_signal_source="uniform_p" => top-p% uniform
+        # across the chunk body (T1 overhead-only measurement target).
+        self._emit_true_cacheblend_positions(plan)
         return plan
+
+    def _emit_true_cacheblend_positions(self, plan: "ChunkPlan") -> None:
+        """Phase T1 prototype: per-token selective recompute (True CacheBlend).
+
+        Fires only when ``SGLANG_TRUE_CACHEBLEND=1``. For each ``copy_pool``
+        decision in the plan, marks the top-``p`` fraction of the chunk body
+        as needing a 1-token chunked-prefill pass. The scheduler
+        (``cacheblend_stage`` + ``init_next_round_input``) consumes these
+        via ``req.true_cacheblend_positions`` and runs a 1-token
+        chunked-prefill for each.
+
+        Phase T1 default: ``selection_signal_source="uniform_p"`` — every
+        k-th token in the chunk body (no real selection signal; we are
+        measuring per-launch overhead, not signal quality).
+
+        Phase T2 will add ``"hkvd_label"`` mode (load
+        ``signal_labels_per_chunk.jsonl`` and rank by per-token K_dev).
+        """
+        try:
+            if os.environ.get("SGLANG_TRUE_CACHEBLEND", "0") != "1":
+                return
+        except Exception:
+            return
+
+        try:
+            pct = float(os.environ.get("SGLANG_TRUE_CACHEBLEND_PCT", "0.12"))
+        except Exception:
+            pct = 0.12
+        pct = max(0.0, min(pct, 1.0))
+        try:
+            max_positions = int(
+                os.environ.get("SGLANG_TRUE_CACHEBLEND_MAX_POSITIONS_PER_REQ", "64")
+            )
+        except Exception:
+            max_positions = 64
+
+        emitted = 0
+        for d in plan.decisions:
+            if emitted >= max_positions:
+                break
+            if d.action != "copy_pool":
+                # Recomputing tokens inside a dense_prefill chunk would
+                # double-pay (the chunk is being pre-filled from scratch
+                # this round). Skip — True CacheBlend only fires on
+                # byte-exact pool hits.
+                continue
+            body_len = max(0, d.token_len)
+            if body_len <= 0:
+                continue
+            n_pick = max(1, int(pct * body_len + 0.5)) if pct > 0 else 0
+            if n_pick <= 0:
+                continue
+            # Top-p% uniform: indices at body_len/n_pick, 2*body_len/n_pick, ...
+            step = max(1, body_len // n_pick)
+            positions = []
+            offset = step - 1  # start near the body beginning
+            while offset < body_len and len(positions) < n_pick:
+                if emitted >= max_positions:
+                    break
+                abs_pos = d.start_token + offset
+                positions.append(abs_pos)
+                emitted += 1
+                offset += step
+            if positions:
+                d.selected_token_positions = positions
+                d.selection_signal_source = "uniform_p"
+                plan.per_token_recompute_count += len(positions)
+
+        if emitted > 0:
+            self.placeholder_chunk_pool_true_cacheblend_positions_count += emitted
 
     def _find_byte_exact_chunk_entry(
         self,
