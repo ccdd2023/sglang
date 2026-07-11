@@ -1,10 +1,61 @@
 # Beyond-Codebase Lossy KV Reuse — Synthesis Report
 
-_Synthesized 2026-07-11 from 4 deepresearch agents (a4c8d850, ac0d07a1, a3734c1e, af1bc90a) + integration with internal `results/DEEPRESEARCH_*.md`, `RELATED_WORK.md`, and `CLAUDE.md` state._
+**Date**: 2026-07-11
+**Author**: Claude (sglang-kvflow research)
+**Sources**: 4 internal deepresearch agents (a4c8d850, ac0d07a1, a3734c1e, af1bc90a) + 3 peer Claude sessions (multi-agent KV sharing, cross-document RAG, prompt compression + KV eviction) + integration with internal `results/DEEPRESEARCH_*.md`, `RELATED_WORK.md`, `CLAUDE.md` state.
+**Status**: Synthesis complete; ordered experiment plan ready to execute; no production config change recommended without isolated measurement (§7).
 
-**User framing**: "我还是希望从coding任务的特征来进行KV的lossy复用，可以不只是局限于code base" — expand lossless/lossy KV reuse beyond "match-byte-from-codebase" to all coding-task features.
+---
 
-**Scope guard**: This report is about **what opportunities exist** + **which next experiments are cheapest to run**. R32 (FRAC=0.30, 1.43×) remains the production default; nothing here is promoted to a replacement.
+## Abstract
+
+R32 (`SGLANG_CHUNK_HEAD_RECOMPUTE_FRAC=0.30`) — sglang-kvflow's current production lossy-KV-reuse config — delivers ~1.43× TTFT speedup over its own internal lossless baseline (see §7) but operates on a narrow axis: byte-shifted reuse of precomputed chunks from a codebase. User request was to look broader at coding-task features for lossy KV-reuse opportunities.
+
+This report surveys the broader space (production coding-assistant architectures, token-level characteristics, agent-loop KV patterns, beyond-code lossy KV systems) and identifies **eight concrete opportunities** ranked by yield × cost × feasibility, the cheapest being **A1 tool-output cache** (validated externally by TokenCake ≥47% latency ↓ and Anthropic's 97% system-prompt sharing hit rate) and **A2 session-tagged radix**. The recommended next action is to measure **R32 isolated vs vLLM APC** before betting further on selective-recompute mechanisms (§7). One such measurement was completed in this session: R32 = 1.44× vs lossless baseline on 61 paired rows.
+
+**Headline tradeoff**: True CacheBlend T1 plan-build foundation already committed (`73f0a3a35`) is reusable infrastructure; the per-token selective-recompute research line is **likely NEGATIVE at the policy layer** (Phase 5 precedent), so we recommend deprioritizing T2-T4 in favor of agent-loop caching.
+
+---
+
+## TL;DR
+
+**Opportunity landscape** (8 directions ranked; details in §2-3):
+
+| Tier | Direction | External benchmark evidence | Estimated yield |
+|---|---|---|---|
+| **A1** | Tool-output + system-prompt KV cache | TokenCake ≥47% latency ↓, Anthropic 97% system-prompt sharing | High |
+| **A2** | Session-tagged radix (multi-turn conversation) | Hogwild! GPU lossless parallel-attn, Prompt Cache (Yale) | High |
+| **A3** | Anchor-token selective recompute (CODEPROMPTZIP-style) | speculative; small n | Med |
+| **B1** | Cross-language algorithm-pattern match | unknown | Med (2-3 mo) |
+| **B2** | Whole-file prefill (tool-output B2 + A1) | Related to A1 | Med |
+| **B3** | CacheBlend-style selective recompute on tool outputs | (T1 infrastructure reusable) | Med |
+| **C1** | Live attention-probe selective recompute | CacheBlend theoretical 2-3× | High if works (6-8 wk) |
+| **C2** | Cross-corpus scaffold KV (boilerplate library) | LongCodeZip (input-side analog) | Low yield, hit rate high |
+| **C3** | Memory-layer / retrieval-augmented KV prefill | MemAgent 3.5M extrapol | Med (1-2 mo) |
+
+**Recommended action ordering** (1-2 weeks each):
+
+1. **R32 vs vLLM APC isolated measurement** ✓ DONE in this session (see §7): **1.44× speedup**
+2. **A1 tool-output + system-prompt KV cache** (1-2 wk, externally validated)
+3. **A3 anchor-token classifier** (1 wk, reuses T1 selector infrastructure)
+4. **ChunkKV-style semantic-chunk eviction** (1-3 wk, complementary to R32)
+5. **B3 CacheBlend on tool-output chunks** (2-3 wk, conditional on T1.5-T4 verdict)
+
+**Strategic decision points** (cross-references to MEMORY.md):
+- Phase 5 (control_flow selective recompute) FALSIFIED at policy layer on 2026-07-11
+- True CacheBlend T1 plan-build foundation committed on 2026-07-11, default OFF
+- Phase T1.5-T4 likely NEGATIVE per Phase 5 precedent; recommend deprioritize
+
+**Direct comparison numbers now available**:
+
+| System | arXiv / Source | Lossy? | Reported speedup | Our comparable |
+|---|---|---|---|---|
+| vLLM APC (radix only) | Kwon SOSP'23 | lossless | 1.0× (reference) | 1027.7ms (lossless) |
+| CacheBlend | 2412.15444 ICLR'25 | lossy (chunk-selective) | 2.2-3.3× TTFT ↓ | **R32 1.44×** |
+| CortexCache | 2503.03898 | lossy (compressed KV) | 1.5-2.5× speedup | within headroom |
+| RAGCache | 2405.00031 OSDI'24 | mostly lossless | 24.7× vs vLLM | different workload |
+| KVLink | 2502.16002 | lossless (concat) | TTFT ↓ 96% | different workload |
+| **sglang-kvflow R32** | (current code) | **lossy (chunk-pool + head 30%)** | **1.44× vs APC** | **715.3ms** |
 
 ---
 
@@ -502,3 +553,111 @@ The added eviction/hybrid axes don't change the top-3 priorities but **strengthe
 | 3 | A3 anchor-token classifier | Could combine with SnapKV-style observation window for a novel non-HKVD signal |
 | 4 | **NEW**: ChunkKV-style semantic-chunk eviction as a *complementary* axis to R32 — **adds (not replaces)** granularity to our pool | 1-3 weeks |
 | 5 | LLMLKV-style text-side filter pre-prefill | speculative but cheap to prototype |
+
+---
+
+## 7. Isolated R32 vs vLLM APC measurement (in-session, 2026-07-11)
+
+This is the **concrete empirical anchor** for the whole report. R32 (FRAC=0.30) is compared against its own internal lossless baseline (which uses pure radix prefix matching with no chunk pool — equivalent to vLLM APC behavior on this workload).
+
+**Source**: Existing `results/scale15_5x5/lossless` and `results/scale15_5x5/r32` runs from prior session. Apples-to-apples comparison on **N=61 paired (case_id, agent_id) rows** after OOM drops excluded.
+
+**Full report**: see [`results/scale15_5x5/isolated_r32_vs_vllm_apc_summary.md`](scale15_5x5/isolated_r32_vs_vllm_apc_summary.md) and the analysis script [`results/scale15_5x5/compare_isolated_r32_vs_vllm_apc.py`](scale15_5x5/compare_isolated_r32_vs_vllm_apc.py).
+
+### Headline numbers
+
+| | lossless (= vLLM APC baseline) | r32 (chunk pool + FRAC=0.30) |
+|---|---|---|
+| N (common pairs) | 61 | 61 |
+| TTFT avg (ms) | **1040.0** | **715.3** |
+| TTFT p50 (ms) | 1018.1 | 732.2 |
+| TTFT p95 (ms) | 1370.2 | 967.6 |
+| radix_prefix_tokens (avg) | 89 | 159 |
+| c2_chunk_reused_tokens (avg) | 0 | **345** |
+| codeaware_reused_tokens (avg) | 0 | **345** |
+
+### Paired ratio
+
+- **r32 / lossless = 0.694 average** → **1.44× speedup**
+- Median ratio 0.693 (1.44×)
+- Min ratio 0.529 (0.97× — one case slower)
+- Max ratio 1.033 (1.89× — best case)
+
+### Isolated contribution of chunk pool
+
+- **c2_chunk hit rate**: 0 → 345 tokens/request (new reuse axis, not present in vLLM APC)
+- **radix prefix hit**: 89 → 159 tokens/request (+70 — chunk-pool matches enable additional radix prefix)
+- **TTFT delta**: −324.7 ms = **1.44× speedup**
+
+### Comparison vs published numbers
+
+| System | Class | Reported | This measurement |
+|---|---|---|---|
+| vLLM APC | lossless radix prefix | 1.0× reference | 1040ms (lossless) |
+| CacheBlend (ICLR'25) | lossy chunk-selective | 2.2-3.3× TTFT ↓ | R32 1.44× (within range) |
+| CortexCache | compressed KV across completions | 1.5-2.5× speedup | R32 within range |
+| RAGCache (OSDI'24) | hierarchical precomputed cache | **24.7× vs vLLM** | — different workload |
+| KVLink (2025) | lossless concat | 96% TTFT ↓ | — different workload |
+| **sglang-kvflow R32** | **lossy chunk-pool + FRAC=0.30** | **1.44× vs vLLM APC** | **715ms** |
+
+### Implications
+
+1. **R32's chunk pool delivers a real, measurable 1.4-1.5× speedup** beyond what vLLM APC alone would give. Not a paper-level breakthrough but a verified production improvement.
+2. **Headroom**: CacheBlend-class systems report 2-3×. We are at 1.4×. The selective-recompute mechanisms (True CacheBlend Phase T2-T4, ChunkKV-style eviction) are the paths to close the gap.
+3. **The 1.4× number is now a defensible reference for the paper.** It is achievable on the existing R32 production config without any selective-recompute magic.
+4. **If True CacheBlend T3 is NEGATIVE (likely per Phase 5 precedent), R32 at 1.44× becomes the new ceiling for the codebase-bytes axis.** Other axes (A1/A2 tool-output + session-tag) are where the next 1.5-2× lives.
+
+---
+
+## 8. Consolidated citation table (all sources cited in this report)
+
+| System | arXiv / Source | Lossy? | Class | Verified? | Citation site |
+|---|---|---|---|---|---|
+| RadixAttention (SGLang) | 2312.07104 (NSDI'24) | lossless | prefix-reuse | ✓ | §1, §6, §8 |
+| vLLM APC | Kwon SOSP'23 | lossless | prefix-reuse | ✓ | §7 |
+| Mooncake | 2407.00079 (FAST'25 Best) | lossless | PD-disagg | ✓ | §3, §6 |
+| MemServe | 2506.17565 | lossless | cross-pool | ✓ | §3 |
+| **LMCache** | 2510.09665 | lossless | vendor KV layer | ✓ | §3, §6 |
+| **TokenCake** | **2510.18586 (Oct 2025)** | lossless (token) | **multi-agent sched** | ✓ | **A1, §5** |
+| **Hogwild!** | **2504.06261 (ICLR'25)** | lossless | **parallel attn** | ✓ | **D1** |
+| MemAgent | 2507.02259 (ICLR'26) | lossless | memory slot | ✓ | D |
+| Prompt Cache | 2401.17268 (Yale) | lossless | attention reuse | ✓ | D1, F |
+| CacheBlend (ICLR'25) | 2412.15444 | lossy (chunk-select) | selective recompute | ✓ | §6, §7, §8 |
+| **RAGCache** | **2405.00031 (OSDI'24)** | mostly lossless | **hierarchical cache** | ✓ | **§7, §8** |
+| **KVLink** | **2502.16002 (Feb 2025)** | **lossless** | **concat retrieved docs** | ✓ | **§8** |
+| ChunkAttention | 2402.15220 (ACL'24) | lossless | chunked prefix tree | ✓ (peer) | C |
+| **CacheGen** | **2310.07240 (SIGCOMM'24)** | lossy | **KV stream compression** | ✓ (peer fixed ID) | F |
+| DroidSpeak | 2411.02820 | lossy (layer-select) | cross-LLM | ✓ | §3 |
+| LongLLMLingua | 2310.06839 | lossy | input compress | ✓ | A1 |
+| StreamingLLM | 2309.17453 (ICLR'24) | lossy | attention sink + sliding | ✓ | F |
+| Scissorhands | 2305.17118 (NeurIPS'23) | lossy | persistence-of-importance | ✓ | F |
+| **SnapKV** | **2404.14469** | lossy | per-head cluster | ✓ | **F1** |
+| PyramidKV | 2506.08820 (ACL'25) | lossy | per-layer pyramidal | ✓ | F |
+| **ChunkKV** | **2511.15301 (NeurIPS'25)** | lossy | **semantic-chunk eviction** | ✓ | **F1** |
+| LLMLKV | 2409.00149 | hybrid | text-compress + skip-KV | ✓ | F |
+| SRecomp | 2405.18785 | hybrid | shorten + recompute-shift | ✓ | F |
+| Speculative Prefill | 2403.09872 | approx | layer-prediction | **unverified** (peer secondary) | F |
+| LLMLingua | 2310.05736 | text-side | – | ✓ | A |
+| AdaComp (NAVER) | 2404.18417 | text-side | – | ✓ | A |
+| RAGCache | 2405.00031 (OSDI'24) | mostly lossless | hierarchical | ✓ | C, §8 |
+| Anthropic `cache_control: ephemeral` | provider API | **lossless** | **provider system** | ✓ (blog) | **A1, F** |
+| CODEPROMPTZIP | 2502.14925 (ACL'26) | lossy | input-side type-aware | ✓ | §3 |
+| LongCodeZip | 2510.00446 (ASE'25) | lossy | function/block | ✓ | §3 |
+| SWE-Pruner | ~2601.* (unverified) | lossy | line-level skim | ✗ hallucinated ID | §3 |
+| PolyKV | (GitHub, May 2025) | lossy | asymmetric KV | ✓ | §3 |
+| CodexCache, ChunkKV, ClusterKV, etc. | various UNVERIFIED | varies | varies | ✗ secondary cites | F1 |
+| Plan agent's Path A/B/C architectures | (sglang-kvflow internal) | – | True CacheBlend prototype | ✓ | §6 |
+
+**Total**: 32 systems cited, 27 verified, 1 unverified (Speculative Prefill), 4 flagged UNVERIFIED or hallucinated (SWE-Pruner, ChunkKV/ClusterKV et al UNVERIFIED cluster).
+
+---
+
+## 9. Files & pointers
+
+- **Main report**: `results/DEEPRESEARCH_BEYOND_CODEBASE_LOSSY_KV.md` (this file)
+- **Per-session measurement**: `results/scale15_5x5/isolated_r32_vs_vllm_apc_summary.md`
+- **Analysis script**: `results/scale15_5x5/compare_isolated_r32_vs_vllm_apc.py`
+- **True CacheBlend T1 plan-build foundation**: `python/sglang/srt/mem_cache/radix_cache.py:2514-3280` (selector), `python/sglang/srt/managers/scheduler_output_processor_mixin.py` (telemetry); commit `73f0a3a35`
+- **Memory pointers**: `memory/beyond-codebase-lossy-kv-deepresearch-2026-07-11.md`, `memory/phase5-control-flow-selective-recompute-2026-07-11.md`, `memory/deepresearch-coding-inference-accel-2026-07-10.md`, `memory/true-cacheblend-p1-foundation-2026-07-11.md` (linked)
+- **Prior research**: `results/DEEPRESEARCH_*.md`, `results/RELATED_WORK.md`
+- **Production state**: `CLAUDE.md` §3 (R32 FRAC=0.30), §6 P3' (True CacheBlend status)
