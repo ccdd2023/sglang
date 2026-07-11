@@ -843,6 +843,8 @@ class OpenAIServingChat(OpenAIServingBase):
                                 "placeholder_chunk_pool_node_kind_k_count",
                                 "placeholder_chunk_pool_control_flow_k_count",
                                 "placeholder_chunk_pool_true_cacheblend_positions_count",
+                                "placeholder_chunk_pool_true_cacheblend_unique_reqs",
+                                "placeholder_chunk_pool_true_cacheblend_unique_positions",
                                 "placeholder_chunk_pool_blend_stage_count",
                                 "placeholder_chunk_pool_blend_gap_tokens",
                                 "placeholder_chunk_pool_blend_run_tokens",
@@ -1346,6 +1348,8 @@ class OpenAIServingChat(OpenAIServingBase):
             "placeholder_chunk_pool_node_kind_k_count",
             "placeholder_chunk_pool_control_flow_k_count",
             "placeholder_chunk_pool_true_cacheblend_positions_count",
+                                "placeholder_chunk_pool_true_cacheblend_unique_reqs",
+                                "placeholder_chunk_pool_true_cacheblend_unique_positions",
             # Phase A1 (2026-07-11): tool-output + system-prompt cache
             # instrumentation. Default OFF; emit when ON to make hit rate
             # visible to bench_kvcomm_ttft_stress.py.

@@ -892,6 +892,12 @@ class RadixCache(BasePrefixCache):
         # Phase T1 measurement target — see ABLATION_TRUE_CACHEBLEND when
         # written).
         self.placeholder_chunk_pool_true_cacheblend_positions_count = 0
+        # T1 unique-position telemetry (cache-and-lock): counts requests
+        # that emitted at least one position + total positions cached (per
+        # req). Distinct from positions_count which counts producer emissions
+        # across all chunked-prefill rounds (inflated).
+        self.placeholder_chunk_pool_true_cacheblend_unique_reqs = 0
+        self.placeholder_chunk_pool_true_cacheblend_unique_positions = 0
         self.placeholder_chunk_pool_skip_byte_drift_count = 0
         self.placeholder_chunk_pool_skip_size_mismatch_count = 0
         self.placeholder_chunk_pool_skip_alloc_failed_count = 0
@@ -2514,15 +2520,28 @@ class RadixCache(BasePrefixCache):
         # recompute positions to the request so the scheduler can issue
         # 1-token chunked-prefills per position. Default-zero list keeps
         # all non-True-CacheBlend paths at zero cost.
+        #
+        # Cache-and-lock: positions are absolute in the prompt and don't
+        # change across chunked-prefill rounds. Lock on the FIRST non-zero
+        # emission so subsequent rounds don't overwrite (which would
+        # silently drop queued positions and inflate the producer counter
+        # without driving the consumer).
         if plan.per_token_recompute_count > 0:
-            positions = []
-            for d in plan.decisions:
-                positions.extend(d.selected_token_positions)
-            setattr(req, "true_cacheblend_positions", positions)
-            setattr(req, "true_cacheblend_total_positions", len(positions))
-            setattr(req, "true_cacheblend_signal_source",
-                    next((d.selection_signal_source for d in plan.decisions
-                          if d.selected_token_positions), ""))
+            if not getattr(req, "true_cacheblend_positions_locked", False):
+                positions = []
+                for d in plan.decisions:
+                    positions.extend(d.selected_token_positions)
+                setattr(req, "true_cacheblend_positions", positions)
+                setattr(req, "true_cacheblend_total_positions", len(positions))
+                setattr(req, "true_cacheblend_signal_source",
+                        next((d.selection_signal_source for d in plan.decisions
+                              if d.selected_token_positions), ""))
+                setattr(req, "true_cacheblend_positions_locked", True)
+                # Telemetry: TRUE per-req launches (= cached list size).
+                # Distinct from placeholder_chunk_pool_true_cacheblend_positions_count
+                # which counts producer emissions across all rounds.
+                self.placeholder_chunk_pool_true_cacheblend_unique_reqs += 1
+                self.placeholder_chunk_pool_true_cacheblend_unique_positions += len(positions)
         _t2 = time.perf_counter()
         # R40: record TTFT breakdown to the req's SchedulerReqTimeStats.
         # We use the per-stage setter (additive) so multiple radix walks on the
@@ -3246,6 +3265,12 @@ class RadixCache(BasePrefixCache):
             max_positions = 64
 
         emitted = 0
+        n_total = len(plan.decisions)
+        n_copy_pool = sum(1 for d in plan.decisions if d.action == "copy_pool")
+        n_zero_len = sum(1 for d in plan.decisions if d.action == "copy_pool" and d.token_len <= 0)
+        max_body_len = max((d.token_len for d in plan.decisions if d.action == "copy_pool"), default=0)
+        if os.environ.get("SGLANG_TRUE_CACHEBLEND_DEBUG", "0") == "1":
+            print(f"[T1_DBG] _emit called: total_decisions={n_total} copy_pool={n_copy_pool} zero_len_copy_pool={n_zero_len} max_body_len={max_body_len} pct={pct} max_positions={max_positions}", flush=True)
         for d in plan.decisions:
             if emitted >= max_positions:
                 break
@@ -3277,6 +3302,8 @@ class RadixCache(BasePrefixCache):
                 d.selection_signal_source = "uniform_p"
                 plan.per_token_recompute_count += len(positions)
 
+        if os.environ.get("SGLANG_TRUE_CACHEBLEND_DEBUG", "0") == "1":
+            print(f"[T1_DBG] _emit done: emitted={emitted}", flush=True)
         if emitted > 0:
             self.placeholder_chunk_pool_true_cacheblend_positions_count += emitted
 

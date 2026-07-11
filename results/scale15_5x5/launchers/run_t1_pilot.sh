@@ -35,13 +35,14 @@ export SGLANG_TRUE_CACHEBLEND_PCT=0.15
 export SGLANG_TRUE_CACHEBLEND_MAX_POSITIONS_PER_REQ=64
 export SGLANG_TRUE_CACHEBLEND_USE_HKVD_LABELS=0
 export SGLANG_TRUE_CACHEBLEND_OVERHEAD_GATE_P95_MS=8
+export SGLANG_TRUE_CACHEBLEND_DEBUG=1
 exec /home/gfy/.conda/envs/sglang-kvflow/bin/python -m benchmark.multi_workflow.bench_giant_codebase_reuse \
   --manifest results/giant_codebase/tasks/pandas__pandas__1000_diverse15/manifest.jsonl \
   --repo-root results/giant_codebase/pandas_src \
   --out-dir results/scale15_5x5/t1_pilot \
   --model Qwen/Qwen2.5-Coder-7B-Instruct \
   --mem-fraction-static 0.72 --max-total-tokens 16384 \
-  --max-tasks 5 --agent-count 5 \
+  --max-tasks 3 --agent-count 3 \
   --mode placeholder_knn_reuse --segment-count 5 \
   --position-shift --no-vary-code \
   --chunk-size 1 \
@@ -50,7 +51,4 @@ exec /home/gfy/.conda/envs/sglang-kvflow/bin/python -m benchmark.multi_workflow.
   --precompute-canonical-prefix \
   --include-source-with-precompute \
   --disable-hierarchical-cache \
-  --task-mode verdict \
-  --max-running-requests 1 \
-  --disable-overlap-schedule \
-  --force-evict
+  --task-mode verdict

@@ -1146,6 +1146,13 @@ def row_from_response(
     chunk_pool_true_cacheblend_positions = int(
         meta.get("placeholder_chunk_pool_true_cacheblend_positions_count") or 0
     )
+    # Phase T1 unique-position counters (cache-and-lock, true per-req launches).
+    chunk_pool_true_cacheblend_unique_reqs = int(
+        meta.get("placeholder_chunk_pool_true_cacheblend_unique_reqs") or 0
+    )
+    chunk_pool_true_cacheblend_unique_positions = int(
+        meta.get("placeholder_chunk_pool_true_cacheblend_unique_positions") or 0
+    )
     # Phase A1 (2026-07-11): tool-output + system-prompt cache instrumentation.
     # Columns reserved; values stay 0 until the bench round-trip path
     # (serving_chat -> req attribute -> meta_info) is wired in a follow-up.
@@ -1284,6 +1291,8 @@ def row_from_response(
         "placeholder_chunk_pool_node_kind_k_count": chunk_pool_node_kind_k,
         "placeholder_chunk_pool_control_flow_k_count": chunk_pool_control_flow_k,
         "placeholder_chunk_pool_true_cacheblend_positions_count": chunk_pool_true_cacheblend_positions,
+        "placeholder_chunk_pool_true_cacheblend_unique_reqs": chunk_pool_true_cacheblend_unique_reqs,
+        "placeholder_chunk_pool_true_cacheblend_unique_positions": chunk_pool_true_cacheblend_unique_positions,
         # Phase A1 (2026-07-11): tool-output + system-prompt cache columns.
         # Values stay 0 until the serving_chat -> req attr -> meta_info
         # round-trip is wired in a follow-up commit. Columns are added so

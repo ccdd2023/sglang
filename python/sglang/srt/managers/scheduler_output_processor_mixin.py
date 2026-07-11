@@ -127,6 +127,8 @@ class SchedulerOutputProcessorMixin:
                     "placeholder_chunk_pool_node_kind_k_count",
                     "placeholder_chunk_pool_control_flow_k_count",
                     "placeholder_chunk_pool_true_cacheblend_positions_count",
+                    "placeholder_chunk_pool_true_cacheblend_unique_reqs",
+                    "placeholder_chunk_pool_true_cacheblend_unique_positions",
                     # Phase A1 (2026-07-11): tool-output + system-prompt
                     # cache instrumentation. Counters live on the
                     # OpenAIServingChat instance, NOT on the tree_cache, so
@@ -359,6 +361,13 @@ class SchedulerOutputProcessorMixin:
             # to decide if Path A is viable (see ABLATION_TRUE_CACHEBLEND).
             "placeholder_chunk_pool_true_cacheblend_positions_count": _dbg_chunk.get(
                 "placeholder_chunk_pool_true_cacheblend_positions_count"
+            ),
+            # Phase T1 unique-position counters (cache-and-lock, true per-req launches).
+            "placeholder_chunk_pool_true_cacheblend_unique_reqs": _dbg_chunk.get(
+                "placeholder_chunk_pool_true_cacheblend_unique_reqs"
+            ),
+            "placeholder_chunk_pool_true_cacheblend_unique_positions": _dbg_chunk.get(
+                "placeholder_chunk_pool_true_cacheblend_unique_positions"
             ),
             "placeholder_chunk_pool_blend_stage_count": _dbg_chunk.get(
                 "placeholder_chunk_pool_blend_stage_count"
