@@ -658,6 +658,70 @@ This is the **concrete empirical anchor** for the whole report. R32 (FRAC=0.30) 
 - **Per-session measurement**: `results/scale15_5x5/isolated_r32_vs_vllm_apc_summary.md`
 - **Analysis script**: `results/scale15_5x5/compare_isolated_r32_vs_vllm_apc.py`
 - **True CacheBlend T1 plan-build foundation**: `python/sglang/srt/mem_cache/radix_cache.py:2514-3280` (selector), `python/sglang/srt/managers/scheduler_output_processor_mixin.py` (telemetry); commit `73f0a3a35`
+- **Phase A1 tool-output + system-prompt cache foundation**: `python/sglang/srt/mem_cache/tool_output_cache.py` (NEW, 166 LOC, 4 bucket hash model), `python/sglang/srt/entrypoints/openai/serving_chat.py` (observe_* hooks); commit `2eb12078b`
+- **Phase A1 telemetry headers** (4 sites × ~5 LOC, values stay 0 until full round-trip): commit `17743ae01`
 - **Memory pointers**: `memory/beyond-codebase-lossy-kv-deepresearch-2026-07-11.md`, `memory/phase5-control-flow-selective-recompute-2026-07-11.md`, `memory/deepresearch-coding-inference-accel-2026-07-10.md`, `memory/true-cacheblend-p1-foundation-2026-07-11.md` (linked)
 - **Prior research**: `results/DEEPRESEARCH_*.md`, `results/RELATED_WORK.md`
 - **Production state**: `CLAUDE.md` §3 (R32 FRAC=0.30), §6 P3' (True CacheBlend status)
+
+---
+
+## 10. Phase A1 implementation status (in-session, 2026-07-11)
+
+Two commits shipped:
+
+| Commit | Scope | LOC | Status |
+|---|---|---|---|
+| `2eb12078b` | `ToolOutputCache` module + serving_chat observe_* hooks | ~190 | ✓ Default OFF |
+| `17743ae01` | 4 telemetry sites (serving_chat × 2, scheduler_output_processor_mixin, bench_kvcomm_ttft_stress) | ~50 | ✓ Headers-only; values stay 0 |
+
+### What's done
+
+1. **Bucket model** (`tool_output_cache.py`):
+   - 4 buckets: system-prompt hash, tool-definitions hash, tool-call `(name, args)` hash, tool-output `content` hash
+   - SHA256[:32] keys, deterministic across processes
+   - Process-scope registry with bounded memory (default 4096 buckets)
+   - Counter snapshot for telemetry: hit_count, miss_count, total_buckets, in_process_buckets
+
+2. **serving_chat instrumentation** (`serving_chat.py`):
+   - `self._tool_output_cache` lazy-init in `__init__`
+   - `observe_system_prompt(content)` on `role: system` messages
+   - `observe_tool_definitions(tools)` on the built tools list (Anthropic's "tool schemas" claim)
+   - `observe_tool_call(name, args)` on `role: assistant` messages with `tool_calls`
+   - `observe_tool_output(tool_call_id, content)` on `role: tool` messages
+
+3. **Telemetry sites wired** (4 emission sites, mirrors Phase 5 pattern):
+   - serving_chat.py streaming-list allowlist ✓
+   - serving_chat.py non-streaming lossy_keys ✓
+   - scheduler_output_processor_mixin.py chunk_dict ✓
+   - bench_kvcomm_ttft_stress.py row dict ✓
+
+### What's NOT done (deliberately deferred)
+
+1. **Round-trip path**: serving_chat captures `_tool_output_cache.snapshot()` at request-end and ships it to the scheduler via a request attribute, which the scheduler forwards to `meta_info`. ~30 LOC. **Blocks bench observability** — without this, the A1 columns stay at 0 in rows.csv.
+
+2. **Real agent-trace benchmark harness**: needs a multi-turn coding-agent trace (or synthetic equivalent) that exercises 4-bucket observation. Without this, we can't measure hit rate.
+
+3. **Actual KV-pool sharing**: ~1-week wiring. Decision gate: does the observed hit rate justify the cost?
+
+### Synthetic trace verification (in-session)
+
+To validate the bucket model before any round-trip wiring:
+
+```python
+# 3-request agent session (system + tools stable; tool-call/output vary)
+# sys:    miss=F miss=T miss=T   # cached after req 1
+# tools:  miss=F miss=T miss=T
+# /foo.py call: miss=F miss=T miss=F  (req 3 is /bar.py, miss)
+# hello() output: miss=F miss=T miss=F (req 3 is world(), miss)
+# -> hit_count=6, miss_count=6, total_buckets=6, hit_rate=50%
+```
+
+Real coding-agent traces will produce different hit rates; the question is whether the rate is high enough (50%+ per Anthropic's 97% claim) to justify the KV-pool wiring cost.
+
+### Next-step decision rule
+
+After round-trip wiring + benchmark harness are completed:
+- **HIT RATE > 50%** in n=100 agent requests → proceed to KV-pool wiring (~1 week)
+- **HIT RATE 20-50%** → conditional: re-check on larger n; consider A2 session-tagged radix only
+- **HIT RATE < 20%** → mark A1 RETIRED at instrumentation layer (similar to Phase 5 trajectory), update §6 P3'
