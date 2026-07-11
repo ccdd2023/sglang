@@ -1,0 +1,73 @@
+{
+  "n_chunks": 120,
+  "n_files_indexed": 16,
+  "n_unique_names": 703,
+  "n_rare_names": 617,
+  "ruff_used": false,
+  "per_signal": {
+    "first_use_toks": {
+      "fire_rate": 0.9666666666666667,
+      "mean_toks": 17.366666666666667
+    },
+    "reuse_toks": {
+      "fire_rate": 0.85,
+      "mean_toks": 26.308333333333334
+    },
+    "def_toks": {
+      "fire_rate": 0.5083333333333333,
+      "mean_toks": 4.608333333333333
+    },
+    "ref_toks": {
+      "fire_rate": 0.9666666666666667,
+      "mean_toks": 41.30833333333333
+    },
+    "control_flow_toks": {
+      "fire_rate": 0.925,
+      "mean_toks": 100.775
+    },
+    "data_flow_toks": {
+      "fire_rate": 0.8583333333333333,
+      "mean_toks": 58.28333333333333
+    },
+    "import_dist_0_toks": {
+      "fire_rate": 0.975,
+      "mean_toks": 30.675
+    },
+    "import_dist_1_toks": {
+      "fire_rate": 0.6833333333333333,
+      "mean_toks": 10.433333333333334
+    },
+    "import_dist_2plus_toks": {
+      "fire_rate": 0.6333333333333333,
+      "mean_toks": 5.008333333333334
+    },
+    "cyc_low_toks": {
+      "fire_rate": 0.7333333333333333,
+      "mean_toks": 72.45
+    },
+    "cyc_med_toks": {
+      "fire_rate": 0.23333333333333334,
+      "mean_toks": 52.59166666666667
+    },
+    "cyc_high_toks": {
+      "fire_rate": 0.15833333333333333,
+      "mean_toks": 80.65833333333333
+    },
+    "type_complexity_toks": {
+      "fire_rate": 0.23333333333333334,
+      "mean_toks": 27.475
+    },
+    "linter_risky_toks": {
+      "fire_rate": 0.0,
+      "mean_toks": 0.0
+    },
+    "rare_id_toks": {
+      "fire_rate": 0.7916666666666666,
+      "mean_toks": 18.583333333333332
+    },
+    "common_id_toks": {
+      "fire_rate": 0.875,
+      "mean_toks": 22.725
+    }
+  }
+}

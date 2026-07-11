@@ -1,0 +1,92 @@
+{
+  "model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+  "n_sampled": 40,
+  "n_candidates": 120,
+  "axes": {
+    "first_use_vs_reuse": {
+      "n": 22,
+      "mean_a_K_dev": 0.19928984450442452,
+      "mean_b_K_dev": 0.42650356336025064,
+      "mean_delta_a_minus_b_K": -0.22721371885582606,
+      "delta_std": 0.2186905663053748,
+      "n_a_gt_b": 2,
+      "n_b_gt_a": 20,
+      "n_tie": 0,
+      "ci95_lo": -0.3267830363535262,
+      "ci95_hi": -0.14348744680838926,
+      "rel_effect_pct": -53.27358042819157,
+      "wilcoxon_p_a_gt_b": 0.9999992847442627,
+      "verdict": "NULL"
+    },
+    "def_vs_ref": {
+      "n": 12,
+      "mean_a_K_dev": 0.25594752960439243,
+      "mean_b_K_dev": 0.337984534246581,
+      "mean_delta_a_minus_b_K": -0.08203700464218854,
+      "delta_std": 0.12051720732612248,
+      "n_a_gt_b": 4,
+      "n_b_gt_a": 8,
+      "n_tie": 0,
+      "ci95_lo": -0.1462144096426311,
+      "ci95_hi": -0.009689683937245898,
+      "rel_effect_pct": -24.27241377332887,
+      "wilcoxon_p_a_gt_b": 0.973876953125,
+      "verdict": "NULL"
+    },
+    "control_flow_vs_data_flow": {
+      "n": 24,
+      "mean_a_K_dev": 0.42440715672758716,
+      "mean_b_K_dev": 0.0744360735019048,
+      "mean_delta_a_minus_b_K": 0.3499710832256824,
+      "delta_std": 0.18507792393574246,
+      "n_a_gt_b": 24,
+      "n_b_gt_a": 0,
+      "n_tie": 0,
+      "ci95_lo": 0.27921598135227604,
+      "ci95_hi": 0.42774175197285197,
+      "rel_effect_pct": 470.16327804653304,
+      "wilcoxon_p_a_gt_b": 5.960464477539063e-08,
+      "verdict": "POSITIVE"
+    },
+    "import_dist_1_vs_import_dist_0": {
+      "n": 18,
+      "mean_a_K_dev": 0.25882957621462765,
+      "mean_b_K_dev": 0.3445083878283936,
+      "mean_delta_a_minus_b_K": -0.08567881161376596,
+      "delta_std": 0.12660004865202693,
+      "n_a_gt_b": 6,
+      "n_b_gt_a": 12,
+      "n_tie": 0,
+      "ci95_lo": -0.1455597893763629,
+      "ci95_hi": -0.028789827334029336,
+      "rel_effect_pct": -24.869876798600398,
+      "wilcoxon_p_a_gt_b": 0.9881629943847656,
+      "verdict": "NULL"
+    },
+    "rare_id_vs_common_id": {
+      "n": 22,
+      "mean_a_K_dev": 0.22967698640347303,
+      "mean_b_K_dev": 0.4207200307471605,
+      "mean_delta_a_minus_b_K": -0.1910430443436875,
+      "delta_std": 0.23008688609033012,
+      "n_a_gt_b": 1,
+      "n_b_gt_a": 21,
+      "n_tie": 0,
+      "ci95_lo": -0.2957799949550203,
+      "ci95_hi": -0.10518601009404503,
+      "rel_effect_pct": -45.4085925037637,
+      "wilcoxon_p_a_gt_b": 0.9999997615814209,
+      "verdict": "NULL"
+    },
+    "cyc_high_vs_cyc_low": {
+      "n": 0
+    },
+    "cyc_med_vs_cyc_low": {
+      "n": 0
+    },
+    "cyc_high_vs_cyc_med": {
+      "n": 0
+    }
+  },
+  "interpretation": "Each axis is a paired per-chunk Wilcoxon (a vs b). Verdict: POSITIVE if p<0.05, CI excludes 0, |rel|>=5% AND mean_a>mean_b. NEGATIVE_CONTROL_BETTER if same thresholds but mean_b>mean_a. NULL otherwise. POSITIVE = novel code-structure signal real at KV layer."
+}

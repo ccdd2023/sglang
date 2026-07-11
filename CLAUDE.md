@@ -91,7 +91,35 @@ paired: mean_delta(iface−body)=**-0.0043**, 9 iface>body vs 31 body>iface, **W
 
 **三重证伪完成**：Direction A（算法层 -3.3pp）+ Direction B P0（算法层 contiguous 无法 selective）+ HKVD-by-node-kind（机制层信号不存在）。剩余真实增益只有 R32 uniform-along-position（1.43× 换 ~13% type-match，position-aware 非 code-aware）。
 
-**下一步研究方向**：per-token HKVD（non-AST，找真正敏感 token）/ P4 R40 zmq pickle 修复（解锁测量）/ 换 code-gen task 看是否有信号 / 或重新定位为纯 speed-accuracy 权衡（R32）。
+### 2g. Multi-signal HKVD: PARTIAL REVERSAL (2026-07-11)
+
+**Prior §2e claim needs refinement.** The HKVD-by-node-kind measured **interface vs body** (one specific axis). User pushback prompted extension to **5 more binary axes** + 3 cyclomatic buckets (`results/hkvd_multi_signal_20260711/ABLATION_HKVD_MULTI_SIGNAL.md`):
+
+| Axis | n | mean_a K_dev | mean_b K_dev | delta | p(a>b) | Verdict |
+|---|---|---|---|---|---|---|
+| **control_flow vs data_flow** | **24** | **0.4244** | **0.0744** | **+0.3500** | **0.0000** | **POSITIVE** |
+| first_use vs reuse | 22 | 0.1993 | 0.4265 | -0.2272 | 1.0000 | NULL reversed |
+| def vs ref | 12 | 0.2559 | 0.3380 | -0.0820 | 0.9739 | NULL reversed |
+| import_dist_1 vs dist_0 | 18 | 0.2588 | 0.3445 | -0.0857 | 0.9882 | NULL reversed |
+| rare_id vs common_id | 22 | 0.2297 | 0.4207 | -0.1910 | 1.0000 | NULL reversed |
+| cyc_* paired | 0 | – | – | – | – | EMPTY (within-chunk bucket is per-enclosing-fn, no pair) |
+
+**Decisive finding:** control-flow tokens drift **+470% MORE** than data tokens under prefix swap (Wilcoxon one-sided p=0.0000, 95% CI [+0.279, +0.428]). The mechanism is intuitive: control flow is context-dependent (whether to take the `if` branch depends on runtime booleans from attention context), while data tokens (literals, function args) are more local. The 4 NULL axes all NULL in **reversed direction** (reuse / ref / common_id / dist_0 drift MORE than first_use / def / rare_id / dist_1) — i.e., **diverse-token-type groups drift more**, suggesting this is a corpus-statistical pattern, not a clean semantic signal.
+
+**Critical bug fixed:** defensive `Encoding.unwrap` on `enc["offset_mapping"]` (same pattern as `radix_cache._build_byte_to_token_map:2115-2146`). Pre-fix, transformers 5.x + Qwen2Tokenizer silently produced wrong (start, end) char spans; all HKVD axes would have measured wrong tokens. New driver applies the unwrap defensively.
+
+**Refined truth (supersedes §2e):**
+- **Interface/body axis:** NULL (interface ≤ body; body more sensitive). Still FALSIFIED.
+- **control_flow/data_flow axis:** POSITIVE (control flow >> data). **Real code-structure signal exists at KV layer, but it's narrower than originally hoped.**
+- **Other axes:** NULL in hypothesised direction; "diverse-token-type drifts more" is a corpus-statistical pattern.
+
+**Phase 5 follow-up (NOT yet executed — requires sign-off):**
+- Add `SGLANG_CHUNK_HEAD_RECOMPUTE_BY_CONTROL_FLOW=1` env to radix_cache.py
+- Use `K = n_control_flow_tokens(chunk)` instead of `K = FRAC * chunk_len`
+- 8-config equal-budget benchmark: lossless / R32_f015-045 / R38b / control_flow_recompute
+- If control_flow_recompute type_match > R32@equal_B AND speedup ≥ 1.3× → paper-level contribution ("first code-structure-driven selective recompute to beat R32")
+
+**下一步研究方向**：执行 Phase 5（control_flow-selective recompute 原型 + 等预算消融）/ per-token HKVD（non-AST）/ P4 R40 zmq pickle 已修复（已用于 P4）/ 换 code-gen task 看是否有信号 / 或重新定位为 speed-accuracy 权衡（R32）。
 
 ### 2f. Literature validation (2026-07-10 deepresearch)
 
