@@ -243,9 +243,9 @@
 
 <section class="slide title-slide" data-tag="三重证伪 · 最终定位" data-tag-class="falsified" data-index="收尾 · 2026-07-10">
   <p class="slidemeta" style="margin-top:0;"><span class="index">sglang-kvflow</span> · <span class="tag falsified">三重证伪</span></p>
-  <p class="slidemeta" style="margin-top:8px;color:var(--gold);font-size:10px;letter-spacing:0.16em;"><span style="color:var(--text-dim);">本 deck：</span> 主体 12 张（Direction A/B/HKVD 三重证伪 + P1'' 撤回 + P4 修复 + per-stage TTFT + 最终定位）· 附录 1 张</p>
+  <p class="slidemeta" style="margin-top:8px;color:var(--gold);font-size:10px;letter-spacing:0.16em;"><span style="color:var(--text-dim);">本 deck：</span> 主体 13 张（Direction A/B/HKVD 三重证伪 + P1'' 撤回 + P4 修复 + per-stage TTFT + 最终定位 + Phase 5 多信号 HKVD 与 control-flow-selective 策略层证伪）· 附录 1 张</p>
   <h1 style="margin-top:14px;font-size:36px;line-height:1.12;">代码结构能决定<span class="rust">「重算什么」</span>吗？<br><span class="rust">三重证伪</span> · R32 <span class="accent">最终定位</span></h1>
-  <p class="sub" style="font-size:14px;margin-bottom:4px;">Direction A → Direction B → HKVD-by-node-kind · 三个层面全部证伪 · code-structure-recompute 线死亡</p>
+  <p class="sub" style="font-size:14px;margin-bottom:4px;">Direction A → Direction B → HKVD-by-node-kind → Phase 5 control-flow-selective · 四层全部证伪 · code-structure-recompute 线死亡</p>
   <p class="sub" style="font-size:11.5px;">Qwen2.5-Coder-7B × 5 verdict · pandas_15case_v1 · branch fix/placeholder-pool-activation · 默认 OFF</p>
   <div class="numgrid" style="margin-top:16px;max-width:1100px;margin-left:0;margin-right:0;">
     <div class="numcell rust">
@@ -518,14 +518,49 @@
     <tr><td>per-token HKVD (non-AST)</td><td>放弃 AST，直接测每个 token deviation 找真正敏感 token</td><td>未启动 · 1-2 天</td></tr>
     <tr><td>换 code-gen task</td><td>verdict 已饱和；生成任务 attention 可能不同</td><td>未启动 · 多天</td></tr>
     <tr><td>重定位为 speed-accuracy</td><td>承认 code-aware 无信号，转向 prefill scheduling / KV mgmt</td><td>建议 · 待定</td></tr>
-    <tr><td>P3 True CacheBlend hook</td><td>AST targeting 动机消失；需 non-AST 信号</td><td class="bad">ON HOLD</td></tr>
+    <tr><td>P3 control-flow-selective</td><td>Phase 5 @ 等预算：−1.6pp vs R32_f045（控制流信号机制 POSITIVE，策略 NEGATIVE）</td><td class="bad">FALSIFIED</td></tr>
+    <tr><td>P3' True CacheBlend hook</td><td>per-token mask（非 contiguous head），需 attention-kernel hook ~3-4 周</td><td>未启动 · 大</td></tr>
   </table>
   <div class="card">
     <p style="margin:0;font-size:14px;"><b>建议</b>：若 per-token HKVD 也无强信号，则整个 lossy-KV-reuse 线应重定位为纯 speed-accuracy 权衡（R32），研究重心转向 <b>prefill scheduling / KV cache management</b> 而非 selective recompute。</p>
   </div>
 </section>
 
-<section class="slide" data-tag="附录 · 限制" data-index="附录 F · (13)">
+<section class="slide" data-tag="Phase 5 · 多信号 HKVD + control-flow-selective" data-tag-class="falsified" data-index="主体 13 / 13 · (13)">
+  <h1>Phase 5 · 多信号 HKVD + control-flow-selective recompute</h1>
+  <div class="card gold">
+    <p style="margin:0;font-size:13px;"><b>背景</b>：HKVD-by-node-kind（interface vs body，1 分信号）证伪后，用户 pushback：&quot;code 的信息完全没有意义了吗？&quot; → 测 8 个更多 code-structure signal，看 &quot;信号 absent&quot; 是否过度概括。</p>
+  </div>
+
+  <h2>Phase 4 · 多信号 HKVD（n=24 paired）</h2>
+  <table>
+    <tr><th>信号</th><th>K_dev 相对值</th><th>p (Wilcoxon)</th><th>判决</th></tr>
+    <tr><td><b>control_flow vs data_flow</b></td><td><b>5.7×</b></td><td><b>0.0000</b></td><td class="bad"><b>POSITIVE</b></td></tr>
+    <tr><td>first_use vs reuse</td><td>≈1.0×</td><td>n.s.</td><td>NULL</td></tr>
+    <tr><td>def vs ref</td><td>≈1.0×</td><td>n.s.</td><td>NULL</td></tr>
+    <tr><td>import_dist 0 / 1 / 2+</td><td>≈1.0×</td><td>n.s.</td><td>NULL</td></tr>
+    <tr><td>cyclomatic low / med / high</td><td>≈1.0×</td><td>n.s.</td><td>NULL</td></tr>
+    <tr><td>rare vs common id</td><td>≈1.0×</td><td>n.s.</td><td>NULL</td></tr>
+  </table>
+
+  <h2>Phase 5 · control-flow-selective recompute 原型 + 等预算消融（n=61）</h2>
+  <table>
+    <tr><th>config</th><th>type_match</th><th>c2_reuse</th><th>TTFT</th><th>Δ vs R32_f045</th></tr>
+    <tr><td>R32_f045（uniform baseline）</td><td>11.5%</td><td>268</td><td>721ms</td><td>—</td></tr>
+    <tr><td><b>controlflow</b>（Phase 5 原型）</td><td><b>9.8%</b></td><td><b>259</b></td><td><b>738ms</b></td><td><b>−1.6pp · 0.98×</b></td></tr>
+    <tr><td>nodekind（参照 Direction A）</td><td>6.6%</td><td>362</td><td>715ms</td><td>−4.8pp</td></tr>
+  </table>
+
+  <div class="card rust">
+    <p style="margin:0;font-size:13.5px;"><b>判决</b>：control_flow 信号在<b>机制层</b>（HKVD K_dev）POSITIVE（+470%，p=0.0000），但 selective recompute 在<b>策略层</b>（n=61 等预算消融）<b>不</b>转移成 Pareto 改善。HKVD 高敏感性是 necessary 但<b>非 sufficient</b>。code-structure-recompute 研究线在 policy 层 <b>FULLY DEAD</b>。</p>
+  </div>
+
+  <div class="card">
+    <p style="margin:0;font-size:13px;"><b>R32 (FRAC=0.30) 仍是 unique Pareto</b>：1.43× speed 换 ~13% type-match 损失。前沿不变 <code style="background:#1a2434;color:var(--text);padding:1px 6px;border-radius:3px;">[nodekind_sig, R32_f015, R32_f026, R32_f045]</code>。唯一剩下未占 frontier 是 <b>P3' True CacheBlend</b>（per-token mask，非 contiguous head），需 attention-kernel hook ~3-4 周。</p>
+  </div>
+</section>
+
+<section class="slide" data-tag="附录 · 限制" data-index="附录 F · (14)">
   <div class="appendix-banner">附录 · 限制与边界</div>
   <h1>本研究的边界</h1>
   <ul>
@@ -548,7 +583,7 @@
     <span id="sectitle"></span>
     <div id="dots"></div>
   </div>
-  <span id="pager"><b id="cur">1</b> / <span id="total">13</span></span>
+  <span id="pager"><b id="cur">1</b> / <span id="total">14</span></span>
   <button class="navbtn" id="next" title="下一张 (→)">›</button>
 </div>
 <div class="hint">← → 翻页 · wheel 滚动 · click dots</div>
