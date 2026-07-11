@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Equal-budget ablation analysis for direction A (node-kind interface-recompute).
+"""Equal-budget ablation analysis for direction A (node-kind interface-recompute)
+and Phase 5 control-flow-selective recompute.
 
 Compares, at matched recompute budget B, the accuracy (type_match) and TTFT of:
   lossless | R32-uniform (sweep 0.15/0.26/0.30/0.45) | R38b-position |
-  node-kind-interface | node-kind-signature
+  node-kind-interface | node-kind-signature | controlflow-selective
 
-Decisive question: does code structure (AST interface boundary) buy accuracy
-over uniform/position at equal B? (R34 lacked this ablation -> dismissed as a
-global FRAC bump.)
+Decisive question (Phase 5): does control-flow (per-chunk n_control_flow_tokens)
+buy accuracy over uniform/position at equal B?
 
 Per config measures:
   type_match   - from outputs.jsonl output_text via score_r38 (fixed /n denom)
@@ -15,6 +15,7 @@ Per config measures:
   B            - rows.csv placeholder_chunk_pool_total_tokens_dense (recompute cost)
   reuse        - rows.csv codeaware_reused_tokens (>0 sanity, hard constraint)
   node_kind_k  - rows.csv placeholder_chunk_pool_node_kind_k_count (fire-rate guard)
+  control_flow_k - rows.csv placeholder_chunk_pool_control_flow_k_count (fire-rate guard)
 
 Auto-skips configs whose outputs.jsonl is missing (so a partial run still reports).
 """
@@ -38,6 +39,7 @@ CONFIGS = [
     ("R38b",         BASE / "r38b/outputs.jsonl",         BASE / "r38b/rows.csv"),
     ("nodekind",     BASE / "nodekind/outputs.jsonl",     BASE / "nodekind/rows.csv"),
     ("nodekind_sig", BASE / "nodekind_sig/outputs.jsonl", BASE / "nodekind_sig/rows.csv"),
+    ("controlflow",  BASE / "controlflow/outputs.jsonl",  BASE / "controlflow/rows.csv"),
 ]
 
 
@@ -73,7 +75,8 @@ def rows_stats(csv_path: Path):
     cols = ["ttft_ms", "codeaware_reused_tokens", "c2_chunk_reused_tokens",
             "placeholder_chunk_pool_total_tokens_dense",
             "placeholder_chunk_pool_hit_count",
-            "placeholder_chunk_pool_node_kind_k_count"]
+            "placeholder_chunk_pool_node_kind_k_count",
+            "placeholder_chunk_pool_control_flow_k_count"]
     acc = {c: [] for c in cols}
     with open(csv_path) as f:
         for r in csv.DictReader(f):
@@ -124,18 +127,21 @@ def main():
         s["hit_avg"] = st.get("placeholder_chunk_pool_hit_count_avg", 0.0)
         s["nodekind_k_avg"] = st.get("placeholder_chunk_pool_node_kind_k_count_avg", 0.0)
         s["nodekind_k_sum"] = st.get("placeholder_chunk_pool_node_kind_k_count_sum", 0.0)
+        s["control_flow_k_avg"] = st.get("placeholder_chunk_pool_control_flow_k_count_avg", 0.0)
+        s["control_flow_k_sum"] = st.get("placeholder_chunk_pool_control_flow_k_count_sum", 0.0)
         s["hit_sum"] = st.get("placeholder_chunk_pool_hit_count_sum", 0.0)
         summary[label] = s
 
     print(f"\n{'config':<14} {'n':>4} {'type_m':>7} {'/n%':>6} {'CI95':>14} "
-          f"{'TTFT':>6} {'c2_reuse':>9} {'reuse':>7} {'nk_k':>6} {'fire%':>6}")
-    print("-" * 95)
+          f"{'TTFT':>6} {'c2_reuse':>9} {'reuse':>7} {'nk_k':>6} {'cf_k':>6} {'fire%':>6}")
+    print("-" * 100)
     for label, s in summary.items():
         lo, hi = s["ci_95"]
         fire = (100.0 * s["nodekind_k_sum"] / s["hit_sum"]) if s["hit_sum"] else 0.0
         print(f"{label:<14} {s['n']:>4} {s['type_match']:>7} {s['type_match_pct']*100:>5.1f}% "
               f"[{lo*100:>4.1f},{hi*100:>4.1f}] {s['ttft_avg']:>6.0f} {s['c2_reused_avg']:>9.0f} "
-              f"{s['reuse_avg']:>7.0f} {s['nodekind_k_avg']:>6.0f} {fire:>5.1f}%")
+              f"{s['reuse_avg']:>7.0f} {s['nodekind_k_avg']:>6.0f} "
+              f"{s['control_flow_k_avg']:>6.0f} {fire:>5.1f}%")
 
     # ---- node-kind fire-rate guard (R34 no-op check) ----
     print("\n=== node-kind fire-rate guard (R34 no-op check) ===")
@@ -147,6 +153,15 @@ def main():
         verdict = "OK (fires on most hits)" if fire > 50 else "WARNING: low fire rate (possible no-op)"
         print(f"  {label:<14}: node_kind_k_sum={s['nodekind_k_sum']:.0f} / hit_sum={s['hit_sum']:.0f} "
               f"= {fire:.1f}%  {verdict}")
+
+    # ---- Phase 5: control-flow fire-rate guard ----
+    cf = summary.get("controlflow")
+    if cf:
+        cf_fire = (100.0 * cf["control_flow_k_sum"] / cf["hit_sum"]) if cf["hit_sum"] else 0.0
+        verdict = "OK (fires on most hits)" if cf_fire > 50 else "WARNING: low fire rate (possible no-op)"
+        print(f"\n=== Phase 5 control-flow fire-rate guard ===")
+        print(f"  controlflow  : control_flow_k_sum={cf['control_flow_k_sum']:.0f} / hit_sum={cf['hit_sum']:.0f} "
+              f"= {cf_fire:.1f}%  {verdict}")
 
     # ---- Pareto: type_match vs reuse (c2_reused = body copied; higher = less
     # recompute B = faster, since B = total - c2_reused and total is constant).
@@ -189,6 +204,33 @@ def main():
             print(f"  -> type_match delta = {d*100:+.1f}pp.  {verdict}")
     else:
         print("  (nodekind config not run yet)")
+
+    # ---- Phase 5 vertical slice: controlflow vs R32 at matched reuse ----
+    print("\n=== Phase 5 vertical slice: controlflow vs R32 at matched reuse ===")
+    if cf and cf["c2_reused_avg"] > 0:
+        r32s = [(lbl, abs(s["c2_reused_avg"] - cf["c2_reused_avg"]), s)
+                for lbl, s in summary.items() if lbl.startswith("R32_")]
+        r32s.sort(key=lambda x: x[1])
+        if r32s:
+            clbl, _, cs = r32s[0]
+            print(f"  controlflow   : reuse={cf['c2_reused_avg']:.0f}  type_match={cf['type_match_pct']*100:.1f}%  "
+                  f"TTFT={cf['ttft_avg']:.0f}  cf_k_avg={cf['control_flow_k_avg']:.0f}")
+            print(f"  {clbl:<13}: reuse={cs['c2_reused_avg']:.0f}  type_match={cs['type_match_pct']*100:.1f}%  "
+                  f"TTFT={cs['ttft_avg']:.0f}  (closest R32, d_reuse={cs['c2_reused_avg']-cf['c2_reused_avg']:.0f})")
+            d = cf["type_match_pct"] - cs["type_match_pct"]
+            cf_speedup = cs["ttft_avg"] / cf["ttft_avg"] if cf["ttft_avg"] > 0 else 0
+            if d > 0.005:
+                verdict = (f"controlflow WINS at equal B by +{d*100:.1f}pp type_match, "
+                           f"speedup {cf_speedup:.2f}x -> paper-level contribution")
+            elif d > -0.005:
+                verdict = "controlflow TIES at equal B -> no gain, but no loss"
+            else:
+                verdict = (f"controlflow LOSES at equal B by {d*100:.1f}pp -> "
+                           f"code-structure-driven selective recompute regresses")
+            print(f"  -> type_match delta = {d*100:+.1f}pp  speedup vs {clbl}: {cf_speedup:.2f}x")
+            print(f"  -> {verdict}")
+    else:
+        print("  (controlflow config not run yet)")
 
     # ---- common complete cases (generalized to all run configs) ----
     print("\n=== common complete cases (5 FAIL agents in ALL run configs) ===")

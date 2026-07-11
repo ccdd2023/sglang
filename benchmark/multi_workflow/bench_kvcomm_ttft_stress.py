@@ -1137,6 +1137,8 @@ def row_from_response(
     # head K came from the AST interface boundary, not frac. Verifies the path
     # fires on most chunks (R34 no-op guard).
     chunk_pool_node_kind_k = int(meta.get("placeholder_chunk_pool_node_kind_k_count") or 0)
+    # Phase 5 (2026-07-11): control-flow-selective recompute. Same no-op guard.
+    chunk_pool_control_flow_k = int(meta.get("placeholder_chunk_pool_control_flow_k_count") or 0)
     chunk_pool_blend_stage = int(meta.get("placeholder_chunk_pool_blend_stage_count") or 0)
     chunk_pool_blend_gap_tokens = int(meta.get("placeholder_chunk_pool_blend_gap_tokens") or 0)
     chunk_pool_blend_run_tokens = int(meta.get("placeholder_chunk_pool_blend_run_tokens") or 0)
@@ -1262,6 +1264,7 @@ def row_from_response(
         "placeholder_chunk_pool_total_tokens_reused": chunk_pool_tokens_reused,
         "placeholder_chunk_pool_total_tokens_dense": chunk_pool_tokens_dense,
         "placeholder_chunk_pool_node_kind_k_count": chunk_pool_node_kind_k,
+        "placeholder_chunk_pool_control_flow_k_count": chunk_pool_control_flow_k,
         "placeholder_chunk_pool_blend_stage_count": chunk_pool_blend_stage,
         "placeholder_chunk_pool_blend_gap_tokens": chunk_pool_blend_gap_tokens,
         "placeholder_chunk_pool_blend_run_tokens": chunk_pool_blend_run_tokens,

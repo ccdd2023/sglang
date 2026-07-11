@@ -125,6 +125,7 @@ class SchedulerOutputProcessorMixin:
                     "placeholder_chunk_pool_total_tokens_reused",
                     "placeholder_chunk_pool_total_tokens_dense",
                     "placeholder_chunk_pool_node_kind_k_count",
+                    "placeholder_chunk_pool_control_flow_k_count",
                     "placeholder_chunk_pool_blend_stage_count",
                     "placeholder_chunk_pool_blend_gap_tokens",
                     "placeholder_chunk_pool_blend_run_tokens",
@@ -335,6 +336,9 @@ class SchedulerOutputProcessorMixin:
             ),
             "placeholder_chunk_pool_node_kind_k_count": _dbg_chunk.get(
                 "placeholder_chunk_pool_node_kind_k_count"
+            ),
+            "placeholder_chunk_pool_control_flow_k_count": _dbg_chunk.get(
+                "placeholder_chunk_pool_control_flow_k_count"
             ),
             "placeholder_chunk_pool_blend_stage_count": _dbg_chunk.get(
                 "placeholder_chunk_pool_blend_stage_count"

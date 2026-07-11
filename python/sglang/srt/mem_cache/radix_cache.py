@@ -863,6 +863,12 @@ class RadixCache(BasePrefixCache):
         # Lets the ablation verify the path fires on most chunks (R34 no-op
         # guard) rather than silently falling back to the frac path.
         self.placeholder_chunk_pool_node_kind_k_count = 0
+        # Phase 5 (2026-07-11): control-flow selective recompute counter.
+        # Counts chunks whose head K = n_control_flow_tokens (per HKVD
+        # sensitivity finding; +470% vs data tokens, p=0.0000). Same no-op
+        # guard as node_kind: path must fire on most chunks or the policy
+        # silently degrades to the frac fallback.
+        self.placeholder_chunk_pool_control_flow_k_count = 0
         self.placeholder_chunk_pool_skip_byte_drift_count = 0
         self.placeholder_chunk_pool_skip_size_mismatch_count = 0
         self.placeholder_chunk_pool_skip_alloc_failed_count = 0
@@ -2158,6 +2164,84 @@ class RadixCache(BasePrefixCache):
         import bisect
         return bisect.bisect_right(ends, byte_pos)
 
+    @staticmethod
+    def _count_control_flow_tokens(chunk_text: str, tokenizer: Optional[Any]) -> int:
+        """Count tokens whose char span overlaps a control-flow AST node.
+
+        Phase 5 (2026-07-11): control-flow tokens are 5.7x MORE sensitive to
+        prefix swap than data tokens (HKVD K_dev 0.4244 vs 0.0744, n=24 paired,
+        Wilcoxon p=0.0000, see results/hkvd_multi_signal_20260711/ABLATION_*).
+        Selective recompute that targets control-flow tokens instead of the
+        leading FRAC × chunk_len (R32) should be a more efficient policy.
+
+        Cost: one ast.parse + one tokenizer.encode per chunk. ~1-3ms each on
+        pandas-sized chunks. Default OFF (env-gated).
+
+        CONTROL_TYPES mirrors the labeler's CONTROL_TYPES in
+        compute_per_token_signal_labels.py: If/For/While/With/Try +
+        Return/Raise/Yield/Assert/Break/Continue.
+        """
+        if not chunk_text or not chunk_text.strip() or tokenizer is None:
+            return 0
+        try:
+            import ast as _ast
+            tree = _ast.parse(chunk_text)
+        except (SyntaxError, ValueError):
+            return 0
+        CONTROL_TYPES = (
+            _ast.If, _ast.For, _ast.While, _ast.With, _ast.Try,
+            _ast.Return, _ast.Raise, _ast.Yield, _ast.Assert,
+            _ast.Break, _ast.Continue,
+        )
+        # Token char spans for chunk_text
+        try:
+            enc = tokenizer(chunk_text, add_special_tokens=False,
+                            return_offsets_mapping=True)
+            om = enc["offset_mapping"] if isinstance(enc, dict) else enc
+            first = om[0] if om is not None and len(om) > 0 else None
+            if first is not None and hasattr(first, "offsets"):
+                offsets = list(first.offsets)
+            elif first is not None:
+                offsets = list(first)
+            else:
+                offsets = []
+        except Exception:
+            return 0
+        if not offsets:
+            return 0
+        # line_byte_offsets for chunk_text
+        lbo = [0]
+        running = 0
+        for line in chunk_text.splitlines(keepends=True):
+            running += len(line)
+            lbo.append(running)
+        # Collect control-flow byte ranges (relative to chunk_text)
+        control_ranges = []
+        for node in _ast.walk(tree):
+            if not isinstance(node, CONTROL_TYPES):
+                continue
+            ln = getattr(node, "lineno", 0) or 0
+            cn = getattr(node, "col_offset", 0) or 0
+            eln = getattr(node, "end_lineno", ln) or ln
+            ecn = getattr(node, "end_col_offset", cn + 1) or (cn + 1)
+            if not (0 < ln <= len(lbo)):
+                continue
+            rel_bs = lbo[ln - 1] + cn
+            rel_be = (lbo[min(eln - 1, len(lbo) - 1)] + ecn
+                      if 0 < eln <= len(lbo) else rel_bs + 1)
+            if rel_be > rel_bs:
+                control_ranges.append((rel_bs, rel_be))
+        # Count tokens whose char span overlaps any control range
+        n_control = 0
+        for s, e in offsets:
+            if s is None or e is None or s < 0 or e < 0:
+                continue
+            for cbs, cbe in control_ranges:
+                if s < cbe and e > cbs:
+                    n_control += 1
+                    break
+        return n_control
+
     # ------------------------------------------------------------------
     # Direction #3 Phase C/D: per-AST-chunk pool READ path
     # ------------------------------------------------------------------
@@ -2684,6 +2768,27 @@ class RadixCache(BasePrefixCache):
                 # boundary is 0/unavailable or the byte->token map is missing.
                 _node_kind_k = 0
                 _node_kind_active = False
+                # Phase 5 (2026-07-11): SGLANG_CHUNK_HEAD_RECOMPUTE_BY_CONTROL_FLOW=1.
+                # Set K = number of tokens whose char span overlaps a control-flow
+                # AST node (If/For/While/Return/etc.) within the chunk. Empirical
+                # basis: HKVD-by-signal n=24 paired, control_flow vs data_flow K_dev
+                # delta = +0.3500 (p=0.0000, +470% rel effect) — control-flow tokens
+                # are 5.7x more sensitive to prefix swap than data tokens. Recomputing
+                # them (instead of leading FRAC × chunk_len = R32) should match the
+                # sensitivity profile. Cost: ~1-3ms per chunk (ast.parse + tokenize).
+                # Default OFF. Highest priority (overrides node-kind and frac when set).
+                _control_flow_k = 0
+                _control_flow_active = False
+                if (
+                    os.environ.get("SGLANG_CHUNK_HEAD_RECOMPUTE_BY_CONTROL_FLOW", "0") == "1"
+                    and chunk_len > 4
+                ):
+                    _chunk_text_for_cf = text[chunk.byte_start:chunk.byte_end]
+                    _control_flow_k = self._count_control_flow_tokens(
+                        _chunk_text_for_cf, tokenizer
+                    )
+                    if 0 < _control_flow_k < chunk_len:
+                        _control_flow_active = True
                 if (
                     os.environ.get("SGLANG_CHUNK_HEAD_RECOMPUTE_NODE_KIND", "0") == "1"
                     and chunk_len > 4
@@ -2728,12 +2833,20 @@ class RadixCache(BasePrefixCache):
                                       f"tok_start={token_start_within} iface_tok={_iface_tok} "
                                       f"nk_k={_node_kind_k} active={_node_kind_active}", flush=True)
                                 self._nkdbg_n = _nkdbg + 1
-                if _node_kind_active or (
+                if _control_flow_active or _node_kind_active or (
                     _recompute_frac > 0
                     and _recompute_frac < 1.0
                     and chunk_len > 4
                 ):
-                    if _node_kind_active:
+                    if _control_flow_active:
+                        _head_k = _control_flow_k
+                        _skip_reason = "head_recompute_controlflow"
+                        self.placeholder_chunk_pool_control_flow_k_count += 1
+                        if os.environ.get("SGLANG_CF_DEBUG", "0") == "1":
+                            print(f"[CFDBG] INCR counter={self.placeholder_chunk_pool_control_flow_k_count} "
+                                  f"name={chunk.name[:20]} head_k={_head_k} chunk_len={chunk_len} "
+                                  f"frac={_recompute_frac}", flush=True)
+                    elif _node_kind_active:
                         _head_k = _node_kind_k
                         _skip_reason = "head_recompute_nodekind"
                         self.placeholder_chunk_pool_node_kind_k_count += 1

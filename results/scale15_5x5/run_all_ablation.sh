@@ -12,6 +12,8 @@
 #   r38b           - position-stratified EARLY=0.60/LATE=0.15 (re-run with fix)
 #   nodekind       - direction A: K = signature + docstring (interface)
 #   nodekind_sig   - direction A variant: K = signature only
+#   controlflow    - Phase 5 (2026-07-11): K = n_control_flow_tokens per chunk
+#                   (HKVD-by-signal p=0.0000 +470% rel finding)
 #
 # Re-runs lossless/r32/r38b because the byte_to_tok fix (P1.2) changes their
 # TTFT (offsets unchanged -> accuracy unchanged, only faster). Comment out any
@@ -37,5 +39,6 @@ run r32_f045     run_r32_frac.sh 0.45 f045
 run r38b         run_r38b.sh
 run nodekind     run_nodekind.sh
 run nodekind_sig run_nodekind_sig.sh
+run controlflow  run_controlflow.sh
 echo "=== ALL DONE ==="
 echo "analyze: python3 results/scale15_5x5/analyze_ablation_nodekind.py"

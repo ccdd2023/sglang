@@ -113,13 +113,30 @@ paired: mean_delta(iface−body)=**-0.0043**, 9 iface>body vs 31 body>iface, **W
 - **control_flow/data_flow axis:** POSITIVE (control flow >> data). **Real code-structure signal exists at KV layer, but it's narrower than originally hoped.**
 - **Other axes:** NULL in hypothesised direction; "diverse-token-type drifts more" is a corpus-statistical pattern.
 
-**Phase 5 follow-up (NOT yet executed — requires sign-off):**
-- Add `SGLANG_CHUNK_HEAD_RECOMPUTE_BY_CONTROL_FLOW=1` env to radix_cache.py
-- Use `K = n_control_flow_tokens(chunk)` instead of `K = FRAC * chunk_len`
-- 8-config equal-budget benchmark: lossless / R32_f015-045 / R38b / control_flow_recompute
-- If control_flow_recompute type_match > R32@equal_B AND speedup ≥ 1.3× → paper-level contribution ("first code-structure-driven selective recompute to beat R32")
+### 2h. Phase 5: control_flow-selective recompute (2026-07-11) — NEGATIVE at policy layer
 
-**下一步研究方向**：执行 Phase 5（control_flow-selective recompute 原型 + 等预算消融）/ per-token HKVD（non-AST）/ P4 R40 zmq pickle 已修复（已用于 P4）/ 换 code-gen task 看是否有信号 / 或重新定位为 speed-accuracy 权衡（R32）。
+Built `SGLANG_CHUNK_HEAD_RECOMPUTE_BY_CONTROL_FLOW=1` env in `radix_cache.py` (`_count_control_flow_tokens` helper, dispatch highest-priority before node_kind/frac). Ran 8-config equal-budget benchmark on n=15 × 5 agents (`results/scale15_5x5/controlflow/`, 61 rows). Critical bug found and fixed: missing `placeholder_chunk_pool_control_flow_k_count` in `bench_kvcomm_ttft_stress.py` row dict → fire rate looked 0% on first run; after fix, fire rate 1100% (cf_k_sum=16316 / hit_sum=1483), cf_k_avg=267 per row.
+
+**Verdict** (`results/ABLATION_PHASE5_CONTROL_FLOW.md`):
+
+| config | type_match | c2_reuse | TTFT | Δ vs R32_f045 |
+|---|---|---|---|---|
+| R32_f045 (uniform FRAC=0.45) | 11.5% | 268 | 721 | – |
+| **controlflow** (Phase 5) | **9.8%** | **259** | **738** | **-1.6pp, 0.98×** |
+
+Controlflow **does NOT beat** R32_f045 at matched budget (delta -1.6pp type_match, 17ms slower TTFT). Both CIs overlap heavily → **delta is not statistically significant**. HKVD-positive mechanism (control_flow 5.7× more sensitive) does not transfer to better selective-recompute policy under contiguous-head constraint.
+
+**Mechanism-level sensitivity ≠ policy-level accuracy.** Controlflow sits between R32_f030 and R32_f045 on accuracy; it's a competitive but non-Pareto-better alternative. Likely causes: (a) CONTROL_TYPES bucket too wide (includes operands, not just keywords); (b) head-recompute mechanism doesn't propagate per-token sensitivity correctly; (c) statistical noise on n=61.
+
+**Updated verdict** (supersedes §2g last paragraph):
+- HKVD-by-signal: **POSITIVE at mechanism layer** (control_flow >> data_flow)
+- Phase 5 selective recompute: **NEGATIVE at policy layer** (doesn't beat R32_f045)
+- **Code-structure-recompute research line FULLY DEAD** at policy level. R32 (FRAC=0.30) remains the unique Pareto.
+- True CacheBlend (per-token mask, not per-head) is the only remaining unclaimed frontier if attention-kernel hooks become available.
+
+**Pareto frontier (final)**: `[nodekind_sig, R32_f015, R32_f026, R32_f045]`. **controlflow not on frontier**.
+
+**下一步研究方向**：执行 Phase 5 已完成（negative at policy layer）/ per-token HKVD（non-AST，case 仍开）/ True CacheBlend attention-kernel hook（多周，需 sign-off）/ 重新定位为 speed-accuracy 权衡（R32 是唯一 Pareto）/ deepresearch 引出的 CacheBlend/CortexCache/DroidSpeak 等作为 reference work。
 
 ### 2f. Literature validation (2026-07-10 deepresearch)
 
@@ -151,6 +168,8 @@ export SGLANG_PRECOMPUTE_SELECTIVE_REFRESH_FRAC=0.25
 ```
 
 定位：**latency-sensitive verdict 任务**可用，**accuracy-critical 不适用**。Paired test（12 cases × 5 agents = 60 obs）显示 R32 @ 任意 FRAC 一致损失 **~13% type-match 一致性**换 **1.43× TTFT 加速**（mean delta -0.67/5, CI [-1.33, +0.08]）— 是 **speed-accuracy 权衡**，不是 accuracy-preserving。code-gen 任务 R38b 反而亏（见 slide 28 R40-P2 git apply 0/5 vs 1/5）。
+
+**Phase 5 (2026-07-11) update**: `SGLANG_CHUNK_HEAD_RECOMPUTE_BY_CONTROL_FLOW=1` 验证了 selective recompute 路径（fire rate 1100%, cf_k_avg=267 per row），但在等预算下 **没有超越 R32_f045**（-1.6pp type_match, 17ms slower）。HKVD-by-signal 的机制层 POSITIVE 没转移到 policy 层。R32 (FRAC=0.30) 仍是**唯一 Pareto**。代码结构驱动的 selective recompute 研究线**在 policy 层完全死亡**。
 
 ## 4. 关键文件 (5 个，按优先级)
 
