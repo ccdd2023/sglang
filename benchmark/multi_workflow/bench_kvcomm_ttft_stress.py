@@ -1146,6 +1146,17 @@ def row_from_response(
     chunk_pool_true_cacheblend_positions = int(
         meta.get("placeholder_chunk_pool_true_cacheblend_positions_count") or 0
     )
+    # Phase A1 (2026-07-11): tool-output + system-prompt cache instrumentation.
+    # Columns reserved; values stay 0 until the bench round-trip path
+    # (serving_chat -> req attribute -> meta_info) is wired in a follow-up.
+    tool_output_cache_hit = int(meta.get("tool_output_cache_hit_count") or 0)
+    tool_output_cache_miss = int(meta.get("tool_output_cache_miss_count") or 0)
+    tool_output_cache_total_buckets = int(
+        meta.get("tool_output_cache_total_buckets") or 0
+    )
+    tool_output_cache_in_process = int(
+        meta.get("tool_output_cache_in_process_buckets") or 0
+    )
     chunk_pool_blend_stage = int(meta.get("placeholder_chunk_pool_blend_stage_count") or 0)
     chunk_pool_blend_gap_tokens = int(meta.get("placeholder_chunk_pool_blend_gap_tokens") or 0)
     chunk_pool_blend_run_tokens = int(meta.get("placeholder_chunk_pool_blend_run_tokens") or 0)
@@ -1273,6 +1284,14 @@ def row_from_response(
         "placeholder_chunk_pool_node_kind_k_count": chunk_pool_node_kind_k,
         "placeholder_chunk_pool_control_flow_k_count": chunk_pool_control_flow_k,
         "placeholder_chunk_pool_true_cacheblend_positions_count": chunk_pool_true_cacheblend_positions,
+        # Phase A1 (2026-07-11): tool-output + system-prompt cache columns.
+        # Values stay 0 until the serving_chat -> req attr -> meta_info
+        # round-trip is wired in a follow-up commit. Columns are added so
+        # downstream analyze scripts have a stable schema.
+        "tool_output_cache_hit_count": tool_output_cache_hit,
+        "tool_output_cache_miss_count": tool_output_cache_miss,
+        "tool_output_cache_total_buckets": tool_output_cache_total_buckets,
+        "tool_output_cache_in_process_buckets": tool_output_cache_in_process,
         "placeholder_chunk_pool_blend_stage_count": chunk_pool_blend_stage,
         "placeholder_chunk_pool_blend_gap_tokens": chunk_pool_blend_gap_tokens,
         "placeholder_chunk_pool_blend_run_tokens": chunk_pool_blend_run_tokens,

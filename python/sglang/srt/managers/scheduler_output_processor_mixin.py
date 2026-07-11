@@ -127,6 +127,17 @@ class SchedulerOutputProcessorMixin:
                     "placeholder_chunk_pool_node_kind_k_count",
                     "placeholder_chunk_pool_control_flow_k_count",
                     "placeholder_chunk_pool_true_cacheblend_positions_count",
+                    # Phase A1 (2026-07-11): tool-output + system-prompt
+                    # cache instrumentation. Counters live on the
+                    # OpenAIServingChat instance, NOT on the tree_cache, so
+                    # for now we expose headers here with None values. The
+                    # round-trip path (serving_chat -> request attribute ->
+                    # meta_info) is in a follow-up commit; the column is
+                    # already in the bench row dict.
+                    "tool_output_cache_hit_count",
+                    "tool_output_cache_miss_count",
+                    "tool_output_cache_total_buckets",
+                    "tool_output_cache_in_process_buckets",
                     "placeholder_chunk_pool_blend_stage_count",
                     "placeholder_chunk_pool_blend_gap_tokens",
                     "placeholder_chunk_pool_blend_run_tokens",

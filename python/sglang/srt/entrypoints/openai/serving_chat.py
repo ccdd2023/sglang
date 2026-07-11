@@ -846,6 +846,15 @@ class OpenAIServingChat(OpenAIServingBase):
                                 "placeholder_chunk_pool_blend_stage_count",
                                 "placeholder_chunk_pool_blend_gap_tokens",
                                 "placeholder_chunk_pool_blend_run_tokens",
+                                # Phase A1 (2026-07-11): tool-output + system-
+                                # prompt cache telemetry. Pre-/post-
+                                # request emission; track hit rate via
+                                # diff between request-end and request-start
+                                # counters if A1 measurement is wired deeper.
+                                "tool_output_cache_hit_count",
+                                "tool_output_cache_miss_count",
+                                "tool_output_cache_total_buckets",
+                                "tool_output_cache_in_process_buckets",
                             )
                             if content["meta_info"].get(k) is not None
                         }
@@ -1337,6 +1346,13 @@ class OpenAIServingChat(OpenAIServingBase):
             "placeholder_chunk_pool_node_kind_k_count",
             "placeholder_chunk_pool_control_flow_k_count",
             "placeholder_chunk_pool_true_cacheblend_positions_count",
+            # Phase A1 (2026-07-11): tool-output + system-prompt cache
+            # instrumentation. Default OFF; emit when ON to make hit rate
+            # visible to bench_kvcomm_ttft_stress.py.
+            "tool_output_cache_hit_count",
+            "tool_output_cache_miss_count",
+            "tool_output_cache_total_buckets",
+            "tool_output_cache_in_process_buckets",
             "placeholder_chunk_pool_blend_stage_count",
             "placeholder_chunk_pool_blend_gap_tokens",
             "placeholder_chunk_pool_blend_run_tokens",
