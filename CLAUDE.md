@@ -220,7 +220,7 @@ export SGLANG_PRECOMPUTE_SELECTIVE_REFRESH_FRAC=0.25
 | **P0** | ❌ **HKVD-by-node-kind 实测 DONE = NEGATIVE** - interface K_dev(0.0843) ≤ body K_dev(0.0886), Wilcoxon one-sided p=0.9999; structure signal 在 KV 层不存在，整条 code-structure-recompute 线死亡（含 P3 AST targeting）。见 §2e + `ABLATION_HKVD_NODEKIND.md` | slide 18 决定性实验 | DONE |
 | **P1** | ~~code-structure-driven selective recompute 实施（A node-kind FRAC 修复 R34）~~ — FALSIFIED, see §2c | slide 18 三方向 | DONE |
 | **P2** | ~~等预算消融决定性实验~~ — DONE, see §2c/§2d | slide 18 novelty 证明 | DONE |
-| **P3** | ~~True CacheBlend HKVD attention-kernel hook~~ - 动机消失（HKVD-by-node-kind 否定 AST targeting 信号）。若重启需改用 non-AST per-token 信号 | slide 17 不足① | ON HOLD |
+| **P3** | ❌ **True CacheBlend Path A (per-token 1-token chunked-prefill) FALSIFIED at policy layer (5th falsification)** - per-minipre p95 = 18 ms (2.3× over 8 ms gate); TTFT regressed +1129 ms (38× over 30 ms practical gate). Path A infeasible due to GPU launch latency + Python scheduling overhead per minipre. Cache-and-lock fix + 2 new unique counters wired before FAIL verdict. Path B (Triton custom_mask) NOT recommended (same fundamental overhead issue). See `ABLATION_TRUE_CACHEBLEND.md`. | slide 17 不足① | DONE (falsified) |
 | **P4** | ✅ **R40 TTFT-breakdown zmq pickle FIX DONE** - `__getstate__` allowlist + enable_metrics gate + NameError(plan) 修复；6/6 blocked 字段现在非零。见 `ABLATION_P4_TTFT_BREAKDOWN_FIX.md` | slide 26 | DONE |
 | **P5** | `results/codebase_kv/` 过期 pool 清理（gitignored，~9 GB reclaimable，列在 §10） | 见下 | 手动 |
 | **P1'** | ❌ **dataflow (B)** - FALSIFIED at P0, see §2d | slide 18 direction B | DONE (falsified) |
