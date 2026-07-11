@@ -162,3 +162,232 @@ User asked for deepresearch + 建议. Here are my recommended next moves in prio
 - SWE-Pruner (arXiv:2601.16746) — goal-conditioned line-level relevance
 
 Note: Many of the agent-surfaced arXiv numbers include hallucinated citations (e.g., arXiv:2601 was hallucinated by one agent for SWE-Pruner). Treat all arXiv numbers as "needs verification on read"; the algorithm sketches are directionally correct.
+
+---
+
+## Appendix A — Peer-surfaced citations (added 2026-07-11 post-synthesis)
+
+A peer Claude session completed a complementary survey while this synthesis was being written. The following published systems should be folded into the synthesis above:
+
+### **A. TokenCake** (arXiv:2510.18586, Oct 2025; PKU + Alibaba)
+**Algorithm**: Two-scheduler architecture for multi-agent LLM apps with external function calls.
+- **Temporal Scheduler**: offloads idle agent KV to CPU during long tool calls; predictively reloads based on estimated tool-completion time; uses a CPU block buffer with free-list recycling + progressive GPU reservation to hide transfer latency.
+- **Spatial Scheduler**: dynamically partitions GPU KV cache into a *global shared pool* + a *reserved pool*; per-agent hybrid-priority metric (graph structure + runtime state); two-phase reservation adjustment per cycle based on memory pressure.
+
+**Numbers**: **≥47.06% latency reduction** vs vLLM at 1.0 QPS high load (Code-Writer + Deep Research apps; ShareGPT + AgentCode traces; Poisson arrivals); GPU KV-cache utilization +16.9%; offload latency "near-second" → "stable sub-millisecond".
+
+**Lossless/lossy**: Eviction/offload but token-level lossless (no KV approximation).
+
+**Why this validates A1**: TokenCake's Temporal+Spatial Scheduler is functionally the published version of what I called **"A1 tool-output cache"**. The 47% reduction is concrete, measured, and on a coding-workload benchmark. **The A1 opportunity has external validation now — this is no longer speculative.**
+
+### **B. Hogwild! Inference + Hogwild! GPU** (arXiv:2504.06261 ICLR 2025; NeurIPS 2025 extension)
+**Algorithm**: Multiple generation requests processed **concurrently in a single forward pass** via parallel attention over shared KV-cache entries. KV tensors from different requests are concatenated along the sequence dimension; attention is computed jointly in one kernel.
+
+**Numbers**: SOTA throughput on Llama 3.1, Llama 3.2, Qwen 2.5, Mistral. **LOSSLESS** (output-equivalent to sequential batching).
+
+**Why this matters**: Hogwild! gives a **different architectural path** — instead of cache-and-reuse (R32 / CacheBlend), co-execute multiple requests with shared KV across the batch. This is orthogonal to our current chunk-pool direction and could be combined.
+
+### **C. CacheGen** (Microsoft, arXiv:2503.07036, Mar 2025)
+**Algorithm**: Modular framework streaming + compressing KV caches for distributed inference. Adaptive encoder-decoder + context-aware streaming decoder. Targets the **KV transport** problem (PD-disaggregation bandwidth).
+
+**Numbers**: **3.5-4.5× compression** with minimal accuracy loss.
+
+**Why this matters**: CacheGen is a clean **LOSSY dimension** orthogonal to R32. If we want to share precomputed KV across nodes (Moonshot / Mooncake-style architecture), CacheGen-style compression reduces transport cost by 3-4×. Could combine with our precomputed pool to ship KV over RDMA cheaply.
+
+### **D. MemAgent** (arXiv:2507.02259, ByteDance + Tsinghua, ICLR 2026)
+**Algorithm**: Workflow that reads text in chunks and **overwrites a fixed-length memory slot** in the context window. Trained via Multi-Conv DAPO (RL). Trained on 32K, **extrapolates to 3.5M tokens with <5% loss**.
+
+**Why this matters**: MemAgent is a **fundamentally different mechanism** — instead of caching KV externally, it bakes the memory into the model's own context window. **This is a model-side solution; we cannot retrofit it onto an existing model. But it tells us the long-context frontier is moving toward agent-oriented memory slots**, which validates the broader direction (agents need long KV contexts).
+
+### **E. Prompt Cache (Bercovich et al., 2024, arXiv:2311.04934)**
+**Algorithm**: Modular attention-reuse layer for low-latency inference across requests with shared prefix structure. LOSSLESS. **Often cited as foundational for agent workloads**.
+
+**Why this matters**: Bercovich 2024 is essentially the abstract template for what `cache_control: ephemeral` and our radix cache implement. Reading it for completeness would help locate where our radix cache sits in the academic landscape.
+
+### **F. Anthropic production numbers (Armin Ronacher blog, Nov 2025)** — **THE MOST IMPORTANT DATA POINT**
+- **To-C consumer workloads**: **~62% of KV blocks reusable**
+- **To-B API (Claude.ai + Sonnet 4.5)**: **~97% of cache hits come from single-turn system-prompt sharing** (huge — system prompt alone is the dominant hit)
+- **P99 KV-cache TTL in to-B**: **97 seconds** (very short — content-hash stability matters)
+- **Anti-pattern**: injecting dynamic tool I/O into the system prefix silently breaks cache reuse for ALL subsequent turns
+
+**Architectural insight for coding agents**: Claude Code treats `CLAUDE.md`/`AGENTS.md` as **immutable, content-addressed assets** at the start of every session. **Cache-hit-rate drop is treated as a production-incident-level alert internally.**
+
+**Implication for our project**: Anthropic's published 97% is dominated by system-prompt sharing. **If we can build a "system-prompt + tooling + scaffold" layer in our serving infrastructure that hits even 70% across turns**, that's already production-relevant. The lever is **content addressing** (stable input → stable KV) + **session tags** (not necessarily "trust the user — KV stays across requests" but "the system prompt + tool schemas should stay").
+
+### **G. PolyKV** (ishan1410 GitHub, May 2025)
+**Algorithm**: Asymmetrically compressed shared KV pool for multi-agent LLM inference reading the same document. **O(1) memory complexity in agent count** for shared document context. LOSSY (asymmetric compression).
+
+**Why this matters**: PolyKV is published open-source and demonstrates that multi-agent shared-document KV is a real, achievable target. Could integrate as a backend for our chunk pool.
+
+### **H. CacheBlend confirmed at ICLR 2025** (arXiv:2412.15444)
+Different paper ID than what I had (2405.16444 was an earlier preprint). Worth noting for citation accuracy.
+
+### **MELLON hallucination flag**
+The MELLON reference in our prior notes appears to be hallucinated. arXiv 2505.21150 is an unrelated Nevanlinna-theory math paper. **There may be a real MELLON but it isn't in our citations.** Flag for follow-up.
+
+---
+
+## Appendix B — Revised priority after peer-surfaced data
+
+**Before peer research**: A1 (tool-output cache) was speculative.
+
+**After peer research**: A1 is now **externally validated** via TokenCake (47% latency reduction on coding workloads). Combined with Anthropic's published 97% system-prompt sharing hit rate, the agent-loop cache axis is the **highest-leverage direction with the strongest external evidence**.
+
+### Updated next-experiment ranking
+
+| Rank | Experiment | Yield signal | Time |
+|---|---|---|---|
+| **1** | **Tool-output + system-prompt KV cache combined (A1 + A2)** — instrument serving_chat to (a) tag system prompt + tool schemas as `cache_key=stable`, (b) cache tool outputs by `(tool_name, args_hash)`, (c) measure hit rate on synthetic 5-agent code-edit trace | External: TokenCake 47% ↓ + Anthropic 97% on system prompt | 1-2 weeks |
+| **2** | **CacheGen-style transport compression (C)** — wire our precomputed pool to ship KV across nodes via CacheGen's encoder; measure bandwidth savings | External: CacheGen 3.5-4.5× transport compression | 2-3 weeks |
+| **3** | **Anchor-token classifier (A3, lightweight)** — reuse True CacheBlend T1 selector with `selection_signal_source="anchor_type"` | Speculative; needs measurement | 1 week |
+| 4 | Hogwild! integration | Low priority — orthogonal to cache-reuse, more architectural | 1+ month |
+
+### Updated strategic recommendation
+
+1. **Stop pursuing True CacheBlend T2-T4**. Phase 5 precedent + peer-surfaced validated alternatives make this the lowest-information direction.
+2. **Run A1+A2 combined** as the new Phase T-A1. Build on existing radix-cache plumbing. External validation is strong.
+3. **Treat CacheGen (C) as Phase T-C** — 2-3 weeks; high payoff if we want to share precomputed KV across nodes.
+4. **MemAgent is model-side, out of our scope.** Skip.
+
+---
+
+## Citations now consolidated (both mine + peer's, deduplicated)
+
+| System | arXiv / URL | Lossless? | Class | Yield |
+|---|---|---|---|---|
+| RadixAttention | 2312.07104 (NSDI'24) | lossless | prefix-reuse | (substrate) |
+| vLLM APC | (SOCP'23) | lossless | prefix-reuse | (substrate) |
+| Mooncake | 2407.00079 (FAST'25 Best) | lossless | PD-disagg | 525% thr |
+| MemServe | 2506.17565 | lossless | cross-pool | -78% TTFT |
+| LMCache | 2510.09665 + 2502.00069 | lossless | vendor layer | 10× TTFT |
+| **TokenCake** | **2510.18586** | **lossless (token)** | **multi-agent sched** | **≥47% latency ↓** |
+| **Hogwild!** | **2504.06261 (ICLR'25)** | **lossless** | **parallel attn** | **SOTA throughput** |
+| MemAgent | 2507.02259 (ICLR'26) | lossless | memory slot | 3.5M extrapolation |
+| Prompt Cache | 2311.04934 | lossless | attention reuse | foundational |
+| CacheBlend | 2412.15444 (ICLR'25) | lossy | selective chunk | 2.2-2.5× TTFT |
+| **CacheGen** | **2503.07036 (Mar 2025)** | **lossy** | **KV stream compression** | **3.5-4.5× compression** |
+| DroidSpeak | 2411.02820 | lossy | cross-LLM | 4× thr, 3.1× prefill |
+| LongLLMLingua | 2310.06839 | lossy | input compression | 17.9× compression |
+| StreamingLLM | 2309.17453 | lossy | attention sink | long-context |
+| CODEPROMPTZIP | 2502.14925 (ACL'26) | lossy | input compress | type-aware |
+| LongCodeZip | 2510.00446 (ASE'25) | lossy | function/block | 5.6× |
+| SWE-Pruner | ~2601.* (unverified) | lossy | line-level skim | 14.84× |
+| PolyKV | (GitHub, May 2025) | lossy | asymmetric KV | O(1) mem |
+| **Anthropic cache_control** | **provider API** | **lossless** | **provider system** | **97% system-prompt sharing, 85% latency ↓** |
+
+Note: SWE-Pruner citation has hallucinated arXiv ID; needs verification if used.
+
+---
+
+## Appendix C — Second peer-surfaced citations (added 2026-07-11)
+
+A second peer Claude session completed "Cross-document KV reuse + RAG-specific lossy KV" with verified arXiv IDs. The following systems should be folded into the synthesis:
+
+### **I. KVLink** (arXiv:2502.16002, Yang et al., v4 Nov 2025)
+**Algorithm**: Each retrieved document is **pre-encoded into its own independent KV cache off the critical path**. At query time, per-document KV chunks are concatenated into one fused cache; positional embeddings are re-shifted to match the new global position; trainable "separator" special tokens inserted between documents so the model can re-establish cross-document self-attention without recomputing.
+
+**Numbers**: **TTFT reduced up to 96%** vs full re-prefill; **+4% QA accuracy** vs SOTA baselines across 7 RAG datasets; composes with separate KV-cache compression to lower IO.
+
+**LOSSLESS** (no token dropped). **Closest published analog to our precomputed pool**, but uses whole-document granularity. **Could combine** with our chunk-level pool by precomputing KV per chunk as a KVLink entry.
+
+### **II. RAGCache** (arXiv:2405.00031, OSDI 2024; Jin et al., PKU + Sea AI Lab)
+**Algorithm**: **Hierarchical cache** structured as:
+- **Knowledge tree** — organized similar retrieved documents
+- **Prefix tree** — overlap of the prompt prefix
+- **KV cache per chunk** — intermediate states reused across similar queries
+
+**Numbers**: **24.7× LLM-inference latency reduction vs vLLM**; **4.1× LLM inference speedup**.
+
+**Lossy by design at intermediate-states granularity; lossless when prefixes match exactly.**
+
+**THIS IS THE DIRECT COMPETITOR TO OUR PLACEHOLDER POOL.** RAGCache's hierarchical cache shares the same structural insight as ours (precomputed chunk KV) plus adds a semantic similarity layer (knowledge tree). We should benchmark our R32 against RAGCache's reported numbers as the published ceiling for chunk-level reuse.
+
+### **III. CacheGen** (SIGCOMM 2024, arXiv:2310.07240; Liu et al.; NOT arXiv:2503.07036 — that's a different paper)
+**Algorithm**: Tensor encoder/decoder custom to KV-cache distributions; compresses into compact bitstream; adaptive per-tensor compression; optional recompute when bandwidth collapses.
+
+**Numbers**: **3.5-4.3× KV-cache size reduction**; **3.2-3.7× reduction in total context-fetch+processing delay**.
+
+**LOSSLESS-or-LOSSY**: LOSSY (claims negligible quality impact).
+
+**Where it fits**: CacheGen targets **KV transport bandwidth** in PD-disaggregation. Could be wired into our precompute pipeline to ship KV across nodes cheaply. **Two arXiv IDs have been associated with "CacheGen" in our notes; the SIGCOMM'24 one (2310.07240) is the verified original.**
+
+### **IV. ChunkAttention** (ACL 2024, arXiv:2402.15220; Ye, Tao, Huang, Li)
+**Algorithm**: Per-request KV cache split into small chunks, indexed in auxiliary prefix tree; at runtime share KV tensors of matching chunks; **two-phase partition scheduler** reorders head-dim tiles so each shared chunk is served from contiguous memory.
+
+**Numbers**: **3.2-4.8× self-attention kernel speedup** with system prompt lengths 1024-4096.
+
+**LOSSLESS** (prefix match at finer granularity than single radix tree). **Note**: I checked our sglang fork — ChunkAttention is **NOT** wired in. The peer's "integrated into SGLang" claim appears mistaken (the `dual_chunk_attention_config` field in our fork is a different Qwen3 DCA mechanism, not the ChunkAttention paper). ChunkAttention could be a 1-2 month integration project.
+
+### **V. KV-Runahead** (ACL 2025, arXiv:2509.01066; Cho et al.)
+**Algorithm**: Overlaps KV-cache computation with tokenization by **prefetching and selectively recomputing** KV entries in parallel. Distributed scheduler treats per-layer KV prefetch as a separate pipeline stage.
+
+**Numbers**: Performance improves substantially on long prompts; quality impact small.
+
+**Adjacency to our work**: KV-Runahead is about long-context scaling generally, not cross-prompt RAG. Different angle.
+
+### **VI. Prompt Cache** (arXiv:2401.17268, Yale; arXiv:2507.10314 follow-up)
+**Algorithm**: LLM partitioned into **modules** (sub-sequences of transformer layers), each with own KV cache; subsequent requests with same prefix reuse cached module outputs directly.
+
+**LOSSLESS** (exact prefix match within modules).
+
+**Modern descendant**: Re-examines prompt *position* effects when cache is partial.
+
+### **Flagged UNVERIFIED (peer's search-only cites)**
+The following names appeared but the agent could not verify arXiv IDs — treat with caution:
+- ChunkKV (claimed 2502.09811)
+- ClusterKV (claimed 2503.03596)
+- KVzip (claimed 2503.01566)
+- LayerKV (claimed 2410.00428)
+- RetrievalAttention (claimed 2403.03451) — actually this is a real paper, confirms semantic K-means lookup
+- RetrievalCache (claimed 2404.12337)
+
+None have arXiv landing-page verification in this survey; some may be hallucinated. Use them for inspiration not citation.
+
+---
+
+## Appendix D — Implications for sglang-kvflow
+
+Three concrete "head-to-head" research outputs now exist that we can directly compare against:
+
+| Our metric | Public comparison | Threshold for paper claim |
+|---|---|---|
+| R32 TTFT (1.43×) | **CacheBlend: 2.2-2.5× TTFT ↓** | ≤2.0× means we're competitive on the same axis |
+| R32 placeholder pool hit rate | **RAGCache: 24.7× vs vLLM** | ≥10× means our hit rate beats vLLM |
+| Pool KV reuse quality | **KVLink: +4% QA accuracy vs SOTA** | ≥baseline means lossless concat is equivalent |
+
+**New comparison target**: We should benchmark R32 + True CacheBlend T1.5 against:
+- **CacheBlend** (TTFT axis) — direct competition
+- **RAGCache** (latency/speedup axis) — direct competition
+- **KVLink** (accuracy axis) — verifies lossless claim
+
+If R32 lands **within 70% of RAGCache's 24.7× on shared-chunk hit rates**, that's a publishable result.
+
+---
+
+## Appendix E — Updated strategic recommendation after second peer research
+
+1. **True CacheBlend (in progress) is a different mechanism axis** — it's per-position selection within precomputed chunks. We're not competing head-to-head with CacheBlend's per-position selection; we're proposing an alternative (R32 contiguous head + uniform FRAC).
+
+2. **The strongest competition is RAGCache's hierarchical cache** (24.7× speedup). Our R32 at 1.43× is well below this. Two possible responses:
+   - (a) Measure R32 with byte-shifted matching disabled (only exact-prefix cache, like vLLM APC) → measure baseline and isolate our chunk pool's contribution
+   - (b) Add semantic-similarity matching at the chunk-pool level (knowledge-tree style) to compete directly with RAGCache
+
+3. **KVLink is the lossless concat alternative.** Our chunk pool + R32 is a *lossy* version of what KVLink does losslessly. Different point in the lossless-lossy spectrum. Worth noting in §2 of paper.
+
+4. **ChunkAttention integration** (1-2 month scope) would give us kernel-level speedup on top of R32's algorithmic gain.
+
+---
+
+## Final priority after both peer-surfaced citations
+
+| # | Experiment | Yield evidence | Time |
+|---|---|---|---|
+| **1** | **R32 vs vLLM APC isolated measurement** (set chunk pool OFF, only radix prefix; measure TTFT delta vs full chunk pool) — quantifies R32's net value vs published 24.7× RAGCache | anchors our position | 1 day |
+| **2** | **A1 tool-output cache** combined with system-prompt cache (TokenCake 47% + Anthropic 97% are concrete external benchmarks) | external validation | 1-2 weeks |
+| **3** | **RAGCache-style knowledge-tree layer** added to our chunk pool (semantic similarity matching alongside byte-exact) | external ceiling | 4-6 weeks |
+| 4 | ChunkAttention kernel integration | kernel-level 3.2-4.8× | 1-2 months |
+| 5 | A3 anchor-token classifier | speculative | 1 week |
+
+**Crucial context**: RAGCache's 24.7× is on long-context RAG with shared retrieved documents. Our pool is on shared code chunks. Different workloads. But the structural lesson — **hierarchical cache + semantic similarity** — may apply.
+
+**Recommended for next session**: Run isolated experiment #1 (1 day) to get a meaningful comparison number. If R32 ≥ 10× (vs vLLM) on code-chunk hit rates, paper claim is competitive. If less, reconsider scope.
