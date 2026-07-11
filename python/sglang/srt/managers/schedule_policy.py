@@ -605,6 +605,41 @@ class PrefillAdder:
             if _rem_tokens <= 0:
                 _rem_tokens = self.rem_chunk_tokens
 
+        # Phase T1 (True CacheBlend prototype, 2026-07-11): per-token selective
+        # recompute drain. When SGLANG_TRUE_CACHEBLEND=1 and the req has
+        # remaining per-token recompute positions emitted by
+        # radix_cache._emit_true_cacheblend_positions, override state for a
+        # 1-token chunked-prefill pass targeting the next position. Each
+        # minipre recomputes one token at abs_pos using cached prefix KV up
+        # to that position (cache_protected_len = next_pos).
+        #
+        # Architectural note: ceil_paged_tokens(1) >= 1 page (~16 tokens) so
+        # each minipre charges >= page_size of visible budget. We force
+        # truncated=True so the req stays in the chunked-prefill loop until
+        # all positions are drained (else add_chunked_req returns None and
+        # the req exits chunked mode prematurely).
+        _t1_minipre_active = False
+        positions_remaining = getattr(req, "true_cacheblend_positions", None)
+        if (
+            os.environ.get("SGLANG_TRUE_CACHEBLEND", "0") == "1"
+            and positions_remaining
+        ):
+            next_pos = positions_remaining.pop(0)
+            # Truncate prefix_indices to [0, next_pos) so the model uses
+            # cached prefix KV up to (but not including) the recompute target.
+            # prefix_indices may be a tensor; slice it.
+            if len(req.prefix_indices) > next_pos:
+                req.prefix_indices = req.prefix_indices[:next_pos]
+            # Truncate fill_ids to keep only tokens up to next_pos (inclusive
+            # of the recompute target).
+            if len(req.fill_ids) > next_pos + 1:
+                req.fill_ids = req.fill_ids[: next_pos + 1]
+            # 1-token extend at next_pos
+            req.set_extend_input_len(1)
+            # Mark prefix KV up to next_pos as cache-safe
+            req.cache_protected_len = next_pos
+            _t1_minipre_active = True
+
         truncated = req.extend_input_len > _rem_tokens
         req.set_extend_input_len(min(req.extend_input_len, _rem_tokens))
         req.fill_ids = req.fill_ids[: len(req.prefix_indices) + req.extend_input_len]
@@ -618,6 +653,11 @@ class PrefillAdder:
                 else 0
             ),
         )
+
+        # Phase T1: keep the req alive in the chunked-prefill loop until all
+        # positions are drained.
+        if _t1_minipre_active:
+            return req
 
         # Return if chunked prefill not finished
         return req if truncated else None
