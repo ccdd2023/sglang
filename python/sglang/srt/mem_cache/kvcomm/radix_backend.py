@@ -10,6 +10,7 @@ from sglang.srt.mem_cache.kvcomm.types import (
     KVSegmentHandle,
     ResidencyTier,
 )
+from sglang.srt.mem_cache.kvcomm.store import ResidencyLoadResult
 
 
 @dataclass(frozen=True)
@@ -55,7 +56,7 @@ class AllocatorResidencyLoader:
         self,
         handle: KVSegmentHandle,
         target_tier: ResidencyTier,
-    ) -> DeviceKVRef:
+    ) -> ResidencyLoadResult:
         if target_tier != ResidencyTier.DEVICE:
             raise NotImplementedError(
                 "the Radix allocator adapter currently loads only to device"
@@ -72,7 +73,19 @@ class AllocatorResidencyLoader:
         except Exception:
             self._allocator.free(indices)
             raise
-        return DeviceKVRef(indices=indices)
+        return ResidencyLoadResult(
+            backend_ref=DeviceKVRef(indices=indices),
+            release_backend=self._release_device_ref,
+        )
+
+    def _release_device_ref(
+        self, backend_ref: object, residency: ResidencyTier
+    ) -> None:
+        if residency != ResidencyTier.DEVICE or not isinstance(
+            backend_ref, DeviceKVRef
+        ):
+            raise TypeError("allocator releaser received a non-device KV ref")
+        self._allocator.free(backend_ref.indices)
 
 
 class RadixKVTransferBackend:

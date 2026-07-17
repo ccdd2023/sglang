@@ -12,7 +12,7 @@ stable interface; GPU and HiCache adapters still have to be migrated before
 | Component | Status | Evidence | Remaining work |
 |---|---|---|---|
 | Legacy anchor/chunk implementation | VERIFIED locally, architecture mixed | 111/111 existing anchor and placeholder tests pass | Keep only as migration source |
-| Shared segment identity/store | VERIFIED | Token/hash/generation and 10,000 lease-cycle tests | Add production metrics adapter |
+| Shared segment identity/store | VERIFIED | Token/hash/generation, pinned-replacement guard, resource disposer and 10,000 lease-cycle tests | Add production metrics adapter |
 | Shared transfer planner | VERIFIED on recording and Radix backends | Offset, full-RoPE accounting, stale/mismatch fallback tests | Run end-to-end GPU server canary |
 | Coding policy isolation | VERIFIED | Produces complete plans without scheduler/prefetch imports | Migrate active SessionGraph/AST signal builders |
 | Prefix/middle prefetch coordinator | VERIFIED on loader contract | Host-to-device loader call and lease tests | Connect scheduler and validate HiCache storage payloads |
