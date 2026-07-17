@@ -2,12 +2,14 @@
 
 ## Branch entry points
 
-```text
-kvflow/shared-core
-research/coding-aware-lossy
-research/prefetch
-integration/coding-aware-prefetch
-```
+| Branch | Cleanup snapshot |
+|---|---|
+| `kvflow/shared-core` | `aaca92565bf4` |
+| `research/coding-aware-lossy` | `be70b7dab6a4` |
+| `research/prefetch` | `e2b0229606be` |
+| `integration/coding-aware-prefetch` | `01ce0e2cea8d` |
+
+The shared interface candidate is tagged `kvcomm-core-v0.1-rc1`.
 
 Clean worktrees are under:
 
@@ -45,6 +47,27 @@ export SGLANG_KV_PREFETCH=1
 
 Do not cherry-pick commits directly between the two research branches. Test
 their combination only in `integration/coding-aware-prefetch`.
+
+## Collaborator migration
+
+The former collaborator branch is preserved remotely as:
+
+```text
+archive/context-aware-kv-reuse-20260717 @ 015d58c969cb
+```
+
+It includes the four local commits that had not reached
+`origin/feature/context-aware-kv-reuse`. Start new prefetch work from:
+
+```bash
+git fetch origin
+git switch --create research/prefetch \
+  --track origin/research/prefetch
+```
+
+Do not merge the archived branch wholesale. Port any later unpublished
+prefetch change as a small PR against `research/prefetch`; coding selectors,
+experiment results and paper edits stay behind.
 
 ## Tests
 
