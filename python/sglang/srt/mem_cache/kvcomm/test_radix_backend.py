@@ -175,9 +175,13 @@ def test_host_residency_loader_allocates_and_loads_payload():
     allocator = Allocator(cache)
     tokens = (1, 2, 3)
     handle = _handle(tokens, HostKVRef(payload="cpu-kv"), ResidencyTier.HOST)
-    loaded = AllocatorResidencyLoader(allocator).load(
+    result = AllocatorResidencyLoader(allocator).load(
         handle, ResidencyTier.DEVICE
     )
+    loaded = result.backend_ref
     assert isinstance(loaded, DeviceKVRef)
     assert tuple(loaded.indices.tolist()) == (8, 9, 10)
     assert allocator.loaded == [("cpu-kv", (8, 9, 10))]
+    assert result.release_backend is not None
+    result.release_backend(loaded, ResidencyTier.DEVICE)
+    assert allocator.freed == [8, 9, 10]
