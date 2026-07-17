@@ -62,6 +62,8 @@ from sglang.srt.mem_cache.evict_policy import (
     PriorityStrategy,
     SLRUStrategy,
 )
+from sglang.srt.mem_cache.kvcomm.config import KVCommFeatureConfig
+from sglang.srt.mem_cache.kvcomm.manager import KVCommManager
 from sglang.srt.mem_cache.hicache_storage import get_hash_str, hash_str_to_int64
 
 if TYPE_CHECKING:
@@ -296,6 +298,9 @@ class RadixCache(BasePrefixCache):
         self.is_eagle = params.is_eagle
         self.disable_finished_insert = params.disable_finished_insert
         self.eviction_policy = params.eviction_policy.lower()
+        self.kvcomm = KVCommManager(
+            params.kvcomm_config or KVCommFeatureConfig.from_env()
+        )
 
         self.kv_event_queue = []
 
@@ -358,6 +363,7 @@ class RadixCache(BasePrefixCache):
     ##### Public API #####
 
     def reset(self):
+        self.kvcomm.reset()
         # Initialize root with minimum priority so any real priority overrides it
         self.root_node = TreeNode(priority=-sys.maxsize)
         self.root_node.key = RadixKey(token_ids=[], extra_key=None)

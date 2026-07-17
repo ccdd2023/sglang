@@ -7,6 +7,7 @@ import torch
 
 if TYPE_CHECKING:
     from sglang.srt.mem_cache.allocator import BaseTokenToKVPoolAllocator
+    from sglang.srt.mem_cache.kvcomm.config import KVCommFeatureConfig
     from sglang.srt.mem_cache.memory_pool import ReqToTokenPool
 
 
@@ -36,3 +37,7 @@ class CacheInitParams:
 
     # Time-to-live for cache entries in seconds. If None, TTL is disabled.
     cache_ttl_seconds: Optional[float] = None
+
+    # Optional policy-neutral KVCOMM data plane. All KVCOMM features remain
+    # disabled when this is omitted and no explicit feature gates are set.
+    kvcomm_config: Optional[KVCommFeatureConfig] = None
