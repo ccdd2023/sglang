@@ -129,6 +129,60 @@ def test_register_validates_token_identity_and_stales_old_handle():
         )
 
 
+def test_leased_generation_cannot_be_replaced():
+    store = KVSegmentStore()
+    tokens = (1, 2, 3)
+    key = _key(tokens)
+    handle = store.register(
+        key=key,
+        token_ids=tokens,
+        source_start=0,
+        residency=ResidencyTier.DEVICE,
+        backend_ref="old",
+    )
+    store.pin(handle, ttl_s=10)
+    with pytest.raises(RuntimeError, match="leased"):
+        store.register(
+            key=key,
+            token_ids=tokens,
+            source_start=0,
+            residency=ResidencyTier.DEVICE,
+            backend_ref="new",
+        )
+    assert store.lookup(key).backend_ref == "old"
+
+
+def test_release_eviction_and_reset_dispose_backend_resources():
+    disposed = []
+
+    def release_backend(ref, tier):
+        disposed.append((ref, tier))
+
+    store = KVSegmentStore(max_records=1)
+    first_tokens = (1, 2)
+    first = store.register(
+        key=_key(first_tokens, "first"),
+        token_ids=first_tokens,
+        source_start=0,
+        residency=ResidencyTier.DEVICE,
+        backend_ref="first",
+        release_backend=release_backend,
+    )
+    assert store.release(first)
+    assert disposed == [("first", ResidencyTier.DEVICE)]
+    second_tokens = (3, 4)
+    store.register(
+        key=_key(second_tokens, "second"),
+        token_ids=second_tokens,
+        source_start=0,
+        residency=ResidencyTier.HOST,
+        backend_ref="second",
+        release_backend=release_backend,
+    )
+    store.reset()
+    assert disposed[-1] == ("second", ResidencyTier.HOST)
+
+
 def test_residency_transition_is_a_real_loader_call():
     store = KVSegmentStore()
     tokens = (4, 5, 6)

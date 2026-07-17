@@ -3,7 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 from sglang.srt.mem_cache.kvcomm.config import KVCommFeatureConfig
-from sglang.srt.mem_cache.kvcomm.store import KVSegmentStore, ResidencyLoader
+from sglang.srt.mem_cache.kvcomm.store import (
+    KVSegmentStore,
+    ReleaseBackend,
+    ResidencyLoader,
+)
 from sglang.srt.mem_cache.kvcomm.transfer import (
     KVTransferBackend,
     execute_reuse_plan,
@@ -36,6 +40,7 @@ class KVCommManager:
         source_start: int,
         residency: ResidencyTier,
         backend_ref: Any,
+        release_backend: ReleaseBackend | None = None,
     ) -> KVSegmentHandle | None:
         if not self.config.core_enabled:
             return None
@@ -45,6 +50,7 @@ class KVCommManager:
             source_start=source_start,
             residency=residency,
             backend_ref=backend_ref,
+            release_backend=release_backend,
         )
 
     def execute(
