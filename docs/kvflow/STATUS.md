@@ -15,8 +15,9 @@ stable interface; GPU and HiCache adapters still have to be migrated before
 | Shared segment identity/store | VERIFIED | Token/hash/generation, pinned-replacement guard, resource disposer and 10,000 lease-cycle tests | Add production metrics adapter |
 | Shared transfer planner | VERIFIED on recording and Radix backends | Offset, full-RoPE accounting, stale/mismatch fallback tests | Run end-to-end GPU server canary |
 | Coding policy isolation | VERIFIED | Produces complete plans without scheduler/prefetch imports | Migrate active SessionGraph/AST signal builders |
-| Prefix/middle prefetch coordinator | VERIFIED on loader contract | Host-to-device loader call and lease tests | Connect scheduler and validate HiCache storage payloads |
-| Combined composition | VERIFIED | Coding plan + middle-KV prefetch integration test | GPU end-to-end benchmark |
+| Prefix/middle prefetch coordinator | VERIFIED on loader contract | Host-to-device loader call, ordering, deduplication and lease tests | Connect real scheduler and validate HiCache storage payloads |
+| Middle-KV handoff API | VERIFIED on CPU/fake allocator | Export, host registration, prefetch ticket, device handle, shared-plan consumption and resource-release tests | Run against the production allocator in a model server |
+| Combined composition | VERIFIED | Coding plan + middle-KV prefetch integration tests | GPU end-to-end benchmark |
 
 The all-layer Radix adapter now uses SGLang's physical `move_kv_cache`,
 `load_cpu_copy`, and rotary implementation. It is covered on a deterministic
@@ -24,6 +25,21 @@ tensor cache for positive, negative and zero position deltas, including
 byte-identical V. It has not yet run an end-to-end model-server GPU canary.
 
 Current classification: **INTERFACE_COMPLETE / SERVER_CANARY_PENDING**.
+
+The collaborator-facing middle-KV path is now:
+
+```text
+MiddleKVPrefetchAPI.export_middle_kv
+  -> KVSegmentHandle (host)
+  -> MiddleKVPrefetchAPI.prefetch
+  -> PrefetchTicket.wait
+  -> KVSegmentHandle (device)
+  -> KVReusePlan / KVCommManager.execute
+```
+
+The runnable CPU example is `examples/kvflow/middle_kv_prefetch.py`. The v1
+ticket completes synchronously; its caller contract is intentionally compatible
+with a later CUDA-event/transfer-stream implementation.
 
 ## Legacy audit findings
 

@@ -2,14 +2,16 @@
 
 ## Branch entry points
 
-| Branch | Cleanup snapshot |
+| Branch | Responsibility |
 |---|---|
-| `kvflow/shared-core` | `aaca92565bf4` |
-| `research/coding-aware-lossy` | `be70b7dab6a4` |
-| `research/prefetch` | `e2b0229606be` |
-| `integration/coding-aware-prefetch` | `01ce0e2cea8d` |
+| `kvflow/shared-core` | Segment identity/lifecycle and policy-neutral transfer |
+| `research/coding-aware-lossy` | Coding signals and recompute/copy planning |
+| `research/prefetch` | Prefix/middle-KV residency and prefetch scheduling |
+| `integration/coding-aware-prefetch` | Composition tests and thin adapters |
 
-The shared interface candidate is tagged `kvcomm-core-v0.1-rc1`.
+The shared interface candidate is tagged `kvcomm-core-v0.1-rc3`. Use
+`git rev-parse <branch>` when an exact current commit is needed; this document
+does not embed branch-head hashes that become stale after every handoff change.
 
 Clean worktrees are under:
 
@@ -48,6 +50,37 @@ export SGLANG_KV_PREFETCH=1
 Do not cherry-pick commits directly between the two research branches. Test
 their combination only in `integration/coding-aware-prefetch`.
 
+## Middle-KV interface for the prefetch owner
+
+The high-level entry point is:
+
+```python
+from sglang.srt.mem_cache.kvcomm_prefetch import MiddleKVPrefetchAPI
+```
+
+Its ownership flow is:
+
+1. The producer calls `export_middle_kv(...)` after the source request computed
+   an exact token/KV slice. The request retains ownership of its original
+   device slots.
+2. The scheduler keeps the returned `KVSegmentKey` and calls
+   `prefetch(key, deadline_s=..., priority=...)`.
+3. `PrefetchTicket.wait()` returns a device-resident handle. That handle is
+   directly valid as a `TransferSpan.source` in the shared `KVReusePlan`.
+4. The scheduler releases the ticket lease after request admission/finish and
+   calls `drop(...)` when the prefetched copy is no longer cacheable.
+
+The complete CPU-only example, including plan consumption and cleanup, is:
+
+```bash
+PYTHONPATH=python python examples/kvflow/middle_kv_prefetch.py
+```
+
+See `examples/kvflow/README.md` for production allocator mapping, identity,
+failure and resource-ownership contracts. The ticket is synchronous in v1;
+real background transfer/stream scheduling remains prefetch-branch work and
+does not require a caller API change.
+
 ## Collaborator migration
 
 The former collaborator branch is preserved remotely as:
@@ -81,14 +114,17 @@ Branch-specific suites add:
 ```text
 python/sglang/srt/mem_cache/coding_aware/test_policy.py
 python/sglang/srt/mem_cache/kvcomm_prefetch/test_coordinator.py
+python/sglang/srt/mem_cache/kvcomm_prefetch/test_middle_kv.py
 python/sglang/srt/mem_cache/kvflow_integration/test_composition.py
 test/registered/unit/mem_cache/test_radix_cache_unit.py
 ```
 
 ## Migration order
 
-1. Shared owner connects the existing full-RoPE/slice-verified GPU backend.
-2. Prefetch owner connects `ResidencyLoader` to HiCache CPU/storage loading.
+1. Shared owner runs the existing full-RoPE/slice-verified backend in a real
+   model-server canary.
+2. Prefetch owner connects the high-level ticket API to scheduler prediction
+   and optionally adds a HiCache storage-tier loader.
 3. Coding owner migrates only the active signal/label builder into the coding
    branch.
 4. Integration reruns the four-mode compatibility matrix.
