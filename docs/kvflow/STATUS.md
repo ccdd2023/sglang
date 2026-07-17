@@ -13,12 +13,17 @@ stable interface; GPU and HiCache adapters still have to be migrated before
 |---|---|---|---|
 | Legacy anchor/chunk implementation | VERIFIED locally, architecture mixed | 111/111 existing anchor and placeholder tests pass | Keep only as migration source |
 | Shared segment identity/store | VERIFIED | Token/hash/generation and 10,000 lease-cycle tests | Add production metrics adapter |
-| Shared transfer planner | VERIFIED on recording backend | Offset, full-RoPE accounting, stale/mismatch fallback tests | Connect audited CUDA/RadixCache backend |
+| Shared transfer planner | VERIFIED on recording and Radix backends | Offset, full-RoPE accounting, stale/mismatch fallback tests | Run end-to-end GPU server canary |
 | Coding policy isolation | VERIFIED | Produces complete plans without scheduler/prefetch imports | Migrate active SessionGraph/AST signal builders |
-| Prefix/middle prefetch coordinator | VERIFIED on loader contract | Host-to-device loader call and lease tests | Connect HiCache/storage loader and scheduler |
+| Prefix/middle prefetch coordinator | VERIFIED on loader contract | Host-to-device loader call and lease tests | Connect scheduler and validate HiCache storage payloads |
 | Combined composition | VERIFIED | Coding plan + middle-KV prefetch integration test | GPU end-to-end benchmark |
 
-Current classification: **INTERFACE_COMPLETE / RUNTIME_ADAPTER_PENDING**.
+The all-layer Radix adapter now uses SGLang's physical `move_kv_cache`,
+`load_cpu_copy`, and rotary implementation. It is covered on a deterministic
+tensor cache for positive, negative and zero position deltas, including
+byte-identical V. It has not yet run an end-to-end model-server GPU canary.
+
+Current classification: **INTERFACE_COMPLETE / SERVER_CANARY_PENDING**.
 
 ## Legacy audit findings
 
@@ -38,8 +43,8 @@ The new gates default off and never inspect a results directory.
 
 Before tagging the runtime as complete:
 
-- connect the shared plan executor to the audited full-RoPE GPU copy path;
-- connect `ensure_resident` to real HiCache host/storage loading;
+- run the shared Radix full-RoPE adapter in a real model-server request;
+- validate `ensure_resident` against a real HiCache storage payload;
 - demonstrate exact-transfer completion identity against Dense;
 - report copied K = rotated K, zeroed gaps = 0 and source mismatches = 0;
 - run feature-off, coding-only, prefetch-only and combined server smoke tests;
