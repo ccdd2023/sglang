@@ -5,7 +5,7 @@ import time
 import uuid
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 from sglang.srt.mem_cache.kvcomm.types import (
     KVSegmentHandle,
@@ -15,12 +15,21 @@ from sglang.srt.mem_cache.kvcomm.types import (
 )
 
 
+ReleaseBackend = Callable[[Any, ResidencyTier], None]
+
+
+@dataclass(frozen=True)
+class ResidencyLoadResult:
+    backend_ref: Any
+    release_backend: ReleaseBackend | None = None
+
+
 class ResidencyLoader(Protocol):
     def load(
         self,
         handle: KVSegmentHandle,
         target_tier: ResidencyTier,
-    ) -> Any: ...
+    ) -> Any | ResidencyLoadResult: ...
 
 
 @dataclass
@@ -31,6 +40,7 @@ class _Record:
     source_start: int
     token_ids: tuple[int, ...]
     backend_ref: Any
+    release_backend: ReleaseBackend | None
     last_access_s: float
 
 
@@ -72,6 +82,7 @@ class KVSegmentStore:
         source_start: int,
         residency: ResidencyTier,
         backend_ref: Any,
+        release_backend: ReleaseBackend | None = None,
     ) -> KVSegmentHandle:
         tokens = tuple(int(token) for token in token_ids)
         if source_start < 0:
@@ -82,6 +93,11 @@ class KVSegmentStore:
             raise ValueError("token_hash does not match registered tokens")
 
         with self._lock:
+            previous = self._records.get(key)
+            if previous is not None and self._is_leased(
+                key, previous.generation
+            ):
+                raise RuntimeError("cannot replace a leased KV segment")
             generation = self._generation.get(key, 0) + 1
             self._generation[key] = generation
             record = _Record(
@@ -91,14 +107,18 @@ class KVSegmentStore:
                 source_start=source_start,
                 token_ids=tokens,
                 backend_ref=backend_ref,
+                release_backend=release_backend,
                 last_access_s=time.monotonic(),
             )
+            if previous is not None:
+                self._dispose_record(previous)
             self._records[key] = record
             self._records.move_to_end(key)
             try:
                 self._evict_unleased_if_needed(protected_key=key)
             except RuntimeError:
                 del self._records[key]
+                self._dispose_record(record)
                 raise
             return self._handle(record)
 
@@ -162,25 +182,43 @@ class KVSegmentStore:
             if record.residency == target_tier:
                 return self._handle(record)
 
-        backend_ref = loader.load(handle, target_tier)
+        loaded = loader.load(handle, target_tier)
+        if isinstance(loaded, ResidencyLoadResult):
+            backend_ref = loaded.backend_ref
+            release_backend = loaded.release_backend
+        else:
+            backend_ref = loaded
+            release_backend = None
         with self._lock:
             record = self._records.get(handle.key)
             if record is None or record.generation != handle.generation:
+                if release_backend is not None:
+                    release_backend(backend_ref, target_tier)
                 raise KeyError("segment changed while residency load was in flight")
+            old_backend_ref = record.backend_ref
+            old_residency = record.residency
+            old_release_backend = record.release_backend
             record.backend_ref = backend_ref
             record.residency = target_tier
+            record.release_backend = release_backend
             record.last_access_s = time.monotonic()
-            return self._handle(record)
+            updated = self._handle(record)
+        if old_release_backend is not None:
+            old_release_backend(old_backend_ref, old_residency)
+        return updated
 
     def release(self, handle: KVSegmentHandle) -> bool:
         with self._lock:
             if not self.is_current(handle) or self._is_leased(handle.key, handle.generation):
                 return False
-            del self._records[handle.key]
+            record = self._records.pop(handle.key)
+            self._dispose_record(record)
             return True
 
     def reset(self) -> None:
         with self._lock:
+            for record in self._records.values():
+                self._dispose_record(record)
             self._records.clear()
             self._leases.clear()
 
@@ -215,4 +253,10 @@ class KVSegmentStore:
             )
             if victim is None:
                 raise RuntimeError("KV segment store capacity is fully pinned")
-            del self._records[victim]
+            record = self._records.pop(victim)
+            self._dispose_record(record)
+
+    @staticmethod
+    def _dispose_record(record: _Record) -> None:
+        if record.release_backend is not None:
+            record.release_backend(record.backend_ref, record.residency)
