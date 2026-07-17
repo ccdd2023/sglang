@@ -40,6 +40,7 @@ Enabling either client without `SGLANG_KVCOMM_CORE=1` is an error. Old
 
 ## Read next
 
+- [Coding-aware session handoff (2026-07-17)](CODING_AWARE_HANDOFF_20260717.md)
 - [Architecture and interface contract](docs/kvflow/ARCHITECTURE.md)
 - [Verified status and known gaps](docs/kvflow/STATUS.md)
 - [Current handoff and commands](docs/kvflow/HANDOFF.md)
