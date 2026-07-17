@@ -14,7 +14,7 @@ stable interface; GPU and HiCache adapters still have to be migrated before
 | Legacy anchor/chunk implementation | VERIFIED locally, architecture mixed | 111/111 existing anchor and placeholder tests pass | Keep only as migration source |
 | Shared segment identity/store | VERIFIED | Token/hash/generation, pinned-replacement guard, resource disposer and 10,000 lease-cycle tests | Add production metrics adapter |
 | Shared transfer planner | VERIFIED on recording and Radix backends | Offset, full-RoPE accounting, stale/mismatch fallback tests | Run end-to-end GPU server canary |
-| Coding policy isolation | VERIFIED | Produces complete plans without scheduler/prefetch imports | Migrate active SessionGraph/AST signal builders |
+| Coding policy isolation | VERIFIED; FileVersion SessionGraphKV V11 P0 FALSIFIED | V11 migration has 36 passing tests; formal 4,960-row atlas failed delta-R² and safe-harm gates | Keep P1 closed; register a new hypothesis before further objective experiments |
 | Prefix/middle prefetch coordinator | VERIFIED on loader contract | Host-to-device loader call and lease tests | Connect scheduler and validate HiCache storage payloads |
 | Combined composition | VERIFIED | Coding plan + middle-KV prefetch integration test | GPU end-to-end benchmark |
 

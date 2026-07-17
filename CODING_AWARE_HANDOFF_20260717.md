@@ -41,8 +41,8 @@ PYTHONPATH=python:tools \
   --role coding --base kvflow/shared-core
 ```
 
-2026-07-17 实测结果：**27 passed；coding branch scope: OK**。当前环境
-NVML 不可用，所以本文没有声称完成真实 model-server GPU canary。
+2026-07-17 迁移后实测结果：**36 passed；coding branch scope: OK**。
+RTX 4090 reference atlas 测量已完成；这不是 model-server TTFT canary。
 
 ## 1. 项目目标：我们现在达成的一致理解
 
@@ -97,6 +97,10 @@ NVML 不可用，所以本文没有声称完成真实 model-server GPU canary。
   - token-slice 验证；
   - complete-copy/full-RoPE transfer；
   - mismatch/stale/non-resident 时 fail closed 到 Dense。
+- `benchmark/multi_workflow/`
+  - canonical raw-tool provenance 和 FileVersion selection；
+  - V11 labels、只读 resume atlas runner；
+  - 严格 4,960-row aggregate 和注册统计 gate。
 
 已经验证：
 
@@ -106,10 +110,8 @@ NVML 不可用，所以本文没有声称完成真实 model-server GPU canary。
 - RoPE delta 由 source/target 逻辑位置计算；
 - coding policy 不导入 scheduler/prefetch，也不调用 `ensure_resident`。
 
-尚未迁入干净分支：
+有意不迁入干净分支：
 
-- SessionGraph/FileVersion 的 provenance builder；
-- V11 label builder 和 causal-atlas analyzer；
 - 旧 checkout 中大规模 benchmark launcher；
 - `radix_cache.py` 中历史混合实现。
 
@@ -128,6 +130,7 @@ NVML 不可用，所以本文没有声称完成真实 model-server GPU canary。
 | TaskCone L2 follow-up | HumanEval 30/30，TTFT 快 82.94% | matched controls 的 preservation CI 下界为 0，不能声称 coding signal |
 | WorkflowModuleKV V9 | 真实 prompt 中稳定非代码容量中位数仅 0.33% | 容量 gate 前停止 |
 | SessionGraphKV V10 | schema 修正后合法非 prefix 容量 9.12% | 低于 20% gate，V10 已 falsified |
+| FileVersion SessionGraphKV V11 | 4,960-row atlas 有效；delta-R² 0.02467，safe-harm gate 为负 | P0 falsified，P1 保持关闭 |
 
 尤其注意：
 
@@ -136,7 +139,7 @@ NVML 不可用，所以本文没有声称完成真实 model-server GPU canary。
 - 多轮 prefix-staged 小 island copy 的启动开销可以超过节省的 prefill；
 - 只有优于 exact-budget Uniform 和 Shuffled，才能证明定位信号有效。
 
-## 4. 当前唯一可行研究路径：FileVersion SessionGraphKV V11
+## 4. 已完成并排除的研究路径：FileVersion SessionGraphKV V11
 
 V11 不再只看 AST。它把真实 coding session 拆成：
 
@@ -159,7 +162,7 @@ V11 不再只看 AST。它把真实 coding session 拆成：
 - 路径未解析或之后发生写入的 source view；
 - missing、duplicate、length/token-hash mismatch label。
 
-### 4.1 已完成且可以引用的事实
+### 4.1 最终可以引用的事实
 
 固定 public cohort：**64 sessions / 192 later-turn requests**。
 
@@ -173,7 +176,7 @@ V11 不再只看 AST。它把真实 coding session 拆成：
 - median copy islands：**4**；
 - stable source-view tokens：**206,378**。
 
-P0 已完成部分：
+P0 已完成：
 
 - negative controls：32 sessions / 1,280 rows，PASS；
 - identity max JS：`3.48e-05`；
@@ -184,8 +187,17 @@ P0 已完成部分：
   **88.0%**；
 - 10k bootstrap 95% CI：**[81.2%, 90.5%]**；
 - 119/128 modules 在 50% recompute 时改善。
+- formal development atlas：32 sessions / 8 disturbances /
+  **4,960 rows**；
+- duplicate、missing、extra design keys：**0**；
+- lookup p95：**0.04795 ms**，通过 `<2ms` 门槛；
+- workflow-feature delta-R²：**0.02467**，10k bootstrap 95% CI
+  **[0.01062, 0.04697]**，低于 `0.05` 门槛；
+- distance≥2 safe-vs-unsafe harm reduction：**-119.711**，
+  CI low **-211.419**，低于 `30%` 门槛；
+- formal P0 verdict：**FALSIFIED**。
 
-这些只证明机械负对照与方向性机制，**没有**证明：
+因此 V11 只证明机械负对照、容量和局部方向性机制，**没有**证明：
 
 - workflow accuracy preservation；
 - SGLang end-to-end speedup；
@@ -194,64 +206,34 @@ P0 已完成部分：
 
 ### 4.2 当前精确断点
 
-实验资产仍在只读研究 checkout：
+原始实验资产仍在只读研究 checkout：
 
 ```text
 /home/gfy/CodeMAS_Project/sglang-kvflow
 ```
 
-V11 结果：
+新完成的 delta、formal aggregate、manifest 和最终 gate 在：
 
 ```text
-results/impactkv_sessiongraph_v11_20260717/
+/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_sessiongraph_v11_20260717/
 ```
 
-正式 development atlas 总覆盖应为 **4,960 rows**：
+关键文件：
 
-| disturbance | expected | current artifact |
-|---|---:|---:|
-| identity + change_after | 1,280 | 1,280 complete |
-| upstream_edit | 640 | 640 complete |
-| semantic_prefix | 640 | 640 measured，尚未纳入正式 aggregate |
-| position/reorder/same-task/cross-task | 2,400 | **2,220 complete** |
-
-`development_remaining4_chunk512.jsonl` 当前为 2,220 rows、444 完整
-groups、30 sessions；还差 **180 rows / 36 groups**。进程已经不在运行，
-measurement summary 尚未生成。不要删除现有 JSONL；runner 支持
-`--resume`。
-
-恢复命令（仅在 CUDA 恢复后）：
-
-```bash
-cd /home/gfy/CodeMAS_Project/sglang-kvflow
-
-PYTHONPATH=python \
-  /home/gfy/.conda/envs/sglang-kvflow/bin/python \
-  benchmark/multi_workflow/measure_sessiongraph_atlas.py \
-  --out results/impactkv_sessiongraph_v11_20260717 \
-  --output \
-    results/impactkv_sessiongraph_v11_20260717/causal_atlas/development_remaining4_chunk512.jsonl \
-  --cohort development \
-  --disturbances position_only,module_reorder,same_task,cross_task \
-  --splice-chunk-size 512 \
-  --attn-implementation sdpa \
-  --local-files-only \
-  --resume
+```text
+P0_FINAL_VERDICT.md
+P0_CAUSAL_ATLAS_GATE.json
+ARTIFACT_MANIFEST.json
+causal_atlas/development_remaining4_delta_chunk512.jsonl
+causal_atlas/FORMAL_DEVELOPMENT.jsonl
 ```
 
-正式 aggregate 前必须断言：
-
-- 8 disturbances 全部存在；
-- exact rows = 4,960；
-- 每个设计 cell 恰好有 doses `0, .25, .5, .75, 1`；
-- executor 均为 Qwen2.5-Coder-7B-Instruct / BF16 / SDPA /
-  suffix chunk 512；
-- 旧的 790-row unchunked partial 永不混入；
-- duplicate design keys = 0。
+`ARTIFACT_MANIFEST.json` 记录所有只读输入 SHA。旧 790-row unchunked
+partial 已显式列入 forbidden inputs，没有混入 formal aggregate。
 
 ## 5. 新 session 的开发顺序
 
-### A. 先迁移，不继续堆旧 checkout
+### A. 最小迁移已完成
 
 从旧 checkout 只迁移以下 V11 逻辑到本分支：
 
@@ -276,24 +258,18 @@ benchmark/multi_workflow/validate_sessiongraph_v11_artifacts.py
 - 新增 test fixtures，在线路径拒绝 gold/test hidden fields；
 - provenance、labels、prompt hash 和统计独立测试。
 
-原始结果目录先保持外部只读证据；不要复制 GB 级 KV pool 到 Git。
+原始结果目录保持外部只读证据；没有复制 GB 级 KV pool 到 Git。
 
-### B. 完成 P0，而不是提前跑 objective workflow
+### B. P0 已完成并 falsified
 
-1. 恢复剩余 180 rows。
-2. 新增一个 V11 aggregate/gate 脚本，以多个 formal artifact 为输入，不用
-   shell 拼接制造隐式数据来源。
-3. 运行注册 gate：
-   - negative controls max JS `≤1e-3`；
-   - workflow-feature delta-R² `≥0.05` 且 bootstrap CI low `>0`；
-   - distance≥2 safe-vs-unsafe harm reduction `≥30%` 且 CI low `>0`；
-   - lookup p95 `<2ms`；
-   - 32 development sessions、8 disturbances、4,960 rows。
-4. P0 失败就冻结 V11 falsification，不改 threshold 或 disturbance。
+剩余 180 rows、严格多输入 aggregate 和 10k bootstrap gate 均已完成。
+artifact validation、negative controls 和 lookup 通过；delta-R² 与
+safe-vs-unsafe gate 失败。按照注册，冻结 V11 falsification，不修改
+threshold、disturbance、cohort 或 bootstrap 规则。
 
-### C. 只有 P0 通过才打开 P1
+### C. P1 保持关闭
 
-P1 模式固定：
+以下 P1 模式原本固定，但由于 P0 falsified，**不得运行**：
 
 1. Dense；
 2. exact native prefix；
@@ -359,7 +335,6 @@ docs/kvflow/HANDOFF.md
 
 ## 8. 给新 session 的一句话
 
-> 在 `research/coding-aware-lossy` 上，先把 FileVersion SessionGraphKV V11
-> 的 provenance/label/atlas 逻辑从旧脏 checkout 做最小、可测试迁移；CUDA
-> 可用后用 `--resume` 补齐 180 rows，完成 4,960-row P0 aggregate。P0
-> 通过前不要接 SGLang objective benchmark，也不要修改 paper 或门槛。
+> FileVersion SessionGraphKV V11 的最小迁移和 4,960-row P0 已完成；
+> formal verdict 是 **FALSIFIED**。不要运行 P1，不要修改 paper 或门槛；
+> 下一条 coding-aware 假设必须作为新的、独立注册路线提出。
