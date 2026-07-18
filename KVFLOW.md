@@ -24,6 +24,32 @@ The legacy `feature/context-aware-kv-reuse` and
 `fix/placeholder-pool-activation` branches are preserved as read-only
 research history. Do not use them as a shared development base.
 
+## Current status
+
+The code layout is **interface complete but server-canary pending**:
+
+- `kvcomm/` has identity, generation, lease/resource lifecycle, validated
+  transfer plans and a Radix allocator adapter;
+- the coding policy produces complete copy/dense plans without importing
+  scheduler or prefetch code;
+- the prefetch branch has a host/device middle-KV handoff contract;
+- the integration branch has a reference composition test;
+- no production request currently calls `KVCommManager.execute`, so none of
+  these interface tests is an end-to-end SGLang speed result.
+
+Research status:
+
+- FileVersion SessionGraphKV V11 formal P0: **FALSIFIED**;
+- ProbeHead StateSensitivityKV V12 development calibration:
+  **FALSIFIED** (`4,784` observations, `4,639` configurations, `0` feasible);
+- sequential composition, holdout, objective workflow accuracy and P1 TTFT
+  remain closed.
+
+Before a runtime-complete claim, the project still needs a real model-server
+exact-transfer canary, production allocator/source-lifecycle integration,
+target-slot and dense-fallback wiring, HiCache payload validation, stream
+synchronization, the four-mode server matrix and sustained lifecycle tests.
+
 ## Feature gates
 
 All new behavior is opt-in:
@@ -42,6 +68,4 @@ Enabling either client without `SGLANG_KVCOMM_CORE=1` is an error. Old
 
 - [Coding-aware session handoff (2026-07-17)](CODING_AWARE_HANDOFF_20260717.md)
 - [Architecture and interface contract](docs/kvflow/ARCHITECTURE.md)
-- [Verified status and known gaps](docs/kvflow/STATUS.md)
-- [Current handoff and commands](docs/kvflow/HANDOFF.md)
-- [Historical handoff index](_archive/handovers/README.md)
+- [Weekly research and collaboration audit](docs/kvflow/WEEKLY_RESEARCH_AUDIT_20260718.md)

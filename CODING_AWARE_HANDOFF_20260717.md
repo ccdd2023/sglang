@@ -44,6 +44,12 @@ PYTHONPATH=python:tools \
 2026-07-17 迁移后实测结果：**36 passed；coding branch scope: OK**。
 RTX 4090 reference atlas 测量已完成；这不是 model-server TTFT canary。
 
+2026-07-18 后续状态：独立的
+`probehead-statesensitivitykv-v12` 已完成 development workflow probing
+与校准。4,784 条完整 workflow observations、4,639 个配置中可行配置为
+0，calibration verdict 为 **FALSIFIED**。流水线按注册停在 sequential
+composition 和 holdout 之前；P1 仍关闭。
+
 ## 1. 项目目标：我们现在达成的一致理解
 
 我们研究的是：
@@ -244,8 +250,6 @@ benchmark/multi_workflow/audit_fileversion_session_capacity.py
 benchmark/multi_workflow/build_sessiongraph_v11_labels.py
 benchmark/multi_workflow/measure_sessiongraph_atlas.py
 benchmark/multi_workflow/analyze_sessiongraph_atlas.py
-benchmark/multi_workflow/analyze_sessiongraph_v11_negative_controls.py
-benchmark/multi_workflow/analyze_sessiongraph_v11_upstream.py
 benchmark/multi_workflow/validate_sessiongraph_v11_artifacts.py
 ```
 
@@ -291,6 +295,35 @@ Dense-correct anchors；之后：
 如果三种 matched policy 都零退化，只能声称“预构建 middle KV 可安全
 加速”，不能声称 SessionGraph 定位更好。
 
+### D. 下一条独立路线：ProbeHead StateSensitivityKV V12
+
+V12 不修改 V11 verdict 或门槛。它对每个 V11 合法候选先 Dense 重算固定
+数量的 head tokens，比较 source/target 的全层 K/V cosine deviation，
+仅在 `max(K deviation, V deviation)` 低于冻结 threshold 时复制 body。
+
+已完成：
+
+- 32 development / 32 unopened holdout 的新注册；
+- 17,456-row 冻结设计，其中 workflow 9,520、stress 7,936；
+- 8/16/32/64-token calibration grid；
+- 顺序多模块 reference executor、copy-all 和 shuffled-1729 control；
+- calibration lock 和 development-compose 双门禁；
+- RTX 4090 canary：真实 7B 模型 probe 与组合路径机械通过。
+- formal development workflow probing：32 sessions / 96 requests /
+  1,196 unique candidate modules / 4,784 observations；
+- calibration：4,639 configurations evaluated，0 feasible，
+  verdict **FALSIFIED**。
+
+注册要求同时满足中位 cost-positive copy fraction `>=15%` 和相对
+copy-all harm reduction `>=30%`；没有 `(head, threshold)` 同时满足。
+因此 development stress completion、sequential composition 和 holdout
+均未运行。不得引用 V12 accuracy、TTFT、P0 preservation 或 holdout
+结果。新资产位于：
+
+```text
+/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_probehead_v12_20260717/
+```
+
 ## 6. 关键资产索引
 
 旧 checkout 中的权威证据：
@@ -318,8 +351,13 @@ results/impactkv_sessiongraph_v10_20260717/FINAL_VERDICT.md
 ```text
 KVFLOW.md
 docs/kvflow/ARCHITECTURE.md
-docs/kvflow/STATUS.md
-docs/kvflow/HANDOFF.md
+docs/kvflow/WEEKLY_RESEARCH_AUDIT_20260718.md
+```
+
+历史 HTML/PDF 周报与 2026-07-18 审计报告的独立浏览归档：
+
+```text
+/home/gfy/CodeMAS_Project/kvflow-reports/weekly_reports_20260718/
 ```
 
 ## 7. Git 和工作区纪律
@@ -335,6 +373,8 @@ docs/kvflow/HANDOFF.md
 
 ## 8. 给新 session 的一句话
 
-> FileVersion SessionGraphKV V11 的最小迁移和 4,960-row P0 已完成；
-> formal verdict 是 **FALSIFIED**。不要运行 P1，不要修改 paper 或门槛；
-> 下一条 coding-aware 假设必须作为新的、独立注册路线提出。
+> FileVersion SessionGraphKV V11 formal verdict 是 **FALSIFIED**；
+> ProbeHead StateSensitivityKV V12 development calibration 也已
+> **FALSIFIED**（4,639 configurations，0 feasible）。不要继续同一
+> threshold sweep，不要打开 holdout/P1，也不要修改 paper、V11 verdict
+> 或既有预注册门槛。
