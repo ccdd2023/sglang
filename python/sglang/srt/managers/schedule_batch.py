@@ -83,19 +83,21 @@ from sglang.srt.mem_cache.allocation import (
 )
 from sglang.srt.mem_cache.allocation_sizing import get_alloc_reserve_per_decode
 from sglang.srt.mem_cache.allocator import BaseTokenToKVPoolAllocator
+from sglang.srt.mem_cache.approx_kv.request import parse_request_metadata
+from sglang.srt.mem_cache.approx_kv.runtime import restore_request_prefix
 from sglang.srt.mem_cache.base_prefix_cache import (
     BasePrefixCache,
     EvictParams,
     MatchPrefixParams,
     zero_match_result,
 )
+from sglang.srt.mem_cache.cachetune.plugin import CACHETUNE_PLUGIN_NAME
+from sglang.srt.mem_cache.cachetune.runtime import restore_request_prefix_cachetune
 from sglang.srt.mem_cache.common import (
     evict_from_tree_cache,
     free_swa_out_of_window_slots,
     release_kv_cache,
 )
-from sglang.srt.mem_cache.approx_kv.request import parse_request_metadata
-from sglang.srt.mem_cache.approx_kv.runtime import restore_request_prefix
 from sglang.srt.mem_cache.memory_pool import ReqToTokenPool
 from sglang.srt.mem_cache.radix_cache import RadixKey
 from sglang.srt.model_executor.forward_batch_info import ForwardBatch, ForwardMode
@@ -825,9 +827,7 @@ class Req(ReqDllmMixin):
             else None
         )
         if self.approx_kv_metadata is not None:
-            self.approx_kv_metadata.validate_prompt_length(
-                len(self.origin_input_ids)
-            )
+            self.approx_kv_metadata.validate_prompt_length(len(self.origin_input_ids))
         self.custom_logit_processor = custom_logit_processor
         self.return_hidden_states = return_hidden_states
 
@@ -1060,8 +1060,7 @@ class Req(ReqDllmMixin):
         # and consumed in the decode transfer commit; never plumbed to prefill.
         self.pd_rebootstrap_forced_output_id: Optional[int] = None
         self.skip_radix_cache_insert = (
-            bootstrap_host == FAKE_BOOTSTRAP_HOST
-            or self.approx_kv_metadata is not None
+            bootstrap_host == FAKE_BOOTSTRAP_HOST or self.approx_kv_metadata is not None
         )
         self.disagg_kv_sender: Optional[BaseKVSender] = None
 
@@ -1290,7 +1289,10 @@ class Req(ReqDllmMixin):
                 self.cache_protected_len = len(self.prefix_indices)
 
             if self.approx_kv_metadata is not None:
-                restore_request_prefix(tree_cache, self)
+                if self.approx_kv_metadata.plugin == CACHETUNE_PLUGIN_NAME:
+                    restore_request_prefix_cachetune(tree_cache, self)
+                else:
+                    restore_request_prefix(tree_cache, self)
 
             if self.is_dllm():
                 self._update_block_offset_for_dllm()

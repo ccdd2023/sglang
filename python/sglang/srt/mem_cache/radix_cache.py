@@ -6,6 +6,7 @@ from sglang.srt.mem_cache.approx_kv.radix_backend import (
     AllocatorCPUResidencyBackend,
 )
 from sglang.srt.mem_cache.cache_init_params import CacheInitParams
+from sglang.srt.mem_cache.cachetune.plugin import maybe_register_cachetune_plugin
 
 """
 Copyright 2023-2024 SGLang Team
@@ -324,6 +325,8 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
                     self.token_to_kv_pool_allocator,
                 )
             )
+        if self.approx_kv.config.core_enabled:
+            maybe_register_cachetune_plugin(self.approx_kv)
         self.reset()
 
     @classmethod

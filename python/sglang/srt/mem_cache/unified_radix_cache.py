@@ -12,6 +12,9 @@ from typing import TYPE_CHECKING, Any, Iterator, NamedTuple, Optional, TypeVar
 
 import torch
 
+from sglang.srt.disaggregation.kv_events import StorageMedium
+from sglang.srt.distributed.communication_tags import P2PTag
+from sglang.srt.environ import envs
 from sglang.srt.mem_cache.approx_kv.config import ApproxKVFeatureConfig
 from sglang.srt.mem_cache.approx_kv.hicache_backend import (
     HiCacheResidencyBackend,
@@ -20,9 +23,6 @@ from sglang.srt.mem_cache.approx_kv.manager import ApproxKVManager
 from sglang.srt.mem_cache.approx_kv.radix_backend import (
     AllocatorCPUResidencyBackend,
 )
-from sglang.srt.disaggregation.kv_events import StorageMedium
-from sglang.srt.distributed.communication_tags import P2PTag
-from sglang.srt.environ import envs
 from sglang.srt.mem_cache.base_prefix_cache import (
     BasePrefixCache,
     DecLockRefParams,
@@ -36,6 +36,7 @@ from sglang.srt.mem_cache.base_prefix_cache import (
     MatchPrefixParams,
     MatchResult,
 )
+from sglang.srt.mem_cache.cachetune.plugin import maybe_register_cachetune_plugin
 from sglang.srt.mem_cache.events import KVCacheEventMixin
 from sglang.srt.mem_cache.hicache_storage import (
     PoolName,
@@ -398,6 +399,8 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
                     self.token_to_kv_pool_allocator,
                 )
             )
+        if self.approx_kv.config.core_enabled:
+            maybe_register_cachetune_plugin(self.approx_kv)
         self.reset()
         logger.info(f"Init Unified RadixTree with components {self.tree_components}")
 

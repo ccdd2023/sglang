@@ -7,8 +7,8 @@ from .async_transfer import ApproxKVPrefetchTicket
 from .config import ApproxKVFeatureConfig
 from .plugins import RecoveryPlugin, RecoveryPluginRegistry
 from .store import (
-    AsyncResidencyLoader,
     ApproxKVSegmentStore,
+    AsyncResidencyLoader,
     ReleaseBackend,
     ResidencyLoader,
 )
@@ -184,6 +184,21 @@ class ApproxKVManager:
         callback = getattr(collector, "increment_approx_kv_host_export", None)
         if callback is not None:
             callback(num_tokens, num_bytes)
+
+    def record_cachetune_repair(
+        self,
+        *,
+        selected_tokens: int,
+        recomputed_layers: int,
+        precomputed: bool,
+        ratio_source: str,
+    ) -> None:
+        collector = self.metrics_collector
+        if collector is None:
+            return
+        callback = getattr(collector, "record_approx_kv_cachetune_repair", None)
+        if callback is not None:
+            callback(selected_tokens, recomputed_layers, precomputed, ratio_source)
 
     @property
     def active_ticket_count(self) -> int:

@@ -1985,6 +1985,21 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
             documentation="Approximate KV bytes exported to host.",
             labelnames=labels.keys(),
         )
+        self.approx_kv_cachetune_selected_tokens_total = Counter(
+            name="sglang:approx_kv_cachetune_selected_tokens_total",
+            documentation="Tokens selected for CacheTune repair.",
+            labelnames=[*labels.keys(), "ratio_source"],
+        )
+        self.approx_kv_cachetune_recomputed_layers_total = Counter(
+            name="sglang:approx_kv_cachetune_recomputed_layers_total",
+            documentation="CacheTune layer-level batched repair calls.",
+            labelnames=labels.keys(),
+        )
+        self.approx_kv_cachetune_precomputed_total = Counter(
+            name="sglang:approx_kv_cachetune_precomputed_total",
+            documentation="CacheTune requests using fresh precomputed target KV.",
+            labelnames=labels.keys(),
+        )
 
     def increment_eviction_num_tokens(self, num_tokens: int) -> None:
         self.eviction_num_tokens.labels(**self.labels).inc(num_tokens)
@@ -2030,12 +2045,8 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
         num_tokens: int,
         num_bytes: int,
     ) -> None:
-        self.approx_kv_host_export_tokens_total.labels(**self.labels).inc(
-            num_tokens
-        )
-        self.approx_kv_host_export_bytes_total.labels(**self.labels).inc(
-            num_bytes
-        )
+        self.approx_kv_host_export_tokens_total.labels(**self.labels).inc(num_tokens)
+        self.approx_kv_host_export_bytes_total.labels(**self.labels).inc(num_bytes)
 
     def record_approx_kv_transfer(self, stats) -> None:
         self.approx_kv_copied_tokens_total.labels(**self.labels).inc(
@@ -2045,6 +2056,23 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
             per_reason = stats.recomputed_tokens / len(stats.fallback_reasons)
             for reason in stats.fallback_reasons:
                 self.increment_approx_kv_fallback(reason, per_reason)
+
+    def record_approx_kv_cachetune_repair(
+        self,
+        selected_tokens: int,
+        recomputed_layers: int,
+        precomputed: bool,
+        ratio_source: str,
+    ) -> None:
+        self.approx_kv_cachetune_selected_tokens_total.labels(
+            **self.labels,
+            ratio_source=ratio_source,
+        ).inc(selected_tokens)
+        self.approx_kv_cachetune_recomputed_layers_total.labels(**self.labels).inc(
+            recomputed_layers
+        )
+        if precomputed:
+            self.approx_kv_cachetune_precomputed_total.labels(**self.labels).inc()
 
 
 class EncoderMetricsCollector(_StatLoggerDIMixin):
