@@ -1,0 +1,36 @@
+name: KV Cache Guest Source CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/kv-cache-guest-source-ci.yml"
+      - "python/sglang/srt/layers/activation.py"
+      - "python/sglang/srt/layers/layernorm.py"
+      - "python/sglang/srt/layers/sm75_compat.py"
+      - "test/registered/unit/layers/test_sm75_compat.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sm75-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile changed Python files
+        run: |
+          python -m compileall -q \
+            python/sglang/srt/layers/activation.py \
+            python/sglang/srt/layers/layernorm.py \
+            python/sglang/srt/layers/sm75_compat.py \
+            test/registered/unit/layers/test_sm75_compat.py
+
+      - name: Run source-level SM75 tests
+        run: python test/registered/unit/layers/test_sm75_compat.py
