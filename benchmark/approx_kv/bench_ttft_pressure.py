@@ -187,6 +187,7 @@ async def run(args: argparse.Namespace) -> list[RequestResult]:
                     messages,
                     tokenize=True,
                     add_generation_prompt=True,
+                    return_dict=False,
                 )
             )
 
