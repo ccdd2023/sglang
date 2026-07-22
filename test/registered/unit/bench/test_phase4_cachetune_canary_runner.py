@@ -12,23 +12,34 @@ import unittest.mock
 from pathlib import Path
 
 from benchmark.approx_kv.run_phase4_cachetune_canary import (
+    _PRESSURE_FILLER_HEAD_ALPHABET,
     NON_PREFIX_HEAD_TOKENS,
     NON_PREFIX_TAIL_TOKENS,
     WARMUP_PASSES_PER_SETTING,
     NonPrefixSegmentWorkload,
     _deterministic_token_ids,
+    _eviction_pressure_body_tokens,
+    _eviction_pressure_min_fraction,
+    _eviction_pressure_object_count,
+    _first_common_prefix_length,
+    _pressure_filler_head_literal_prefix,
     _repeat_count,
     append_run_log,
+    build_eviction_pressure_workloads,
     build_non_prefix_segment_workload,
     build_settings,
     dense_generate_payload,
+    eviction_pressure_total_tokens,
     expected_repair_totals,
     flush_exact_radix_cache,
+    register_eviction_pressure_objects,
     register_generate_payload,
     require_cached_tokens,
     require_finished_by_length,
     reuse_generate_payload,
     timed_post,
+    validate_eviction_pressure_fraction,
+    validate_pairwise_head_isolation,
 )
 from sglang.test.ci.ci_register import register_cpu_ci
 
@@ -131,6 +142,55 @@ class TestRepeatCount(unittest.TestCase):
         # caught/rewrapped, so argparse reports the underlying cause.
         with self.assertRaises(ValueError):
             _repeat_count("abc")
+
+
+class TestEvictionPressureArgparseValidators(unittest.TestCase):
+    """``--eviction-pressure-objects`` / ``--eviction-pressure-body-tokens``
+    / ``--eviction-pressure-min-fraction`` must each reject invalid CLI
+    input up front, at parse time -- never silently clamped, never
+    deferred to a confusing failure deep inside the canary run."""
+
+    def test_object_count_accepts_zero_as_explicit_opt_out(self):
+        self.assertEqual(_eviction_pressure_object_count("0"), 0)
+
+    def test_object_count_accepts_positive_values(self):
+        self.assertEqual(_eviction_pressure_object_count("4"), 4)
+        self.assertEqual(_eviction_pressure_object_count("26"), 26)
+
+    def test_object_count_rejects_negative(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            _eviction_pressure_object_count("-1")
+
+    def test_body_tokens_accepts_positive_values(self):
+        self.assertEqual(_eviction_pressure_body_tokens("1536"), 1536)
+        self.assertEqual(_eviction_pressure_body_tokens("1"), 1)
+
+    def test_body_tokens_rejects_zero(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            _eviction_pressure_body_tokens("0")
+
+    def test_body_tokens_rejects_negative(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            _eviction_pressure_body_tokens("-256")
+
+    def test_min_fraction_accepts_values_in_open_closed_interval(self):
+        self.assertEqual(_eviction_pressure_min_fraction("0.3"), 0.3)
+        # 1.0 (the closed end) must be accepted: "the entire pool" is a
+        # legitimate, if extreme, pressure floor.
+        self.assertEqual(_eviction_pressure_min_fraction("1.0"), 1.0)
+
+    def test_min_fraction_rejects_zero(self):
+        # The open end: 0 would make the floor check vacuous.
+        with self.assertRaises(argparse.ArgumentTypeError):
+            _eviction_pressure_min_fraction("0")
+
+    def test_min_fraction_rejects_negative(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            _eviction_pressure_min_fraction("-0.1")
+
+    def test_min_fraction_rejects_above_one(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            _eviction_pressure_min_fraction("1.1")
 
 
 class TestExpectedRepairTotals(unittest.TestCase):
@@ -285,6 +345,9 @@ class TestBuildSettings(unittest.TestCase):
             body_tokens=256,
             length_sweep="128,512",
             repeats=4,
+            eviction_pressure_objects=4,
+            eviction_pressure_body_tokens=1536,
+            eviction_pressure_min_fraction=0.3,
             runner_git_sha="abc123",
             image_digest="sha256:deadbeef",
         )
@@ -302,6 +365,17 @@ class TestBuildSettings(unittest.TestCase):
         self.assertEqual(settings["length_sweep"], "128,512")
         self.assertEqual(settings["runner_git_sha"], "abc123")
         self.assertEqual(settings["image_digest"], "sha256:deadbeef")
+
+    def test_carries_through_eviction_pressure_settings(self):
+        args = self._fake_args(
+            eviction_pressure_objects=6,
+            eviction_pressure_body_tokens=2048,
+            eviction_pressure_min_fraction=0.5,
+        )
+        settings = build_settings(args)
+        self.assertEqual(settings["eviction_pressure_objects"], 6)
+        self.assertEqual(settings["eviction_pressure_body_tokens"], 2048)
+        self.assertEqual(settings["eviction_pressure_min_fraction"], 0.5)
 
     def test_carries_through_body_tokens_and_fixed_head_tail(self):
         # body_tokens comes from parsed args; head/tail are fixed
@@ -565,6 +639,62 @@ class TestNonPrefixSegmentWorkload(unittest.TestCase):
             workload.source_head_ids = (1,)  # type: ignore[misc]
 
 
+class TestPressureFillerHeadLiteralPrefix(unittest.TestCase):
+    """Every eviction-pressure filler object needs its own mutually
+    distinct target-head literal-prefix marker (see
+    ``_PRESSURE_FILLER_HEAD_ALPHABET``); this generator must be
+    deterministic, in-range-valid, and loudly reject anything it cannot
+    keep distinct."""
+
+    def test_index_zero_uses_first_alphabet_letter(self):
+        self.assertEqual(
+            _pressure_filler_head_literal_prefix(0), "AFILLERHEAD_MARKER_TEXT\n"
+        )
+
+    def test_index_one_uses_second_alphabet_letter(self):
+        self.assertEqual(
+            _pressure_filler_head_literal_prefix(1), "BFILLERHEAD_MARKER_TEXT\n"
+        )
+
+    def test_last_valid_index_uses_last_alphabet_letter(self):
+        last_index = len(_PRESSURE_FILLER_HEAD_ALPHABET) - 1
+        prefix = _pressure_filler_head_literal_prefix(last_index)
+        self.assertTrue(prefix.startswith(_PRESSURE_FILLER_HEAD_ALPHABET[-1]))
+
+    def test_is_deterministic(self):
+        self.assertEqual(
+            _pressure_filler_head_literal_prefix(3),
+            _pressure_filler_head_literal_prefix(3),
+        )
+
+    def test_every_valid_index_produces_a_distinct_prefix(self):
+        prefixes = [
+            _pressure_filler_head_literal_prefix(index)
+            for index in range(len(_PRESSURE_FILLER_HEAD_ALPHABET))
+        ]
+        self.assertEqual(len(prefixes), len(set(prefixes)))
+
+    def test_rejects_negative_index(self):
+        with self.assertRaises(ValueError):
+            _pressure_filler_head_literal_prefix(-1)
+
+    def test_rejects_index_at_alphabet_length(self):
+        with self.assertRaises(ValueError):
+            _pressure_filler_head_literal_prefix(len(_PRESSURE_FILLER_HEAD_ALPHABET))
+
+    def test_rejects_index_far_beyond_alphabet_length(self):
+        with self.assertRaises(ValueError):
+            _pressure_filler_head_literal_prefix(999)
+
+    def test_excludes_source_and_target_head_markers_own_letters(self):
+        # S and T are already used by _SOURCE_HEAD_LITERAL_PREFIX /
+        # _TARGET_HEAD_LITERAL_PREFIX; the pressure-filler alphabet must
+        # never reuse either, or a filler could collide with the
+        # setting's own head/source markers.
+        self.assertNotIn("S", _PRESSURE_FILLER_HEAD_ALPHABET)
+        self.assertNotIn("T", _PRESSURE_FILLER_HEAD_ALPHABET)
+
+
 class TestBuildNonPrefixSegmentWorkload(unittest.TestCase):
     """The builder that assembles a validated ``NonPrefixSegmentWorkload``
     from four independently tokenized pieces -- exercised with a real
@@ -679,6 +809,405 @@ class TestBuildNonPrefixSegmentWorkload(unittest.TestCase):
         ]
         target_heads = [workload.target_head_ids for workload in workloads]
         self.assertEqual(len(target_heads), len(set(target_heads)))
+
+    def test_default_head_literal_prefixes_match_omitting_the_kwargs(self):
+        # Every existing caller (main setting, every length-sweep point)
+        # must see byte-for-byte identical behavior after this function
+        # grew its two new optional keyword parameters.
+        with_defaults_explicit = build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=32,
+            head_tokens=34,
+            tail_tokens=1,
+            salt="unit-test-default-equivalence",
+            source_head_literal_prefix="SOURCE_HEAD_MARKER_TEXT\n",
+            target_head_literal_prefix="TARGET_HEAD_MARKER_TEXT\n",
+        )
+        with_defaults_omitted = build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=32,
+            head_tokens=34,
+            tail_tokens=1,
+            salt="unit-test-default-equivalence",
+        )
+        self.assertEqual(with_defaults_explicit, with_defaults_omitted)
+
+    def test_custom_target_head_literal_prefix_changes_only_target_head(self):
+        salt = "unit-test-custom-prefix"
+        common_kwargs = dict(
+            body_tokens=32,
+            head_tokens=34,
+            tail_tokens=1,
+            salt=salt,
+        )
+        default_prefix_workload = build_non_prefix_segment_workload(
+            FakeTokenizer(), **common_kwargs
+        )
+        custom_prefix_workload = build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            target_head_literal_prefix=_pressure_filler_head_literal_prefix(0),
+            **common_kwargs,
+        )
+        self.assertNotEqual(
+            default_prefix_workload.target_head_ids,
+            custom_prefix_workload.target_head_ids,
+        )
+        # Everything else (built from the same salt, unaffected pieces)
+        # must be untouched by only overriding the target-head marker.
+        self.assertEqual(
+            default_prefix_workload.source_head_ids,
+            custom_prefix_workload.source_head_ids,
+        )
+        self.assertEqual(
+            default_prefix_workload.shared_body_ids,
+            custom_prefix_workload.shared_body_ids,
+        )
+        self.assertEqual(
+            default_prefix_workload.tail_ids, custom_prefix_workload.tail_ids
+        )
+
+    def test_two_pressure_filler_target_head_prefixes_diverge_at_token_zero(self):
+        # Regression test for the exact collision risk
+        # _pressure_filler_head_literal_prefix/
+        # validate_pairwise_head_isolation exist to guard against: under
+        # a tokenizer that reproduces real BPE's subword-sharing
+        # behavior, two fillers built from the *same* salt template but
+        # different indices must still diverge starting at token 0 (see
+        # TestBuildNonPrefixSegmentWorkload
+        # .test_source_and_target_heads_share_no_common_exact_match_prefix
+        # for the analogous source/target-head regression test).
+        tokenizer = CharLevelFakeTokenizer()
+        filler_0 = build_non_prefix_segment_workload(
+            tokenizer,
+            body_tokens=16,
+            head_tokens=NON_PREFIX_HEAD_TOKENS,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt="phase4-r5-pressure-filler-0",
+            target_head_literal_prefix=_pressure_filler_head_literal_prefix(0),
+        )
+        filler_1 = build_non_prefix_segment_workload(
+            tokenizer,
+            body_tokens=16,
+            head_tokens=NON_PREFIX_HEAD_TOKENS,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt="phase4-r5-pressure-filler-1",
+            target_head_literal_prefix=_pressure_filler_head_literal_prefix(1),
+        )
+        self.assertNotEqual(
+            filler_0.target_head_ids[0],
+            filler_1.target_head_ids[0],
+            "two pressure-filler target heads share a first token -- "
+            "would let a later filler's seed request silently observe a "
+            "nonzero cached_tokens match against an earlier filler's "
+            "head already sitting in the exact radix tree",
+        )
+
+
+class TestBuildEvictionPressureWorkloads(unittest.TestCase):
+    """Builds the N distinct filler workloads a setting's eviction-
+    pressure phase materializes before its own measurement -- every
+    filler must be mutually content-isolated AND mutually head-isolated,
+    never just individually valid."""
+
+    def test_produces_requested_object_count(self):
+        workloads = build_eviction_pressure_workloads(
+            FakeTokenizer(),
+            object_count=4,
+            body_tokens=64,
+            head_tokens=34,
+            tail_tokens=1,
+            salt_prefix="phase4-r5-pressure",
+        )
+        self.assertEqual(len(workloads), 4)
+
+    def test_every_workload_has_the_requested_body_length(self):
+        workloads = build_eviction_pressure_workloads(
+            FakeTokenizer(),
+            object_count=3,
+            body_tokens=128,
+            head_tokens=34,
+            tail_tokens=1,
+            salt_prefix="phase4-r5-pressure",
+        )
+        for workload in workloads:
+            self.assertEqual(workload.body_tokens, 128)
+
+    def test_rejects_zero_object_count(self):
+        with self.assertRaises(ValueError):
+            build_eviction_pressure_workloads(
+                FakeTokenizer(),
+                object_count=0,
+                body_tokens=64,
+                head_tokens=34,
+                tail_tokens=1,
+                salt_prefix="phase4-r5-pressure",
+            )
+
+    def test_rejects_negative_object_count(self):
+        with self.assertRaises(ValueError):
+            build_eviction_pressure_workloads(
+                FakeTokenizer(),
+                object_count=-1,
+                body_tokens=64,
+                head_tokens=34,
+                tail_tokens=1,
+                salt_prefix="phase4-r5-pressure",
+            )
+
+    def test_fillers_have_mutually_distinct_bodies_and_tails(self):
+        workloads = build_eviction_pressure_workloads(
+            FakeTokenizer(),
+            object_count=4,
+            body_tokens=64,
+            head_tokens=34,
+            tail_tokens=1,
+            salt_prefix="phase4-r5-pressure",
+        )
+        bodies = [workload.shared_body_ids for workload in workloads]
+        self.assertEqual(len(bodies), len(set(bodies)))
+
+    def test_fillers_have_mutually_distinct_target_heads(self):
+        workloads = build_eviction_pressure_workloads(
+            FakeTokenizer(),
+            object_count=4,
+            body_tokens=64,
+            head_tokens=34,
+            tail_tokens=1,
+            salt_prefix="phase4-r5-pressure",
+        )
+        target_heads = [workload.target_head_ids for workload in workloads]
+        self.assertEqual(len(target_heads), len(set(target_heads)))
+
+    def test_fillers_pass_pairwise_head_isolation_against_a_bpe_like_tokenizer(self):
+        # End-to-end proof (with the finer-granularity fake, unlike the
+        # word-level FakeTokenizer used by the other tests in this
+        # class) that build_eviction_pressure_workloads's own output is
+        # self-consistent from the moment it is constructed: every
+        # filler's target head must already satisfy
+        # validate_pairwise_head_isolation with zero collisions, before
+        # this is ever combined with a setting's own head.
+        workloads = build_eviction_pressure_workloads(
+            CharLevelFakeTokenizer(),
+            object_count=6,
+            body_tokens=32,
+            head_tokens=NON_PREFIX_HEAD_TOKENS,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt_prefix="phase4-r5-pressure",
+        )
+        labeled_heads = [
+            (f"pressure-filler[{index}]", workload.target_head_ids)
+            for index, workload in enumerate(workloads)
+        ]
+        validate_pairwise_head_isolation(labeled_heads)  # must not raise
+
+    def test_different_salt_prefixes_isolate_two_settings_filler_sets(self):
+        # Mirrors two different settings (e.g. the main setting and a
+        # length-sweep point) each building their own filler set: they
+        # must never accidentally share content, exactly like
+        # TestBuildNonPrefixSegmentWorkload
+        # .test_different_salts_isolate_heads_and_bodies for the
+        # non-filler case.
+        main_fillers = build_eviction_pressure_workloads(
+            FakeTokenizer(),
+            object_count=2,
+            body_tokens=64,
+            head_tokens=34,
+            tail_tokens=1,
+            salt_prefix="phase4-r5-cachetune-main",
+        )
+        sweep_fillers = build_eviction_pressure_workloads(
+            FakeTokenizer(),
+            object_count=2,
+            body_tokens=64,
+            head_tokens=34,
+            tail_tokens=1,
+            salt_prefix="phase4-r5-cachetune-sweep-128",
+        )
+        for main_filler, sweep_filler in zip(main_fillers, sweep_fillers):
+            self.assertNotEqual(
+                main_filler.shared_body_ids, sweep_filler.shared_body_ids
+            )
+
+
+class TestEvictionPressureTotalTokens(unittest.TestCase):
+    """The floor-estimate token sum ``validate_eviction_pressure_fraction``
+    compares against live server capacity."""
+
+    def _workload(self, body_tokens: int) -> NonPrefixSegmentWorkload:
+        return NonPrefixSegmentWorkload(
+            source_head_ids=(1, 2, 3),
+            target_head_ids=(9, 8, 7),
+            shared_body_ids=tuple(range(body_tokens)),
+            tail_ids=(99,),
+        )
+
+    def test_sums_body_tokens_across_workloads(self):
+        workloads = [self._workload(10), self._workload(20), self._workload(30)]
+        self.assertEqual(eviction_pressure_total_tokens(workloads), 60)
+
+    def test_single_workload(self):
+        self.assertEqual(eviction_pressure_total_tokens([self._workload(128)]), 128)
+
+    def test_empty_sequence_sums_to_zero(self):
+        self.assertEqual(eviction_pressure_total_tokens([]), 0)
+
+
+class TestValidateEvictionPressureFraction(unittest.TestCase):
+    """Fails fast against a real ``/metrics`` snapshot, before any
+    dense baseline or setting measurement runs, whenever the configured
+    eviction-pressure footprint could not plausibly matter."""
+
+    def test_returns_achieved_fraction_when_above_floor(self):
+        fraction = validate_eviction_pressure_fraction(
+            total_pressure_tokens=600,
+            usable_capacity_tokens=1000,
+            min_fraction=0.3,
+        )
+        self.assertAlmostEqual(fraction, 0.6)
+
+    def test_boundary_fraction_exactly_at_floor_passes(self):
+        # Strictly-less-than semantics: a fraction exactly equal to the
+        # floor must be accepted, not rejected.
+        fraction = validate_eviction_pressure_fraction(
+            total_pressure_tokens=300,
+            usable_capacity_tokens=1000,
+            min_fraction=0.3,
+        )
+        self.assertAlmostEqual(fraction, 0.3)
+
+    def test_raises_runtime_error_when_below_floor(self):
+        with self.assertRaises(RuntimeError) as ctx:
+            validate_eviction_pressure_fraction(
+                total_pressure_tokens=100,
+                usable_capacity_tokens=1000,
+                min_fraction=0.3,
+            )
+        message = str(ctx.exception)
+        self.assertIn("100", message)
+        self.assertIn("1000", message)
+
+    def test_rejects_non_positive_usable_capacity(self):
+        with self.assertRaises(ValueError):
+            validate_eviction_pressure_fraction(
+                total_pressure_tokens=100,
+                usable_capacity_tokens=0,
+                min_fraction=0.3,
+            )
+
+    def test_rejects_negative_total_pressure_tokens(self):
+        with self.assertRaises(ValueError):
+            validate_eviction_pressure_fraction(
+                total_pressure_tokens=-1,
+                usable_capacity_tokens=1000,
+                min_fraction=0.3,
+            )
+
+    def test_rejects_min_fraction_of_zero(self):
+        with self.assertRaises(ValueError):
+            validate_eviction_pressure_fraction(
+                total_pressure_tokens=100,
+                usable_capacity_tokens=1000,
+                min_fraction=0.0,
+            )
+
+    def test_rejects_min_fraction_above_one(self):
+        with self.assertRaises(ValueError):
+            validate_eviction_pressure_fraction(
+                total_pressure_tokens=100,
+                usable_capacity_tokens=1000,
+                min_fraction=1.5,
+            )
+
+    def test_zero_total_pressure_tokens_is_a_valid_input_that_can_still_fail(self):
+        # 0 is itself a valid (if degenerate) total -- must reach the
+        # floor comparison and fail there, not be rejected as malformed
+        # input.
+        with self.assertRaises(RuntimeError):
+            validate_eviction_pressure_fraction(
+                total_pressure_tokens=0,
+                usable_capacity_tokens=1000,
+                min_fraction=0.3,
+            )
+
+
+class TestFirstCommonPrefixLength(unittest.TestCase):
+    """The token-id-level primitive ``validate_pairwise_head_isolation``
+    is built on."""
+
+    def test_identical_sequences_share_full_length(self):
+        self.assertEqual(_first_common_prefix_length((1, 2, 3), (1, 2, 3)), 3)
+
+    def test_diverging_at_first_token_shares_zero(self):
+        self.assertEqual(_first_common_prefix_length((1, 2, 3), (9, 2, 3)), 0)
+
+    def test_diverging_partway_through_shares_the_common_run(self):
+        self.assertEqual(_first_common_prefix_length((1, 2, 3, 4), (1, 2, 9, 4)), 2)
+
+    def test_empty_sequence_shares_zero(self):
+        self.assertEqual(_first_common_prefix_length((), (1, 2, 3)), 0)
+        self.assertEqual(_first_common_prefix_length((1, 2, 3), ()), 0)
+
+    def test_shorter_sequence_that_is_a_prefix_of_the_longer_one(self):
+        self.assertEqual(_first_common_prefix_length((1, 2), (1, 2, 3, 4)), 2)
+
+
+class TestValidatePairwiseHeadIsolation(unittest.TestCase):
+    """The runtime safety net for the exact collision risk this whole
+    eviction-pressure feature had to design around: every simultaneously
+    dense-seeded target head (the setting's own head plus every filler
+    object's head) must be pairwise zero-common-prefix, checked against
+    real token-id sequences, never a textual heuristic alone."""
+
+    def test_no_collision_across_several_heads_does_not_raise(self):
+        validate_pairwise_head_isolation(
+            [
+                ("setting", (1, 2, 3)),
+                ("pressure-filler[0]", (4, 5, 6)),
+                ("pressure-filler[1]", (7, 8, 9)),
+            ]
+        )  # must not raise
+
+    def test_empty_list_does_not_raise(self):
+        validate_pairwise_head_isolation([])  # must not raise
+
+    def test_single_head_does_not_raise(self):
+        validate_pairwise_head_isolation([("setting", (1, 2, 3))])  # must not raise
+
+    def test_two_colliding_heads_raise_with_both_labels_named(self):
+        with self.assertRaises(RuntimeError) as ctx:
+            validate_pairwise_head_isolation(
+                [
+                    ("setting", (1, 2, 3)),
+                    ("pressure-filler[0]", (1, 2, 9)),
+                ]
+            )
+        message = str(ctx.exception)
+        self.assertIn("setting", message)
+        self.assertIn("pressure-filler[0]", message)
+
+    def test_collision_among_a_non_adjacent_pair_is_still_caught(self):
+        # The collision is between indices 0 and 2, not any adjacent
+        # pair -- proves this checks every pair, not just neighbors.
+        with self.assertRaises(RuntimeError) as ctx:
+            validate_pairwise_head_isolation(
+                [
+                    ("pressure-filler[0]", (1, 2, 3)),
+                    ("pressure-filler[1]", (4, 5, 6)),
+                    ("pressure-filler[2]", (1, 2, 9)),
+                ]
+            )
+        message = str(ctx.exception)
+        self.assertIn("pressure-filler[0]", message)
+        self.assertIn("pressure-filler[2]", message)
+
+    def test_fully_identical_heads_are_a_collision_too(self):
+        with self.assertRaises(RuntimeError):
+            validate_pairwise_head_isolation(
+                [
+                    ("a", (1, 2, 3)),
+                    ("b", (1, 2, 3)),
+                ]
+            )
 
 
 class TestGeneratePayloadBuilders(unittest.TestCase):
@@ -863,6 +1392,47 @@ class _FakeClientSession:
     def post(self, url, json):
         self.post_calls.append((url, json))
         return _FakePostContextManager(self._response)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc_info):
+        return False
+
+
+class _SequencedFakeClientSession:
+    """Fakes ``aiohttp.ClientSession`` for a call sequence where each
+    ``.post()`` must return a DIFFERENT preconfigured response, in
+    order -- unlike ``_FakeClientSession``, which always replays the
+    same single response.
+
+    Needed to test ``materialize_workload_via_reuse`` /
+    ``register_eviction_pressure_objects``: a single filler object's
+    materialization alone already issues four sequential requests (seed
+    head, register raw, register fresh, reuse), each expected to report
+    different ``cached_tokens``, and multiple filler objects chain many
+    such sequences back to back. Raises ``AssertionError`` (never
+    silently replaying a stale response) if more ``.post()`` calls
+    happen than responses were provided -- an unexpected extra call is
+    itself a sign the production code under test regressed.
+    """
+
+    def __init__(self, responses: list):
+        self._responses = list(responses)
+        self._next_index = 0
+        self.post_calls: list[tuple[str, dict]] = []
+
+    def post(self, url, json):
+        self.post_calls.append((url, json))
+        if self._next_index >= len(self._responses):
+            raise AssertionError(
+                f"unexpected extra POST call #{self._next_index + 1} to "
+                f"{url!r}; only {len(self._responses)} responses were "
+                "configured"
+            )
+        response = self._responses[self._next_index]
+        self._next_index += 1
+        return _FakePostContextManager(response)
 
     async def __aenter__(self):
         return self
@@ -1061,6 +1631,191 @@ class TestTimedPost(unittest.TestCase):
         response, _ = self._run_with_fake_session(session)
 
         self.assertEqual(require_cached_tokens(response, 34, "test"), 34)
+
+
+class TestRegisterEvictionPressureObjects(unittest.TestCase):
+    """Every filler object's mandatory register+reuse materialization
+    must run in order against the live server, and a nonzero
+    dense-fallback delta observed during this phase must raise loudly:
+    a filler silently falling back to dense would mean it never
+    actually became a genuine device-resident CacheTune-repaired
+    occupant, defeating the whole point of the eviction-pressure
+    phase."""
+
+    def _filler_workloads(self, object_count=2, body_tokens=8):
+        return build_eviction_pressure_workloads(
+            FakeTokenizer(),
+            object_count=object_count,
+            body_tokens=body_tokens,
+            head_tokens=6,
+            tail_tokens=1,
+            salt_prefix="unit-test-pressure",
+        )
+
+    def _materialize_success_responses(self, workload):
+        """The four responses one filler's own
+        ``materialize_workload_via_reuse`` call needs, in call order, to
+        pass every check that function performs: seed target_head
+        (``cached_tokens=0``), register raw (``cached_tokens=0``),
+        register fresh (``cached_tokens`` unchecked by that step), reuse
+        (``cached_tokens=workload.body_start_in_target``)."""
+        zero_cached_chunk = {
+            "meta_info": {"finish_reason": {"type": "length"}, "cached_tokens": 0}
+        }
+        reuse_chunk = {
+            "meta_info": {
+                "finish_reason": {"type": "length"},
+                "cached_tokens": workload.body_start_in_target,
+            }
+        }
+        chunks = [
+            zero_cached_chunk,  # seed target_head
+            zero_cached_chunk,  # register raw
+            zero_cached_chunk,  # register fresh
+            reuse_chunk,  # reuse
+        ]
+        return [
+            _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
+            for chunk in chunks
+        ]
+
+    def test_materializes_every_filler_in_order_and_returns_telemetry(self):
+        workloads = self._filler_workloads(object_count=2, body_tokens=8)
+        responses = [
+            response
+            for workload in workloads
+            for response in self._materialize_success_responses(workload)
+        ]
+        session = _SequencedFakeClientSession(responses)
+        metrics_before = {
+            "sglang:approx_kv_dense_fallback_total": 3.0,
+            "sglang:evicted_tokens_total": 100.0,
+        }
+        metrics_after = {
+            "sglang:approx_kv_dense_fallback_total": 3.0,
+            "sglang:evicted_tokens_total": 116.0,
+        }
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=[metrics_before, metrics_after],
+        ):
+            result = register_eviction_pressure_objects(
+                "http://127.0.0.1:30000",
+                workloads,
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+            )
+
+        # Every filler's own four-request sequence must have actually
+        # run, in order (a wrong call count would mean either a filler
+        # was skipped or the four-step materialize sequence itself
+        # regressed).
+        self.assertEqual(len(session.post_calls), 8)
+        self.assertEqual(result["object_count"], 2)
+        self.assertEqual(result["total_pressure_tokens"], 16)
+        self.assertEqual(result["evicted_tokens_total_delta"], 16.0)
+        self.assertEqual(result["dense_fallback_total_delta"], 0.0)
+        self.assertEqual(result["metrics_before"], metrics_before)
+        self.assertEqual(result["metrics_after"], metrics_after)
+
+    def test_raises_when_dense_fallback_delta_is_nonzero(self):
+        # The core safety invariant this function exists to enforce: a
+        # filler silently falling back to dense during materialization
+        # must never be treated as a harmless, ignorable detail.
+        workloads = self._filler_workloads(object_count=1, body_tokens=8)
+        responses = self._materialize_success_responses(workloads[0])
+        session = _SequencedFakeClientSession(responses)
+        metrics_before = {"sglang:approx_kv_dense_fallback_total": 3.0}
+        metrics_after = {"sglang:approx_kv_dense_fallback_total": 4.0}
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=[metrics_before, metrics_after],
+        ):
+            with self.assertRaises(RuntimeError) as ctx:
+                register_eviction_pressure_objects(
+                    "http://127.0.0.1:30000",
+                    workloads,
+                    model_fingerprint="qwen3-0.6b-sm75",
+                    cache_dtype="fp16",
+                    label="unit-test",
+                )
+        message = str(ctx.exception)
+        self.assertIn("unit-test", message)
+        self.assertIn("1 eviction-pressure filler", message)
+
+    def test_does_not_raise_when_dense_fallback_delta_is_zero_despite_other_deltas(
+        self,
+    ):
+        # A positive control alongside the raise-test above: OTHER
+        # counters (e.g. evicted_tokens_total) moving is expected and
+        # fine; only a nonzero dense_fallback delta must raise.
+        workloads = self._filler_workloads(object_count=1, body_tokens=8)
+        responses = self._materialize_success_responses(workloads[0])
+        session = _SequencedFakeClientSession(responses)
+        metrics_before = {
+            "sglang:approx_kv_dense_fallback_total": 0.0,
+            "sglang:evicted_tokens_total": 0.0,
+        }
+        metrics_after = {
+            "sglang:approx_kv_dense_fallback_total": 0.0,
+            "sglang:evicted_tokens_total": 8.0,
+        }
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=[metrics_before, metrics_after],
+        ):
+            result = register_eviction_pressure_objects(
+                "http://127.0.0.1:30000",
+                workloads,
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+            )
+        self.assertEqual(result["dense_fallback_total_delta"], 0.0)
+        self.assertEqual(result["evicted_tokens_total_delta"], 8.0)
+
+
+class TestValidatePairwiseHeadIsolationAgainstProductionCallShape(unittest.TestCase):
+    """Combines ``build_eviction_pressure_workloads`` output with a
+    default-prefix setting head through ``validate_pairwise_head_isolation``,
+    reproducing the exact call shape ``run_non_prefix_setting`` uses in
+    production (every filler's head plus the setting's own head, never
+    two different settings' heads at once -- each setting gets its own
+    flush-isolated call)."""
+
+    def test_fillers_and_a_default_prefix_setting_head_are_mutually_isolated(self):
+        tokenizer = CharLevelFakeTokenizer()
+        pressure_workloads = build_eviction_pressure_workloads(
+            tokenizer,
+            object_count=4,
+            body_tokens=32,
+            head_tokens=NON_PREFIX_HEAD_TOKENS,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt_prefix="phase4-r5-pressure",
+        )
+        setting_workload = build_non_prefix_segment_workload(
+            tokenizer,
+            body_tokens=256,
+            head_tokens=NON_PREFIX_HEAD_TOKENS,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt="phase4-r5-cachetune-main",
+        )
+        labeled_heads = [
+            (f"pressure-filler[{index}]", filler.target_head_ids)
+            for index, filler in enumerate(pressure_workloads)
+        ] + [("main", setting_workload.target_head_ids)]
+
+        validate_pairwise_head_isolation(labeled_heads)  # must not raise
 
 
 if __name__ == "__main__":

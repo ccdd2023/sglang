@@ -130,6 +130,9 @@ length-sweep point)
    ``target_head_ids`` would otherwise still be sitting in the tree,
    ready to silently produce a nonzero ``cached_tokens`` for an unrelated
    later setting's head or raw-segment register request.
+2a. If eviction pressure is enabled (the default -- see "Eviction-
+   pressure phase" below), every filler object is registered and
+   materialized here, immediately after the flush and before step 3.
 3. Seed the target head once (one dense ``/generate`` call, expected
    ``cached_tokens=0``).
 4. Register the "raw" (source-context) body segment once (also expected
@@ -155,6 +158,69 @@ Register/reuse requests never need inter-repeat flushing:
 radix tree themselves; flushing between formal repeats would also invoke
 ``ApproxKVManager.reset()`` (see ``mem_cache/approx_kv/manager.py``),
 deleting the very "raw"/"fresh" segments those repeats depend on.
+
+Eviction-pressure phase (real GPU contention, not a single-object
+microbenchmark)
+--------------------------------------------------------------------
+By default (``--eviction-pressure-objects`` > 0, 4 objects x 1536 tokens
+each unless overridden), every setting -- the main setting and every
+length-sweep point alike -- registers and materializes
+``--eviction-pressure-objects`` distinct filler
+``NonPrefixSegmentWorkload`` objects (see
+``build_eviction_pressure_workloads``) immediately after that setting's
+own flush, before that setting's own head-seed/raw-register begins (see
+``register_eviction_pressure_objects``). Each filler goes through the
+exact same register-raw + register-fresh + one reuse cycle
+(``materialize_workload_via_reuse``) as the setting's own mandatory
+setup, forcing its raw segment to become genuinely device-resident via
+``ensure_device`` -- a real occupant of the finite GPU KV pool, not an
+artificial placeholder. Because every setting's own flush wipes the
+*entire* ``approx_kv`` store (``ApproxKVManager.reset()``, wired through
+``RadixCache``/``UnifiedRadixCache``'s own ``reset()``), filler objects
+cannot be built once globally and expected to persist across settings:
+they are rebuilt fresh, from the same fixed content, inside every
+``run_non_prefix_setting`` call.
+
+Every filler's own target head is dense-seeded exactly like the
+setting's own head, and all of them (N fillers plus the setting's own
+head) coexist in the exact radix tree within the same flush epoch --
+unlike the main-vs-sweep case, the per-setting flush does *not* isolate
+them from each other. ``build_eviction_pressure_workloads`` gives each
+filler a mutually distinct target-head literal-prefix marker (a
+different leading letter, never a decimal index -- see
+``_pressure_filler_head_literal_prefix``) to keep them pairwise
+zero-common-prefix, and ``validate_pairwise_head_isolation`` is a
+runtime safety net that checks the actual resulting token-id sequences
+(never a textual heuristic alone) and raises immediately if any two
+still collide.
+
+``--eviction-pressure-objects`` x ``--eviction-pressure-body-tokens``
+must reach ``--eviction-pressure-min-fraction`` (default 30%) of the
+server's real, live, idle ``usable_kv_capacity_tokens`` (see
+``benchmark.approx_kv.metrics``), checked once up front
+(``validate_eviction_pressure_fraction``) against a real ``/metrics``
+snapshot -- this fails loudly in milliseconds on a too-weak
+configuration rather than silently running a canary that could never
+have pressured the pool. This floor check only guards the *ask*; it
+does not by itself prove eviction happened. The honest evidence that
+real device-pool eviction actually occurred is each setting's own
+``pressure_phase.evicted_tokens_total_delta`` in the output JSON (the
+genuine ``sglang:evicted_tokens_total`` Prometheus counter delta across
+that setting's pressure phase -- incremented by
+``BasePrefixCache.update_eviction_metrics`` on any real LRU eviction,
+GPU-only tier included, not merely GPU-to-CPU host-backup moves) --
+which may legitimately read 0 if the configured pressure turns out
+smaller than this deployment's real pool, and this script reports that
+outcome exactly as observed, never inferring or assuming eviction
+occurred from the configuration alone. A nonzero
+``sglang:approx_kv_dense_fallback_total`` delta during the pressure
+phase itself raises immediately (see
+``register_eviction_pressure_objects``): a filler object silently
+falling back to dense would mean it was never actually a genuine
+CacheTune-repaired device-resident occupant at all.
+``--eviction-pressure-objects=0`` explicitly disables this phase,
+reverting every setting to the single-object microbenchmark this script
+used before it.
 
 Every invocation writes JSONL lifecycle records (``running`` /
 ``completed`` / ``failed``) to ``--central-log``, carrying the full
@@ -202,7 +268,11 @@ from typing import Any, Sequence
 
 import aiohttp
 
-from benchmark.approx_kv.metrics import idle_pool_invariant, parse_prometheus_text
+from benchmark.approx_kv.metrics import (
+    idle_pool_invariant,
+    parse_prometheus_text,
+    usable_kv_capacity_tokens,
+)
 from benchmark.approx_kv.workloads import deterministic_code
 from sglang.srt.mem_cache.cachetune.hardware_profile import (
     CacheTuneMode,
@@ -240,11 +310,52 @@ NON_PREFIX_TAIL_TOKENS = 1
 _SOURCE_HEAD_LITERAL_PREFIX = "SOURCE_HEAD_MARKER_TEXT\n"
 _TARGET_HEAD_LITERAL_PREFIX = "TARGET_HEAD_MARKER_TEXT\n"
 
+# Distinct leading letters for every eviction-pressure filler object's own
+# *target* head marker (see _pressure_filler_head_literal_prefix,
+# build_eviction_pressure_workloads). Every filler's target head is
+# dense-seeded (to populate the exact radix tree, exactly like the main/
+# sweep setting's own head -- see materialize_workload_via_reuse), and all
+# N fillers plus the setting's own head coexist in the same tree within
+# one flush epoch (run_non_prefix_setting flushes once per *setting*, not
+# once per filler object). A decimal index (e.g. "0", "1", ...) would NOT
+# stay collision-free once the object count reaches double digits ("1" is
+# a leading-token prefix of "10".."19"), so this uses a fixed alphabet of
+# single letters instead (excluding S/T, already used by
+# _SOURCE_HEAD_LITERAL_PREFIX/_TARGET_HEAD_LITERAL_PREFIX, purely for
+# readability -- validate_pairwise_head_isolation is the actual runtime
+# safety net if any of this textual convention ever fails to produce
+# token-id-level divergence against a real tokenizer's BPE merge
+# behavior).
+_PRESSURE_FILLER_HEAD_ALPHABET = "ABCDEFGHIJKLMNOPQRUVWXYZ"
+
 # Every setting (dense, the main CacheTune point, and each length-sweep
 # point) runs exactly this many *discarded* passes before the formal
 # repeats begin. This is a fixed measurement-protocol constant, not a CLI
 # knob, so every canary result is comparable under the same discipline.
 WARMUP_PASSES_PER_SETTING = 1
+
+
+def _pressure_filler_head_literal_prefix(index: int) -> str:
+    """Deterministic, mutually-distinct literal marker text for
+    eviction-pressure filler object ``index``'s own *target* head (see
+    ``_PRESSURE_FILLER_HEAD_ALPHABET``, ``build_eviction_pressure_workloads``).
+
+    Raises rather than silently wrapping/reusing a letter once ``index``
+    exceeds the supported alphabet size: a wrapped/reused leading letter
+    would defeat the whole point of this function (guaranteed first-
+    character divergence per filler object).
+    """
+    if index < 0:
+        raise ValueError(f"index must be >= 0, got {index}")
+    if index >= len(_PRESSURE_FILLER_HEAD_ALPHABET):
+        raise ValueError(
+            f"index={index} exceeds the supported "
+            f"{len(_PRESSURE_FILLER_HEAD_ALPHABET)} distinct pressure-filler "
+            "head markers; reduce --eviction-pressure-objects or extend "
+            "_PRESSURE_FILLER_HEAD_ALPHABET"
+        )
+    letter = _PRESSURE_FILLER_HEAD_ALPHABET[index]
+    return f"{letter}FILLERHEAD_MARKER_TEXT\n"
 
 
 def _repeat_count(value: str) -> int:
@@ -264,6 +375,41 @@ def _repeat_count(value: str) -> int:
             "distinguish real signal from single-sample noise)"
         )
     return repeats
+
+
+def _eviction_pressure_object_count(value: str) -> int:
+    """argparse ``type=`` validator for ``--eviction-pressure-objects``:
+    reject negative counts up front. 0 is valid (explicit opt-out of the
+    eviction-pressure phase, reverting to a single-object microbenchmark)."""
+    count = int(value)
+    if count < 0:
+        raise argparse.ArgumentTypeError(
+            f"--eviction-pressure-objects must be >= 0, got {count} (0 "
+            "explicitly disables the eviction-pressure phase)"
+        )
+    return count
+
+
+def _eviction_pressure_body_tokens(value: str) -> int:
+    """argparse ``type=`` validator for ``--eviction-pressure-body-tokens``:
+    reject non-positive values up front."""
+    body_tokens = int(value)
+    if body_tokens <= 0:
+        raise argparse.ArgumentTypeError(
+            f"--eviction-pressure-body-tokens must be positive, got {body_tokens}"
+        )
+    return body_tokens
+
+
+def _eviction_pressure_min_fraction(value: str) -> float:
+    """argparse ``type=`` validator for ``--eviction-pressure-min-fraction``:
+    reject values outside (0, 1] up front."""
+    fraction = float(value)
+    if not 0.0 < fraction <= 1.0:
+        raise argparse.ArgumentTypeError(
+            f"--eviction-pressure-min-fraction must be in (0, 1], got {fraction}"
+        )
+    return fraction
 
 
 def parse_args() -> argparse.Namespace:
@@ -321,6 +467,41 @@ def parse_args() -> argparse.Namespace:
         "and tail length stay fixed across every sweep point.",
     )
     parser.add_argument("--repeats", type=_repeat_count, default=4)
+    parser.add_argument(
+        "--eviction-pressure-objects",
+        type=_eviction_pressure_object_count,
+        default=4,
+        help="Number of distinct filler NonPrefixSegmentWorkload objects "
+        "registered and materialized (register raw + register fresh + one "
+        "reuse, forcing real device residency via ensure_device) before "
+        "EVERY setting's own measurement (the main setting and every "
+        "length-sweep point each get their own fresh pressure phase, "
+        "since run_non_prefix_setting's own flush wipes the approx_kv "
+        "store -- see ApproxKVManager.reset -- as its first action every "
+        "time it runs). 0 explicitly disables the eviction-pressure "
+        "phase entirely, reverting to a single-object microbenchmark.",
+    )
+    parser.add_argument(
+        "--eviction-pressure-body-tokens",
+        type=_eviction_pressure_body_tokens,
+        default=1536,
+        help="Shared-body token count for EACH eviction-pressure filler "
+        "object. Deliberately larger than the default --body-tokens so "
+        "the filler objects' combined device-resident footprint can "
+        "genuinely compete with the main workload for a real, finite GPU "
+        "KV pool rather than merely existing alongside it.",
+    )
+    parser.add_argument(
+        "--eviction-pressure-min-fraction",
+        type=_eviction_pressure_min_fraction,
+        default=0.3,
+        help="Minimum required fraction of the server's LIVE, idle "
+        "usable_kv_capacity_tokens (see benchmark.approx_kv.metrics) that "
+        "--eviction-pressure-objects * --eviction-pressure-body-tokens "
+        "must reach, checked once up front against a real /metrics "
+        "snapshot. Raises loudly rather than silently running a "
+        "too-weak-to-matter pressure configuration.",
+    )
     parser.add_argument("--runner-git-sha", required=True)
     parser.add_argument("--image-digest", required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -529,6 +710,8 @@ def build_non_prefix_segment_workload(
     head_tokens: int,
     tail_tokens: int,
     salt: str,
+    source_head_literal_prefix: str = _SOURCE_HEAD_LITERAL_PREFIX,
+    target_head_literal_prefix: str = _TARGET_HEAD_LITERAL_PREFIX,
 ) -> NonPrefixSegmentWorkload:
     """Build one ``NonPrefixSegmentWorkload`` from four independently
     tokenized, deterministic pieces (see ``_deterministic_token_ids``).
@@ -544,25 +727,196 @@ def build_non_prefix_segment_workload(
     zero-common-prefix guarantee the literal-prefix markers below provide
     (see the module docstring's "Why /generate and non-prefix segments"
     section).
+
+    ``source_head_literal_prefix``/``target_head_literal_prefix`` default
+    to this module's own fixed markers (every existing caller -- the main
+    setting, every length-sweep point -- gets the exact prior behavior
+    unchanged). ``build_eviction_pressure_workloads`` overrides
+    ``target_head_literal_prefix`` per filler object with a mutually
+    distinct marker (see ``_pressure_filler_head_literal_prefix``):
+    eviction-pressure filler objects' target heads are ALSO dense-seeded,
+    like the setting's own head, and coexist with it and with every OTHER
+    filler's head within the same flush epoch -- unlike the main-vs-sweep
+    case, ``run_non_prefix_setting``'s per-setting flush does not isolate
+    them from each other, so they need this stronger guarantee too (see
+    ``validate_pairwise_head_isolation`` for the runtime safety net).
     """
     return NonPrefixSegmentWorkload(
         source_head_ids=_deterministic_token_ids(
             tokenizer,
             f"{salt}-source-head",
             head_tokens,
-            literal_prefix=_SOURCE_HEAD_LITERAL_PREFIX,
+            literal_prefix=source_head_literal_prefix,
         ),
         target_head_ids=_deterministic_token_ids(
             tokenizer,
             f"{salt}-target-head",
             head_tokens,
-            literal_prefix=_TARGET_HEAD_LITERAL_PREFIX,
+            literal_prefix=target_head_literal_prefix,
         ),
         shared_body_ids=_deterministic_token_ids(
             tokenizer, f"{salt}-shared-body", body_tokens
         ),
         tail_ids=_deterministic_token_ids(tokenizer, f"{salt}-tail", tail_tokens),
     )
+
+
+def build_eviction_pressure_workloads(
+    tokenizer: Any,
+    *,
+    object_count: int,
+    body_tokens: int,
+    head_tokens: int,
+    tail_tokens: int,
+    salt_prefix: str,
+) -> tuple[NonPrefixSegmentWorkload, ...]:
+    """Build ``object_count`` distinct filler ``NonPrefixSegmentWorkload``
+    objects meant purely to occupy real, finite GPU KV-pool capacity
+    before a setting's own measurement (see
+    ``register_eviction_pressure_objects``) -- never measured for TTFT
+    themselves.
+
+    Each filler gets its own ``salt_prefix-filler-{index}`` content salt
+    (so no two fillers, and no filler and any main/sweep setting, ever
+    share body/tail content) AND its own mutually distinct target-head
+    literal-prefix marker via ``_pressure_filler_head_literal_prefix``
+    (so no two fillers' dense-seeded target heads -- nor a filler's head
+    and the setting's own head -- can collide in the live server's exact
+    radix tree; see ``build_non_prefix_segment_workload``'s docstring and
+    ``validate_pairwise_head_isolation``).
+    """
+    if object_count <= 0:
+        raise ValueError(f"object_count must be positive, got {object_count}")
+    return tuple(
+        build_non_prefix_segment_workload(
+            tokenizer,
+            body_tokens=body_tokens,
+            head_tokens=head_tokens,
+            tail_tokens=tail_tokens,
+            salt=f"{salt_prefix}-filler-{index}",
+            target_head_literal_prefix=_pressure_filler_head_literal_prefix(index),
+        )
+        for index in range(object_count)
+    )
+
+
+def eviction_pressure_total_tokens(
+    workloads: Sequence[NonPrefixSegmentWorkload],
+) -> int:
+    """Lower-bound estimate, in tokens, of the device-resident KV
+    footprint that materializing every pressure workload's *raw* segment
+    contributes (see ``register_eviction_pressure_objects`` /
+    ``materialize_workload_via_reuse``): each filler object's mandatory
+    register+reuse cycle forces at least this many tokens onto the
+    device residency tier via ``ensure_device``. The "fresh" segment's
+    own body would add roughly as much again once a filler's reuse call
+    actually completes, so this is a floor on real footprint, not an
+    exact total -- deliberately conservative for
+    ``validate_eviction_pressure_fraction``'s own comparison against live
+    capacity.
+    """
+    return sum(workload.body_tokens for workload in workloads)
+
+
+def validate_eviction_pressure_fraction(
+    *,
+    total_pressure_tokens: int,
+    usable_capacity_tokens: int,
+    min_fraction: float,
+) -> float:
+    """Raise ``RuntimeError`` if ``total_pressure_tokens`` (see
+    ``eviction_pressure_total_tokens``) is too small a fraction of
+    ``usable_capacity_tokens`` (a real, live
+    ``benchmark.approx_kv.metrics.usable_kv_capacity_tokens`` reading) to
+    plausibly matter -- otherwise returns the achieved fraction.
+
+    Checked once, up front, against a real ``/metrics`` snapshot, so a
+    too-weak eviction-pressure configuration fails loudly in
+    milliseconds rather than silently running a canary that never
+    actually pressures the pool (the ``sglang:evicted_tokens_total``
+    telemetry ``register_eviction_pressure_objects`` reports separately,
+    per setting, is the honest confirmation that real eviction actually
+    happened -- this function only guards against an ask that could not
+    possibly be large enough, it never asserts eviction occurred).
+    """
+    if usable_capacity_tokens <= 0:
+        raise ValueError(
+            f"usable_capacity_tokens must be positive, got {usable_capacity_tokens}"
+        )
+    if not 0.0 < min_fraction <= 1.0:
+        raise ValueError(f"min_fraction must be in (0, 1], got {min_fraction}")
+    if total_pressure_tokens < 0:
+        raise ValueError(
+            f"total_pressure_tokens must be >= 0, got {total_pressure_tokens}"
+        )
+    fraction = total_pressure_tokens / usable_capacity_tokens
+    if fraction < min_fraction:
+        raise RuntimeError(
+            "eviction-pressure configuration is too weak to genuinely "
+            f"pressure this server's live usable KV capacity: "
+            f"{total_pressure_tokens} filler tokens is only "
+            f"{fraction:.1%} of {usable_capacity_tokens} usable tokens "
+            f"(need >= {min_fraction:.1%}). Increase "
+            "--eviction-pressure-objects and/or "
+            "--eviction-pressure-body-tokens, or lower "
+            "--eviction-pressure-min-fraction if a smaller genuine "
+            "pressure fraction is intentional."
+        )
+    return fraction
+
+
+def _first_common_prefix_length(a: Sequence[int], b: Sequence[int]) -> int:
+    length = 0
+    for token_a, token_b in zip(a, b):
+        if token_a != token_b:
+            break
+        length += 1
+    return length
+
+
+def validate_pairwise_head_isolation(
+    labeled_heads: Sequence[tuple[str, Sequence[int]]],
+) -> None:
+    """Raise a clear, actionable ``RuntimeError`` the moment any two
+    simultaneously-coexisting dense-seeded target heads share a nonzero
+    common token-id prefix.
+
+    Every head in ``labeled_heads`` gets dense-seeded into the exact
+    radix tree within the same flush epoch (the setting's own head, plus
+    every eviction-pressure filler object's own head -- see
+    ``run_non_prefix_setting``), each expecting its own seed request to
+    report ``cached_tokens=0``. A shared prefix between any two of them
+    would make a later seed request silently observe a nonzero match
+    against an earlier head already sitting in the tree, corrupting that
+    invariant. This checks the actual resulting token-id sequences
+    directly -- never a textual heuristic alone -- precisely because a
+    "distinct first character" literal-prefix convention cannot be
+    verified against a real tokenizer's BPE merge behavior without a
+    live tokenizer, so this catches any surprise immediately and loudly
+    rather than assuming the textual convention worked.
+    """
+    for i in range(len(labeled_heads)):
+        label_a, head_a = labeled_heads[i]
+        for j in range(i + 1, len(labeled_heads)):
+            label_b, head_b = labeled_heads[j]
+            shared = _first_common_prefix_length(head_a, head_b)
+            if shared > 0:
+                raise RuntimeError(
+                    f"{label_a!r} and {label_b!r} target heads share a "
+                    f"{shared}-token common prefix "
+                    f"({tuple(head_a[:shared])!r}) -- every "
+                    "simultaneously dense-seeded target head (the "
+                    "setting's own head plus every eviction-pressure "
+                    "filler object's head) must be pairwise "
+                    "zero-common-prefix, or a later seed request would "
+                    "silently observe a nonzero cached_tokens match "
+                    "against an earlier head already sitting in the "
+                    "exact radix tree. Use more diverse literal-prefix "
+                    "markers for these two heads (see "
+                    "_PRESSURE_FILLER_HEAD_ALPHABET / "
+                    "_SOURCE_HEAD_LITERAL_PREFIX / "
+                    "_TARGET_HEAD_LITERAL_PREFIX)."
+                )
 
 
 def dense_generate_payload(input_ids: Sequence[int]) -> dict:
@@ -851,6 +1205,9 @@ def build_settings(args: argparse.Namespace) -> dict[str, Any]:
         "length_sweep": args.length_sweep,
         "repeats_per_setting": args.repeats,
         "warmup_passes_per_setting": WARMUP_PASSES_PER_SETTING,
+        "eviction_pressure_objects": args.eviction_pressure_objects,
+        "eviction_pressure_body_tokens": args.eviction_pressure_body_tokens,
+        "eviction_pressure_min_fraction": args.eviction_pressure_min_fraction,
         "runner_git_sha": args.runner_git_sha,
         "image_digest": args.image_digest,
         "scheduler": "S0 LRU",
@@ -860,58 +1217,44 @@ def build_settings(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-def run_non_prefix_setting(
-    *,
+def materialize_workload_via_reuse(
     base_url: str,
     workload: NonPrefixSegmentWorkload,
+    *,
     raw_hash: str,
     fresh_hash: str,
     model_fingerprint: str,
     cache_dtype: str,
-    repeats: int,
     label: str,
 ) -> dict[str, Any]:
-    """Flush the exact radix cache, seed the exact-cache target head,
-    register the raw (source-context) body segment once, run one
-    discarded register-fresh + reuse warmup, snapshot Prometheus metrics,
-    then run ``repeats`` formal register-fresh + reuse repeats.
+    """Seed ``workload``'s own exact-match target head, register its raw
+    (source-context) and fresh (target-context) body segments, then
+    issue exactly one real reuse request against it -- forcing
+    CacheTune's genuine repair path to run once and materialize the raw
+    segment onto the device residency tier via ``ensure_device`` (see
+    ``cachetune/runtime.py``).
 
-    The shared measurement routine used by both the main CacheTune
-    setting and every length-sweep point (see the module docstring's
-    "Why /generate and non-prefix segments" section for why this
-    flush -> seed -> register-raw -> warmup -> repeats ordering is
-    mandatory).
-
-    The flush is this function's *own* first action -- not merely the
-    caller's responsibility -- because this function runs once per
-    setting and settings are otherwise never isolated from each other: a
-    previous setting's own already-seeded ``target_head_ids`` would
-    otherwise still be sitting in the tree, ready to silently produce a
-    nonzero ``cached_tokens`` for an unrelated later setting's head-seed
-    or raw-segment register request below. Safe to do here (never
-    between the formal repeats further down -- see
-    ``flush_exact_radix_cache``'s own docstring for why) precisely
-    because it runs before any registration this call performs.
+    Shared by ``run_non_prefix_setting``'s own one-time setup + discarded
+    warmup pass (seed head -> register raw -> register fresh -> reuse,
+    exactly this sequence) and by ``register_eviction_pressure_objects``
+    (each pressure filler object needs this exact same one-time
+    materialization, never a timed/repeated measurement). Every step is
+    validated the same way the rest of this script validates every
+    request -- never silently swallowed.
 
     Returns a dict with ``seed_head_ms``, ``register_raw_ms``,
-    ``fresh_raw_samples``, ``reuse_raw_samples`` (each a list of
-    ``{"ttft_ms": float, "cached_tokens": int}`` records, one per formal
-    repeat, pairing every repeat's genuine streaming TTFT with the
-    server-reported ``meta_info.cached_tokens`` from that exact same
-    call), ``fresh_ms_samples``, ``reuse_ms_samples``,
-    ``combined_ms_samples`` (the ``ttft_ms``-only projections of the
-    above, kept for existing consumers), ``observed_cached_tokens_per_call``
-    (the reuse leg's ``cached_tokens`` projection, unchanged), and
-    ``metrics_before``/``metrics_after`` -- everything the caller needs
-    to build its own output section and telemetry cross-validation.
+    ``register_fresh_ms``, ``reuse_ms`` (every step's own genuine
+    streaming TTFT) and ``reuse_response`` (the final reuse call's parsed
+    JSON body) so callers needing granular per-step timing
+    (``run_non_prefix_setting``'s own setup) and callers that only need
+    "did this materialize successfully" (each pressure filler object)
+    can both use this single, already-validated code path.
     """
-    flush_exact_radix_cache(base_url)
-
     seed_response, seed_head_ms = timed_post(
         base_url, dense_generate_payload(workload.target_head_ids)
     )
-    require_finished_by_length(seed_response, f"{label} seed target_head (discarded)")
-    require_cached_tokens(seed_response, 0, f"{label} seed target_head (discarded)")
+    require_finished_by_length(seed_response, f"{label} seed target_head")
+    require_cached_tokens(seed_response, 0, f"{label} seed target_head")
 
     register_raw_response, register_raw_ms = timed_post(
         base_url,
@@ -927,11 +1270,7 @@ def run_non_prefix_setting(
     require_finished_by_length(register_raw_response, f"{label} raw register")
     require_cached_tokens(register_raw_response, 0, f"{label} raw register")
 
-    # Discarded warmup (register fresh + reuse): register/reuse requests
-    # never write into the exact radix tree (skip_radix_cache_insert is
-    # forced True whenever approx_kv_metadata is present), so repeating
-    # them -- including this warmup -- needs no flush.
-    warmup_fresh_response, _ = timed_post(
+    register_fresh_response, register_fresh_ms = timed_post(
         base_url,
         register_generate_payload(
             input_ids=workload.fresh_prompt_ids,
@@ -942,10 +1281,9 @@ def run_non_prefix_setting(
             cache_dtype=cache_dtype,
         ),
     )
-    require_finished_by_length(
-        warmup_fresh_response, f"{label} warmup fresh preparation (discarded)"
-    )
-    warmup_reuse_response, _ = timed_post(
+    require_finished_by_length(register_fresh_response, f"{label} fresh preparation")
+
+    reuse_response, reuse_ms = timed_post(
         base_url,
         reuse_generate_payload(
             input_ids=workload.target_prompt_ids,
@@ -956,9 +1294,193 @@ def run_non_prefix_setting(
             cache_dtype=cache_dtype,
         ),
     )
-    require_finished_by_length(
-        warmup_reuse_response, f"{label} warmup reuse (discarded)"
+    require_finished_by_length(reuse_response, f"{label} reuse")
+    require_cached_tokens(
+        reuse_response, workload.body_start_in_target, f"{label} reuse"
     )
+
+    return {
+        "seed_head_ms": seed_head_ms,
+        "register_raw_ms": register_raw_ms,
+        "register_fresh_ms": register_fresh_ms,
+        "reuse_ms": reuse_ms,
+        "reuse_response": reuse_response,
+    }
+
+
+def register_eviction_pressure_objects(
+    base_url: str,
+    workloads: Sequence[NonPrefixSegmentWorkload],
+    *,
+    model_fingerprint: str,
+    cache_dtype: str,
+    label: str,
+) -> dict[str, Any]:
+    """Register and materialize every eviction-pressure filler object in
+    ``workloads`` (see ``build_eviction_pressure_workloads``) via
+    ``materialize_workload_via_reuse``, so their raw segments become
+    genuinely device-resident (via ``ensure_device``) before the
+    caller's own setting measurement begins.
+
+    Snapshots ``/metrics`` immediately before the first filler object and
+    immediately after the last one, and raises loudly if
+    ``sglang:approx_kv_dense_fallback_total`` increased during this
+    phase: a filler object silently falling back to dense would mean its
+    body was never actually restored via CacheTune's repair path at all
+    (a real bug, or a misconfigured pressure request whose footprint
+    cannot fit in the pool even after evicting everything else), which
+    this canary must never treat as a harmless, ignorable detail.
+    Returns a dict with ``object_count``, ``total_pressure_tokens``
+    (see ``eviction_pressure_total_tokens``),
+    ``evicted_tokens_total_delta`` (the genuine, real evidence that
+    device-pool eviction actually happened -- may legitimately be 0 if
+    the configured pressure was not large enough to evict anything, and
+    this is reported honestly rather than hidden), and
+    ``dense_fallback_total_delta`` (always 0, given the raise above, kept
+    for output-schema transparency), plus the raw ``metrics_before``/
+    ``metrics_after`` snapshots the two deltas above were computed from
+    (surfaced verbatim for downstream debugging, exactly like
+    ``run_non_prefix_setting``'s own ``metrics_before``/``metrics_after``
+    keys).
+    """
+    metrics_before = metric_snapshot(base_url)
+    for index, filler_workload in enumerate(workloads):
+        materialize_workload_via_reuse(
+            base_url,
+            filler_workload,
+            raw_hash=f"cachetune-raw:phase4-r5-pressure-filler-{index}",
+            fresh_hash=f"cachetune-fresh:phase4-r5-pressure-filler-{index}",
+            model_fingerprint=model_fingerprint,
+            cache_dtype=cache_dtype,
+            label=f"{label} pressure-filler[{index}]",
+        )
+        time.sleep(0.1)
+    metrics_after = metric_snapshot(base_url)
+
+    dense_fallback_delta = metric_delta(
+        metrics_before, metrics_after, "sglang:approx_kv_dense_fallback_total"
+    )
+    if dense_fallback_delta != 0:
+        raise RuntimeError(
+            f"{label}: {len(workloads)} eviction-pressure filler object(s) "
+            f"produced a nonzero dense_fallback delta of "
+            f"{dense_fallback_delta} while materializing -- at least one "
+            "filler's own reuse silently fell back to dense instead of a "
+            "genuine CacheTune repair; this pressure configuration cannot "
+            "be trusted to have actually occupied device residency as "
+            "intended"
+        )
+    return {
+        "object_count": len(workloads),
+        "total_pressure_tokens": eviction_pressure_total_tokens(workloads),
+        "evicted_tokens_total_delta": metric_delta(
+            metrics_before, metrics_after, "sglang:evicted_tokens_total"
+        ),
+        "dense_fallback_total_delta": dense_fallback_delta,
+        "metrics_before": metrics_before,
+        "metrics_after": metrics_after,
+    }
+
+
+def run_non_prefix_setting(
+    *,
+    base_url: str,
+    workload: NonPrefixSegmentWorkload,
+    raw_hash: str,
+    fresh_hash: str,
+    model_fingerprint: str,
+    cache_dtype: str,
+    repeats: int,
+    label: str,
+    pressure_workloads: Sequence[NonPrefixSegmentWorkload] = (),
+) -> dict[str, Any]:
+    """Flush the exact radix cache, optionally materialize a fresh
+    eviction-pressure phase, seed the exact-cache target head, register
+    the raw (source-context) body segment once, run one discarded
+    register-fresh + reuse warmup, snapshot Prometheus metrics, then run
+    ``repeats`` formal register-fresh + reuse repeats.
+
+    The shared measurement routine used by both the main CacheTune
+    setting and every length-sweep point (see the module docstring's
+    "Why /generate and non-prefix segments" section for why this
+    flush -> [pressure] -> seed -> register-raw -> warmup -> repeats
+    ordering is mandatory).
+
+    The flush is this function's *own* first action -- not merely the
+    caller's responsibility -- because this function runs once per
+    setting and settings are otherwise never isolated from each other: a
+    previous setting's own already-seeded ``target_head_ids`` would
+    otherwise still be sitting in the tree, ready to silently produce a
+    nonzero ``cached_tokens`` for an unrelated later setting's head-seed
+    or raw-segment register request below. Safe to do here (never
+    between the formal repeats further down -- see
+    ``flush_exact_radix_cache``'s own docstring for why) precisely
+    because it runs before any registration this call performs.
+
+    If ``pressure_workloads`` is non-empty, every filler object is
+    re-registered and re-materialized fresh on *every* call (see
+    ``register_eviction_pressure_objects``): the very flush above resets
+    the entire ``approx_kv`` store (``ApproxKVManager.reset()``, wired
+    through ``RadixCache.reset``/``UnifiedRadixCache.reset`` -- see
+    ``flush_exact_radix_cache``'s own docstring), so a previous setting's
+    already-registered filler objects are gone the moment this function's
+    own flush runs; they cannot be built once globally and expected to
+    persist across multiple settings. This means every setting (the main
+    setting and every length-sweep point alike) gets its own genuine
+    multi-object pressure phase, never just the first one.
+    ``validate_pairwise_head_isolation`` runs first (before any network
+    call) to guard against a filler's dense-seeded target head colliding
+    with this setting's own head or with another filler's head in the
+    live exact radix tree.
+
+    Returns a dict with ``seed_head_ms``, ``register_raw_ms``,
+    ``fresh_raw_samples``, ``reuse_raw_samples`` (each a list of
+    ``{"ttft_ms": float, "cached_tokens": int}`` records, one per formal
+    repeat, pairing every repeat's genuine streaming TTFT with the
+    server-reported ``meta_info.cached_tokens`` from that exact same
+    call), ``fresh_ms_samples``, ``reuse_ms_samples``,
+    ``combined_ms_samples`` (the ``ttft_ms``-only projections of the
+    above, kept for existing consumers), ``observed_cached_tokens_per_call``
+    (the reuse leg's ``cached_tokens`` projection, unchanged),
+    ``metrics_before``/``metrics_after``, and ``pressure_phase`` (``None``
+    when ``pressure_workloads`` is empty, otherwise
+    ``register_eviction_pressure_objects``'s own returned telemetry dict)
+    -- everything the caller needs to build its own output section and
+    telemetry cross-validation.
+    """
+    flush_exact_radix_cache(base_url)
+
+    pressure_phase: dict[str, Any] | None = None
+    if pressure_workloads:
+        validate_pairwise_head_isolation(
+            [
+                (f"pressure-filler[{index}]", filler.target_head_ids)
+                for index, filler in enumerate(pressure_workloads)
+            ]
+            + [(label, workload.target_head_ids)]
+        )
+        pressure_phase = register_eviction_pressure_objects(
+            base_url,
+            pressure_workloads,
+            model_fingerprint=model_fingerprint,
+            cache_dtype=cache_dtype,
+            label=label,
+        )
+
+    setup_result = materialize_workload_via_reuse(
+        base_url,
+        workload,
+        raw_hash=raw_hash,
+        fresh_hash=fresh_hash,
+        model_fingerprint=model_fingerprint,
+        cache_dtype=cache_dtype,
+        label=f"{label} setup+warmup (discarded)",
+    )
+    seed_head_ms = setup_result["seed_head_ms"]
+    register_raw_ms = setup_result["register_raw_ms"]
+    # setup_result's own register_fresh_ms/reuse_ms/reuse_response are
+    # this call's discarded warmup pass -- intentionally not kept, exactly
+    # like the previous inline implementation discarded them.
 
     # Snapshot AFTER warmup: the warmup's own telemetry contribution must
     # not be counted as part of the formal-repeat delta below.
@@ -1029,6 +1551,7 @@ def run_non_prefix_setting(
         ],
         "metrics_before": metrics_before,
         "metrics_after": metrics_after,
+        "pressure_phase": pressure_phase,
     }
 
 
@@ -1060,6 +1583,51 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
     expected_recomputed_layers = num_layers - args.first_recompute_layer
     if expected_recomputed_layers <= 0:
         raise RuntimeError("first_recompute_layer leaves no layers to recompute")
+
+    # ---- Real GPU eviction-pressure phase (see module docstring's
+    # "Eviction-pressure phase" section): build the filler workload set
+    # once and validate its footprint against a real, live, idle
+    # /metrics snapshot BEFORE doing anything else -- fail in
+    # milliseconds on a too-weak configuration rather than after already
+    # running the (much slower) dense baseline below. The filler
+    # workloads themselves get freshly re-registered inside every
+    # run_non_prefix_setting call (main setting and every length-sweep
+    # point): that function's own flush wipes the entire approx_kv store
+    # as its first action every time it runs (see
+    # flush_exact_radix_cache's docstring), so a filler set registered
+    # only once here would not survive past the very first setting.
+    pressure_workloads: tuple[NonPrefixSegmentWorkload, ...] = ()
+    eviction_pressure_summary: dict[str, Any] = {
+        "enabled": args.eviction_pressure_objects > 0,
+        "object_count": args.eviction_pressure_objects,
+        "body_tokens_per_object": args.eviction_pressure_body_tokens,
+        "min_fraction": args.eviction_pressure_min_fraction,
+    }
+    if args.eviction_pressure_objects > 0:
+        flush_exact_radix_cache(args.base_url)
+        capacity_snapshot = metric_snapshot(args.base_url)
+        usable_capacity_tokens = usable_kv_capacity_tokens(capacity_snapshot)
+        pressure_workloads = build_eviction_pressure_workloads(
+            tokenizer,
+            object_count=args.eviction_pressure_objects,
+            body_tokens=args.eviction_pressure_body_tokens,
+            head_tokens=NON_PREFIX_HEAD_TOKENS,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt_prefix=f"{CACHE_SALT}-pressure",
+        )
+        total_pressure_tokens = eviction_pressure_total_tokens(pressure_workloads)
+        achieved_fraction = validate_eviction_pressure_fraction(
+            total_pressure_tokens=total_pressure_tokens,
+            usable_capacity_tokens=usable_capacity_tokens,
+            min_fraction=args.eviction_pressure_min_fraction,
+        )
+        eviction_pressure_summary.update(
+            {
+                "usable_capacity_tokens_at_validation": usable_capacity_tokens,
+                "total_pressure_tokens": total_pressure_tokens,
+                "achieved_fraction": achieved_fraction,
+            }
+        )
 
     # ---- Main TTFT benchmark point: build the non-prefix workload up
     # front (see module docstring's "Why /generate and non-prefix
@@ -1129,6 +1697,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         cache_dtype=args.cache_dtype,
         repeats=args.repeats,
         label="main",
+        pressure_workloads=pressure_workloads,
     )
     fresh_raw_samples = main_result["fresh_raw_samples"]
     cachetune_raw_samples = main_result["reuse_raw_samples"]
@@ -1138,6 +1707,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
     observed_cached_tokens_per_call = main_result["observed_cached_tokens_per_call"]
     metrics_before_cachetune = main_result["metrics_before"]
     metrics_after_cachetune = main_result["metrics_after"]
+    main_pressure_phase = main_result["pressure_phase"]
 
     cachetune_deltas = {
         name: metric_delta(metrics_before_cachetune, metrics_after_cachetune, name)
@@ -1215,6 +1785,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             cache_dtype=args.cache_dtype,
             repeats=args.repeats,
             label=f"sweep[{body_tokens}]",
+            pressure_workloads=pressure_workloads,
         )
         observed_selected_tokens_total = metric_delta(
             sweep_result["metrics_before"],
@@ -1268,6 +1839,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                 "combined_p50_ms": statistics.median(
                     sweep_result["combined_ms_samples"]
                 ),
+                "pressure_phase": sweep_result["pressure_phase"],
                 "passed": (
                     observed_selected_tokens_total == expected_selected_tokens_for_point
                     and observed_dense_fallback == 0
@@ -1326,9 +1898,33 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "floor; this project does not evaluate output quality, so the "
             "floor is exercised here purely as a ratio-selection behavior."
         )
+    if args.eviction_pressure_objects > 0:
+        known_limitations.append(
+            "Eviction-pressure defaults (--eviction-pressure-objects="
+            f"{args.eviction_pressure_objects}, "
+            "--eviction-pressure-body-tokens="
+            f"{args.eviction_pressure_body_tokens}, "
+            "--eviction-pressure-min-fraction="
+            f"{args.eviction_pressure_min_fraction}) are reasonable "
+            "starting-point placeholders, NOT yet empirically tuned "
+            "against this specific deployment's real usable KV capacity "
+            "beyond the one-time validate_eviction_pressure_fraction "
+            "floor check at canary start; whether real device-pool "
+            "eviction actually occurred for a given setting must be "
+            "read from that setting's own "
+            "pressure_phase.evicted_tokens_total_delta (may legitimately "
+            "be 0 if the pool turned out larger than this configuration "
+            "assumed -- reported honestly, never hidden)."
+        )
+    else:
+        known_limitations.append(
+            "--eviction-pressure-objects=0: this run explicitly opted "
+            "out of the multi-object eviction-pressure phase and is a "
+            "single-object microbenchmark only."
+        )
 
     payload = {
-        "schema_version": 3,
+        "schema_version": 4,
         "runner_git_sha": args.runner_git_sha,
         "image_digest": args.image_digest,
         "model": args.model,
@@ -1392,6 +1988,18 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                 "'[DONE]', or a mid-stream error frame all raise instead "
                 "of being silently treated as a completed request."
             ),
+            "eviction_pressure_phase_runs_once_per_setting": (
+                args.eviction_pressure_objects > 0
+            ),
+            "eviction_pressure_phase_rationale": (
+                "when enabled, every setting's own flush (see "
+                "exact_radix_flush_at_start_of_every_setting) also wipes "
+                "the entire approx_kv store, so eviction-pressure filler "
+                "objects are re-registered and re-materialized fresh "
+                "inside every run_non_prefix_setting call (main setting "
+                "and every length-sweep point alike), never built once "
+                "globally -- see register_eviction_pressure_objects."
+            ),
         },
         "workload": {
             "kind": "non_prefix_segment",
@@ -1439,6 +2047,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "seed_head_ms": main_result["seed_head_ms"],
             "register_raw_ms": main_result["register_raw_ms"],
             "last_prompt_token_real_forward": True,
+            "pressure_phase": main_pressure_phase,
             "passed": all(telemetry_checks.values()),
         },
         "ttft": {
@@ -1464,6 +2073,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "combined_speedup": dense_p50_ms / combined_p50_ms,
         },
         "length_sweep_points": length_sweep_points,
+        "eviction_pressure": eviction_pressure_summary,
         "pool_invariant": pool_invariant,
         "health_response": health_status,
         "known_limitations": known_limitations,
@@ -1537,6 +2147,7 @@ def main() -> int:
                 "target_only_speedup": payload["ttft"]["target_only_speedup"],
                 "combined_speedup": payload["ttft"]["combined_speedup"],
                 "length_sweep_points": len(payload["length_sweep_points"]),
+                "eviction_pressure": payload["eviction_pressure"],
             },
         },
     )
