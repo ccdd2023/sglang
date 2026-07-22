@@ -35,6 +35,7 @@ Wires the actual per-request flow:
    never a partial, silently-degraded write.
 """
 
+import logging
 from typing import Any
 
 import torch
@@ -57,7 +58,10 @@ from sglang.srt.mem_cache.approx_kv.types import (
 
 from .hkvd import compute_token_deviation, select_hkvd_tokens
 from .plugin import CACHEBLEND_PLUGIN_NAME, CacheBlendRecoveryPlugin
+from .precomputed import FreshKVSpan, PrecomputedCacheBlendBackend
 from .recompute import LayerRecomputeCoordinator
+
+logger = logging.getLogger(__name__)
 
 
 def _allocator(tree_cache: Any) -> Any:
@@ -116,7 +120,12 @@ def restore_request_prefix_cacheblend(tree_cache: Any, req: Any) -> bool:
     ):
         return False
 
-    plugin = manager.plugins.get(CACHEBLEND_PLUGIN_NAME)
+    try:
+        plugin = manager.plugins.get(CACHEBLEND_PLUGIN_NAME)
+    except KeyError:
+        manager.record_fallback("cacheblend_plugin_missing", 0)
+        manager.record_request("reuse", "dense_fallback")
+        return False
     if not isinstance(plugin, CacheBlendRecoveryPlugin):
         raise TypeError(
             "the 'cacheblend' plugin registration must be a "
@@ -147,10 +156,11 @@ def restore_request_prefix_cacheblend(tree_cache: Any, req: Any) -> bool:
         manager.record_request("reuse", "exact")
         return False
 
-    # Capability guard: fail fast and honestly if either real per-layer
-    # hook is unbound, instead of silently degrading to a raw-copy-only
-    # restore mislabeled as CacheBlend.
-    if not plugin.capable:
+    precomputed_requested = all(
+        segment.content_hash.startswith("cacheblend-raw:")
+        for segment in active_segments
+    )
+    if not plugin.capable and not precomputed_requested:
         manager.record_fallback("cacheblend_capability_unavailable", restore_length)
         manager.record_request("reuse", "dense_fallback")
         return False
@@ -189,6 +199,61 @@ def restore_request_prefix_cacheblend(tree_cache: Any, req: Any) -> bool:
             manager.record_fallback("prefix_gap", restore_length)
             manager.record_request("reuse", "dense_fallback")
             return False
+
+    probe_backend = plugin.probe_backend
+    recompute_backend = plugin.recompute_backend
+    precomputed_backend = None
+    if not plugin.capable:
+        fresh_spans = []
+        for segment, _, overlap_start, overlap_end in handles:
+            fresh_hash = segment.content_hash.replace(
+                "cacheblend-raw:",
+                "cacheblend-fresh:",
+                1,
+            )
+            tokens = tuple(
+                int(token)
+                for token in req.full_untruncated_fill_ids[
+                    segment.target_start : segment.target_end
+                ]
+            )
+            fresh_key = _segment_key(
+                tokens=tokens,
+                content_hash=fresh_hash,
+                model_fingerprint=metadata.model_fingerprint,
+                cache_dtype=metadata.cache_dtype,
+            )
+            fresh_handle = manager.store.lookup(fresh_key)
+            if fresh_handle is None:
+                manager.record_fallback(
+                    "cacheblend_fresh_store_miss",
+                    restore_length,
+                )
+                manager.record_request("reuse", "dense_fallback")
+                return False
+            try:
+                fresh_handle = manager.ensure_device(fresh_handle)
+            except Exception:
+                manager.record_fallback(
+                    "cacheblend_fresh_residency_load_failed",
+                    restore_length,
+                )
+                manager.record_request("reuse", "dense_fallback")
+                return False
+            fresh_spans.append(
+                FreshKVSpan(
+                    target_start=overlap_start,
+                    length=overlap_end - overlap_start,
+                    source=fresh_handle,
+                    source_offset=overlap_start - segment.target_start,
+                )
+            )
+        precomputed_backend = PrecomputedCacheBlendBackend(
+            kvcache=_allocator(tree_cache).get_kvcache(),
+            spans=fresh_spans,
+        )
+        probe_backend = precomputed_backend
+        recompute_backend = precomputed_backend
 
     allocator = _allocator(tree_cache)
     restored_indices = allocator.alloc(restore_length)
@@ -288,8 +353,6 @@ def restore_request_prefix_cacheblend(tree_cache: Any, req: Any) -> bool:
     # static/structural proxy (see hkvd.py module docstring for why that
     # approach was falsified historically).
     kvcache = allocator.get_kvcache()
-    probe_backend = plugin.probe_backend
-    recompute_backend = plugin.recompute_backend
 
     def deviation_fn(probe_layer_id: int, local_positions: torch.Tensor) -> torch.Tensor:
         slot_indices = restored_indices[local_positions]
@@ -311,9 +374,13 @@ def restore_request_prefix_cacheblend(tree_cache: Any, req: Any) -> bool:
         )
     except Exception:
         allocator.free(restored_indices)
+        logger.exception(
+            "CacheBlend HKVD measurement failed for request %s",
+            getattr(req, "rid", "<unknown>"),
+        )
         manager.record_fallback("cacheblend_hkvd_measurement_failed", restore_length)
         manager.record_request("reuse", "dense_fallback")
-        raise
+        return False
 
     selected_local = selection.selected_positions
     if selected_local:
@@ -331,11 +398,15 @@ def restore_request_prefix_cacheblend(tree_cache: Any, req: Any) -> bool:
             )
         except Exception:
             allocator.free(restored_indices)
+            logger.exception(
+                "CacheBlend selective recompute failed for request %s",
+                getattr(req, "rid", "<unknown>"),
+            )
             manager.record_fallback(
                 "cacheblend_selective_recompute_failed", restore_length
             )
             manager.record_request("reuse", "dense_fallback")
-            raise
+            return False
     else:
         recompute_results = ()
 
@@ -356,5 +427,6 @@ def restore_request_prefix_cacheblend(tree_cache: Any, req: Any) -> bool:
     req.cacheblend_recomputed_layers = tuple(
         result.layer_id for result in recompute_results
     )
+    req.cacheblend_precomputed = precomputed_backend is not None
     manager.record_request("reuse", "success")
     return True

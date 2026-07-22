@@ -334,6 +334,29 @@ class TestCacheBlendRuntime(unittest.TestCase):
         )
         self.assertIn(("reuse", "dense_fallback"), self.metrics.requests)
 
+    def test_missing_plugin_dense_falls_back_without_exception(self):
+        reuse = self._reuse_req()
+        self.assertFalse(restore_request_prefix_cacheblend(self.tree, reuse))
+        self.assertEqual(len(reuse.prefix_indices), 0)
+        self.assertIn(("reuse", "dense_fallback"), self.metrics.requests)
+
+    def test_probe_exception_dense_falls_back_without_exception(self):
+        class FailingProbe:
+            def probe_layer(self, **kwargs):
+                del kwargs
+                raise RuntimeError("injected probe failure")
+
+        plugin = CacheBlendRecoveryPlugin(
+            config=self._reuse_config(),
+            probe_backend=FailingProbe(),
+            recompute_backend=RecordingRecomputeBackend(self.kvcache),
+        )
+        self.manager.register_plugin(plugin)
+        reuse = self._reuse_req()
+        self.assertFalse(restore_request_prefix_cacheblend(self.tree, reuse))
+        self.assertEqual(len(reuse.prefix_indices), 0)
+        self.assertTrue(self.allocator.freed)
+
     def test_partial_capability_still_dense_falls_back(self):
         plugin = CacheBlendRecoveryPlugin(
             config=self._reuse_config(),
@@ -472,6 +495,59 @@ class TestCacheBlendRuntime(unittest.TestCase):
                 )
                 for layer_id, called_slots in recompute.calls:
                     self.assertEqual(sorted(called_slots), expected_slots)
+
+    def test_precomputed_fresh_kv_drives_hkvd_and_selected_repair(self):
+        raw_segment = ApproxKVRequestSegment(
+            content_hash="cacheblend-raw:artifact",
+            target_start=0,
+            length=RESTORE_LENGTH,
+        )
+        fresh_segment = ApproxKVRequestSegment(
+            content_hash="cacheblend-fresh:artifact",
+            target_start=0,
+            length=RESTORE_LENGTH,
+        )
+        raw_source = FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REGISTER,
+                segments=(raw_segment,),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+            ),
+            self.tokens,
+        )
+        register_request_segments(self.tree, raw_source)
+
+        for layer in range(LAYER_NUM):
+            for local in HOT_LOCAL_POSITIONS:
+                self.kvcache.k_buffer[layer][SOURCE_BASE + local] += 500.0
+                self.kvcache.v_buffer[layer][SOURCE_BASE + local] += 700.0
+        fresh_source = FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REGISTER,
+                segments=(fresh_segment,),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+            ),
+            self.tokens,
+        )
+        register_request_segments(self.tree, fresh_source)
+
+        plugin = CacheBlendRecoveryPlugin(config=self._reuse_config())
+        self.manager.register_plugin(plugin)
+        reuse = FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REUSE,
+                segments=(raw_segment,),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+                plugin=CACHEBLEND_PLUGIN_NAME,
+            ),
+            self.tokens + (9999,),
+        )
+        self.assertTrue(restore_request_prefix_cacheblend(self.tree, reuse))
+        self.assertTrue(reuse.cacheblend_precomputed)
+        self.assertEqual(reuse.cacheblend_selected_tokens, len(HOT_LOCAL_POSITIONS))
 
 
 class RecordingAsyncResidencyBackend:

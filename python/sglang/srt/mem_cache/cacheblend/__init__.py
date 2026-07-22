@@ -11,6 +11,7 @@ from .plugin import (
     CacheBlendRecoveryPlugin,
     maybe_register_cacheblend_plugin,
 )
+from .precomputed import FreshKVSpan, PrecomputedCacheBlendBackend
 from .recompute import (
     CacheBlendCapabilityError,
     CacheBlendLayerRecomputeBackend,
@@ -28,10 +29,12 @@ __all__ = [
     "CacheBlendLayerRecomputeBackend",
     "CacheBlendProbeBackend",
     "CacheBlendRecoveryPlugin",
+    "FreshKVSpan",
     "GradualFilterStage",
     "HKVDSelection",
     "LayerRecomputeCoordinator",
     "LayerRecomputeResult",
+    "PrecomputedCacheBlendBackend",
     "compute_token_deviation",
     "maybe_register_cacheblend_plugin",
     "restore_request_prefix_cacheblend",
