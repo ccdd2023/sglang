@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "runner_git_sha": "6a0f2ba4c",
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "model": "Qwen/Qwen3-0.6B",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "machine": {
+    "gpu": "NVIDIA GeForce RTX 2080 SUPER",
+    "compute_capability": "7.5",
+    "torch": "2.9.1+cu129",
+    "cuda": "12.9"
+  },
+  "scope": {
+    "recovery": "KVCOMM canonical base, context-dependent offset, two-anchor interpolation, and fixed neighboring-prefix offset",
+    "classification": "paper-mechanism controlled canary",
+    "scheduler": "S0 LRU",
+    "tier": "GPU-only",
+    "prefetch": false,
+    "accuracy_metric": false
+  },
+  "workload": {
+    "placeholder_tokens": 100,
+    "neighbor_tokens": 34,
+    "source_prompt_tokens": 116,
+    "target_prompt_tokens": 150,
+    "target_exact_head_tokens": 34,
+    "setup_requests": 5,
+    "measured_target_repeats": 4
+  },
+  "server_validation": {
+    "canonical_bases_registered": 3,
+    "context_anchors_registered": 2,
+    "fixed_neighbor_enabled": true,
+    "reuse_request_completed": true,
+    "copied_tokens_in_measured_target": 26,
+    "fallback_tokens_in_measured_target": 0,
+    "last_prompt_token_real_forward": true,
+    "passed": true
+  },
+  "ttft": {
+    "kvcomm_target_ms": [
+      121.34351900022011,
+      121.37216300470755,
+      120.84607699944172,
+      120.83976400026586
+    ],
+    "dense_target_ms": [
+      57.82300899591064,
+      61.711836999165826,
+      61.721193000266794,
+      61.50402300409041
+    ],
+    "kvcomm_target_p50_ms": 121.09479799983092,
+    "dense_target_p50_ms": 61.60793000162812,
+    "target_only_speedup": 0.508757858,
+    "ttft_reduction_percent": -96.557161,
+    "target_extra_latency_ms": 59.486868,
+    "setup_total_ms": 980.6366239936324,
+    "setup_break_even_requests": null,
+    "setup_break_even_reason": "KVCOMM target latency is already slower than dense, so setup cost cannot be amortized."
+  },
+  "known_limitations": [
+    "The measured target restored only 26 tokens after exact-prefix matching; this validates production wiring but is not a full 100-token placeholder recovery timing.",
+    "The five dense setup requests are excluded from target-only TTFT and reported separately.",
+    "This is a single SM75 small-model canary, not a scale result.",
+    "No semantic accuracy or output-equivalence metric was collected."
+  ],
+  "performance_benefit": false,
+  "phase4_gate_complete": false,
+  "passed": true
+}
