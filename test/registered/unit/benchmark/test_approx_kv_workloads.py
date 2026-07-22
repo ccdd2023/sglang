@@ -61,6 +61,30 @@ class TestApproxKVWorkloads(unittest.TestCase):
         self.assertNotEqual(first, other)
         self.assertEqual(first.count("def synthetic_"), 4)
 
+    def test_interleaved_workflow_objects(self):
+        independent = workloads.build_interleaved_object_trace(
+            kind=workloads.TraceKind.RETRY,
+            rounds=1,
+            workflows=2,
+            share_roles=False,
+        )
+        self.assertEqual(
+            independent[:4],
+            (
+                "workflow-0:architect",
+                "workflow-1:architect",
+                "workflow-0:coder",
+                "workflow-1:coder",
+            ),
+        )
+        shared = workloads.build_interleaved_object_trace(
+            kind=workloads.TraceKind.RETRY,
+            rounds=1,
+            workflows=2,
+            share_roles=True,
+        )
+        self.assertEqual(shared[:4], ("architect", "architect", "coder", "coder"))
+
     def test_invalid_inputs_are_rejected(self):
         with self.assertRaises(ValueError):
             workloads.build_trace(workloads.TraceKind.RETRY, rounds=0)
@@ -68,6 +92,13 @@ class TestApproxKVWorkloads(unittest.TestCase):
             workloads.deterministic_code("seed", 0)
         with self.assertRaises(ValueError):
             workloads.PressurePoint(1, 0).ratio
+        with self.assertRaises(ValueError):
+            workloads.build_interleaved_object_trace(
+                kind=workloads.TraceKind.RETRY,
+                rounds=1,
+                workflows=0,
+                share_roles=False,
+            )
 
 
 if __name__ == "__main__":

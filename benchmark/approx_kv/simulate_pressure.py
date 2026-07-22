@@ -7,7 +7,10 @@ import statistics
 from dataclasses import dataclass
 from pathlib import Path
 
-from benchmark.approx_kv.workloads import TraceKind, build_trace
+from benchmark.approx_kv.workloads import (
+    TraceKind,
+    build_interleaved_object_trace,
+)
 from sglang.srt.mem_cache.approx_kv.scheduling import (
     CacheCandidate,
     CacheObjectKind,
@@ -30,6 +33,8 @@ def parse_args() -> argparse.Namespace:
         default=TraceKind.LONG_DISTANCE.value,
     )
     parser.add_argument("--rounds", type=int, default=10)
+    parser.add_argument("--workflows", type=int, default=1)
+    parser.add_argument("--share-role-objects", action="store_true")
     parser.add_argument("--capacity-objects", type=int, default=3)
     parser.add_argument("--object-bytes", type=int, default=1_000_000)
     parser.add_argument("--dense-ms", type=float, required=True)
@@ -118,8 +123,12 @@ def simulate(
 
 def main() -> int:
     args = parse_args()
-    trace = build_trace(TraceKind(args.trace), rounds=args.rounds)
-    roles = tuple(item.role for item in trace)
+    roles = build_interleaved_object_trace(
+        kind=TraceKind(args.trace),
+        rounds=args.rounds,
+        workflows=args.workflows,
+        share_roles=args.share_role_objects,
+    )
     results = [
         simulate(
             policy=policy,

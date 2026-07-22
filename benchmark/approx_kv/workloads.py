@@ -90,6 +90,27 @@ def build_trace(
     )
 
 
+def build_interleaved_object_trace(
+    *,
+    kind: TraceKind,
+    rounds: int,
+    workflows: int,
+    share_roles: bool,
+) -> tuple[str, ...]:
+    if workflows <= 0:
+        raise ValueError("workflows must be positive")
+    trace = build_trace(kind, rounds=rounds)
+    objects = []
+    for invocation in trace:
+        for workflow_id in range(workflows):
+            objects.append(
+                invocation.role
+                if share_roles
+                else f"workflow-{workflow_id}:{invocation.role}"
+            )
+    return tuple(objects)
+
+
 def _next_use_steps(
     roles: Sequence[str],
 ) -> tuple[int | None, ...]:
