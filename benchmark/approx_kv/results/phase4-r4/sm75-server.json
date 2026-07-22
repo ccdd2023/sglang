@@ -33,7 +33,12 @@
     "fixed_neighbor_enabled": true,
     "reuse_request_completed": true,
     "copied_tokens_in_measured_target": 26,
+    "long_sweep_copied_tokens_per_request": [
+      576,
+      944
+    ],
     "fallback_tokens_in_measured_target": 0,
+    "long_sweep_fallback_tokens": 0,
     "last_prompt_token_real_forward": true,
     "passed": true
   },
@@ -59,9 +64,75 @@
     "setup_break_even_requests": null,
     "setup_break_even_reason": "KVCOMM target latency is already slower than dense, so setup cost cannot be amortized."
   },
+  "length_sweep": {
+    "input_format": "direct synthetic input_ids",
+    "target_exact_head_tokens": 34,
+    "repeats_per_point": 4,
+    "points": [
+      {
+        "placeholder_tokens": 512,
+        "neighbor_tokens": 64,
+        "target_prompt_tokens": 611,
+        "reconstructed_tokens_per_request": 576,
+        "kvcomm_target_ms": [
+          219.71608199964976,
+          145.14958100335207,
+          145.41687600285513,
+          145.1509220059961
+        ],
+        "dense_target_ms": [
+          96.12288999778684,
+          96.68896399671212,
+          93.53697700134944,
+          93.13512600056129
+        ],
+        "kvcomm_target_p50_ms": 145.28389900442562,
+        "dense_target_p50_ms": 94.82993349956814,
+        "target_only_speedup": 0.652721562,
+        "ttft_reduction_percent": -53.204683,
+        "target_extra_latency_ms": 50.453966,
+        "setup_total_ms": 2903.3124959969427,
+        "setup_timing": "cold first full-size experiment, including first-use compilation",
+        "kvcomm_reported_cached_tokens": 610,
+        "dense_reported_cached_tokens": 34,
+        "fallback_tokens": 0
+      },
+      {
+        "placeholder_tokens": 880,
+        "neighbor_tokens": 64,
+        "target_prompt_tokens": 979,
+        "reconstructed_tokens_per_request": 944,
+        "kvcomm_target_ms": [
+          198.91727499634726,
+          198.37897399702342,
+          198.9317219995428,
+          197.89767199836206
+        ],
+        "dense_target_ms": [
+          158.71478500048397,
+          158.6593800020637,
+          158.0121929946472,
+          157.04188300151145
+        ],
+        "kvcomm_target_p50_ms": 198.64812449668534,
+        "dense_target_p50_ms": 158.33578649835545,
+        "target_only_speedup": 0.797066607,
+        "ttft_reduction_percent": -25.46003,
+        "target_extra_latency_ms": 40.312338,
+        "setup_total_ms": 1671.1644870010787,
+        "setup_timing": "measured after a same-shape warmup experiment",
+        "kvcomm_reported_cached_tokens": 978,
+        "dense_reported_cached_tokens": 34,
+        "fallback_tokens": 0
+      }
+    ],
+    "crossover_observed_within_stable_single_chunk_limit": false
+  },
   "known_limitations": [
-    "The measured target restored only 26 tokens after exact-prefix matching; this validates production wiring but is not a full 100-token placeholder recovery timing.",
+    "The original short canary restored only 26 tokens after exact-prefix matching; the direct-input length sweep separately verifies 576 and 944 reconstructed tokens per request.",
     "The five dense setup requests are excluded from target-only TTFT and reported separately.",
+    "No positive target-only crossover was observed up to a 979-token prompt within the stable sub-1024-token SM75 configuration.",
+    "Prompts above the configured 1024-token chunk boundary were not tested because this SM75 torch-native path has a known allocator instability around cross-chunk prefill.",
     "This is a single SM75 small-model canary, not a scale result.",
     "No semantic accuracy or output-equivalence metric was collected."
   ],
