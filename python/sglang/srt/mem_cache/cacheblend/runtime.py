@@ -33,6 +33,13 @@ Wires the actual per-request flow:
    flight mismatch) aborts the *entire* restore and frees the
    provisional allocation, falling back to the normal dense/exact path --
    never a partial, silently-degraded write.
+
+The restore buffer itself is allocated via the shared common-core
+``approx_kv.runtime.allocate_recovery_slots`` (ported from the R1
+EPIC/LegoLink fork) rather than a bare ``allocator.alloc``, so that under
+real GPU pressure this path evicts exact Radix victims first instead of
+bypassing SGLang's standard ``evict_from_tree_cache -> allocator.alloc``
+ordering.
 """
 
 import logging
@@ -45,6 +52,7 @@ from sglang.srt.mem_cache.approx_kv.radix_backend import (
     RoPEConfig,
 )
 from sglang.srt.mem_cache.approx_kv.request import ApproxKVRequestOperation
+from sglang.srt.mem_cache.approx_kv.runtime import allocate_recovery_slots
 from sglang.srt.mem_cache.approx_kv.types import (
     KVReusePlan,
     KVSegmentKey,
@@ -256,7 +264,7 @@ def restore_request_prefix_cacheblend(tree_cache: Any, req: Any) -> bool:
         recompute_backend = precomputed_backend
 
     allocator = _allocator(tree_cache)
-    restored_indices = allocator.alloc(restore_length)
+    restored_indices = allocate_recovery_slots(tree_cache, restore_length)
     if restored_indices is None or len(restored_indices) != restore_length:
         if restored_indices is not None:
             allocator.free(restored_indices)

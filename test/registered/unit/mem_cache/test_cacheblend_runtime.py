@@ -679,5 +679,211 @@ class TestCacheBlendLoadRecomputeOverlap(unittest.TestCase):
         )
 
 
+class PressureAllocator(FakeAllocator):
+    """A `FakeAllocator` that only starts returning slots once the tree
+    cache has actually evicted -- proves a caller went through the real
+    `evict -> alloc` sequence rather than allocating directly."""
+
+    def __init__(self, kvcache):
+        super().__init__(kvcache)
+        self.evicted = False
+
+    def available_size(self):
+        return 0 if not self.evicted else BUFFER_SLOTS
+
+    def alloc(self, size):
+        if not self.evicted:
+            return None
+        return super().alloc(size)
+
+
+class FakeEvictingTree:
+    def __init__(self, allocator, req_pool):
+        self.token_to_kv_pool_allocator = allocator
+        self.req_to_token_pool = req_pool
+        self.evict_params = []
+
+    def is_chunk_cache(self):
+        return False
+
+    def evict(self, params):
+        self.evict_params.append(params)
+        self.token_to_kv_pool_allocator.evicted = True
+
+
+class TestCacheBlendRecoveryAllocationEviction(unittest.TestCase):
+    """`restore_request_prefix_cacheblend`'s recovery-buffer allocation
+    must go through the shared common-core `allocate_recovery_slots`
+    (ported from the R1 EPIC/LegoLink fork), not a bare
+    `allocator.alloc`, so it evicts exact Radix victims under pressure --
+    and must never leak the buffer it allocates when a later step in the
+    same restore attempt fails."""
+
+    def _build_tree(self, allocator, req_pool, *, host_residency_enabled=False):
+        manager = ApproxKVManager(
+            ApproxKVFeatureConfig(
+                core_enabled=True,
+                host_residency_enabled=host_residency_enabled,
+            )
+        )
+        tree = FakeEvictingTree(allocator, req_pool)
+        tree.approx_kv = manager
+        return tree, manager
+
+    def test_evicts_before_allocating_recovery_buffer(self):
+        # Device-only registration (`host_residency_enabled=False`) keeps
+        # both the raw and fresh segments already DEVICE-resident, so
+        # every `ensure_device` call along this path is a no-op and the
+        # *only* allocator.alloc call this restore exercises is the
+        # recovery-buffer allocation itself.
+        kvcache = FakeKVCache()
+        allocator = PressureAllocator(kvcache)
+        req_pool = FakeReqToTokenPool()
+        req_pool.req_to_token[0, :3] = torch.tensor([200, 201, 202])
+        tree, manager = self._build_tree(allocator, req_pool)
+
+        raw_segment = ApproxKVRequestSegment(
+            content_hash="cacheblend-raw:pressure", target_start=0, length=3
+        )
+        fresh_segment = ApproxKVRequestSegment(
+            content_hash="cacheblend-fresh:pressure", target_start=0, length=3
+        )
+        tokens = (10, 11, 12, 13)
+
+        # Registration happens while the pool has room.
+        allocator.evicted = True
+        register_request_segments(
+            tree,
+            FakeReq(
+                ApproxKVRequestMetadata(
+                    operation=ApproxKVRequestOperation.REGISTER,
+                    segments=(raw_segment,),
+                    model_fingerprint="model",
+                    cache_dtype="fp32",
+                ),
+                tokens,
+            ),
+        )
+        register_request_segments(
+            tree,
+            FakeReq(
+                ApproxKVRequestMetadata(
+                    operation=ApproxKVRequestOperation.REGISTER,
+                    segments=(fresh_segment,),
+                    model_fingerprint="model",
+                    cache_dtype="fp32",
+                ),
+                tokens,
+            ),
+        )
+
+        plugin = CacheBlendRecoveryPlugin(
+            config=CacheBlendConfig(
+                ratio=0.05,
+                probe_stages=(GradualFilterStage(probe_layer_id=0, keep_ratio=1.0),),
+                first_recompute_layer=1,
+            )
+        )
+        manager.register_plugin(plugin)
+        self.assertFalse(plugin.capable)
+
+        # Pool has since filled up -- the target's recovery-buffer
+        # allocation must now block until `allocate_recovery_slots`
+        # triggers a real eviction.
+        allocator.evicted = False
+        reuse = FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REUSE,
+                segments=(raw_segment,),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+                plugin=CACHEBLEND_PLUGIN_NAME,
+            ),
+            tokens + (9999,),
+        )
+        self.assertTrue(restore_request_prefix_cacheblend(tree, reuse))
+        self.assertEqual(len(tree.evict_params), 1)
+        self.assertEqual(tree.evict_params[0].num_tokens, 3)
+        self.assertTrue(reuse.cacheblend_precomputed)
+
+    def test_no_leak_when_rope_config_missing_after_recovery_allocation(self):
+        # Register a segment at target_start=0 but reuse it at a
+        # *different* position (target_start=2, same token content and
+        # content_hash) -- the same non-prefix-context shape every
+        # paper-specific pressure runner relies on -- which forces a
+        # non-zero `rope_delta`. With no RoPE config bound, the restore
+        # must dense-fallback, and the recovery buffer that
+        # `allocate_recovery_slots` already handed out must be freed, not
+        # leaked, even though the failure is discovered strictly after
+        # that allocation succeeded.
+        kvcache = FakeKVCache()
+        allocator = FakeAllocator(kvcache)
+        req_pool = FakeReqToTokenPool()
+        req_pool.req_to_token[0, :3] = torch.tensor([200, 201, 202])
+        tree, manager = self._build_tree(allocator, req_pool)
+
+        raw_register_segment = ApproxKVRequestSegment(
+            content_hash="cacheblend-raw:pressure", target_start=0, length=3
+        )
+        fresh_register_segment = ApproxKVRequestSegment(
+            content_hash="cacheblend-fresh:pressure", target_start=0, length=3
+        )
+        tokens = (10, 11, 12, 13)
+        register_request_segments(
+            tree,
+            FakeReq(
+                ApproxKVRequestMetadata(
+                    operation=ApproxKVRequestOperation.REGISTER,
+                    segments=(raw_register_segment,),
+                    model_fingerprint="model",
+                    cache_dtype="fp32",
+                ),
+                tokens,
+            ),
+        )
+        register_request_segments(
+            tree,
+            FakeReq(
+                ApproxKVRequestMetadata(
+                    operation=ApproxKVRequestOperation.REGISTER,
+                    segments=(fresh_register_segment,),
+                    model_fingerprint="model",
+                    cache_dtype="fp32",
+                ),
+                tokens,
+            ),
+        )
+
+        plugin = CacheBlendRecoveryPlugin(
+            config=CacheBlendConfig(
+                ratio=0.05,
+                probe_stages=(GradualFilterStage(probe_layer_id=0, keep_ratio=1.0),),
+                first_recompute_layer=1,
+            )
+        )
+        manager.register_plugin(plugin)
+
+        next_index = allocator.next_index
+        reuse_segment = ApproxKVRequestSegment(
+            content_hash="cacheblend-raw:pressure", target_start=2, length=3
+        )
+        reuse = FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REUSE,
+                segments=(reuse_segment,),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+                plugin=CACHEBLEND_PLUGIN_NAME,
+            ),
+            (77, 77, 10, 11, 12, 999),
+            prefix_len=2,
+        )
+        self.assertFalse(restore_request_prefix_cacheblend(tree, reuse))
+        self.assertEqual(len(reuse.prefix_indices), 2)
+        self.assertGreater(allocator.next_index, next_index)
+        newly_allocated = set(range(next_index, allocator.next_index))
+        self.assertTrue(newly_allocated <= set(allocator.freed))
+
+
 if __name__ == "__main__":
     unittest.main()

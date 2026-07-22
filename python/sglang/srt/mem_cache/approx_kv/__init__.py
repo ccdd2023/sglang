@@ -6,6 +6,7 @@ from .plugins import (
     RecoveryPluginRegistry,
     RecoveryRequestContext,
 )
+from .runtime import allocate_recovery_slots
 from .store import (
     AsyncResidencyLoader,
     AsyncResidencyTransfer,
@@ -42,6 +43,7 @@ __all__ = [
     "AsyncResidencyLoader",
     "AsyncResidencyTransfer",
     "AsyncTransferState",
+    "allocate_recovery_slots",
     "DenseRange",
     "KVLayerTransferResult",
     "KVReusePlan",

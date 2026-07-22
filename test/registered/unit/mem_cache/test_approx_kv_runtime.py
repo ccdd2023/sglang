@@ -18,6 +18,7 @@ from sglang.srt.mem_cache.approx_kv.request import (
 )
 from sglang.srt.mem_cache.approx_kv.runtime import (
     ApproxKVRegistrationError,
+    allocate_recovery_slots,
     register_request_segments,
     restore_request_prefix,
 )
@@ -275,6 +276,180 @@ class TestApproxKVRuntime(unittest.TestCase):
         self.assertFalse(restore_request_prefix(self.tree, reuse))
         self.assertEqual(self.allocator.next_index, next_index)
         self.assertEqual(len(reuse.prefix_indices), 0)
+
+
+class PressureAllocator(FakeAllocator):
+    """A `FakeAllocator` that only starts returning slots once the tree
+    cache has actually evicted -- proves a caller went through the real
+    `evict -> alloc` sequence rather than allocating directly."""
+
+    def __init__(self, kvcache):
+        super().__init__(kvcache)
+        self.evicted = False
+
+    def available_size(self):
+        return 0 if not self.evicted else 64
+
+    def alloc(self, size):
+        if not self.evicted:
+            return None
+        return super().alloc(size)
+
+
+class FakeEvictingTree:
+    def __init__(self, allocator):
+        self.token_to_kv_pool_allocator = allocator
+        self.evict_params = []
+
+    def is_chunk_cache(self):
+        return False
+
+    def evict(self, params):
+        self.evict_params.append(params)
+        self.token_to_kv_pool_allocator.evicted = True
+
+
+class TestAllocateRecoverySlots(unittest.TestCase):
+    """`allocate_recovery_slots` is the shared helper (ported from the R1
+    EPIC/LegoLink fork) that every approximate-KV recovery-buffer
+    allocation -- common-core raw copy+RoPE restore and every
+    paper-specific plugin's own restore path -- must call instead of a
+    bare `allocator.alloc`, so recovery allocations evict exact Radix
+    victims under pressure instead of bypassing SGLang's standard
+    `evict_from_tree_cache -> allocator.alloc` ordering."""
+
+    def test_evicts_before_allocating_when_tree_supports_eviction(self):
+        allocator = PressureAllocator(FakeKVCache())
+        tree = FakeEvictingTree(allocator)
+        slots = allocate_recovery_slots(tree, 8)
+        self.assertEqual(len(slots), 8)
+        self.assertEqual(len(tree.evict_params), 1)
+        self.assertEqual(tree.evict_params[0].num_tokens, 8)
+
+    def test_degrades_to_bare_alloc_without_eviction_surface(self):
+        # Lightweight fakes (like the ones used throughout this test
+        # module) that don't model Radix eviction at all must keep
+        # working unchanged: no `evict`/`is_chunk_cache` on the tree, or
+        # no `available_size` on the allocator, means `evict_from_tree_cache`
+        # is never invoked.
+        allocator = FakeAllocator(FakeKVCache())
+        tree = SimpleNamespace(token_to_kv_pool_allocator=allocator)
+        slots = allocate_recovery_slots(tree, 4)
+        self.assertEqual(len(slots), 4)
+
+    def test_restore_request_prefix_evicts_before_allocating_recovery_buffer(self):
+        # End-to-end: `restore_request_prefix`'s recovery-buffer
+        # allocation must route through `allocate_recovery_slots`, so a
+        # request that would otherwise fail to allocate (no free slots
+        # until the tree evicts) succeeds once real eviction has
+        # actually run. Device-only registration (`host_residency_enabled
+        # =False`) keeps the segment already DEVICE-resident, so
+        # `ensure_device` is a no-op and the *only* allocator.alloc call
+        # exercised by this restore is the recovery-buffer allocation
+        # itself -- isolating the assertion to the call site this task
+        # is about, not the (separately gated, out-of-scope) H2D
+        # residency-promotion allocation.
+        allocator = PressureAllocator(FakeKVCache())
+        req_pool = FakeReqToTokenPool()
+        req_pool.req_to_token[0, :4] = torch.tensor([0, 1, 2, 3])
+        config = ApproxKVFeatureConfig(core_enabled=True, host_residency_enabled=False)
+        manager = ApproxKVManager(config)
+        tree = FakeEvictingTree(allocator)
+        tree.req_to_token_pool = req_pool
+        tree.approx_kv = manager
+
+        segment = ApproxKVRequestSegment(
+            content_hash="artifact", target_start=0, length=3
+        )
+        source = FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REGISTER,
+                segments=(segment,),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+            ),
+            (10, 11, 12, 13),
+        )
+        # Registration happens while the pool has room (simulates the
+        # source object being registered before pressure builds).
+        allocator.evicted = True
+        register_request_segments(tree, source)
+        handle = manager.store.handles()[0]
+        self.assertEqual(handle.residency, ResidencyTier.DEVICE)
+
+        # Pool has since filled up (e.g. filler/exact traffic) -- the
+        # target's own recovery-buffer allocation must now block until
+        # `allocate_recovery_slots` triggers a real eviction.
+        allocator.evicted = False
+        reuse = FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REUSE,
+                segments=(segment,),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+            ),
+            (10, 11, 12, 99),
+        )
+        self.assertTrue(restore_request_prefix(tree, reuse))
+        self.assertEqual(len(tree.evict_params), 1)
+        self.assertEqual(tree.evict_params[0].num_tokens, 3)
+        self.assertEqual(len(reuse.prefix_indices), 3)
+
+    def test_no_leak_when_downstream_step_fails_after_recovery_allocation(self):
+        # A segment registered under one target_start and reused at a
+        # *different* position (the same non-prefix-context shape every
+        # paper-specific plugin's own pressure runner relies on) produces
+        # a non-zero `rope_delta`. With no RoPE config bound, this must
+        # dense-fallback -- and the recovery buffer that
+        # `allocate_recovery_slots` already handed out for this restore
+        # attempt must be freed, not leaked, even though the failure is
+        # discovered strictly after that allocation succeeded.
+        allocator = FakeAllocator(FakeKVCache())
+        req_pool = FakeReqToTokenPool()
+        req_pool.req_to_token[0, :3] = torch.tensor([0, 1, 2])
+        config = ApproxKVFeatureConfig(core_enabled=True, host_residency_enabled=False)
+        manager = ApproxKVManager(config)
+        tree = SimpleNamespace(
+            token_to_kv_pool_allocator=allocator,
+            req_to_token_pool=req_pool,
+            approx_kv=manager,
+        )
+        register_segment = ApproxKVRequestSegment(
+            content_hash="artifact", target_start=0, length=3
+        )
+        source = FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REGISTER,
+                segments=(register_segment,),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+            ),
+            (10, 11, 12, 13),
+        )
+        register_request_segments(tree, source)
+
+        next_index = allocator.next_index
+        reuse_segment = ApproxKVRequestSegment(
+            content_hash="artifact", target_start=2, length=3
+        )
+        reuse = FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REUSE,
+                segments=(reuse_segment,),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+            ),
+            (99, 99, 10, 11, 12, 999),
+        )
+        reuse.prefix_indices = torch.arange(2, dtype=torch.int64)
+        self.assertFalse(restore_request_prefix(tree, reuse))
+        self.assertEqual(len(reuse.prefix_indices), 2)
+        # allocate_recovery_slots did allocate (next_index advanced) but
+        # the subsequent rope_config_unavailable failure must free every
+        # slot it took -- no leak.
+        self.assertGreater(allocator.next_index, next_index)
+        newly_allocated = set(range(next_index, allocator.next_index))
+        self.assertTrue(newly_allocated <= set(allocator.freed))
 
 
 if __name__ == "__main__":

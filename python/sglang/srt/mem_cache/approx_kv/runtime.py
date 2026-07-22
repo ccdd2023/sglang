@@ -32,6 +32,40 @@ def _allocator(tree_cache: Any) -> Any:
     return allocator
 
 
+def allocate_recovery_slots(tree_cache: Any, num_tokens: int):
+    """Allocate approximate-recovery device slots after evicting exact
+    Radix victims.
+
+    The plain allocator (``allocator.alloc``) has no notion of the exact
+    Radix tree's evictable nodes: under real GPU pressure, calling it
+    directly for a recovery/registration buffer bypasses SGLang's
+    standard ``evict_from_tree_cache -> allocator.alloc`` ordering and can
+    fail (or, worse, silently return too few slots) even though the tree
+    still holds evictable exact-match victims that should be reclaimed
+    first. Every approximate-KV recovery-buffer allocation (common-core
+    raw copy+RoPE restore, and every paper-specific plugin's own restore
+    path) must go through this shared helper instead of calling
+    ``allocator.alloc`` directly, so eviction-under-pressure behaves
+    identically across all recovery paths.
+
+    Degrades to a bare ``allocator.alloc`` when ``tree_cache`` does not
+    expose the full eviction surface (``evict``/``is_chunk_cache`` plus an
+    allocator with ``available_size``) -- e.g. the lightweight fakes used
+    by CPU-only unit tests that don't model Radix eviction at all.
+    """
+    allocator = _allocator(tree_cache)
+    if (
+        hasattr(tree_cache, "evict")
+        and hasattr(tree_cache, "is_chunk_cache")
+        and hasattr(allocator, "available_size")
+    ):
+        # Local import avoids the common.py -> approx_kv.runtime import cycle.
+        from sglang.srt.mem_cache.common import evict_from_tree_cache
+
+        evict_from_tree_cache(tree_cache, num_tokens)
+    return allocator.alloc(num_tokens)
+
+
 def _release_device_ref(allocator: Any):
     def release(backend_ref: object, residency: ResidencyTier) -> None:
         if residency != ResidencyTier.DEVICE or not isinstance(
@@ -243,7 +277,7 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
             return False
 
     allocator = _allocator(tree_cache)
-    restored_indices = allocator.alloc(restore_length)
+    restored_indices = allocate_recovery_slots(tree_cache, restore_length)
     if restored_indices is None or len(restored_indices) != restore_length:
         if restored_indices is not None:
             allocator.free(restored_indices)
