@@ -557,7 +557,6 @@ class TestEpicRuntimeIntegration(unittest.TestCase):
         self.manager.bind_residency_backend(
             AllocatorCPUResidencyBackend(self.allocator)
         )
-        self.manager.register_plugin(EPICLeadingKPlugin(k=0))
         self.tree = SimpleNamespace(
             token_to_kv_pool_allocator=self.allocator,
             req_to_token_pool=self.req_pool,
@@ -624,6 +623,41 @@ class TestEpicRuntimeIntegration(unittest.TestCase):
         reuse = self._make_reuse_req()
         self.assertFalse(restore_request_prefix_epic(self.tree, reuse))
         self.assertEqual(len(reuse.prefix_indices), 0)
+
+    def test_precomputed_leading_k_uses_dense_repair_provenance(self):
+        self._set_epic_plugin(4)
+        repair_segment = ApproxKVRequestSegment(
+            content_hash="epic-repair:artifact",
+            target_start=0,
+            length=4,
+        )
+        body_segment = ApproxKVRequestSegment(
+            content_hash="epic-body:artifact",
+            target_start=4,
+            length=self.SOURCE_LEN - 4,
+        )
+        source = FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REGISTER,
+                segments=(repair_segment, body_segment),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+            ),
+            self.source_tokens,
+        )
+        register_request_segments(self.tree, source)
+        reuse = FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REUSE,
+                segments=(repair_segment, body_segment),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+                plugin="epic_precomputed",
+            ),
+            self.source_tokens + (99999,),
+        )
+        self.assertTrue(restore_request_prefix_epic(self.tree, reuse))
+        self.assertEqual(len(reuse.prefix_indices), self.SOURCE_LEN)
 
     def test_missing_forward_batch_factory_dense_falls_back(self):
         self._set_epic_plugin(4)

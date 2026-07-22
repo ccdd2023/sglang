@@ -40,6 +40,15 @@ class ApproxKVManager:
         self._async_loader: AsyncResidencyLoader | None = None
         self._tickets: dict[str, ApproxKVPrefetchTicket] = {}
         self._ticket_lock = threading.Lock()
+        if self.config.epic_enabled:
+            from .epic_plugin import EPICLeadingKPlugin
+
+            self.register_plugin(
+                EPICLeadingKPlugin(
+                    k=self.config.epic_k,
+                    attention_sink=self.config.epic_attention_sink,
+                )
+            )
 
     def register_segment(
         self,

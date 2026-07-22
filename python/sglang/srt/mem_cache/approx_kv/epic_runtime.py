@@ -49,6 +49,7 @@ PRODUCTION WIRING GAP (explicit, intentional, documented):
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -72,6 +73,8 @@ from .runtime import (
 )
 from .transfer import _validate_bounds
 from .types import TransferSpan
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -191,8 +194,72 @@ def restore_request_prefix_epic(tree_cache: Any, req: Any) -> bool:
         # carve one out): this degenerates to exactly the R0 raw-copy
         # mechanism, reusing it directly rather than re-implementing it.
         return finalize_copy_reuse(tree_cache, req, manager, resolved)
+    if not plugin.attention_sink:
+        manager.record_fallback(
+            "epic_attention_sink_disabled",
+            resolved.restore_length,
+        )
+        manager.record_request("reuse", "dense_fallback")
+        return False
+
+    if metadata.plugin == "epic_precomputed":
+        return _restore_with_precomputed_leading_k(
+            tree_cache,
+            req,
+            manager,
+            resolved,
+            plugin,
+            k,
+        )
 
     return _restore_with_leading_k_repair(tree_cache, req, manager, resolved, plugin, k)
+
+
+def _restore_with_precomputed_leading_k(
+    tree_cache: Any,
+    req: Any,
+    manager: Any,
+    resolved: ResolvedReuseSpans,
+    plugin: EPICLeadingKPlugin,
+    k: int,
+) -> bool:
+    cursor = 0
+    for span in resolved.spans:
+        if cursor >= k:
+            break
+        if span.target_start != cursor:
+            break
+        covered = min(span.length, k - cursor)
+        source_position = span.source.source_start + span.source_offset
+        target_position = resolved.exact_length + span.target_start
+        if (
+            not span.source.key.content_hash.startswith("epic-repair:")
+            or span.rope_delta != 0
+            or source_position != target_position
+        ):
+            break
+        cursor += covered
+    if cursor != k:
+        manager.record_fallback(
+            "epic_precomputed_repair_invalid",
+            resolved.restore_length,
+        )
+        manager.record_request("reuse", "dense_fallback")
+        return False
+
+    restored = finalize_copy_reuse(tree_cache, req, manager, resolved)
+    if restored:
+        num_layers = 0
+        if manager.model_runner is not None:
+            capability = inspect_layerwise_recompute_capability(manager.model_runner)
+            if capability.supported:
+                num_layers = capability.num_layers
+        manager.record_epic_layer_recompute(
+            layers_recomputed=num_layers,
+            leading_k_tokens=k,
+            genuinely_layerwise=True,
+        )
+    return restored
 
 
 def _restore_with_leading_k_repair(
@@ -305,8 +372,13 @@ def _restore_with_leading_k_repair(
             leading_k_tokens=k,
             body_tokens=body_tokens,
         )
-    except (LayerwiseLeadingKRepairError, ValueError):
+    except Exception:
         allocator.free(restored_indices)
+        logger.exception(
+            "EPIC layerwise recompute failed for request %s; "
+            "falling back to dense prefill",
+            getattr(req, "rid", "<unknown>"),
+        )
         manager.record_fallback("epic_recompute_failed", resolved.restore_length)
         manager.record_request("reuse", "dense_fallback")
         return False
