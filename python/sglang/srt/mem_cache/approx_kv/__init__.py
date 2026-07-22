@@ -11,6 +11,7 @@ from .transfer import (
     execute_reuse_plan,
 )
 from .types import (
+    AnchorReconstructionSpan,
     DenseRange,
     KVReusePlan,
     KVSegmentHandle,
@@ -28,6 +29,7 @@ __all__ = [
     "ApproxKVLease",
     "ApproxKVManager",
     "ApproxKVSegmentStore",
+    "AnchorReconstructionSpan",
     "DenseRange",
     "KVReusePlan",
     "KVSegmentHandle",

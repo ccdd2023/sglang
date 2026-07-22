@@ -113,10 +113,47 @@ class TransferSpan:
 
 
 @dataclass(frozen=True)
+class AnchorReconstructionSpan:
+    base: KVSegmentHandle
+    anchors: tuple[KVSegmentHandle, ...]
+    weights: tuple[float, ...]
+    source_offset: int
+    target_start: int
+    length: int
+    rope_delta: int
+    chunk_start: int
+    chunk_length: int
+
+    def __post_init__(self) -> None:
+        if not self.anchors:
+            raise ValueError("anchor reconstruction requires anchors")
+        if len(self.anchors) != len(self.weights):
+            raise ValueError("anchor and weight counts must match")
+        if any(weight < 0 for weight in self.weights):
+            raise ValueError("anchor weights must be non-negative")
+        if abs(sum(self.weights) - 1.0) > 1e-6:
+            raise ValueError("anchor weights must sum to one")
+        if self.source_offset < 0 or self.target_start < 0:
+            raise ValueError("anchor reconstruction has invalid bounds")
+        if self.length <= 0:
+            raise ValueError("anchor reconstruction length must be positive")
+        if self.chunk_start < 0 or self.chunk_length <= 0:
+            raise ValueError("anchor reconstruction chunk must be valid")
+        if not (
+            self.chunk_start
+            <= self.target_start
+            < self.target_start + self.length
+            <= self.chunk_start + self.chunk_length
+        ):
+            raise ValueError("anchor reconstruction must be contained in its chunk")
+
+
+@dataclass(frozen=True)
 class KVReusePlan:
     target_token_ids: tuple[int, ...]
     recovery_mode: RecoveryMode = RecoveryMode.DENSE
     copied_spans: tuple[TransferSpan, ...] = ()
+    reconstructed_spans: tuple[AnchorReconstructionSpan, ...] = ()
     dense_ranges: tuple[DenseRange, ...] = ()
     require_full_coverage: bool = False
 
@@ -128,6 +165,9 @@ class KVTransferStats:
     copied_k_tokens: int = 0
     rotated_k_tokens: int = 0
     copied_v_tokens: int = 0
+    reconstructed_k_tokens: int = 0
+    reconstructed_rotated_k_tokens: int = 0
+    reconstructed_v_tokens: int = 0
     recomputed_tokens: int = 0
     source_slice_mismatch: int = 0
     stale_handle: int = 0
@@ -141,13 +181,17 @@ class KVTransferStats:
 
     @property
     def accounted_tokens(self) -> int:
-        return self.copied_k_tokens + self.recomputed_tokens
+        return (
+            self.copied_k_tokens + self.reconstructed_k_tokens + self.recomputed_tokens
+        )
 
     @property
     def mechanically_valid(self) -> bool:
         return (
             self.copied_k_tokens == self.rotated_k_tokens
             and self.copied_k_tokens == self.copied_v_tokens
+            and self.reconstructed_k_tokens == self.reconstructed_rotated_k_tokens
+            and self.reconstructed_k_tokens == self.reconstructed_v_tokens
             and self.zeroed_gap_tokens == 0
             and self.accounted_tokens == self.target_tokens
         )

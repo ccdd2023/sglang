@@ -21,6 +21,18 @@ class KVTransferBackend(Protocol):
         rope_delta: int,
     ) -> tuple[int, int, int]: ...
 
+    def reconstruct_and_rotate(
+        self,
+        *,
+        base_ref: object,
+        anchor_refs: tuple[object, ...],
+        weights: tuple[float, ...],
+        source_offset: int,
+        target_start: int,
+        length: int,
+        rope_delta: int,
+    ) -> tuple[int, int, int]: ...
+
     def dense_prefill(
         self,
         *,
@@ -57,6 +69,23 @@ def _validate_bounds(plan: KVReusePlan) -> None:
             raise ValueError("copy chunk exceeds target token sequence")
         if span.source_offset + span.length > len(span.source.token_ids):
             raise ValueError("copy range exceeds source token sequence")
+        positions = set(_range(span.target_start, span.length))
+        if occupied & positions:
+            raise ValueError("reuse plan contains overlapping target ranges")
+        occupied |= positions
+
+    for span in plan.reconstructed_spans:
+        if span.target_start + span.length > target_len:
+            raise ValueError("anchor reconstruction exceeds target token sequence")
+        if span.chunk_start + span.chunk_length > target_len:
+            raise ValueError("anchor reconstruction chunk exceeds target sequence")
+        if span.source_offset + span.length > len(span.base.token_ids):
+            raise ValueError("anchor reconstruction exceeds base token sequence")
+        if any(
+            span.source_offset + span.length > len(anchor.token_ids)
+            for anchor in span.anchors
+        ):
+            raise ValueError("anchor reconstruction exceeds anchor token sequence")
         positions = set(_range(span.target_start, span.length))
         if occupied & positions:
             raise ValueError("reuse plan contains overlapping target ranges")
@@ -114,6 +143,29 @@ def execute_reuse_plan(
             stats.source_slice_mismatch += 1
             fallback_chunks[chunk] = "source_slice_mismatch"
 
+    for span in plan.reconstructed_spans:
+        chunk = (span.chunk_start, span.chunk_length)
+        handles = (span.base,) + span.anchors
+        if any(not store.is_current(handle) for handle in handles):
+            stats.stale_handle += 1
+            fallback_chunks[chunk] = "stale_anchor_handle"
+            continue
+        if any(handle.residency != ResidencyTier.DEVICE for handle in handles):
+            stats.residency_miss += 1
+            fallback_chunks[chunk] = "anchor_residency_miss"
+            continue
+
+        target_tokens = plan.target_token_ids[
+            span.target_start : span.target_start + span.length
+        ]
+        source_slices = [
+            handle.token_ids[span.source_offset : span.source_offset + span.length]
+            for handle in handles
+        ]
+        if any(source_tokens != target_tokens for source_tokens in source_slices):
+            stats.source_slice_mismatch += 1
+            fallback_chunks[chunk] = "anchor_slice_mismatch"
+
     dense_positions: set[int] = set()
     for (chunk_start, chunk_length), reason in sorted(fallback_chunks.items()):
         backend.dense_prefill(
@@ -161,6 +213,30 @@ def execute_reuse_plan(
         stats.copied_k_tokens += copied_k
         stats.rotated_k_tokens += rotated_k
         stats.copied_v_tokens += copied_v
+
+    for span in plan.reconstructed_spans:
+        if (span.chunk_start, span.chunk_length) in fallback_chunks:
+            continue
+        reconstructed_k, rotated_k, reconstructed_v = backend.reconstruct_and_rotate(
+            base_ref=span.base.backend_ref,
+            anchor_refs=tuple(anchor.backend_ref for anchor in span.anchors),
+            weights=span.weights,
+            source_offset=span.source_offset,
+            target_start=span.target_start,
+            length=span.length,
+            rope_delta=span.rope_delta,
+        )
+        if reconstructed_k != span.length or reconstructed_v != span.length:
+            raise KVTransferInvariantError(
+                "backend did not reconstruct the complete requested K/V slice"
+            )
+        if rotated_k != reconstructed_k:
+            raise KVTransferInvariantError(
+                "all reconstructed K tokens must receive RoPE correction"
+            )
+        stats.reconstructed_k_tokens += reconstructed_k
+        stats.reconstructed_rotated_k_tokens += rotated_k
+        stats.reconstructed_v_tokens += reconstructed_v
 
     if plan.require_full_coverage and not stats.mechanically_valid:
         raise KVTransferInvariantError(
