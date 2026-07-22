@@ -40,7 +40,11 @@ import torch
 
 from .cachecraft_metrics import CacheCraftDecision
 from .cachecraft_plugin import CacheCraftPlugin
-from .cachecraft_recompute import CacheCraftRecomputeBackend, ChunkRecomputeHook
+from .cachecraft_recompute import (
+    CacheCraftRecomputeBackend,
+    CacheCraftUnsupportedError,
+    ChunkRecomputeHook,
+)
 from .plugins import RecoveryRequestContext
 from .radix_backend import RadixKVTransferBackend, RoPEConfig
 from .request import ApproxKVRequestOperation
@@ -181,6 +185,9 @@ def restore_request_via_cachecraft(
 
     try:
         stats = manager.execute(plan, backend)
+    except CacheCraftUnsupportedError:
+        allocator.free(target_indices)
+        return False
     except Exception:
         allocator.free(target_indices)
         raise

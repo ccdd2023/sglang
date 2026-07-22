@@ -96,6 +96,32 @@ class TestCacheCraftPluginStoreMiss(unittest.TestCase):
 
 
 class TestCacheCraftPluginDirectReuse(unittest.TestCase):
+    def test_stale_profile_generation_forces_full_recompute(self):
+        store = ApproxKVSegmentStore()
+        first = register_chunk(store, "C")
+        profiles = CacheCraftProfileStore()
+        profiles.register(
+            ChunkContextProfile(
+                chunk_id="C",
+                length=4,
+                old_prefix_order=("A",),
+                prefix_chunk_lengths={"A": 3},
+                inter_attention_by_layer={"A": (1.0,)},
+                intra_attention_by_layer=(0.1,),
+                token_inter_scores=(1.0, 1.0, 1.0, 1.0),
+            ),
+            generation=first.generation,
+        )
+        replacement = register_chunk(store, "C")
+        self.assertGreater(replacement.generation, first.generation)
+        plugin = CacheCraftPlugin(profiles)
+        plan = plugin.build_plan(make_context("C", ("A",)), store)
+        self.assertEqual(plan.recovery_mode, RecoveryMode.DENSE)
+        self.assertEqual(
+            plugin.last_trace.decision,
+            CacheCraftDecision.FULL_RECOMPUTE,
+        )
+
     def test_same_prefix_same_order_is_direct_reuse(self):
         store = ApproxKVSegmentStore()
         handle = register_chunk(store, "C")

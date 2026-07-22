@@ -45,13 +45,28 @@ class CacheCraftProfileStore:
     """
 
     def __init__(self) -> None:
-        self._profiles: dict[str, ChunkContextProfile] = {}
+        self._profiles: dict[str, tuple[int, ChunkContextProfile]] = {}
 
-    def register(self, profile: ChunkContextProfile) -> None:
-        self._profiles[profile.chunk_id] = profile
+    def register(
+        self,
+        profile: ChunkContextProfile,
+        *,
+        generation: int = 1,
+    ) -> None:
+        if generation <= 0:
+            raise ValueError("profile generation must be positive")
+        self._profiles[profile.chunk_id] = (generation, profile)
 
-    def get(self, chunk_id: str) -> ChunkContextProfile | None:
-        return self._profiles.get(chunk_id)
+    def get(
+        self,
+        chunk_id: str,
+        *,
+        generation: int,
+    ) -> ChunkContextProfile | None:
+        record = self._profiles.get(chunk_id)
+        if record is None or record[0] != generation:
+            return None
+        return record[1]
 
     def reset(self) -> None:
         self._profiles.clear()
@@ -150,8 +165,15 @@ class CacheCraftPlugin:
         if len(target_tokens) != chunk_length:
             raise ValueError("chunk_start/chunk_length exceed target token sequence")
 
-        profile = self.profiles.get(chunk_id)
         handle = store.lookup(chunk_key)
+        profile = (
+            None
+            if handle is None
+            else self.profiles.get(
+                chunk_id,
+                generation=handle.generation,
+            )
+        )
         cache_hit = profile is not None and handle is not None
 
         if not cache_hit:
