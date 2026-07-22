@@ -129,6 +129,26 @@ def _segment_key(
     )
 
 
+def _gather_selected_slots(
+    restored_indices: torch.Tensor, selected_local: tuple[int, ...]
+) -> list[int]:
+    # Resolve the destination allocator slot for every locally-selected
+    # repair position with a single batched gather + a single host
+    # sync. Indexing `restored_indices` one Python `int` at a time (as
+    # in `[int(restored_indices[p]) for p in selected_local]`) forces
+    # one CUDA device-to-host synchronization *per selected token* when
+    # `restored_indices` lives on a CUDA device -- directly polluting
+    # request TTFT on this scheduler hot path. Building one index
+    # tensor (on the same device, so the gather itself stays on-device)
+    # and calling `.tolist()` once resolves the whole batch with
+    # exactly one host sync, regardless of how many tokens were
+    # selected.
+    local_index_tensor = torch.as_tensor(
+        selected_local, dtype=torch.long, device=restored_indices.device
+    )
+    return restored_indices[local_index_tensor].tolist()
+
+
 def _merge_stats(all_stats: list[KVTransferStats]) -> KVTransferStats:
     merged = KVTransferStats(
         recovery_mode=RecoveryMode.COPY,
@@ -501,7 +521,7 @@ def restore_request_prefix_cachetune(tree_cache: Any, req: Any) -> bool:
         return False
 
     if selected_local:
-        selected_slots = [int(restored_indices[p]) for p in selected_local]
+        selected_slots = _gather_selected_slots(restored_indices, selected_local)
         selected_positions = [p + exact_length for p in selected_local]
         coordinator = LayerRecomputeCoordinator(
             recompute_backend,

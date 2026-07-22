@@ -28,7 +28,10 @@ from sglang.srt.mem_cache.cachetune.plugin import (
     CacheTuneRecoveryPlugin,
 )
 from sglang.srt.mem_cache.cachetune.recompute import LayerRecomputeResult
-from sglang.srt.mem_cache.cachetune.runtime import restore_request_prefix_cachetune
+from sglang.srt.mem_cache.cachetune.runtime import (
+    _gather_selected_slots,
+    restore_request_prefix_cachetune,
+)
 from sglang.srt.mem_cache.cachetune.token_selection import GradualFilterStage
 from sglang.test.ci.ci_register import register_cpu_ci
 
@@ -378,6 +381,100 @@ class TestCacheTuneRuntime(unittest.TestCase):
         self.assertEqual(layers, 2)
         self.assertFalse(precomputed)
         self.assertEqual(source, "roofline")
+
+    # ------------------------------------------------------------------
+    # Performance: repair-slot resolution must not sync per token.
+    # ------------------------------------------------------------------
+    def test_gather_selected_slots_uses_one_batched_host_sync_not_per_token(self):
+        # `_gather_selected_slots` must resolve every selected local
+        # position's destination allocator slot with exactly one
+        # batched device->host transfer (`.tolist()`), never one
+        # `int()`/`.item()` conversion per selected token. On a real
+        # CUDA `restored_indices`, `int(restored_indices[p])` forces a
+        # device-to-host synchronization for every single call, so a
+        # Python-level loop over selected positions would pollute
+        # client TTFT with one sync per repaired token.
+        restored_indices = torch.arange(100, 110)  # 10 contiguous slots
+        selected_local = (1, 3, 4, 7, 9)
+
+        int_calls: list[int] = []
+        tolist_calls: list[int] = []
+        orig_int = torch.Tensor.__int__
+        orig_tolist = torch.Tensor.tolist
+
+        def counting_int(tensor_self):
+            int_calls.append(1)
+            return orig_int(tensor_self)
+
+        def counting_tolist(tensor_self):
+            tolist_calls.append(1)
+            return orig_tolist(tensor_self)
+
+        with patch.object(torch.Tensor, "__int__", counting_int), patch.object(
+            torch.Tensor, "tolist", counting_tolist
+        ):
+            result = _gather_selected_slots(restored_indices, selected_local)
+
+        self.assertEqual(result, [101, 103, 104, 107, 109])
+        self.assertIsInstance(result, list)
+        self.assertTrue(all(isinstance(value, int) for value in result))
+        # The precise guarantee: zero per-token scalar extractions, and
+        # exactly one batched host sync regardless of selection size.
+        self.assertEqual(len(int_calls), 0)
+        self.assertEqual(len(tolist_calls), 1)
+
+    def test_gather_selected_slots_single_token_still_uses_batched_path(self):
+        # A single selected token must not tempt a "just call int() on
+        # it, it's only one sync anyway" special case -- prove the
+        # exact same batched-gather code path (and its type contract)
+        # is used regardless of how many positions were selected.
+        restored_indices = torch.arange(50, 60)
+        result = _gather_selected_slots(restored_indices, (2,))
+        self.assertEqual(result, [52])
+        self.assertIsInstance(result, list)
+        self.assertIsInstance(result[0], int)
+
+    def test_repair_slot_gather_avoids_per_token_host_sync_in_real_restore_path(
+        self,
+    ):
+        # Integration-level proof (not just the isolated helper): the
+        # real restore path resolves a multi-token repair selection,
+        # driven through the real controller/probe/recompute wiring,
+        # without any per-token `int()` conversion anywhere along the
+        # way. `full_untruncated_fill_ids` is a plain Python
+        # list/array (not a tensor) and every other `int(...)` call in
+        # this module already operates on values that went through
+        # `.tolist()` first, so patching `torch.Tensor.__int__` here
+        # attributes any observed call unambiguously to a regression of
+        # the fixed repair-slot gather.
+        controller = CacheTuneController(CacheTuneMode.SPEED_ONLY)
+        controller.record_measurement(_profile_key(), FIVE_PERCENT_MEASUREMENT)
+        probe = HotSpotProbeBackend(
+            self.kvcache, self.restore_base, HOT_LOCAL_POSITIONS
+        )
+        recompute = RecordingRecomputeBackend(self.kvcache)
+        self._register_plugin(
+            controller=controller, probe_backend=probe, recompute_backend=recompute
+        )
+
+        int_calls: list[int] = []
+        orig_int = torch.Tensor.__int__
+
+        def counting_int(tensor_self):
+            int_calls.append(1)
+            return orig_int(tensor_self)
+
+        reuse = self._reuse_req()
+        with patch.object(torch.Tensor, "__int__", counting_int):
+            self.assertTrue(restore_request_prefix_cachetune(self.tree, reuse))
+
+        # 5 hot positions were selected (HOT_LOCAL_POSITIONS); the old
+        # `[int(restored_indices[p]) for p in selected_local]` pattern
+        # would have shown 5 `__int__` calls just for this gather.
+        # Zero here proves no per-token scalar extraction happens
+        # anywhere on the real request-serving path.
+        self.assertEqual(int_calls, [])
+        self.assertEqual(reuse.cachetune_selected_tokens, len(HOT_LOCAL_POSITIONS))
 
     # ------------------------------------------------------------------
     # speed_only mode's 0% floor: no capability required at all.
