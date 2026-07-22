@@ -94,6 +94,7 @@ from sglang.srt.mem_cache.common import (
     free_swa_out_of_window_slots,
     release_kv_cache,
 )
+from sglang.srt.mem_cache.approx_kv.epic_runtime import restore_request_prefix_epic
 from sglang.srt.mem_cache.approx_kv.request import parse_request_metadata
 from sglang.srt.mem_cache.approx_kv.runtime import restore_request_prefix
 from sglang.srt.mem_cache.memory_pool import ReqToTokenPool
@@ -1290,7 +1291,19 @@ class Req(ReqDllmMixin):
                 self.cache_protected_len = len(self.prefix_indices)
 
             if self.approx_kv_metadata is not None:
-                restore_request_prefix(tree_cache, self)
+                approx_kv_manager = getattr(tree_cache, "approx_kv", None)
+                if (
+                    approx_kv_manager is not None
+                    and approx_kv_manager.config.epic_enabled
+                ):
+                    # EPIC (Phase 4 R1) leading-k repair hook: exact-cache
+                    # first, dense fallback on any unsupported model/layout/
+                    # capability gap. Config-gated (off by default), so
+                    # this changes nothing unless SGLANG_APPROX_KV_EPIC is
+                    # explicitly enabled and an "epic" plugin is registered.
+                    restore_request_prefix_epic(tree_cache, self)
+                else:
+                    restore_request_prefix(tree_cache, self)
 
             if self.is_dllm():
                 self._update_block_offset_for_dllm()

@@ -1985,6 +1985,27 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
             documentation="Approximate KV bytes exported to host.",
             labelnames=labels.keys(),
         )
+        self.approx_kv_epic_layers_recomputed_total = Counter(
+            name="sglang:approx_kv_epic_layers_recomputed_total",
+            documentation=(
+                "Transformer layers whose leading-k tokens were genuinely "
+                "recomputed by the EPIC recovery path."
+            ),
+            labelnames=labels.keys(),
+        )
+        self.approx_kv_epic_leading_k_tokens_total = Counter(
+            name="sglang:approx_kv_epic_leading_k_tokens_total",
+            documentation="Leading-k tokens recomputed by the EPIC recovery path.",
+            labelnames=labels.keys(),
+        )
+        self.approx_kv_epic_non_layerwise_total = Counter(
+            name="sglang:approx_kv_epic_non_layerwise_total",
+            documentation=(
+                "EPIC recompute executions whose interleave order failed "
+                "the genuinely-layerwise proof (should remain 0)."
+            ),
+            labelnames=labels.keys(),
+        )
 
     def increment_eviction_num_tokens(self, num_tokens: int) -> None:
         self.eviction_num_tokens.labels(**self.labels).inc(num_tokens)
@@ -2045,6 +2066,21 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
             per_reason = stats.recomputed_tokens / len(stats.fallback_reasons)
             for reason in stats.fallback_reasons:
                 self.increment_approx_kv_fallback(reason, per_reason)
+
+    def record_approx_kv_epic_layer_recompute(
+        self,
+        layers_recomputed: int,
+        leading_k_tokens: int,
+        genuinely_layerwise: bool,
+    ) -> None:
+        self.approx_kv_epic_layers_recomputed_total.labels(**self.labels).inc(
+            layers_recomputed
+        )
+        self.approx_kv_epic_leading_k_tokens_total.labels(**self.labels).inc(
+            leading_k_tokens
+        )
+        if not genuinely_layerwise:
+            self.approx_kv_epic_non_layerwise_total.labels(**self.labels).inc()
 
 
 class EncoderMetricsCollector(_StatLoggerDIMixin):

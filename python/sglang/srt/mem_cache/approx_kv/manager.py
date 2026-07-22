@@ -36,6 +36,7 @@ class ApproxKVManager:
         self.metrics_collector = metrics_collector
         self.residency_backend: Any | None = None
         self.rope_config: Any | None = None
+        self.model_runner: Any | None = None
         self._async_loader: AsyncResidencyLoader | None = None
         self._tickets: dict[str, ApproxKVPrefetchTicket] = {}
         self._ticket_lock = threading.Lock()
@@ -117,6 +118,16 @@ class ApproxKVManager:
     def bind_rope_config(self, rope_config: Any) -> None:
         self.rope_config = rope_config
 
+    def bind_model_runner(self, model_runner: Any) -> None:
+        """Bind the live model runner EPIC needs to recompute leading-k.
+
+        This is analogous to ``bind_rope_config``/``bind_residency_backend``:
+        binding is optional and only required by callers that actually need
+        genuine per-layer recompute (EPIC's ``epic_runtime.py``). Nothing in
+        the R0 raw-copy path reads this attribute.
+        """
+        self.model_runner = model_runner
+
     def export_to_host(self, device_ref: Any):
         if not self.config.host_residency_enabled:
             raise RuntimeError("approximate KV host residency is disabled")
@@ -184,6 +195,24 @@ class ApproxKVManager:
         callback = getattr(collector, "increment_approx_kv_host_export", None)
         if callback is not None:
             callback(num_tokens, num_bytes)
+
+    def record_epic_layer_recompute(
+        self,
+        *,
+        layers_recomputed: int,
+        leading_k_tokens: int,
+        genuinely_layerwise: bool,
+    ) -> None:
+        collector = self.metrics_collector
+        if collector is None:
+            return
+        callback = getattr(collector, "record_approx_kv_epic_layer_recompute", None)
+        if callback is not None:
+            callback(
+                layers_recomputed,
+                leading_k_tokens,
+                genuinely_layerwise,
+            )
 
     @property
     def active_ticket_count(self) -> int:

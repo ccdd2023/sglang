@@ -1,5 +1,20 @@
 from .async_transfer import ApproxKVPrefetchTicket, AsyncTransferState
 from .config import ApproxKVFeatureConfig
+from .epic_capability import LayerwiseCapability, inspect_layerwise_recompute_capability
+from .epic_plugin import EPICLeadingKPlugin, carve_leading_k
+from .epic_recompute import (
+    BodyLayerCopyBackend,
+    EpicRecomputeStats,
+    LayerwiseEpicExecutor,
+    LayerwiseLeadingKRepairError,
+    LeadingKRecomputeBackend,
+    ModelRunnerLeadingKRecomputeBackend,
+)
+from .epic_runtime import (
+    EpicForwardBatchBundle,
+    EpicForwardBatchFactory,
+    restore_request_prefix_epic,
+)
 from .manager import ApproxKVManager
 from .plugins import (
     RecoveryPlugin,
@@ -7,10 +22,10 @@ from .plugins import (
     RecoveryRequestContext,
 )
 from .store import (
-    AsyncResidencyLoader,
-    AsyncResidencyTransfer,
     ApproxKVLease,
     ApproxKVSegmentStore,
+    AsyncResidencyLoader,
+    AsyncResidencyTransfer,
     ResidencyLoadResult,
 )
 from .transfer import (
@@ -42,7 +57,12 @@ __all__ = [
     "AsyncResidencyLoader",
     "AsyncResidencyTransfer",
     "AsyncTransferState",
+    "BodyLayerCopyBackend",
     "DenseRange",
+    "EPICLeadingKPlugin",
+    "EpicForwardBatchBundle",
+    "EpicForwardBatchFactory",
+    "EpicRecomputeStats",
     "KVLayerTransferResult",
     "KVReusePlan",
     "KVSegmentHandle",
@@ -50,6 +70,11 @@ __all__ = [
     "KVTransferBackend",
     "KVTransferInvariantError",
     "KVTransferStats",
+    "LayerwiseCapability",
+    "LayerwiseEpicExecutor",
+    "LayerwiseLeadingKRepairError",
+    "LeadingKRecomputeBackend",
+    "ModelRunnerLeadingKRecomputeBackend",
     "RecoveryMode",
     "RecoveryPlugin",
     "RecoveryPluginRegistry",
@@ -59,6 +84,9 @@ __all__ = [
     "SchedulerMetadata",
     "SegmentKind",
     "TransferSpan",
+    "carve_leading_k",
     "execute_reuse_plan",
+    "inspect_layerwise_recompute_capability",
+    "restore_request_prefix_epic",
     "token_ids_hash",
 ]

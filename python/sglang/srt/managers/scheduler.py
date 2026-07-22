@@ -468,6 +468,19 @@ class Scheduler(
         if (c := self.tp_worker.model_runner.canary_manager) is not None:
             c.attach_radix_cache(self.tree_cache)
 
+        approx_kv_manager = getattr(self.tree_cache, "approx_kv", None)
+        if approx_kv_manager is not None:
+            # Bind the live model runner so EPIC's per-layer leading-k
+            # repair hook (epic_runtime.py) can attempt genuine recompute
+            # when it is config-gated on (SGLANG_APPROX_KV_EPIC). This is
+            # a no-op for the default R0 raw-copy path, which never reads
+            # ``model_runner``. Binding alone is not sufficient for EPIC
+            # to run live recompute: the deeper capability guard and the
+            # (currently unbound) ``epic_forward_batch_factory`` seam
+            # still gate every real per-layer recompute attempt with a
+            # safe dense fallback.
+            approx_kv_manager.bind_model_runner(self.tp_worker.model_runner)
+
         self.init_hisparse_coordinator()
 
         if (

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import torch
@@ -164,20 +165,38 @@ def _register_request_segments(tree_cache: Any, req: Any) -> int:
     return registered
 
 
-def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
-    metadata = getattr(req, "approx_kv_metadata", None)
-    manager = getattr(tree_cache, "approx_kv", None)
-    if (
-        metadata is None
-        or metadata.operation != ApproxKVRequestOperation.REUSE
-        or manager is None
-        or not manager.config.core_enabled
-    ):
-        return False
-    if req.needs_host_load_back():
-        manager.record_request("reuse", "exact_host_preferred")
-        return False
+@dataclass(frozen=True)
+class ResolvedReuseSpans:
+    """Validated, device-resident, contiguous body spans for reuse.
 
+    Shared between the raw R0 copy path (``restore_request_prefix``) and
+    any recovery plugin path (e.g. EPIC's ``epic_runtime.py``) so the
+    segment-matching, staleness, residency and RoPE-availability checks are
+    implemented exactly once.
+    """
+
+    exact_length: int
+    restore_end: int
+    restore_length: int
+    spans: tuple[TransferSpan, ...]
+    rope_config: RoPEConfig
+
+
+def resolve_reuse_spans(
+    tree_cache: Any,
+    req: Any,
+    metadata: Any,
+    manager: Any,
+) -> ResolvedReuseSpans | None:
+    """Resolve the reusable body for ``req`` into contiguous transfer spans.
+
+    Returns ``None`` (after recording the appropriate ``exact`` or
+    ``dense_fallback`` telemetry, exactly as the previous inline
+    implementation did) when the request cannot be serviced from
+    approximate KV, e.g. because there is no reusable gap, a source segment
+    is missing/stale, or RoPE relocation would be required without a bound
+    RoPE config.
+    """
     reusable_limit = len(req.full_untruncated_fill_ids) - 1
     exact_length = len(req.prefix_indices)
     ordered_segments = sorted(
@@ -199,7 +218,7 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
     restore_length = restore_end - exact_length
     if restore_length <= 0:
         manager.record_request("reuse", "exact")
-        return False
+        return None
 
     handles = []
     for segment in active_segments:
@@ -223,35 +242,25 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
         if handle is None:
             manager.record_fallback("store_miss", restore_length)
             manager.record_request("reuse", "dense_fallback")
-            return False
+            return None
         try:
             handle = manager.ensure_device(handle)
         except Exception:
             manager.record_fallback("residency_load_failed", restore_length)
             manager.record_request("reuse", "dense_fallback")
-            return False
+            return None
         handles.append((segment, handle, overlap_start, overlap_end))
 
     if not handles or handles[0][2] != exact_length:
         manager.record_fallback("prefix_gap", restore_length)
         manager.record_request("reuse", "dense_fallback")
-        return False
+        return None
     for previous, current in zip(handles, handles[1:]):
         if previous[3] != current[2]:
             manager.record_fallback("prefix_gap", restore_length)
             manager.record_request("reuse", "dense_fallback")
-            return False
+            return None
 
-    allocator = _allocator(tree_cache)
-    restored_indices = allocator.alloc(restore_length)
-    if restored_indices is None or len(restored_indices) != restore_length:
-        if restored_indices is not None:
-            allocator.free(restored_indices)
-        manager.record_fallback("device_allocation_failed", restore_length)
-        manager.record_request("reuse", "dense_fallback")
-        return False
-
-    fallback_reasons: list[str] = []
     rope_config = manager.rope_config or RoPEConfig(
         rotary_dim=0,
         base=10000.0,
@@ -259,16 +268,13 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
     )
     spans = []
     for segment, handle, overlap_start, overlap_end in handles:
-        source_offset = segment.source_offset + (
-            overlap_start - segment.target_start
-        )
+        source_offset = segment.source_offset + (overlap_start - segment.target_start)
         source_position = handle.source_start + source_offset
         rope_delta = overlap_start - source_position
         if rope_delta != 0 and rope_config.rotary_dim == 0:
-            allocator.free(restored_indices)
             manager.record_fallback("rope_config_unavailable", restore_length)
             manager.record_request("reuse", "dense_fallback")
-            return False
+            return None
         spans.append(
             TransferSpan(
                 source=handle,
@@ -281,24 +287,55 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
             )
         )
 
+    return ResolvedReuseSpans(
+        exact_length=exact_length,
+        restore_end=restore_end,
+        restore_length=restore_length,
+        spans=tuple(spans),
+        rope_config=rope_config,
+    )
+
+
+def finalize_copy_reuse(
+    tree_cache: Any,
+    req: Any,
+    manager: Any,
+    resolved: ResolvedReuseSpans,
+) -> bool:
+    """Physically copy+RoPE-correct ``resolved.spans`` and commit the prefix.
+
+    This is the raw (R0-equivalent) whole-span copy execution, shared by
+    the plain reuse path and EPIC's k=0 degenerate case (no leading-k
+    repair requested, pure copy).
+    """
+    allocator = _allocator(tree_cache)
+    restored_indices = allocator.alloc(resolved.restore_length)
+    if restored_indices is None or len(restored_indices) != resolved.restore_length:
+        if restored_indices is not None:
+            allocator.free(restored_indices)
+        manager.record_fallback("device_allocation_failed", resolved.restore_length)
+        manager.record_request("reuse", "dense_fallback")
+        return False
+
+    fallback_reasons: list[str] = []
     backend = RadixKVTransferBackend(
         allocator=allocator,
-        target_indices=lambda start, length: restored_indices[
-            start : start + length
-        ],
+        target_indices=lambda start, length: restored_indices[start : start + length],
         dense_prefill=lambda start, length, reason: fallback_reasons.append(reason),
-        rope=rope_config,
+        rope=resolved.rope_config,
     )
     target_tokens = tuple(
         int(token)
-        for token in req.full_untruncated_fill_ids[exact_length:restore_end]
+        for token in req.full_untruncated_fill_ids[
+            resolved.exact_length : resolved.restore_end
+        ]
     )
     try:
         stats = manager.execute(
             KVReusePlan(
                 target_token_ids=target_tokens,
                 recovery_mode=RecoveryMode.COPY,
-                copied_spans=tuple(spans),
+                copied_spans=resolved.spans,
                 require_full_coverage=True,
             ),
             backend,
@@ -320,7 +357,27 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
             ),
         )
     )
-    req.approx_kv_restored_len = restore_length
+    req.approx_kv_restored_len = resolved.restore_length
     req.approx_kv_stats = stats
     manager.record_request("reuse", "success")
     return True
+
+
+def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
+    metadata = getattr(req, "approx_kv_metadata", None)
+    manager = getattr(tree_cache, "approx_kv", None)
+    if (
+        metadata is None
+        or metadata.operation != ApproxKVRequestOperation.REUSE
+        or manager is None
+        or not manager.config.core_enabled
+    ):
+        return False
+    if req.needs_host_load_back():
+        manager.record_request("reuse", "exact_host_preferred")
+        return False
+
+    resolved = resolve_reuse_spans(tree_cache, req, metadata, manager)
+    if resolved is None:
+        return False
+    return finalize_copy_reuse(tree_cache, req, manager, resolved)

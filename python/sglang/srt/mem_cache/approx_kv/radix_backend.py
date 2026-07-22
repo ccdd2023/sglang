@@ -189,19 +189,69 @@ class RadixKVTransferBackend:
         if len(source_indices) != length or len(target_indices) != length:
             raise ValueError("physical KV index slice length mismatch")
 
-    def _rotate_all_copied_keys(
+    def copy_and_rotate_layer(
         self,
         *,
-        kvcache: Any,
-        target_indices: torch.Tensor,
+        layer_id: int,
+        source_ref: object,
+        source_offset: int,
+        target_start: int,
+        length: int,
         rope_delta: int,
-    ) -> None:
+    ) -> KVLayerTransferResult:
+        """Copy+RoPE-correct exactly one layer's worth of body KV.
+
+        ``copy_and_rotate`` fuses ``kvcache.move_kv_cache`` (itself an
+        all-layers-at-once physical move) with a RoPE-only correction loop
+        that also walks every layer before returning. That shape is correct
+        for the plain R0 reuse path, where the whole body is committed in
+        one step, but it is unusable for EPIC's per-layer interleaving: the
+        leading-k tokens for layer L must be genuinely recomputed *before*
+        layer L's body KV is written, and layer L+1's body must not be
+        touched until layer L+1's leading-k recompute has run. This method
+        therefore only ever touches ``layer_id``, using the same
+        ``get_key_buffer``/``get_value_buffer`` accessors already used by
+        ``_rotate_all_copied_keys`` (no new physical primitive is
+        introduced; only the calling shape is per-layer).
+        """
+        if not isinstance(source_ref, DeviceKVRef):
+            raise TypeError("device transfer requires DeviceKVRef")
+        source_indices = source_ref.indices[source_offset : source_offset + length]
+        target_indices = self._target_indices(target_start, length)
+        self._validate_indices(source_indices, target_indices, length)
+
+        kvcache = self._allocator.get_kvcache()
+        copy_start = time.perf_counter()
+        key_buffer = kvcache.get_key_buffer(layer_id)
+        value_buffer = kvcache.get_value_buffer(layer_id)
+        key_buffer[target_indices] = key_buffer[source_indices]
+        value_buffer[target_indices] = value_buffer[source_indices]
+        copy_ms = (time.perf_counter() - copy_start) * 1000
+
+        rope_start = time.perf_counter()
+        self._rotate_layer_copied_keys(
+            kvcache=kvcache,
+            layer_id=layer_id,
+            target_indices=target_indices,
+            rope_delta=rope_delta,
+        )
+        rope_ms = (time.perf_counter() - rope_start) * 1000
+        return KVLayerTransferResult(
+            copied_k_tokens=length,
+            rotated_k_tokens=length,
+            copied_v_tokens=length,
+            copy_ms=copy_ms,
+            rope_ms=rope_ms,
+        )
+
+    def _rope_cos_sin(
+        self,
+        *,
+        rope_delta: int,
+        num_indices: int,
+        device: Any,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         rotary_dim = self._rope.rotary_dim
-        if rotary_dim == 0 or rope_delta == 0 or len(target_indices) == 0:
-            return
-        flat_indices = target_indices.reshape(-1).long()
-        first_key_buffer = kvcache.get_key_buffer(0)
-        device = first_key_buffer.device
         inverse_frequency = 1.0 / (
             self._rope.base
             ** (
@@ -216,28 +266,92 @@ class RadixKVTransferBackend:
             )
         )
         delta = torch.full(
-            (len(flat_indices),),
+            (num_indices,),
             int(rope_delta),
             dtype=torch.float32,
             device=device,
         )
         frequencies = torch.einsum("i,j->ij", delta, inverse_frequency)
-        cosine = frequencies.cos()
-        sine = frequencies.sin()
+        return frequencies.cos(), frequencies.sin()
 
+    def _rotate_one_layer_keys(
+        self,
+        *,
+        kvcache: Any,
+        layer_id: int,
+        flat_indices: torch.Tensor,
+        cosine: torch.Tensor,
+        sine: torch.Tensor,
+    ) -> None:
+        rotary_dim = self._rope.rotary_dim
+        key_buffer = kvcache.get_key_buffer(layer_id)
+        selected = key_buffer[flat_indices]
+        if selected.shape[-1] < rotary_dim:
+            raise ValueError("KV head dimension is smaller than rotary_dim")
+        rotary = selected[..., :rotary_dim]
+        rotated = apply_rotary_emb(
+            rotary,
+            cosine,
+            sine,
+            self._rope.is_neox_style,
+        )
+        if rotary_dim == selected.shape[-1]:
+            key_buffer[flat_indices] = rotated
+        else:
+            key_buffer[flat_indices, ..., :rotary_dim] = rotated
+
+    def _rotate_layer_copied_keys(
+        self,
+        *,
+        kvcache: Any,
+        layer_id: int,
+        target_indices: torch.Tensor,
+        rope_delta: int,
+    ) -> None:
+        rotary_dim = self._rope.rotary_dim
+        if rotary_dim == 0 or rope_delta == 0 or len(target_indices) == 0:
+            return
+        flat_indices = target_indices.reshape(-1).long()
+        cosine, sine = self._rope_cos_sin(
+            rope_delta=rope_delta,
+            num_indices=len(flat_indices),
+            device=(
+                flat_indices.device
+                if flat_indices.device.type != "meta"
+                else kvcache.get_key_buffer(layer_id).device
+            ),
+        )
+        self._rotate_one_layer_keys(
+            kvcache=kvcache,
+            layer_id=layer_id,
+            flat_indices=flat_indices,
+            cosine=cosine,
+            sine=sine,
+        )
+
+    def _rotate_all_copied_keys(
+        self,
+        *,
+        kvcache: Any,
+        target_indices: torch.Tensor,
+        rope_delta: int,
+    ) -> None:
+        rotary_dim = self._rope.rotary_dim
+        if rotary_dim == 0 or rope_delta == 0 or len(target_indices) == 0:
+            return
+        flat_indices = target_indices.reshape(-1).long()
+        first_key_buffer = kvcache.get_key_buffer(0)
+        device = first_key_buffer.device
+        cosine, sine = self._rope_cos_sin(
+            rope_delta=rope_delta,
+            num_indices=len(flat_indices),
+            device=device,
+        )
         for layer_id in range(kvcache.layer_num):
-            key_buffer = kvcache.get_key_buffer(layer_id)
-            selected = key_buffer[flat_indices]
-            if selected.shape[-1] < rotary_dim:
-                raise ValueError("KV head dimension is smaller than rotary_dim")
-            rotary = selected[..., :rotary_dim]
-            rotated = apply_rotary_emb(
-                rotary,
-                cosine,
-                sine,
-                self._rope.is_neox_style,
+            self._rotate_one_layer_keys(
+                kvcache=kvcache,
+                layer_id=layer_id,
+                flat_indices=flat_indices,
+                cosine=cosine,
+                sine=sine,
             )
-            if rotary_dim == selected.shape[-1]:
-                key_buffer[flat_indices] = rotated
-            else:
-                key_buffer[flat_indices, ..., :rotary_dim] = rotated
