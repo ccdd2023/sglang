@@ -227,6 +227,8 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
         "capacity_tokens": capacity,
         "target_rho": args.target_rho,
         "actual_declared_rho": declared_tokens / capacity,
+        "pre_target_rho": declared_tokens / capacity,
+        "peak_rho_with_target": (declared_tokens + args.body_tokens) / capacity,
         "filler_count": filler_count,
         "declared_working_tokens": declared_tokens,
         "segment_tokens": args.segment_tokens,
@@ -298,8 +300,18 @@ def main() -> None:
             "target_p50_ms": statistics.median(values),
             "eviction_observed_in_formal_runs": any(
                 (
-                    row["pressure_delta"]["counters"].get("sglang:evicted_tokens_total")
-                    or 0
+                    (
+                        row["pressure_delta"]["counters"].get(
+                            "sglang:evicted_tokens_total"
+                        )
+                        or 0
+                    )
+                    + (
+                        row["target_delta"]["counters"].get(
+                            "sglang:evicted_tokens_total"
+                        )
+                        or 0
+                    )
                 )
                 > 0
                 for row in rows
@@ -324,6 +336,9 @@ def main() -> None:
                     "target_p50_ms": result["target_p50_ms"],
                     "eviction_observed": result["eviction_observed_in_formal_runs"],
                     "actual_declared_rho": [row["actual_declared_rho"] for row in rows],
+                    "peak_rho_with_target": [
+                        row["peak_rho_with_target"] for row in rows
+                    ],
                     "filler_count": [row["filler_count"] for row in rows],
                 },
             },
