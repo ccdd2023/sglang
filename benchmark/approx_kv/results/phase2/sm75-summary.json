@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-22T00:01:49-07:00",
+  "runner_git_sha": "333ebb65710a629ee8f859a7182db5f471c3e38c",
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "model": "Qwen/Qwen3-0.6B",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "machine": {
+    "gpu": "NVIDIA GeForce RTX 2080 SUPER",
+    "compute_capability": "7.5",
+    "gpu_memory_bytes": 8163426304,
+    "torch": "2.9.1+cu129",
+    "cuda": "12.9",
+    "transformers": "5.12.1"
+  },
+  "config": {
+    "catalog_objects": 24,
+    "target_prefix_tokens": [
+      512,
+      1024,
+      2048,
+      4096
+    ],
+    "usable_kv_capacity_tokens": 13130,
+    "mem_fraction_static": 0.35,
+    "chunked_prefill_size": 1024,
+    "max_new_tokens": 1,
+    "warmup_repeats": 1,
+    "measured_repeats": 1,
+    "independent_restarts_per_pressure": 3,
+    "metrics_scrape_mode": "boundary"
+  },
+  "validation": {
+    "calibrated_objects": 24,
+    "variant_cached_minus_expected_lcp_min": 0,
+    "variant_cached_minus_expected_lcp_max": 0,
+    "matrix_runs": 15,
+    "measured_requests": 471,
+    "completion_rate": 1.0,
+    "all_clean_baselines_passed": true,
+    "all_idle_pool_invariants_passed": true,
+    "all_final_resets_passed": true,
+    "fixed_object_subsets_across_restarts": true,
+    "fixed_request_traces_across_restarts": true
+  },
+  "pressure_results": {
+    "0.8": {
+      "selected_objects": 6,
+      "trace_requests_per_restart": 24,
+      "actual_reusable_rho": 0.812947448591013,
+      "estimated_physical_rho": 0.8703731911652703,
+      "evicted_tokens": [
+        0,
+        0,
+        0
+      ],
+      "probe_ttft_p50_ms": [
+        147.0127804986987,
+        147.56964899970626,
+        148.68108449991269
+      ],
+      "probe_ttft_p95_ms": [
+        439.275622000423,
+        440.8065009993152,
+        442.040090001683
+      ],
+      "cache_hit_token_rate": 0.7129046875786718
+    },
+    "1.0": {
+      "selected_objects": 7,
+      "trace_requests_per_restart": 25,
+      "actual_reusable_rho": 1.0067022086824067,
+      "estimated_physical_rho": 1.0666412795125666,
+      "evicted_tokens": [
+        10667,
+        10667,
+        10667
+      ],
+      "probe_ttft_p50_ms": [
+        278.2719360002375,
+        280.1812069992593,
+        281.4265554989106
+      ],
+      "probe_ttft_p95_ms": [
+        795.0339529998018,
+        795.7433979972848,
+        798.8253669973346
+      ],
+      "cache_hit_token_rate": 0.4412662274752955
+    },
+    "1.5": {
+      "selected_objects": 7,
+      "trace_requests_per_restart": 23,
+      "actual_reusable_rho": 1.5135567402894134,
+      "estimated_physical_rho": 1.5685453160700686,
+      "evicted_tokens": [
+        29077,
+        29077,
+        29077
+      ],
+      "probe_ttft_p50_ms": [
+        280.75844799968763,
+        278.53431449875643,
+        280.7466624999506
+      ],
+      "probe_ttft_p95_ms": [
+        928.3534309979586,
+        927.750383001694,
+        930.1312339994183
+      ],
+      "cache_hit_token_rate": 0.20816742465701724
+    },
+    "2.0": {
+      "selected_objects": 10,
+      "trace_requests_per_restart": 32,
+      "actual_reusable_rho": 2.016831683168317,
+      "estimated_physical_rho": 2.093830921553694,
+      "evicted_tokens": [
+        47668,
+        47668,
+        47668
+      ],
+      "probe_ttft_p50_ms": [
+        278.3220870005607,
+        278.7632474992279,
+        279.4334774989693
+      ],
+      "probe_ttft_p95_ms": [
+        929.8132039984921,
+        929.0190669998992,
+        928.2489930010343
+      ],
+      "cache_hit_token_rate": 0.15679281050340518
+    },
+    "3.0": {
+      "selected_objects": 16,
+      "trace_requests_per_restart": 53,
+      "actual_reusable_rho": 3.0233054074638233,
+      "estimated_physical_rho": 3.152094440213252,
+      "evicted_tokens": [
+        96642,
+        96642,
+        96642
+      ],
+      "probe_ttft_p50_ms": [
+        278.7156395006605,
+        280.4598349994194,
+        278.49379899816995
+      ],
+      "probe_ttft_p95_ms": [
+        927.9122459993232,
+        929.8408959984954,
+        926.6200560014113
+      ],
+      "cache_hit_token_rate": 0.05983046024094307
+    }
+  },
+  "metrics_scrape_diagnostic": {
+    "pressure": 1.5,
+    "boundary_probe_ttft_p50_median_ms": 280.7466624999506,
+    "per_request_probe_ttft_p50_ms": 279.5475514994905,
+    "relative_delta_percent": -0.4271149618600756,
+    "evicted_tokens_unchanged": true
+  },
+  "trace_discrimination": {
+    "pressures_checked": [
+      1.0,
+      1.5,
+      2.0,
+      3.0
+    ],
+    "lru_vs_belady_victims_differ": true,
+    "lru_vs_value_density_victims_differ": true,
+    "belady_vs_value_density_victims_differ": true,
+    "note": "Synthetic cost weights are trace metadata, not measured recovery costs."
+  }
+}
