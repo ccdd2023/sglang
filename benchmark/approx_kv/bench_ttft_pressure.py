@@ -49,6 +49,25 @@ def role_prompt(role: str, role_prefix_blocks: int) -> str:
     return deterministic_code(f"role:{role}", role_prefix_blocks)
 
 
+def build_messages(
+    *,
+    role: str,
+    role_prefix_blocks: int,
+    code: str,
+    suffix: str,
+) -> list[dict[str, str]]:
+    return [
+        {
+            "role": "system",
+            "content": role_prompt(role, role_prefix_blocks),
+        },
+        {
+            "role": "user",
+            "content": f"{code}\n\n{suffix}",
+        },
+    ]
+
+
 async def send_request(
     session: aiohttp.ClientSession,
     *,
@@ -59,25 +78,24 @@ async def send_request(
     code: str,
     suffix: str,
     max_new_tokens: int,
+    custom_params: dict[str, Any] | None = None,
 ) -> tuple[float, float, int, int, int, str]:
     payload: dict[str, Any] = {
         "model": model,
-        "messages": [
-            {
-                "role": "system",
-                "content": role_prompt(role, role_prefix_blocks),
-            },
-            {
-                "role": "user",
-                "content": f"{code}\n\n{suffix}",
-            },
-        ],
+        "messages": build_messages(
+            role=role,
+            role_prefix_blocks=role_prefix_blocks,
+            code=code,
+            suffix=suffix,
+        ),
         "max_tokens": max_new_tokens,
         "temperature": 0,
         "top_p": 1,
         "stream": True,
         "stream_options": {"include_usage": True},
     }
+    if custom_params is not None:
+        payload["custom_params"] = custom_params
     start = time.perf_counter()
     first_token_s: float | None = None
     prompt_tokens = 0
@@ -148,12 +166,86 @@ async def run(args: argparse.Namespace) -> list[RequestResult]:
     code = deterministic_code(args.seed, args.code_blocks)
     results: list[RequestResult] = []
     timeout = aiohttp.ClientTimeout(total=args.request_timeout_s)
+    tokenizer = None
+    prompt_lengths: dict[int, int] = {}
+    source_content_hash = f"{args.seed}:whole-prefix"
+    if args.approx_mode != "none":
+        if not args.tokenizer_path:
+            raise ValueError("--tokenizer-path is required for approximate mode")
+        from transformers import AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_path)
+        for invocation in trace:
+            messages = build_messages(
+                role=invocation.role,
+                role_prefix_blocks=args.role_prefix_blocks,
+                code=code,
+                suffix=invocation.suffix,
+            )
+            prompt_lengths[invocation.step] = len(
+                tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=True,
+                    add_generation_prompt=True,
+                )
+            )
 
     async with aiohttp.ClientSession(timeout=timeout) as session:
+        if tokenizer is not None:
+            source_invocation = max(
+                trace,
+                key=lambda item: prompt_lengths[item.step],
+            )
+            source_length = prompt_lengths[source_invocation.step] - 1
+            registration = await send_request(
+                session,
+                base_url=args.base_url.rstrip("/"),
+                model=args.model,
+                role=source_invocation.role,
+                role_prefix_blocks=args.role_prefix_blocks,
+                code=code,
+                suffix=source_invocation.suffix,
+                max_new_tokens=args.max_new_tokens,
+                custom_params={
+                    "approx_kv": {
+                        "recovery_mode": "dense",
+                        "register_source": True,
+                        "model_id": args.tokenizer_path,
+                        "cache_dtype": "fp16",
+                        "segments": [
+                            {
+                                "source_content_hash": source_content_hash,
+                                "target_start": 0,
+                                "length": source_length,
+                            }
+                        ],
+                    }
+                },
+            )
+            if registration[4] != 200:
+                raise RuntimeError(f"source registration failed: {registration[5]}")
+
         for repeat in range(args.warmup_repeats + args.measured_repeats):
             measured = repeat >= args.warmup_repeats
             measured_repeat = repeat - args.warmup_repeats
             for invocation in trace:
+                custom_params = None
+                if tokenizer is not None:
+                    custom_params = {
+                        "approx_kv": {
+                            "recovery_mode": "raw_rope",
+                            "speed_only": True,
+                            "model_id": args.tokenizer_path,
+                            "cache_dtype": "fp16",
+                            "segments": [
+                                {
+                                    "source_content_hash": source_content_hash,
+                                    "target_start": 0,
+                                    "length": (prompt_lengths[invocation.step] - 1),
+                                }
+                            ],
+                        }
+                    }
                 values = await send_request(
                     session,
                     base_url=args.base_url.rstrip("/"),
@@ -163,6 +255,7 @@ async def run(args: argparse.Namespace) -> list[RequestResult]:
                     code=code,
                     suffix=invocation.suffix,
                     max_new_tokens=args.max_new_tokens,
+                    custom_params=custom_params,
                 )
                 if measured:
                     results.append(
@@ -187,6 +280,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://127.0.0.1:30000")
     parser.add_argument("--model", default="default")
+    parser.add_argument("--tokenizer-path")
+    parser.add_argument(
+        "--approx-mode",
+        choices=("none", "register_then_raw_speed"),
+        default="none",
+    )
     parser.add_argument(
         "--trace",
         choices=[kind.value for kind in TraceKind],

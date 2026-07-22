@@ -263,6 +263,35 @@ class TestApproxKVCore(unittest.TestCase):
         self.assertEqual(stats.recomputed_tokens, 10)
         self.assertTrue(stats.mechanically_valid)
 
+    def test_speed_only_plan_allows_token_mismatch(self):
+        source = tuple(range(4))
+        target = (9, 8, 7, 6)
+        manager = ApproxKVManager(
+            ApproxKVFeatureConfig(
+                core_enabled=True,
+                lossy_recovery_enabled=True,
+            )
+        )
+        handle = manager.register_segment(
+            key=make_key(source),
+            token_ids=source,
+            source_start=0,
+            residency=ResidencyTier.DEVICE,
+            backend_ref="kv",
+        )
+        plan = KVReusePlan(
+            target_token_ids=target,
+            recovery_mode=RecoveryMode.RAW_ROPE,
+            copied_spans=(TransferSpan(handle, 0, 0, 4, 0, 0, 4),),
+            require_full_coverage=True,
+            allow_token_mismatch=True,
+        )
+        backend = RecordingBackend()
+        stats = manager.execute(plan, backend)
+        self.assertEqual(backend.copies, [("kv", 0, 0, 4, 0)])
+        self.assertEqual(stats.source_slice_mismatch, 0)
+        self.assertTrue(stats.mechanically_valid)
+
     def test_gap_and_partial_rope_are_rejected(self):
         tokens = tuple(range(4))
         manager = ApproxKVManager(ApproxKVFeatureConfig(core_enabled=True))

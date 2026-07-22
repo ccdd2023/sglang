@@ -28,6 +28,7 @@ class TestApproxKVIntegrationSource(unittest.TestCase):
                 "approx_kv": {
                     "recovery_mode": "raw_rope",
                     "speed_only": True,
+                    "register_source": False,
                     "segments": [
                         {
                             "source_content_hash": "code",
@@ -40,6 +41,7 @@ class TestApproxKVIntegrationSource(unittest.TestCase):
         )
         self.assertEqual(metadata.recovery_mode, RecoveryMode.RAW_ROPE)
         self.assertTrue(metadata.speed_only)
+        self.assertFalse(metadata.register_source)
         metadata.validate_prompt_length(7)
         with self.assertRaisesRegex(ValueError, "final prompt token"):
             metadata.validate_prompt_length(6)
@@ -89,14 +91,22 @@ class TestApproxKVIntegrationSource(unittest.TestCase):
         radix_source = (
             REPO_ROOT / "python/sglang/srt/mem_cache/radix_cache.py"
         ).read_text()
+        common_source = (
+            REPO_ROOT / "python/sglang/srt/mem_cache/common.py"
+        ).read_text()
         self.assertIn("parse_request_metadata", schedule_source)
         self.assertIn("self.approx_kv_metadata", schedule_source)
         self.assertIn(
             "or self.approx_kv_metadata is not None",
             schedule_source,
         )
+        self.assertIn("restore_request_prefix(tree_cache, self)", schedule_source)
         self.assertIn("self.approx_kv = ApproxKVManager", radix_source)
         self.assertIn("self.approx_kv.reset()", radix_source)
+        self.assertIn(
+            "register_request_segments(tree_cache, req)",
+            common_source,
+        )
 
 
 if __name__ == "__main__":

@@ -139,7 +139,7 @@ def execute_reuse_plan(
         target_tokens = plan.target_token_ids[
             span.target_start : span.target_start + span.length
         ]
-        if source_tokens != target_tokens:
+        if source_tokens != target_tokens and not plan.allow_token_mismatch:
             stats.source_slice_mismatch += 1
             fallback_chunks[chunk] = "source_slice_mismatch"
 
@@ -162,7 +162,10 @@ def execute_reuse_plan(
             handle.token_ids[span.source_offset : span.source_offset + span.length]
             for handle in handles
         ]
-        if any(source_tokens != target_tokens for source_tokens in source_slices):
+        if (
+            any(source_tokens != target_tokens for source_tokens in source_slices)
+            and not plan.allow_token_mismatch
+        ):
             stats.source_slice_mismatch += 1
             fallback_chunks[chunk] = "anchor_slice_mismatch"
 

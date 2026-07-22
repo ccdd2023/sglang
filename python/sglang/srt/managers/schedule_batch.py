@@ -95,6 +95,7 @@ from sglang.srt.mem_cache.common import (
     release_kv_cache,
 )
 from sglang.srt.mem_cache.approx_kv.request import parse_request_metadata
+from sglang.srt.mem_cache.approx_kv.runtime import restore_request_prefix
 from sglang.srt.mem_cache.memory_pool import ReqToTokenPool
 from sglang.srt.mem_cache.radix_cache import RadixKey
 from sglang.srt.model_executor.forward_batch_info import ForwardBatch, ForwardMode
@@ -1287,6 +1288,9 @@ class Req(ReqDllmMixin):
                 self.cache_protected_len = match_result.cache_protected_len
             else:
                 self.cache_protected_len = len(self.prefix_indices)
+
+            if self.approx_kv_metadata is not None:
+                restore_request_prefix(tree_cache, self)
 
             if self.is_dllm():
                 self._update_block_offset_for_dllm()

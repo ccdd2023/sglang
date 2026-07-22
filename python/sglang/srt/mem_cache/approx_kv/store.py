@@ -129,6 +129,31 @@ class ApproxKVSegmentStore:
             self._records.move_to_end(key)
             return self._handle(record)
 
+    def find_by_content_hash(
+        self,
+        content_hash: str,
+    ) -> KVSegmentHandle | None:
+        if not content_hash:
+            raise ValueError("content_hash must be non-empty")
+        with self._lock:
+            matches = [
+                record
+                for key, record in self._records.items()
+                if key.content_hash == content_hash
+            ]
+            if not matches:
+                return None
+            record = max(
+                matches,
+                key=lambda item: (
+                    item.generation,
+                    item.last_access_s,
+                ),
+            )
+            record.last_access_s = time.monotonic()
+            self._records.move_to_end(record.key)
+            return self._handle(record)
+
     def is_current(self, handle: KVSegmentHandle) -> bool:
         with self._lock:
             record = self._records.get(handle.key)

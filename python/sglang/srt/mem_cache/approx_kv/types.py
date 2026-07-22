@@ -156,6 +156,7 @@ class KVReusePlan:
     reconstructed_spans: tuple[AnchorReconstructionSpan, ...] = ()
     dense_ranges: tuple[DenseRange, ...] = ()
     require_full_coverage: bool = False
+    allow_token_mismatch: bool = False
 
 
 @dataclass

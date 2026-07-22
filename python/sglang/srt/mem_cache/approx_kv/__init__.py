@@ -5,6 +5,7 @@ from .request import (
     ApproxKVRequestSegment,
     parse_request_metadata,
 )
+from .runtime import register_request_segments, restore_request_prefix
 from .store import (
     ApproxKVLease,
     ApproxKVSegmentStore,
@@ -51,5 +52,7 @@ __all__ = [
     "TransferSpan",
     "execute_reuse_plan",
     "parse_request_metadata",
+    "register_request_segments",
+    "restore_request_prefix",
     "token_ids_hash",
 ]

@@ -12,6 +12,7 @@ on:
       - "python/sglang/srt/layers/sm75_compat.py"
       - "python/sglang/srt/managers/schedule_batch.py"
       - "python/sglang/srt/mem_cache/approx_kv/**"
+      - "python/sglang/srt/mem_cache/common.py"
       - "python/sglang/srt/mem_cache/radix_cache.py"
       - "test/registered/unit/benchmark/test_approx_kv_workloads.py"
       - "test/registered/unit/layers/test_sm75_compat.py"
@@ -44,6 +45,7 @@ jobs:
             python/sglang/srt/layers/sm75_compat.py \
             python/sglang/srt/managers/schedule_batch.py \
             python/sglang/srt/mem_cache/approx_kv \
+            python/sglang/srt/mem_cache/common.py \
             python/sglang/srt/mem_cache/radix_cache.py \
             test/registered/unit/benchmark/test_approx_kv_workloads.py \
             test/registered/unit/layers/test_sm75_compat.py \

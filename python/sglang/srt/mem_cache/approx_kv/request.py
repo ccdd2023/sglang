@@ -31,6 +31,13 @@ class ApproxKVRequestMetadata:
     recovery_mode: RecoveryMode
     segments: tuple[ApproxKVRequestSegment, ...]
     speed_only: bool = False
+    register_source: bool = False
+    model_id: str = "runtime"
+    cache_dtype: str = "auto"
+
+    def __post_init__(self) -> None:
+        if not self.model_id or not self.cache_dtype:
+            raise ValueError("model_id and cache_dtype must be non-empty")
 
     def validate_prompt_length(self, prompt_length: int) -> None:
         if prompt_length <= 0:
@@ -85,4 +92,7 @@ def parse_request_metadata(
         recovery_mode=mode,
         segments=segments,
         speed_only=bool(raw.get("speed_only", False)),
+        register_source=bool(raw.get("register_source", False)),
+        model_id=str(raw.get("model_id", "runtime")),
+        cache_dtype=str(raw.get("cache_dtype", "auto")),
     )
