@@ -490,6 +490,31 @@ class TestCacheTuneRuntime(unittest.TestCase):
         self.assertEqual(len(reuse.prefix_indices), 0)
         self.assertIn(("reuse", "dense_fallback"), self.metrics.requests)
 
+    def test_wrong_plugin_type_dense_falls_back_without_exception(self):
+        # A plugin object registered under the "cachetune" name that is
+        # *not* a CacheTuneRecoveryPlugin instance (e.g. a misconfigured
+        # deployment that registered a different plugin under this
+        # name) is a genuine server misconfiguration -- but must still
+        # dense-fallback rather than raise, since this function runs
+        # synchronously on the scheduler's hot path and a single
+        # misrouted request must never take the whole scheduler down.
+        self.manager.register_plugin(SimpleNamespace(name=CACHETUNE_PLUGIN_NAME))
+
+        next_index = self.allocator.next_index
+        reuse = self._reuse_req()
+        self.assertFalse(restore_request_prefix_cachetune(self.tree, reuse))
+        # The type check happens before any allocation, so nothing was
+        # ever allocated and there is nothing to free -- the strongest
+        # possible "no slot leak" guarantee for this path.
+        self.assertEqual(self.allocator.next_index, next_index)
+        self.assertEqual(self.allocator.freed, [])
+        self.assertEqual(len(reuse.prefix_indices), 0)
+        self.assertIn(
+            ("cachetune_plugin_type_mismatch", 0),
+            self.metrics.fallbacks,
+        )
+        self.assertIn(("reuse", "dense_fallback"), self.metrics.requests)
+
     def test_probe_exception_dense_falls_back_without_exception(self):
         class FailingProbe:
             def probe_layer(self, **kwargs):
@@ -511,6 +536,46 @@ class TestCacheTuneRuntime(unittest.TestCase):
             ("cachetune_token_selection_failed", RESTORE_LENGTH),
             self.metrics.fallbacks,
         )
+
+    def test_backend_execute_exception_dense_falls_back_without_exception(self):
+        # `manager.execute` performs the real KV transfer copy for every
+        # segment; a failure there (e.g. a residency/copy backend bug)
+        # must dense-fallback exactly like a probe/recompute failure --
+        # never re-raise into the scheduler's synchronous hot path.
+        # Zero repair tokens means no probe/recompute backend is needed:
+        # manager.execute is called unconditionally for the baseline
+        # copy before any repair-token selection happens.
+        controller = CacheTuneController(CacheTuneMode.SPEED_ONLY)
+        controller.record_measurement(_profile_key(), ZERO_REPAIR_MEASUREMENT)
+        self._register_plugin(controller=controller)
+
+        next_index = self.allocator.next_index
+        reuse = self._reuse_req()
+        with patch.object(
+            self.manager,
+            "execute",
+            side_effect=RuntimeError("injected execute failure"),
+        ):
+            self.assertFalse(restore_request_prefix_cachetune(self.tree, reuse))
+        self.assertEqual(len(reuse.prefix_indices), 0)
+        # No slot leak: `restored_indices` (the destination scratch
+        # allocation this function is responsible for) is the *first*
+        # `RESTORE_LENGTH`-sized block allocated after `next_index`, and
+        # it must be freed exactly once -- no leak (it does appear) and
+        # no double-free (it appears exactly once, with no duplicate
+        # indices). A second, later allocation may legitimately follow
+        # (the source segment's own device-residency load via
+        # `ensure_device`, a lasting cache resource independent of this
+        # one request -- not this function's responsibility to free).
+        self.assertEqual(
+            sorted(self.allocator.freed),
+            list(range(next_index, next_index + RESTORE_LENGTH)),
+        )
+        self.assertIn(
+            ("cachetune_transfer_execution_failed", RESTORE_LENGTH),
+            self.metrics.fallbacks,
+        )
+        self.assertIn(("reuse", "dense_fallback"), self.metrics.requests)
 
     def test_token_mismatch_uses_dense_fallback_without_allocating(self):
         controller = CacheTuneController(CacheTuneMode.SPEED_ONLY)
@@ -658,14 +723,19 @@ class TestCacheTuneRuntime(unittest.TestCase):
     # ------------------------------------------------------------------
     # Defense-in-depth: the explicit runtime-level hard invariant check.
     # ------------------------------------------------------------------
-    def test_runtime_hard_invariant_catches_a_selection_count_bug(self):
+    def test_runtime_hard_invariant_dense_falls_back_without_exception(self):
         # `TokenSelection.__post_init__` already structurally guarantees
         # `len(selected_positions) == requested_count`, making runtime.py's
         # own redundant check unreachable in practice. This test proves
         # the explicit safety net in `runtime.py` really would catch a
         # regression if `select_repair_tokens` ever returned a selection
         # with the wrong count through some future code path, by
-        # monkeypatching it to return exactly that broken object.
+        # monkeypatching it to return exactly that broken object. Even
+        # though this indicates an internal bug, it must dense-fallback
+        # rather than raise: this function runs synchronously on the
+        # scheduler's Req.init_next_round_input hot path, so a single
+        # request hitting an internal invariant violation must never be
+        # allowed to take the whole scheduler down.
         controller = CacheTuneController(CacheTuneMode.SPEED_ONLY)
         controller.record_measurement(_profile_key(), FIVE_PERCENT_MEASUREMENT)
         probe = HotSpotProbeBackend(
@@ -677,15 +747,33 @@ class TestCacheTuneRuntime(unittest.TestCase):
         )
 
         broken_selection = SimpleNamespace(selected_positions=(0, 1, 2, 3))
+        next_index = self.allocator.next_index
         reuse = self._reuse_req()
         with patch(
             "sglang.srt.mem_cache.cachetune.runtime.select_repair_tokens",
             return_value=broken_selection,
         ):
-            with self.assertRaisesRegex(RuntimeError, "token count mismatch"):
-                restore_request_prefix_cachetune(self.tree, reuse)
-        # The provisional allocation must have been freed before raising.
-        self.assertTrue(self.allocator.freed)
+            self.assertFalse(restore_request_prefix_cachetune(self.tree, reuse))
+        self.assertEqual(len(reuse.prefix_indices), 0)
+        self.assertEqual(recompute.calls, [])
+        # No slot leak: `restored_indices` (the destination scratch
+        # allocation this function is responsible for) is the *first*
+        # `RESTORE_LENGTH`-sized block allocated after `next_index`, and
+        # it must be freed exactly once -- no leak (it does appear) and
+        # no double-free (it appears exactly once, with no duplicate
+        # indices). A second, later allocation may legitimately follow
+        # (the source segment's own device-residency load via
+        # `ensure_device`, a lasting cache resource independent of this
+        # one request -- not this function's responsibility to free).
+        self.assertEqual(
+            sorted(self.allocator.freed),
+            list(range(next_index, next_index + RESTORE_LENGTH)),
+        )
+        self.assertIn(
+            ("cachetune_repair_count_invariant_violated", RESTORE_LENGTH),
+            self.metrics.fallbacks,
+        )
+        self.assertIn(("reuse", "dense_fallback"), self.metrics.requests)
 
 
 if __name__ == "__main__":

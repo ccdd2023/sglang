@@ -168,10 +168,23 @@ def restore_request_prefix_cachetune(tree_cache: Any, req: Any) -> bool:
         manager.record_request("reuse", "dense_fallback")
         return False
     if not isinstance(plugin, CacheTuneRecoveryPlugin):
-        raise TypeError(
-            "the 'cachetune' plugin registration must be a "
-            "CacheTuneRecoveryPlugin instance"
+        # A misregistered plugin is a genuine server misconfiguration,
+        # but this function is invoked synchronously from the
+        # scheduler's Req.init_next_round_input hot path -- raising
+        # here would take the whole scheduler down over a single
+        # request. Log loudly (so the misconfiguration is still visible
+        # in server logs, not just as a metrics counter) and dense-
+        # fall-back instead of crashing.
+        logger.error(
+            "CacheTune plugin registration has an invalid type %s "
+            "(expected CacheTuneRecoveryPlugin) for request %s; "
+            "dense-falling-back instead of raising",
+            type(plugin).__name__,
+            getattr(req, "rid", "<unknown>"),
         )
+        manager.record_fallback("cachetune_plugin_type_mismatch", 0)
+        manager.record_request("reuse", "dense_fallback")
+        return False
 
     if req.needs_host_load_back():
         manager.record_request("reuse", "exact_host_preferred")
@@ -401,7 +414,15 @@ def restore_request_prefix_cachetune(tree_cache: Any, req: Any) -> bool:
             stats = manager.execute(plan, backend)
         except Exception:
             allocator.free(restored_indices)
-            raise
+            logger.exception(
+                "CacheTune KV transfer execution failed for request %s",
+                getattr(req, "rid", "<unknown>"),
+            )
+            manager.record_fallback(
+                "cachetune_transfer_execution_failed", restore_length
+            )
+            manager.record_request("reuse", "dense_fallback")
+            return False
         if fallback_reasons or stats.recomputed_tokens:
             allocator.free(restored_indices)
             manager.record_request("reuse", "dense_fallback")
@@ -456,16 +477,28 @@ def restore_request_prefix_cachetune(tree_cache: Any, req: Any) -> bool:
     # Hard invariant (redundant with, but explicit alongside,
     # `TokenSelection.__post_init__`): the number of tokens actually
     # selected for repair must equal the controller's decision exactly.
-    # This is the concrete guarantee the task requires -- fail loudly
-    # (never dense-fallback) if it is ever violated, since a mismatch
-    # here means a bug in this module, not an expected runtime condition.
+    # A violation here means a bug in this module, not an expected
+    # runtime condition -- but this function is invoked synchronously
+    # from the scheduler's Req.init_next_round_input hot path, so even
+    # a "should never happen" internal bug must dense-fall-back rather
+    # than raise and take the whole scheduler down. Log loudly (so the
+    # bug is still visible in server logs, not just as a metrics
+    # counter) instead of crashing.
     if len(selected_local) != decision.repair_tokens:
         allocator.free(restored_indices)
-        raise RuntimeError(
-            "CacheTune repair token count mismatch: controller selected "
-            f"{decision.repair_tokens} but {len(selected_local)} were "
-            "actually chosen for repair"
+        logger.error(
+            "CacheTune repair token count invariant violated for "
+            "request %s: controller selected %d but %d were actually "
+            "chosen for repair; dense-falling-back instead of raising",
+            getattr(req, "rid", "<unknown>"),
+            decision.repair_tokens,
+            len(selected_local),
         )
+        manager.record_fallback(
+            "cachetune_repair_count_invariant_violated", restore_length
+        )
+        manager.record_request("reuse", "dense_fallback")
+        return False
 
     if selected_local:
         selected_slots = [int(restored_indices[p]) for p in selected_local]
