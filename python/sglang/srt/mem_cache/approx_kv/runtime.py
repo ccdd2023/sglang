@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import torch
@@ -32,6 +33,8 @@ from .types import (
     TransferSpan,
     token_ids_hash,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class ApproxKVRegistrationError(RuntimeError):
@@ -445,10 +448,22 @@ def _restore_kvcomm_prefix(
             "kvcomm_plan_invalid",
             remaining,
         )
-    validation_reason = plugin.validate_plan(
-        reconstruction_plan,
-        manager.store,
-    )
+    try:
+        validation_reason = plugin.validate_plan(
+            reconstruction_plan,
+            manager.store,
+        )
+    except Exception:
+        logger.exception(
+            "KVCOMM plan validation failed for request %s",
+            getattr(req, "rid", "<unknown>"),
+        )
+        return _record_kvcomm_fallback(
+            manager,
+            req,
+            "kvcomm_plan_validation_failed",
+            reconstruction_plan.restore_length,
+        )
     if validation_reason is not None:
         return _record_kvcomm_fallback(
             manager,
@@ -488,20 +503,21 @@ def _restore_kvcomm_prefix(
             target_indices=restored_indices,
             capabilities=capabilities,
         )
-    except KVCOMMCapabilityError as exc:
+    except Exception as exc:
         allocator.free(restored_indices)
-        return _record_kvcomm_fallback(
-            manager,
-            req,
-            exc.reason,
-            reconstruction_plan.restore_length,
+        logger.exception(
+            "KVCOMM reconstruction failed for request %s",
+            getattr(req, "rid", "<unknown>"),
         )
-    except (KeyError, KVCOMMInvariantError, RuntimeError, TypeError, ValueError):
-        allocator.free(restored_indices)
+        reason = (
+            exc.reason
+            if isinstance(exc, KVCOMMCapabilityError)
+            else "kvcomm_execution_failed"
+        )
         return _record_kvcomm_fallback(
             manager,
             req,
-            "kvcomm_execution_failed",
+            reason,
             reconstruction_plan.restore_length,
         )
 
@@ -509,8 +525,11 @@ def _restore_kvcomm_prefix(
         req.full_untruncated_fill_ids
     ):
         allocator.free(restored_indices)
-        raise KVCOMMInvariantError(
-            "KVCOMM must leave the final prompt token for forward"
+        return _record_kvcomm_fallback(
+            manager,
+            req,
+            "kvcomm_final_token_violation",
+            reconstruction_plan.restore_length,
         )
     req.prefix_indices = torch.cat(
         (

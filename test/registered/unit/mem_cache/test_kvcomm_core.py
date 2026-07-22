@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from dataclasses import replace
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import torch
 
@@ -684,6 +685,41 @@ class TestKVCOMMCore(unittest.TestCase):
         )
         self.assertFalse(restore_request_prefix(fixture.tree, req))
         self.assertEqual(req.kvcomm_fallback_reason, "kvcomm_requires_lru")
+
+    def test_plan_validation_exception_dense_falls_back(self):
+        fixture = KVCOMMFixture()
+        data = fixture.prepare()
+        req = FakeReq(
+            fixture.reuse_metadata(),
+            (800, *data["target_tokens"], *data["neighbor_tokens"], 999),
+            prefix_indices=torch.tensor([20], dtype=torch.int64),
+        )
+        with patch.object(
+            fixture.plugin,
+            "validate_plan",
+            side_effect=IndexError("injected validation failure"),
+        ):
+            self.assertFalse(restore_request_prefix(fixture.tree, req))
+        self.assertEqual(
+            req.kvcomm_fallback_reason,
+            "kvcomm_plan_validation_failed",
+        )
+
+    def test_execution_index_error_frees_slots_and_dense_falls_back(self):
+        fixture = KVCOMMFixture()
+        data = fixture.prepare()
+        req = FakeReq(
+            fixture.reuse_metadata(),
+            (800, *data["target_tokens"], *data["neighbor_tokens"], 999),
+            prefix_indices=torch.tensor([20], dtype=torch.int64),
+        )
+        with patch(
+            "sglang.srt.mem_cache.approx_kv.runtime.execute_kvcomm_reconstruction",
+            side_effect=IndexError("injected execution failure"),
+        ):
+            self.assertFalse(restore_request_prefix(fixture.tree, req))
+        self.assertEqual(req.kvcomm_fallback_reason, "kvcomm_execution_failed")
+        self.assertTrue(fixture.allocator.freed)
 
     def test_neighbor_mismatch_filters_anchor_pool(self):
         fixture = KVCOMMFixture()
