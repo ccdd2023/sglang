@@ -380,5 +380,139 @@ class TestCacheCraftRuntimeFullRecompute(unittest.TestCase):
         self.assertEqual(allocator.next_index, 16)  # no allocation attempted
 
 
+# ---------------------------------------------------------------------------
+# High-pressure recovery allocation for the partial-repair path: proves
+# ``restore_request_via_cachecraft`` allocates its target chunk buffer via
+# the shared ``allocate_recovery_slots`` helper, which evicts exact Radix
+# victims *before* allocating -- matching SGLang's standard
+# ``evict_from_tree_cache -> allocator.alloc`` ordering -- instead of the
+# prior direct ``allocator.alloc`` call that would fail under real device
+# KV pressure even when eviction could free enough slots.
+# ---------------------------------------------------------------------------
+
+
+class PressureAllocator(FakeAllocator):
+    def __init__(self, kvcache):
+        super().__init__(kvcache)
+        self.pressured = False
+        self.evicted = False
+
+    def available_size(self):
+        return 0 if (self.pressured and not self.evicted) else self.size_full
+
+    def alloc(self, size):
+        if self.pressured and not self.evicted:
+            return None
+        return super().alloc(size)
+
+
+class PressureTree:
+    def __init__(self, allocator, manager):
+        self.token_to_kv_pool_allocator = allocator
+        self.approx_kv = manager
+        self.evict_params = []
+
+    def is_chunk_cache(self):
+        return False
+
+    def evict(self, params):
+        self.evict_params.append(params)
+        self.token_to_kv_pool_allocator.evicted = True
+
+
+def make_pressure_fixture():
+    kvcache = FakeKVCache()
+    allocator = PressureAllocator(kvcache)
+    manager = ApproxKVManager(ApproxKVFeatureConfig(core_enabled=True))
+    tree = PressureTree(allocator, manager)
+    manager.store.register(
+        key=make_chunk_key(),
+        token_ids=CHUNK_TOKENS,
+        source_start=0,
+        residency=ResidencyTier.DEVICE,
+        backend_ref=DeviceKVRef(indices=torch.tensor([0, 1, 2], dtype=torch.int64)),
+    )
+    return kvcache, allocator, manager, tree
+
+
+class TestCacheCraftRuntimeHighPressureAllocation(unittest.TestCase):
+    def test_partial_repair_succeeds_under_pressure_via_eviction(self):
+        kvcache, allocator, manager, tree = make_pressure_fixture()
+        profiles = CacheCraftProfileStore()
+        # Same PARTIAL_REPAIR-triggering profile as
+        # TestCacheCraftRuntimePartialRepair (CFO ~= 0.52498, selecting
+        # positions 0 and 1).
+        profiles.register(
+            ChunkContextProfile(
+                chunk_id="chunk-C",
+                length=3,
+                old_prefix_order=("P",),
+                prefix_chunk_lengths={"P": 2},
+                inter_attention_by_layer={"P": (0.6,)},
+                intra_attention_by_layer=(9.0,),
+                token_inter_scores=(5.0, 1.0, 1.0),
+            )
+        )
+        plugin = CacheCraftPlugin(profiles)
+        req = make_req(new_prefix_order=())
+        hook = RealMarkerRecomputeHook()
+
+        # Simulate real device KV pressure only for the chunk target-buffer
+        # allocation itself; registration/store setup already happened.
+        allocator.pressured = True
+
+        ok = restore_request_via_cachecraft(
+            tree, req, plugin=plugin, recompute_hook=hook
+        )
+
+        self.assertTrue(ok)
+        self.assertEqual(len(tree.evict_params), 1)
+        self.assertEqual(tree.evict_params[0].num_tokens, 3)
+        trace = req.cachecraft_trace
+        self.assertEqual(trace.decision, CacheCraftDecision.PARTIAL_REPAIR)
+        self.assertEqual(len(hook.calls), 1)
+        self.assertEqual(len(req.prefix_indices), 3)
+        self.assertTrue(req.approx_kv_stats.mechanically_valid)
+
+    def test_partial_repair_dense_falls_back_without_leak_when_oom_persists(self):
+        kvcache, allocator, manager, tree = make_pressure_fixture()
+        profiles = CacheCraftProfileStore()
+        profiles.register(
+            ChunkContextProfile(
+                chunk_id="chunk-C",
+                length=3,
+                old_prefix_order=("P",),
+                prefix_chunk_lengths={"P": 2},
+                inter_attention_by_layer={"P": (0.6,)},
+                intra_attention_by_layer=(9.0,),
+                token_inter_scores=(5.0, 1.0, 1.0),
+            )
+        )
+        plugin = CacheCraftPlugin(profiles)
+        req = make_req(new_prefix_order=())
+        hook = RealMarkerRecomputeHook()
+
+        # Eviction runs but genuinely cannot free enough slots (real OOM):
+        # ``evict`` never flips ``evicted`` to True, so allocation keeps
+        # failing even after the eviction attempt.
+        def evict_without_freeing(params):
+            tree.evict_params.append(params)
+
+        tree.evict = evict_without_freeing
+        allocator.pressured = True
+        next_index = allocator.next_index
+
+        ok = restore_request_via_cachecraft(
+            tree, req, plugin=plugin, recompute_hook=hook
+        )
+
+        self.assertFalse(ok)
+        self.assertEqual(len(tree.evict_params), 1)
+        self.assertEqual(allocator.next_index, next_index)
+        self.assertEqual(allocator.freed, [])
+        self.assertEqual(hook.calls, [])
+        self.assertEqual(len(req.prefix_indices), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

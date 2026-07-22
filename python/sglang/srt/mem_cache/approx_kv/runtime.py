@@ -32,6 +32,30 @@ def _allocator(tree_cache: Any) -> Any:
     return allocator
 
 
+def allocate_recovery_slots(tree_cache: Any, num_tokens: int):
+    """Allocate approximate-recovery slots after evicting exact Radix victims.
+
+    The prior approximate-KV recovery paths called ``allocator.alloc``
+    directly, bypassing SGLang's standard ``evict_from_tree_cache ->
+    allocator.alloc`` ordering. Under real high-pressure (working set close
+    to or above device KV capacity) that direct allocation returns ``None``
+    or under-allocates even though evicting exact Radix victims would have
+    freed enough slots, so every recovery-buffer allocation must go through
+    this shared helper instead.
+    """
+    allocator = _allocator(tree_cache)
+    if (
+        hasattr(tree_cache, "evict")
+        and hasattr(tree_cache, "is_chunk_cache")
+        and hasattr(allocator, "available_size")
+    ):
+        # Local import avoids the common.py -> approx_kv.runtime import cycle.
+        from sglang.srt.mem_cache.common import evict_from_tree_cache
+
+        evict_from_tree_cache(tree_cache, num_tokens)
+    return allocator.alloc(num_tokens)
+
+
 def _release_device_ref(allocator: Any):
     def release(backend_ref: object, residency: ResidencyTier) -> None:
         if residency != ResidencyTier.DEVICE or not isinstance(
@@ -243,7 +267,7 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
             return False
 
     allocator = _allocator(tree_cache)
-    restored_indices = allocator.alloc(restore_length)
+    restored_indices = allocate_recovery_slots(tree_cache, restore_length)
     if restored_indices is None or len(restored_indices) != restore_length:
         if restored_indices is not None:
             allocator.free(restored_indices)

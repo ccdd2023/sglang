@@ -18,6 +18,7 @@ from sglang.srt.mem_cache.approx_kv.request import (
 )
 from sglang.srt.mem_cache.approx_kv.runtime import (
     ApproxKVRegistrationError,
+    allocate_recovery_slots,
     register_request_segments,
     restore_request_prefix,
 )
@@ -274,6 +275,164 @@ class TestApproxKVRuntime(unittest.TestCase):
         )
         self.assertFalse(restore_request_prefix(self.tree, reuse))
         self.assertEqual(self.allocator.next_index, next_index)
+        self.assertEqual(len(reuse.prefix_indices), 0)
+
+
+# ---------------------------------------------------------------------------
+# High-pressure recovery allocation: proves the shared
+# ``allocate_recovery_slots`` helper evicts exact Radix victims *before*
+# allocating the approximate-KV recovery buffer, matching SGLang's standard
+# ``evict_from_tree_cache -> allocator.alloc`` ordering, and that a genuine
+# post-eviction allocation failure still frees any partially-allocated
+# slots without leaking.
+# ---------------------------------------------------------------------------
+
+
+class PressureAllocator(FakeAllocator):
+    """An allocator that only succeeds once ``evict`` has genuinely run.
+
+    Mirrors the real high-pressure scenario: with the working set close to
+    device KV capacity, a naive ``allocator.alloc`` call would return
+    ``None`` (or under-allocate) even though evicting exact Radix victims
+    would free enough slots.
+    """
+
+    def __init__(self, kvcache):
+        super().__init__(kvcache)
+        self.pressured = False
+        self.evicted = False
+
+    def available_size(self):
+        return 0 if (self.pressured and not self.evicted) else self.size_full
+
+    def alloc(self, size):
+        if self.pressured and not self.evicted:
+            return None
+        return super().alloc(size)
+
+
+class PressureTree:
+    """A tree_cache stand-in exposing the ``evict``/``is_chunk_cache``
+    surface that ``allocate_recovery_slots`` probes with ``hasattr`` before
+    routing through ``evict_from_tree_cache``."""
+
+    def __init__(self, allocator, req_to_token_pool, manager):
+        self.token_to_kv_pool_allocator = allocator
+        self.req_to_token_pool = req_to_token_pool
+        self.approx_kv = manager
+        self.evict_params = []
+
+    def is_chunk_cache(self):
+        return False
+
+    def evict(self, params):
+        self.evict_params.append(params)
+        self.token_to_kv_pool_allocator.evicted = True
+
+
+class TestApproxKVRuntimeHighPressureAllocation(unittest.TestCase):
+    def setUp(self):
+        self.kvcache = FakeKVCache()
+        self.allocator = PressureAllocator(self.kvcache)
+        self.req_pool = FakeReqToTokenPool()
+        self.req_pool.req_to_token[0, :4] = torch.tensor([0, 1, 2, 3])
+        config = ApproxKVFeatureConfig(
+            core_enabled=True,
+            host_residency_enabled=False,
+        )
+        self.manager = ApproxKVManager(config)
+        self.tree = PressureTree(self.allocator, self.req_pool, self.manager)
+        self.segment = ApproxKVRequestSegment(
+            content_hash="artifact",
+            target_start=0,
+            length=3,
+        )
+
+    def metadata(self, operation):
+        return ApproxKVRequestMetadata(
+            operation=operation,
+            segments=(self.segment,),
+            model_fingerprint="model",
+            cache_dtype="fp32",
+        )
+
+    def test_allocate_recovery_slots_evicts_before_allocating(self):
+        slots = allocate_recovery_slots(self.tree, 8)
+        # available_size()==64 initially (not yet pressured), so the direct
+        # helper call below only exercises the eviction dispatch itself.
+        self.assertEqual(len(slots), 8)
+
+        self.allocator.pressured = True
+        self.allocator.evicted = False
+        second = allocate_recovery_slots(self.tree, 4)
+        self.assertEqual(len(second), 4)
+        self.assertEqual(len(self.tree.evict_params), 1)
+        self.assertEqual(self.tree.evict_params[0].num_tokens, 4)
+
+    def test_restore_request_prefix_succeeds_under_pressure_via_eviction(self):
+        source_keys = [
+            buffer[torch.tensor([0, 1, 2])].clone() for buffer in self.kvcache.k_buffer
+        ]
+        source_values = [
+            buffer[torch.tensor([0, 1, 2])].clone() for buffer in self.kvcache.v_buffer
+        ]
+        source = FakeReq(
+            self.metadata(ApproxKVRequestOperation.REGISTER),
+            (10, 11, 12, 13),
+        )
+        self.assertEqual(register_request_segments(self.tree, source), 3)
+
+        # Simulate real device KV pressure only for the recovery buffer
+        # allocation itself (registration happened before pressure was
+        # simulated and never triggered the eviction-before-alloc path).
+        self.allocator.pressured = True
+
+        reuse = FakeReq(
+            self.metadata(ApproxKVRequestOperation.REUSE),
+            (10, 11, 12, 99),
+        )
+        self.assertTrue(restore_request_prefix(self.tree, reuse))
+        self.assertEqual(len(self.tree.evict_params), 1)
+        self.assertEqual(self.tree.evict_params[0].num_tokens, 3)
+        self.assertEqual(len(reuse.prefix_indices), 3)
+        for layer in range(self.kvcache.layer_num):
+            torch.testing.assert_close(
+                self.kvcache.k_buffer[layer][reuse.prefix_indices],
+                source_keys[layer],
+            )
+            torch.testing.assert_close(
+                self.kvcache.v_buffer[layer][reuse.prefix_indices],
+                source_values[layer],
+            )
+        self.assertTrue(reuse.approx_kv_stats.mechanically_valid)
+
+    def test_restore_request_prefix_still_dense_falls_back_without_leak_when_oom_persists(
+        self,
+    ):
+        source = FakeReq(
+            self.metadata(ApproxKVRequestOperation.REGISTER),
+            (10, 11, 12, 13),
+        )
+        register_request_segments(self.tree, source)
+
+        # Eviction runs but genuinely cannot free enough slots (real OOM):
+        # ``evict`` never flips ``evicted`` to True, so allocation keeps
+        # failing even after the eviction attempt.
+        def evict_without_freeing(params):
+            self.tree.evict_params.append(params)
+
+        self.tree.evict = evict_without_freeing
+        self.allocator.pressured = True
+        next_index = self.allocator.next_index
+
+        reuse = FakeReq(
+            self.metadata(ApproxKVRequestOperation.REUSE),
+            (10, 11, 12, 99),
+        )
+        self.assertFalse(restore_request_prefix(self.tree, reuse))
+        self.assertEqual(len(self.tree.evict_params), 1)
+        self.assertEqual(self.allocator.next_index, next_index)
+        self.assertEqual(self.allocator.freed, [])
         self.assertEqual(len(reuse.prefix_indices), 0)
 
 

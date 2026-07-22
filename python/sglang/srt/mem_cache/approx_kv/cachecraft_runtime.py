@@ -8,9 +8,18 @@ decision invokes a real selected-token recompute hook rather than only
 recording a fallback reason.
 
 Known blockers / capability gates (see module docstrings in
-`cachecraft_recompute.py` and `cachecraft_attention.py` for the mechanism-
-level detail):
+`cachecraft_capability.py`, `cachecraft_recompute.py` and
+`cachecraft_attention.py` for the mechanism-level detail):
 
+0. `restore_request_via_cachecraft` itself is never called from a real
+   running server: `schedule_batch.py` (frozen common core) dispatches
+   *every* request carrying `approx_kv_metadata` to the generic
+   `runtime.restore_request_prefix` raw-copy path unconditionally, with no
+   branch on `metadata.plugin`. A real HTTP request tagged
+   `plugin: "cachecraft"` is therefore served by the wrong code path
+   entirely -- see `cachecraft_capability.inspect_scheduler_dispatch_capability`,
+   which any benchmark runner must check (and refuse to proceed past) before
+   attributing a "successful" server response to Cache-Craft.
 1. No production `ChunkRecomputeHook` is wired to a real model runner in
    this worktree: SGLang's `ForwardMode.TARGET_VERIFY` (the closest existing
    "recompute selected tokens against an existing KV context" mechanism) is
@@ -48,6 +57,7 @@ from .cachecraft_recompute import (
 from .plugins import RecoveryRequestContext
 from .radix_backend import RadixKVTransferBackend, RoPEConfig
 from .request import ApproxKVRequestOperation
+from .runtime import allocate_recovery_slots
 from .types import KVReusePlan, KVSegmentKey, SegmentKind, token_ids_hash
 
 
@@ -156,7 +166,7 @@ def restore_request_via_cachecraft(
     plan = _with_rope_delta(plan, rope_delta)
 
     allocator = tree_cache.token_to_kv_pool_allocator
-    target_indices = allocator.alloc(chunk_length)
+    target_indices = allocate_recovery_slots(tree_cache, chunk_length)
     if target_indices is None or len(target_indices) != chunk_length:
         if target_indices is not None:
             allocator.free(target_indices)
