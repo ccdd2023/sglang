@@ -1,5 +1,10 @@
 from .config import ApproxKVFeatureConfig
 from .manager import ApproxKVManager
+from .request import (
+    ApproxKVRequestMetadata,
+    ApproxKVRequestSegment,
+    parse_request_metadata,
+)
 from .store import (
     ApproxKVLease,
     ApproxKVSegmentStore,
@@ -28,6 +33,8 @@ __all__ = [
     "ApproxKVFeatureConfig",
     "ApproxKVLease",
     "ApproxKVManager",
+    "ApproxKVRequestMetadata",
+    "ApproxKVRequestSegment",
     "ApproxKVSegmentStore",
     "AnchorReconstructionSpan",
     "DenseRange",
@@ -43,5 +50,6 @@ __all__ = [
     "SegmentKind",
     "TransferSpan",
     "execute_reuse_plan",
+    "parse_request_metadata",
     "token_ids_hash",
 ]

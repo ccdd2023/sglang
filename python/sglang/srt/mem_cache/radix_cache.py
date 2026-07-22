@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from sglang.srt.mem_cache.approx_kv.config import ApproxKVFeatureConfig
+from sglang.srt.mem_cache.approx_kv.manager import ApproxKVManager
 from sglang.srt.mem_cache.cache_init_params import CacheInitParams
 
 """
@@ -306,6 +308,9 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
         self.eviction_strategy = get_eviction_strategy(self.eviction_policy)
 
         self.evictable_leaves = set()
+        self.approx_kv = ApproxKVManager(
+            ApproxKVFeatureConfig.from_env()
+        )
         self.reset()
 
     @classmethod
@@ -339,6 +344,7 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
         self.evictable_size_ = 0
         self.protected_size_ = 0
         self.evictable_leaves.clear()
+        self.approx_kv.reset()
         self._reset_session_radix_state()
         self._empty_match_result = MatchResult(
             device_indices=torch.empty(

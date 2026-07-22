@@ -10,10 +10,13 @@ on:
       - "python/sglang/srt/layers/activation.py"
       - "python/sglang/srt/layers/layernorm.py"
       - "python/sglang/srt/layers/sm75_compat.py"
+      - "python/sglang/srt/managers/schedule_batch.py"
       - "python/sglang/srt/mem_cache/approx_kv/**"
+      - "python/sglang/srt/mem_cache/radix_cache.py"
       - "test/registered/unit/benchmark/test_approx_kv_workloads.py"
       - "test/registered/unit/layers/test_sm75_compat.py"
       - "test/registered/unit/mem_cache/test_approx_kv_core.py"
+      - "test/registered/unit/mem_cache/test_approx_kv_integration_source.py"
       - "test/registered/unit/mem_cache/test_approx_kv_recovery.py"
       - "test/registered/unit/mem_cache/test_approx_kv_scheduler.py"
   workflow_dispatch:
@@ -39,10 +42,13 @@ jobs:
             python/sglang/srt/layers/activation.py \
             python/sglang/srt/layers/layernorm.py \
             python/sglang/srt/layers/sm75_compat.py \
+            python/sglang/srt/managers/schedule_batch.py \
             python/sglang/srt/mem_cache/approx_kv \
+            python/sglang/srt/mem_cache/radix_cache.py \
             test/registered/unit/benchmark/test_approx_kv_workloads.py \
             test/registered/unit/layers/test_sm75_compat.py \
             test/registered/unit/mem_cache/test_approx_kv_core.py \
+            test/registered/unit/mem_cache/test_approx_kv_integration_source.py \
             test/registered/unit/mem_cache/test_approx_kv_recovery.py \
             test/registered/unit/mem_cache/test_approx_kv_scheduler.py
 
@@ -50,6 +56,7 @@ jobs:
         run: |
           python test/registered/unit/layers/test_sm75_compat.py
           python test/registered/unit/mem_cache/test_approx_kv_core.py
+          python test/registered/unit/mem_cache/test_approx_kv_integration_source.py
           python test/registered/unit/mem_cache/test_approx_kv_recovery.py
           python test/registered/unit/mem_cache/test_approx_kv_scheduler.py
           python test/registered/unit/benchmark/test_approx_kv_workloads.py
