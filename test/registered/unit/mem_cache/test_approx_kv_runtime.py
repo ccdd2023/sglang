@@ -18,6 +18,7 @@ from sglang.srt.mem_cache.approx_kv.request import (
 )
 from sglang.srt.mem_cache.approx_kv.runtime import (
     ApproxKVRegistrationError,
+    allocate_recovery_slots,
     register_request_segments,
     restore_request_prefix,
 )
@@ -276,6 +277,86 @@ class TestApproxKVRuntime(unittest.TestCase):
         self.assertFalse(restore_request_prefix(self.tree, reuse))
         self.assertEqual(self.allocator.next_index, next_index)
         self.assertEqual(len(reuse.prefix_indices), 0)
+
+
+# ---------------------------------------------------------------------------
+# allocate_recovery_slots: the R0 high-pressure benchmark contract (multi-
+# object working sets pushing actual reusable rho above 1x) requires
+# recovery-buffer allocation to evict exact Radix victims first, matching
+# SGLang's standard evict_from_tree_cache -> allocator.alloc ordering, rather
+# than calling allocator.alloc directly and risking allocator exhaustion.
+# ---------------------------------------------------------------------------
+
+
+class PressureAllocator(FakeAllocator):
+    def __init__(self, kvcache):
+        super().__init__(kvcache)
+        self.evicted = False
+
+    def available_size(self):
+        return 0 if not self.evicted else 64
+
+    def alloc(self, size):
+        if not self.evicted:
+            return None
+        return super().alloc(size)
+
+
+class FakeEvictingTree:
+    def __init__(self, allocator):
+        self.token_to_kv_pool_allocator = allocator
+        self.evict_params = []
+
+    def is_chunk_cache(self):
+        return False
+
+    def evict(self, params):
+        self.evict_params.append(params)
+        self.token_to_kv_pool_allocator.evicted = True
+
+
+class TestAllocateRecoverySlots(unittest.TestCase):
+    def test_evicts_exact_cache_before_allocating_under_pressure(self):
+        allocator = PressureAllocator(FakeKVCache())
+        tree = FakeEvictingTree(allocator)
+        slots = allocate_recovery_slots(tree, 8)
+        self.assertEqual(len(slots), 8)
+        self.assertEqual(len(tree.evict_params), 1)
+        self.assertEqual(tree.evict_params[0].num_tokens, 8)
+
+    def test_skips_eviction_when_pool_has_slack(self):
+        kvcache = FakeKVCache()
+
+        class SlackAllocator(FakeAllocator):
+            def available_size(self):
+                return 64
+
+        allocator = SlackAllocator(kvcache)
+        tree = FakeEvictingTree(allocator)
+        next_index = allocator.next_index
+        slots = allocate_recovery_slots(tree, 4)
+        self.assertEqual(len(slots), 4)
+        self.assertEqual(list(slots.tolist()), list(range(next_index, next_index + 4)))
+        self.assertEqual(len(tree.evict_params), 0)
+
+    def test_remains_compatible_with_fake_trees_lacking_evict_hooks(self):
+        # register_request_segments/restore_request_prefix tests above build
+        # a plain SimpleNamespace tree with no evict/is_chunk_cache methods
+        # and a FakeAllocator with no available_size -- allocate_recovery_slots
+        # must fall back to a direct allocator.alloc without raising, so
+        # existing fake-harness-based tests keep working unmodified.
+        kvcache = FakeKVCache()
+        allocator = FakeAllocator(kvcache)
+        tree = SimpleNamespace(token_to_kv_pool_allocator=allocator)
+        next_index = allocator.next_index
+        slots = allocate_recovery_slots(tree, 5)
+        self.assertEqual(len(slots), 5)
+        self.assertEqual(list(slots.tolist()), list(range(next_index, next_index + 5)))
+
+    def test_raises_when_allocator_missing(self):
+        tree = SimpleNamespace(token_to_kv_pool_allocator=None)
+        with self.assertRaises(RuntimeError):
+            allocate_recovery_slots(tree, 1)
 
 
 if __name__ == "__main__":

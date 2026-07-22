@@ -14,6 +14,7 @@ from .raw_rope import (
     build_raw_rope_plan,
     select_contiguous_segments,
 )
+from .runtime import allocate_recovery_slots
 from .store import (
     AsyncResidencyLoader,
     AsyncResidencyTransfer,
@@ -71,6 +72,7 @@ __all__ = [
     "SchedulerMetadata",
     "SegmentKind",
     "TransferSpan",
+    "allocate_recovery_slots",
     "build_raw_rope_plan",
     "execute_reuse_plan",
     "select_contiguous_segments",
