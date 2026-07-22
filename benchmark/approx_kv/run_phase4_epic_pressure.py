@@ -34,6 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--body-tokens", type=int, default=736)
     parser.add_argument("--header-tokens", type=int, default=64)
     parser.add_argument("--filler-tokens", type=int, default=736)
+    parser.add_argument("--segment-tokens", type=int, default=512)
     parser.add_argument("--repeats", type=_repeat_count, default=4)
     parser.add_argument("--runner-git-sha", required=True)
     parser.add_argument("--image-digest", required=True)
@@ -118,22 +119,14 @@ def filler_prompt(index: int, length: int) -> list[int]:
 def build_metadata(
     *,
     operation: str,
-    content_hash: str,
-    header_tokens: int,
-    body_tokens: int,
+    segments: list[dict],
     plugin: str | None = None,
 ) -> dict:
     metadata = {
         "operation": operation,
         "model_fingerprint": "qwen3-0.6b-sm75",
         "cache_dtype": "float16",
-        "segments": [
-            {
-                "content_hash": content_hash,
-                "target_start": header_tokens,
-                "length": body_tokens,
-            }
-        ],
+        "segments": segments,
     }
     if plugin is not None:
         metadata["plugin"] = plugin
@@ -156,20 +149,41 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
     content_hash = (
         f"epic-pressure-k{args.k}-rho{args.target_rho:.3f}-round{round_index}"
     )
+    body_chunks = [
+        body[start : start + args.segment_tokens]
+        for start in range(0, len(body), args.segment_tokens)
+    ]
+    target_segments = []
+    cursor = args.header_tokens
+    for chunk_index, chunk in enumerate(body_chunks):
+        target_segments.append(
+            {
+                "content_hash": f"{content_hash}-chunk{chunk_index}",
+                "target_start": cursor,
+                "length": len(chunk),
+            }
+        )
+        cursor += len(chunk)
 
     if args.mode == "epic":
-        request(
-            args.base_url,
-            source_header + body + [900],
-            build_metadata(
-                operation="register",
-                content_hash=content_hash,
-                header_tokens=args.header_tokens,
-                body_tokens=args.body_tokens,
-            ),
-        )
+        for chunk_index, chunk in enumerate(body_chunks):
+            request(
+                args.base_url,
+                source_header + chunk + [900 + chunk_index],
+                build_metadata(
+                    operation="register",
+                    segments=[
+                        {
+                            "content_hash": f"{content_hash}-chunk{chunk_index}",
+                            "target_start": args.header_tokens,
+                            "length": len(chunk),
+                        }
+                    ],
+                ),
+            )
     else:
-        request(args.base_url, body + [900])
+        for chunk_index, chunk in enumerate(body_chunks):
+            request(args.base_url, chunk + [900 + chunk_index])
 
     for filler_index in range(filler_count):
         request(
@@ -184,9 +198,7 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
     metadata = (
         build_metadata(
             operation="reuse",
-            content_hash=content_hash,
-            header_tokens=args.header_tokens,
-            body_tokens=args.body_tokens,
+            segments=target_segments,
             plugin="epic",
         )
         if args.mode == "epic"
@@ -217,6 +229,8 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
         "actual_declared_rho": declared_tokens / capacity,
         "filler_count": filler_count,
         "declared_working_tokens": declared_tokens,
+        "segment_tokens": args.segment_tokens,
+        "segment_count": len(body_chunks),
         "target": target,
         "baseline_metrics": metric_subset(baseline),
         "before_target_metrics": metric_subset(before_target),
@@ -230,6 +244,8 @@ def main() -> None:
     args = parse_args()
     if args.target_rho <= 0:
         raise ValueError("target_rho must be positive")
+    if args.segment_tokens <= 0:
+        raise ValueError("segment_tokens must be positive")
     prompt_tokens = args.header_tokens + args.body_tokens + 1
     crosses_chunk_boundary = prompt_tokens > 1024
 
@@ -245,6 +261,7 @@ def main() -> None:
         "body_tokens": args.body_tokens,
         "header_tokens": args.header_tokens,
         "filler_tokens": args.filler_tokens,
+        "segment_tokens": args.segment_tokens,
         "target_prompt_tokens": prompt_tokens,
         "crosses_1024_token_chunk_boundary": crosses_chunk_boundary,
         "global_warmup_passes": 1,
