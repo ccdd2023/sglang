@@ -92,8 +92,11 @@ class TestRawRopePlanConstruction(unittest.TestCase):
             hf_config=SimpleNamespace(
                 model_type="qwen3",
                 head_dim=128,
-                rope_theta=1000000.0,
-                rope_scaling=None,
+                rope_theta=None,
+                rope_scaling={
+                    "rope_type": "default",
+                    "rope_theta": 1000000.0,
+                },
             )
         )
         config = resolve_model_rope_config(model_config)

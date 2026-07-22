@@ -101,8 +101,13 @@ def resolve_model_rope_config(model_config) -> RoPEConfig | None:
     model_type = str(getattr(hf_config, "model_type", "")).lower()
     if model_type not in {"qwen2", "qwen3"}:
         return None
-    if getattr(hf_config, "rope_scaling", None):
-        return None
+    rope_scaling = getattr(hf_config, "rope_scaling", None)
+    if rope_scaling:
+        rope_type = str(
+            rope_scaling.get("rope_type", rope_scaling.get("type", ""))
+        ).lower()
+        if rope_type not in {"", "default"}:
+            return None
     head_dim = getattr(hf_config, "head_dim", None)
     if head_dim is None:
         hidden_size = int(hf_config.hidden_size)
@@ -116,7 +121,10 @@ def resolve_model_rope_config(model_config) -> RoPEConfig | None:
         return None
     return RoPEConfig(
         rotary_dim=rotary_dim,
-        base=float(getattr(hf_config, "rope_theta", 10000.0)),
+        base=float(
+            getattr(hf_config, "rope_theta", None)
+            or (rope_scaling or {}).get("rope_theta", 10000.0)
+        ),
         is_neox_style=True,
     )
 
