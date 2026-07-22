@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-22T05:17:55Z",
+  "repository": "https://github.com/ccdd2023/sglang",
+  "branch": "experiment/phase1-image",
+  "source_git_sha": "5a0fd2606bb62c6bcca004a4b2784ace745a580a",
+  "assembly": {
+    "tool": "crane",
+    "version": "v0.20.3",
+    "method": "registry-to-registry OCI mutation without unpacking base layers"
+  },
+  "images": {
+    "sm75": {
+      "tag": "ghcr.io/ccdd2023/sglang:sm75-5a0fd2606bb62c6bcca004a4b2784ace745a580a",
+      "alias": "ghcr.io/ccdd2023/sglang:sm75-phase1",
+      "digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+      "base": "lmsysorg/sglang@sha256:9bfa6494978dd1781788a73e5b096635c183b1e9e46d1d1c2bb10a1ed1630716",
+      "platform": "linux/amd64",
+      "cuda": "12.9.1",
+      "torch": "2.9.1+cu129",
+      "transformers": "5.12.1",
+      "sgl_kernel": "0.3.21",
+      "source_mount": "/workspace/sglang",
+      "source_mount_mode": "read-only",
+      "attention_backend": "torch_native",
+      "sampling_backend": "pytorch",
+      "cuda_graph": "disabled",
+      "ci_run": "https://github.com/ccdd2023/sglang/actions/runs/29892292070",
+      "validation": {
+        "source_test": "test/registered/unit/layers/test_sm75_compat.py",
+        "gpu": "NVIDIA GeForce RTX 2080 SUPER",
+        "compute_capability": "7.5",
+        "activation_native_fallback": true,
+        "rmsnorm_native_fallback": true,
+        "qwen_model": "Qwen/Qwen3-0.6B",
+        "health": "passed",
+        "model_info": "passed",
+        "chat_completion_max_tokens": 1,
+        "chat_completion": "passed"
+      }
+    },
+    "runtime": {
+      "tag": "ghcr.io/ccdd2023/sglang:runtime-5a0fd2606bb62c6bcca004a4b2784ace745a580a",
+      "alias": "ghcr.io/ccdd2023/sglang:runtime-phase1",
+      "digest": "sha256:2e36099165cedb0d328c98ee6c37f88c7c626d1a953a35de28748d1aa6183482",
+      "base": "lmsysorg/sglang:v0.5.15.post1-cu130-runtime@sha256:247fd6bfcdeabe3e382da5c557537440148d08fd30f2b482f01fa09e242fe185",
+      "base_linux_amd64_digest": "sha256:6a219e32dc4fd4a76420ceda2865a43c76cc3ea98f8d9e32e399c7793fc6fded",
+      "platform": "linux/amd64",
+      "cuda": "13.0.1",
+      "torch": "2.11.0+cu130",
+      "transformers": "5.12.1",
+      "sglang_kernel": "0.4.4",
+      "source_mount": "/workspace/sglang",
+      "source_mount_mode": "read-only",
+      "ci_run": "https://github.com/ccdd2023/sglang/actions/runs/29892292080",
+      "validation": {
+        "source_test": "test/registered/unit/layers/test_sm75_compat.py",
+        "sm80_native_gate": true,
+        "sm120_native_gate": true,
+        "sm100_common_ops_binary": "common_ops.abi3.so",
+        "scope": "static build and dependency validation",
+        "sm120_gpu_smoke": "deferred until RTX PRO 6000 access"
+      }
+    }
+  },
+  "host_safety": {
+    "host_image_build": false,
+    "host_driver_changes": false,
+    "host_dkms_changes": false,
+    "host_kernel_module_changes": false
+  }
+}
