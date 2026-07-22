@@ -5,10 +5,11 @@ from typing import Any
 
 from .async_transfer import ApproxKVPrefetchTicket
 from .config import ApproxKVFeatureConfig
+from .kvcomm import KVCOMMRecoveryPlugin
 from .plugins import RecoveryPlugin, RecoveryPluginRegistry
 from .store import (
-    AsyncResidencyLoader,
     ApproxKVSegmentStore,
+    AsyncResidencyLoader,
     ReleaseBackend,
     ResidencyLoader,
 )
@@ -33,9 +34,11 @@ class ApproxKVManager:
         self.config = config or ApproxKVFeatureConfig()
         self.store = store or ApproxKVSegmentStore()
         self.plugins = RecoveryPluginRegistry()
+        self.register_plugin(KVCOMMRecoveryPlugin())
         self.metrics_collector = metrics_collector
         self.residency_backend: Any | None = None
         self.rope_config: Any | None = None
+        self.runtime_capabilities: Any | None = None
         self._async_loader: AsyncResidencyLoader | None = None
         self._tickets: dict[str, ApproxKVPrefetchTicket] = {}
         self._ticket_lock = threading.Lock()
@@ -117,6 +120,14 @@ class ApproxKVManager:
     def bind_rope_config(self, rope_config: Any) -> None:
         self.rope_config = rope_config
 
+    def bind_runtime_capabilities(self, capabilities: Any | None) -> None:
+        self.runtime_capabilities = capabilities
+        for name in self.plugins.names():
+            plugin = self.plugins.get(name)
+            callback = getattr(plugin, "bind_runtime_capabilities", None)
+            if callback is not None:
+                callback(capabilities)
+
     def export_to_host(self, device_ref: Any):
         if not self.config.host_residency_enabled:
             raise RuntimeError("approximate KV host residency is disabled")
@@ -195,7 +206,15 @@ class ApproxKVManager:
             tickets = tuple(self._tickets.values())
         for ticket in tickets:
             ticket.cancel()
+        for name in self.plugins.names():
+            plugin = self.plugins.get(name)
+            callback = getattr(plugin, "reset", None)
+            if callback is not None:
+                callback()
         self.store.reset()
+
+    def record_transfer_stats(self, stats: KVTransferStats) -> None:
+        self._record_transfer_stats(stats)
 
     def _forget_ticket(self, ticket_id: str) -> None:
         with self._ticket_lock:

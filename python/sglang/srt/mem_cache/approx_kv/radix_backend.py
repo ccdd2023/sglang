@@ -176,6 +176,10 @@ class RadixKVTransferBackend:
             copied_k_tokens=length,
             rotated_k_tokens=length,
             copied_v_tokens=length,
+            layer_count=kvcache.layer_num,
+            copied_k_layer_tokens=length * kvcache.layer_num,
+            rotated_k_layer_tokens=length * kvcache.layer_num,
+            copied_v_layer_tokens=length * kvcache.layer_num,
             copy_ms=copy_ms,
             rope_ms=rope_ms,
         )

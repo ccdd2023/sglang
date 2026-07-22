@@ -16,11 +16,15 @@ class SegmentKind(str, Enum):
     PREFIX = "prefix"
     MIDDLE = "middle"
     ARTIFACT = "artifact"
+    KVCOMM_BASE = "kvcomm_base"
+    KVCOMM_PLACEHOLDER_DELTA = "kvcomm_placeholder_delta"
+    KVCOMM_NEIGHBOR_DELTA = "kvcomm_neighbor_delta"
 
 
 class RecoveryMode(str, Enum):
     DENSE = "dense"
     COPY = "copy"
+    KVCOMM = "kvcomm"
 
 
 def token_ids_hash(token_ids: Sequence[int]) -> str:
@@ -48,9 +52,7 @@ class KVSegmentKey:
         if self.token_count <= 0:
             raise ValueError("token_count must be positive")
         if not self.model_fingerprint or not self.cache_dtype:
-            raise ValueError(
-                "model_fingerprint and cache_dtype must be non-empty"
-            )
+            raise ValueError("model_fingerprint and cache_dtype must be non-empty")
 
 
 @dataclass(frozen=True)
@@ -117,6 +119,7 @@ class KVReusePlan:
     copied_spans: tuple[TransferSpan, ...] = ()
     dense_ranges: tuple[DenseRange, ...] = ()
     require_full_coverage: bool = False
+    plugin_data: Any = field(default=None, compare=False, repr=False)
 
 
 @dataclass
@@ -137,6 +140,10 @@ class KVTransferStats:
     copy_ms: float = 0.0
     rope_ms: float = 0.0
     fallback_reasons: list[str] = field(default_factory=list)
+    layer_count: int = 0
+    copied_k_layer_tokens: int = 0
+    rotated_k_layer_tokens: int = 0
+    copied_v_layer_tokens: int = 0
 
     @property
     def accounted_tokens(self) -> int:
@@ -144,11 +151,21 @@ class KVTransferStats:
 
     @property
     def mechanically_valid(self) -> bool:
-        return (
+        token_accounting_valid = (
             self.copied_k_tokens == self.rotated_k_tokens
             and self.copied_k_tokens == self.copied_v_tokens
             and self.zeroed_gap_tokens == 0
             and self.accounted_tokens == self.target_tokens
+        )
+        if not token_accounting_valid:
+            return False
+        if self.layer_count == 0:
+            return True
+        expected = self.copied_k_tokens * self.layer_count
+        return (
+            self.copied_k_layer_tokens == expected
+            and self.rotated_k_layer_tokens == expected
+            and self.copied_v_layer_tokens == expected
         )
 
 
@@ -159,6 +176,10 @@ class KVLayerTransferResult:
     copied_v_tokens: int
     copy_ms: float = 0.0
     rope_ms: float = 0.0
+    layer_count: int = 0
+    copied_k_layer_tokens: int = 0
+    rotated_k_layer_tokens: int = 0
+    copied_v_layer_tokens: int = 0
 
 
 @dataclass(frozen=True)

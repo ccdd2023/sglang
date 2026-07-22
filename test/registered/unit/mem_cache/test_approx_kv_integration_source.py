@@ -66,14 +66,18 @@ class TestApproxKVIntegrationSource(unittest.TestCase):
         self.assertIn("register_request_segments(tree_cache, req)", common_source)
         self.assertIn("except ApproxKVRegistrationError", common_source)
 
-    def test_common_core_excludes_paper_specific_algorithms(self):
-        source = "\n".join(
-            path.read_text()
-            for path in PACKAGE_DIR.glob("*.py")
-        ).lower()
+    def test_kvcomm_is_wired_without_unrelated_algorithms(self):
+        source = "\n".join(path.read_text() for path in PACKAGE_DIR.glob("*.py"))
+        runtime_source = (PACKAGE_DIR / "runtime.py").read_text()
+        manager_source = (PACKAGE_DIR / "manager.py").read_text()
+        self.assertIn("class KVCOMMRecoveryPlugin", source)
+        self.assertIn("execute_kvcomm_reconstruction", runtime_source)
+        self.assertIn("_restore_kvcomm_prefix", runtime_source)
+        self.assertIn("KVCOMMRecoveryPlugin", manager_source)
+
+        source = source.lower()
         for forbidden in (
             "epic_fixed_k",
-            "kvcomm_anchor",
             "selective_repair",
             "hardware_selector",
             "allow_token_mismatch",
@@ -82,8 +86,7 @@ class TestApproxKVIntegrationSource(unittest.TestCase):
 
     def test_metrics_are_exposed(self):
         source = (
-            REPO_ROOT
-            / "python/sglang/srt/observability/metrics_collector.py"
+            REPO_ROOT / "python/sglang/srt/observability/metrics_collector.py"
         ).read_text()
         for metric in (
             "sglang:approx_kv_requests_total",

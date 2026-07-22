@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Mapping, Sequence
 
@@ -37,14 +37,19 @@ class ApproxKVRequestMetadata:
     model_fingerprint: str
     cache_dtype: str
     plugin: str | None = None
+    plugin_params: Mapping[str, Any] = field(
+        default_factory=dict,
+        compare=False,
+        repr=False,
+    )
 
     def __post_init__(self) -> None:
         if not self.segments:
             raise ValueError("segments must not be empty")
         if not self.model_fingerprint or not self.cache_dtype:
-            raise ValueError(
-                "model_fingerprint and cache_dtype must be non-empty"
-            )
+            raise ValueError("model_fingerprint and cache_dtype must be non-empty")
+        if not isinstance(self.plugin_params, Mapping):
+            raise ValueError("plugin_params must be an object")
 
     def validate_prompt_length(self, prompt_length: int) -> None:
         if prompt_length <= 0:
@@ -93,10 +98,14 @@ def parse_request_metadata(
         )
         for segment in raw_segments
     )
+    plugin_params = raw.get("plugin_params", {})
+    if not isinstance(plugin_params, Mapping):
+        raise ValueError("approx_kv.plugin_params must be an object")
     return ApproxKVRequestMetadata(
         operation=operation,
         segments=segments,
         model_fingerprint=str(raw.get("model_fingerprint", "runtime")),
         cache_dtype=str(raw.get("cache_dtype", "auto")),
         plugin=(None if raw.get("plugin") is None else str(raw["plugin"])),
+        plugin_params=dict(plugin_params),
     )

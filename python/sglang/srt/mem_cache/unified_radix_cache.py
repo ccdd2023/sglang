@@ -389,6 +389,7 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
             ApproxKVFeatureConfig.from_env(),
             metrics_collector=getattr(self, "metrics_collector", None),
         )
+        self.approx_kv.bind_runtime_capabilities(params.approx_kv_capabilities)
         if (
             self.approx_kv.config.host_residency_enabled
             and self.token_to_kv_pool_allocator is not None

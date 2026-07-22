@@ -53,3 +53,4 @@ class CacheInitParams:
     component_registry_override: Optional[dict[ComponentType, type[TreeComponent]]] = (
         None
     )
+    approx_kv_capabilities: object | None = None

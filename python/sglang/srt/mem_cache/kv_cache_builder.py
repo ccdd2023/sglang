@@ -33,6 +33,10 @@ from sglang.srt.configs.hybrid_arch import (
 from sglang.srt.configs.model_config import ModelImpl, is_deepseek_dsa
 from sglang.srt.environ import envs
 from sglang.srt.managers.mm_utils import init_mm_embedding_cache
+from sglang.srt.mem_cache.approx_kv.config import ApproxKVFeatureConfig
+from sglang.srt.mem_cache.approx_kv.kvcomm import (
+    KVCOMMRuntimeCapabilities,
+)
 from sglang.srt.mem_cache.cache_init_params import CacheInitParams
 from sglang.srt.mem_cache.registry import TreeCacheBuildContext, create_tree_cache
 from sglang.srt.model_loader.utils import get_resolved_model_impl
@@ -204,6 +208,18 @@ def build_kv_cache(
     if model_config.is_multimodal and uses_transformers_backend:
         effective_chunked_prefill_size = None
 
+    approx_kv_capabilities = None
+    if ApproxKVFeatureConfig.from_env().core_enabled:
+        approx_kv_capabilities = KVCOMMRuntimeCapabilities.from_model_config(
+            model_config,
+            tp_size=ps.tp_size,
+            is_hybrid_swa=is_hybrid_swa,
+            is_hybrid_ssm=is_hybrid_ssm,
+            is_multimodal=model_config.is_multimodal,
+            is_speculative=spec_algorithm.is_some(),
+            pp_size=ps.pp_size,
+        )
+
     params = CacheInitParams(
         disable=disable_radix_cache,
         req_to_token_pool=req_to_token_pool,
@@ -233,6 +249,7 @@ def build_kv_cache(
         pp_size=ps.pp_size,
         chunked_prefill_size=effective_chunked_prefill_size,
         sliding_window_size=sliding_window_size,
+        approx_kv_capabilities=approx_kv_capabilities,
     )
 
     tree_cache = create_tree_cache(

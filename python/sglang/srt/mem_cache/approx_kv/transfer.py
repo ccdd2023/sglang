@@ -162,9 +162,27 @@ def execute_reuse_plan(
             raise KVTransferInvariantError(
                 "all copied K tokens must receive full RoPE correction"
             )
+        if result.layer_count:
+            if stats.layer_count not in (0, result.layer_count):
+                raise KVTransferInvariantError(
+                    "backend reported inconsistent KV layer counts"
+                )
+            expected_layer_tokens = span.length * result.layer_count
+            if (
+                result.copied_k_layer_tokens != expected_layer_tokens
+                or result.rotated_k_layer_tokens != expected_layer_tokens
+                or result.copied_v_layer_tokens != expected_layer_tokens
+            ):
+                raise KVTransferInvariantError(
+                    "backend did not account for every K/V layer"
+                )
+            stats.layer_count = result.layer_count
         stats.copied_k_tokens += result.copied_k_tokens
         stats.rotated_k_tokens += result.rotated_k_tokens
         stats.copied_v_tokens += result.copied_v_tokens
+        stats.copied_k_layer_tokens += result.copied_k_layer_tokens
+        stats.rotated_k_layer_tokens += result.rotated_k_layer_tokens
+        stats.copied_v_layer_tokens += result.copied_v_layer_tokens
         stats.copy_ms += result.copy_ms
         stats.rope_ms += result.rope_ms
 

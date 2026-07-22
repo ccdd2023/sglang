@@ -1,5 +1,26 @@
 from .async_transfer import ApproxKVPrefetchTicket, AsyncTransferState
 from .config import ApproxKVFeatureConfig
+from .kvcomm import (
+    KVCOMMAction,
+    KVCOMMAnchor,
+    KVCOMMCapabilityError,
+    KVCOMMInvariantError,
+    KVCOMMObservedSegment,
+    KVCOMMProvenance,
+    KVCOMMReconstructionPlan,
+    KVCOMMRecoveryPlugin,
+    KVCOMMRequestSpec,
+    KVCOMMRuntimeCapabilities,
+    KVCOMMSegmentDescriptor,
+    KVCOMMSegmentRole,
+    KVCOMMWeightResult,
+    compute_interpolation_weights,
+    execute_kvcomm_reconstruction,
+    normalize_key_positions,
+    relocate_key_positions,
+    rotate_key_positions,
+    validate_interpolation_weights,
+)
 from .manager import ApproxKVManager
 from .plugins import (
     RecoveryPlugin,
@@ -7,10 +28,10 @@ from .plugins import (
     RecoveryRequestContext,
 )
 from .store import (
-    AsyncResidencyLoader,
-    AsyncResidencyTransfer,
     ApproxKVLease,
     ApproxKVSegmentStore,
+    AsyncResidencyLoader,
+    AsyncResidencyTransfer,
     ResidencyLoadResult,
 )
 from .transfer import (
@@ -44,6 +65,19 @@ __all__ = [
     "AsyncTransferState",
     "DenseRange",
     "KVLayerTransferResult",
+    "KVCOMMAction",
+    "KVCOMMAnchor",
+    "KVCOMMCapabilityError",
+    "KVCOMMInvariantError",
+    "KVCOMMObservedSegment",
+    "KVCOMMProvenance",
+    "KVCOMMReconstructionPlan",
+    "KVCOMMRecoveryPlugin",
+    "KVCOMMRequestSpec",
+    "KVCOMMRuntimeCapabilities",
+    "KVCOMMSegmentDescriptor",
+    "KVCOMMSegmentRole",
+    "KVCOMMWeightResult",
     "KVReusePlan",
     "KVSegmentHandle",
     "KVSegmentKey",
@@ -59,6 +93,12 @@ __all__ = [
     "SchedulerMetadata",
     "SegmentKind",
     "TransferSpan",
+    "compute_interpolation_weights",
+    "execute_kvcomm_reconstruction",
     "execute_reuse_plan",
+    "normalize_key_positions",
+    "relocate_key_positions",
+    "rotate_key_positions",
     "token_ids_hash",
+    "validate_interpolation_weights",
 ]
