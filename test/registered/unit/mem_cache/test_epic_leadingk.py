@@ -6,6 +6,9 @@ from types import SimpleNamespace
 
 import torch
 
+from sglang.srt.layers.attention.torch_native_backend import (
+    TorchNativeAttnBackend,
+)
 from sglang.srt.mem_cache.approx_kv.config import ApproxKVFeatureConfig
 from sglang.srt.mem_cache.approx_kv.epic_capability import (
     LayerwiseCapability,
@@ -38,9 +41,9 @@ from sglang.srt.mem_cache.approx_kv.request import (
     ApproxKVRequestOperation,
     ApproxKVRequestSegment,
 )
-from sglang.srt.mem_cache.approx_kv.runtime import register_request_segments
-from sglang.srt.layers.attention.torch_native_backend import (
-    TorchNativeAttnBackend,
+from sglang.srt.mem_cache.approx_kv.runtime import (
+    allocate_recovery_slots,
+    register_request_segments,
 )
 from sglang.test.ci.ci_register import register_cpu_ci
 
@@ -125,6 +128,33 @@ class FakeAllocator:
         for layer in range(self.kvcache.layer_num):
             self.kvcache.k_buffer[layer][indices] = keys[layer]
             self.kvcache.v_buffer[layer][indices] = values[layer]
+
+
+class PressureAllocator(FakeAllocator):
+    def __init__(self, kvcache):
+        super().__init__(kvcache)
+        self.evicted = False
+
+    def available_size(self):
+        return 0 if not self.evicted else 64
+
+    def alloc(self, size):
+        if not self.evicted:
+            return None
+        return super().alloc(size)
+
+
+class FakeEvictingTree:
+    def __init__(self, allocator):
+        self.token_to_kv_pool_allocator = allocator
+        self.evict_params = []
+
+    def is_chunk_cache(self):
+        return False
+
+    def evict(self, params):
+        self.evict_params.append(params)
+        self.token_to_kv_pool_allocator.evicted = True
 
 
 class FakeReqToTokenPool:
@@ -590,6 +620,14 @@ class TestApproxKVFeatureConfigEpic(unittest.TestCase):
 
 
 class TestTorchNativeEpicForwardBatchFactory(unittest.TestCase):
+    def test_recovery_allocation_evicts_exact_cache_before_allocating(self):
+        allocator = PressureAllocator(FakeKVCache())
+        tree = FakeEvictingTree(allocator)
+        slots = allocate_recovery_slots(tree, 8)
+        self.assertEqual(len(slots), 8)
+        self.assertEqual(len(tree.evict_params), 1)
+        self.assertEqual(tree.evict_params[0].num_tokens, 8)
+
     def test_resolves_default_qwen_rope_and_rejects_scaled_rope(self):
         hf_config = SimpleNamespace(
             model_type="qwen3",

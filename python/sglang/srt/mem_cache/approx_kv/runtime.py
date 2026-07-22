@@ -33,6 +33,21 @@ def _allocator(tree_cache: Any) -> Any:
     return allocator
 
 
+def allocate_recovery_slots(tree_cache: Any, num_tokens: int):
+    """Allocate approximate-recovery slots after evicting exact Radix victims."""
+    allocator = _allocator(tree_cache)
+    if (
+        hasattr(tree_cache, "evict")
+        and hasattr(tree_cache, "is_chunk_cache")
+        and hasattr(allocator, "available_size")
+    ):
+        # Local import avoids the common.py -> approx_kv.runtime import cycle.
+        from sglang.srt.mem_cache.common import evict_from_tree_cache
+
+        evict_from_tree_cache(tree_cache, num_tokens)
+    return allocator.alloc(num_tokens)
+
+
 def _release_device_ref(allocator: Any):
     def release(backend_ref: object, residency: ResidencyTier) -> None:
         if residency != ResidencyTier.DEVICE or not isinstance(
@@ -136,9 +151,7 @@ def _register_request_segments(tree_cache: Any, req: Any) -> int:
             if target_indices is None or len(target_indices) != segment.length:
                 if target_indices is not None:
                     allocator.free(target_indices)
-                raise MemoryError(
-                    "unable to allocate device slots for approximate KV"
-                )
+                raise MemoryError("unable to allocate device slots for approximate KV")
             try:
                 allocator.get_kvcache().move_kv_cache(
                     target_indices,
@@ -309,7 +322,10 @@ def finalize_copy_reuse(
     repair requested, pure copy).
     """
     allocator = _allocator(tree_cache)
-    restored_indices = allocator.alloc(resolved.restore_length)
+    restored_indices = allocate_recovery_slots(
+        tree_cache,
+        resolved.restore_length,
+    )
     if restored_indices is None or len(restored_indices) != resolved.restore_length:
         if restored_indices is not None:
             allocator.free(restored_indices)

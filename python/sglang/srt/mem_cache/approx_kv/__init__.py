@@ -23,6 +23,7 @@ from .plugins import (
     RecoveryPluginRegistry,
     RecoveryRequestContext,
 )
+from .runtime import allocate_recovery_slots
 from .store import (
     ApproxKVLease,
     ApproxKVSegmentStore,
@@ -87,6 +88,7 @@ __all__ = [
     "SegmentKind",
     "TransferSpan",
     "TorchNativeEpicForwardBatchFactory",
+    "allocate_recovery_slots",
     "carve_leading_k",
     "execute_reuse_plan",
     "inspect_layerwise_recompute_capability",

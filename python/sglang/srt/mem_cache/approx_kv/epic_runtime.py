@@ -52,6 +52,7 @@ from .request import ApproxKVRequestOperation
 from .runtime import (
     ResolvedReuseSpans,
     _allocator,
+    allocate_recovery_slots,
     finalize_copy_reuse,
     resolve_reuse_spans,
 )
@@ -544,7 +545,10 @@ def _restore_with_leading_k_repair(
         return False
 
     allocator = _allocator(tree_cache)
-    restored_indices = allocator.alloc(resolved.restore_length)
+    restored_indices = allocate_recovery_slots(
+        tree_cache,
+        resolved.restore_length,
+    )
     if restored_indices is None or len(restored_indices) != resolved.restore_length:
         if restored_indices is not None:
             allocator.free(restored_indices)
