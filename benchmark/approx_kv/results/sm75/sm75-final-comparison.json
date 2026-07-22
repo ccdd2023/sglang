@@ -1,0 +1,54 @@
+{
+  "backend": "torch_native",
+  "git_sha": "7519608c67752411eb8164c6d69a3c0a3a252a7b",
+  "gpu": "RTX 2080 SUPER SM75 8GB",
+  "invalid_concurrent_files": [
+    "/work/dense-blocks40.json",
+    "/work/dense-blocks100.json"
+  ],
+  "kv_capacity_tokens": 9954,
+  "valid_serial_results": [
+    {
+      "actual_prompt_tokens_median": 1673.0,
+      "actual_rho": 0.840365682137834,
+      "dense_p50_ms": 345.70884699996896,
+      "dense_p95_ms": 347.4844339998526,
+      "exact_p50_ms": 298.22594950019266,
+      "exact_p95_ms": 299.64602699965326,
+      "name": "blocks40",
+      "raw_p50_ms": 301.4987645005931,
+      "raw_p95_ms": 303.0101439999271,
+      "raw_reduction_vs_exact_pct": -1.0974279756290382,
+      "raw_speedup_vs_dense": 1.1466343736850997,
+      "raw_speedup_vs_exact": 0.9891448477216098
+    },
+    {
+      "actual_prompt_tokens_median": 3052.0,
+      "actual_rho": 1.5330520393811533,
+      "dense_p50_ms": 946.8589760003852,
+      "dense_p95_ms": 959.9726619999274,
+      "exact_p50_ms": 943.6606225003743,
+      "exact_p95_ms": 958.7064440001996,
+      "name": "blocks80",
+      "raw_p50_ms": 862.8260545001467,
+      "raw_p95_ms": 875.3429570006119,
+      "raw_reduction_vs_exact_pct": 8.56606348435351,
+      "raw_speedup_vs_dense": 1.09739265644791,
+      "raw_speedup_vs_exact": 1.0936858218161443
+    },
+    {
+      "actual_prompt_tokens_median": 3759.0,
+      "actual_rho": 1.8881856540084387,
+      "dense_p50_ms": 1403.97724200011,
+      "dense_p95_ms": 1414.7058099997594,
+      "exact_p50_ms": 1404.1954529998293,
+      "exact_p95_ms": 1418.6980080003195,
+      "name": "blocks100",
+      "raw_p50_ms": 1297.0594735002123,
+      "raw_p95_ms": 1305.7392339997023,
+      "raw_reduction_vs_exact_pct": 7.629705627570493,
+      "raw_speedup_vs_dense": 1.0824308913232576,
+      "raw_speedup_vs_exact": 1.0825991264768318
+    }
+  ]
+}

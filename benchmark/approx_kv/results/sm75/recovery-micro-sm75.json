@@ -1,0 +1,42 @@
+{
+  "config": {
+    "anchors": 1,
+    "dense_ttft_ms": 1295.160571499764,
+    "epic_k": 16,
+    "head_dim": 128,
+    "iterations": 5,
+    "kv_heads": 8,
+    "layers": 28,
+    "output": "/work/recovery-micro-sm75.json",
+    "rope_delta": 256,
+    "rotary_dim": 128,
+    "selective_spans": 8,
+    "tokens": 3048,
+    "warmup": 2
+  },
+  "epic_copy_only": {
+    "mean_ms": 12.548876762390137,
+    "p50_ms": 12.548095703125,
+    "p95_ms": 12.552127838134766,
+    "speedup_vs_dense": 103.21570715923174
+  },
+  "kvcomm_anchor": {
+    "mean_ms": 20.656243133544923,
+    "p50_ms": 20.656511306762695,
+    "p95_ms": 20.666208267211914,
+    "speedup_vs_dense": 62.69986989892838
+  },
+  "peak_allocated_bytes": 1082364416,
+  "raw_rope": {
+    "mean_ms": 12.688544082641602,
+    "p50_ms": 12.685152053833008,
+    "p95_ms": 12.718688011169434,
+    "speedup_vs_dense": 102.10051609971927
+  },
+  "selective_copy_only": {
+    "mean_ms": 35.09581527709961,
+    "p50_ms": 35.08390426635742,
+    "p95_ms": 35.23583984375,
+    "speedup_vs_dense": 36.91609011548115
+  }
+}
