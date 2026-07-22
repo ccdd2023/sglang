@@ -1,0 +1,315 @@
+{
+  "body_sweep_rho2_header64": [
+    {
+      "body_tokens": 512,
+      "dense_p50_ms": 87.30971350451,
+      "eviction_observed": true,
+      "filler_count": 33,
+      "kvcomm_target_p50_ms": 115.86850000458071,
+      "peak_rho": 2.088880426504189,
+      "pre_target_rho": 2.0498857578065497,
+      "setup_break_even_requests": null,
+      "setup_p50_ms": 545.8863115054555,
+      "target_only_speedup": 0.7535241545463894,
+      "target_saving_ms": -28.55878650007071
+    },
+    {
+      "body_tokens": 768,
+      "dense_p50_ms": 127.82363849692047,
+      "eviction_observed": true,
+      "filler_count": 31,
+      "kvcomm_target_p50_ms": 175.82189550739713,
+      "peak_rho": 2.093754760091394,
+      "pre_target_rho": 2.035262757044935,
+      "setup_break_even_requests": null,
+      "setup_p50_ms": 948.3762474992545,
+      "target_only_speedup": 0.7270063727162054,
+      "target_saving_ms": -47.998257010476664
+    },
+    {
+      "body_tokens": 1024,
+      "dense_p50_ms": 299.3441754952073,
+      "eviction_observed": true,
+      "filler_count": 29,
+      "kvcomm_target_p50_ms": 218.6856219996116,
+      "peak_rho": 2.0986290936785985,
+      "pre_target_rho": 2.0206397562833205,
+      "setup_break_even_requests": 14,
+      "setup_p50_ms": 1076.1250155046582,
+      "target_only_speedup": 1.368833363428616,
+      "target_saving_ms": 80.6585534955957
+    },
+    {
+      "body_tokens": 2048,
+      "dense_p50_ms": 980.8724470058223,
+      "eviction_observed": true,
+      "filler_count": 22,
+      "kvcomm_target_p50_ms": 558.6740829967312,
+      "peak_rho": 2.174181264280274,
+      "pre_target_rho": 2.0182025894897184,
+      "setup_break_even_requests": 6,
+      "setup_p50_ms": 2156.9208494984196,
+      "target_only_speedup": 1.7557149630861997,
+      "target_saving_ms": 422.19836400909116
+    }
+  ],
+  "header_sweep_rho2_body1024": [
+    {
+      "dense_p50_ms": 267.3421325016534,
+      "eviction_observed": true,
+      "filler_count": 29,
+      "header_tokens": 0,
+      "kvcomm_target_p50_ms": 205.37662600690965,
+      "peak_rho": 2.093754760091394,
+      "pre_target_rho": 2.015765422696116,
+      "setup_break_even_requests": 18,
+      "setup_p50_ms": 1063.522587501211,
+      "target_only_speedup": 1.3017164499170368,
+      "target_saving_ms": 61.96550649474375
+    },
+    {
+      "dense_p50_ms": 278.90594599739416,
+      "eviction_observed": true,
+      "filler_count": 29,
+      "header_tokens": 32,
+      "kvcomm_target_p50_ms": 208.6143515043659,
+      "peak_rho": 2.096191926884996,
+      "pre_target_rho": 2.0182025894897184,
+      "setup_break_even_requests": 16,
+      "setup_p50_ms": 1076.1351024993928,
+      "target_only_speedup": 1.3369451525560894,
+      "target_saving_ms": 70.29159449302824
+    },
+    {
+      "dense_p50_ms": 297.5696505018277,
+      "eviction_observed": true,
+      "filler_count": 29,
+      "header_tokens": 64,
+      "kvcomm_target_p50_ms": 218.6856219996116,
+      "peak_rho": 2.0986290936785985,
+      "pre_target_rho": 2.0206397562833205,
+      "setup_break_even_requests": 14,
+      "setup_p50_ms": 1076.1250155046582,
+      "target_only_speedup": 1.3607188610797476,
+      "target_saving_ms": 78.8840285022161
+    },
+    {
+      "dense_p50_ms": 321.8644705048064,
+      "eviction_observed": true,
+      "filler_count": 29,
+      "header_tokens": 128,
+      "kvcomm_target_p50_ms": 233.6467264976818,
+      "peak_rho": 2.1035034272658035,
+      "pre_target_rho": 2.0255140898705255,
+      "setup_break_even_requests": 13,
+      "setup_p50_ms": 1118.1544270002632,
+      "target_only_speedup": 1.3775689277974963,
+      "target_saving_ms": 88.21774400712457
+    },
+    {
+      "dense_p50_ms": 379.65597750007873,
+      "eviction_observed": true,
+      "filler_count": 29,
+      "header_tokens": 256,
+      "kvcomm_target_p50_ms": 260.0117070032866,
+      "peak_rho": 2.113252094440213,
+      "pre_target_rho": 2.035262757044935,
+      "setup_break_even_requests": 11,
+      "setup_p50_ms": 1216.6093154955888,
+      "target_only_speedup": 1.4601495520172092,
+      "target_saving_ms": 119.64427049679216
+    }
+  ],
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "key_findings": [
+    "KVCOMM also has a body-length crossover: target-only is slower than dense at body512/768, but reaches about 1.37x at body1024 and 1.76x at body2048 under rho~2.",
+    "Body1024 target-only speedup remains about 1.36-1.38x from peak rho~1.03 through 3.11 with real eviction.",
+    "Body2048 setup is about 2.16s but target saves about 422ms, giving an amortized break-even near 6 target reuses; body1024 breaks even near 14 reuses.",
+    "Larger headers increase both setup and target absolute latency, but relative target-only speedup improves from about 1.30x at header0 to 1.46x at header256.",
+    "Each 512-token placeholder has a target canonical base and two independently encoded anchor bases plus two context deltas; physical setup footprint is roughly 5x body tokens before the target reconstruction buffer."
+  ],
+  "known_limitations": [
+    "The unified long-body runner omits neighboring-prefix delta groups; the earlier small KVCOMM canary remains the evidence for that mechanism.",
+    "Long bodies are represented as multiple independent placeholder pools, not one contiguous canonical source object.",
+    "Setup is excluded from target-only TTFT and is reported with explicit break-even request counts.",
+    "No accuracy or output-equivalence metric was collected.",
+    "Results are single-model SM75 measurements and require RTX PRO 6000/H100 replication."
+  ],
+  "machine": {
+    "compute_capability": "7.5",
+    "gpu": "NVIDIA GeForce RTX 2080 SUPER",
+    "kv_capacity_tokens": 13130,
+    "mem_fraction_static": 0.35
+  },
+  "model": "Qwen/Qwen3-0.6B",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "no_pressure_body_canary": [
+    {
+      "body_tokens": 512,
+      "dense_p50_ms": 88.41786201082869,
+      "eviction_observed": false,
+      "filler_count": 0,
+      "kvcomm_target_p50_ms": 115.53048150381073,
+      "peak_rho": 0.23907083015993907,
+      "pre_target_rho": 0.2000761614623001,
+      "setup_break_even_requests": null,
+      "setup_p50_ms": 546.2669225016725,
+      "target_only_speedup": 0.7653206397128385,
+      "target_saving_ms": -27.11261949298205
+    },
+    {
+      "body_tokens": 768,
+      "dense_p50_ms": 128.5518399963621,
+      "eviction_observed": false,
+      "filler_count": 0,
+      "kvcomm_target_p50_ms": 177.75960199651308,
+      "peak_rho": 0.35605483625285606,
+      "pre_target_rho": 0.29756283320639754,
+      "setup_break_even_requests": null,
+      "setup_p50_ms": 968.4547334982199,
+      "target_only_speedup": 0.7231780368122324,
+      "target_saving_ms": -49.20776200015098
+    },
+    {
+      "body_tokens": 1024,
+      "dense_p50_ms": 297.2916420039837,
+      "eviction_observed": false,
+      "filler_count": 0,
+      "kvcomm_target_p50_ms": 216.53167500335258,
+      "peak_rho": 0.47303884234577304,
+      "pre_target_rho": 0.39504950495049507,
+      "setup_break_even_requests": 14,
+      "setup_p50_ms": 1064.005462998466,
+      "target_only_speedup": 1.3729706843092622,
+      "target_saving_ms": 80.75996700063115
+    },
+    {
+      "body_tokens": 2048,
+      "dense_p50_ms": 971.3238834956428,
+      "eviction_observed": false,
+      "filler_count": 0,
+      "kvcomm_target_p50_ms": 554.0990055014845,
+      "peak_rho": 0.940974866717441,
+      "pre_target_rho": 0.784996191926885,
+      "setup_break_even_requests": 6,
+      "setup_p50_ms": 2126.887768994493,
+      "target_only_speedup": 1.7529789330997825,
+      "target_saving_ms": 417.2248779941583
+    }
+  ],
+  "passed": true,
+  "recovery_git_sha": "6f709a73981e8dd4e65162cb7f91c497b2cf3f10",
+  "rho_sweep_body1024_header64": [
+    {
+      "dense_p50_ms": 299.97284399723867,
+      "eviction_observed": true,
+      "filler_count": 10,
+      "kvcomm_target_p50_ms": 216.57179300382268,
+      "peak_rho": 1.0335872048743335,
+      "pre_target_rho": 0.9555978674790556,
+      "setup_break_even_requests": 13,
+      "setup_p50_ms": 1066.1606514986488,
+      "target_only_speedup": 1.385096553141359,
+      "target_rho": 0.9,
+      "target_saving_ms": 83.40105099341599
+    },
+    {
+      "dense_p50_ms": 298.5212505009258,
+      "eviction_observed": true,
+      "filler_count": 13,
+      "kvcomm_target_p50_ms": 219.9943070008885,
+      "peak_rho": 1.2017517136329017,
+      "pre_target_rho": 1.1237623762376239,
+      "setup_break_even_requests": 14,
+      "setup_p50_ms": 1065.8437109959777,
+      "target_only_speedup": 1.356949889161087,
+      "target_rho": 1.1,
+      "target_saving_ms": 78.5269435000373
+    },
+    {
+      "dense_p50_ms": 299.361293502443,
+      "eviction_observed": true,
+      "filler_count": 20,
+      "kvcomm_target_p50_ms": 218.75817749241833,
+      "peak_rho": 1.594135567402894,
+      "pre_target_rho": 1.516146230007616,
+      "setup_break_even_requests": 14,
+      "setup_p50_ms": 1087.5002059983672,
+      "target_only_speedup": 1.3684576134888407,
+      "target_rho": 1.5,
+      "target_saving_ms": 80.60311601002468
+    },
+    {
+      "dense_p50_ms": 299.21304550225614,
+      "eviction_observed": true,
+      "filler_count": 29,
+      "kvcomm_target_p50_ms": 218.6856219996116,
+      "peak_rho": 2.0986290936785985,
+      "pre_target_rho": 2.0206397562833205,
+      "setup_break_even_requests": 14,
+      "setup_p50_ms": 1076.1250155046582,
+      "target_only_speedup": 1.3682337355621284,
+      "target_rho": 2.0,
+      "target_saving_ms": 80.52742350264452
+    },
+    {
+      "dense_p50_ms": 301.568603994383,
+      "eviction_observed": true,
+      "filler_count": 47,
+      "kvcomm_target_p50_ms": 219.17056350503117,
+      "peak_rho": 3.107616146230008,
+      "pre_target_rho": 3.02962680883473,
+      "setup_break_even_requests": 14,
+      "setup_p50_ms": 1072.6668095012428,
+      "target_only_speedup": 1.375953956460309,
+      "target_rho": 3.0,
+      "target_saving_ms": 82.39804048935184
+    }
+  ],
+  "schema_version": 1,
+  "server_validation": {
+    "all_kvcomm_requests_zero_dense_fallback": true,
+    "all_requests_returned_first_token": true,
+    "body1024_expected_copied_tokens": 1024,
+    "body1024_verified_copied_tokens_per_request": [
+      1024.0,
+      1024.0,
+      1024.0,
+      1024.0
+    ],
+    "eviction_aware_recovery_allocation": true,
+    "multi_placeholder_base_delta_anchor_path": true,
+    "passed": true
+  },
+  "settings": {
+    "anchors_per_placeholder": 2,
+    "body_tokens": [
+      512,
+      768,
+      1024,
+      2048
+    ],
+    "central_log": "/home/chris/Workspaces/kvcache-research/results/BENCHMARK_RUN_LOG.jsonl",
+    "discarded_warmup_per_setting": 1,
+    "formal_repeats_per_setting": 4,
+    "header_tokens": [
+      0,
+      32,
+      64,
+      128,
+      256
+    ],
+    "placeholder_segment_tokens": 512,
+    "prefetch": false,
+    "rho_targets": [
+      0.9,
+      1.1,
+      1.5,
+      2.0,
+      3.0
+    ],
+    "scheduler": "S0 LRU",
+    "tier": "GPU-only"
+  },
+  "verified_runner_git_sha": "562fce6f5dbbe69134907a1dc6e287df6dfd1432"
+}
