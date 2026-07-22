@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "runner_git_sha": "737765e66",
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "model": "Qwen/Qwen3-0.6B",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "machine": {
+    "gpu": "NVIDIA GeForce RTX 2080 SUPER",
+    "compute_capability": "7.5",
+    "torch": "2.9.1+cu129",
+    "cuda": "12.9"
+  },
+  "scope": {
+    "recovery": "raw K/V copy plus full-key RoPE relocation",
+    "classification": "speed-only upper bound",
+    "faithful_kvcomm": false,
+    "scheduler": "S0 LRU",
+    "tier": "GPU-only",
+    "prefetch": false,
+    "accuracy_metric": false
+  },
+  "server_validation": {
+    "zero_delta": {
+      "copied_tokens": 513,
+      "passed": true
+    },
+    "positive_delta": {
+      "source_start": 22,
+      "target_start": 31,
+      "rope_delta": 9,
+      "segments": 2,
+      "copied_tokens": 160,
+      "fallback_tokens": 0,
+      "passed": true
+    },
+    "negative_delta": {
+      "source_start": 31,
+      "target_start": 22,
+      "rope_delta": -9,
+      "segments": 2,
+      "copied_tokens": 160,
+      "fallback_tokens": 0,
+      "passed": true
+    },
+    "last_prompt_token_real_forward": true,
+    "exact_radix_evictable_tokens_after_reset": 0,
+    "pool_fully_accounted": true
+  },
+  "ttft": {
+    "256_token_segment": {
+      "source_prompt_tokens": 619,
+      "target_prompt_tokens": 628,
+      "repeats_per_mode": 4,
+      "dense_p50_ms": 95.23585650094901,
+      "raw_p50_ms": 96.3551139975607,
+      "speedup": 0.9883840364026759,
+      "ttft_reduction_percent": -1.1752479976914199
+    },
+    "512_token_segment": {
+      "source_prompt_tokens": 919,
+      "target_prompt_tokens": 928,
+      "repeats_per_mode": 4,
+      "dense_p50_ms": 150.5072289983218,
+      "raw_p50_ms": 141.82712150068255,
+      "speedup": 1.0612020282566157,
+      "ttft_reduction_percent": 5.767236268588826
+    }
+  },
+  "known_limitations": [
+    "Only the leading contiguous run anchored at the exact-prefix boundary is recovered.",
+    "Prompts crossing the configured chunked-prefill boundary are not supported by this R0 runtime path.",
+    "Scaled RoPE variants remain capability-gated to dense fallback.",
+    "This result is not a KVCOMM reproduction."
+  ],
+  "passed": true
+}
