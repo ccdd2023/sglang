@@ -73,7 +73,10 @@ class TestApproxKVIntegrationSource(unittest.TestCase):
         self.assertIn("apply_rotary_emb", rotate_source)
 
     def test_integration_does_not_contain_host_driver_operations(self):
-        source = (PACKAGE_DIR / "radix_backend.py").read_text().lower()
+        source = (
+            (PACKAGE_DIR / "radix_backend.py").read_text()
+            + (PACKAGE_DIR / "runtime.py").read_text()
+        ).lower()
         forbidden = (
             "modprobe",
             "dkms",
@@ -83,6 +86,13 @@ class TestApproxKVIntegrationSource(unittest.TestCase):
         )
         for token in forbidden:
             self.assertNotIn(token, source)
+
+    def test_restored_slots_remain_request_owned(self):
+        runtime_source = (PACKAGE_DIR / "runtime.py").read_text()
+        self.assertNotIn(
+            "req.cache_protected_len = len(req.prefix_indices)",
+            runtime_source,
+        )
 
     def test_request_and_radix_lifecycle_wiring(self):
         schedule_source = (

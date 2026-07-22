@@ -190,6 +190,5 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
             ),
         )
     )
-    req.cache_protected_len = len(req.prefix_indices)
     req.approx_kv_restored_len = restore_length
     return True
