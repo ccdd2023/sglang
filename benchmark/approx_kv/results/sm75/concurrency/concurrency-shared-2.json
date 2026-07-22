@@ -1,0 +1,66 @@
+{
+  "config": {
+    "capacity_objects": 3,
+    "dense_ms": 946.858976,
+    "hit_ms": 5.0,
+    "object_bytes": 6242304,
+    "output": "/work/concurrency-shared-2.json",
+    "recovery_ms": 12.685152,
+    "rounds": 10,
+    "share_role_objects": true,
+    "trace": "long_distance",
+    "workflows": 2
+  },
+  "results": [
+    {
+      "evictions": 49,
+      "hit_rate": 0.6285714285714286,
+      "hits": 88,
+      "policy": "lru",
+      "recoveries": 52,
+      "requests": 140,
+      "ttft_mean_ms": 7.854485028571429,
+      "ttft_p50_ms": 5.0
+    },
+    {
+      "evictions": 29,
+      "hit_rate": 0.7714285714285715,
+      "hits": 108,
+      "policy": "steps_only",
+      "recoveries": 32,
+      "requests": 140,
+      "ttft_mean_ms": 6.7566061714285715,
+      "ttft_p50_ms": 5.0
+    },
+    {
+      "evictions": 29,
+      "hit_rate": 0.7714285714285715,
+      "hits": 108,
+      "policy": "belady_oracle",
+      "recoveries": 32,
+      "requests": 140,
+      "ttft_mean_ms": 6.7566061714285715,
+      "ttft_p50_ms": 5.0
+    },
+    {
+      "evictions": 29,
+      "hit_rate": 0.7714285714285715,
+      "hits": 108,
+      "policy": "value_density",
+      "recoveries": 32,
+      "requests": 140,
+      "ttft_mean_ms": 6.7566061714285715,
+      "ttft_p50_ms": 5.0
+    },
+    {
+      "evictions": 29,
+      "hit_rate": 0.7714285714285715,
+      "hits": 108,
+      "policy": "hierarchical",
+      "recoveries": 32,
+      "requests": 140,
+      "ttft_mean_ms": 6.7566061714285715,
+      "ttft_p50_ms": 5.0
+    }
+  ]
+}
