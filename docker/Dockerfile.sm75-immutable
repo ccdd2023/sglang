@@ -1,0 +1,37 @@
+ARG BASE_IMAGE=lmsysorg/sglang@sha256:9bfa6494978dd1781788a73e5b096635c183b1e9e46d1d1c2bb10a1ed1630716
+FROM ${BASE_IMAGE}
+
+ARG SGLANG_GIT_SHA=unknown
+
+LABEL org.opencontainers.image.source="https://github.com/ccdd2023/sglang" \
+      org.opencontainers.image.revision="${SGLANG_GIT_SHA}" \
+      org.opencontainers.image.title="SGLang latest-main SM75 compatibility runtime"
+
+ENV FLASHINFER_DISABLE_VERSION_CHECK=1 \
+    HF_HUB_DISABLE_TELEMETRY=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PYTHONPATH="/workspace/sglang/python:/opt/sm75-site" \
+    SGLANG_GIT_SHA="${SGLANG_GIT_SHA}" \
+    SGLANG_SKIP_SGL_KERNEL_VERSION_CHECK=1
+
+COPY docker/sm75-serve.sh /usr/local/bin/sglang-sm75-serve
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    set -eux; \
+    python3 -m pip install \
+      --target /opt/sm75-site \
+      --upgrade \
+      --retries 10 \
+      --timeout 120 \
+      "transformers==5.12.1"; \
+    chmod 0755 /usr/local/bin/sglang-sm75-serve; \
+    python3 - <<'PY'
+import transformers
+
+assert transformers.__version__ == "5.12.1"
+print("transformers", transformers.__version__)
+PY
+
+WORKDIR /workspace/sglang
+
+CMD ["bash"]
