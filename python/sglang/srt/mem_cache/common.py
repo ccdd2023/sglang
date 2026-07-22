@@ -14,6 +14,10 @@ from sglang.srt.hardware_backend.npu.dsv4.dsv4_common_hooks import (
     maybe_evict_dsv4_state_on_swa,
 )
 from sglang.srt.mem_cache.allocator.swa import SWATokenToKVPoolAllocator
+from sglang.srt.mem_cache.approx_kv.runtime import (
+    ApproxKVRegistrationError,
+    register_request_segments,
+)
 from sglang.srt.mem_cache.base_prefix_cache import BasePrefixCache, EvictParams
 from sglang.srt.mem_cache.memory_pool import HybridReqToTokenPool, ReqToTokenPool
 from sglang.srt.runtime_context import get_server_args
@@ -143,6 +147,16 @@ def release_kv_cache(req: Req, tree_cache: BasePrefixCache, is_insert: bool = Tr
             )
             req.mamba_pool_idx = None
         return
+
+    try:
+        register_request_segments(tree_cache, req)
+    except ApproxKVRegistrationError as exc:
+        req.approx_kv_registration_error = str(exc)
+        logger.exception(
+            "Approximate KV source registration failed for request %s; "
+            "request KV resources will still be released",
+            getattr(req, "rid", "<unknown>"),
+        )
 
     effective_kv_committed_len = req.effective_kv_committed_len()
     tree_cache.cache_finished_req(

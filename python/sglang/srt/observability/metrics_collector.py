@@ -1944,6 +1944,47 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
             documentation="The number of tokens loaded from CPU to GPU.",
             labelnames=labels.keys(),
         )
+        self.approx_kv_requests_total = Counter(
+            name="sglang:approx_kv_requests_total",
+            documentation="Approximate KV requests by operation and outcome.",
+            labelnames=[*labels.keys(), "operation", "outcome"],
+        )
+        self.approx_kv_copied_tokens_total = Counter(
+            name="sglang:approx_kv_copied_tokens_total",
+            documentation="Tokens copied by the approximate KV data plane.",
+            labelnames=labels.keys(),
+        )
+        self.approx_kv_dense_fallback_total = Counter(
+            name="sglang:approx_kv_dense_fallback_total",
+            documentation="Tokens sent to dense fallback by reason.",
+            labelnames=[*labels.keys(), "reason"],
+        )
+        self.approx_kv_h2d_tokens_total = Counter(
+            name="sglang:approx_kv_h2d_tokens_total",
+            documentation="Approximate KV tokens loaded from host to device.",
+            labelnames=labels.keys(),
+        )
+        self.approx_kv_h2d_bytes_total = Counter(
+            name="sglang:approx_kv_h2d_bytes_total",
+            documentation="Approximate KV bytes loaded from host to device.",
+            labelnames=labels.keys(),
+        )
+        self.approx_kv_h2d_duration_seconds = Histogram(
+            name="sglang:approx_kv_h2d_duration_seconds",
+            documentation="Approximate KV host-to-device transfer duration.",
+            labelnames=labels.keys(),
+            buckets=bucket_load_back_duration,
+        )
+        self.approx_kv_host_export_tokens_total = Counter(
+            name="sglang:approx_kv_host_export_tokens_total",
+            documentation="Approximate KV tokens exported to host.",
+            labelnames=labels.keys(),
+        )
+        self.approx_kv_host_export_bytes_total = Counter(
+            name="sglang:approx_kv_host_export_bytes_total",
+            documentation="Approximate KV bytes exported to host.",
+            labelnames=labels.keys(),
+        )
 
     def increment_eviction_num_tokens(self, num_tokens: int) -> None:
         self.eviction_num_tokens.labels(**self.labels).inc(num_tokens)
@@ -1956,6 +1997,54 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
 
     def observe_load_back_duration(self, duration_seconds: float) -> None:
         self.load_back_duration_seconds.labels(**self.labels).observe(duration_seconds)
+
+    def increment_approx_kv_request(self, operation: str, outcome: str) -> None:
+        self.approx_kv_requests_total.labels(
+            **self.labels,
+            operation=operation,
+            outcome=outcome,
+        ).inc()
+
+    def increment_approx_kv_fallback(self, reason: str, num_tokens: int) -> None:
+        self.approx_kv_dense_fallback_total.labels(
+            **self.labels,
+            reason=reason,
+        ).inc(num_tokens)
+
+    def increment_approx_kv_h2d_tokens(self, num_tokens: int) -> None:
+        self.approx_kv_h2d_tokens_total.labels(**self.labels).inc(num_tokens)
+
+    def observe_approx_kv_h2d(
+        self,
+        num_tokens: int,
+        num_bytes: int,
+        duration_ms: float,
+    ) -> None:
+        self.approx_kv_h2d_bytes_total.labels(**self.labels).inc(num_bytes)
+        self.approx_kv_h2d_duration_seconds.labels(**self.labels).observe(
+            duration_ms / 1000.0
+        )
+
+    def increment_approx_kv_host_export(
+        self,
+        num_tokens: int,
+        num_bytes: int,
+    ) -> None:
+        self.approx_kv_host_export_tokens_total.labels(**self.labels).inc(
+            num_tokens
+        )
+        self.approx_kv_host_export_bytes_total.labels(**self.labels).inc(
+            num_bytes
+        )
+
+    def record_approx_kv_transfer(self, stats) -> None:
+        self.approx_kv_copied_tokens_total.labels(**self.labels).inc(
+            stats.copied_k_tokens
+        )
+        if stats.fallback_reasons:
+            per_reason = stats.recomputed_tokens / len(stats.fallback_reasons)
+            for reason in stats.fallback_reasons:
+                self.increment_approx_kv_fallback(reason, per_reason)
 
 
 class EncoderMetricsCollector(_StatLoggerDIMixin):

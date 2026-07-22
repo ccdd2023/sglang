@@ -94,6 +94,8 @@ from sglang.srt.mem_cache.common import (
     free_swa_out_of_window_slots,
     release_kv_cache,
 )
+from sglang.srt.mem_cache.approx_kv.request import parse_request_metadata
+from sglang.srt.mem_cache.approx_kv.runtime import restore_request_prefix
 from sglang.srt.mem_cache.memory_pool import ReqToTokenPool
 from sglang.srt.mem_cache.radix_cache import RadixKey
 from sglang.srt.model_executor.forward_batch_info import ForwardBatch, ForwardMode
@@ -817,6 +819,15 @@ class Req(ReqDllmMixin):
                 "__req__": self
             }
         self.sampling_params = sampling_params
+        self.approx_kv_metadata = parse_request_metadata(
+            sampling_params.custom_params
+            if isinstance(sampling_params.custom_params, dict)
+            else None
+        )
+        if self.approx_kv_metadata is not None:
+            self.approx_kv_metadata.validate_prompt_length(
+                len(self.origin_input_ids)
+            )
         self.custom_logit_processor = custom_logit_processor
         self.return_hidden_states = return_hidden_states
 
@@ -1048,7 +1059,10 @@ class Req(ReqDllmMixin):
         # retracted request is rebootstrapped. Set in pause_generation(retract)
         # and consumed in the decode transfer commit; never plumbed to prefill.
         self.pd_rebootstrap_forced_output_id: Optional[int] = None
-        self.skip_radix_cache_insert = bootstrap_host == FAKE_BOOTSTRAP_HOST
+        self.skip_radix_cache_insert = (
+            bootstrap_host == FAKE_BOOTSTRAP_HOST
+            or self.approx_kv_metadata is not None
+        )
         self.disagg_kv_sender: Optional[BaseKVSender] = None
 
         self.routed_dp_rank: Optional[int] = routed_dp_rank
@@ -1274,6 +1288,9 @@ class Req(ReqDllmMixin):
                 self.cache_protected_len = match_result.cache_protected_len
             else:
                 self.cache_protected_len = len(self.prefix_indices)
+
+            if self.approx_kv_metadata is not None:
+                restore_request_prefix(tree_cache, self)
 
             if self.is_dllm():
                 self._update_block_offset_for_dllm()

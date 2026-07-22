@@ -67,6 +67,9 @@ from sglang.srt.observability.metrics_collector import (
 
 if TYPE_CHECKING:
     from sglang.srt.mem_cache.cache_init_params import CacheInitParams
+    from sglang.srt.mem_cache.approx_kv.hicache_backend import (
+        HiCacheResidencyBackend,
+    )
     from sglang.srt.server_args import ServerArgs
 
 logger = logging.getLogger(__name__)
@@ -210,6 +213,10 @@ class HiRadixCache(RadixCache):
         self.evictable_host_leaves = set()
 
         super().__init__(params=params)
+        if self.approx_kv.config.host_residency_enabled:
+            self.approx_kv.bind_residency_backend(
+                HiCacheResidencyBackend(self.cache_controller)
+            )
 
     def _all_reduce_attn_groups(self, tensor: torch.Tensor, op):
         reduced = False

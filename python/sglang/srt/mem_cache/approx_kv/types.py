@@ -13,18 +13,14 @@ class ResidencyTier(str, Enum):
 
 
 class SegmentKind(str, Enum):
-    EXACT_PREFIX = "exact_prefix"
-    CANONICAL_BASE = "canonical_base"
-    CONTEXT_ANCHOR = "context_anchor"
+    PREFIX = "prefix"
     MIDDLE = "middle"
+    ARTIFACT = "artifact"
 
 
 class RecoveryMode(str, Enum):
     DENSE = "dense"
-    RAW_ROPE = "raw_rope"
-    EPIC_FIXED_K = "epic_fixed_k"
-    SELECTIVE_REPAIR = "selective_repair"
-    KVCOMM_ANCHOR = "kvcomm_anchor"
+    COPY = "copy"
 
 
 def token_ids_hash(token_ids: Sequence[int]) -> str:
@@ -40,9 +36,9 @@ class KVSegmentKey:
     content_hash: str
     token_hash: str
     token_count: int
-    model_id: str
+    model_fingerprint: str
     cache_dtype: str
-    kind: SegmentKind = SegmentKind.MIDDLE
+    kind: SegmentKind = SegmentKind.ARTIFACT
 
     def __post_init__(self) -> None:
         if not self.content_hash:
@@ -51,8 +47,10 @@ class KVSegmentKey:
             raise ValueError("token_hash must be non-empty")
         if self.token_count <= 0:
             raise ValueError("token_count must be positive")
-        if not self.model_id or not self.cache_dtype:
-            raise ValueError("model_id and cache_dtype must be non-empty")
+        if not self.model_fingerprint or not self.cache_dtype:
+            raise ValueError(
+                "model_fingerprint and cache_dtype must be non-empty"
+            )
 
 
 @dataclass(frozen=True)
@@ -133,10 +131,11 @@ class KVTransferStats:
     stale_handle: int = 0
     residency_miss: int = 0
     zeroed_gap_tokens: int = 0
+    h2d_tokens: int = 0
     h2d_bytes: int = 0
+    h2d_ms: float = 0.0
     copy_ms: float = 0.0
     rope_ms: float = 0.0
-    repair_ms: float = 0.0
     fallback_reasons: list[str] = field(default_factory=list)
 
     @property
@@ -151,3 +150,33 @@ class KVTransferStats:
             and self.zeroed_gap_tokens == 0
             and self.accounted_tokens == self.target_tokens
         )
+
+
+@dataclass(frozen=True)
+class KVLayerTransferResult:
+    copied_k_tokens: int
+    rotated_k_tokens: int
+    copied_v_tokens: int
+    copy_ms: float = 0.0
+    rope_ms: float = 0.0
+
+
+@dataclass(frozen=True)
+class SchedulerMetadata:
+    object_id: str
+    resident_bytes: int
+    dense_cost_ms: float | None = None
+    recovery_cost_ms: float | None = None
+    next_use_step: int | None = None
+    workflow_stage: str | None = None
+    retired: bool = False
+
+    def __post_init__(self) -> None:
+        if not self.object_id:
+            raise ValueError("object_id must be non-empty")
+        if self.resident_bytes < 0:
+            raise ValueError("resident_bytes must be non-negative")
+        if self.dense_cost_ms is not None and self.dense_cost_ms < 0:
+            raise ValueError("dense_cost_ms must be non-negative")
+        if self.recovery_cost_ms is not None and self.recovery_cost_ms < 0:
+            raise ValueError("recovery_cost_ms must be non-negative")

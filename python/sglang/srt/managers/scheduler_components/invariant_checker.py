@@ -106,6 +106,12 @@ class SchedulerInvariantChecker:
             total = self.max_total_num_tokens
         full_evictable_size = ps.full_evictable_size
         allocator = self.token_to_kv_pool_allocator
+        approx_manager = getattr(self.tree_cache, "approx_kv", None)
+        approx_owned = (
+            0
+            if approx_manager is None
+            else approx_manager.store.device_owned_tokens
+        )
         if getattr(self.server_args, "dcp_size", 1) > 1 and allocator.page_size > 1:
             # DCP stores logical tokens in widened physical pages.  Prefix cache
             # counters are logical-token based, while the allocator frees whole
@@ -122,8 +128,10 @@ class SchedulerInvariantChecker:
             protected,
             session_held,
             total,
-            uncached,
+            uncached + approx_owned,
         )
+        if approx_owned:
+            msg += f", approx_owned={approx_owned}"
         if (
             leak
             and getattr(self.server_args, "dcp_size", 1) > 1

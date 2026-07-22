@@ -12,6 +12,14 @@ from typing import TYPE_CHECKING, Any, Iterator, NamedTuple, Optional, TypeVar
 
 import torch
 
+from sglang.srt.mem_cache.approx_kv.config import ApproxKVFeatureConfig
+from sglang.srt.mem_cache.approx_kv.hicache_backend import (
+    HiCacheResidencyBackend,
+)
+from sglang.srt.mem_cache.approx_kv.manager import ApproxKVManager
+from sglang.srt.mem_cache.approx_kv.radix_backend import (
+    AllocatorCPUResidencyBackend,
+)
 from sglang.srt.disaggregation.kv_events import StorageMedium
 from sglang.srt.distributed.communication_tags import P2PTag
 from sglang.srt.environ import envs
@@ -377,6 +385,19 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
         self.prefetch_timeout_per_page = 0.25
         self.hicache_storage_pass_prefix_keys = False
 
+        self.approx_kv = ApproxKVManager(
+            ApproxKVFeatureConfig.from_env(),
+            metrics_collector=getattr(self, "metrics_collector", None),
+        )
+        if (
+            self.approx_kv.config.host_residency_enabled
+            and self.token_to_kv_pool_allocator is not None
+        ):
+            self.approx_kv.bind_residency_backend(
+                AllocatorCPUResidencyBackend(
+                    self.token_to_kv_pool_allocator,
+                )
+            )
         self.reset()
         logger.info(f"Init Unified RadixTree with components {self.tree_components}")
 
@@ -447,6 +468,8 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
             self.work_list.append(send_work)
 
     def reset(self) -> None:
+        if hasattr(self, "approx_kv"):
+            self.approx_kv.reset()
         self._reset_full()
 
     def _reset_full(self) -> None:
@@ -546,6 +569,10 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
             storage_extra_config=storage_extra_config,
             storage_prefetch_threshold=storage_prefetch_threshold,
         )
+        if self.approx_kv.config.host_residency_enabled:
+            self.approx_kv.bind_residency_backend(
+                HiCacheResidencyBackend(self.cache_controller)
+            )
 
         # State initialization
         self.write_through_threshold = (

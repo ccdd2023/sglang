@@ -35,3 +35,28 @@ directory and refuses to write into a non-empty directory.
 `rho_physical` additionally estimates all measured prompt branches and one
 generated token per request. Synthetic dense/recovery cost fields are metadata
 for later trace validation and are not measured recovery costs.
+
+## Phase 3 HiCache canary
+
+Start SGLang with hierarchical cache plus:
+
+```text
+SGLANG_ENABLE_UNIFIED_RADIX_TREE=1
+SGLANG_APPROX_KV_CORE=1
+SGLANG_APPROX_KV_HOST=1
+SGLANG_APPROX_KV_PREFETCH=1
+```
+
+Then run:
+
+```bash
+python3 -m benchmark.approx_kv.run_phase3_canary \
+  --base-url http://127.0.0.1:30000 \
+  --model-revision c1899de289a04d12100db370d81485cdf75e47ca \
+  --model-fingerprint Qwen/Qwen3-0.6B@c1899de289a04d12100db370d81485cdf75e47ca \
+  --output /results/phase3-canary.json
+```
+
+The canary uses the Phase 2 object generator and verifies host export, async
+H2D, full-layer copy, mismatch fallback, reset-induced store miss, exact-Radix
+isolation, and final KV-pool accounting.

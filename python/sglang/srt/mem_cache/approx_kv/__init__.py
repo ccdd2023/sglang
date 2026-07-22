@@ -1,6 +1,14 @@
+from .async_transfer import ApproxKVPrefetchTicket, AsyncTransferState
 from .config import ApproxKVFeatureConfig
 from .manager import ApproxKVManager
+from .plugins import (
+    RecoveryPlugin,
+    RecoveryPluginRegistry,
+    RecoveryRequestContext,
+)
 from .store import (
+    AsyncResidencyLoader,
+    AsyncResidencyTransfer,
     ApproxKVLease,
     ApproxKVSegmentStore,
     ResidencyLoadResult,
@@ -12,12 +20,14 @@ from .transfer import (
 )
 from .types import (
     DenseRange,
+    KVLayerTransferResult,
     KVReusePlan,
     KVSegmentHandle,
     KVSegmentKey,
     KVTransferStats,
     RecoveryMode,
     ResidencyTier,
+    SchedulerMetadata,
     SegmentKind,
     TransferSpan,
     token_ids_hash,
@@ -25,10 +35,15 @@ from .types import (
 
 __all__ = [
     "ApproxKVFeatureConfig",
+    "ApproxKVPrefetchTicket",
     "ApproxKVLease",
     "ApproxKVManager",
     "ApproxKVSegmentStore",
+    "AsyncResidencyLoader",
+    "AsyncResidencyTransfer",
+    "AsyncTransferState",
     "DenseRange",
+    "KVLayerTransferResult",
     "KVReusePlan",
     "KVSegmentHandle",
     "KVSegmentKey",
@@ -36,8 +51,12 @@ __all__ = [
     "KVTransferInvariantError",
     "KVTransferStats",
     "RecoveryMode",
+    "RecoveryPlugin",
+    "RecoveryPluginRegistry",
+    "RecoveryRequestContext",
     "ResidencyLoadResult",
     "ResidencyTier",
+    "SchedulerMetadata",
     "SegmentKind",
     "TransferSpan",
     "execute_reuse_plan",

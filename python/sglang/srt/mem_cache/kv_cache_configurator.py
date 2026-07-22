@@ -26,6 +26,7 @@ from sglang.srt.layers.quantization.fp4_kv_cache_quant_method import (
     resolve_kv_cache_quant,
 )
 from sglang.srt.mem_cache.allocation_sizing import get_req_to_token_extra_context_len
+from sglang.srt.mem_cache.approx_kv.config import ApproxKVFeatureConfig
 from sglang.srt.mem_cache.allocator import (
     BaseTokenToKVPoolAllocator,
     PagedTokenToKVPoolAllocator,
@@ -70,6 +71,13 @@ from sglang.srt.utils.common import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _enable_kv_cache_copy(server_args) -> bool:
+    return (
+        server_args.speculative_algorithm is not None
+        or ApproxKVFeatureConfig.from_env().core_enabled
+    )
 
 _is_hip = is_hip()
 
@@ -1229,7 +1237,7 @@ class KVCacheConfigurator:
             swa_attention_layer_ids=swa_attention_layer_ids,
             full_attention_layer_ids=full_attention_layer_ids,
             device=self.device,
-            enable_kv_cache_copy=(self.server_args.speculative_algorithm is not None),
+            enable_kv_cache_copy=_enable_kv_cache_copy(self.server_args),
             token_to_kv_pool_class=swa_pool_class,
             **kwargs,
         )
@@ -1303,7 +1311,7 @@ class KVCacheConfigurator:
             device=self.device,
             mamba_pool=req_to_token_pool.mamba_pool,
             enable_memory_saver=self.server_args.enable_memory_saver,
-            enable_kv_cache_copy=(self.server_args.speculative_algorithm is not None),
+            enable_kv_cache_copy=_enable_kv_cache_copy(self.server_args),
             use_mla=self.use_mla_backend,
             start_layer=self.layer_info.start_layer,
             full_kv_pool_class=full_pool_class,
@@ -1327,7 +1335,7 @@ class KVCacheConfigurator:
             start_layer=self.layer_info.start_layer,
             end_layer=self.layer_info.end_layer,
             enable_alt_stream=not self.server_args.enable_pdmux,
-            enable_kv_cache_copy=(self.server_args.speculative_algorithm is not None),
+            enable_kv_cache_copy=_enable_kv_cache_copy(self.server_args),
         )
         return token_to_kv_pool
 
@@ -1360,7 +1368,7 @@ class KVCacheConfigurator:
             start_layer=self.layer_info.start_layer,
             end_layer=self.layer_info.end_layer,
             enable_alt_stream=not self.server_args.enable_pdmux,
-            enable_kv_cache_copy=(self.server_args.speculative_algorithm is not None),
+            enable_kv_cache_copy=_enable_kv_cache_copy(self.server_args),
             **pool_kwargs,
         )
         return token_to_kv_pool

@@ -24,8 +24,8 @@ def _read_bool(
 @dataclass(frozen=True)
 class ApproxKVFeatureConfig:
     core_enabled: bool = False
-    lossy_recovery_enabled: bool = False
-    prefetch_enabled: bool = False
+    host_residency_enabled: bool = False
+    async_prefetch_enabled: bool = False
 
     @classmethod
     def from_env(
@@ -34,15 +34,19 @@ class ApproxKVFeatureConfig:
     ) -> "ApproxKVFeatureConfig":
         env = os.environ if env is None else env
         core = _read_bool(env, "SGLANG_APPROX_KV_CORE", False)
-        lossy = _read_bool(env, "SGLANG_APPROX_KV_LOSSY", False)
+        host = _read_bool(env, "SGLANG_APPROX_KV_HOST", False)
         prefetch = _read_bool(env, "SGLANG_APPROX_KV_PREFETCH", False)
-        if (lossy or prefetch) and not core:
+        if (host or prefetch) and not core:
             raise ValueError(
-                "SGLANG_APPROX_KV_CORE=1 is required when lossy recovery "
+                "SGLANG_APPROX_KV_CORE=1 is required when host residency "
                 "or prefetch is enabled"
+            )
+        if prefetch and not host:
+            raise ValueError(
+                "SGLANG_APPROX_KV_HOST=1 is required when prefetch is enabled"
             )
         return cls(
             core_enabled=core,
-            lossy_recovery_enabled=lossy,
-            prefetch_enabled=prefetch,
+            host_residency_enabled=host,
+            async_prefetch_enabled=prefetch,
         )

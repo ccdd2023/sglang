@@ -4,6 +4,7 @@ from typing import Protocol
 
 from .store import ApproxKVSegmentStore
 from .types import (
+    KVLayerTransferResult,
     KVReusePlan,
     KVTransferStats,
     ResidencyTier,
@@ -19,7 +20,7 @@ class KVTransferBackend(Protocol):
         target_start: int,
         length: int,
         rope_delta: int,
-    ) -> tuple[int, int, int]: ...
+    ) -> KVLayerTransferResult: ...
 
     def dense_prefill(
         self,
@@ -143,24 +144,29 @@ def execute_reuse_plan(
     for span in plan.copied_spans:
         if (span.chunk_start, span.chunk_length) in fallback_chunks:
             continue
-        copied_k, rotated_k, copied_v = backend.copy_and_rotate(
+        result = backend.copy_and_rotate(
             source_ref=span.source.backend_ref,
             source_offset=span.source_offset,
             target_start=span.target_start,
             length=span.length,
             rope_delta=span.rope_delta,
         )
-        if copied_k != span.length or copied_v != span.length:
+        if (
+            result.copied_k_tokens != span.length
+            or result.copied_v_tokens != span.length
+        ):
             raise KVTransferInvariantError(
                 "backend did not copy the complete requested K/V slice"
             )
-        if rotated_k != copied_k:
+        if result.rotated_k_tokens != result.copied_k_tokens:
             raise KVTransferInvariantError(
                 "all copied K tokens must receive full RoPE correction"
             )
-        stats.copied_k_tokens += copied_k
-        stats.rotated_k_tokens += rotated_k
-        stats.copied_v_tokens += copied_v
+        stats.copied_k_tokens += result.copied_k_tokens
+        stats.rotated_k_tokens += result.rotated_k_tokens
+        stats.copied_v_tokens += result.copied_v_tokens
+        stats.copy_ms += result.copy_ms
+        stats.rope_ms += result.rope_ms
 
     if plan.require_full_coverage and not stats.mechanically_valid:
         raise KVTransferInvariantError(

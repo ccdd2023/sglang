@@ -21,6 +21,11 @@ ReleaseBackend = Callable[[Any, ResidencyTier], None]
 class ResidencyLoadResult:
     backend_ref: Any
     release_backend: ReleaseBackend | None = None
+    release_previous: bool = True
+    release_on_stale: ReleaseBackend | None = None
+    num_tokens: int = 0
+    bytes_transferred: int = 0
+    duration_ms: float = 0.0
 
 
 class ResidencyLoader(Protocol):
@@ -29,6 +34,23 @@ class ResidencyLoader(Protocol):
         handle: KVSegmentHandle,
         target_tier: ResidencyTier,
     ) -> Any | ResidencyLoadResult: ...
+
+
+class AsyncResidencyTransfer(Protocol):
+    @property
+    def done(self) -> bool: ...
+
+    def wait(self, timeout_s: float | None = None) -> ResidencyLoadResult: ...
+
+    def cancel(self) -> None: ...
+
+
+class AsyncResidencyLoader(Protocol):
+    def begin_load(
+        self,
+        handle: KVSegmentHandle,
+        target_tier: ResidencyTier,
+    ) -> AsyncResidencyTransfer: ...
 
 
 @dataclass
@@ -95,6 +117,8 @@ class ApproxKVSegmentStore:
                 key,
                 previous.generation,
             ):
+                if release_backend is not None:
+                    release_backend(backend_ref, residency)
                 raise RuntimeError("cannot replace a leased KV segment")
             generation = self._generation.get(key, 0) + 1
             self._generation[key] = generation
@@ -182,28 +206,47 @@ class ApproxKVSegmentStore:
 
         loaded = loader.load(handle, target_tier)
         if isinstance(loaded, ResidencyLoadResult):
-            backend_ref = loaded.backend_ref
-            release_backend = loaded.release_backend
+            result = loaded
         else:
-            backend_ref = loaded
-            release_backend = None
+            result = ResidencyLoadResult(backend_ref=loaded)
 
+        return self.commit_residency(
+            handle,
+            target_tier=target_tier,
+            result=result,
+        )
+
+    def commit_residency(
+        self,
+        handle: KVSegmentHandle,
+        *,
+        target_tier: ResidencyTier,
+        result: ResidencyLoadResult,
+    ) -> KVSegmentHandle:
         with self._lock:
             record = self._records.get(handle.key)
-            if record is None or record.generation != handle.generation:
-                if release_backend is not None:
-                    release_backend(backend_ref, target_tier)
-                raise KeyError("segment changed while residency load was in flight")
+            if (
+                record is None
+                or record.generation != handle.generation
+                or record.residency != handle.residency
+                or record.backend_ref is not handle.backend_ref
+            ):
+                release = result.release_on_stale or result.release_backend
+                if release is not None:
+                    release(result.backend_ref, target_tier)
+                raise KeyError(
+                    "segment or residency changed while load was in flight"
+                )
             old_backend_ref = record.backend_ref
             old_residency = record.residency
             old_release_backend = record.release_backend
-            record.backend_ref = backend_ref
+            record.backend_ref = result.backend_ref
             record.residency = target_tier
-            record.release_backend = release_backend
+            record.release_backend = result.release_backend
             record.last_access_s = time.monotonic()
             updated = self._handle(record)
 
-        if old_release_backend is not None:
+        if result.release_previous and old_release_backend is not None:
             old_release_backend(old_backend_ref, old_residency)
         return updated
 
@@ -224,6 +267,19 @@ class ApproxKVSegmentStore:
                 self._dispose_record(record)
             self._records.clear()
             self._leases.clear()
+
+    def handles(self) -> tuple[KVSegmentHandle, ...]:
+        with self._lock:
+            return tuple(self._handle(record) for record in self._records.values())
+
+    @property
+    def device_owned_tokens(self) -> int:
+        with self._lock:
+            return sum(
+                record.key.token_count
+                for record in self._records.values()
+                if record.residency == ResidencyTier.DEVICE
+            )
 
     @property
     def record_count(self) -> int:
