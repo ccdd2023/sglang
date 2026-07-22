@@ -72,19 +72,7 @@ jobs:
                 python/sglang/srt/layers/sm75_compat.py \
                 test/registered/unit/layers/test_sm75_compat.py
               python3 test/registered/unit/layers/test_sm75_compat.py
-              python3 - <<"PY"
-import importlib.metadata
-
-import torch
-import transformers
-
-assert torch.version.cuda is not None
-assert int(torch.version.cuda.split(".", maxsplit=1)[0]) >= 13
-print("torch", torch.__version__)
-print("cuda", torch.version.cuda)
-print("transformers", transformers.__version__)
-print("sglang-kernel", importlib.metadata.version("sglang-kernel"))
-PY
+              python3 -c "import importlib.metadata; import torch; import transformers; assert torch.version.cuda is not None; assert int(torch.version.cuda.split(\".\", maxsplit=1)[0]) >= 13; print(\"torch\", torch.__version__); print(\"cuda\", torch.version.cuda); print(\"transformers\", transformers.__version__); print(\"sglang-kernel\", importlib.metadata.version(\"sglang-kernel\"))"
             '
 
       - name: Push validated images
