@@ -1985,6 +1985,21 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
             documentation="Approximate KV bytes exported to host.",
             labelnames=labels.keys(),
         )
+        self.approx_kv_cacheblend_selected_tokens_total = Counter(
+            name="sglang:approx_kv_cacheblend_selected_tokens_total",
+            documentation="Tokens selected for CacheBlend repair.",
+            labelnames=labels.keys(),
+        )
+        self.approx_kv_cacheblend_recomputed_layers_total = Counter(
+            name="sglang:approx_kv_cacheblend_recomputed_layers_total",
+            documentation="CacheBlend layer-level batched repair calls.",
+            labelnames=labels.keys(),
+        )
+        self.approx_kv_cacheblend_precomputed_total = Counter(
+            name="sglang:approx_kv_cacheblend_precomputed_total",
+            documentation="CacheBlend requests using fresh precomputed target KV.",
+            labelnames=labels.keys(),
+        )
 
     def increment_eviction_num_tokens(self, num_tokens: int) -> None:
         self.eviction_num_tokens.labels(**self.labels).inc(num_tokens)
@@ -2045,6 +2060,23 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
             per_reason = stats.recomputed_tokens / len(stats.fallback_reasons)
             for reason in stats.fallback_reasons:
                 self.increment_approx_kv_fallback(reason, per_reason)
+
+    def record_approx_kv_cacheblend_repair(
+        self,
+        selected_tokens: int,
+        recomputed_layers: int,
+        precomputed: bool,
+    ) -> None:
+        self.approx_kv_cacheblend_selected_tokens_total.labels(
+            **self.labels
+        ).inc(selected_tokens)
+        self.approx_kv_cacheblend_recomputed_layers_total.labels(
+            **self.labels
+        ).inc(recomputed_layers)
+        if precomputed:
+            self.approx_kv_cacheblend_precomputed_total.labels(
+                **self.labels
+            ).inc()
 
 
 class EncoderMetricsCollector(_StatLoggerDIMixin):

@@ -428,5 +428,10 @@ def restore_request_prefix_cacheblend(tree_cache: Any, req: Any) -> bool:
         result.layer_id for result in recompute_results
     )
     req.cacheblend_precomputed = precomputed_backend is not None
+    manager.record_cacheblend_repair(
+        selected_tokens=len(selected_local),
+        recomputed_layers=len(recompute_results),
+        precomputed=precomputed_backend is not None,
+    )
     manager.record_request("reuse", "success")
     return True

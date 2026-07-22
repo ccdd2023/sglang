@@ -185,6 +185,20 @@ class ApproxKVManager:
         if callback is not None:
             callback(num_tokens, num_bytes)
 
+    def record_cacheblend_repair(
+        self,
+        *,
+        selected_tokens: int,
+        recomputed_layers: int,
+        precomputed: bool,
+    ) -> None:
+        collector = self.metrics_collector
+        if collector is None:
+            return
+        callback = getattr(collector, "record_approx_kv_cacheblend_repair", None)
+        if callback is not None:
+            callback(selected_tokens, recomputed_layers, precomputed)
+
     @property
     def active_ticket_count(self) -> int:
         with self._ticket_lock:
