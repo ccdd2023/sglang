@@ -1,0 +1,546 @@
+{
+  "body_sweep_rho2_header64": [
+    {
+      "body_tokens": 512,
+      "dense": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 55204.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 87.30971350451,
+        "peak_rho": 2.0449352627570447,
+        "pre_target_rho": 2.005940594059406
+      },
+      "k0": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 56100.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 91.13443050591741,
+        "peak_rho": 2.0449352627570447,
+        "pre_target_rho": 2.005940594059406,
+        "speedup": 0.9580321402111679
+      },
+      "k32": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 56100.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 114.25210899324156,
+        "peak_rho": 2.0449352627570447,
+        "pre_target_rho": 2.005940594059406,
+        "speedup": 0.7641846988546591
+      }
+    },
+    {
+      "body_tokens": 768,
+      "dense": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 62140.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 127.82363849692047,
+        "peak_rho": 2.083929931454684,
+        "pre_target_rho": 2.0254379284082256
+      },
+      "k0": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 62004.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 127.86617450910853,
+        "peak_rho": 2.083929931454684,
+        "pre_target_rho": 2.0254379284082256,
+        "speedup": 0.9996673396044625
+      },
+      "k32": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 62004.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 154.08353100065142,
+        "peak_rho": 2.083929931454684,
+        "pre_target_rho": 2.0254379284082256,
+        "speedup": 0.8295736583060267
+      }
+    },
+    {
+      "body_tokens": 1024,
+      "dense": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 63164.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 299.3441754952073,
+        "peak_rho": 2.1229246001523228,
+        "pre_target_rho": 2.0449352627570447
+      },
+      "k0": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 62004.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 176.32880950259278,
+        "peak_rho": 2.1229246001523228,
+        "pre_target_rho": 2.0449352627570447,
+        "speedup": 1.6976475729611598
+      },
+      "k32": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 62004.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 195.5763965015649,
+        "peak_rho": 2.1229246001523228,
+        "pre_target_rho": 2.0449352627570447,
+        "speedup": 1.5305741431472388
+      }
+    },
+    {
+      "body_tokens": 2048,
+      "dense": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 67276.0,
+        "eviction_observed": true,
+        "filler_count": 33,
+        "p50_ms": 980.8724470058223,
+        "peak_rho": 2.166793602437167,
+        "pre_target_rho": 2.010814927646611
+      },
+      "k0": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 64956.0,
+        "eviction_observed": true,
+        "filler_count": 33,
+        "p50_ms": 473.398725502193,
+        "peak_rho": 2.166793602437167,
+        "pre_target_rho": 2.010814927646611,
+        "speedup": 2.0719794840285823
+      },
+      "k32": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 64956.0,
+        "eviction_observed": true,
+        "filler_count": 33,
+        "p50_ms": 496.278769998753,
+        "peak_rho": 2.166793602437167,
+        "pre_target_rho": 2.010814927646611,
+        "speedup": 1.9764545781563192
+      }
+    }
+  ],
+  "header_sweep_rho2_body1024": [
+    {
+      "dense": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 63164.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 267.3421325016534,
+        "peak_rho": 2.118050266565118,
+        "pre_target_rho": 2.04006092916984
+      },
+      "header_tokens": 0,
+      "k0": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 62004.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 158.54614750423934,
+        "peak_rho": 2.118050266565118,
+        "pre_target_rho": 2.04006092916984,
+        "speedup": 1.6862102088888977
+      },
+      "k32": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 62004.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 182.63496250438038,
+        "peak_rho": 2.118050266565118,
+        "pre_target_rho": 2.04006092916984,
+        "speedup": 1.4638058827057352
+      }
+    },
+    {
+      "dense": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 63164.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 278.90594599739416,
+        "peak_rho": 2.1204874333587207,
+        "pre_target_rho": 2.0424980959634427
+      },
+      "header_tokens": 32,
+      "k0": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 62004.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 160.76591049932176,
+        "peak_rho": 2.1204874333587207,
+        "pre_target_rho": 2.0424980959634427,
+        "speedup": 1.734857502633127
+      },
+      "k32": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 62004.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 185.33555199974217,
+        "peak_rho": 2.1204874333587207,
+        "pre_target_rho": 2.0424980959634427,
+        "speedup": 1.5048701826931843
+      }
+    },
+    {
+      "dense": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 63164.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 297.5696505018277,
+        "peak_rho": 2.1229246001523228,
+        "pre_target_rho": 2.0449352627570447
+      },
+      "header_tokens": 64,
+      "k0": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 62004.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 175.59737450210378,
+        "peak_rho": 2.1229246001523228,
+        "pre_target_rho": 2.0449352627570447,
+        "speedup": 1.6946133240634678
+      },
+      "k32": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 62004.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 197.69031050236663,
+        "peak_rho": 2.1229246001523228,
+        "pre_target_rho": 2.0449352627570447,
+        "speedup": 1.5052313375685926
+      }
+    },
+    {
+      "dense": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 63164.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 321.8644705048064,
+        "peak_rho": 2.1277989337395278,
+        "pre_target_rho": 2.0498095963442498
+      },
+      "header_tokens": 128,
+      "k0": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 62004.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 185.1299269910669,
+        "peak_rho": 2.1277989337395278,
+        "pre_target_rho": 2.0498095963442498,
+        "speedup": 1.7385869250644568
+      },
+      "k32": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 62004.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 210.15509249991737,
+        "peak_rho": 2.1277989337395278,
+        "pre_target_rho": 2.0498095963442498,
+        "speedup": 1.5315568453566402
+      }
+    },
+    {
+      "dense": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 60212.0,
+        "eviction_observed": true,
+        "filler_count": 34,
+        "p50_ms": 379.65597750007873,
+        "peak_rho": 2.0814927646610815,
+        "pre_target_rho": 2.0035034272658034
+      },
+      "header_tokens": 256,
+      "k0": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 59052.0,
+        "eviction_observed": true,
+        "filler_count": 34,
+        "p50_ms": 215.72944049694343,
+        "peak_rho": 2.0814927646610815,
+        "pre_target_rho": 2.0035034272658034,
+        "speedup": 1.7598709597796316
+      },
+      "k32": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 59052.0,
+        "eviction_observed": true,
+        "filler_count": 34,
+        "p50_ms": 239.24549999355804,
+        "peak_rho": 2.0814927646610815,
+        "pre_target_rho": 2.0035034272658034,
+        "speedup": 1.5868886876045794
+      }
+    }
+  ],
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "key_findings": [
+    "Body size was the missing crossover variable: at rho~2, k0 speedup rises from below 1x at body512 to 1.70x at body1024 and 2.07x at body2048.",
+    "Genuine k32 repair also crosses dense at long bodies: 1.53x at body1024 and 1.98x at body2048 under rho~2.",
+    "For body1024/header64, k0 remains about 1.73x and k32 about 1.49-1.56x from target rho 0.9 through 3.0 despite increasing eviction volume.",
+    "At body1024/rho~2, larger exact headers increase absolute TTFT for all modes but improve relative speedup: k0 grows from 1.69x at header0 to 1.76x at header256; k32 grows from 1.46x to 1.59x.",
+    "Approximate recovery must evict exact Radix victims before allocator.alloc; bypassing that standard allocation sequence caused the first pressure crash.",
+    "Long bodies require segmented canonical source registration on SM75; a single chunked approximate registration at body1024 exhausted allocator state, while two/four 512-token source segments restored 1024/2048 successfully."
+  ],
+  "known_limitations": [
+    "Source bodies above 512 tokens are represented as multiple independently registered canonical segments; this is an implementation adaptation, not a single contiguous source-context KV object.",
+    "k32 repairs only the leading 32 tokens of the overall restored run, not the first 32 tokens of every source segment.",
+    "No accuracy or output-equivalence metric was collected.",
+    "Pressure preparation time is excluded from target TTFT; the target allocation and any target-triggered eviction are included.",
+    "Results are single-model SM75 measurements and require RTX PRO 6000/H100 replication."
+  ],
+  "long_body_canary": [
+    {
+      "body_tokens": 1024,
+      "dense_p50_ms": 297.2916420039837,
+      "header_tokens": 64,
+      "k0_p50_ms": 173.32063149660826,
+      "k0_speedup": 1.7152697831579358,
+      "k32_p50_ms": 194.5950465014903,
+      "k32_speedup": 1.5277451679722327,
+      "segment_tokens": 512
+    },
+    {
+      "body_tokens": 2048,
+      "dense_p50_ms": 971.3238834956428,
+      "header_tokens": 64,
+      "k0_p50_ms": 475.5737989980844,
+      "k0_speedup": 2.042425141044314,
+      "k32_p50_ms": 492.05153599905316,
+      "k32_speedup": 1.9740287600636854,
+      "segment_tokens": 512
+    }
+  ],
+  "machine": {
+    "compute_capability": "7.5",
+    "gpu": "NVIDIA GeForce RTX 2080 SUPER",
+    "kv_capacity_tokens": 13130,
+    "mem_fraction_static": 0.35
+  },
+  "model": "Qwen/Qwen3-0.6B",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "passed": true,
+  "pressure_runner_git_sha": "cb84606d86dddaabca5d3dd8128337cf7c48f510",
+  "recovery_git_sha": "3e9fbd905c064a3110e52e4df71e9881564059d6",
+  "rho_sweep_body1024_header64": [
+    {
+      "dense": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 4124.0,
+        "eviction_observed": true,
+        "filler_count": 15,
+        "p50_ms": 299.97284399723867,
+        "peak_rho": 1.0018278750952019,
+        "pre_target_rho": 0.9238385376999239
+      },
+      "k0": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 5916.0,
+        "eviction_observed": true,
+        "filler_count": 15,
+        "p50_ms": 171.78831349883694,
+        "peak_rho": 1.0018278750952019,
+        "pre_target_rho": 0.9238385376999239,
+        "speedup": 1.7461772450503135
+      },
+      "k32": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 5916.0,
+        "eviction_observed": true,
+        "filler_count": 15,
+        "p50_ms": 192.5449484915589,
+        "peak_rho": 1.0018278750952019,
+        "pre_target_rho": 0.9238385376999239,
+        "speedup": 1.5579367121666625
+      },
+      "target_rho": 0.9
+    },
+    {
+      "dense": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 15932.0,
+        "eviction_observed": true,
+        "filler_count": 19,
+        "p50_ms": 298.5212505009258,
+        "peak_rho": 1.2260472201066261,
+        "pre_target_rho": 1.1480578827113481
+      },
+      "k0": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 14772.0,
+        "eviction_observed": true,
+        "filler_count": 19,
+        "p50_ms": 173.00633199920412,
+        "peak_rho": 1.2260472201066261,
+        "pre_target_rho": 1.1480578827113481,
+        "speedup": 1.7254932062388277
+      },
+      "k32": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 14772.0,
+        "eviction_observed": true,
+        "filler_count": 19,
+        "p50_ms": 200.3557239950169,
+        "peak_rho": 1.2260472201066261,
+        "pre_target_rho": 1.1480578827113481,
+        "speedup": 1.489956186669019
+      },
+      "target_rho": 1.1
+    },
+    {
+      "dense": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 36596.0,
+        "eviction_observed": true,
+        "filler_count": 26,
+        "p50_ms": 299.361293502443,
+        "peak_rho": 1.6184310738766183,
+        "pre_target_rho": 1.5404417364813405
+      },
+      "k0": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 35436.0,
+        "eviction_observed": true,
+        "filler_count": 26,
+        "p50_ms": 172.33590049727354,
+        "peak_rho": 1.6184310738766183,
+        "pre_target_rho": 1.5404417364813405,
+        "speedup": 1.73708027543094
+      },
+      "k32": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 35436.0,
+        "eviction_observed": true,
+        "filler_count": 26,
+        "p50_ms": 196.80635649274336,
+        "peak_rho": 1.6184310738766183,
+        "pre_target_rho": 1.5404417364813405,
+        "speedup": 1.521095653805679
+      },
+      "target_rho": 1.5
+    },
+    {
+      "dense": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 63164.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 299.21304550225614,
+        "peak_rho": 2.1229246001523228,
+        "pre_target_rho": 2.0449352627570447
+      },
+      "k0": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 62004.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 172.4540280047222,
+        "peak_rho": 2.1229246001523228,
+        "pre_target_rho": 2.0449352627570447,
+        "speedup": 1.7350307729203227
+      },
+      "k32": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 62004.0,
+        "eviction_observed": true,
+        "filler_count": 35,
+        "p50_ms": 195.1239140034886,
+        "peak_rho": 2.1229246001523228,
+        "pre_target_rho": 2.0449352627570447,
+        "speedup": 1.5334514328003206
+      },
+      "target_rho": 2.0
+    },
+    {
+      "dense": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 116300.0,
+        "eviction_observed": true,
+        "filler_count": 53,
+        "p50_ms": 301.568603994383,
+        "peak_rho": 3.131911652703732,
+        "pre_target_rho": 3.053922315308454
+      },
+      "k0": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 115140.0,
+        "eviction_observed": true,
+        "filler_count": 53,
+        "p50_ms": 174.10292799468152,
+        "peak_rho": 3.131911652703732,
+        "pre_target_rho": 3.053922315308454,
+        "speedup": 1.7321282730155767
+      },
+      "k32": {
+        "capacity_tokens": 13130,
+        "evicted_tokens_four_runs": 115140.0,
+        "eviction_observed": true,
+        "filler_count": 53,
+        "p50_ms": 197.4517825001385,
+        "peak_rho": 3.131911652703732,
+        "pre_target_rho": 3.053922315308454,
+        "speedup": 1.5273025149528416
+      },
+      "target_rho": 3.0
+    }
+  ],
+  "schema_version": 1,
+  "server_validation": {
+    "all_epic_formal_requests_zero_dense_fallback": true,
+    "all_formal_pressure_requests_returned_first_token": true,
+    "dense_body_1024_2048_cross_chunk_passed": true,
+    "eviction_aware_recovery_allocation": true,
+    "passed": true,
+    "segmented_source_body1024_2048_passed": true,
+    "unsegmented_approx_body1024_crashed": true,
+    "unsegmented_failure": "chunked approximate source path exhausted allocator; scheduler attempted 1024-token dense allocation with available=0"
+  },
+  "settings": {
+    "body_tokens": [
+      512,
+      768,
+      1024,
+      2048
+    ],
+    "central_log": "/home/chris/Workspaces/kvcache-research/results/BENCHMARK_RUN_LOG.jsonl",
+    "discarded_warmup_per_setting": 1,
+    "filler_tokens": 736,
+    "formal_repeats_per_setting": 4,
+    "header_tokens": [
+      0,
+      32,
+      64,
+      128,
+      256
+    ],
+    "prefetch": false,
+    "rho_targets": [
+      0.9,
+      1.1,
+      1.5,
+      2.0,
+      3.0
+    ],
+    "scheduler": "S0 LRU",
+    "source_segment_tokens": 512,
+    "tier": "GPU-only"
+  }
+}
