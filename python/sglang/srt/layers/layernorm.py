@@ -26,6 +26,9 @@ from sglang.srt.batch_invariant_ops import (
 )
 from sglang.srt.environ import envs
 from sglang.srt.layers.utils import MultiPlatformOp
+from sglang.srt.layers.sm75_compat import (
+    should_use_native_cuda_fallback,
+)
 from sglang.srt.model_executor.cuda_graph_config import (
     Backend,
     Phase,
@@ -35,6 +38,7 @@ from sglang.srt.runtime_context import get_parallel, get_server_args
 from sglang.srt.utils import (
     cpu_has_amx_support,
     get_bool_env_var,
+    get_device_capability,
     is_cpu,
     is_cuda,
     is_flashinfer_available,
@@ -54,6 +58,11 @@ _is_cpu_amx_available = cpu_has_amx_support()
 _is_cpu = is_cpu()
 _is_xpu = is_xpu()
 _flashinfer_layernorm_available = False
+
+_cuda_capability = get_device_capability() if _is_cuda else (None, None)
+_use_native_cuda_fallback = should_use_native_cuda_fallback(
+    _is_cuda, _cuda_capability
+)
 
 if _is_cuda or _is_xpu or _is_musa:
     if _is_flashinfer_available:
@@ -267,6 +276,8 @@ class RMSNorm(MultiPlatformOp):
         residual: Optional[torch.Tensor] = None,
         post_residual_addition: Optional[torch.Tensor] = None,
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        if _use_native_cuda_fallback:
+            return self.forward_native(x, residual, post_residual_addition)
         if x.numel() == 0:
             if residual is not None:
                 if post_residual_addition is not None:
@@ -762,6 +773,8 @@ class GemmaRMSNorm(MultiPlatformOp):
         residual: Optional[torch.Tensor] = None,
         post_residual_addition: Optional[torch.Tensor] = None,
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        if _use_native_cuda_fallback:
+            return self.forward_native(x, residual, post_residual_addition)
         return self._forward_impl(x, residual, post_residual_addition)
 
     def forward_hip(

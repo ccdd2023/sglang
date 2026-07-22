@@ -28,6 +28,9 @@ from sglang.srt.distributed import (
 from sglang.srt.environ import envs
 from sglang.srt.layers.quantization.base_config import QuantizationConfig
 from sglang.srt.layers.utils import MultiPlatformOp
+from sglang.srt.layers.sm75_compat import (
+    should_use_native_cuda_fallback,
+)
 from sglang.srt.model_executor.cuda_graph_config import (
     Backend,
     Phase,
@@ -37,6 +40,7 @@ from sglang.srt.runtime_context import get_parallel, get_server_args
 from sglang.srt.utils import (
     cpu_has_amx_support,
     get_bool_env_var,
+    get_device_capability,
     is_cpu,
     is_cuda,
     is_hip,
@@ -55,6 +59,11 @@ _is_cpu = is_cpu()
 _is_hip = is_hip()
 _is_xpu = is_xpu()
 _use_aiter = get_bool_env_var("SGLANG_USE_AITER") and _is_hip
+
+_cuda_capability = get_device_capability() if _is_cuda else (None, None)
+_use_native_cuda_fallback = should_use_native_cuda_fallback(
+    _is_cuda, _cuda_capability
+)
 
 if _is_cuda:
     from sglang.jit_kernel.activation import (
@@ -99,6 +108,8 @@ class SiluAndMul(MultiPlatformOp):
         return F.silu(x[..., :d]) * x[..., d:]
 
     def forward_cuda(self, x: torch.Tensor) -> torch.Tensor:
+        if _use_native_cuda_fallback:
+            return self.forward_native(x)
         d = x.shape[-1] // 2
         output_shape = x.shape[:-1] + (d,)
         out = torch.empty(output_shape, dtype=x.dtype, device=x.device)
@@ -146,6 +157,8 @@ class GeluAndMul(MultiPlatformOp):
         self.approximate = approximate
 
     def _forward_impl(self, x: torch.Tensor) -> torch.Tensor:
+        if _use_native_cuda_fallback:
+            return self.forward_native(x)
         d = x.shape[-1] // 2
         output_shape = x.shape[:-1] + (d,)
         out = torch.empty(output_shape, dtype=x.dtype, device=x.device)
