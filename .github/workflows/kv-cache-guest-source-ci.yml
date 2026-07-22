@@ -6,17 +6,21 @@ on:
   pull_request:
     paths:
       - ".github/workflows/kv-cache-guest-source-ci.yml"
+      - "benchmark/approx_kv/**"
       - "python/sglang/srt/layers/activation.py"
       - "python/sglang/srt/layers/layernorm.py"
       - "python/sglang/srt/layers/sm75_compat.py"
+      - "python/sglang/srt/mem_cache/approx_kv/**"
+      - "test/registered/unit/benchmark/test_approx_kv_workloads.py"
       - "test/registered/unit/layers/test_sm75_compat.py"
+      - "test/registered/unit/mem_cache/test_approx_kv_core.py"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  sm75-source:
+  source-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -29,10 +33,17 @@ jobs:
       - name: Compile changed Python files
         run: |
           python -m compileall -q \
+            benchmark/approx_kv \
             python/sglang/srt/layers/activation.py \
             python/sglang/srt/layers/layernorm.py \
             python/sglang/srt/layers/sm75_compat.py \
-            test/registered/unit/layers/test_sm75_compat.py
+            python/sglang/srt/mem_cache/approx_kv \
+            test/registered/unit/benchmark/test_approx_kv_workloads.py \
+            test/registered/unit/layers/test_sm75_compat.py \
+            test/registered/unit/mem_cache/test_approx_kv_core.py
 
-      - name: Run source-level SM75 tests
-        run: python test/registered/unit/layers/test_sm75_compat.py
+      - name: Run source-level tests
+        run: |
+          python test/registered/unit/layers/test_sm75_compat.py
+          python test/registered/unit/mem_cache/test_approx_kv_core.py
+          python test/registered/unit/benchmark/test_approx_kv_workloads.py
