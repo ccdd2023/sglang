@@ -6,10 +6,38 @@ from __future__ import annotations
 Connects to a live SGLang server that already has the CacheTune recovery
 plugin registered (``SGLANG_APPROX_KV_CACHETUNE=1``, plus a deployment-wide
 hardware measurement from ``SGLANG_CACHETUNE_T_C_MS`` / ``_T_I_MS`` /
-``_T_O_MS`` -- see ``cachetune/plugin.py``) and issues real, blocking
+``_T_O_MS`` -- see ``cachetune/plugin.py``) and issues real, streamed
 native ``/generate`` requests (direct ``input_ids``, never
 ``/v1/chat/completions``) to exercise the genuine, non-simulated CacheTune
 request path end to end.
+
+TTFT measurement methodology (client TTFT is this script's sole metric)
+------------------------------------------------------------------------
+Every request this script issues sets ``stream: true`` and measures
+``ttft_ms`` as the wall-clock time from just before the request is sent
+to the moment the first non-``[DONE]`` SSE ``data:`` frame is received
+off the wire -- i.e. genuine client time-to-first-token, timestamped
+before that frame's JSON body is even parsed. This is *not* the same
+number as this script's own previous approach of timing a blocking
+(non-streamed) request end to end: with ``max_new_tokens=1`` that
+blocking-elapsed number is close to TTFT, but it still bundles in the
+server's full-response detokenization/serialization and the complete
+HTTP body transfer that happen strictly *after* the first (and, given
+``max_new_tokens=1``, only) token was already produced -- a strictly
+looser upper bound on TTFT, never TTFT itself, and this script's sole
+client-facing metric deserves the real thing rather than an
+approximation. See ``timed_post``/``_stream_generate_and_measure_ttft``
+for the implementation. Every stream is still read in full through the
+terminal ``data: [DONE]`` frame before being accepted as a success --
+never abandoned right after the first chunk -- so a connection that
+drops or an error frame mid-stream fails loudly instead of silently
+reporting a "successful" TTFT for a request that never actually
+finished. Every raw per-repeat sample this script records (dense, fresh
+preparation, reuse) carries both ``ttft_ms`` and the server-reported
+``meta_info.cached_tokens`` for that exact call together (see the
+``*_raw_samples`` fields in the output JSON), so token-accounting and
+timing are always cross-referenced from the very same request, never
+two independently-sourced numbers a reader has to trust line up.
 
 Why /generate and non-prefix segments
 --------------------------------------
@@ -134,8 +162,8 @@ settings, the image/model/git identity, the warmup/repeat counts, the
 output path, and (on success) a short result summary -- see
 ``append_run_log``.
 
-Every reported number is a genuine client-observed duration or a real
-server-reported signal (Prometheus counter delta or per-request
+Every reported number is a genuine client-observed streaming TTFT or a
+real server-reported signal (Prometheus counter delta or per-request
 ``meta_info``); nothing is fabricated, and the "fresh" preparation cost
 and the one-time seed-head/register-raw setup costs are always reported
 (see ``known_limitations`` for why the latter two are excluded from
@@ -162,15 +190,17 @@ actually does and what the controller contract promises.
 """
 
 import argparse
+import asyncio
 import json
 import statistics
 import time
-import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
+
+import aiohttp
 
 from benchmark.approx_kv.metrics import idle_pool_invariant, parse_prometheus_text
 from benchmark.approx_kv.workloads import deterministic_code
@@ -308,20 +338,6 @@ def parse_args() -> argparse.Namespace:
 def fetch_text(url: str, timeout: float = 30) -> str:
     with urllib.request.urlopen(url, timeout=timeout) as response:
         return response.read().decode("utf-8")
-
-
-def post_json(url: str, payload: dict, timeout: float = 300) -> dict:
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return json.loads(response.read())
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"HTTP {exc.code}: {body}") from exc
 
 
 def post_empty(url: str, timeout: float = 60) -> str:
@@ -624,11 +640,97 @@ def reuse_generate_payload(
     }
 
 
-def timed_post(base_url: str, payload: dict) -> tuple[dict, float]:
-    start = time.perf_counter()
-    response = post_json(f"{base_url}/generate", payload)
-    elapsed_ms = (time.perf_counter() - start) * 1000.0
-    return response, elapsed_ms
+async def _stream_generate_and_measure_ttft(
+    base_url: str, payload: dict, timeout: float
+) -> tuple[dict, float]:
+    """POST ``payload`` to ``/generate`` with ``stream: true`` and return
+    ``(response, ttft_ms)`` where ``ttft_ms`` is genuine client
+    time-to-first-token.
+
+    ``ttft_ms`` is timestamped the moment the first non-``[DONE]`` SSE
+    ``data:`` frame is received off the wire -- before that frame's JSON
+    body is even decoded -- never the blocking whole-request elapsed
+    time this script used previously. With ``max_new_tokens=1`` (every
+    payload this script builds) that blocking number happens to be
+    *close* to TTFT, but it still bundles in the server's full-response
+    detokenization/serialization and the complete HTTP body transfer
+    that only happen strictly after the first (and only) token was
+    already produced -- a strictly looser upper bound on TTFT, never
+    TTFT itself, and TTFT is this script's sole client-facing metric
+    (see module docstring's "TTFT measurement methodology" section).
+
+    The stream is always read in full through the terminal
+    ``data: [DONE]`` frame -- never abandoned right after the first
+    chunk -- as this call's own success check: a connection that drops,
+    or a stream that never reaches ``[DONE]``, raises rather than
+    silently reporting a "successful" TTFT for a request that never
+    actually completed. Any mid-stream frame carrying an ``"error"`` key
+    (see ``http_server.py``'s ``stream_results`` error branch) also
+    raises immediately rather than being folded into ``response``. The
+    *last* non-``[DONE]`` frame observed is returned as ``response`` --
+    guaranteed complete/final, the same semantics the old blocking
+    response object had -- so ``require_finished_by_length`` and
+    ``require_cached_tokens`` keep working unchanged against it.
+    """
+    request_payload = {**payload, "stream": True}
+    client_timeout = aiohttp.ClientTimeout(total=timeout)
+    last_chunk: dict | None = None
+    ttft_ms: float | None = None
+    saw_done = False
+    async with aiohttp.ClientSession(timeout=client_timeout) as session:
+        start = time.perf_counter()
+        async with session.post(
+            f"{base_url}/generate", json=request_payload
+        ) as response:
+            if response.status != 200:
+                body = await response.text()
+                raise RuntimeError(f"HTTP {response.status}: {body}")
+            async for raw_line in response.content:
+                line = raw_line.decode("utf-8", errors="replace").strip()
+                if not line or not line.startswith("data: "):
+                    continue
+                encoded = line[len("data: ") :]
+                if encoded == "[DONE]":
+                    saw_done = True
+                    break
+                if ttft_ms is None:
+                    ttft_ms = (time.perf_counter() - start) * 1000.0
+                chunk = json.loads(encoded)
+                if "error" in chunk:
+                    raise RuntimeError(
+                        f"/generate streaming response reported an error: "
+                        f"{chunk['error']}"
+                    )
+                last_chunk = chunk
+    if not saw_done:
+        raise RuntimeError(
+            "/generate streaming response ended without a terminal "
+            "'data: [DONE]' frame -- treating this as a failed request, "
+            "never an approximate success"
+        )
+    if last_chunk is None or ttft_ms is None:
+        raise RuntimeError(
+            "/generate streaming response reached '[DONE]' without ever "
+            "emitting a data chunk -- no token was produced, so there is "
+            "no TTFT to measure"
+        )
+    return last_chunk, ttft_ms
+
+
+def timed_post(
+    base_url: str, payload: dict, timeout: float = 300
+) -> tuple[dict, float]:
+    """POST ``payload`` to ``/generate`` and return ``(response,
+    ttft_ms)``, where ``ttft_ms`` is genuine client time-to-first-token
+    measured over a real streaming (``stream: true``) request -- see
+    ``_stream_generate_and_measure_ttft`` for the full rationale. Every
+    canary request in this script (head-seed, dense baseline,
+    raw-register, fresh-register, reuse) goes through this single
+    function, so this script's entire TTFT/ms telemetry is always
+    genuine streamed client TTFT, never a blocking-elapsed
+    approximation.
+    """
+    return asyncio.run(_stream_generate_and_measure_ttft(base_url, payload, timeout))
 
 
 def require_finished_by_length(response: dict, label: str) -> None:
@@ -792,10 +894,16 @@ def run_non_prefix_setting(
     because it runs before any registration this call performs.
 
     Returns a dict with ``seed_head_ms``, ``register_raw_ms``,
-    ``fresh_ms_samples``, ``reuse_ms_samples``, ``combined_ms_samples``,
-    ``observed_cached_tokens_per_call``, ``metrics_before``, and
-    ``metrics_after`` -- everything the caller needs to build its own
-    output section and telemetry cross-validation.
+    ``fresh_raw_samples``, ``reuse_raw_samples`` (each a list of
+    ``{"ttft_ms": float, "cached_tokens": int}`` records, one per formal
+    repeat, pairing every repeat's genuine streaming TTFT with the
+    server-reported ``meta_info.cached_tokens`` from that exact same
+    call), ``fresh_ms_samples``, ``reuse_ms_samples``,
+    ``combined_ms_samples`` (the ``ttft_ms``-only projections of the
+    above, kept for existing consumers), ``observed_cached_tokens_per_call``
+    (the reuse leg's ``cached_tokens`` projection, unchanged), and
+    ``metrics_before``/``metrics_after`` -- everything the caller needs
+    to build its own output section and telemetry cross-validation.
     """
     flush_exact_radix_cache(base_url)
 
@@ -855,11 +963,10 @@ def run_non_prefix_setting(
     # Snapshot AFTER warmup: the warmup's own telemetry contribution must
     # not be counted as part of the formal-repeat delta below.
     metrics_before = metric_snapshot(base_url)
-    fresh_ms_samples: list[float] = []
-    reuse_ms_samples: list[float] = []
-    observed_cached_tokens_per_call: list[int] = []
+    fresh_raw_samples: list[dict[str, Any]] = []
+    reuse_raw_samples: list[dict[str, Any]] = []
     for _ in range(repeats):
-        register_fresh_response, fresh_ms = timed_post(
+        register_fresh_response, fresh_ttft_ms = timed_post(
             base_url,
             register_generate_payload(
                 input_ids=workload.fresh_prompt_ids,
@@ -874,7 +981,7 @@ def run_non_prefix_setting(
             register_fresh_response, f"{label} fresh preparation"
         )
 
-        reuse_response, reuse_ms = timed_post(
+        reuse_response, reuse_ttft_ms = timed_post(
             base_url,
             reuse_generate_payload(
                 input_ids=workload.target_prompt_ids,
@@ -886,27 +993,40 @@ def run_non_prefix_setting(
             ),
         )
         require_finished_by_length(reuse_response, f"{label} reuse")
-        observed_cached_tokens_per_call.append(
-            require_cached_tokens(
-                reuse_response, workload.body_start_in_target, f"{label} reuse"
-            )
+        observed_reuse_cached_tokens = require_cached_tokens(
+            reuse_response, workload.body_start_in_target, f"{label} reuse"
         )
 
-        fresh_ms_samples.append(fresh_ms)
-        reuse_ms_samples.append(reuse_ms)
+        fresh_raw_samples.append(
+            {
+                "ttft_ms": fresh_ttft_ms,
+                "cached_tokens": int(
+                    register_fresh_response["meta_info"]["cached_tokens"]
+                ),
+            }
+        )
+        reuse_raw_samples.append(
+            {"ttft_ms": reuse_ttft_ms, "cached_tokens": observed_reuse_cached_tokens}
+        )
         time.sleep(0.1)
     metrics_after = metric_snapshot(base_url)
 
+    fresh_ms_samples = [sample["ttft_ms"] for sample in fresh_raw_samples]
+    reuse_ms_samples = [sample["ttft_ms"] for sample in reuse_raw_samples]
     return {
         "seed_head_ms": seed_head_ms,
         "register_raw_ms": register_raw_ms,
+        "fresh_raw_samples": fresh_raw_samples,
+        "reuse_raw_samples": reuse_raw_samples,
         "fresh_ms_samples": fresh_ms_samples,
         "reuse_ms_samples": reuse_ms_samples,
         "combined_ms_samples": [
             fresh_ms + reuse_ms
             for fresh_ms, reuse_ms in zip(fresh_ms_samples, reuse_ms_samples)
         ],
-        "observed_cached_tokens_per_call": observed_cached_tokens_per_call,
+        "observed_cached_tokens_per_call": [
+            sample["cached_tokens"] for sample in reuse_raw_samples
+        ],
         "metrics_before": metrics_before,
         "metrics_after": metrics_after,
     }
@@ -974,16 +1094,22 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
     )
     require_finished_by_length(warmup_dense_response, "dense warmup (discarded)")
 
-    dense_ms_samples: list[float] = []
+    dense_raw_samples: list[dict[str, Any]] = []
     for _ in range(args.repeats):
         flush_exact_radix_cache(args.base_url)
-        dense_response, dense_ms = timed_post(
+        dense_response, dense_ttft_ms = timed_post(
             args.base_url,
             dense_generate_payload(main_workload.target_prompt_ids),
         )
         require_finished_by_length(dense_response, "dense baseline")
-        dense_ms_samples.append(dense_ms)
+        dense_raw_samples.append(
+            {
+                "ttft_ms": dense_ttft_ms,
+                "cached_tokens": int(dense_response["meta_info"]["cached_tokens"]),
+            }
+        )
         time.sleep(0.1)
+    dense_ms_samples = [sample["ttft_ms"] for sample in dense_raw_samples]
     # No explicit flush here: dense's last formal repeat left
     # main_workload's full target sequence in the exact radix tree, but
     # run_non_prefix_setting flushes it away as its own first action
@@ -1004,6 +1130,8 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         repeats=args.repeats,
         label="main",
     )
+    fresh_raw_samples = main_result["fresh_raw_samples"]
+    cachetune_raw_samples = main_result["reuse_raw_samples"]
     fresh_ms_samples = main_result["fresh_ms_samples"]
     cachetune_ms_samples = main_result["reuse_ms_samples"]
     combined_ms_samples = main_result["combined_ms_samples"]
@@ -1130,6 +1258,8 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                     sweep_result["observed_cached_tokens_per_call"]
                 ),
                 "expected_cached_tokens_per_call": sweep_workload.body_start_in_target,
+                "fresh_raw_samples": sweep_result["fresh_raw_samples"],
+                "reuse_raw_samples": sweep_result["reuse_raw_samples"],
                 "fresh_ms_samples": sweep_result["fresh_ms_samples"],
                 "reuse_ms_samples": sweep_result["reuse_ms_samples"],
                 "combined_ms_samples": sweep_result["combined_ms_samples"],
@@ -1242,6 +1372,26 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                 "metadata) do, which is why only dense needs inter-repeat "
                 "flushing."
             ),
+            "ttft_measurement_method": (
+                "every request sets stream: true; ttft_ms is the "
+                "client-side wall-clock elapsed from just before the "
+                "request is sent to the first non-'[DONE]' SSE 'data:' "
+                "frame received (i.e. first token), timestamped before "
+                "that frame's JSON body is parsed. This is never the "
+                "prior blocking (non-streamed) whole-request elapsed "
+                "time, which also bundles in full-response "
+                "detokenization/serialization and body transfer after "
+                "the first token was already produced."
+            ),
+            "ttft_stream_read_to_done_required": True,
+            "ttft_stream_read_to_done_rationale": (
+                "every stream is read in full through the terminal "
+                "'data: [DONE]' frame -- never abandoned right after the "
+                "first chunk -- as the success check for that request; a "
+                "dropped connection, a stream that never reaches "
+                "'[DONE]', or a mid-stream error frame all raise instead "
+                "of being silently treated as a completed request."
+            ),
         },
         "workload": {
             "kind": "non_prefix_segment",
@@ -1293,6 +1443,15 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         },
         "ttft": {
             "repeats_per_mode": args.repeats,
+            "measurement_method": (
+                "client wall-clock elapsed to the first non-'[DONE]' SSE "
+                "'data:' frame of a stream: true /generate request (see "
+                "measurement_protocol.ttft_measurement_method); never "
+                "blocking whole-request elapsed time."
+            ),
+            "dense_raw_samples": dense_raw_samples,
+            "fresh_raw_samples": fresh_raw_samples,
+            "cachetune_raw_samples": cachetune_raw_samples,
             "dense_ms_samples": dense_ms_samples,
             "fresh_ms_samples": fresh_ms_samples,
             "cachetune_ms_samples": cachetune_ms_samples,

@@ -109,6 +109,43 @@ compute an independent expected repair-token count and cross-validates it
 against the real `sglang:approx_kv_cachetune_*` Prometheus counter deltas
 observed around genuine HTTP requests.
 
+### TTFT measurement methodology (client TTFT is the sole metric)
+
+Every request (`dense_generate_payload`/`register_generate_payload`/
+`reuse_generate_payload`) is sent with `stream: true`. `ttft_ms` is the
+client wall-clock time from just before the request is sent to the
+moment the first non-`[DONE]` SSE `data:` frame is received off the
+wire -- i.e. genuine time-to-first-token, timestamped before that
+frame's JSON body is even parsed. This is deliberately *not* the
+blocking whole-request elapsed time an earlier version of this script
+used: with `max_new_tokens=1` that number is close to TTFT, but it still
+bundles in the server's full-response detokenization/serialization and
+the complete HTTP body transfer that only happen strictly after the
+first (and only) token was already produced -- a strictly looser upper
+bound on TTFT, never TTFT itself, and TTFT is this script's sole
+client-facing metric.
+
+Every stream is still read in full through the terminal `data: [DONE]`
+frame before being accepted as a success -- never abandoned right after
+the first chunk -- so a dropped connection, a stream that never reaches
+`[DONE]`, or a mid-stream `"error"` frame (see `http_server.py`'s
+`stream_results` error branch) all raise loudly instead of being
+silently treated as a completed request. The *last* non-`[DONE]` frame
+observed is used as the response object for `require_finished_by_length`/
+`require_cached_tokens`, so those checks keep working unchanged.
+
+Every formal-repeat raw sample (`dense_raw_samples`/`fresh_raw_samples`/
+`reuse_raw_samples`/`cachetune_raw_samples`, main setting and every
+length-sweep point) is a `{"ttft_ms": ..., "cached_tokens": ...}` record
+pairing that exact call's genuine streaming TTFT with its own
+server-reported `meta_info.cached_tokens` -- so timing and token
+accounting are always cross-referenced from the very same request,
+never two independently sourced numbers a reader has to trust line up.
+The existing flat `*_ms_samples` float lists and `dense_p50_ms`/
+`fresh_preparation_p50_ms`/`cachetune_target_p50_ms`/`combined_p50_ms`
+medians are unchanged in shape and are simply the `ttft_ms` projection
+of these same raw samples.
+
 ### Non-prefix segment workload (real cross-context repair, not exact replay)
 
 The runner talks to the server's native `POST /generate` endpoint with
@@ -221,8 +258,11 @@ before the measured request in a real deployment (a prior conversation
 turn's own exact-cache entry, and externally sourced/precomputed KV), the
 same reasoning that already excluded raw-segment registration itself. The
 output JSON (`schema_version: 3`) additionally records every raw
-per-repeat sample (`dense_ms_samples`/`fresh_ms_samples`/
-`cachetune_ms_samples`/`combined_ms_samples`, and per-length-sweep-point
-equivalents) alongside the derived medians, so the formal-repeat
-measurements are always independently reproducible from the recorded
-data.
+per-repeat sample both as `{"ttft_ms": ..., "cached_tokens": ...}`
+records (`dense_raw_samples`/`fresh_raw_samples`/`cachetune_raw_samples`,
+and per-length-sweep-point `fresh_raw_samples`/`reuse_raw_samples`) and
+as the existing flat `ttft_ms`-only float lists (`dense_ms_samples`/
+`fresh_ms_samples`/`cachetune_ms_samples`/`combined_ms_samples`, and
+per-length-sweep-point equivalents) alongside the derived medians, so the
+formal-repeat measurements are always independently reproducible from
+the recorded data.

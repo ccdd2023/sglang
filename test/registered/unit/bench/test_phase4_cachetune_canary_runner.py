@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import dataclasses
 import hashlib
 import json
 import tempfile
+import time
 import unittest
 import unittest.mock
 from pathlib import Path
@@ -794,41 +796,271 @@ class TestRequireCachedTokens(unittest.TestCase):
         self.assertIn("34", message)
 
 
+class _FakeAsyncLineIterator:
+    """Fakes aiohttp's ``StreamReader`` async-for-line iteration
+    (``async for raw_line in response.content``): each ``__anext__`` pops
+    the next queued raw line, optionally sleeping first so tests can
+    prove a client measures TTFT at the *first* chunk, never after the
+    stream fully drains."""
+
+    def __init__(self, lines, delay_before_index=None, delay_seconds=0.0):
+        self._lines = list(lines)
+        self._index = 0
+        self._delay_before_index = delay_before_index
+        self._delay_seconds = delay_seconds
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if self._index >= len(self._lines):
+            raise StopAsyncIteration
+        if self._index == self._delay_before_index:
+            await asyncio.sleep(self._delay_seconds)
+        line = self._lines[self._index]
+        self._index += 1
+        return line
+
+
+class _FakeStreamResponse:
+    """Fakes an aiohttp streamed response: ``.status``, an async-iterable
+    ``.content``, and an async ``.text()`` for non-2xx error bodies."""
+
+    def __init__(self, lines, status=200, error_text="", **iterator_kwargs):
+        self._lines = lines
+        self.status = status
+        self._error_text = error_text
+        self._iterator_kwargs = iterator_kwargs
+
+    @property
+    def content(self):
+        return _FakeAsyncLineIterator(self._lines, **self._iterator_kwargs)
+
+    async def text(self):
+        return self._error_text
+
+
+class _FakePostContextManager:
+    def __init__(self, response):
+        self._response = response
+
+    async def __aenter__(self):
+        return self._response
+
+    async def __aexit__(self, *exc_info):
+        return False
+
+
+class _FakeClientSession:
+    """Fakes ``aiohttp.ClientSession``: records every ``.post(url,
+    json=payload)`` call and always returns a preconfigured streamed
+    response."""
+
+    def __init__(self, response):
+        self._response = response
+        self.post_calls: list[tuple[str, dict]] = []
+
+    def post(self, url, json):
+        self.post_calls.append((url, json))
+        return _FakePostContextManager(self._response)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc_info):
+        return False
+
+
+def _sse_data_line(payload: dict) -> bytes:
+    return ("data: " + json.dumps(payload) + "\n").encode("utf-8")
+
+
+_SSE_DONE_LINE = b"data: [DONE]\n"
+
+
 class TestTimedPost(unittest.TestCase):
-    """``timed_post`` must target native ``/generate`` (never
-    ``/v1/chat/completions``) and return the parsed JSON response
-    alongside a genuine non-negative elapsed-time measurement."""
+    """``timed_post`` must target native ``/generate`` with a genuine
+    streaming (``stream: true``) request and return the parsed final
+    JSON chunk alongside a genuine client time-to-first-token
+    measurement -- never a blocking whole-request elapsed-time
+    approximation (see module docstring's "TTFT measurement
+    methodology" section)."""
 
-    def test_posts_to_generate_endpoint(self):
-        captured: dict[str, object] = {}
+    def _run_with_fake_session(self, session):
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            return timed_post("http://127.0.0.1:30000", {"input_ids": [1, 2, 3]})
 
-        class FakeResponse:
-            def read(self):
-                return json.dumps(
-                    {"meta_info": {"finish_reason": {"type": "length"}}}
-                ).encode("utf-8")
+    def test_posts_to_generate_endpoint_with_stream_true(self):
+        response_chunk = {
+            "meta_info": {"finish_reason": {"type": "length"}, "cached_tokens": 0}
+        }
+        fake_response = _FakeStreamResponse(
+            [_sse_data_line(response_chunk), _SSE_DONE_LINE]
+        )
+        session = _FakeClientSession(fake_response)
 
-            def __enter__(self):
-                return self
+        response, ttft_ms = self._run_with_fake_session(session)
 
-            def __exit__(self, *exc_info):
-                return False
+        self.assertEqual(len(session.post_calls), 1)
+        url, payload = session.post_calls[0]
+        self.assertEqual(url, "http://127.0.0.1:30000/generate")
+        self.assertEqual(payload, {"input_ids": [1, 2, 3], "stream": True})
+        self.assertEqual(response, response_chunk)
+        self.assertGreaterEqual(ttft_ms, 0.0)
 
-        def fake_urlopen(request, timeout=None):
-            captured["url"] = request.full_url
-            captured["data"] = json.loads(request.data)
-            captured["timeout"] = timeout
-            return FakeResponse()
+    def test_preserves_original_payload_keys_alongside_stream_true(self):
+        response_chunk = {"meta_info": {"finish_reason": {"type": "length"}}}
+        fake_response = _FakeStreamResponse(
+            [_sse_data_line(response_chunk), _SSE_DONE_LINE]
+        )
+        session = _FakeClientSession(fake_response)
+        original_payload = {
+            "input_ids": [1, 2, 3],
+            "sampling_params": {"max_new_tokens": 1, "temperature": 0},
+        }
 
-        with unittest.mock.patch("urllib.request.urlopen", fake_urlopen):
-            response, elapsed_ms = timed_post(
-                "http://127.0.0.1:30000", {"input_ids": [1, 2, 3]}
-            )
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            timed_post("http://127.0.0.1:30000", original_payload)
 
-        self.assertEqual(captured["url"], "http://127.0.0.1:30000/generate")
-        self.assertEqual(captured["data"], {"input_ids": [1, 2, 3]})
-        self.assertEqual(response, {"meta_info": {"finish_reason": {"type": "length"}}})
-        self.assertGreaterEqual(elapsed_ms, 0.0)
+        _, sent_payload = session.post_calls[0]
+        self.assertEqual(sent_payload["input_ids"], [1, 2, 3])
+        self.assertEqual(
+            sent_payload["sampling_params"], {"max_new_tokens": 1, "temperature": 0}
+        )
+        self.assertIs(sent_payload["stream"], True)
+        # The caller's own dict must never be mutated by the merge.
+        self.assertNotIn("stream", original_payload)
+
+    def test_ttft_measures_time_to_first_chunk_not_full_stream_duration(self):
+        """The defining behavioral test: TTFT must be timestamped at the
+        first data chunk, never after the connection fully drains. A
+        real server would never delay [DONE] after the (only) token for
+        max_new_tokens=1, but this directly proves the client-side
+        timing logic itself does not wait for stream completion."""
+        response_chunk = {"meta_info": {"finish_reason": {"type": "length"}}}
+        fake_response = _FakeStreamResponse(
+            [_sse_data_line(response_chunk), _SSE_DONE_LINE],
+            delay_before_index=1,
+            delay_seconds=0.25,
+        )
+        session = _FakeClientSession(fake_response)
+
+        wall_clock_start = time.perf_counter()
+        _, ttft_ms = self._run_with_fake_session(session)
+        wall_clock_elapsed_ms = (time.perf_counter() - wall_clock_start) * 1000.0
+
+        self.assertGreaterEqual(wall_clock_elapsed_ms, 250.0)
+        self.assertLess(ttft_ms, 100.0)
+
+    def test_ttft_still_includes_delay_before_the_real_chunk_itself(self):
+        """Ignorable frames (blank/keepalive) preceding the real data
+        chunk must NOT be mistaken for the first token: if the server
+        delays *before* emitting the real chunk, that delay must be
+        counted in ttft_ms, not skipped over."""
+        response_chunk = {"meta_info": {"finish_reason": {"type": "length"}}}
+        fake_response = _FakeStreamResponse(
+            [b"\n", b": keepalive\n", _sse_data_line(response_chunk), _SSE_DONE_LINE],
+            delay_before_index=2,
+            delay_seconds=0.25,
+        )
+        session = _FakeClientSession(fake_response)
+
+        _, ttft_ms = self._run_with_fake_session(session)
+
+        self.assertGreaterEqual(ttft_ms, 250.0)
+
+    def test_returns_last_data_chunk_when_stream_has_multiple_frames(self):
+        first_chunk = {"meta_info": {"finish_reason": {"type": "length"}, "n": 1}}
+        last_chunk = {"meta_info": {"finish_reason": {"type": "length"}, "n": 2}}
+        fake_response = _FakeStreamResponse(
+            [
+                _sse_data_line(first_chunk),
+                _sse_data_line(last_chunk),
+                _SSE_DONE_LINE,
+            ]
+        )
+        session = _FakeClientSession(fake_response)
+
+        response, _ = self._run_with_fake_session(session)
+
+        self.assertEqual(response, last_chunk)
+
+    def test_ignores_blank_and_non_data_prefixed_lines(self):
+        response_chunk = {"meta_info": {"finish_reason": {"type": "length"}}}
+        fake_response = _FakeStreamResponse(
+            [
+                b"\n",
+                b": keepalive\n",
+                _sse_data_line(response_chunk),
+                b"\n",
+                _SSE_DONE_LINE,
+            ]
+        )
+        session = _FakeClientSession(fake_response)
+
+        response, ttft_ms = self._run_with_fake_session(session)
+
+        self.assertEqual(response, response_chunk)
+        self.assertGreaterEqual(ttft_ms, 0.0)
+
+    def test_raises_if_stream_never_terminates_with_done(self):
+        response_chunk = {"meta_info": {"finish_reason": {"type": "length"}}}
+        fake_response = _FakeStreamResponse([_sse_data_line(response_chunk)])
+        session = _FakeClientSession(fake_response)
+
+        with self.assertRaises(RuntimeError) as ctx:
+            self._run_with_fake_session(session)
+        self.assertIn("[DONE]", str(ctx.exception))
+
+    def test_raises_if_stream_ends_with_done_but_no_data_chunk(self):
+        fake_response = _FakeStreamResponse([_SSE_DONE_LINE])
+        session = _FakeClientSession(fake_response)
+
+        with self.assertRaises(RuntimeError) as ctx:
+            self._run_with_fake_session(session)
+        self.assertIn("no token", str(ctx.exception).lower())
+
+    def test_raises_on_mid_stream_error_chunk(self):
+        error_chunk = {
+            "error": {
+                "message": "boom",
+                "type": "invalid_request_error",
+                "code": 400,
+            }
+        }
+        fake_response = _FakeStreamResponse(
+            [_sse_data_line(error_chunk), _SSE_DONE_LINE]
+        )
+        session = _FakeClientSession(fake_response)
+
+        with self.assertRaises(RuntimeError) as ctx:
+            self._run_with_fake_session(session)
+        self.assertIn("boom", str(ctx.exception))
+
+    def test_raises_on_non_200_status_with_body_in_message(self):
+        fake_response = _FakeStreamResponse(
+            [], status=500, error_text="internal server error detail"
+        )
+        session = _FakeClientSession(fake_response)
+
+        with self.assertRaises(RuntimeError) as ctx:
+            self._run_with_fake_session(session)
+        message = str(ctx.exception)
+        self.assertIn("500", message)
+        self.assertIn("internal server error detail", message)
+
+    def test_response_meta_info_cached_tokens_usable_by_require_cached_tokens(self):
+        response_chunk = {
+            "meta_info": {"finish_reason": {"type": "length"}, "cached_tokens": 34}
+        }
+        fake_response = _FakeStreamResponse(
+            [_sse_data_line(response_chunk), _SSE_DONE_LINE]
+        )
+        session = _FakeClientSession(fake_response)
+
+        response, _ = self._run_with_fake_session(session)
+
+        self.assertEqual(require_cached_tokens(response, 34, "test"), 34)
 
 
 if __name__ == "__main__":
