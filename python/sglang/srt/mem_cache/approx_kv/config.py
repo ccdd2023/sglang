@@ -26,6 +26,7 @@ class ApproxKVFeatureConfig:
     core_enabled: bool = False
     host_residency_enabled: bool = False
     async_prefetch_enabled: bool = False
+    raw_rope_plugin_enabled: bool = False
 
     @classmethod
     def from_env(
@@ -36,6 +37,7 @@ class ApproxKVFeatureConfig:
         core = _read_bool(env, "SGLANG_APPROX_KV_CORE", False)
         host = _read_bool(env, "SGLANG_APPROX_KV_HOST", False)
         prefetch = _read_bool(env, "SGLANG_APPROX_KV_PREFETCH", False)
+        raw_rope = _read_bool(env, "SGLANG_APPROX_KV_RAW_ROPE", False)
         if (host or prefetch) and not core:
             raise ValueError(
                 "SGLANG_APPROX_KV_CORE=1 is required when host residency "
@@ -45,8 +47,14 @@ class ApproxKVFeatureConfig:
             raise ValueError(
                 "SGLANG_APPROX_KV_HOST=1 is required when prefetch is enabled"
             )
+        if raw_rope and not core:
+            raise ValueError(
+                "SGLANG_APPROX_KV_CORE=1 is required when the raw+RoPE "
+                "recovery plugin is enabled"
+            )
         return cls(
             core_enabled=core,
             host_residency_enabled=host,
             async_prefetch_enabled=prefetch,
+            raw_rope_plugin_enabled=raw_rope,
         )

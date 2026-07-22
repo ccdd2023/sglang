@@ -127,6 +127,7 @@ class TestApproxKVRuntime(unittest.TestCase):
         config = ApproxKVFeatureConfig(
             core_enabled=True,
             host_residency_enabled=True,
+            raw_rope_plugin_enabled=True,
         )
         self.manager = ApproxKVManager(config)
         self.manager.bind_residency_backend(

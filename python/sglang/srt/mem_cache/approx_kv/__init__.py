@@ -6,6 +6,14 @@ from .plugins import (
     RecoveryPluginRegistry,
     RecoveryRequestContext,
 )
+from .raw_rope import (
+    RAW_ROPE_PLUGIN_NAME,
+    RawRoPERecoveryPlugin,
+    RawRoPERecoveryRequest,
+    RawRoPERecoveryUnavailable,
+    build_raw_rope_plan,
+    select_contiguous_segments,
+)
 from .store import (
     AsyncResidencyLoader,
     AsyncResidencyTransfer,
@@ -50,6 +58,10 @@ __all__ = [
     "KVTransferBackend",
     "KVTransferInvariantError",
     "KVTransferStats",
+    "RAW_ROPE_PLUGIN_NAME",
+    "RawRoPERecoveryPlugin",
+    "RawRoPERecoveryRequest",
+    "RawRoPERecoveryUnavailable",
     "RecoveryMode",
     "RecoveryPlugin",
     "RecoveryPluginRegistry",
@@ -59,6 +71,8 @@ __all__ = [
     "SchedulerMetadata",
     "SegmentKind",
     "TransferSpan",
+    "build_raw_rope_plan",
     "execute_reuse_plan",
+    "select_contiguous_segments",
     "token_ids_hash",
 ]

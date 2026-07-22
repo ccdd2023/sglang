@@ -6,6 +6,7 @@ from typing import Any
 from .async_transfer import ApproxKVPrefetchTicket
 from .config import ApproxKVFeatureConfig
 from .plugins import RecoveryPlugin, RecoveryPluginRegistry
+from .raw_rope import RawRoPERecoveryPlugin
 from .store import (
     AsyncResidencyLoader,
     ApproxKVSegmentStore,
@@ -39,6 +40,13 @@ class ApproxKVManager:
         self._async_loader: AsyncResidencyLoader | None = None
         self._tickets: dict[str, ApproxKVPrefetchTicket] = {}
         self._ticket_lock = threading.Lock()
+        if self.config.raw_rope_plugin_enabled:
+            # Explicit plugin gate: the raw+RoPE recovery algorithm is
+            # never active unless requested, even when the generic
+            # approximate-KV core is enabled. This lets other Phase 4
+            # research branches register a different recovery plugin
+            # under the same manager/store without R0 silently competing.
+            self.register_plugin(RawRoPERecoveryPlugin())
 
     def register_segment(
         self,

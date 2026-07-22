@@ -4,19 +4,23 @@ from typing import Any
 
 import torch
 
+from .plugins import RecoveryRequestContext
 from .radix_backend import (
     DeviceKVRef,
     RadixKVTransferBackend,
     RoPEConfig,
 )
+from .raw_rope import (
+    RAW_ROPE_PLUGIN_NAME,
+    RawRoPERecoveryRequest,
+    RawRoPERecoveryUnavailable,
+    select_contiguous_segments,
+)
 from .request import ApproxKVRequestOperation
 from .types import (
-    KVReusePlan,
     KVSegmentKey,
-    RecoveryMode,
     ResidencyTier,
     SegmentKind,
-    TransferSpan,
     token_ids_hash,
 )
 
@@ -178,30 +182,40 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
         manager.record_request("reuse", "exact_host_preferred")
         return False
 
+    # Explicit plugin gate (Phase 4 R0): the raw+RoPE recovery algorithm is
+    # only exercised on the request path when it has been registered under
+    # RAW_ROPE_PLUGIN_NAME, which manager.py only does when
+    # config.raw_rope_plugin_enabled is set. This keeps common-core's
+    # generic store/transfer machinery free of any paper-specific policy
+    # by default, matching the other Phase 4 research branches that will
+    # register their own plugin under the same manager/store instead.
+    if RAW_ROPE_PLUGIN_NAME not in manager.plugins.names():
+        manager.record_request("reuse", "recovery_plugin_disabled")
+        return False
+    plugin = manager.plugins.get(RAW_ROPE_PLUGIN_NAME)
+
     reusable_limit = len(req.full_untruncated_fill_ids) - 1
     exact_length = len(req.prefix_indices)
-    ordered_segments = sorted(
+
+    # Best-effort promote to device residency exactly the segments the
+    # plugin could plausibly use (same contiguous-run selection the plugin
+    # itself performs -- see select_contiguous_segments docstring). This is
+    # the only step that needs manager/backend I/O access, which the
+    # RecoveryPlugin protocol intentionally does not expose to build_plan.
+    active_segments = select_contiguous_segments(
         metadata.segments,
-        key=lambda segment: segment.target_start,
+        exact_length,
+        reusable_limit,
     )
-    active_segments = []
-    next_target = exact_length
-    for segment in ordered_segments:
-        if segment.target_end <= exact_length:
-            continue
-        if segment.target_start > next_target:
-            break
-        active_segments.append(segment)
-        next_target = max(next_target, segment.target_end)
-        if next_target >= reusable_limit:
-            break
-    restore_end = min(next_target, reusable_limit)
+    if not active_segments or active_segments[0].target_start > exact_length:
+        manager.record_request("reuse", "exact")
+        return False
+    restore_end = min(active_segments[-1].target_end, reusable_limit)
     restore_length = restore_end - exact_length
     if restore_length <= 0:
         manager.record_request("reuse", "exact")
         return False
 
-    handles = []
     for segment in active_segments:
         overlap_start = max(segment.target_start, exact_length)
         overlap_end = min(segment.target_end, restore_end)
@@ -221,26 +235,55 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
         )
         handle = manager.store.lookup(key)
         if handle is None:
-            manager.record_fallback("store_miss", restore_length)
-            manager.record_request("reuse", "dense_fallback")
-            return False
+            # Missing coverage: leave it to the plugin's build_plan to
+            # raise RawRoPERecoveryUnavailable for this segment.
+            continue
         try:
-            handle = manager.ensure_device(handle)
+            manager.ensure_device(handle)
         except Exception:
             manager.record_fallback("residency_load_failed", restore_length)
             manager.record_request("reuse", "dense_fallback")
             return False
-        handles.append((segment, handle, overlap_start, overlap_end))
 
-    if not handles or handles[0][2] != exact_length:
-        manager.record_fallback("prefix_gap", restore_length)
+    context = RecoveryRequestContext(
+        request_id=str(getattr(req, "rid", None) or "unknown"),
+        target_token_ids=tuple(
+            int(token) for token in req.full_untruncated_fill_ids
+        ),
+        exact_prefix_length=exact_length,
+        custom_metadata={
+            RawRoPERecoveryRequest.KEY: RawRoPERecoveryRequest(
+                segments=active_segments,
+                model_fingerprint=metadata.model_fingerprint,
+                cache_dtype=metadata.cache_dtype,
+            ),
+        },
+    )
+    try:
+        plan = plugin.build_plan(context, manager.store)
+    except RawRoPERecoveryUnavailable as exc:
+        manager.record_fallback(str(exc) or "raw_rope_unavailable", restore_length)
         manager.record_request("reuse", "dense_fallback")
         return False
-    for previous, current in zip(handles, handles[1:]):
-        if previous[3] != current[2]:
-            manager.record_fallback("prefix_gap", restore_length)
-            manager.record_request("reuse", "dense_fallback")
-            return False
+    # The plugin is the authority on the final plan shape; re-derive
+    # restore_length from it rather than trusting the orchestration-side
+    # estimate above, in case a plugin narrows the span further.
+    restore_length = len(plan.target_token_ids)
+    if restore_length <= 0:
+        manager.record_request("reuse", "exact")
+        return False
+
+    rope_config = manager.rope_config or RoPEConfig(
+        rotary_dim=0,
+        base=10000.0,
+        is_neox_style=True,
+    )
+    if rope_config.rotary_dim == 0 and any(
+        span.rope_delta != 0 for span in plan.copied_spans
+    ):
+        manager.record_fallback("rope_config_unavailable", restore_length)
+        manager.record_request("reuse", "dense_fallback")
+        return False
 
     allocator = _allocator(tree_cache)
     restored_indices = allocator.alloc(restore_length)
@@ -252,35 +295,6 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
         return False
 
     fallback_reasons: list[str] = []
-    rope_config = manager.rope_config or RoPEConfig(
-        rotary_dim=0,
-        base=10000.0,
-        is_neox_style=True,
-    )
-    spans = []
-    for segment, handle, overlap_start, overlap_end in handles:
-        source_offset = segment.source_offset + (
-            overlap_start - segment.target_start
-        )
-        source_position = handle.source_start + source_offset
-        rope_delta = overlap_start - source_position
-        if rope_delta != 0 and rope_config.rotary_dim == 0:
-            allocator.free(restored_indices)
-            manager.record_fallback("rope_config_unavailable", restore_length)
-            manager.record_request("reuse", "dense_fallback")
-            return False
-        spans.append(
-            TransferSpan(
-                source=handle,
-                source_offset=source_offset,
-                target_start=overlap_start - exact_length,
-                length=overlap_end - overlap_start,
-                rope_delta=rope_delta,
-                chunk_start=0,
-                chunk_length=restore_length,
-            )
-        )
-
     backend = RadixKVTransferBackend(
         allocator=allocator,
         target_indices=lambda start, length: restored_indices[
@@ -289,20 +303,8 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
         dense_prefill=lambda start, length, reason: fallback_reasons.append(reason),
         rope=rope_config,
     )
-    target_tokens = tuple(
-        int(token)
-        for token in req.full_untruncated_fill_ids[exact_length:restore_end]
-    )
     try:
-        stats = manager.execute(
-            KVReusePlan(
-                target_token_ids=target_tokens,
-                recovery_mode=RecoveryMode.COPY,
-                copied_spans=tuple(spans),
-                require_full_coverage=True,
-            ),
-            backend,
-        )
+        stats = manager.execute(plan, backend)
     except Exception:
         allocator.free(restored_indices)
         raise

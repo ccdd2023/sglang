@@ -1,0 +1,92 @@
+{
+  "generated_at": "2026-07-22T10:07:15.126279+00:00",
+  "gpu": null,
+  "known_hard_limitation": "Only a single contiguous run of segments anchored at the exact-prefix boundary (optionally following a dense/exact head) is recovered. When declared segments are non-contiguous, recovery is trimmed to only the leading contiguous run at the boundary; the remainder past the first gap is left completely unattempted by this call (an ordinary prefill for the scheduler), never silently repaired. A missing source segment or an internal gap discovered inside the already-narrowed run aborts that whole recovery attempt (dense fallback) instead of a partial repair.",
+  "mode": "cpu_offline_structural_canary",
+  "model": "Qwen/Qwen3-0.6B",
+  "model_fingerprint": "Qwen/Qwen3-0.6B@c1899de289a04d12100db370d81485cdf75e47ca",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "note": "No accuracy metric: this branch is an explicit speed-only upper bound. Scenarios verify structural correctness (recovered token counts, exact bit-for-bit RoPE-relocated key values, verbatim value copies, final-token reservation, and correct handling of missing/non-contiguous coverage) against a real Phase 2 object-catalog token source, not model output text/logits.",
+  "object_catalog": {
+    "hot_object_ids": [
+      "phase2-object-00",
+      "phase2-object-04",
+      "phase2-object-08",
+      "phase2-object-12",
+      "phase2-object-16",
+      "phase2-object-20"
+    ],
+    "object_count": 24
+  },
+  "passed": true,
+  "phase": "phase4-r0-raw-rope",
+  "runner_git_sha": "6742783798ab0b41ce4670bb48d423216ba2681c",
+  "scenarios": [
+    {
+      "copied_tokens": 48,
+      "detail": "48 tokens recovered, rope_delta=0, rotation verified, final token reserved for real forward",
+      "name": "zero_delta",
+      "passed": true,
+      "recovered": true,
+      "rope_delta": 0
+    },
+    {
+      "copied_tokens": 48,
+      "detail": "48 tokens recovered, rope_delta=32, rotation verified, final token reserved for real forward",
+      "name": "positive_delta",
+      "passed": true,
+      "recovered": true,
+      "rope_delta": 32
+    },
+    {
+      "copied_tokens": 48,
+      "detail": "48 tokens recovered, rope_delta=-32, rotation verified, final token reserved for real forward",
+      "name": "negative_delta",
+      "passed": true,
+      "recovered": true,
+      "rope_delta": -32
+    },
+    {
+      "copied_tokens": 48,
+      "detail": "48 tokens recovered across 2 contiguous segments",
+      "name": "contiguous_multi_segment",
+      "passed": true,
+      "recovered": true,
+      "rope_delta": 0
+    },
+    {
+      "copied_tokens": 24,
+      "detail": "24 interior tokens recovered after a 24-token dense/exact head",
+      "name": "interior_segment_after_dense_exact_head",
+      "passed": true,
+      "recovered": true,
+      "rope_delta": 0
+    },
+    {
+      "copied_tokens": 24,
+      "detail": "gap correctly stopped recovery at the 24-token leading contiguous run; the segment past the gap was left unattempted, not silently repaired",
+      "name": "noncontiguous_gap_stops_at_leading_contiguous_run",
+      "passed": true,
+      "recovered": true,
+      "rope_delta": null
+    },
+    {
+      "copied_tokens": 0,
+      "detail": "missing segment correctly forced dense fallback",
+      "name": "missing_segment_dense_fallback",
+      "passed": true,
+      "recovered": false,
+      "rope_delta": null
+    },
+    {
+      "copied_tokens": 0,
+      "detail": "plugin gate off correctly blocked all recovery",
+      "name": "explicit_plugin_gate_blocks_recovery_when_disabled",
+      "passed": true,
+      "recovered": false,
+      "rope_delta": null
+    }
+  ],
+  "schema_version": 1,
+  "server": null
+}
