@@ -37,6 +37,7 @@ class ApproxKVManager:
         self.residency_backend: Any | None = None
         self.rope_config: Any | None = None
         self.model_runner: Any | None = None
+        self.epic_forward_batch_factory: Any | None = None
         self._async_loader: AsyncResidencyLoader | None = None
         self._tickets: dict[str, ApproxKVPrefetchTicket] = {}
         self._ticket_lock = threading.Lock()
@@ -136,6 +137,10 @@ class ApproxKVManager:
         the R0 raw-copy path reads this attribute.
         """
         self.model_runner = model_runner
+
+    def bind_epic_forward_batch_factory(self, factory: Any) -> None:
+        """Bind the production builder for EPIC's leading-k forward batch."""
+        self.epic_forward_batch_factory = factory
 
     def export_to_host(self, device_ref: Any):
         if not self.config.host_residency_enabled:

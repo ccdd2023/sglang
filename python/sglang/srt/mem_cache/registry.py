@@ -210,6 +210,20 @@ def create_tree_cache(ctx: TreeCacheBuildContext) -> BasePrefixCache:
         cache = default_radix_cache_factory(ctx)
         source = "default"
 
+    approx_manager = getattr(cache, "approx_kv", None)
+    if (
+        approx_manager is not None
+        and approx_manager.config.core_enabled
+        and approx_manager.config.epic_enabled
+    ):
+        from sglang.srt.mem_cache.approx_kv.epic_runtime import (
+            resolve_model_rope_config,
+        )
+
+        rope_config = resolve_model_rope_config(ctx.model_config)
+        if rope_config is not None:
+            approx_manager.bind_rope_config(rope_config)
+
     streaming_wrapped = False
     if (
         ctx.server_args.enable_streaming_session

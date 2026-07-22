@@ -24,6 +24,8 @@ from sglang.srt.mem_cache.approx_kv.epic_recompute import (
 )
 from sglang.srt.mem_cache.approx_kv.epic_runtime import (
     EpicForwardBatchBundle,
+    TorchNativeEpicForwardBatchFactory,
+    resolve_model_rope_config,
     restore_request_prefix_epic,
 )
 from sglang.srt.mem_cache.approx_kv.manager import ApproxKVManager
@@ -37,6 +39,9 @@ from sglang.srt.mem_cache.approx_kv.request import (
     ApproxKVRequestSegment,
 )
 from sglang.srt.mem_cache.approx_kv.runtime import register_request_segments
+from sglang.srt.layers.attention.torch_native_backend import (
+    TorchNativeAttnBackend,
+)
 from sglang.test.ci.ci_register import register_cpu_ci
 
 register_cpu_ci(est_time=5, suite="base-c-test-cpu")
@@ -125,6 +130,26 @@ class FakeAllocator:
 class FakeReqToTokenPool:
     def __init__(self, pool_size=128):
         self.req_to_token = torch.full((2, pool_size), -1, dtype=torch.int64)
+        self.free_slots = [1]
+        self.fail_writes = False
+
+    def write(self, indices, values):
+        if self.fail_writes:
+            raise RuntimeError("injected req_to_token write failure")
+        self.req_to_token[indices] = values
+
+    def alloc(self, reqs):
+        if len(reqs) > len(self.free_slots):
+            return None
+        result = []
+        for req in reqs:
+            req.req_pool_idx = self.free_slots.pop(0)
+            result.append(req.req_pool_idx)
+        return result
+
+    def free(self, req):
+        self.free_slots.append(req.req_pool_idx)
+        req.req_pool_idx = None
 
 
 class FakeReq:
@@ -199,11 +224,37 @@ class FakeModelRunner:
     def __init__(self, kvcache: FakeKVCache, num_layers: int = 3):
         self.layers = [FakeDecoderLayer(i, kvcache) for i in range(num_layers)]
         self.model = FakeModelWrapper(self.layers)
+        self.attn_backend = SimpleNamespace()
 
 
 class NonConformingLayer:
     def forward(self, x):
         return x
+
+
+class FakeInputEmbeddingModel:
+    def __init__(self):
+        self.embedding = torch.nn.Embedding(2000, 4)
+
+    def get_input_embedding(self, input_ids):
+        return self.embedding(input_ids)
+
+
+class FakeTorchNativeModelRunner:
+    def __init__(self):
+        self.device = "cpu"
+        self.server_args = SimpleNamespace(
+            attention_backend="torch_native",
+            tp_size=1,
+            pp_size=1,
+            dp_size=1,
+            enable_lora=False,
+        )
+        self.model_config = SimpleNamespace(model_is_mrope=False)
+        self.attn_backend = object.__new__(TorchNativeAttnBackend)
+        self.attn_backend.use_sliding_window_kv_pool = False
+        self.attn_backend.swa_out_cache_loc = None
+        self.model = SimpleNamespace(model=FakeInputEmbeddingModel())
 
 
 def _fake_forward_batch_factory(tree_cache, req, resolved, k, leading_k_target_indices):
@@ -536,6 +587,153 @@ class TestApproxKVFeatureConfigEpic(unittest.TestCase):
 # real per-layer recompute + per-layer body copy against a genuine
 # allocator/KV-buffer, for every supported k value.
 # ---------------------------------------------------------------------------
+
+
+class TestTorchNativeEpicForwardBatchFactory(unittest.TestCase):
+    def test_resolves_default_qwen_rope_and_rejects_scaled_rope(self):
+        hf_config = SimpleNamespace(
+            model_type="qwen3",
+            head_dim=128,
+            rope_theta=1_000_000,
+            rope_scaling={"rope_type": "default"},
+        )
+        config = resolve_model_rope_config(SimpleNamespace(hf_config=hf_config))
+        self.assertEqual(config.rotary_dim, 128)
+        self.assertEqual(config.base, 1_000_000)
+        self.assertTrue(config.is_neox_style)
+
+        hf_config.rope_scaling = {"rope_type": "yarn"}
+        self.assertIsNone(
+            resolve_model_rope_config(SimpleNamespace(hf_config=hf_config))
+        )
+
+    def test_builds_temporary_extend_batch_and_releases_request_slot(self):
+        model_runner = FakeTorchNativeModelRunner()
+        factory = TorchNativeEpicForwardBatchFactory(model_runner)
+        req_pool = FakeReqToTokenPool(pool_size=32)
+        tree = SimpleNamespace(req_to_token_pool=req_pool)
+        req = SimpleNamespace(
+            rid="factory-req",
+            prefix_indices=torch.tensor([5, 6, 7], dtype=torch.int64),
+            full_untruncated_fill_ids=[101, 102, 103, 104, 105, 999],
+            input_embeds=None,
+            replace_embeds=None,
+            positional_embed_overrides=None,
+            multimodal_inputs=None,
+        )
+        resolved = SimpleNamespace(exact_length=3, restore_end=5)
+        target_indices = torch.tensor([20, 21], dtype=torch.int64)
+
+        bundle = factory(tree, req, resolved, 2, target_indices)
+
+        self.assertEqual(bundle.forward_batch.batch_size, 1)
+        self.assertEqual(bundle.forward_batch.extend_num_tokens, 2)
+        self.assertEqual(bundle.forward_batch.extend_prefix_lens_cpu, [3])
+        self.assertEqual(bundle.forward_batch.extend_seq_lens_cpu, [2])
+        torch.testing.assert_close(
+            bundle.forward_batch.out_cache_loc,
+            target_indices,
+        )
+        torch.testing.assert_close(
+            bundle.positions,
+            torch.tensor([3, 4], dtype=torch.int64),
+        )
+        self.assertEqual(bundle.hidden_states.shape, (2, 4))
+        self.assertTrue(bundle.forward_batch.forward_metadata_ready)
+        temporary_row = bundle.forward_batch.req_pool_indices.item()
+        torch.testing.assert_close(
+            req_pool.req_to_token[temporary_row, :5],
+            torch.tensor([5, 6, 7, 20, 21], dtype=torch.int64),
+        )
+
+        self.assertIsNotNone(bundle.release)
+        bundle.release()
+        self.assertEqual(req_pool.free_slots, [1])
+        torch.testing.assert_close(
+            req_pool.req_to_token[1, :5],
+            torch.zeros(5, dtype=torch.int64),
+        )
+        bundle.release()
+        self.assertEqual(req_pool.free_slots, [1])
+
+    def test_rejects_sliding_window_backend_before_allocating(self):
+        model_runner = FakeTorchNativeModelRunner()
+        model_runner.attn_backend.use_sliding_window_kv_pool = True
+        factory = TorchNativeEpicForwardBatchFactory(model_runner)
+        req_pool = FakeReqToTokenPool(pool_size=32)
+        req = SimpleNamespace(
+            rid="factory-req",
+            prefix_indices=torch.tensor([5], dtype=torch.int64),
+            full_untruncated_fill_ids=[101, 102, 999],
+            input_embeds=None,
+            replace_embeds=None,
+            positional_embed_overrides=None,
+            multimodal_inputs=None,
+        )
+        with self.assertRaisesRegex(
+            LayerwiseLeadingKRepairError,
+            "does_not_support_sliding_window",
+        ):
+            factory(
+                SimpleNamespace(req_to_token_pool=req_pool),
+                req,
+                SimpleNamespace(exact_length=1, restore_end=2),
+                1,
+                torch.tensor([20], dtype=torch.int64),
+            )
+        self.assertEqual(req_pool.free_slots, [1])
+
+    def test_release_frees_temporary_slot_when_row_clear_fails(self):
+        model_runner = FakeTorchNativeModelRunner()
+        factory = TorchNativeEpicForwardBatchFactory(model_runner)
+        req_pool = FakeReqToTokenPool(pool_size=32)
+        req = SimpleNamespace(
+            rid="factory-req",
+            prefix_indices=torch.tensor([5], dtype=torch.int64),
+            full_untruncated_fill_ids=[101, 102, 999],
+            input_embeds=None,
+            replace_embeds=None,
+            positional_embed_overrides=None,
+            multimodal_inputs=None,
+        )
+        bundle = factory(
+            SimpleNamespace(req_to_token_pool=req_pool),
+            req,
+            SimpleNamespace(exact_length=1, restore_end=2),
+            1,
+            torch.tensor([20], dtype=torch.int64),
+        )
+        req_pool.fail_writes = True
+        with self.assertRaisesRegex(RuntimeError, "injected"):
+            bundle.release()
+        self.assertEqual(req_pool.free_slots, [1])
+
+    def test_rejects_non_torch_native_backend_before_allocating(self):
+        model_runner = FakeTorchNativeModelRunner()
+        model_runner.server_args.attention_backend = "triton"
+        factory = TorchNativeEpicForwardBatchFactory(model_runner)
+        req_pool = FakeReqToTokenPool(pool_size=32)
+        req = SimpleNamespace(
+            rid="factory-req",
+            prefix_indices=torch.tensor([5], dtype=torch.int64),
+            full_untruncated_fill_ids=[101, 102, 999],
+            input_embeds=None,
+            replace_embeds=None,
+            positional_embed_overrides=None,
+            multimodal_inputs=None,
+        )
+        with self.assertRaisesRegex(
+            LayerwiseLeadingKRepairError,
+            "requires_torch_native",
+        ):
+            factory(
+                SimpleNamespace(req_to_token_pool=req_pool),
+                req,
+                SimpleNamespace(exact_length=1, restore_end=2),
+                1,
+                torch.tensor([20], dtype=torch.int64),
+            )
+        self.assertEqual(req_pool.free_slots, [1])
 
 
 class TestEpicRuntimeIntegration(unittest.TestCase):

@@ -13,6 +13,8 @@ from .epic_recompute import (
 from .epic_runtime import (
     EpicForwardBatchBundle,
     EpicForwardBatchFactory,
+    TorchNativeEpicForwardBatchFactory,
+    resolve_model_rope_config,
     restore_request_prefix_epic,
 )
 from .manager import ApproxKVManager
@@ -84,9 +86,11 @@ __all__ = [
     "SchedulerMetadata",
     "SegmentKind",
     "TransferSpan",
+    "TorchNativeEpicForwardBatchFactory",
     "carve_leading_k",
     "execute_reuse_plan",
     "inspect_layerwise_recompute_capability",
+    "resolve_model_rope_config",
     "restore_request_prefix_epic",
     "token_ids_hash",
 ]

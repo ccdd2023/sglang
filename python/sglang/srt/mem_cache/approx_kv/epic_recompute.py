@@ -18,8 +18,15 @@ not a memcpy.
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 from typing import Any, Protocol
+
+from sglang.srt.model_executor.forward_context import (
+    ForwardContext,
+    forward_context,
+    has_forward_context,
+)
 
 from .epic_capability import (
     LayerwiseCapability,
@@ -163,6 +170,7 @@ class ModelRunnerLeadingKRecomputeBackend:
             raise LayerwiseLeadingKRepairError(capability.reason)
         self._capability = capability
         self._layers = decoder_layers(model_runner)
+        self._attn_backend = model_runner.attn_backend
 
     @property
     def capability(self) -> LayerwiseCapability:
@@ -182,9 +190,15 @@ class ModelRunnerLeadingKRecomputeBackend:
         forward_batch: Any,
     ) -> tuple[Any, Any]:
         layer = self._layers[layer_id]
-        return layer.forward(
-            positions=positions,
-            hidden_states=hidden_states,
-            forward_batch=forward_batch,
-            residual=residual,
+        context = (
+            contextlib.nullcontext()
+            if has_forward_context()
+            else forward_context(ForwardContext(attn_backend=self._attn_backend))
         )
+        with context:
+            return layer.forward(
+                positions=positions,
+                hidden_states=hidden_states,
+                forward_batch=forward_batch,
+                residual=residual,
+            )

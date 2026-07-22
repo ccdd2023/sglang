@@ -470,16 +470,17 @@ class Scheduler(
 
         approx_kv_manager = getattr(self.tree_cache, "approx_kv", None)
         if approx_kv_manager is not None:
-            # Bind the live model runner so EPIC's per-layer leading-k
-            # repair hook (epic_runtime.py) can attempt genuine recompute
-            # when it is config-gated on (SGLANG_APPROX_KV_EPIC). This is
-            # a no-op for the default R0 raw-copy path, which never reads
-            # ``model_runner``. Binding alone is not sufficient for EPIC
-            # to run live recompute: the deeper capability guard and the
-            # (currently unbound) ``epic_forward_batch_factory`` seam
-            # still gate every real per-layer recompute attempt with a
-            # safe dense fallback.
             approx_kv_manager.bind_model_runner(self.tp_worker.model_runner)
+            if approx_kv_manager.config.epic_enabled:
+                from sglang.srt.mem_cache.approx_kv.epic_runtime import (
+                    TorchNativeEpicForwardBatchFactory,
+                )
+
+                approx_kv_manager.bind_epic_forward_batch_factory(
+                    TorchNativeEpicForwardBatchFactory(
+                        self.tp_worker.model_runner,
+                    )
+                )
 
         self.init_hisparse_coordinator()
 

@@ -17,41 +17,25 @@ layer's remaining body KV is reused, exactly matching the requirement that
 "merely copying a body or planning k is not completion".
 
 Capability guards (``epic_capability.inspect_layerwise_recompute_capability``)
-and an explicit ``epic_forward_batch_factory`` seam gate the k>0 path:
-whenever the live model/layout is unsupported, or no forward-batch factory
-has been bound onto the manager, this hook safely dense-falls-back rather
-than guessing -- see the module-level "PRODUCTION WIRING GAP" note below
-for exactly what remains unwired and why.
+and an explicit ``epic_forward_batch_factory`` seam gate the k>0 path.
+``TorchNativeEpicForwardBatchFactory`` implements that seam for the
+single-rank torch-native Qwen-style path used by the SM75 experiments. It
+allocates a temporary request-table row, maps the exact prefix plus the
+leading-k output slots, builds a one-request extend ``ForwardBatch``, and
+uses the live model's input embedding and attention backend metadata.
 
-PRODUCTION WIRING GAP (explicit, intentional, documented):
-    Driving real decoder layers for a *sub-length* extend of an
-    in-flight request requires constructing a standalone ``ForwardBatch``
-    (with correct attention-backend metadata: ``out_cache_loc``,
-    KV-cache-adjacent bookkeeping, positions, etc.) mid-request-registration
-    -- outside of SGLang's normal scheduler batch-construction lifecycle.
-    That construction is deeply coupled to the live attention backend and
-    is unproven safe without a running GPU server, which this task
-    explicitly forbids exercising in this worktree. The alternative safe
-    mechanism (splitting the request into two natural chunked-prefill
-    scheduling rounds via ``req.extend_input_len``) is out of scope because
-    this worktree explicitly excludes scheduler-logic changes.
-
-    Because of this, ``ApproxKVManager.epic_forward_batch_factory`` is
-    **not** bound anywhere in the live scheduler by this worktree. The
-    per-layer interleaved recompute+copy mechanism itself is fully
-    implemented and is proven correct by CPU tests that supply a
-    test-local (but genuinely tensor-computing) factory and decoder-layer
-    stack -- see ``test/registered/unit/mem_cache/test_epic_runtime.py``.
-    Wiring a production factory is the concrete next step for full server
-    E2E and is intentionally left as an unresolved blocker rather than
-    claimed as complete.
+Other attention backends, TP/PP/DP layouts, LoRA, multimodal requests, and
+embedding overrides remain capability-gated to dense fallback. This narrow
+production subset is intentional: it replaces the previous unbound seam
+without claiming a backend-generic ForwardBatch constructor.
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Protocol
+from types import SimpleNamespace
+from typing import Any, Callable, Protocol
 
 import torch
 
@@ -63,7 +47,7 @@ from .epic_recompute import (
     ModelRunnerLeadingKRecomputeBackend,
 )
 from .plugins import RecoveryRequestContext
-from .radix_backend import RadixKVTransferBackend
+from .radix_backend import RadixKVTransferBackend, RoPEConfig
 from .request import ApproxKVRequestOperation
 from .runtime import (
     ResolvedReuseSpans,
@@ -75,6 +59,41 @@ from .transfer import _validate_bounds
 from .types import TransferSpan
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_model_rope_config(model_config: Any) -> RoPEConfig | None:
+    """Resolve the supported Qwen RoPE layout from the live model config."""
+    hf_config = model_config.hf_config
+    model_type = str(getattr(hf_config, "model_type", "")).lower()
+    if model_type not in {"qwen2", "qwen3"}:
+        return None
+    rope_scaling = getattr(hf_config, "rope_scaling", None)
+    if rope_scaling:
+        rope_type = str(
+            rope_scaling.get("rope_type", rope_scaling.get("type", ""))
+        ).lower()
+        if rope_type not in {"", "default"}:
+            return None
+    head_dim = getattr(hf_config, "head_dim", None)
+    if head_dim is None:
+        hidden_size = int(hf_config.hidden_size)
+        num_heads = int(hf_config.num_attention_heads)
+        if hidden_size % num_heads:
+            return None
+        head_dim = hidden_size // num_heads
+    rotary_dim = int(
+        int(head_dim) * float(getattr(hf_config, "partial_rotary_factor", 1.0))
+    )
+    if rotary_dim <= 0 or rotary_dim % 2:
+        return None
+    return RoPEConfig(
+        rotary_dim=rotary_dim,
+        base=float(
+            getattr(hf_config, "rope_theta", None)
+            or (rope_scaling or {}).get("rope_theta", 10000.0)
+        ),
+        is_neox_style=True,
+    )
 
 
 @dataclass(frozen=True)
@@ -94,19 +113,16 @@ class EpicForwardBatchBundle:
     hidden_states: Any
     residual: Any
     forward_batch: Any
+    release: Callable[[], None] | None = None
 
 
 class EpicForwardBatchFactory(Protocol):
     """Builds real forward-pass inputs for a request's leading-k window.
 
-    This is the explicit seam documented in this module's "PRODUCTION
-    WIRING GAP" note: production code must bind an implementation of this
-    protocol onto ``ApproxKVManager.epic_forward_batch_factory`` that
-    constructs a real, correctly-metadata'd ``ForwardBatch`` for exactly
-    ``k`` tokens whose physical destination slots are
-    ``leading_k_target_indices``. No such production implementation is
-    wired by this worktree (see module docstring); only test doubles
-    exist today.
+    Production code binds an implementation onto
+    ``ApproxKVManager.epic_forward_batch_factory`` that constructs a real,
+    correctly-metadata'd ``ForwardBatch`` for exactly ``k`` tokens whose
+    physical destination slots are ``leading_k_target_indices``.
     """
 
     def __call__(
@@ -117,6 +133,218 @@ class EpicForwardBatchFactory(Protocol):
         k: int,
         leading_k_target_indices: torch.Tensor,
     ) -> EpicForwardBatchBundle: ...
+
+
+class TorchNativeEpicForwardBatchFactory:
+    """Build a temporary single-request extend batch for torch-native EPIC."""
+
+    def __init__(self, model_runner: Any) -> None:
+        self._model_runner = model_runner
+
+    def _validate_runtime(self, req: Any) -> None:
+        model_runner = self._model_runner
+        server_args = model_runner.server_args
+        if str(server_args.attention_backend) != "torch_native":
+            raise LayerwiseLeadingKRepairError(
+                "epic_forward_batch_requires_torch_native"
+            )
+        from sglang.srt.layers.attention.torch_native_backend import (
+            TorchNativeAttnBackend,
+        )
+
+        if not isinstance(model_runner.attn_backend, TorchNativeAttnBackend):
+            raise LayerwiseLeadingKRepairError("epic_forward_batch_backend_mismatch")
+        if bool(
+            getattr(
+                model_runner.attn_backend,
+                "use_sliding_window_kv_pool",
+                False,
+            )
+        ):
+            raise LayerwiseLeadingKRepairError(
+                "epic_forward_batch_does_not_support_sliding_window"
+            )
+        for field in ("tp_size", "pp_size", "dp_size"):
+            if int(getattr(server_args, field, 1)) != 1:
+                raise LayerwiseLeadingKRepairError(
+                    f"epic_forward_batch_requires_{field}_1"
+                )
+        if bool(getattr(server_args, "enable_lora", False)):
+            raise LayerwiseLeadingKRepairError(
+                "epic_forward_batch_does_not_support_lora"
+            )
+        if bool(getattr(model_runner.model_config, "model_is_mrope", False)):
+            raise LayerwiseLeadingKRepairError(
+                "epic_forward_batch_does_not_support_mrope"
+            )
+        if any(
+            getattr(req, field, None) is not None
+            for field in (
+                "input_embeds",
+                "replace_embeds",
+                "positional_embed_overrides",
+                "multimodal_inputs",
+            )
+        ):
+            raise LayerwiseLeadingKRepairError(
+                "epic_forward_batch_does_not_support_embedding_overrides"
+            )
+
+    def __call__(
+        self,
+        tree_cache: Any,
+        req: Any,
+        resolved: ResolvedReuseSpans,
+        k: int,
+        leading_k_target_indices: torch.Tensor,
+    ) -> EpicForwardBatchBundle:
+        if k <= 0:
+            raise ValueError("k must be positive")
+        self._validate_runtime(req)
+        if len(req.prefix_indices) != resolved.exact_length:
+            raise LayerwiseLeadingKRepairError("epic_exact_prefix_length_mismatch")
+        if resolved.exact_length + k > resolved.restore_end:
+            raise LayerwiseLeadingKRepairError("epic_leading_k_exceeds_restore_window")
+
+        model_runner = self._model_runner
+        req_to_token_pool = tree_cache.req_to_token_pool
+        temporary_req = SimpleNamespace(req_pool_idx=None)
+        allocated = req_to_token_pool.alloc([temporary_req])
+        if not allocated or temporary_req.req_pool_idx is None:
+            raise LayerwiseLeadingKRepairError(
+                "epic_temporary_request_slot_unavailable"
+            )
+
+        sequence_length = resolved.exact_length + k
+        released = False
+
+        def release() -> None:
+            nonlocal released
+            if released:
+                return
+            row = temporary_req.req_pool_idx
+            try:
+                if row is not None:
+                    zeros = torch.zeros(
+                        sequence_length,
+                        dtype=req_to_token_pool.req_to_token.dtype,
+                        device=req_to_token_pool.req_to_token.device,
+                    )
+                    req_to_token_pool.write(
+                        (row, slice(0, sequence_length)),
+                        zeros,
+                    )
+            finally:
+                try:
+                    if temporary_req.req_pool_idx is not None:
+                        req_to_token_pool.free(temporary_req)
+                finally:
+                    released = temporary_req.req_pool_idx is None
+
+        try:
+            device = torch.device(model_runner.device)
+            input_ids = torch.tensor(
+                req.full_untruncated_fill_ids[
+                    resolved.exact_length : resolved.exact_length + k
+                ],
+                dtype=torch.int64,
+                device=device,
+            )
+            positions = torch.arange(
+                resolved.exact_length,
+                resolved.exact_length + k,
+                dtype=torch.int64,
+                device=device,
+            )
+            out_cache_loc = leading_k_target_indices.to(
+                device=device,
+                dtype=torch.int64,
+            )
+            prefix_indices = req.prefix_indices.to(
+                device=req_to_token_pool.req_to_token.device,
+                dtype=req_to_token_pool.req_to_token.dtype,
+            )
+            mapped_leading = out_cache_loc.to(
+                device=req_to_token_pool.req_to_token.device,
+                dtype=req_to_token_pool.req_to_token.dtype,
+            )
+            req_to_token_pool.write(
+                (temporary_req.req_pool_idx, slice(0, sequence_length)),
+                torch.cat((prefix_indices, mapped_leading)),
+            )
+
+            from sglang.srt.model_executor.forward_batch_info import (
+                ForwardBatch,
+                ForwardMode,
+            )
+
+            req_pool_indices = torch.tensor(
+                [temporary_req.req_pool_idx],
+                dtype=torch.int64,
+                device=device,
+            )
+            seq_lens = torch.tensor(
+                [sequence_length],
+                dtype=torch.int32,
+                device=device,
+            )
+            extend_prefix_lens = torch.tensor(
+                [resolved.exact_length],
+                dtype=torch.int32,
+                device=device,
+            )
+            extend_seq_lens = torch.tensor(
+                [k],
+                dtype=torch.int32,
+                device=device,
+            )
+            forward_batch = ForwardBatch(
+                forward_mode=ForwardMode.EXTEND,
+                batch_size=1,
+                input_ids=input_ids,
+                req_pool_indices=req_pool_indices,
+                seq_lens=seq_lens,
+                out_cache_loc=out_cache_loc,
+                seq_lens_sum=sequence_length,
+                seq_lens_cpu=torch.tensor(
+                    [sequence_length],
+                    dtype=torch.int32,
+                ),
+                positions=positions,
+                extend_num_tokens=k,
+                extend_seq_lens=extend_seq_lens,
+                extend_prefix_lens=extend_prefix_lens,
+                extend_start_loc=torch.zeros(
+                    1,
+                    dtype=torch.int32,
+                    device=device,
+                ),
+                extend_prefix_lens_cpu=[resolved.exact_length],
+                extend_seq_lens_cpu=[k],
+                rids=[str(req.rid)],
+            )
+            model_runner.attn_backend.init_forward_metadata(forward_batch)
+            forward_batch.mark_forward_metadata_ready()
+
+            model = model_runner.model
+            inner_model = getattr(model, "model", model)
+            get_input_embedding = getattr(inner_model, "get_input_embedding", None)
+            if not callable(get_input_embedding):
+                raise LayerwiseLeadingKRepairError(
+                    "epic_model_exposes_no_input_embedding"
+                )
+            with torch.inference_mode():
+                hidden_states = get_input_embedding(input_ids)
+            return EpicForwardBatchBundle(
+                positions=positions,
+                hidden_states=hidden_states,
+                residual=None,
+                forward_batch=forward_batch,
+                release=release,
+            )
+        except Exception:
+            release()
+            raise
 
 
 class _PerLayerBodyCopyBackend:
@@ -285,7 +513,6 @@ def _restore_with_leading_k_repair(
         manager.record_request("reuse", "dense_fallback")
         return False
 
-    # Explicit, documented production-wiring gap: see module docstring.
     factory: EpicForwardBatchFactory | None = getattr(
         manager, "epic_forward_batch_factory", None
     )
@@ -337,8 +564,23 @@ def _restore_with_leading_k_repair(
 
     try:
         bundle = factory(tree_cache, req, resolved, k, restored_indices[:k])
-    except Exception:
+    except (
+        AssertionError,
+        AttributeError,
+        ImportError,
+        IndexError,
+        KeyError,
+        LayerwiseLeadingKRepairError,
+        MemoryError,
+        RuntimeError,
+        TypeError,
+        ValueError,
+    ):
         allocator.free(restored_indices)
+        logger.exception(
+            "EPIC forward-batch construction failed for request %s",
+            getattr(req, "rid", "<unknown>"),
+        )
         manager.record_fallback(
             "epic_forward_batch_construction_failed", resolved.restore_length
         )
@@ -364,15 +606,18 @@ def _restore_with_leading_k_repair(
     )
     body_tokens = resolved.restore_length - k
     try:
-        exec_stats, _, _ = executor.run(
-            positions=bundle.positions,
-            hidden_states=bundle.hidden_states,
-            residual=bundle.residual,
-            forward_batch=bundle.forward_batch,
-            leading_k_tokens=k,
-            body_tokens=body_tokens,
-        )
+        with torch.inference_mode():
+            exec_stats, _, _ = executor.run(
+                positions=bundle.positions,
+                hidden_states=bundle.hidden_states,
+                residual=bundle.residual,
+                forward_batch=bundle.forward_batch,
+                leading_k_tokens=k,
+                body_tokens=body_tokens,
+            )
     except Exception:
+        _synchronize_failed_epic_work(model_runner)
+        _release_forward_bundle(bundle, req)
         allocator.free(restored_indices)
         logger.exception(
             "EPIC layerwise recompute failed for request %s; "
@@ -383,13 +628,24 @@ def _restore_with_leading_k_repair(
         manager.record_request("reuse", "dense_fallback")
         return False
 
+    if not _release_forward_bundle(bundle, req):
+        _synchronize_failed_epic_work(model_runner)
+        allocator.free(restored_indices)
+        manager.record_fallback(
+            "epic_forward_batch_release_failed",
+            resolved.restore_length,
+        )
+        manager.record_request("reuse", "dense_fallback")
+        return False
     if fallback_reasons:
+        _synchronize_failed_epic_work(model_runner)
         allocator.free(restored_indices)
         manager.record_request("reuse", "dense_fallback")
         return False
     if not exec_stats.genuinely_layerwise:
         # Mechanical proof failed: never silently commit a repair that
         # was not actually interleaved layer-by-layer.
+        _synchronize_failed_epic_work(model_runner)
         allocator.free(restored_indices)
         manager.record_fallback("epic_not_genuinely_layerwise", resolved.restore_length)
         manager.record_request("reuse", "dense_fallback")
@@ -412,4 +668,30 @@ def _restore_with_leading_k_repair(
         genuinely_layerwise=exec_stats.genuinely_layerwise,
     )
     manager.record_request("reuse", "success")
+    return True
+
+
+def _synchronize_failed_epic_work(model_runner: Any) -> None:
+    device = torch.device(getattr(model_runner, "device", "cpu"))
+    if device.type == "cuda" and torch.cuda.is_available():
+        try:
+            torch.cuda.current_stream(device).synchronize()
+        except Exception:
+            logger.exception(
+                "EPIC failed-work CUDA synchronization raised; "
+                "continuing resource cleanup"
+            )
+
+
+def _release_forward_bundle(bundle: EpicForwardBatchBundle, req: Any) -> bool:
+    if bundle.release is None:
+        return True
+    try:
+        bundle.release()
+    except Exception:
+        logger.exception(
+            "EPIC temporary forward-batch resources failed to release for %s",
+            getattr(req, "rid", "<unknown>"),
+        )
+        return False
     return True
