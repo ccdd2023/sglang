@@ -91,8 +91,34 @@ from .types import (
     TransferSpan,
     token_ids_hash,
 )
+from .radix_backend import RoPEConfig
 
 RAW_ROPE_PLUGIN_NAME = "raw_rope"
+
+
+def resolve_model_rope_config(model_config) -> RoPEConfig | None:
+    hf_config = model_config.hf_config
+    model_type = str(getattr(hf_config, "model_type", "")).lower()
+    if model_type not in {"qwen2", "qwen3"}:
+        return None
+    if getattr(hf_config, "rope_scaling", None):
+        return None
+    head_dim = getattr(hf_config, "head_dim", None)
+    if head_dim is None:
+        hidden_size = int(hf_config.hidden_size)
+        num_heads = int(hf_config.num_attention_heads)
+        if hidden_size % num_heads:
+            return None
+        head_dim = hidden_size // num_heads
+    partial_factor = float(getattr(hf_config, "partial_rotary_factor", 1.0))
+    rotary_dim = int(int(head_dim) * partial_factor)
+    if rotary_dim <= 0 or rotary_dim % 2:
+        return None
+    return RoPEConfig(
+        rotary_dim=rotary_dim,
+        base=float(getattr(hf_config, "rope_theta", 10000.0)),
+        is_neox_style=True,
+    )
 
 
 class RawRoPERecoveryUnavailable(RuntimeError):

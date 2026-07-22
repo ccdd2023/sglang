@@ -32,6 +32,7 @@ from sglang.srt.mem_cache.approx_kv.raw_rope import (
     RawRoPERecoveryUnavailable,
     build_raw_rope_plan,
     select_contiguous_segments,
+    resolve_model_rope_config,
 )
 from sglang.srt.mem_cache.approx_kv.request import (
     ApproxKVRequestMetadata,
@@ -86,6 +87,38 @@ def _register(
 
 
 class TestRawRopePlanConstruction(unittest.TestCase):
+    def test_qwen_rope_config_binding(self):
+        model_config = SimpleNamespace(
+            hf_config=SimpleNamespace(
+                model_type="qwen3",
+                head_dim=128,
+                rope_theta=1000000.0,
+                rope_scaling=None,
+            )
+        )
+        config = resolve_model_rope_config(model_config)
+        self.assertEqual(config.rotary_dim, 128)
+        self.assertEqual(config.base, 1000000.0)
+        self.assertTrue(config.is_neox_style)
+
+    def test_scaled_or_unknown_rope_stays_unbound(self):
+        scaled = SimpleNamespace(
+            hf_config=SimpleNamespace(
+                model_type="qwen3",
+                head_dim=128,
+                rope_scaling={"rope_type": "yarn"},
+            )
+        )
+        unknown = SimpleNamespace(
+            hf_config=SimpleNamespace(
+                model_type="unknown",
+                head_dim=128,
+                rope_scaling=None,
+            )
+        )
+        self.assertIsNone(resolve_model_rope_config(scaled))
+        self.assertIsNone(resolve_model_rope_config(unknown))
+
     """Pure build_raw_rope_plan()/RawRoPERecoveryPlugin tests: no torch I/O."""
 
     def setUp(self):
