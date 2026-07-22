@@ -20,6 +20,7 @@ from sglang.srt.mem_cache.approx_kv.manager import ApproxKVManager
 from sglang.srt.mem_cache.approx_kv.radix_backend import (
     AllocatorCPUResidencyBackend,
 )
+from sglang.srt.mem_cache.cacheblend.plugin import maybe_register_cacheblend_plugin
 from sglang.srt.disaggregation.kv_events import StorageMedium
 from sglang.srt.distributed.communication_tags import P2PTag
 from sglang.srt.environ import envs
@@ -398,6 +399,8 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
                     self.token_to_kv_pool_allocator,
                 )
             )
+        if self.approx_kv.config.core_enabled:
+            maybe_register_cacheblend_plugin(self.approx_kv)
         self.reset()
         logger.info(f"Init Unified RadixTree with components {self.tree_components}")
 
