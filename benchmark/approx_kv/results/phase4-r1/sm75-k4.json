@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "runner_git_sha": "4f27f61aa",
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "model": "Qwen/Qwen3-0.6B",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "scope": {
+    "recovery": "EPIC leading-k target-context repair plus raw body reuse",
+    "scheduler": "S0 LRU",
+    "tier": "GPU-only",
+    "prefetch": false,
+    "accuracy_metric": false
+  },
+  "server_validation": {
+    "k": 4,
+    "layers_recomputed_by_dense_repair_request": 28,
+    "leading_k_tokens": 4,
+    "raw_body_tokens": 252,
+    "copied_tokens": 256,
+    "fallback_tokens": 0,
+    "body_source_context_differs_from_target": true,
+    "repair_source_is_target_context": true,
+    "last_prompt_token_real_forward": true,
+    "passed": true
+  },
+  "ttft": {
+    "target_prompt_tokens": 615,
+    "repair_prompt_tokens": 48,
+    "repeats_per_mode": 4,
+    "dense_p50_ms": 94.6360954985721,
+    "epic_target_p50_ms": 92.32427599999937,
+    "repair_p50_ms": 60.199238501809305,
+    "combined_p50_ms": 151.705853499152,
+    "target_only_speedup": 1.0250402125934108,
+    "combined_speedup": 0.6238130785052476
+  },
+  "supported_k_values_cpu_tested": [
+    0,
+    2,
+    4,
+    8,
+    16,
+    32
+  ],
+  "known_limitations": [
+    "Only k=4 received a real SM75 server canary in this result.",
+    "The production-safe path precomputes leading-k KV in a separate dense target-context request; its cost is included in combined_p50_ms.",
+    "The in-request layerwise ForwardBatch factory remains capability-gated and unbound.",
+    "Combined latency is slower than dense baseline despite a small target-request-only speedup."
+  ],
+  "passed": true
+}
