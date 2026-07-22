@@ -1,0 +1,111 @@
+name: Build SM80 SM120 Runtime Image
+
+on:
+  push:
+    branches:
+      - experiment/phase1-image
+    paths:
+      - ".github/workflows/build-runtime-immutable.yml"
+      - "docker/Dockerfile.runtime-immutable"
+      - "docker/Dockerfile.runtime-immutable.dockerignore"
+      - "docker/runtime-serve.sh"
+      - "python/sglang/srt/layers/activation.py"
+      - "python/sglang/srt/layers/layernorm.py"
+      - "python/sglang/srt/layers/sm75_compat.py"
+      - "test/registered/unit/layers/test_sm75_compat.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Maximize build disk
+        uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c
+        with:
+          root-reserve-mb: 8192
+          swap-size-mb: 4096
+          remove-dotnet: "true"
+          remove-android: "true"
+          remove-haskell: "true"
+
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build immutable runtime image
+        run: |
+          DOCKER_BUILDKIT=1 docker build \
+            --network=host \
+            --file docker/Dockerfile.runtime-immutable \
+            --build-arg "SGLANG_GIT_SHA=${GITHUB_SHA}" \
+            --tag "ghcr.io/ccdd2023/sglang:runtime-${GITHUB_SHA}" \
+            --tag "ghcr.io/ccdd2023/sglang:runtime-phase1" \
+            .
+
+      - name: Validate mounted latest source
+        run: |
+          docker run --rm \
+            --read-only \
+            --tmpfs /tmp:rw,size=256m \
+            --tmpfs /root:rw,size=256m \
+            -e PYTHONPYCACHEPREFIX=/tmp/pycache \
+            -v "${GITHUB_WORKSPACE}:/workspace/sglang:ro" \
+            "ghcr.io/ccdd2023/sglang:runtime-${GITHUB_SHA}" \
+            bash -lc '
+              python3 -m compileall -q \
+                python/sglang/srt/layers/activation.py \
+                python/sglang/srt/layers/layernorm.py \
+                python/sglang/srt/layers/sm75_compat.py \
+                test/registered/unit/layers/test_sm75_compat.py
+              python3 test/registered/unit/layers/test_sm75_compat.py
+              python3 - <<"PY"
+import importlib.metadata
+
+import torch
+import transformers
+
+assert torch.version.cuda is not None
+assert int(torch.version.cuda.split(".", maxsplit=1)[0]) >= 13
+print("torch", torch.__version__)
+print("cuda", torch.version.cuda)
+print("transformers", transformers.__version__)
+print("sglang-kernel", importlib.metadata.version("sglang-kernel"))
+PY
+            '
+
+      - name: Push validated images
+        run: |
+          docker push "ghcr.io/ccdd2023/sglang:runtime-${GITHUB_SHA}"
+          docker push "ghcr.io/ccdd2023/sglang:runtime-phase1"
+
+      - name: Publish image reference
+        run: |
+          digest="$(
+            docker buildx imagetools inspect \
+              "ghcr.io/ccdd2023/sglang:runtime-${GITHUB_SHA}" \
+              --format '{{json .Manifest.Digest}}' | tr -d '"'
+          )"
+          {
+            echo "git_sha=${GITHUB_SHA}"
+            echo "image=ghcr.io/ccdd2023/sglang:runtime-${GITHUB_SHA}"
+            echo "digest=${digest}"
+          } | tee image-reference.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-image-reference
+          path: image-reference.txt

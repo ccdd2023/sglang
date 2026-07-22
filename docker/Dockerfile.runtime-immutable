@@ -1,0 +1,20 @@
+ARG BASE_IMAGE=lmsysorg/sglang:v0.5.15.post1-cu130-runtime@sha256:247fd6bfcdeabe3e382da5c557537440148d08fd30f2b482f01fa09e242fe185
+FROM ${BASE_IMAGE}
+
+ARG SGLANG_GIT_SHA=unknown
+
+LABEL org.opencontainers.image.source="https://github.com/ccdd2023/sglang" \
+      org.opencontainers.image.revision="${SGLANG_GIT_SHA}" \
+      org.opencontainers.image.title="SGLang SM80/SM120 immutable runtime"
+
+ENV HF_HUB_DISABLE_TELEMETRY=1 \
+    PYTHONPATH="/workspace/sglang/python" \
+    SGLANG_GIT_SHA="${SGLANG_GIT_SHA}"
+
+COPY docker/runtime-serve.sh /usr/local/bin/sglang-runtime-serve
+
+RUN chmod 0755 /usr/local/bin/sglang-runtime-serve
+
+WORKDIR /workspace/sglang
+
+CMD ["bash"]
