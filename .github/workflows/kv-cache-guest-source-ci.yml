@@ -1,6 +1,8 @@
 name: KV Cache Guest Source CI
 
 on:
+  push:
+    branches: [latest-main]
   pull_request:
     paths:
       - ".github/workflows/kv-cache-guest-source-ci.yml"
