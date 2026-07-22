@@ -29,6 +29,7 @@ from sglang.srt.mem_cache.approx_kv.request import (
     ApproxKVRequestSegment,
 )
 from sglang.srt.mem_cache.approx_kv.runtime import (
+    allocate_recovery_slots,
     register_request_segments,
     restore_request_prefix,
 )
@@ -89,6 +90,33 @@ class FakeAllocator:
 
     def get_kvcache(self):
         return self.kvcache
+
+
+class PressureAllocator(FakeAllocator):
+    def __init__(self, kvcache: FakeKVCache) -> None:
+        super().__init__(kvcache)
+        self.evicted = False
+
+    def available_size(self):
+        return 0 if not self.evicted else 64
+
+    def alloc(self, size):
+        if not self.evicted:
+            return None
+        return super().alloc(size)
+
+
+class FakeEvictingTree:
+    def __init__(self, allocator) -> None:
+        self.token_to_kv_pool_allocator = allocator
+        self.evict_params = []
+
+    def is_chunk_cache(self):
+        return False
+
+    def evict(self, params):
+        self.evict_params.append(params)
+        self.token_to_kv_pool_allocator.evicted = True
 
 
 class FakeReqToTokenPool:
@@ -521,6 +549,14 @@ class KVCOMMFixture:
 
 
 class TestKVCOMMCore(unittest.TestCase):
+    def test_recovery_allocation_evicts_before_allocating(self):
+        allocator = PressureAllocator(FakeKVCache())
+        tree = FakeEvictingTree(allocator)
+        slots = allocate_recovery_slots(tree, 8)
+        self.assertEqual(len(slots), 8)
+        self.assertEqual(len(tree.evict_params), 1)
+        self.assertEqual(tree.evict_params[0].num_tokens, 8)
+
     def test_zero_positive_and_negative_relocation(self):
         rope = RoPEConfig(
             rotary_dim=8,

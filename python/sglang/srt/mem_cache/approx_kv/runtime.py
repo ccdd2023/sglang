@@ -48,6 +48,20 @@ def _allocator(tree_cache: Any) -> Any:
     return allocator
 
 
+def allocate_recovery_slots(tree_cache: Any, num_tokens: int):
+    """Allocate recovery slots after evicting exact Radix victims."""
+    allocator = _allocator(tree_cache)
+    if (
+        hasattr(tree_cache, "evict")
+        and hasattr(tree_cache, "is_chunk_cache")
+        and hasattr(allocator, "available_size")
+    ):
+        from sglang.srt.mem_cache.common import evict_from_tree_cache
+
+        evict_from_tree_cache(tree_cache, num_tokens)
+    return allocator.alloc(num_tokens)
+
+
 def _release_device_ref(allocator: Any):
     def release(backend_ref: object, residency: ResidencyTier) -> None:
         if residency != ResidencyTier.DEVICE or not isinstance(
@@ -481,7 +495,10 @@ def _restore_kvcomm_prefix(
             reconstruction_plan.restore_length,
         )
     allocator = _allocator(tree_cache)
-    restored_indices = allocator.alloc(reconstruction_plan.restore_length)
+    restored_indices = allocate_recovery_slots(
+        tree_cache,
+        reconstruction_plan.restore_length,
+    )
     if (
         restored_indices is None
         or len(restored_indices) != reconstruction_plan.restore_length
@@ -646,7 +663,7 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
             return False
 
     allocator = _allocator(tree_cache)
-    restored_indices = allocator.alloc(restore_length)
+    restored_indices = allocate_recovery_slots(tree_cache, restore_length)
     if restored_indices is None or len(restored_indices) != restore_length:
         if restored_indices is not None:
             allocator.free(restored_indices)
