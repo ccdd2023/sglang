@@ -155,7 +155,7 @@ def start_server(args: argparse.Namespace, log_path: Path) -> ServerProcess:
     log_file = log_path.open("w")
     environment = os.environ.copy()
     environment.setdefault(
-        "PYTORCH_CUDA_ALLOC_CONF",
+        "PYTORCH_ALLOC_CONF",
         "expandable_segments:True",
     )
     process = subprocess.Popen(
@@ -645,7 +645,7 @@ def main() -> int:
             "target_prefix_sizes": target_sizes,
             "pressure_points": pressure_points,
             "server_environment": {
-                "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
+                "PYTORCH_ALLOC_CONF": "expandable_segments:True",
             },
         },
         "randomized_config_order": config_order,
