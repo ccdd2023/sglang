@@ -358,6 +358,14 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
     target_delta = telemetry_delta(before_target, after_target)
     if args.mode == "kvcomm" and target_delta["dense_fallbacks"] not in (None, 0):
         raise RuntimeError("KVCOMM pressure target used dense fallback")
+    copied_tokens_delta = after_target.get(
+        "sglang:approx_kv_copied_tokens_total", 0.0
+    ) - before_target.get("sglang:approx_kv_copied_tokens_total", 0.0)
+    if args.mode == "kvcomm" and copied_tokens_delta != args.body_tokens:
+        raise RuntimeError(
+            f"KVCOMM copied {copied_tokens_delta} tokens, "
+            f"expected {args.body_tokens}"
+        )
 
     declared_tokens = (
         resident_after_setup + args.header_tokens + filler_count * args.filler_tokens
@@ -371,6 +379,7 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
         "resident_after_setup": resident_after_setup,
         "filler_count": filler_count,
         "setup_ms": setup_ms,
+        "kvcomm_copied_tokens_delta": copied_tokens_delta,
         "segment_count": math.ceil(args.body_tokens / args.segment_tokens),
         "target": target,
         "baseline_metrics": metric_subset(baseline),
