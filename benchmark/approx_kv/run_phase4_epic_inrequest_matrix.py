@@ -14,6 +14,13 @@ def _int_list(value: str) -> list[int]:
     return [int(item) for item in value.split(",") if item]
 
 
+def _repeat_count(value: str) -> int:
+    repeats = int(value)
+    if repeats < 2:
+        raise argparse.ArgumentTypeError("repeats must be at least 2")
+    return repeats
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", default="http://127.0.0.1:30011")
@@ -21,7 +28,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--k", type=int, default=0)
     parser.add_argument("--body-sizes", type=_int_list, default="128,256,512")
     parser.add_argument("--head-sizes", type=_int_list, default="0,16,32,64,128")
-    parser.add_argument("--repeats", type=int, default=4)
+    parser.add_argument("--repeats", type=_repeat_count, default=4)
     parser.add_argument("--output", required=True)
     parser.add_argument("--central-log", required=True)
     parser.add_argument("--runner-git-sha", required=True)
