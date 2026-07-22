@@ -28,71 +28,91 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - name: Maximize build disk
-        uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c
-        with:
-          root-reserve-mb: 8192
-          swap-size-mb: 4096
-          remove-dotnet: "true"
-          remove-android: "true"
-          remove-haskell: "true"
-
       - uses: actions/checkout@v4
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+      - name: Set up crane
+        uses: imjasonh/setup-crane@31b88efe9de28ae0ffa220711af4b60be9435f6e
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          version: v0.20.3
 
-      - name: Build immutable SM75 image
+      - name: Build compatibility layer
         run: |
-          DOCKER_BUILDKIT=1 docker build \
-            --network=host \
-            --file docker/Dockerfile.sm75-immutable \
-            --build-arg "SGLANG_GIT_SHA=${GITHUB_SHA}" \
-            --tag "ghcr.io/ccdd2023/sglang:sm75-${GITHUB_SHA}" \
-            --tag "ghcr.io/ccdd2023/sglang:sm75-phase1" \
+          set -euo pipefail
+          layer_root="${RUNNER_TEMP}/sm75-layer"
+          mkdir -p \
+            "${layer_root}/opt/sm75-site" \
+            "${layer_root}/usr/local/bin"
+          python3 -m pip install \
+            --target "${layer_root}/opt/sm75-site" \
+            --upgrade \
+            --no-compile \
+            --retries 10 \
+            --timeout 120 \
+            "transformers==5.12.1"
+          install -m 0755 \
+            docker/sm75-serve.sh \
+            "${layer_root}/usr/local/bin/sglang-sm75-serve"
+          PYTHONPATH="${layer_root}/opt/sm75-site" python3 -c \
+            'import transformers; assert transformers.__version__ == "5.12.1"'
+          python3 test/registered/unit/layers/test_sm75_compat.py
+          tar \
+            --format=posix \
+            --numeric-owner \
+            --owner=0 \
+            --group=0 \
+            -C "${layer_root}" \
+            -cf "${RUNNER_TEMP}/sm75-layer.tar" \
             .
 
-      - name: Validate mounted latest source
+      - name: Assemble and push immutable SM75 image
         run: |
-          docker run --rm \
-            --read-only \
-            --tmpfs /tmp:rw,size=256m \
-            --tmpfs /root:rw,size=256m \
-            -e PYTHONPYCACHEPREFIX=/tmp/pycache \
-            -v "${GITHUB_WORKSPACE}:/workspace/sglang:ro" \
-            "ghcr.io/ccdd2023/sglang:sm75-${GITHUB_SHA}" \
-            bash -lc '
-              python3 -m compileall -q \
-                python/sglang/srt/layers/activation.py \
-                python/sglang/srt/layers/layernorm.py \
-                python/sglang/srt/layers/sm75_compat.py \
-                test/registered/unit/layers/test_sm75_compat.py
-              python3 test/registered/unit/layers/test_sm75_compat.py
-            '
+          set -euo pipefail
+          base="lmsysorg/sglang@sha256:9bfa6494978dd1781788a73e5b096635c183b1e9e46d1d1c2bb10a1ed1630716"
+          image="ghcr.io/ccdd2023/sglang:sm75-${GITHUB_SHA}"
+          crane mutate \
+            --platform linux/amd64 \
+            --append "${RUNNER_TEMP}/sm75-layer.tar" \
+            --label "org.opencontainers.image.source=https://github.com/ccdd2023/sglang" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.title=SGLang latest-main SM75 compatibility runtime" \
+            --env "FLASHINFER_DISABLE_VERSION_CHECK=1" \
+            --env "HF_HUB_DISABLE_TELEMETRY=1" \
+            --env "PYTHONPATH=/workspace/sglang/python:/opt/sm75-site" \
+            --env "SGLANG_GIT_SHA=${GITHUB_SHA}" \
+            --env "SGLANG_SKIP_SGL_KERNEL_VERSION_CHECK=1" \
+            --workdir "/workspace/sglang" \
+            --cmd "bash" \
+            --tag "${image}" \
+            "${base}"
+          crane copy "${image}" "ghcr.io/ccdd2023/sglang:sm75-phase1"
 
-      - name: Push validated images
+      - name: Validate config and publish image reference
         run: |
-          docker push "ghcr.io/ccdd2023/sglang:sm75-${GITHUB_SHA}"
-          docker push "ghcr.io/ccdd2023/sglang:sm75-phase1"
-
-      - name: Publish image reference
-        run: |
-          digest="$(
-            docker buildx imagetools inspect \
-              "ghcr.io/ccdd2023/sglang:sm75-${GITHUB_SHA}" \
-              --format '{{json .Manifest.Digest}}' | tr -d '"'
-          )"
+          set -euo pipefail
+          image="ghcr.io/ccdd2023/sglang:sm75-${GITHUB_SHA}"
+          crane config "${image}" > image-config.json
+          jq -e --arg sha "${GITHUB_SHA}" '
+            .architecture == "amd64"
+            and .config.WorkingDir == "/workspace/sglang"
+            and .config.Cmd == ["bash"]
+            and .config.Labels["org.opencontainers.image.revision"] == $sha
+            and any(.config.Env[]; . == "PYTHONPATH=/workspace/sglang/python:/opt/sm75-site")
+            and any(.config.Env[]; . == "SGLANG_SKIP_SGL_KERNEL_VERSION_CHECK=1")
+          ' image-config.json
+          digest="$(crane digest "${image}")"
           {
             echo "git_sha=${GITHUB_SHA}"
-            echo "image=ghcr.io/ccdd2023/sglang:sm75-${GITHUB_SHA}"
+            echo "base=lmsysorg/sglang@sha256:9bfa6494978dd1781788a73e5b096635c183b1e9e46d1d1c2bb10a1ed1630716"
+            echo "image=${image}"
             echo "digest=${digest}"
+            echo "platform=linux/amd64"
+            echo "transformers=5.12.1"
+            echo "validation=source-and-image-config"
           } | tee image-reference.txt
 
       - uses: actions/upload-artifact@v4
         with:
           name: sm75-image-reference
-          path: image-reference.txt
+          path: |
+            image-reference.txt
+            image-config.json

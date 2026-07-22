@@ -28,72 +28,80 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - name: Maximize build disk
-        uses: easimon/maximize-build-space@fc881a613ad2a34aca9c9624518214ebc21dfc0c
-        with:
-          root-reserve-mb: 8192
-          swap-size-mb: 4096
-          remove-dotnet: "true"
-          remove-android: "true"
-          remove-haskell: "true"
-
       - uses: actions/checkout@v4
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+      - name: Set up crane
+        uses: imjasonh/setup-crane@31b88efe9de28ae0ffa220711af4b60be9435f6e
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          version: v0.20.3
 
-      - name: Build immutable runtime image
+      - name: Build runtime wrapper layer
         run: |
-          DOCKER_BUILDKIT=1 docker build \
-            --network=host \
-            --file docker/Dockerfile.runtime-immutable \
-            --build-arg "SGLANG_GIT_SHA=${GITHUB_SHA}" \
-            --tag "ghcr.io/ccdd2023/sglang:runtime-${GITHUB_SHA}" \
-            --tag "ghcr.io/ccdd2023/sglang:runtime-phase1" \
+          set -euo pipefail
+          layer_root="${RUNNER_TEMP}/runtime-layer"
+          mkdir -p "${layer_root}/usr/local/bin"
+          install -m 0755 \
+            docker/runtime-serve.sh \
+            "${layer_root}/usr/local/bin/sglang-runtime-serve"
+          python3 test/registered/unit/layers/test_sm75_compat.py
+          tar \
+            --format=posix \
+            --numeric-owner \
+            --owner=0 \
+            --group=0 \
+            -C "${layer_root}" \
+            -cf "${RUNNER_TEMP}/runtime-layer.tar" \
             .
 
-      - name: Validate mounted latest source
+      - name: Assemble and push immutable runtime image
         run: |
-          docker run --rm \
-            --read-only \
-            --tmpfs /tmp:rw,size=256m \
-            --tmpfs /root:rw,size=256m \
-            -e PYTHONPYCACHEPREFIX=/tmp/pycache \
-            -v "${GITHUB_WORKSPACE}:/workspace/sglang:ro" \
-            "ghcr.io/ccdd2023/sglang:runtime-${GITHUB_SHA}" \
-            bash -lc '
-              python3 -m compileall -q \
-                python/sglang/srt/layers/activation.py \
-                python/sglang/srt/layers/layernorm.py \
-                python/sglang/srt/layers/sm75_compat.py \
-                test/registered/unit/layers/test_sm75_compat.py
-              python3 test/registered/unit/layers/test_sm75_compat.py
-              python3 -c "import importlib.metadata; import torch; import transformers; assert torch.version.cuda is not None; assert int(torch.version.cuda.split(\".\", maxsplit=1)[0]) >= 13; print(\"torch\", torch.__version__); print(\"cuda\", torch.version.cuda); print(\"transformers\", transformers.__version__); print(\"sglang-kernel\", importlib.metadata.version(\"sglang-kernel\"))"
-            '
+          set -euo pipefail
+          base="lmsysorg/sglang:v0.5.15.post1-cu130-runtime@sha256:247fd6bfcdeabe3e382da5c557537440148d08fd30f2b482f01fa09e242fe185"
+          image="ghcr.io/ccdd2023/sglang:runtime-${GITHUB_SHA}"
+          crane mutate \
+            --platform linux/amd64 \
+            --append "${RUNNER_TEMP}/runtime-layer.tar" \
+            --label "org.opencontainers.image.source=https://github.com/ccdd2023/sglang" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.title=SGLang SM80/SM120 immutable runtime" \
+            --env "HF_HUB_DISABLE_TELEMETRY=1" \
+            --env "PYTHONPATH=/workspace/sglang/python" \
+            --env "SGLANG_GIT_SHA=${GITHUB_SHA}" \
+            --workdir "/workspace/sglang" \
+            --cmd "bash" \
+            --tag "${image}" \
+            "${base}"
+          crane copy "${image}" "ghcr.io/ccdd2023/sglang:runtime-phase1"
 
-      - name: Push validated images
+      - name: Validate config and publish image reference
         run: |
-          docker push "ghcr.io/ccdd2023/sglang:runtime-${GITHUB_SHA}"
-          docker push "ghcr.io/ccdd2023/sglang:runtime-phase1"
-
-      - name: Publish image reference
-        run: |
-          digest="$(
-            docker buildx imagetools inspect \
-              "ghcr.io/ccdd2023/sglang:runtime-${GITHUB_SHA}" \
-              --format '{{json .Manifest.Digest}}' | tr -d '"'
-          )"
+          set -euo pipefail
+          base="lmsysorg/sglang:v0.5.15.post1-cu130-runtime@sha256:247fd6bfcdeabe3e382da5c557537440148d08fd30f2b482f01fa09e242fe185"
+          image="ghcr.io/ccdd2023/sglang:runtime-${GITHUB_SHA}"
+          crane config "${image}" > image-config.json
+          jq -e --arg sha "${GITHUB_SHA}" '
+            .architecture == "amd64"
+            and .config.WorkingDir == "/workspace/sglang"
+            and .config.Cmd == ["bash"]
+            and .config.Labels["org.opencontainers.image.revision"] == $sha
+            and any(.config.Env[]; . == "PYTHONPATH=/workspace/sglang/python")
+          ' image-config.json
+          digest="$(crane digest "${image}")"
+          base_platform_digest="$(crane digest --platform linux/amd64 "${base}")"
           {
             echo "git_sha=${GITHUB_SHA}"
-            echo "image=ghcr.io/ccdd2023/sglang:runtime-${GITHUB_SHA}"
+            echo "base=${base}"
+            echo "base_platform_digest=${base_platform_digest}"
+            echo "image=${image}"
             echo "digest=${digest}"
+            echo "platform=linux/amd64"
+            echo "cuda_profile=cu130"
+            echo "validation=source-and-image-config"
           } | tee image-reference.txt
 
       - uses: actions/upload-artifact@v4
         with:
           name: runtime-image-reference
-          path: image-reference.txt
+          path: |
+            image-reference.txt
+            image-config.json
