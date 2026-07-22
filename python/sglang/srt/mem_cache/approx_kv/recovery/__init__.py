@@ -1,5 +1,10 @@
 from .common import ReusableSegment
 from .epic_fixed_k import build_epic_fixed_k_plan
+from .hardware_selector import (
+    HardwareAwareRecoverySelector,
+    RecoveryMeasurement,
+    RecoverySelection,
+)
 from .kvcomm_anchor import (
     AnchorCandidate,
     AnchorMatch,
@@ -20,6 +25,9 @@ __all__ = [
     "AnchorCandidate",
     "AnchorMatch",
     "AnchorSegment",
+    "HardwareAwareRecoverySelector",
+    "RecoveryMeasurement",
+    "RecoverySelection",
     "build_epic_fixed_k_plan",
     "build_kvcomm_anchor_plan",
     "build_raw_rope_plan",

@@ -15,6 +15,7 @@ on:
       - "test/registered/unit/layers/test_sm75_compat.py"
       - "test/registered/unit/mem_cache/test_approx_kv_core.py"
       - "test/registered/unit/mem_cache/test_approx_kv_recovery.py"
+      - "test/registered/unit/mem_cache/test_approx_kv_scheduler.py"
   workflow_dispatch:
 
 permissions:
@@ -42,11 +43,13 @@ jobs:
             test/registered/unit/benchmark/test_approx_kv_workloads.py \
             test/registered/unit/layers/test_sm75_compat.py \
             test/registered/unit/mem_cache/test_approx_kv_core.py \
-            test/registered/unit/mem_cache/test_approx_kv_recovery.py
+            test/registered/unit/mem_cache/test_approx_kv_recovery.py \
+            test/registered/unit/mem_cache/test_approx_kv_scheduler.py
 
       - name: Run source-level tests
         run: |
           python test/registered/unit/layers/test_sm75_compat.py
           python test/registered/unit/mem_cache/test_approx_kv_core.py
           python test/registered/unit/mem_cache/test_approx_kv_recovery.py
+          python test/registered/unit/mem_cache/test_approx_kv_scheduler.py
           python test/registered/unit/benchmark/test_approx_kv_workloads.py
