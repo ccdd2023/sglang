@@ -149,6 +149,91 @@ class TestCreateTreeCacheRouting(_RegistryIsolationMixin, CustomTestCase):
         self.assertIs(result, inner)
 
 
+class TestCreateTreeCacheRopeBinding(_RegistryIsolationMixin, CustomTestCase):
+    """`create_tree_cache` must bind a real model RoPE config onto the
+    CacheBlend recovery plugin's `ApproxKVManager` right after
+    construction. Without this, every multi-chunk (body > 512 token)
+    CacheBlend restore permanently dense-falls-back via
+    `rope_config_unavailable` (see `cacheblend/runtime.py`), because the
+    second and later <=512-token chunks always need a non-zero
+    rope_delta correction that only a bound `RoPEConfig` can satisfy."""
+
+    def _make_cache_with_approx_kv(self, *, plugin_names):
+        cache = MagicMock()
+        cache.supports_streaming_session.return_value = True
+        approx_manager = MagicMock()
+        approx_manager.plugins.names.return_value = plugin_names
+        cache.approx_kv = approx_manager
+        return cache, approx_manager
+
+    def test_binds_rope_config_when_cacheblend_plugin_registered_and_supported(self):
+        from sglang.srt.mem_cache.approx_kv.radix_backend import RoPEConfig
+        from sglang.srt.mem_cache.cacheblend.plugin import CACHEBLEND_PLUGIN_NAME
+
+        cache, approx_manager = self._make_cache_with_approx_kv(
+            plugin_names=(CACHEBLEND_PLUGIN_NAME,)
+        )
+        register_radix_cache_backend("rope-supported", MagicMock(return_value=cache))
+        rope_config = RoPEConfig(rotary_dim=64, base=10000.0, is_neox_style=True)
+
+        with patch(
+            "sglang.srt.mem_cache.approx_kv.rope_resolver.resolve_model_rope_config",
+            return_value=rope_config,
+        ) as resolver:
+            ctx = _make_ctx(backend="rope-supported")
+            result = create_tree_cache(ctx)
+
+            resolver.assert_called_once_with(ctx.model_config)
+        approx_manager.bind_rope_config.assert_called_once_with(rope_config)
+        self.assertIs(result, cache)
+
+    def test_does_not_bind_when_cacheblend_plugin_not_registered(self):
+        cache, approx_manager = self._make_cache_with_approx_kv(
+            plugin_names=("some-other-plugin",)
+        )
+        register_radix_cache_backend(
+            "rope-no-cacheblend", MagicMock(return_value=cache)
+        )
+
+        with patch(
+            "sglang.srt.mem_cache.approx_kv.rope_resolver.resolve_model_rope_config"
+        ) as resolver:
+            create_tree_cache(_make_ctx(backend="rope-no-cacheblend"))
+            resolver.assert_not_called()
+        approx_manager.bind_rope_config.assert_not_called()
+
+    def test_does_not_bind_when_model_rope_layout_unsupported(self):
+        from sglang.srt.mem_cache.cacheblend.plugin import CACHEBLEND_PLUGIN_NAME
+
+        cache, approx_manager = self._make_cache_with_approx_kv(
+            plugin_names=(CACHEBLEND_PLUGIN_NAME,)
+        )
+        register_radix_cache_backend("rope-unsupported", MagicMock(return_value=cache))
+
+        with patch(
+            "sglang.srt.mem_cache.approx_kv.rope_resolver.resolve_model_rope_config",
+            return_value=None,
+        ):
+            # Must not raise even though the resolver couldn't resolve a
+            # config (e.g. non-Qwen model family or a scaled rope_scaling
+            # type) -- that's the documented "leave it unbound, treat like
+            # unavailable" contract, not an error.
+            result = create_tree_cache(_make_ctx(backend="rope-unsupported"))
+        approx_manager.bind_rope_config.assert_not_called()
+        self.assertIs(result, cache)
+
+    def test_no_error_when_cache_has_no_approx_kv_attribute(self):
+        cache = MagicMock(spec=["supports_streaming_session"])
+        cache.supports_streaming_session.return_value = True
+        register_radix_cache_backend("rope-no-approx-kv", MagicMock(return_value=cache))
+
+        # `getattr(cache, "approx_kv", None)` must fall back to `None`
+        # (e.g. `ChunkCache`, which has no `approx_kv` attribute at all)
+        # without raising.
+        result = create_tree_cache(_make_ctx(backend="rope-no-approx-kv"))
+        self.assertIs(result, cache)
+
+
 class TestDefaultRadixCacheFactory(CustomTestCase):
     """Branch coverage for the built-in radix cache selection chain.
 

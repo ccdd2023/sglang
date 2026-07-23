@@ -7,7 +7,10 @@ import torch
 
 from sglang.srt.mem_cache.approx_kv.config import ApproxKVFeatureConfig
 from sglang.srt.mem_cache.approx_kv.manager import ApproxKVManager
-from sglang.srt.mem_cache.approx_kv.radix_backend import AllocatorCPUResidencyBackend
+from sglang.srt.mem_cache.approx_kv.radix_backend import (
+    AllocatorCPUResidencyBackend,
+    RoPEConfig,
+)
 from sglang.srt.mem_cache.approx_kv.request import (
     ApproxKVRequestMetadata,
     ApproxKVRequestOperation,
@@ -883,6 +886,146 @@ class TestCacheBlendRecoveryAllocationEviction(unittest.TestCase):
         self.assertGreater(allocator.next_index, next_index)
         newly_allocated = set(range(next_index, allocator.next_index))
         self.assertTrue(newly_allocated <= set(allocator.freed))
+
+
+class TestCacheBlendMultiSegmentRopeCorrection(unittest.TestCase):
+    """Reproduces the real production shape a body > 512 tokens takes:
+    the raw and fresh sources are each registered as two independent
+    <=512-token chunks (see run_phase4_cacheblend_pressure.py's
+    segment_chunks/register_source_segments -- "raw+fresh each 2x512"
+    for body=1024), and the *second* chunk is always restored at a
+    different absolute position than the position it was registered
+    under (registration always uses a per-call-constant target_start =
+    len(header); restore uses the cumulative target position) -- so it
+    always needs a non-zero rope_delta correction. Without a bound
+    RoPEConfig this deterministically dense-falls-back on every such
+    multi-chunk restore (never leaking the recovery buffer, just always
+    failing); with a real RoPEConfig bound, both chunks actually restore.
+
+    Chunk lengths here (3 + 3 tokens) are scaled down from the real
+    512-token contract chunks purely for test speed -- the
+    position-mismatch mechanic is identical regardless of chunk size.
+    """
+
+    def _build_tree(self, allocator, req_pool, metrics=None):
+        manager = ApproxKVManager(
+            ApproxKVFeatureConfig(core_enabled=True),
+            metrics_collector=metrics,
+        )
+        tree = FakeEvictingTree(allocator, req_pool)
+        tree.approx_kv = manager
+        return tree, manager
+
+    def _register_two_chunk_raw_and_fresh(self, tree, chunk0_tokens, chunk1_tokens):
+        for hash_prefix in ("cacheblend-raw:", "cacheblend-fresh:"):
+            for index, tokens in enumerate((chunk0_tokens, chunk1_tokens)):
+                register_request_segments(
+                    tree,
+                    FakeReq(
+                        ApproxKVRequestMetadata(
+                            operation=ApproxKVRequestOperation.REGISTER,
+                            segments=(
+                                ApproxKVRequestSegment(
+                                    content_hash=f"{hash_prefix}multi-chunk{index}",
+                                    target_start=0,
+                                    length=len(tokens),
+                                ),
+                            ),
+                            model_fingerprint="model",
+                            cache_dtype="fp32",
+                        ),
+                        tokens,
+                    ),
+                )
+
+    def _build_reuse_req(self, chunk0_tokens, chunk1_tokens):
+        return FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REUSE,
+                segments=(
+                    ApproxKVRequestSegment(
+                        content_hash="cacheblend-raw:multi-chunk0",
+                        target_start=0,
+                        length=len(chunk0_tokens),
+                    ),
+                    ApproxKVRequestSegment(
+                        content_hash="cacheblend-raw:multi-chunk1",
+                        target_start=len(chunk0_tokens),
+                        length=len(chunk1_tokens),
+                    ),
+                ),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+                plugin=CACHEBLEND_PLUGIN_NAME,
+            ),
+            chunk0_tokens + chunk1_tokens + (999,),
+        )
+
+    def _build_plugin(self):
+        return CacheBlendRecoveryPlugin(
+            config=CacheBlendConfig(
+                ratio=0.05,
+                probe_stages=(GradualFilterStage(probe_layer_id=0, keep_ratio=1.0),),
+                first_recompute_layer=1,
+            )
+        )
+
+    def test_second_chunk_dense_falls_back_and_frees_once_without_rope_config(self):
+        kvcache = FakeKVCache()
+        allocator = FakeAllocator(kvcache)
+        req_pool = FakeReqToTokenPool()
+        req_pool.req_to_token[0, :3] = torch.tensor([200, 201, 202])
+        metrics = FakeMetricsCollector()
+        tree, manager = self._build_tree(allocator, req_pool, metrics)
+
+        chunk0_tokens = (10, 11, 12)
+        chunk1_tokens = (20, 21, 22)
+        self._register_two_chunk_raw_and_fresh(tree, chunk0_tokens, chunk1_tokens)
+        manager.register_plugin(self._build_plugin())
+        self.assertIsNone(manager.rope_config)
+
+        next_index = allocator.next_index
+        reuse = self._build_reuse_req(chunk0_tokens, chunk1_tokens)
+
+        result = restore_request_prefix_cacheblend(tree, reuse)
+
+        self.assertFalse(result)
+        # The *entire* 6-token recovery buffer (both chunks) is freed
+        # exactly once -- not leaked, and not double-freed -- even
+        # though only the second chunk's rope check actually failed.
+        newly_allocated = set(range(next_index, allocator.next_index))
+        self.assertGreater(len(newly_allocated), 0)
+        self.assertEqual(sorted(allocator.freed), sorted(newly_allocated))
+        self.assertEqual(metrics.fallbacks, [("rope_config_unavailable", 6)])
+        self.assertEqual(metrics.requests[-1], ("reuse", "dense_fallback"))
+
+    def test_both_chunks_restore_successfully_with_bound_rope_config(self):
+        kvcache = FakeKVCache()
+        allocator = FakeAllocator(kvcache)
+        req_pool = FakeReqToTokenPool()
+        req_pool.req_to_token[0, :3] = torch.tensor([200, 201, 202])
+        metrics = FakeMetricsCollector()
+        tree, manager = self._build_tree(allocator, req_pool, metrics)
+
+        chunk0_tokens = (10, 11, 12)
+        chunk1_tokens = (20, 21, 22)
+        self._register_two_chunk_raw_and_fresh(tree, chunk0_tokens, chunk1_tokens)
+        manager.register_plugin(self._build_plugin())
+        # The default-Qwen RoPE layout resolve_model_rope_config would
+        # bind in production: a small, even rotary_dim that fits this
+        # FakeKVCache's (2, 4)-shaped slots.
+        manager.bind_rope_config(
+            RoPEConfig(rotary_dim=4, base=10000.0, is_neox_style=True)
+        )
+
+        reuse = self._build_reuse_req(chunk0_tokens, chunk1_tokens)
+
+        result = restore_request_prefix_cacheblend(tree, reuse)
+
+        self.assertTrue(result)
+        self.assertEqual(metrics.fallbacks, [])
+        self.assertEqual(metrics.requests[-1], ("reuse", "success"))
+        self.assertTrue(reuse.cacheblend_precomputed)
 
 
 class _WrongTypeCacheBlendPlugin:

@@ -210,6 +210,42 @@ def create_tree_cache(ctx: TreeCacheBuildContext) -> BasePrefixCache:
         cache = default_radix_cache_factory(ctx)
         source = "default"
 
+    approx_manager = getattr(cache, "approx_kv", None)
+    if approx_manager is not None:
+        from sglang.srt.mem_cache.cacheblend.plugin import CACHEBLEND_PLUGIN_NAME
+
+        if CACHEBLEND_PLUGIN_NAME in approx_manager.plugins.names():
+            # The CacheBlend recovery path (runtime.py) needs a real,
+            # non-zero rope_delta correction for every segment past the
+            # first in a body split across multiple <=512-token chunks
+            # (see run_phase4_cacheblend_pressure.py's segmented raw/fresh
+            # registration): each later chunk is restored at a *different*
+            # absolute position than the position it was registered/probed
+            # under. Without a bound RoPEConfig, `restore_request_prefix_
+            # cacheblend` correctly (and silently, from the scheduler's
+            # perspective) dense-falls-back every such multi-chunk restore
+            # via `rope_config_unavailable` -- but leaving this unbound in
+            # production means bodies > 512 tokens *never* actually
+            # restore via CacheBlend, only ever dense-fallback, after
+            # already paying the cost of evicting exact Radix victims to
+            # fill (and immediately free) a throwaway recovery buffer.
+            # Binding the real model's RoPE layout here, once, at tree
+            # cache construction time, is what makes those restores
+            # actually succeed instead of only ever falling back.
+            from sglang.srt.mem_cache.approx_kv.rope_resolver import (
+                resolve_model_rope_config,
+            )
+
+            rope_config = resolve_model_rope_config(ctx.model_config)
+            if rope_config is not None:
+                approx_manager.bind_rope_config(rope_config)
+            # else: model/RoPE layout unsupported by this resolver (e.g.
+            # non-Qwen family, or a scaled rope_scaling type) -- leave
+            # `approx_manager.rope_config` unset. `runtime.py` already
+            # treats that exactly like "unavailable" and dense-falls-back
+            # only when a restore actually needs a non-zero correction;
+            # it never guesses at an unscaled rotation for a scaled model.
+
     streaming_wrapped = False
     if (
         ctx.server_args.enable_streaming_session
