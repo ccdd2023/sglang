@@ -18,6 +18,7 @@ from sglang.srt.mem_cache.approx_kv.request import (
 )
 from sglang.srt.mem_cache.approx_kv.runtime import (
     ApproxKVRegistrationError,
+    allocate_recovery_slots,
     register_request_segments,
     restore_request_prefix,
 )
@@ -50,7 +51,9 @@ class FakeKVCache:
         return self.v_buffer[layer_id]
 
     def get_kv_size_bytes(self):
-        key_bytes = sum(buffer.numel() * buffer.element_size() for buffer in self.k_buffer)
+        key_bytes = sum(
+            buffer.numel() * buffer.element_size() for buffer in self.k_buffer
+        )
         value_bytes = sum(
             buffer.numel() * buffer.element_size() for buffer in self.v_buffer
         )
@@ -94,6 +97,63 @@ class FakeAllocator:
         for layer in range(self.kvcache.layer_num):
             self.kvcache.k_buffer[layer][indices] = keys[layer]
             self.kvcache.v_buffer[layer][indices] = values[layer]
+
+
+class PressureAllocator(FakeAllocator):
+    """A capacity-limited allocator: `alloc()` only succeeds while
+    `capacity` covers the requested size. `evict()` (driven by the real
+    `evict_from_tree_cache`, via `FakeEvictingTree.evict`) reclaims
+    `recovered_on_evict` slots of capacity -- 0 by default in the
+    "no-leak" tests, honestly simulating an eviction that found no
+    exact-Radix victims to reclaim. A passing "evicts before
+    allocating" test therefore *proves* the evict-then-alloc ordering:
+    with `recovered_on_evict > 0`, `alloc()` can only succeed after
+    `evict()` actually raised `capacity` first."""
+
+    def __init__(self, kvcache, *, capacity=0, recovered_on_evict=1_000_000):
+        super().__init__(kvcache)
+        self.capacity = capacity
+        self.recovered_on_evict = recovered_on_evict
+
+    def available_size(self):
+        return self.capacity
+
+    def alloc(self, size):
+        if size > self.capacity:
+            return None
+        self.capacity -= size
+        return super().alloc(size)
+
+
+class FakeEvictingTree:
+    """Tree-cache double exposing the real eviction protocol
+    (`evict`/`is_chunk_cache`) so `allocate_recovery_slots` takes its
+    evict-before-alloc branch, matching the shape production
+    `RadixCache`/`ChunkCache` trees provide (plus the ordinary
+    `req_to_token_pool`/`approx_kv` attributes other fixtures need)."""
+
+    def __init__(
+        self,
+        allocator,
+        req_to_token_pool=None,
+        approx_kv_manager=None,
+        *,
+        is_chunk_cache=False,
+    ):
+        self.token_to_kv_pool_allocator = allocator
+        self.req_to_token_pool = req_to_token_pool
+        self.approx_kv = approx_kv_manager
+        self.evict_params = []
+        self._is_chunk_cache = is_chunk_cache
+
+    def is_chunk_cache(self):
+        return self._is_chunk_cache
+
+    def evict(self, params):
+        self.evict_params.append(params)
+        self.token_to_kv_pool_allocator.capacity += (
+            self.token_to_kv_pool_allocator.recovered_on_evict
+        )
 
 
 class FakeReqToTokenPool:
@@ -153,12 +213,10 @@ class TestApproxKVRuntime(unittest.TestCase):
 
     def test_host_register_load_copy_and_last_token_forward(self):
         source_keys = [
-            buffer[torch.tensor([0, 1, 2])].clone()
-            for buffer in self.kvcache.k_buffer
+            buffer[torch.tensor([0, 1, 2])].clone() for buffer in self.kvcache.k_buffer
         ]
         source_values = [
-            buffer[torch.tensor([0, 1, 2])].clone()
-            for buffer in self.kvcache.v_buffer
+            buffer[torch.tensor([0, 1, 2])].clone() for buffer in self.kvcache.v_buffer
         ]
         source = FakeReq(
             self.metadata(ApproxKVRequestOperation.REGISTER),
@@ -275,6 +333,154 @@ class TestApproxKVRuntime(unittest.TestCase):
         self.assertFalse(restore_request_prefix(self.tree, reuse))
         self.assertEqual(self.allocator.next_index, next_index)
         self.assertEqual(len(reuse.prefix_indices), 0)
+
+    # ------------------------------------------------------------------
+    # Recovery-slot allocation must evict exact-Radix victims first (via
+    # `allocate_recovery_slots`), and must never leak an allocator slot
+    # when the pool is still short even after eviction was attempted.
+    # These use a dedicated `PressureAllocator`/`FakeEvictingTree` pair
+    # instead of `setUp`'s plain fixtures: the shared `FakeAllocator`
+    # always succeeds and the shared tree exposes no eviction protocol
+    # at all, so neither can distinguish "evicted then allocated" from
+    # "just allocated".
+    # ------------------------------------------------------------------
+    def _build_pressure_fixture(self, *, recovers_after_eviction=True):
+        kvcache = FakeKVCache()
+        allocator = PressureAllocator(
+            kvcache,
+            capacity=1_000_000,  # plenty while registering the source segment
+            recovered_on_evict=1_000_000 if recovers_after_eviction else 0,
+        )
+        # `host_residency_enabled=False` keeps the source segment
+        # DEVICE-resident, so the later reuse's `ensure_device` is a
+        # no-op (no allocator call) and the *only* allocator.alloc call
+        # left in the reuse path is the one this test targets: the
+        # destination `allocate_recovery_slots` call.
+        req_pool = FakeReqToTokenPool()
+        req_pool.req_to_token[0, :4] = torch.tensor([0, 1, 2, 3])
+        config = ApproxKVFeatureConfig(
+            core_enabled=True,
+            host_residency_enabled=False,
+        )
+        manager = ApproxKVManager(config)
+        tree = FakeEvictingTree(allocator, req_pool, manager)
+        segment = ApproxKVRequestSegment(
+            content_hash="artifact",
+            target_start=0,
+            length=3,
+        )
+
+        def metadata(operation):
+            return ApproxKVRequestMetadata(
+                operation=operation,
+                segments=(segment,),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+            )
+
+        source = FakeReq(metadata(ApproxKVRequestOperation.REGISTER), (10, 11, 12, 13))
+        self.assertEqual(register_request_segments(tree, source), 3)
+
+        # Simulate capacity pressure arising *after* the source segment
+        # was registered but *before* this reuse request's destination
+        # allocation, so the destination allocation must evict
+        # exact-Radix victims to succeed.
+        allocator.capacity = 0
+        return allocator, tree, metadata
+
+    def test_restore_evicts_exact_radix_before_allocating_recovery_slots(self):
+        allocator, tree, metadata = self._build_pressure_fixture()
+        reuse = FakeReq(metadata(ApproxKVRequestOperation.REUSE), (10, 11, 12, 99))
+
+        self.assertTrue(restore_request_prefix(tree, reuse))
+
+        self.assertEqual(len(tree.evict_params), 1)
+        self.assertEqual(tree.evict_params[0].num_tokens, 3)
+        self.assertEqual(len(reuse.prefix_indices), 3)
+
+    def test_restore_no_leak_when_allocation_still_fails_after_eviction(self):
+        allocator, tree, metadata = self._build_pressure_fixture(
+            recovers_after_eviction=False
+        )
+        reuse = FakeReq(metadata(ApproxKVRequestOperation.REUSE), (10, 11, 12, 99))
+
+        self.assertFalse(restore_request_prefix(tree, reuse))
+
+        # Eviction was genuinely attempted (not skipped)...
+        self.assertEqual(len(tree.evict_params), 1)
+        self.assertEqual(tree.evict_params[0].num_tokens, 3)
+        # ...but the allocator honestly still returned None, so there is
+        # nothing to leak: no slots were ever handed out, `free()` was
+        # never even called (there was nothing to free), and the
+        # request falls back to dense cleanly.
+        self.assertEqual(allocator.freed, [])
+        self.assertEqual(len(reuse.prefix_indices), 0)
+
+
+class TestAllocateRecoverySlots(unittest.TestCase):
+    """Direct unit tests of `allocate_recovery_slots` in isolation, with
+    no manager/plugin wiring, proving its evict-before-alloc contract
+    and its safe no-op behavior on trees/allocators that do not support
+    the eviction protocol at all (e.g. every other fixture in this
+    file)."""
+
+    def setUp(self):
+        self.kvcache = FakeKVCache()
+
+    def test_evicts_exact_radix_before_allocating_when_capacity_is_short(self):
+        allocator = PressureAllocator(self.kvcache)
+        tree = FakeEvictingTree(allocator)
+
+        slots = allocate_recovery_slots(tree, 8)
+
+        self.assertEqual(len(slots), 8)
+        self.assertEqual(len(tree.evict_params), 1)
+        self.assertEqual(tree.evict_params[0].num_tokens, 8)
+
+    def test_skips_eviction_when_capacity_already_sufficient(self):
+        allocator = PressureAllocator(self.kvcache, capacity=1_000_000)
+        tree = FakeEvictingTree(allocator)
+
+        slots = allocate_recovery_slots(tree, 8)
+
+        self.assertEqual(len(slots), 8)
+        # Eviction must not be attempted when it is not needed.
+        self.assertEqual(tree.evict_params, [])
+
+    def test_skips_eviction_for_chunk_cache(self):
+        allocator = PressureAllocator(self.kvcache)
+        tree = FakeEvictingTree(allocator, is_chunk_cache=True)
+
+        result = allocate_recovery_slots(tree, 8)
+
+        # Chunk caches are never evicted from -- the allocator (still
+        # genuinely short on capacity) honestly fails instead of a
+        # silent fabricated success.
+        self.assertIsNone(result)
+        self.assertEqual(tree.evict_params, [])
+
+    def test_skips_eviction_when_tree_lacks_eviction_protocol(self):
+        # Matches every `SimpleNamespace`-based tree fixture used
+        # elsewhere in this suite: no `evict`/`is_chunk_cache`. Must not
+        # raise `AttributeError`; must fall straight through to a
+        # direct `allocator.alloc` call, unchanged from before this
+        # function existed.
+        allocator = FakeAllocator(self.kvcache)
+        tree = SimpleNamespace(token_to_kv_pool_allocator=allocator)
+
+        slots = allocate_recovery_slots(tree, 5)
+
+        self.assertEqual(len(slots), 5)
+
+    def test_no_leak_when_allocation_still_fails_after_eviction(self):
+        allocator = PressureAllocator(self.kvcache, recovered_on_evict=0)
+        tree = FakeEvictingTree(allocator)
+
+        result = allocate_recovery_slots(tree, 8)
+
+        self.assertIsNone(result)
+        self.assertEqual(len(tree.evict_params), 1)  # eviction was attempted
+        self.assertEqual(allocator.freed, [])  # nothing allocated, nothing to leak
 
 
 if __name__ == "__main__":

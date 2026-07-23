@@ -66,6 +66,17 @@ parameter but the live output of the hardware-aware roofline controller.
    flight mismatch) aborts the *entire* restore and frees the
    provisional allocation, falling back to the normal dense/exact path --
    never a partial, silently-degraded write.
+9. The destination allocation for the restored span itself goes through
+   `approx_kv.runtime.allocate_recovery_slots`, not a raw
+   ``allocator.alloc``: on tree caches that expose the eviction
+   protocol (``evict``/``is_chunk_cache`` plus an
+   ``available_size``-reporting allocator) it evicts exact-Radix
+   victims first when the pool is short on space, so a request served
+   by CacheTune repair does not spuriously dense-fall-back to
+   ``device_allocation_failed`` under memory pressure just because the
+   exact Radix tree was holding evictable capacity. Trees/allocators
+   that do not expose this protocol (e.g. plain unit-test doubles)
+   fall through unchanged to a direct ``allocator.alloc`` call.
 """
 
 import logging
@@ -78,6 +89,7 @@ from sglang.srt.mem_cache.approx_kv.radix_backend import (
     RoPEConfig,
 )
 from sglang.srt.mem_cache.approx_kv.request import ApproxKVRequestOperation
+from sglang.srt.mem_cache.approx_kv.runtime import allocate_recovery_slots
 from sglang.srt.mem_cache.approx_kv.types import (
     KVReusePlan,
     KVSegmentKey,
@@ -350,7 +362,7 @@ def restore_request_prefix_cachetune(tree_cache: Any, req: Any) -> bool:
         probe_backend = precomputed_backend
         recompute_backend = precomputed_backend
 
-    restored_indices = allocator.alloc(restore_length)
+    restored_indices = allocate_recovery_slots(tree_cache, restore_length)
     if restored_indices is None or len(restored_indices) != restore_length:
         if restored_indices is not None:
             allocator.free(restored_indices)

@@ -32,6 +32,21 @@ def _allocator(tree_cache: Any) -> Any:
     return allocator
 
 
+def allocate_recovery_slots(tree_cache: Any, num_tokens: int):
+    """Allocate approximate-recovery slots after evicting exact Radix victims."""
+    allocator = _allocator(tree_cache)
+    if (
+        hasattr(tree_cache, "evict")
+        and hasattr(tree_cache, "is_chunk_cache")
+        and hasattr(allocator, "available_size")
+    ):
+        # Local import avoids the common.py -> approx_kv.runtime import cycle.
+        from sglang.srt.mem_cache.common import evict_from_tree_cache
+
+        evict_from_tree_cache(tree_cache, num_tokens)
+    return allocator.alloc(num_tokens)
+
+
 def _release_device_ref(allocator: Any):
     def release(backend_ref: object, residency: ResidencyTier) -> None:
         if residency != ResidencyTier.DEVICE or not isinstance(
@@ -135,9 +150,7 @@ def _register_request_segments(tree_cache: Any, req: Any) -> int:
             if target_indices is None or len(target_indices) != segment.length:
                 if target_indices is not None:
                     allocator.free(target_indices)
-                raise MemoryError(
-                    "unable to allocate device slots for approximate KV"
-                )
+                raise MemoryError("unable to allocate device slots for approximate KV")
             try:
                 allocator.get_kvcache().move_kv_cache(
                     target_indices,
@@ -243,7 +256,7 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
             return False
 
     allocator = _allocator(tree_cache)
-    restored_indices = allocator.alloc(restore_length)
+    restored_indices = allocate_recovery_slots(tree_cache, restore_length)
     if restored_indices is None or len(restored_indices) != restore_length:
         if restored_indices is not None:
             allocator.free(restored_indices)
@@ -259,9 +272,7 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
     )
     spans = []
     for segment, handle, overlap_start, overlap_end in handles:
-        source_offset = segment.source_offset + (
-            overlap_start - segment.target_start
-        )
+        source_offset = segment.source_offset + (overlap_start - segment.target_start)
         source_position = handle.source_start + source_offset
         rope_delta = overlap_start - source_position
         if rope_delta != 0 and rope_config.rotary_dim == 0:
@@ -283,15 +294,12 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
 
     backend = RadixKVTransferBackend(
         allocator=allocator,
-        target_indices=lambda start, length: restored_indices[
-            start : start + length
-        ],
+        target_indices=lambda start, length: restored_indices[start : start + length],
         dense_prefill=lambda start, length, reason: fallback_reasons.append(reason),
         rope=rope_config,
     )
     target_tokens = tuple(
-        int(token)
-        for token in req.full_untruncated_fill_ids[exact_length:restore_end]
+        int(token) for token in req.full_untruncated_fill_ids[exact_length:restore_end]
     )
     try:
         stats = manager.execute(
