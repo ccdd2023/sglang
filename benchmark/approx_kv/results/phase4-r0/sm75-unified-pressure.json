@@ -1,0 +1,62 @@
+{
+  "equivalent_full_matrix": "R1 EPIC k=0 uses the same raw-copy+RoPE physical mechanism and provides the complete header/body/rho matrix in phase4-r1/sm75-eviction-pressure.json.",
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "independent_gpu_verification": [
+    {
+      "body_tokens": 1024,
+      "dense_p50_ms": 299.3441754952073,
+      "eviction_observed": true,
+      "header_tokens": 64,
+      "peak_rho": 2.1229246001523228,
+      "pre_target_rho": 2.0449352627570447,
+      "raw_p50_ms": 173.00799399527023,
+      "speedup": 1.7302332024229523
+    },
+    {
+      "body_tokens": 2048,
+      "dense_p50_ms": 980.8724470058223,
+      "eviction_observed": true,
+      "header_tokens": 64,
+      "peak_rho": 2.166793602437167,
+      "pre_target_rho": 2.010814927646611,
+      "raw_p50_ms": 473.3356110009481,
+      "speedup": 2.0722557614703905
+    }
+  ],
+  "known_limitations": [
+    "Only body1024/2048, header64, rho~2 were independently rerun on the R0 branch; the full setting contract is encoded in run_r0_pressure.py.",
+    "No accuracy metric was collected."
+  ],
+  "model": "Qwen/Qwen3-0.6B",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "passed": true,
+  "runner_git_sha": "2e8b40e3d",
+  "schema_version": 1,
+  "settings_contract": {
+    "body_tokens": [
+      512,
+      768,
+      1024,
+      2048
+    ],
+    "central_log": "/home/chris/Workspaces/kvcache-research/results/BENCHMARK_RUN_LOG.jsonl",
+    "formal_repeats": 4,
+    "header_tokens": [
+      0,
+      32,
+      64,
+      128,
+      256
+    ],
+    "mem_fraction_static": 0.35,
+    "rho_targets": [
+      0.9,
+      1.1,
+      1.5,
+      2.0,
+      3.0
+    ],
+    "segment_tokens": 512,
+    "warmup": 1
+  }
+}
