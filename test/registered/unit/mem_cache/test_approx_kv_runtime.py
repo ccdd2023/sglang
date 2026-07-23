@@ -50,7 +50,9 @@ class FakeKVCache:
         return self.v_buffer[layer_id]
 
     def get_kv_size_bytes(self):
-        key_bytes = sum(buffer.numel() * buffer.element_size() for buffer in self.k_buffer)
+        key_bytes = sum(
+            buffer.numel() * buffer.element_size() for buffer in self.k_buffer
+        )
         value_bytes = sum(
             buffer.numel() * buffer.element_size() for buffer in self.v_buffer
         )
@@ -153,12 +155,10 @@ class TestApproxKVRuntime(unittest.TestCase):
 
     def test_host_register_load_copy_and_last_token_forward(self):
         source_keys = [
-            buffer[torch.tensor([0, 1, 2])].clone()
-            for buffer in self.kvcache.k_buffer
+            buffer[torch.tensor([0, 1, 2])].clone() for buffer in self.kvcache.k_buffer
         ]
         source_values = [
-            buffer[torch.tensor([0, 1, 2])].clone()
-            for buffer in self.kvcache.v_buffer
+            buffer[torch.tensor([0, 1, 2])].clone() for buffer in self.kvcache.v_buffer
         ]
         source = FakeReq(
             self.metadata(ApproxKVRequestOperation.REGISTER),
@@ -200,6 +200,25 @@ class TestApproxKVRuntime(unittest.TestCase):
         self.assertFalse(restore_request_prefix(self.tree, mismatch))
         self.assertEqual(self.allocator.next_index, next_index)
         self.assertEqual(len(mismatch.prefix_indices), 0)
+
+    def test_transfer_exception_falls_back_without_leaking_slots(self):
+        source = FakeReq(
+            self.metadata(ApproxKVRequestOperation.REGISTER),
+            (10, 11, 12, 13),
+        )
+        register_request_segments(self.tree, source)
+        reuse = FakeReq(
+            self.metadata(ApproxKVRequestOperation.REUSE),
+            (10, 11, 12, 99),
+        )
+        with patch.object(
+            self.manager,
+            "execute",
+            side_effect=RuntimeError("injected transfer failure"),
+        ):
+            self.assertFalse(restore_request_prefix(self.tree, reuse))
+        self.assertEqual(len(reuse.prefix_indices), 0)
+        self.assertEqual(len(self.allocator.freed), 3)
 
     def test_registration_error_releases_request_before_reraising(self):
         req = SimpleNamespace(

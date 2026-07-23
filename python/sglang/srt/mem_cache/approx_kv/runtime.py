@@ -720,7 +720,13 @@ def restore_request_prefix(tree_cache: Any, req: Any) -> bool:
         )
     except Exception:
         allocator.free(restored_indices)
-        raise
+        logger.exception(
+            "Approximate KV transfer execution failed for request %s",
+            getattr(req, "rid", "<unknown>"),
+        )
+        manager.record_fallback("transfer_execution_failed", restore_length)
+        manager.record_request("reuse", "dense_fallback")
+        return False
     if fallback_reasons or stats.recomputed_tokens:
         allocator.free(restored_indices)
         manager.record_request("reuse", "dense_fallback")
