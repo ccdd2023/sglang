@@ -2129,11 +2129,15 @@ class TestRequireFinishedByLength(unittest.TestCase):
 
 
 class TestRequireCachedTokens(unittest.TestCase):
-    """``meta_info.cached_tokens`` is generic SGLang exact-prefix
-    accounting (unrelated to CacheTune's own Prometheus counters) --
-    the independent per-request signal that a reuse request's own
-    exact-match boundary landed exactly where the registered segment
-    expects."""
+    """``meta_info.cached_tokens`` is generic SGLang accounting
+    (unrelated to CacheTune's own Prometheus counters) for the prefix
+    already resolved without a fresh forward pass -- for a REGISTER
+    request this is exact-match-only, but for a successful CacheTune
+    reuse it also includes the entire restored body (see
+    ``require_cached_tokens``'s own docstring). These tests exercise the
+    generic assert-equal-else-raise behavior itself with arbitrary
+    values, independent of any specific real call site's expected
+    value."""
 
     def test_passes_and_returns_observed_when_matches(self):
         response = {"meta_info": {"cached_tokens": 34}}
@@ -2486,21 +2490,31 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
         ``materialize_workload_via_reuse`` call needs, in call order, to
         pass every check that function performs: seed target_head
         (``cached_tokens=0``), register raw (``cached_tokens=0``),
-        register fresh (``cached_tokens`` unchecked by that step), reuse
-        (``cached_tokens=workload.body_start_in_target``)."""
+        register fresh (``cached_tokens=workload.body_start_in_target``,
+        the REGISTER operation's own exact-match-only radix hit on the
+        already-seeded target head -- it never restores anything), reuse
+        (``cached_tokens=workload.body_start_in_target +
+        workload.body_tokens``, the full restored prefix: exact-match
+        head plus the entire restored body, never head-only)."""
         zero_cached_chunk = {
             "meta_info": {"finish_reason": {"type": "length"}, "cached_tokens": 0}
         }
-        reuse_chunk = {
+        fresh_register_chunk = {
             "meta_info": {
                 "finish_reason": {"type": "length"},
                 "cached_tokens": workload.body_start_in_target,
             }
         }
+        reuse_chunk = {
+            "meta_info": {
+                "finish_reason": {"type": "length"},
+                "cached_tokens": workload.body_start_in_target + workload.body_tokens,
+            }
+        }
         chunks = [
             zero_cached_chunk,  # seed target_head
             zero_cached_chunk,  # register raw
-            zero_cached_chunk,  # register fresh
+            fresh_register_chunk,  # register fresh
             reuse_chunk,  # reuse
         ]
         return [
@@ -2853,6 +2867,12 @@ class TestBuildSweepPointResult(unittest.TestCase):
 
     @staticmethod
     def _setting_result(**overrides):
+        # workload.body_start_in_target (34) + workload.body_tokens (128)
+        # == 162: the full restored prefix (exact-match head plus the
+        # entire restored body), never head-only -- see
+        # require_cached_tokens's own docstring for why a successful
+        # CacheTune reuse always extends prefix_indices by the complete
+        # restore_length regardless of the controller's selected ratio.
         base = {
             "metrics_before": {
                 "sglang:approx_kv_cachetune_selected_tokens_total": 0.0,
@@ -2862,11 +2882,11 @@ class TestBuildSweepPointResult(unittest.TestCase):
                 "sglang:approx_kv_cachetune_selected_tokens_total": 0.0,
                 "sglang:approx_kv_dense_fallback_total": 0.0,
             },
-            "observed_cached_tokens_per_call": [34, 34],
+            "observed_cached_tokens_per_call": [162, 162],
             "seed_head_ms": 1.0,
             "register_raw_ms": 2.0,
             "fresh_raw_samples": [{"ttft_ms": 10.0, "cached_tokens": 34}],
-            "reuse_raw_samples": [{"ttft_ms": 5.0, "cached_tokens": 34}],
+            "reuse_raw_samples": [{"ttft_ms": 5.0, "cached_tokens": 162}],
             "fresh_ms_samples": [10.0],
             "reuse_ms_samples": [5.0],
             "combined_ms_samples": [15.0],
@@ -2930,6 +2950,11 @@ class TestBuildSweepPointResult(unittest.TestCase):
         self.assertEqual(result["fresh_p50_ms"], 10.0)
         self.assertEqual(result["reuse_p50_ms"], 5.0)
         self.assertEqual(result["combined_p50_ms"], 15.0)
+        # Full restored prefix (exact-match head + entire restored
+        # body), never head-only: 34 (body_start_in_target) + 128
+        # (body_tokens) == 162 -- confirmed on a real SM75 run that an
+        # earlier version of this expectation (head-only, 34) was wrong.
+        self.assertEqual(result["expected_cached_tokens_per_call"], 162)
 
     def test_passed_false_when_observed_selected_tokens_falls_short(self):
         workload = self._workload()
@@ -2972,9 +2997,13 @@ class TestBuildSweepPointResult(unittest.TestCase):
     def test_passed_false_on_cached_tokens_mismatch(self):
         workload = self._workload()
         quantized = self._quantized()
+        # Correct expected value is 162 (body_start_in_target=34 +
+        # body_tokens=128, the full restored prefix); 34 alone (the old,
+        # buggy head-only expectation) must still be treated as a
+        # mismatch here.
         setting_result = self._setting_result(
             metrics_after=self._metrics_after_for(quantized, repeats=2),
-            observed_cached_tokens_per_call=[34, 33],
+            observed_cached_tokens_per_call=[162, 34],
         )
 
         result = build_sweep_point_result(

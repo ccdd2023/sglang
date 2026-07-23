@@ -156,11 +156,18 @@ direct `input_ids` (never `/v1/chat/completions`), and every workload it
 builds is a genuine **non-prefix** segment, not a shared-from-position-0
 prefix:
 
-* `source_prompt = source_head_ids + shared_body_ids`
+* `source_prompt = source_head_ids + shared_body_ids + tail_ids`
 * `target_prompt = target_head_ids + shared_body_ids + tail_ids`
+* `fresh_prompt` (registered from the *target* prompt's body offset,
+  under a distinguishing content-hash prefix) is token-identical to
+  `target_prompt` -- safe because every request carrying
+  `approx_kv_metadata` (register AND reuse) forces
+  `skip_radix_cache_insert=True`, so this fresh-register call never
+  populates the live server's exact radix tree.
 
-with `source_head_ids != target_head_ids` (different token content) but
-`shared_body_ids` byte-identical between the two. Each piece is tokenized
+with `source_head_ids != target_head_ids` (different token content --
+the whole point) but `shared_body_ids` (and the trailing `tail_ids`)
+byte-identical between all three. Each piece is tokenized
 *separately* and the resulting integer-id lists are concatenated directly
 (never re-tokenized as a joined string), so segment offsets are exact by
 construction. This matters because causal attention only depends on
@@ -212,14 +219,28 @@ forces dense-fallback), each setting's measurement pass runs, in order:
    populate the exact radix tree for that specific head (register/reuse
    requests always set `skip_radix_cache_insert=True` and can never do
    this themselves).
-3. Register the "raw" segment once, from `source_head_ids + shared_body_ids`.
+3. Register the "raw" segment once, from
+   `source_head_ids + shared_body_ids + tail_ids`.
 4. One *discarded* register-fresh + reuse warmup pass.
 5. `--repeats` formal register-fresh + reuse repeats.
 
-Every formal reuse response's `meta_info.cached_tokens` (generic SGLang
-exact-prefix accounting, unrelated to CacheTune's own Prometheus counters)
-is cross-checked against the expected head-only length, and the output
-JSON's `server_validation.body_source_context_differs_from_target` is
+Every formal fresh-register response's `meta_info.cached_tokens` is
+cross-checked against `body_start_in_target` (the REGISTER operation
+never restores anything -- see `approx_kv/runtime.py`'s
+`_register_request_segments` -- so its only contribution is the
+exact-match radix hit on the already-seeded target head). Every formal
+reuse response's `meta_info.cached_tokens` (generic SGLang accounting,
+unrelated to CacheTune's own Prometheus counters) is cross-checked
+against `body_start_in_target + body_tokens` -- confirmed on a real
+SM75 run that this counts the *entire* prefix already resolved without
+a fresh forward pass, not just the exact-match head: a successful
+CacheTune reuse always extends `req.prefix_indices` by the complete
+restored body span regardless of the controller's selected repair
+ratio (the ratio only decides how many of those positions get a
+genuine recompute forward pass versus a straight KV copy, never how
+many get restored in total; see `cachetune/runtime.py`'s
+`restore_request_prefix_cachetune`). The output JSON's
+`server_validation.body_source_context_differs_from_target` is
 computed from the actual constructed workload (never hardcoded).
 
 `--central-log` is required: every invocation appends JSONL lifecycle

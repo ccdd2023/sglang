@@ -156,13 +156,30 @@ setting, every shape-sweep point, and every rho-sweep point)
    median -- and cross-checking Prometheus telemetry deltas using only
    the formal repeat count (the warmup's own telemetry effect is already
    baked into the "before" snapshot, always taken *after* warmup
-   completes). Every formal reuse response's ``meta_info.cached_tokens``
-   is checked against the expected head-only length -- an independent,
-   per-request, server-reported signal (generic SGLang exact-prefix
-   accounting, unrelated to CacheTune's own Prometheus counters) that the
-   live request's own exact-match boundary landed exactly where the
-   registered segment expects, not a tautology against the same
-   telemetry this script already cross-validates in aggregate.
+   completes). Every formal fresh-register response's
+   ``meta_info.cached_tokens`` is checked against ``body_start_in_target``
+   (the REGISTER operation never restores anything -- see
+   ``approx_kv/runtime.py``'s ``_register_request_segments`` -- so its
+   only contribution to ``prefix_indices`` is the exact-match radix hit
+   on the already-seeded target head). Every formal reuse response's
+   ``meta_info.cached_tokens`` is checked against
+   ``body_start_in_target + body_tokens`` -- a real GPU run confirmed
+   that SGLang's ``cached_tokens`` accounting (``pre_len -
+   already_computed`` in ``schedule_batch.py``) counts the *entire*
+   prefix already resolved without a fresh forward pass, and a
+   successful CacheTune reuse always extends ``req.prefix_indices`` by
+   the full restored body length (``restore_length``, i.e. every
+   registered segment's combined span) regardless of the controller's
+   selected repair ratio -- ``decision.repair_tokens`` only decides how
+   many of those already-restored positions get a genuine recompute
+   forward pass versus a straight KV copy, never how many positions get
+   restored in total (see ``cachetune/runtime.py``'s
+   ``restore_request_prefix_cachetune``). Neither check is a tautology
+   against the same telemetry this script already cross-validates in
+   aggregate: both are independent, per-request, server-reported
+   signals (generic SGLang accounting, unrelated to CacheTune's own
+   Prometheus counters) that the live request's own prefix boundary
+   landed exactly where expected.
 
 Register/reuse requests never need inter-repeat flushing:
 ``schedule_batch.Req.skip_radix_cache_insert`` is forced True whenever
@@ -1604,16 +1621,41 @@ def require_finished_by_length(response: dict, label: str) -> None:
 
 
 def require_cached_tokens(response: dict, expected: int, label: str) -> int:
-    """Assert the server-reported exact-match prefix length
-    (``meta_info.cached_tokens``, generic SGLang accounting set from
-    ``pre_len - already_computed`` in ``schedule_batch.py`` -- unrelated
-    to any CacheTune-specific Prometheus counter) equals ``expected`` for
-    this specific request, and return the observed value.
+    """Assert the server-reported prefix length already resolved without
+    a fresh forward pass (``meta_info.cached_tokens``, generic SGLang
+    accounting set from ``pre_len - already_computed`` in
+    ``schedule_batch.py`` -- unrelated to any CacheTune-specific
+    Prometheus counter) equals ``expected`` for this specific request,
+    and return the observed value.
+
+    IMPORTANT, confirmed on a real SM75 run: this is *not* an
+    exact-match-only counter. ``pre_len = len(req.prefix_indices)``,
+    and a successful CacheTune reuse extends ``req.prefix_indices`` by
+    the *entire* restored body span (``restore_length``) in
+    ``restore_request_prefix_cachetune`` (``cachetune/runtime.py``) --
+    regardless of the controller's selected repair ratio, since
+    ``decision.repair_tokens`` only picks how many already-restored
+    positions get a genuine recompute forward pass versus a straight KV
+    copy, never how many positions get restored in total. So for a
+    reuse request the caller must pass ``body_start_in_target +
+    body_tokens`` (exact-match head *plus* the full restored body), not
+    ``body_start_in_target`` alone -- an earlier version of this script
+    passed the head-only value here and a real SM75 canary run reported
+    a mismatch (``cached_tokens`` observed as head+body, expected as
+    head-only). For a REGISTER request (raw or fresh), which never calls
+    ``restore_request_prefix_cachetune`` at all (see
+    ``approx_kv/runtime.py``'s ``_register_request_segments``), the
+    expected value is genuinely just whatever plain exact-match radix
+    hit already existed before that call (0 for the raw register, since
+    its unique ``source_head_ids`` was never previously seeded;
+    ``body_start_in_target`` for the fresh register, since its
+    ``target_head_ids`` was already seeded by the one-time dense head
+    seed earlier in the same setting).
 
     This is an independent, per-request cross-check that the live
-    request's own exact-cache boundary landed exactly where this
-    canary's registered segment expects it to -- not a tautology against
-    the aggregate Prometheus deltas this script already cross-validates
+    request's own prefix boundary landed exactly where this canary's
+    registered segment(s) expect it to -- not a tautology against the
+    aggregate Prometheus deltas this script already cross-validates
     elsewhere, since it is sourced from a completely different counter.
     """
     observed = int(response["meta_info"]["cached_tokens"])
@@ -1801,6 +1843,16 @@ def materialize_workload_via_reuse(
         ),
     )
     require_finished_by_length(register_fresh_response, f"{label} fresh preparation")
+    # REGISTER never restores (see approx_kv/runtime.py's
+    # _register_request_segments -- it bails out immediately unless
+    # operation == REUSE), so this call's only contribution to
+    # prefix_indices is the plain exact-match radix hit on
+    # target_head_ids, already seeded above: body_start_in_target, not 0.
+    require_cached_tokens(
+        register_fresh_response,
+        workload.body_start_in_target,
+        f"{label} fresh preparation",
+    )
 
     reuse_response, reuse_ms = timed_post(
         base_url,
@@ -1817,8 +1869,20 @@ def materialize_workload_via_reuse(
         ),
     )
     require_finished_by_length(reuse_response, f"{label} reuse")
+    # A successful CacheTune reuse always extends prefix_indices by the
+    # FULL restored body (restore_length), never just a
+    # controller-ratio-scaled fraction of it -- decision.repair_tokens
+    # only picks how many of those already-restored positions get a
+    # genuine recompute forward pass versus a straight KV copy (see
+    # cachetune/runtime.py's restore_request_prefix_cachetune). So the
+    # expected cached_tokens is exact-match head (body_start_in_target)
+    # PLUS the entire body (body_tokens), not head-only -- confirmed by
+    # a real SM75 run reporting exactly this head+body value where an
+    # earlier version of this script expected head-only.
     require_cached_tokens(
-        reuse_response, workload.body_start_in_target, f"{label} reuse"
+        reuse_response,
+        workload.body_start_in_target + workload.body_tokens,
+        f"{label} reuse",
     )
 
     return {
@@ -2092,6 +2156,18 @@ def run_non_prefix_setting(
         require_finished_by_length(
             register_fresh_response, f"{label} fresh preparation"
         )
+        # Same rationale as materialize_workload_via_reuse's own fresh
+        # register assertion: REGISTER never restores, so the only
+        # contribution to prefix_indices is the exact-match radix hit on
+        # the already-seeded target head (body_start_in_target), for
+        # every formal repeat identically (register/reuse requests never
+        # write into the exact radix tree, so this never drifts across
+        # repeats).
+        require_cached_tokens(
+            register_fresh_response,
+            workload.body_start_in_target,
+            f"{label} fresh preparation",
+        )
 
         reuse_response, reuse_ttft_ms = timed_post(
             base_url,
@@ -2108,8 +2184,14 @@ def run_non_prefix_setting(
             ),
         )
         require_finished_by_length(reuse_response, f"{label} reuse")
+        # Full restored prefix (head + entire body), not head-only --
+        # see require_cached_tokens's own docstring for why a successful
+        # CacheTune reuse always extends prefix_indices by the complete
+        # restore_length regardless of the controller's selected ratio.
         observed_reuse_cached_tokens = require_cached_tokens(
-            reuse_response, workload.body_start_in_target, f"{label} reuse"
+            reuse_response,
+            workload.body_start_in_target + workload.body_tokens,
+            f"{label} reuse",
         )
 
         fresh_raw_samples.append(
@@ -2275,8 +2357,16 @@ def build_sweep_point_result(
     expected_selected_tokens_for_point = point_expected[
         "expected_selected_tokens_total"
     ]
+    expected_cached_tokens_per_call = (
+        workload.body_start_in_target + workload.body_tokens
+    )
+    # Full restored prefix (exact-match head + entire restored body),
+    # never head-only: see require_cached_tokens's own docstring for why
+    # a successful CacheTune reuse always extends prefix_indices by the
+    # complete restore_length regardless of the controller's selected
+    # ratio.
     cached_tokens_ok = all(
-        observed == workload.body_start_in_target
+        observed == expected_cached_tokens_per_call
         for observed in setting_result["observed_cached_tokens_per_call"]
     )
     pressure_phase = setting_result["pressure_phase"]
@@ -2299,7 +2389,7 @@ def build_sweep_point_result(
         "observed_cached_tokens_per_call": (
             setting_result["observed_cached_tokens_per_call"]
         ),
-        "expected_cached_tokens_per_call": workload.body_start_in_target,
+        "expected_cached_tokens_per_call": expected_cached_tokens_per_call,
         "fresh_raw_samples": setting_result["fresh_raw_samples"],
         "reuse_raw_samples": setting_result["reuse_raw_samples"],
         "fresh_ms_samples": setting_result["fresh_ms_samples"],
@@ -2463,6 +2553,14 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
     expected_selected_tokens_total = main_expected["expected_selected_tokens_total"]
     expected_recomputed_layers_total = main_expected["expected_recomputed_layers_total"]
     expected_precomputed_total = main_expected["expected_precomputed_total"]
+    # Full restored prefix (exact-match head + entire restored body),
+    # never head-only: a successful CacheTune reuse always extends
+    # prefix_indices by the complete restore_length regardless of the
+    # controller's selected ratio (see require_cached_tokens's own
+    # docstring; confirmed against a real SM75 run).
+    main_expected_cached_tokens_per_call = (
+        main_workload.body_start_in_target + main_workload.body_tokens
+    )
     telemetry_checks = {
         "selected_tokens_total_matches_controller_decision": (
             cachetune_deltas["sglang:approx_kv_cachetune_selected_tokens_total"]
@@ -2479,8 +2577,8 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "no_unexpected_dense_fallback": (
             cachetune_deltas["sglang:approx_kv_dense_fallback_total"] == 0
         ),
-        "cached_tokens_matches_head_only_every_call": all(
-            observed == main_workload.body_start_in_target
+        "cached_tokens_matches_full_restored_prefix_every_call": all(
+            observed == main_expected_cached_tokens_per_call
             for observed in observed_cached_tokens_per_call
         ),
     }
@@ -2827,7 +2925,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                 main_workload.body_source_context_differs_from_target
             ),
             "observed_cached_tokens_per_call": observed_cached_tokens_per_call,
-            "expected_cached_tokens_per_call": main_workload.body_start_in_target,
+            "expected_cached_tokens_per_call": main_expected_cached_tokens_per_call,
             "seed_head_ms": main_result["seed_head_ms"],
             "register_raw_ms": main_result["register_raw_ms"],
             "last_prompt_token_real_forward": True,
