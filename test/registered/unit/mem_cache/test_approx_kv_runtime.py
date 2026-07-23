@@ -281,10 +281,14 @@ class TestApproxKVRuntime(unittest.TestCase):
 
 # ---------------------------------------------------------------------------
 # allocate_recovery_slots: the R0 high-pressure benchmark contract (multi-
-# object working sets pushing actual reusable rho above 1x) requires
-# recovery-buffer allocation to evict exact Radix victims first, matching
-# SGLang's standard evict_from_tree_cache -> allocator.alloc ordering, rather
-# than calling allocator.alloc directly and risking allocator exhaustion.
+# object working sets pushing actual reusable rho above 1x) requires the
+# critical target-restore allocation to evict exact Radix victims first,
+# matching SGLang's standard evict_from_tree_cache -> allocator.alloc
+# ordering, rather than calling allocator.alloc directly and risking
+# allocator exhaustion. Source registration is a non-critical save/backfill
+# operation and, matching the EPIC donor, intentionally keeps using a plain
+# allocator.alloc -- it must never evict exact Radix victims just to persist
+# an approximate-KV source segment.
 # ---------------------------------------------------------------------------
 
 
@@ -357,6 +361,44 @@ class TestAllocateRecoverySlots(unittest.TestCase):
         tree = SimpleNamespace(token_to_kv_pool_allocator=None)
         with self.assertRaises(RuntimeError):
             allocate_recovery_slots(tree, 1)
+
+    def test_register_request_segments_never_evicts_exact_cache_under_pressure(self):
+        # Regression test: unlike the target-restore path (which is on the
+        # critical, latency-sensitive request path and must make room for
+        # the recovered body), source registration is a non-critical
+        # save/backfill operation. Matching the EPIC donor
+        # (research/epic-legolink), it must keep using a plain
+        # allocator.alloc and must never evict exact Radix victims just to
+        # persist an approximate-KV source segment -- even when the pool is
+        # under the same pressure that would trigger eviction on the
+        # target-restore path.
+        allocator = PressureAllocator(FakeKVCache())
+        req_pool = FakeReqToTokenPool()
+        req_pool.req_to_token[0, :4] = torch.tensor([0, 1, 2, 3])
+        config = ApproxKVFeatureConfig(
+            core_enabled=True,
+            host_residency_enabled=False,
+        )
+        manager = ApproxKVManager(config)
+        tree = FakeEvictingTree(allocator)
+        tree.req_to_token_pool = req_pool
+        tree.approx_kv = manager
+        segment = ApproxKVRequestSegment(
+            content_hash="artifact",
+            target_start=0,
+            length=3,
+        )
+        metadata = ApproxKVRequestMetadata(
+            operation=ApproxKVRequestOperation.REGISTER,
+            segments=(segment,),
+            model_fingerprint="model",
+            cache_dtype="fp32",
+        )
+        source = FakeReq(metadata, (10, 11, 12, 13))
+        with self.assertRaises(ApproxKVRegistrationError):
+            register_request_segments(tree, source)
+        self.assertEqual(len(tree.evict_params), 0)
+        self.assertFalse(allocator.evicted)
 
 
 if __name__ == "__main__":

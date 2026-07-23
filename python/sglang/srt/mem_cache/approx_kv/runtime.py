@@ -44,8 +44,13 @@ def allocate_recovery_slots(tree_cache: Any, num_tokens: int):
     when the pool has slack. Under the high-pressure R0 benchmark contract
     (multi-object working sets that push actual reusable rho above 1x) this
     causes allocator exhaustion/OOM instead of evicting exact Radix victims
-    first, so both the source-registration and the target-restore call sites
-    below must route through this shared helper.
+    first, so the target-restore call site below (the one on the critical,
+    latency-sensitive request path that must actually make room for the
+    recovered body) routes through this shared helper. Matching the EPIC
+    donor (``research/epic-legolink``), source registration is a
+    non-critical save/backfill operation and intentionally keeps using a
+    plain ``allocator.alloc`` -- it must never evict exact Radix victims
+    just to persist an approximate-KV source segment.
     """
     allocator = _allocator(tree_cache)
     if (
@@ -159,7 +164,7 @@ def _register_request_segments(tree_cache: Any, req: Any) -> int:
                 load_result.bytes_transferred,
             )
         else:
-            target_indices = allocate_recovery_slots(tree_cache, segment.length)
+            target_indices = allocator.alloc(segment.length)
             if target_indices is None or len(target_indices) != segment.length:
                 if target_indices is not None:
                     allocator.free(target_indices)
