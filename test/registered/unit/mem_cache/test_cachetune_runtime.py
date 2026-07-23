@@ -8,7 +8,10 @@ import torch
 
 from sglang.srt.mem_cache.approx_kv.config import ApproxKVFeatureConfig
 from sglang.srt.mem_cache.approx_kv.manager import ApproxKVManager
-from sglang.srt.mem_cache.approx_kv.radix_backend import AllocatorCPUResidencyBackend
+from sglang.srt.mem_cache.approx_kv.radix_backend import (
+    AllocatorCPUResidencyBackend,
+    resolve_model_rope_config,
+)
 from sglang.srt.mem_cache.approx_kv.request import (
     ApproxKVRequestMetadata,
     ApproxKVRequestOperation,
@@ -137,7 +140,12 @@ class PressureAllocator(FakeAllocator):
     exact-Radix victims to reclaim. A passing "evicts before
     allocating" test therefore *proves* the evict-then-alloc ordering:
     with `recovered_on_evict > 0`, `alloc()` can only succeed after
-    `evict()` actually raised `capacity` first."""
+    `evict()` actually raised `capacity` first. `free()` also returns
+    its slots' capacity, like a real allocator -- required for any test
+    that asserts `available_size()` is fully restored after a fallback
+    that frees a provisional allocation (the exact "no slot leak"
+    condition; a fixture whose `free()` did not return capacity could
+    not tell a genuine leak from a merely-cosmetic one)."""
 
     def __init__(self, kvcache, *, capacity=0, recovered_on_evict=1_000_000):
         super().__init__(kvcache)
@@ -152,6 +160,10 @@ class PressureAllocator(FakeAllocator):
             return None
         self.capacity -= size
         return super().alloc(size)
+
+    def free(self, indices):
+        self.capacity += len(indices)
+        super().free(indices)
 
 
 class FakeEvictingTree:
@@ -1032,6 +1044,138 @@ class TestCacheTuneRuntime(unittest.TestCase):
         # destination, and the request falls back to dense cleanly.
         self.assertEqual(allocator.freed, [])
         self.assertEqual(len(reuse.prefix_indices), 0)
+
+
+class TestMultiSegmentRestoreRopeFallback(unittest.TestCase):
+    """CacheTune counterpart of the identically-named class in
+    `test_approx_kv_runtime.py`: regression coverage for a real-GPU bug
+    report where a multi-segment restore's *second* segment hits a
+    nonzero RoPE delta with no RoPE config ever bound (`bind_rope_config`
+    was dead code in production before this fix), forcing a
+    `rope_config_unavailable` dense fallback whose provisional
+    destination allocation must be freed back in full -- repeated
+    occurrences under eviction pressure otherwise starve the allocator
+    (`available_size() == 0` OOM, as observed on real hardware).
+
+    Uses `decision.repair_tokens == 0` (via `ZERO_REPAIR_MEASUREMENT`
+    under `SPEED_ONLY` mode, the same device used by
+    `_build_pressure_fixture` above) so the scenario is isolated to the
+    multi-segment RoPE-fallback path alone, independent of repair-token
+    selection / probe / recompute backends.
+    """
+
+    def _build_fixture(self, *, capacity=6):
+        kvcache = FakeKVCache()
+        allocator = PressureAllocator(
+            kvcache,
+            capacity=1_000_000,  # plenty while registering both source segments
+            recovered_on_evict=1_000_000,
+        )
+        req_pool = FakeReqToTokenPool()
+        req_pool.req_to_token[0, :3] = torch.tensor([0, 1, 2])
+        req_pool.req_to_token[0, 10:13] = torch.tensor([10, 11, 12])
+        metrics = FakeMetricsCollector()
+        config = ApproxKVFeatureConfig(core_enabled=True, host_residency_enabled=False)
+        manager = ApproxKVManager(config, metrics_collector=metrics)
+        tree = FakeEvictingTree(allocator, req_pool, manager)
+
+        segment_a = ApproxKVRequestSegment(
+            content_hash="segment-a", target_start=0, length=3
+        )
+        segment_b = ApproxKVRequestSegment(
+            content_hash="segment-b", target_start=10, length=3
+        )
+        source_tokens = (
+            (10, 11, 12) + tuple(range(100, 107)) + (30, 31, 32)  # 13 tokens
+        )
+        self.assertEqual(source_tokens[10:13], (30, 31, 32))
+        source = FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REGISTER,
+                segments=(segment_a, segment_b),
+                model_fingerprint=MODEL_FINGERPRINT,
+                cache_dtype="fp32",
+            ),
+            source_tokens,
+        )
+        self.assertEqual(register_request_segments(tree, source), 6)
+
+        restore_length = 6
+        controller = CacheTuneController(CacheTuneMode.SPEED_ONLY)
+        controller.record_measurement(
+            _profile_key(restore_length), ZERO_REPAIR_MEASUREMENT
+        )
+        plugin = CacheTuneRecoveryPlugin(
+            config=CacheTuneConfig(
+                mode=CacheTuneMode.SPEED_ONLY,
+                hardware_tier=HARDWARE_TIER,
+                probe_stages=(GradualFilterStage(probe_layer_id=0, keep_ratio=1.0),),
+                first_recompute_layer=1,
+                deployment_measurement=None,
+            ),
+            controller=controller,
+        )
+        manager.register_plugin(plugin)
+
+        # Reuse: segment B is placed at target offset 3 instead of its
+        # registration-time offset of 10 -- this is what produces a
+        # nonzero `rope_delta` for segment B while segment A (same
+        # offset at both registration and reuse) stays at delta 0.
+        reuse_metadata = ApproxKVRequestMetadata(
+            operation=ApproxKVRequestOperation.REUSE,
+            segments=(
+                ApproxKVRequestSegment(
+                    content_hash="segment-a", target_start=0, length=3
+                ),
+                ApproxKVRequestSegment(
+                    content_hash="segment-b", target_start=3, length=3
+                ),
+            ),
+            model_fingerprint=MODEL_FINGERPRINT,
+            cache_dtype="fp32",
+            plugin=CACHETUNE_PLUGIN_NAME,
+        )
+        reuse_tokens = (10, 11, 12, 30, 31, 32, 99)
+        reuse = FakeReq(reuse_metadata, reuse_tokens)
+
+        allocator.capacity = capacity
+        return allocator, tree, manager, reuse, metrics
+
+    def test_second_segment_rope_delta_frees_full_allocation_with_no_rope_config(self):
+        allocator, tree, manager, reuse, metrics = self._build_fixture()
+        available_before = allocator.available_size()
+
+        self.assertFalse(restore_request_prefix_cachetune(tree, reuse))
+
+        self.assertEqual(len(reuse.prefix_indices), 0)
+        # No slot leak: capacity temporarily consumed by this restore
+        # attempt is back to exactly its pre-call value -- the exact
+        # condition whose violation would eventually manifest as the
+        # reported `available_size() == 0` OOM under repeated
+        # occurrences (e.g. the R5 eviction-pressure matrix).
+        self.assertEqual(allocator.available_size(), available_before)
+        self.assertIn(("rope_config_unavailable", 6), metrics.fallbacks)
+        self.assertIn(("reuse", "dense_fallback"), metrics.requests)
+
+    def test_binding_a_resolved_rope_config_lets_the_same_restore_succeed(self):
+        # Same two-segment, nonzero-second-delta scenario, but with a
+        # real RoPE config bound first via `resolve_model_rope_config`
+        # (as `build_kv_cache` now does at startup) -- the fix: segment
+        # B's nonzero delta is actually relocated instead of forcing a
+        # fallback.
+        allocator, tree, manager, reuse, metrics = self._build_fixture()
+        fake_qwen_config = SimpleNamespace(
+            hf_config=SimpleNamespace(architectures=["Qwen3ForCausalLM"]),
+            hf_text_config=SimpleNamespace(rope_theta=1000000.0, rope_scaling=None),
+            head_dim=SLOT_SHAPE[-1],  # matches FakeKVCache's last dim exactly
+        )
+        manager.bind_rope_config(resolve_model_rope_config(fake_qwen_config))
+        self.assertEqual(manager.rope_config.rotary_dim, SLOT_SHAPE[-1])
+
+        self.assertTrue(restore_request_prefix_cachetune(tree, reuse))
+
+        self.assertEqual(len(reuse.prefix_indices), 6)
+        self.assertIn(("reuse", "success"), metrics.requests)
 
 
 if __name__ == "__main__":

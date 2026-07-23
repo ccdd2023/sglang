@@ -10,6 +10,8 @@ from sglang.srt.mem_cache.approx_kv.config import ApproxKVFeatureConfig
 from sglang.srt.mem_cache.approx_kv.manager import ApproxKVManager
 from sglang.srt.mem_cache.approx_kv.radix_backend import (
     AllocatorCPUResidencyBackend,
+    RoPEConfig,
+    resolve_model_rope_config,
 )
 from sglang.srt.mem_cache.approx_kv.request import (
     ApproxKVRequestMetadata,
@@ -108,7 +110,12 @@ class PressureAllocator(FakeAllocator):
     exact-Radix victims to reclaim. A passing "evicts before
     allocating" test therefore *proves* the evict-then-alloc ordering:
     with `recovered_on_evict > 0`, `alloc()` can only succeed after
-    `evict()` actually raised `capacity` first."""
+    `evict()` actually raised `capacity` first. `free()` also returns
+    its slots' capacity, like a real allocator -- required for any test
+    that asserts `available_size()` is fully restored after a fallback
+    that frees a provisional allocation (the exact "no slot leak"
+    condition; a fixture whose `free()` did not return capacity could
+    not tell a genuine leak from a merely-cosmetic one)."""
 
     def __init__(self, kvcache, *, capacity=0, recovered_on_evict=1_000_000):
         super().__init__(kvcache)
@@ -123,6 +130,10 @@ class PressureAllocator(FakeAllocator):
             return None
         self.capacity -= size
         return super().alloc(size)
+
+    def free(self, indices):
+        self.capacity += len(indices)
+        super().free(indices)
 
 
 class FakeEvictingTree:
@@ -415,6 +426,350 @@ class TestApproxKVRuntime(unittest.TestCase):
         # request falls back to dense cleanly.
         self.assertEqual(allocator.freed, [])
         self.assertEqual(len(reuse.prefix_indices), 0)
+
+
+class TestMultiSegmentRestoreRopeFallback(unittest.TestCase):
+    """Regression coverage for a real-GPU bug report (multi-chunk /
+    multi-segment restores with a nonzero RoPE delta on a *later*
+    segment): with no RoPE config bound (`ApproxKVManager.
+    bind_rope_config` was dead code in production before this fix),
+    the second of two segments in a single restore forces a
+    `rope_config_unavailable` dense fallback, and the whole restore's
+    provisional destination allocation must be freed back in full --
+    not leaked -- or repeated occurrences under eviction pressure would
+    eventually starve the allocator (`available_size() == 0` OOM, as
+    observed on real hardware).
+
+    Builds a genuinely two-segment restore where the *first* segment's
+    source/target token positions align exactly (`rope_delta == 0`,
+    always safe) and the *second* segment's do not (`rope_delta != 0`,
+    the actual multi-chunk scenario reported): segment A is registered
+    and reused at the same offset (0); segment B is registered at
+    offset 10 in its *source* request but reused at offset 3 in the
+    *target* request, an intentional cross-context relocation, exactly
+    the case this module's RoPE binding exists to serve.
+    """
+
+    def _build_fixture(self, *, capacity=6):
+        kvcache = FakeKVCache()
+        allocator = PressureAllocator(
+            kvcache,
+            capacity=1_000_000,  # plenty while registering both source segments
+            recovered_on_evict=1_000_000,
+        )
+        req_pool = FakeReqToTokenPool()
+        # Segment A's source content lives at pool offset [0:3]; segment
+        # B's lives at [10:13] -- distinct, non-adjacent source
+        # locations, so the fixture cannot accidentally pass by both
+        # segments aliasing the same physical slots.
+        req_pool.req_to_token[0, :3] = torch.tensor([0, 1, 2])
+        req_pool.req_to_token[0, 10:13] = torch.tensor([10, 11, 12])
+        config = ApproxKVFeatureConfig(core_enabled=True, host_residency_enabled=False)
+        manager = ApproxKVManager(config)
+        tree = FakeEvictingTree(allocator, req_pool, manager)
+
+        segment_a = ApproxKVRequestSegment(
+            content_hash="segment-a", target_start=0, length=3
+        )
+        segment_b = ApproxKVRequestSegment(
+            content_hash="segment-b", target_start=10, length=3
+        )
+        # Source tokens: [0:3] is segment A's content, [10:13] is
+        # segment B's -- must be >= 13 tokens long for both segments'
+        # `effective_kv_committed_len` check to pass at registration.
+        source_tokens = (
+            (10, 11, 12) + tuple(range(100, 107)) + (30, 31, 32)  # 13 tokens
+        )
+        self.assertEqual(source_tokens[10:13], (30, 31, 32))
+        source = FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REGISTER,
+                segments=(segment_a, segment_b),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+            ),
+            source_tokens,
+        )
+        self.assertEqual(register_request_segments(tree, source), 6)
+
+        # Reuse: the *same* two content hashes, but segment B is now
+        # placed at target offset 3 (right after segment A's 3 tokens)
+        # instead of its original registration-time offset of 10 --
+        # this offset mismatch is exactly what produces a nonzero
+        # `rope_delta` for segment B while segment A (registered and
+        # reused at the same offset, 0) stays at delta 0.
+        reuse_segment_a = ApproxKVRequestSegment(
+            content_hash="segment-a", target_start=0, length=3
+        )
+        reuse_segment_b = ApproxKVRequestSegment(
+            content_hash="segment-b", target_start=3, length=3
+        )
+        reuse_metadata = ApproxKVRequestMetadata(
+            operation=ApproxKVRequestOperation.REUSE,
+            segments=(reuse_segment_a, reuse_segment_b),
+            model_fingerprint="model",
+            cache_dtype="fp32",
+        )
+        # Target tokens: segment A's content (10,11,12) then segment
+        # B's content (30,31,32) then one real forward token (99).
+        reuse_tokens = (10, 11, 12, 30, 31, 32, 99)
+        reuse = FakeReq(reuse_metadata, reuse_tokens)
+
+        # Capacity pressure arises only for *this* reuse's own
+        # destination allocation, exactly like `_build_pressure_fixture`
+        # elsewhere in this file.
+        allocator.capacity = capacity
+        return allocator, tree, manager, reuse
+
+    def test_second_segment_rope_delta_frees_full_allocation_with_no_rope_config(self):
+        # Reproduces the real-GPU report: with no RoPE config ever
+        # bound (`manager.rope_config` stays `None`, the historical
+        # production default), segment B's nonzero `rope_delta` is
+        # unresolvable and the whole restore must cleanly dense-
+        # fallback -- freeing the *entire* 6-token provisional
+        # allocation (both segments' slots), not just segment B's.
+        allocator, tree, manager, reuse = self._build_fixture()
+        available_before = allocator.available_size()
+
+        self.assertFalse(restore_request_prefix(tree, reuse))
+
+        self.assertEqual(len(reuse.prefix_indices), 0)
+        # No slot leak: all capacity temporarily consumed by this
+        # restore attempt (including eviction headroom) is back to
+        # exactly its pre-call value -- the exact condition whose
+        # violation would eventually manifest as the reported
+        # `available_size() == 0` OOM under repeated occurrences.
+        self.assertEqual(allocator.available_size(), available_before)
+
+    def test_second_segment_rope_delta_records_honest_fallback_telemetry(self):
+        allocator, tree, manager, reuse = self._build_fixture()
+        metrics = _RecordingMetricsCollector()
+        manager.metrics_collector = metrics
+
+        self.assertFalse(restore_request_prefix(tree, reuse))
+
+        self.assertIn(("rope_config_unavailable", 6), metrics.fallbacks)
+        self.assertIn(("reuse", "dense_fallback"), metrics.requests)
+
+    def test_binding_a_resolved_rope_config_lets_the_same_restore_succeed(self):
+        # Same exact two-segment, nonzero-second-delta scenario, but
+        # with a real RoPE config bound first via
+        # `resolve_model_rope_config` (as `build_kv_cache` now does at
+        # startup) -- this is the fix: segment B's nonzero delta is
+        # actually relocated instead of forcing a fallback.
+        allocator, tree, manager, reuse = self._build_fixture()
+        fake_qwen_config = SimpleNamespace(
+            hf_config=SimpleNamespace(architectures=["Qwen3ForCausalLM"]),
+            hf_text_config=SimpleNamespace(
+                rope_theta=1000000.0,
+                rope_scaling=None,
+            ),
+            head_dim=8,  # matches FakeKVCache's last dimension exactly
+        )
+        manager.bind_rope_config(resolve_model_rope_config(fake_qwen_config))
+        self.assertEqual(manager.rope_config.rotary_dim, 8)
+
+        self.assertTrue(restore_request_prefix(tree, reuse))
+
+        self.assertEqual(len(reuse.prefix_indices), 6)
+        self.assertTrue(reuse.approx_kv_stats.mechanically_valid)
+
+
+class _RecordingMetricsCollector:
+    def __init__(self):
+        self.requests: list[tuple[str, str]] = []
+        self.fallbacks: list[tuple[str, int]] = []
+
+    def increment_approx_kv_request(self, operation, outcome):
+        self.requests.append((operation, outcome))
+
+    def increment_approx_kv_fallback(self, reason, num_tokens):
+        self.fallbacks.append((reason, num_tokens))
+
+
+class TestResolveModelRopeConfig(unittest.TestCase):
+    """Unit tests for `resolve_model_rope_config` in isolation: no
+    manager/tree/allocator wiring, just the pure config -> `RoPEConfig`
+    resolution this module's cross-context relocation depends on."""
+
+    @staticmethod
+    def _model_config(
+        *,
+        architectures,
+        head_dim=128,
+        rope_theta=1000000.0,
+        rope_scaling=None,
+        rope_parameters=None,
+        dual_chunk_attention_config=None,
+    ):
+        if rope_parameters is not None:
+            hf_text_config = SimpleNamespace(rope_parameters=rope_parameters)
+        else:
+            hf_text_config = SimpleNamespace(
+                rope_theta=rope_theta, rope_scaling=rope_scaling
+            )
+        if dual_chunk_attention_config is not None:
+            hf_text_config.dual_chunk_attention_config = dual_chunk_attention_config
+        return SimpleNamespace(
+            hf_config=SimpleNamespace(architectures=list(architectures)),
+            hf_text_config=hf_text_config,
+            head_dim=head_dim,
+        )
+
+    def test_qwen3_v4_style_config_resolves_real_rotary_dim(self):
+        config = self._model_config(
+            architectures=["Qwen3ForCausalLM"],
+            head_dim=128,
+            rope_theta=1000000.0,
+            rope_scaling=None,
+        )
+        resolved = resolve_model_rope_config(config)
+        self.assertEqual(
+            resolved, RoPEConfig(rotary_dim=128, base=1000000.0, is_neox_style=True)
+        )
+
+    def test_qwen2_v4_style_config_resolves_real_rotary_dim(self):
+        config = self._model_config(
+            architectures=["Qwen2ForCausalLM"],
+            head_dim=64,
+            rope_theta=1000000.0,
+            rope_scaling=None,
+        )
+        resolved = resolve_model_rope_config(config)
+        self.assertEqual(
+            resolved, RoPEConfig(rotary_dim=64, base=1000000.0, is_neox_style=True)
+        )
+
+    def test_v5_rope_parameters_default_type_resolves_real_rotary_dim(self):
+        # transformers v5's unified `rope_parameters` may be present
+        # even for a plain, unscaled model -- `rope_type: "default"`
+        # with no `mrope_section`/`use_fope` must NOT be mistaken for
+        # genuine scaling.
+        config = self._model_config(
+            architectures=["Qwen3ForCausalLM"],
+            head_dim=128,
+            rope_parameters={"rope_type": "default", "rope_theta": 5000000.0},
+        )
+        resolved = resolve_model_rope_config(config)
+        self.assertEqual(
+            resolved, RoPEConfig(rotary_dim=128, base=5000000.0, is_neox_style=True)
+        )
+
+    def test_yarn_scaling_conservatively_disables_relocation(self):
+        config = self._model_config(
+            architectures=["Qwen3ForCausalLM"],
+            head_dim=128,
+            rope_scaling={"type": "yarn", "factor": 4.0},
+        )
+        resolved = resolve_model_rope_config(config)
+        self.assertEqual(resolved.rotary_dim, 0)
+        self.assertEqual(resolved.base, 1000000.0)
+
+    def test_llama3_scaling_conservatively_disables_relocation(self):
+        config = self._model_config(
+            architectures=["Qwen2ForCausalLM"],
+            rope_scaling={"rope_type": "llama3", "factor": 8.0},
+        )
+        resolved = resolve_model_rope_config(config)
+        self.assertEqual(resolved.rotary_dim, 0)
+
+    def test_dual_chunk_attention_config_conservatively_disables_relocation(self):
+        # Real Qwen2.5-1M-style long-context checkpoints set a non-empty
+        # `dual_chunk_attention_config` on the same hf_text_config this
+        # function reads rope_theta/rope_scaling from (see qwen2.py's
+        # own `getattr(config, "dual_chunk_attention_config", None)`
+        # plumbing into `get_rope`). Such models route through
+        # `DualChunkRotaryEmbedding`'s chunk-aware, clamped-position
+        # scheme, not this module's plain neox absolute-delta rotation
+        # -- even though rope_scaling itself may look perfectly plain
+        # ("default"/None), applying the simple rotation here would
+        # silently compute a WRONG relocated key, not merely skip an
+        # optimization.
+        config = self._model_config(
+            architectures=["Qwen2ForCausalLM"],
+            head_dim=128,
+            rope_theta=1000000.0,
+            rope_scaling=None,
+            dual_chunk_attention_config={
+                "chunk_size": 8192,
+                "local_size": 1024,
+                "sparse_attention_config": None,
+            },
+        )
+        resolved = resolve_model_rope_config(config)
+        self.assertEqual(resolved.rotary_dim, 0)
+        self.assertEqual(resolved.base, 1000000.0)
+
+    def test_empty_dual_chunk_attention_config_does_not_disable_relocation(self):
+        # An empty dict (falsy) must NOT be treated the same as a real,
+        # populated dual_chunk_attention_config -- some configs may
+        # carry an empty placeholder rather than omitting the attribute
+        # entirely.
+        config = self._model_config(
+            architectures=["Qwen2ForCausalLM"],
+            head_dim=64,
+            rope_theta=1000000.0,
+            rope_scaling=None,
+            dual_chunk_attention_config={},
+        )
+        resolved = resolve_model_rope_config(config)
+        self.assertEqual(
+            resolved, RoPEConfig(rotary_dim=64, base=1000000.0, is_neox_style=True)
+        )
+
+    def test_default_type_with_mrope_section_conservatively_disables_relocation(self):
+        # `rope_type == "default"` alone is not sufficient: `get_rope`
+        # still special-cases `mrope_section` (M-RoPE, e.g. Qwen2-VL)
+        # even under a "default" label.
+        config = self._model_config(
+            architectures=["Qwen3ForCausalLM"],
+            rope_parameters={
+                "rope_type": "default",
+                "rope_theta": 1000000.0,
+                "mrope_section": [16, 24, 24],
+            },
+        )
+        resolved = resolve_model_rope_config(config)
+        self.assertEqual(resolved.rotary_dim, 0)
+
+    def test_unrecognized_architecture_conservatively_disables_relocation(self):
+        config = self._model_config(
+            architectures=["GptOssForCausalLM"],
+            head_dim=128,
+            rope_theta=1000000.0,
+            rope_scaling=None,
+        )
+        resolved = resolve_model_rope_config(config)
+        self.assertEqual(resolved.rotary_dim, 0)
+
+    def test_non_neox_style_architecture_is_not_in_the_verified_allowlist(self):
+        # ChatGLM/GLM4/CommandR/GPT-J/... pass is_neox_style=False to
+        # get_rope; this module's relocation formula has only been
+        # verified for the neox-style Qwen2/Qwen3 family, so any of
+        # these must resolve conservatively even with an otherwise
+        # plain, unscaled rope_scaling.
+        config = self._model_config(
+            architectures=["ChatGLMForCausalLM"],
+            head_dim=128,
+            rope_theta=10000.0,
+            rope_scaling=None,
+        )
+        resolved = resolve_model_rope_config(config)
+        self.assertEqual(resolved.rotary_dim, 0)
+
+    def test_bind_rope_config_updates_manager_rope_config(self):
+        # Exercises the exact call sequence `build_kv_cache` performs:
+        # `manager.bind_rope_config(resolve_model_rope_config(model_config))`.
+        manager = ApproxKVManager(ApproxKVFeatureConfig(core_enabled=True))
+        self.assertIsNone(manager.rope_config)
+        config = self._model_config(architectures=["Qwen3ForCausalLM"], head_dim=128)
+
+        manager.bind_rope_config(resolve_model_rope_config(config))
+
+        self.assertEqual(
+            manager.rope_config,
+            RoPEConfig(rotary_dim=128, base=1000000.0, is_neox_style=True),
+        )
 
 
 class TestAllocateRecoverySlots(unittest.TestCase):

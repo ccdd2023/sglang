@@ -33,6 +33,7 @@ from sglang.srt.configs.hybrid_arch import (
 from sglang.srt.configs.model_config import ModelImpl, is_deepseek_dsa
 from sglang.srt.environ import envs
 from sglang.srt.managers.mm_utils import init_mm_embedding_cache
+from sglang.srt.mem_cache.approx_kv.radix_backend import resolve_model_rope_config
 from sglang.srt.mem_cache.cache_init_params import CacheInitParams
 from sglang.srt.mem_cache.registry import TreeCacheBuildContext, create_tree_cache
 from sglang.srt.model_loader.utils import get_resolved_model_impl
@@ -253,6 +254,20 @@ def build_kv_cache(
             tp_group=tp_group,
         )
     )
+
+    # Bind the real, model-derived RoPE config for approximate-KV
+    # cross-context relocation (see `resolve_model_rope_config`'s own
+    # docstring for why this was previously always missing in
+    # production, forcing every nonzero-delta repair to dense-fall-
+    # back). Not every tree-cache implementation carries an
+    # `approx_kv` manager (e.g. `ChunkCache`, `RadixCacheCpp`), so this
+    # is a no-op unless one is present; `StreamingSession` transparently
+    # forwards `.approx_kv` attribute access to its wrapped cache via
+    # `__getattr__`, so this also binds correctly when streaming
+    # sessions are enabled.
+    approx_kv_manager = getattr(tree_cache, "approx_kv", None)
+    if approx_kv_manager is not None:
+        approx_kv_manager.bind_rope_config(resolve_model_rope_config(model_config))
 
     embedding_cache_size = envs.SGLANG_VLM_CACHE_SIZE_MB.get()
     init_mm_embedding_cache(embedding_cache_size * 1024 * 1024)
