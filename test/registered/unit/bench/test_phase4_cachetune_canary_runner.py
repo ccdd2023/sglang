@@ -20,9 +20,11 @@ from benchmark.approx_kv.run_phase4_cachetune_canary import (
     _PRESSURE_FILLER_MARKER_CODEPOINT_STRIDE,
     MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT,
     NON_PREFIX_HEAD_TOKENS,
+    NON_PREFIX_SEED_SENTINEL_TOKENS,
     NON_PREFIX_TAIL_TOKENS,
     WARMUP_PASSES_PER_SETTING,
     NonPrefixSegmentWorkload,
+    _build_seed_sentinel_ids_avoiding_body_first_token_collision,
     _deterministic_token_ids,
     _first_common_prefix_length,
     _non_negative_int_choice_list,
@@ -701,6 +703,7 @@ class TestNonPrefixSegmentWorkload(unittest.TestCase):
             target_head_ids=(9, 8, 7),
             shared_body_ids=(4, 5, 6, 7),
             tail_ids=(99,),
+            seed_sentinel_ids=(50,),
         )
         defaults.update(overrides)
         return NonPrefixSegmentWorkload(**defaults)
@@ -718,6 +721,10 @@ class TestNonPrefixSegmentWorkload(unittest.TestCase):
         self.assertEqual(workload.target_prompt_ids, (9, 8, 7, 4, 5, 6, 7, 99))
         self.assertEqual(workload.fresh_prompt_ids, (9, 8, 7, 4, 5, 6, 7, 99))
         self.assertEqual(workload.fresh_prompt_ids, workload.target_prompt_ids)
+        # seed_prompt_ids is target_head_ids + seed_sentinel_ids -- never
+        # target_head_ids alone (the real SM75 header-sweep bug this
+        # property exists to fix; see its own docstring).
+        self.assertEqual(workload.seed_prompt_ids, (9, 8, 7, 50))
         self.assertTrue(workload.body_source_context_differs_from_target)
 
     def test_shared_body_appears_identically_in_both_prompts(self):
@@ -779,6 +786,24 @@ class TestNonPrefixSegmentWorkload(unittest.TestCase):
     def test_rejects_empty_tail(self):
         with self.assertRaises(ValueError):
             self._workload(tail_ids=())
+
+    def test_rejects_empty_seed_sentinel(self):
+        with self.assertRaises(ValueError):
+            self._workload(seed_sentinel_ids=())
+
+    def test_rejects_seed_sentinel_colliding_with_body_first_token(self):
+        # This is the exact real SM75 header-sweep bug this validation
+        # exists to catch at construction time: a seed_sentinel_ids[0]
+        # equal to shared_body_ids[0] would let the target-head seed
+        # request's own exact-match tree entry spuriously extend into
+        # the body on any later request matching target_head_ids +
+        # shared_body_ids + ... (see seed_prompt_ids's own docstring).
+        with self.assertRaises(ValueError):
+            self._workload(shared_body_ids=(4, 5, 6, 7), seed_sentinel_ids=(4,))
+
+    def test_accepts_seed_sentinel_distinct_from_body_first_token(self):
+        workload = self._workload(shared_body_ids=(4, 5, 6, 7), seed_sentinel_ids=(50,))
+        self.assertEqual(workload.seed_sentinel_ids, (50,))
 
     def test_is_frozen(self):
         workload = self._workload()
@@ -1135,6 +1160,167 @@ class TestBuildNonPrefixSegmentWorkload(unittest.TestCase):
             "head already sitting in the exact radix tree",
         )
 
+    def test_seed_sentinel_first_token_differs_from_body_first_token(self):
+        # The core regression test for the real SM75 header=32 bug: the
+        # built workload's own seed_sentinel_ids[0] must always differ
+        # from that SAME workload's own shared_body_ids[0] (see
+        # NonPrefixSegmentWorkload.seed_prompt_ids for the full
+        # mechanism this protects).
+        workload = build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=64,
+            head_tokens=32,
+            tail_tokens=1,
+            salt="unit-test-seed-sentinel-header-32",
+        )
+        self.assertNotEqual(workload.seed_sentinel_ids[0], workload.shared_body_ids[0])
+        self.assertEqual(
+            workload.seed_prompt_ids,
+            workload.target_head_ids + workload.seed_sentinel_ids,
+        )
+        self.assertEqual(
+            len(workload.seed_prompt_ids), 32 + NON_PREFIX_SEED_SENTINEL_TOKENS
+        )
+
+    def test_seed_sentinel_distinct_from_body_first_token_across_header_and_body_lengths(
+        self,
+    ):
+        # Multi-header/multi-body real-token coverage (using
+        # CharLevelFakeTokenizer, the closest fake to real BPE subword
+        # behavior this suite has -- see that class's own docstring):
+        # every (header, body) combination this canary's own sweeps
+        # actually exercise must independently satisfy the same
+        # invariant, not just one hand-picked shape.
+        tokenizer = CharLevelFakeTokenizer()
+        for header_tokens, body_tokens in (
+            (0 + 1, 16),  # smallest realistic header (>=1 token)
+            (32, 512),  # the exact real-bug header/body shape
+            (34, 128),  # this script's own default head length
+            (64, 1024),
+            (128, 2048),
+            (256, 768),
+        ):
+            workload = build_non_prefix_segment_workload(
+                tokenizer,
+                body_tokens=body_tokens,
+                head_tokens=header_tokens,
+                tail_tokens=NON_PREFIX_TAIL_TOKENS,
+                salt=f"unit-test-seed-sentinel-h{header_tokens}-b{body_tokens}",
+            )
+            self.assertNotEqual(
+                workload.seed_sentinel_ids[0],
+                workload.shared_body_ids[0],
+                f"header_tokens={header_tokens}, body_tokens={body_tokens}: "
+                "seed_sentinel_ids[0] collides with shared_body_ids[0]",
+            )
+            self.assertEqual(len(workload.target_head_ids), header_tokens)
+            self.assertEqual(len(workload.shared_body_ids), body_tokens)
+
+    def test_seed_sentinel_is_deterministic_for_the_same_salt(self):
+        first = build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=32,
+            head_tokens=34,
+            tail_tokens=1,
+            salt="unit-test-seed-sentinel-repro",
+        )
+        second = build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=32,
+            head_tokens=34,
+            tail_tokens=1,
+            salt="unit-test-seed-sentinel-repro",
+        )
+        self.assertEqual(first.seed_sentinel_ids, second.seed_sentinel_ids)
+
+
+class TestBuildSeedSentinelIdsAvoidingBodyFirstTokenCollision(unittest.TestCase):
+    """The retry helper behind ``NonPrefixSegmentWorkload.seed_sentinel_ids``
+    -- the real SM75 header=32 bug fix (see module docstring / that
+    property's own docstring): a bare ``target_head_ids``-only seed
+    request's own single generated token could coincidentally equal
+    ``shared_body_ids[0]``, silently extending the exact radix tree's
+    matched boundary for that head by one token."""
+
+    def test_returns_a_sentinel_distinct_from_body_first_token(self):
+        sentinel = _build_seed_sentinel_ids_avoiding_body_first_token_collision(
+            FakeTokenizer(),
+            salt="unit-test-sentinel-helper",
+            shared_body_ids=(4, 5, 6, 7),
+        )
+        self.assertNotEqual(sentinel[0], 4)
+
+    def test_produces_exactly_non_prefix_seed_sentinel_tokens_count(self):
+        sentinel = _build_seed_sentinel_ids_avoiding_body_first_token_collision(
+            FakeTokenizer(),
+            salt="unit-test-sentinel-length",
+            shared_body_ids=(1, 2, 3),
+        )
+        self.assertEqual(len(sentinel), NON_PREFIX_SEED_SENTINEL_TOKENS)
+
+    def test_is_deterministic_for_the_same_salt_and_body(self):
+        first = _build_seed_sentinel_ids_avoiding_body_first_token_collision(
+            FakeTokenizer(),
+            salt="unit-test-sentinel-repro",
+            shared_body_ids=(10, 20, 30),
+        )
+        second = _build_seed_sentinel_ids_avoiding_body_first_token_collision(
+            FakeTokenizer(),
+            salt="unit-test-sentinel-repro",
+            shared_body_ids=(10, 20, 30),
+        )
+        self.assertEqual(first, second)
+
+    def test_retries_actually_vary_the_candidate_first_token(self):
+        # Direct regression test for a real design flaw caught and fixed
+        # before this ever reached production: varying only the `seed`
+        # string passed to _deterministic_token_ids, while reusing ONE
+        # fixed literal_prefix across every attempt, would NOT let
+        # retries reach a different first token at all (that function
+        # always prepends literal_prefix verbatim, ahead of the
+        # seed-dependent digest text, so a word-granularity tokenizer's
+        # first token is fixed by the literal text alone). This proves
+        # at least two distinct first-token candidates are reachable
+        # across the first several attempts, confirming the per-attempt
+        # marker actually varies (see _pressure_filler_marker_codepoint_
+        # for_combined_index reuse in the production helper).
+        tokenizer = FakeTokenizer()
+        candidates = set()
+        for attempt in range(8):
+            codepoint = _pressure_filler_marker_codepoint_for_combined_index(attempt)
+            marker = chr(codepoint) + "SEED_SENTINEL_MARKER_TEXT\n"
+            candidate = _deterministic_token_ids(
+                tokenizer,
+                f"unit-test-vary-{attempt}",
+                NON_PREFIX_SEED_SENTINEL_TOKENS,
+                literal_prefix=marker,
+            )
+            candidates.add(candidate[0])
+        self.assertGreater(
+            len(candidates),
+            1,
+            "every retry attempt produced the identical first token -- "
+            "the per-attempt marker is not actually varying",
+        )
+
+    def test_raises_when_every_attempt_collides_against_a_pathological_tokenizer(self):
+        # AlwaysCollidingFillerMarkerFakeTokenizer maps ANY text whose
+        # first character is non-ASCII (exactly what every one of this
+        # helper's own candidate markers is, by construction -- see
+        # _PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS) to first token id 0,
+        # regardless of which specific code point it is -- simulating a
+        # vocabulary that cannot distinguish any candidate marker at
+        # all. With shared_body_ids[0] == 0, every attempt collides, and
+        # this must raise RuntimeError -- never loop forever, never
+        # silently return a colliding sentinel.
+        with self.assertRaises(RuntimeError) as ctx:
+            _build_seed_sentinel_ids_avoiding_body_first_token_collision(
+                AlwaysCollidingFillerMarkerFakeTokenizer(),
+                salt="unit-test-sentinel-exhaustion",
+                shared_body_ids=(0, 1, 2),
+            )
+        self.assertIn("unit-test-sentinel-exhaustion", str(ctx.exception))
+
 
 class TestBuildEvictionPressureWorkloads(unittest.TestCase):
     """Builds the N distinct filler workloads a setting's eviction-
@@ -1428,6 +1614,7 @@ class TestEvictionPressureTotalTokens(unittest.TestCase):
             target_head_ids=(9, 8, 7),
             shared_body_ids=tuple(range(body_tokens)),
             tail_ids=(99,),
+            seed_sentinel_ids=(999,),
         )
 
     def test_sums_body_tokens_across_workloads(self):
@@ -2982,7 +3169,11 @@ class TestRegisterRoundSetup(unittest.TestCase):
 
         seed_url, seed_payload = session.post_calls[0]
         self.assertEqual(seed_url, "http://127.0.0.1:30000/generate")
-        self.assertEqual(seed_payload["input_ids"], list(workload.target_head_ids))
+        # The seed prompt is target_head_ids + seed_sentinel_ids -- never
+        # target_head_ids alone (the real SM75 header-sweep bug this
+        # fixes; see NonPrefixSegmentWorkload.seed_prompt_ids).
+        self.assertEqual(seed_payload["input_ids"], list(workload.seed_prompt_ids))
+        self.assertGreater(len(workload.seed_prompt_ids), len(workload.target_head_ids))
         self.assertNotIn("custom_params", seed_payload["sampling_params"])
 
     def test_body_2048_issues_one_seed_four_raw_and_four_fresh_register_calls(self):
@@ -3163,6 +3354,117 @@ class TestRegisterRoundSetup(unittest.TestCase):
                 )
         self.assertIn("seed target_head", str(ctx.exception))
 
+    def test_seed_response_arbitrary_generated_content_does_not_corrupt_fresh_cached_tokens(
+        self,
+    ):
+        # Regression test for the real SM75 header=32 bug's root cause:
+        # the seed request's own GENERATED token content must never be
+        # able to influence a later request's own reported
+        # cached_tokens. These fakes have no persistent, stateful radix
+        # tree, so this cannot literally reproduce the live server-side
+        # tree-extension bug end to end -- what it DOES prove, directly
+        # against the real production code path, is that (a)
+        # require_finished_by_length/require_cached_tokens (the only
+        # two places this script ever inspects a /generate response)
+        # never read anything from the response except meta_info.
+        # finish_reason/cached_tokens -- so an arbitrary extra field
+        # simulating "the model happened to generate shared_body_ids[0]"
+        # is silently ignored, never consulted -- and (b) the seed
+        # request's own PROMPT is always seed_prompt_ids (target_head_ids
+        # + seed_sentinel_ids), independent of whatever the mocked
+        # response claims to have generated. Together, on a real server,
+        # these two facts are exactly why the fix works: the seed
+        # request's own generated-token VALUE can only ever extend the
+        # tree past the sentinel node, never collide with
+        # shared_body_ids[0] at the position that matters (see
+        # NonPrefixSegmentWorkload.seed_prompt_ids's own docstring).
+        workload = self._workload(body_tokens=64)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        seed_chunk_simulating_collision = {
+            "meta_info": {
+                "finish_reason": {"type": "length"},
+                "cached_tokens": 0,
+            },
+            # Arbitrary extra content a real server's response might
+            # carry -- deliberately chosen to equal shared_body_ids[0],
+            # simulating exactly the collision this fix guards against.
+            # Neither require_finished_by_length nor require_cached_
+            # tokens ever reads this key.
+            "output_ids": [workload.shared_body_ids[0]],
+            "text": "arbitrary generated content unrelated to correctness",
+        }
+        responses = (
+            [
+                _FakeStreamResponse(
+                    [_sse_data_line(seed_chunk_simulating_collision), _SSE_DONE_LINE]
+                )
+            ]
+            + [self._response(0)] * chunk_count
+            + [self._response(workload.body_start_in_target)] * chunk_count
+        )
+        session = _SequencedFakeClientSession(responses)
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            result = register_round_setup(
+                "http://127.0.0.1:30000",
+                workload,
+                raw_hash="cachetune-raw:unit-test-seed-collision",
+                fresh_hash="cachetune-fresh:unit-test-seed-collision",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+                max_chunk_tokens=512,
+            )
+
+        seed_url, seed_payload = session.post_calls[0]
+        del seed_url
+        # The seed prompt itself never changes based on what the
+        # response claims to have generated.
+        self.assertEqual(seed_payload["input_ids"], list(workload.seed_prompt_ids))
+        # And the fresh registration's own reported cached_tokens is
+        # exactly the header length -- never header+1 -- regardless of
+        # the seed response's own "colliding" extra content.
+        self.assertEqual(result["fresh_cached_tokens"], workload.body_start_in_target)
+
+    def test_fresh_register_reports_cached_tokens_exactly_equal_to_header_length(self):
+        # Explicit regression test using the exact real SM75 bug's own
+        # numbers: a header=32 sweep point observed fresh-register
+        # cached_tokens=33 (one MORE than the header's true length)
+        # before this fix, because the bare target_head_ids-only seed
+        # request's own generated token happened to equal
+        # shared_body_ids[0]. After the fix, the seed prompt is
+        # seed_prompt_ids (never target_head_ids alone), so this must
+        # always equal EXACTLY body_start_in_target == 32, never 33 or
+        # any other off-by-one value.
+        workload = build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=512,
+            head_tokens=32,
+            tail_tokens=1,
+            salt="unit-test-header-32-real-bug-regression",
+        )
+        self.assertEqual(workload.body_start_in_target, 32)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        self.assertEqual(chunk_count, 1)
+        session = _SequencedFakeClientSession(
+            self._success_responses(workload, chunk_count)
+        )
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            result = register_round_setup(
+                "http://127.0.0.1:30000",
+                workload,
+                raw_hash="cachetune-raw:unit-test-header-32",
+                fresh_hash="cachetune-fresh:unit-test-header-32",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+                max_chunk_tokens=512,
+            )
+
+        self.assertEqual(result["fresh_cached_tokens"], 32)
+        self.assertNotEqual(result["fresh_cached_tokens"], 33)
+
 
 class TestRunTargetReuse(unittest.TestCase):
     """``run_target_reuse`` is the reuse-ONLY half of one round's own
@@ -3338,18 +3640,24 @@ class TestRunTargetReuse(unittest.TestCase):
 
 class TestEnsureTargetHeadResident(unittest.TestCase):
     """``ensure_target_head_resident`` re-seeds a round's own target
-    head with one plain dense request after that round's own
-    eviction-pressure phase, tolerant of EITHER a survived-pressure
-    cache hit (``cached_tokens == len(target_head_ids)``) or an
-    evicted-by-pressure cache miss (``cached_tokens == 0``) -- but never
-    a corrupted partial value that is neither. This is an additional
-    defensive measure this script adds (not part of CacheTune's own
-    design) because sending genuine LRU eviction pressure immediately
-    after seeding the head -- this script's own "register setup before
-    pressure" ordering, per round -- makes the head itself a plausible
-    LRU-eviction candidate; without this guard, an evicted head could
-    never be restored by any later register/reuse call (both always
-    skip radix insertion)."""
+    head with one plain dense request (over ``target_head_ids +
+    seed_sentinel_ids`` -- never ``target_head_ids`` alone; see
+    ``NonPrefixSegmentWorkload.seed_prompt_ids`` for the real SM75
+    header-sweep bug this fixes) after that round's own
+    eviction-pressure phase, tolerant of any of THREE outcomes: a full
+    hit (``cached_tokens == len(seed_prompt_ids)``, head AND sentinel
+    both survived pressure), a head-only hit (``cached_tokens ==
+    len(target_head_ids)``, the head survived but the deeper sentinel
+    node was independently evicted), or a clean miss (``cached_tokens
+    == 0``, the head was evicted by pressure and just got recomputed) --
+    but never a corrupted partial value that is none of these. This is
+    an additional defensive measure this script adds (not part of
+    CacheTune's own design) because sending genuine LRU eviction
+    pressure immediately after seeding the head -- this script's own
+    "register setup before pressure" ordering, per round -- makes the
+    head itself a plausible LRU-eviction candidate; without this guard,
+    an evicted head could never be restored by any later register/reuse
+    call (both always skip radix insertion)."""
 
     def _workload(self):
         return build_non_prefix_segment_workload(
@@ -3369,9 +3677,9 @@ class TestEnsureTargetHeadResident(unittest.TestCase):
         }
         return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
 
-    def test_reports_hit_when_the_head_survived_pressure(self):
+    def test_reports_full_hit_when_head_and_sentinel_survived_pressure(self):
         workload = self._workload()
-        session = _FakeClientSession(self._response(len(workload.target_head_ids)))
+        session = _FakeClientSession(self._response(len(workload.seed_prompt_ids)))
 
         with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
             result = ensure_target_head_resident(
@@ -3381,11 +3689,30 @@ class TestEnsureTargetHeadResident(unittest.TestCase):
         self.assertEqual(len(session.post_calls), 1)
         url, payload = session.post_calls[0]
         self.assertEqual(url, "http://127.0.0.1:30000/generate")
-        self.assertEqual(payload["input_ids"], list(workload.target_head_ids))
+        # The re-seed prompt is target_head_ids + seed_sentinel_ids --
+        # never target_head_ids alone (the real SM75 header-sweep bug
+        # this fixes; see NonPrefixSegmentWorkload.seed_prompt_ids).
+        self.assertEqual(payload["input_ids"], list(workload.seed_prompt_ids))
         self.assertNotIn("custom_params", payload["sampling_params"])
-        self.assertEqual(result["cached_tokens"], len(workload.target_head_ids))
+        self.assertEqual(result["cached_tokens"], len(workload.seed_prompt_ids))
         self.assertFalse(result["was_evicted_by_pressure"])
         self.assertGreaterEqual(result["ttft_ms"], 0.0)
+
+    def test_reports_head_only_hit_when_sentinel_extension_was_evicted(self):
+        # The head itself survived pressure, but the deeper sentinel-
+        # extension node (strictly newer/deeper in the tree than the
+        # head node) was independently reclaimed by LRU -- still a
+        # legitimate "head survived" outcome, not a corrupted value.
+        workload = self._workload()
+        session = _FakeClientSession(self._response(len(workload.target_head_ids)))
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            result = ensure_target_head_resident(
+                "http://127.0.0.1:30000", workload, label="unit-test"
+            )
+
+        self.assertEqual(result["cached_tokens"], len(workload.target_head_ids))
+        self.assertFalse(result["was_evicted_by_pressure"])
 
     def test_reports_miss_when_the_head_was_evicted_by_pressure(self):
         workload = self._workload()
@@ -3400,10 +3727,10 @@ class TestEnsureTargetHeadResident(unittest.TestCase):
         self.assertTrue(result["was_evicted_by_pressure"])
 
     def test_raises_on_a_corrupted_partial_cached_tokens_value(self):
-        # Neither 0 (clean miss) nor len(target_head_ids) (clean hit) --
-        # a corrupted or unexpected partial radix match, which must
-        # never be silently accepted as one of the two tolerated
-        # outcomes.
+        # Neither 0 (clean miss), len(target_head_ids) (head-only hit),
+        # nor len(seed_prompt_ids) (full hit) -- a corrupted or
+        # unexpected partial radix match, which must never be silently
+        # accepted as one of the three tolerated outcomes.
         workload = self._workload()
         session = _FakeClientSession(self._response(17))
 
@@ -3416,6 +3743,7 @@ class TestEnsureTargetHeadResident(unittest.TestCase):
         self.assertIn("unit-test", message)
         self.assertIn("17", message)
         self.assertIn(str(len(workload.target_head_ids)), message)
+        self.assertIn(str(len(workload.seed_prompt_ids)), message)
 
 
 class TestRegisterEvictionPressureObjects(unittest.TestCase):
@@ -4893,7 +5221,7 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
             seed_call = round_calls[0]
             raw_and_fresh_calls = round_calls[1:-1]
             reuse_call = round_calls[-1]
-            self.assertEqual(seed_call[1]["input_ids"], list(workload.target_head_ids))
+            self.assertEqual(seed_call[1]["input_ids"], list(workload.seed_prompt_ids))
             self.assertEqual(len(raw_and_fresh_calls), 2 * chunk_count)
             for _, payload in raw_and_fresh_calls:
                 self.assertLessEqual(len(payload["input_ids"]), bound)

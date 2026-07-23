@@ -295,11 +295,16 @@ entry in the exact radix tree once that round's own pressure phase
 begins -- a plausible LRU-eviction candidate itself for any
 `target_rho > 1` round. `ensure_target_head_resident` runs exactly once
 per round, immediately after that round's own pressure phase, to guard
-against that: one plain dense re-seed request tolerant of either
-outcome (a cache hit if the head survived, or a cache miss/recompute if
-it was evicted). This is an additional, script-added safeguard -- not
-part of CacheTune's own design -- made necessary by sending genuine LRU
-eviction pressure after the head is already seeded; without it, an
+against that: one plain dense re-seed request (`workload.seed_prompt_ids`,
+the same `target_head_ids + seed_sentinel_ids` prompt sent in step 2
+below) tolerant of any of THREE outcomes -- a full hit (`cached_tokens ==
+len(target_head_ids) + len(seed_sentinel_ids)`, both head and sentinel
+survived), a head-only hit (`cached_tokens == len(target_head_ids)`, the
+head survived but the sentinel's own deeper node was independently
+evicted), or a full miss (`cached_tokens == 0`, the head itself was
+evicted and recomputed). This is an additional, script-added safeguard --
+not part of CacheTune's own design -- made necessary by sending genuine
+LRU eviction pressure after the head is already seeded; without it, an
 evicted head could never be restored by any later register/reuse call
 (both always skip radix insertion), permanently breaking every
 subsequent measurement for that round.
@@ -364,10 +369,26 @@ order:
    (within this SAME setting) own registered segments or surviving
    pressure fillers.
 2. Seed the target head once (this round's own copy): one plain dense
-   `/generate` call whose entire prompt is exactly `target_head_ids` --
-   this is the only way to populate the exact radix tree for that
-   specific head (register/reuse requests always set
-   `skip_radix_cache_insert=True` and can never do this themselves).
+   `/generate` call whose prompt is `workload.seed_prompt_ids`, i.e.
+   `target_head_ids + seed_sentinel_ids` -- never bare `target_head_ids`
+   alone -- this is the only way to populate the exact radix tree for
+   that specific head (register/reuse requests always set
+   `skip_radix_cache_insert=True` and can never do this themselves). The
+   trailing `seed_sentinel_ids` fixes a real SM75 bug at header length
+   32: a bare-`target_head_ids` seed's own `max_new_tokens=1` greedy
+   generation can coincidentally equal `shared_body_ids[0]`, and since
+   this seed call is a plain dense request (never radix-insert-
+   skipped), that generated token silently extends the tree's own
+   exact-match boundary for that head by one token -- observed as a
+   later fresh-register call reporting `cached_tokens=33` for a
+   32-token header. `seed_sentinel_ids` is built (see
+   `_build_seed_sentinel_ids_avoiding_body_first_token_collision`) to
+   tokenize to a first id that provably differs from
+   `shared_body_ids[0]` for THIS workload's own real tokenizer,
+   independent of the seed request's own generated continuation -- so
+   later `target_head_ids + shared_body_ids + ...` exact-match queries
+   always diverge at exactly `len(target_head_ids)`, regardless of what
+   the seed call itself generates.
 3. Register the "raw" segment (this round's own copy): one INDEPENDENT
    `/generate` call per `<= --max-segment-chunk-tokens` chunk of
    `shared_body_ids` (default 512), never one oversized call spanning

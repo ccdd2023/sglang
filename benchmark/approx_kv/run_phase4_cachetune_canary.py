@@ -100,19 +100,24 @@ length to equal the registered segment's ``target_start`` *exactly* (any
 other "prefix gap" forces dense-fallback; see ``cachetune/runtime.py``).
 The only way to make a request's own ``exact_length`` equal
 ``len(target_head_ids)`` is to first send a plain dense request whose
-*entire* prompt is exactly ``target_head_ids`` -- populating the exact
-radix tree for that head -- since dense requests are the only request
+prompt is ``workload.seed_prompt_ids`` -- ``target_head_ids`` PLUS an
+explicit, per-workload sentinel token appended past it (never
+``target_head_ids`` alone; see ``NonPrefixSegmentWorkload.
+seed_prompt_ids`` for the real SM75 header-sweep bug a bare-head seed
+caused and why the sentinel fixes it) -- populating the exact radix
+tree for that head -- since dense requests are the only request
 type that ever write into the exact tree (register/reuse always set
 ``skip_radix_cache_insert=True``). This is why every ROUND (the one
 discarded warmup round and each of ``--repeats`` formal rounds alike,
 all fully independent of each other -- see ``run_independent_round``)
 runs its own measurement pass, in order: flush -> seed the target head
-(one dense ``/generate`` call over ``target_head_ids`` alone) ->
-register the raw segment (one OR MORE ``/generate`` register calls, one
-per ``<= --max-segment-chunk-tokens`` chunk of ``shared_body_ids`` --
-see ``register_body_chunks`` -- each posting a short
-``source_head_ids + chunk_body + tail_ids`` prompt, never one oversized
-call spanning ``source_head_ids + shared_body_ids + tail_ids`` in full)
+(one dense ``/generate`` call over ``target_head_ids + seed_sentinel_
+ids``) -> register the raw segment (one OR MORE ``/generate`` register
+calls, one per ``<= --max-segment-chunk-tokens`` chunk of
+``shared_body_ids`` -- see ``register_body_chunks`` -- each posting a
+short ``source_head_ids + chunk_body + tail_ids`` prompt, never one
+oversized call spanning ``source_head_ids + shared_body_ids +
+tail_ids`` in full)
 -> register the fresh segment the same chunked way -> reuse. Every
 round performs ALL of these steps itself, from scratch, every time --
 never sharing a raw or fresh registration with any other round (see
@@ -197,9 +202,12 @@ entirely. Each round, in order:
    previous round's still-resident footprint. A fresh ``/metrics``
    snapshot on the now genuinely idle pool immediately follows, giving
    this round's own ``capacity_tokens`` reference.
-3. Seed the target head (one dense ``/generate`` call, expected
-   ``cached_tokens=0`` -- always 0, since step 2's flush just cleared it
-   again for this round).
+3. Seed the target head (one dense ``/generate`` call over
+   ``target_head_ids + seed_sentinel_ids`` -- never ``target_head_ids``
+   alone; see ``NonPrefixSegmentWorkload.seed_prompt_ids`` for the real
+   SM75 header-sweep bug a bare-head seed caused and why the sentinel
+   fixes it -- expected ``cached_tokens=0`` -- always 0, since step 2's
+   flush just cleared it again for this round).
 4. Register the "raw" (source-context) body segment, THEN the "fresh"
    (target-context) body segment -- each one or more
    ``register_body_chunks`` calls (raw expected ``cached_tokens=0`` per
@@ -226,13 +234,16 @@ entirely. Each round, in order:
    never blind to it and never inherited from any other round -- see
    "Eviction-pressure phase" below.
 4b. If step 4a ran, one guard re-seed of the target head
-   (``ensure_target_head_resident``): step 3's own seed is the OLDEST
+   (``ensure_target_head_resident``, also over ``target_head_ids +
+   seed_sentinel_ids``): step 3's own seed is the OLDEST
    exact-radix entry once THIS round's own pressure begins, a plausible
    LRU-eviction candidate for any ``target_rho > 1`` setting; this guard
-   call tolerates either outcome (hit or miss) and ensures the head is
-   resident again before step 5 -- see that function's own docstring for
-   why this additional, script-added safeguard is necessary under this
-   ordering. Called once per round, never once per setting.
+   call tolerates any of three outcomes (full hit, head-only hit, or
+   miss -- see ``ensure_target_head_resident``'s own docstring) and
+   ensures the head is resident again before step 5 -- see that
+   function's own docstring for why this additional, script-added
+   safeguard is necessary under this ordering. Called once per round,
+   never once per setting.
 5. One reuse call against the just-registered (this round's own)
    raw/fresh segments (``run_target_reuse``). For the discarded warmup
    round, this round's entire result -- including this reuse call's own
@@ -385,8 +396,10 @@ BEFORE any filler, it is the OLDEST entry in the exact radix tree once
 THAT round's own pressure phase begins -- a plausible LRU-eviction
 candidate for any ``target_rho > 1`` setting. ``ensure_target_head_resident``
 runs once per round, immediately after that round's own pressure phase
-completes, to guard against exactly that (tolerant of either a survived
-hit or an evicted-and-recomputed miss) -- see that function's own
+completes, to guard against exactly that (tolerant of a survived full
+hit, a survived head-only hit, or an evicted-and-recomputed miss -- see
+that function's own docstring for why all three are legitimate) -- see
+that function's own
 docstring for why this additional, script-added safeguard (not part of
 the paper's own design) is necessary under this ordering, and why one
 guard call per round suffices for the remainder of that same round
@@ -522,6 +535,44 @@ NON_PREFIX_HEAD_TOKENS = 34
 # reuse request still performs one genuine forward pass beyond the
 # repaired range (see ApproxKVRequestMetadata.validate_prompt_length).
 NON_PREFIX_TAIL_TOKENS = 1
+
+# Appended, as an explicit extra token past target_head_ids, to every
+# seed/re-seed dense request for a workload's own target head (see
+# NonPrefixSegmentWorkload.seed_prompt_ids). THIS IS A DELIBERATE FIX
+# for a real SM75 bug observed on a header=32 sweep point: a bare
+# `target_head_ids` seed request (dense_generate_payload, max_new_
+# tokens=1, temperature=0) deterministically generates one token that
+# can coincidentally EQUAL shared_body_ids[0]; once that single extra
+# token is inserted into the exact radix tree (plain dense requests
+# never set skip_radix_cache_insert), the tree's exact-match boundary
+# for this head silently extends by one token, so a LATER request whose
+# own prompt is target_head_ids + shared_body_ids + ... (the fresh
+# register call, or the reuse call) reports one MORE token cached than
+# the header's own true length -- observed as fresh-register
+# cached_tokens=33 when body_start_in_target=32. Appending an explicit
+# sentinel token here -- chosen, per workload, to differ from that SAME
+# workload's own shared_body_ids[0] (see
+# _build_seed_sentinel_ids_avoiding_body_first_token_collision) --
+# anchors the tree's exact-match boundary at a FIXED, KNOWN,
+# non-body-colliding token, so any later request matching
+# target_head_ids + shared_body_ids + ... always diverges EXACTLY at
+# len(target_head_ids), regardless of what the seed request's own
+# single generated token happens to be.
+NON_PREFIX_SEED_SENTINEL_TOKENS = 1
+# Fixed SUFFIX text only -- the actual per-attempt CANDIDATE marker is
+# this string prepended by a distinct leading Unicode code point (see
+# _build_seed_sentinel_ids_avoiding_body_first_token_collision, which
+# reuses _pressure_filler_marker_codepoint_for_combined_index for that
+# leading character, exactly like _pressure_filler_head_literal_prefix
+# does). This fixed suffix ALONE, without a varying leading character,
+# would NOT let retries reach a different first token: _deterministic_
+# token_ids's literal_prefix is prepended before the seed-dependent
+# digest text, so a real (or word-granularity fake) tokenizer's FIRST
+# token is determined entirely by this literal text's own leading
+# word/subword, identically on every attempt, regardless of how many
+# different `seed` values are tried against it alone.
+_SEED_SENTINEL_LITERAL_PREFIX = "SEED_SENTINEL_MARKER_TEXT\n"
+_MAX_SEED_SENTINEL_COLLISION_RETRIES = 64
 
 # Prepended verbatim (never hashed) ahead of each head piece's generated
 # text via ``_deterministic_token_ids``'s ``literal_prefix`` parameter.
@@ -1131,12 +1182,29 @@ class NonPrefixSegmentWorkload:
     exact-content replay of the same context) -- see the module
     docstring's "Why /generate and non-prefix segments" section for the
     full rationale.
+
+    ``seed_sentinel_ids`` (see ``seed_prompt_ids``) is an explicit extra
+    token appended, only for the plain-dense head-seed/re-seed requests
+    (``register_round_setup``/``ensure_target_head_resident``), past
+    ``target_head_ids`` -- never part of any register/reuse segment or
+    of ``target_prompt_ids``/``fresh_prompt_ids`` themselves. This is a
+    REQUIRED, validated-distinct-from-``shared_body_ids[0]`` field, not
+    an afterthought: a bare ``target_head_ids``-only seed request's own
+    single generated token (``max_new_tokens=1``, ``temperature=0``,
+    fully deterministic) can coincidentally equal ``shared_body_ids[0]``,
+    which would silently extend the exact radix tree's matched boundary
+    for this head by one token and corrupt every later request's own
+    ``cached_tokens`` count against this workload (a real SM75 bug,
+    observed on a header=32 sweep point as fresh-register
+    ``cached_tokens=33`` instead of the true header length 32) -- see
+    ``seed_prompt_ids``'s own docstring for the full mechanism.
     """
 
     source_head_ids: tuple[int, ...]
     target_head_ids: tuple[int, ...]
     shared_body_ids: tuple[int, ...]
     tail_ids: tuple[int, ...]
+    seed_sentinel_ids: tuple[int, ...]
 
     def __post_init__(self) -> None:
         if not self.source_head_ids:
@@ -1147,6 +1215,8 @@ class NonPrefixSegmentWorkload:
             raise ValueError("shared_body_ids must not be empty")
         if not self.tail_ids:
             raise ValueError("tail_ids must not be empty")
+        if not self.seed_sentinel_ids:
+            raise ValueError("seed_sentinel_ids must not be empty")
         if self.source_head_ids == self.target_head_ids:
             raise ValueError(
                 "source_head_ids and target_head_ids must differ -- an "
@@ -1173,6 +1243,22 @@ class NonPrefixSegmentWorkload:
                 "(see build_non_prefix_segment_workload's literal-prefix "
                 "disambiguation, which this should never be able to reach "
                 "if it is doing its job)"
+            )
+        if self.seed_sentinel_ids[0] == self.shared_body_ids[0]:
+            raise ValueError(
+                "seed_sentinel_ids[0] must differ from shared_body_ids[0] "
+                "-- an identical value would let the target-head seed "
+                "request's own exact-match tree entry (seed_prompt_ids = "
+                "target_head_ids + seed_sentinel_ids) spuriously extend "
+                "into the body on any later request matching "
+                "target_head_ids + shared_body_ids + ..., corrupting that "
+                "request's own cached_tokens by exactly one extra "
+                "(falsely 'exact') token -- this is the real SM75 "
+                "header-sweep bug seed_prompt_ids exists to prevent (see "
+                "build_non_prefix_segment_workload's "
+                "_build_seed_sentinel_ids_avoiding_body_first_token_"
+                "collision, which this should never be able to reach if "
+                "it is doing its job)"
             )
 
     @property
@@ -1225,12 +1311,131 @@ class NonPrefixSegmentWorkload:
         return self.target_prompt_ids
 
     @property
+    def seed_prompt_ids(self) -> tuple[int, ...]:
+        """``target_head_ids + seed_sentinel_ids``: the prompt the
+        plain-dense head-seed/re-seed requests
+        (``register_round_setup``/``ensure_target_head_resident``) post
+        to populate the exact radix tree for this workload's own target
+        head -- never ``target_head_ids`` alone.
+
+        THIS IS A DELIBERATE FIX for a real SM75 bug observed on a
+        header=32 sweep point: seeding with a bare ``target_head_ids``
+        prompt (``max_new_tokens=1``, ``temperature=0``) lets the
+        server's own single, fully-deterministic generated token become
+        part of the exact radix tree's stored path for this head (plain
+        dense requests never set ``skip_radix_cache_insert``); if that
+        generated token happens to equal ``shared_body_ids[0]`` (nothing
+        prevents this -- it depends only on the real model's own greedy
+        decoding output for this specific head), the tree's exact-match
+        boundary for ``target_head_ids`` silently extends by one token,
+        so ANY later request whose own prompt is ``target_head_ids +
+        shared_body_ids + ...`` (the fresh-register call, or the reuse
+        call) reports ``cached_tokens`` one token higher than this
+        header's own true length -- observed in production as a
+        fresh-register ``cached_tokens=33`` when
+        ``body_start_in_target=32``.
+
+        Appending ``seed_sentinel_ids`` -- validated, per workload (see
+        ``__post_init__``), to differ from this SAME workload's own
+        ``shared_body_ids[0]`` -- anchors the tree's exact-match
+        boundary at a FIXED, KNOWN, non-body-colliding token instead:
+        any later request matching ``target_head_ids + shared_body_ids
+        + ...`` now always diverges EXACTLY at ``len(target_head_ids)``
+        (the query's own token there is ``shared_body_ids[0]``, the
+        tree's stored branch there is ``seed_sentinel_ids[0]``, and
+        those are guaranteed unequal), regardless of what the seed
+        request's own single generated token turns out to be -- the
+        match never even reaches that generated-token node, since the
+        walk already diverged one position earlier. This holds
+        regardless of how much of ``seed_prompt_ids`` a later re-seed
+        request itself finds already resident (0, ``len(target_head_ids)``,
+        or the full ``len(seed_prompt_ids)`` -- see
+        ``ensure_target_head_resident``'s own docstring for why all
+        three are legitimate outcomes), since the invariant this
+        property protects is anchored in the PROMPT content itself, not
+        in whichever of those outcomes actually occurs on a given call.
+        """
+        return self.target_head_ids + self.seed_sentinel_ids
+
+    @property
     def body_source_context_differs_from_target(self) -> bool:
         """Always ``True`` once constructed (``__post_init__`` already
         enforces ``source_head_ids != target_head_ids``); exposed as an
         explicit, self-documenting fact for the output JSON rather than
         re-deriving the comparison at every call site."""
         return self.source_head_ids != self.target_head_ids
+
+
+def _build_seed_sentinel_ids_avoiding_body_first_token_collision(
+    tokenizer: Any,
+    *,
+    salt: str,
+    shared_body_ids: tuple[int, ...],
+) -> tuple[int, ...]:
+    """Build this workload's ``seed_sentinel_ids`` (see
+    ``NonPrefixSegmentWorkload.seed_prompt_ids``), trying up to
+    ``_MAX_SEED_SENTINEL_COLLISION_RETRIES`` distinct candidate marker
+    prefixes -- each ``chr(codepoint) + _SEED_SENTINEL_LITERAL_PREFIX``,
+    reusing ``_pressure_filler_marker_codepoint_for_combined_index`` for
+    a per-attempt DISTINCT leading Unicode code point, exactly the way
+    ``_pressure_filler_head_literal_prefix`` already does for pressure-
+    filler target-head markers -- until one candidate's first token id
+    differs from ``shared_body_ids[0]``.
+
+    Varying only the ``seed`` string passed to ``_deterministic_token_
+    ids`` (while keeping ``literal_prefix`` fixed across attempts) would
+    NOT work here: that function always prepends ``literal_prefix``
+    verbatim, ahead of the seed-dependent digest text, so a real (or
+    word-granularity fake) tokenizer's FIRST token is determined
+    entirely by the fixed literal text's own leading word/subword,
+    identically on every attempt -- see ``_SEED_SENTINEL_LITERAL_
+    PREFIX``'s own comment. Reusing the SAME per-attempt-distinct-
+    leading-code-point scheme the pressure-filler marker path already
+    established (and already empirically verified, outside this test
+    suite, to sustain thousands of distinct first tokens against the
+    real Qwen3-0.6B tokenizer) is what actually makes each retry a
+    genuinely different candidate. This sentinel-marker "namespace"
+    never needs to stay mutually distinct from pressure-filler target-
+    head markers or from any other workload's own sentinel -- the only
+    invariant required is THIS workload's own ``seed_sentinel_ids[0] !=
+    shared_body_ids[0]`` (see ``NonPrefixSegmentWorkload.__post_init__``)
+    -- so reusing the identical code-point sequence starting from
+    ``attempt=0`` for every call is safe.
+
+    This directly validates against the REAL ``tokenizer`` passed in --
+    not a textual heuristic -- matching the same convention
+    ``_build_pressure_filler_workload_avoiding_first_token_collisions``
+    already established for target-head markers. Unlike that function,
+    this one's collision constraint is against a SINGLE, per-workload
+    dynamic value (``shared_body_ids[0]``) rather than an accumulating
+    reserved set, so no ``reserved_first_token_ids``-style mutable state
+    needs to be threaded through the caller.
+
+    Raises ``RuntimeError`` (never silently returns a colliding
+    sentinel) if every attempt collides -- see
+    ``NonPrefixSegmentWorkload.seed_prompt_ids``'s docstring for exactly
+    why a collision here would silently corrupt a later request's own
+    ``cached_tokens`` measurement (the real SM75 bug this function
+    exists to prevent).
+    """
+    for attempt in range(_MAX_SEED_SENTINEL_COLLISION_RETRIES):
+        codepoint = _pressure_filler_marker_codepoint_for_combined_index(attempt)
+        marker = chr(codepoint) + _SEED_SENTINEL_LITERAL_PREFIX
+        candidate = _deterministic_token_ids(
+            tokenizer,
+            f"{salt}-seed-sentinel-{attempt}",
+            NON_PREFIX_SEED_SENTINEL_TOKENS,
+            literal_prefix=marker,
+        )
+        if candidate[0] != shared_body_ids[0]:
+            return candidate
+    raise RuntimeError(
+        f"could not find a shared_body_ids[0]-distinct seed sentinel for "
+        f"salt={salt!r} after {_MAX_SEED_SENTINEL_COLLISION_RETRIES} "
+        "attempts against the real tokenizer -- check for a "
+        "tokenizer/vocab misconfiguration or an exhausted "
+        "_PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS pool"
+    )
 
 
 def build_non_prefix_segment_workload(
@@ -1271,6 +1476,15 @@ def build_non_prefix_segment_workload(
     them from each other, so they need this stronger guarantee too (see
     ``validate_pairwise_head_isolation`` for the runtime safety net).
     """
+    shared_body_ids = _deterministic_token_ids(
+        tokenizer, f"{salt}-shared-body", body_tokens
+    )
+    target_head_ids = _deterministic_token_ids(
+        tokenizer,
+        f"{salt}-target-head",
+        head_tokens,
+        literal_prefix=target_head_literal_prefix,
+    )
     return NonPrefixSegmentWorkload(
         source_head_ids=_deterministic_token_ids(
             tokenizer,
@@ -1278,16 +1492,12 @@ def build_non_prefix_segment_workload(
             head_tokens,
             literal_prefix=source_head_literal_prefix,
         ),
-        target_head_ids=_deterministic_token_ids(
-            tokenizer,
-            f"{salt}-target-head",
-            head_tokens,
-            literal_prefix=target_head_literal_prefix,
-        ),
-        shared_body_ids=_deterministic_token_ids(
-            tokenizer, f"{salt}-shared-body", body_tokens
-        ),
+        target_head_ids=target_head_ids,
+        shared_body_ids=shared_body_ids,
         tail_ids=_deterministic_token_ids(tokenizer, f"{salt}-tail", tail_tokens),
+        seed_sentinel_ids=_build_seed_sentinel_ids_avoiding_body_first_token_collision(
+            tokenizer, salt=salt, shared_body_ids=shared_body_ids
+        ),
     )
 
 
@@ -2301,12 +2511,15 @@ def register_round_setup(
     label: str,
     max_chunk_tokens: int,
 ) -> dict[str, Any]:
-    """Seed ``workload``'s own exact-match target head, then register its
-    raw (source-context) AND fresh (target-context) body segments, in
-    that order -- this ROUND's own complete, self-contained setup,
-    always completed in full while THIS round's own eviction pressure is
-    still low/absent (its own flush, immediately before this function
-    runs, is what guarantees that).
+    """Seed ``workload``'s own exact-match target head (via
+    ``workload.seed_prompt_ids`` -- ``target_head_ids`` PLUS an explicit
+    sentinel token, never ``target_head_ids`` alone; see
+    ``NonPrefixSegmentWorkload.seed_prompt_ids`` for the real SM75 bug
+    this prevents), then register its raw (source-context) AND fresh
+    (target-context) body segments, in that order -- this ROUND's own
+    complete, self-contained setup, always completed in full while THIS
+    round's own eviction pressure is still low/absent (its own flush,
+    immediately before this function runs, is what guarantees that).
 
     This function registers BOTH raw and fresh together, as one
     indivisible setup step, rather than registering raw once per
@@ -2358,7 +2571,7 @@ def register_round_setup(
     timing and telemetry.
     """
     seed_response, seed_head_ms = timed_post(
-        base_url, dense_generate_payload(workload.target_head_ids)
+        base_url, dense_generate_payload(workload.seed_prompt_ids)
     )
     require_finished_by_length(seed_response, f"{label} seed target_head")
     require_cached_tokens(seed_response, 0, f"{label} seed target_head")
@@ -2495,12 +2708,33 @@ def ensure_target_head_resident(
     label: str,
 ) -> dict[str, Any]:
     """Re-seed ``workload``'s own exact-match target head with one plain
-    dense ``/generate`` request, tolerant of EITHER outcome -- a cache
-    hit (``cached_tokens == len(target_head_ids)``, the head survived
-    the pressure phase) or a cache miss (``cached_tokens == 0``, the
-    head was evicted and just got recomputed and freshly re-inserted) --
-    never requiring a SPECIFIC one of those two values, only that the
-    request completes successfully with one of them.
+    dense ``/generate`` request over ``workload.seed_prompt_ids`` --
+    ``target_head_ids`` PLUS an explicit sentinel token, never
+    ``target_head_ids`` alone; see
+    ``NonPrefixSegmentWorkload.seed_prompt_ids`` for the real SM75 bug
+    this prevents -- tolerant of ANY of three outcomes:
+
+    - ``cached_tokens == 0``: full miss, the head itself was evicted by
+      the pressure phase and just got recomputed and freshly
+      re-inserted (``was_evicted_by_pressure=True``);
+    - ``cached_tokens == len(target_head_ids)``: partial hit, the head
+      itself survived pressure but the deeper sentinel-extension node
+      was independently reclaimed by LRU (eviction proceeds leaf-inward,
+      and the sentinel/generated-token nodes are strictly deeper/newer
+      than the head node itself);
+    - ``cached_tokens == len(workload.seed_prompt_ids)`` (``==
+      len(target_head_ids) + len(workload.seed_sentinel_ids)``): full
+      hit, the entire head+sentinel path survived pressure intact.
+
+    These three values are always mutually distinct (``seed_sentinel_ids``
+    is validated non-empty in ``NonPrefixSegmentWorkload.__post_init__``,
+    guaranteeing ``len(seed_prompt_ids) > len(target_head_ids) > 0``).
+    Never requiring a SPECIFIC one of these three values, only that the
+    request completes successfully with one of them -- and, either way,
+    what matters for downstream correctness is only whether the HEAD
+    itself (not the sentinel extension) survived, so
+    ``was_evicted_by_pressure`` is set from ``cached_tokens == 0`` alone
+    (both other buckets mean the head survived).
 
     This guards a real correctness risk this script's own "register
     sources before pressure" ordering introduces (see
@@ -2546,16 +2780,19 @@ def ensure_target_head_resident(
     discarded.
     """
     response, ttft_ms = timed_post(
-        base_url, dense_generate_payload(workload.target_head_ids)
+        base_url, dense_generate_payload(workload.seed_prompt_ids)
     )
     require_finished_by_length(response, label)
     cached_tokens = int(response["meta_info"]["cached_tokens"])
     expected_head_tokens = len(workload.target_head_ids)
-    if cached_tokens not in (0, expected_head_tokens):
+    expected_seeded_tokens = len(workload.seed_prompt_ids)
+    if cached_tokens not in (0, expected_head_tokens, expected_seeded_tokens):
         raise RuntimeError(
-            f"{label}: expected cached_tokens to be either 0 (head was "
-            "evicted by pressure and just got recomputed) or "
-            f"{expected_head_tokens} (head survived pressure), observed "
+            f"{label}: expected cached_tokens to be one of 0 (head was "
+            "evicted by pressure and just got recomputed), "
+            f"{expected_head_tokens} (head survived pressure, sentinel "
+            f"extension independently evicted), or {expected_seeded_tokens} "
+            "(head and sentinel both survived pressure), observed "
             f"{cached_tokens} instead -- this indicates a corrupted or "
             "unexpected partial radix match, not a clean hit-or-miss"
         )
@@ -3830,6 +4067,30 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "genuine CacheTune repair measurement -- see "
         "run_exact_context_control_point's own docstring for why header=0 "
         "cannot build a NonPrefixSegmentWorkload at all."
+    )
+    known_limitations.append(
+        "Every target-head seed/re-seed dense request (register_round_"
+        "setup's initial seed and ensure_target_head_resident's "
+        "post-pressure re-seed) posts target_head_ids PLUS an explicit, "
+        "per-workload seed_sentinel_ids token -- never target_head_ids "
+        "alone -- and expects cached_tokens in {0, len(target_head_ids), "
+        "len(target_head_ids) + len(seed_sentinel_ids)}. This is a fix "
+        "for a real SM75 header-sweep bug: a bare target_head_ids-only "
+        "seed request (max_new_tokens=1, temperature=0, fully "
+        "deterministic) inserts its own single generated token into the "
+        "exact radix tree (plain dense requests never set "
+        "skip_radix_cache_insert); when that generated token happened to "
+        "equal shared_body_ids[0], the tree's exact-match boundary for "
+        "that head silently extended by one token, so the very next "
+        "fresh-register request (target_head_ids + shared_body_ids + "
+        "tail_ids) reported cached_tokens=33 on a header=32 setting "
+        "instead of the true 32. seed_sentinel_ids is validated, per "
+        "workload, to differ from that SAME workload's own "
+        "shared_body_ids[0] (see NonPrefixSegmentWorkload.seed_prompt_ids "
+        "/ _build_seed_sentinel_ids_avoiding_body_first_token_collision), "
+        "anchoring the tree's exact-match boundary at a fixed, known, "
+        "non-body-colliding token regardless of what the seed request's "
+        "own generated token turns out to be."
     )
 
     payload = {
