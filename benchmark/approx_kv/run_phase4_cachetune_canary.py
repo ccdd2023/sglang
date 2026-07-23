@@ -110,8 +110,8 @@ the restored range, matching ``ApproxKVRequestMetadata``'s own invariant
 that a request's last prompt token is never included in any restorable
 segment.
 
-Measurement protocol (mandatory, applies to every setting and every
-length-sweep point)
+Measurement protocol (mandatory, applies to every setting: the main
+setting, every shape-sweep point, and every rho-sweep point)
 --------------------------------------------------------------------
 1. Dense baseline (no ``approx_kv`` metadata) runs *entirely* to
    completion before anything is registered: flush the exact-match radix
@@ -124,12 +124,13 @@ length-sweep point)
 2. ``run_non_prefix_setting`` flushes the exact-match radix cache once
    more of its own accord, as its very first action, before doing
    anything else. This is what actually makes step 3 below safe: this
-   function runs once per *setting* (the main setting and every
-   length-sweep point), settings are otherwise never isolated from each
-   other, and a *previous* setting's own already-seeded
-   ``target_head_ids`` would otherwise still be sitting in the tree,
-   ready to silently produce a nonzero ``cached_tokens`` for an unrelated
-   later setting's head or raw-segment register request.
+   function runs once per *setting* (the main setting, every shape-sweep
+   point with header > 0, and every rho-sweep point), settings are
+   otherwise never isolated from each other, and a *previous* setting's
+   own already-seeded ``target_head_ids`` would otherwise still be
+   sitting in the tree, ready to silently produce a nonzero
+   ``cached_tokens`` for an unrelated later setting's head or
+   raw-segment register request.
 2a. If eviction pressure is enabled (the default -- see "Eviction-
    pressure phase" below), every filler object is registered and
    materialized here, immediately after the flush and before step 3.
@@ -160,26 +161,37 @@ radix tree themselves; flushing between formal repeats would also invoke
 deleting the very "raw"/"fresh" segments those repeats depend on.
 
 Eviction-pressure phase (real GPU contention, not a single-object
-microbenchmark)
+microbenchmark, and never CLI-disableable)
 --------------------------------------------------------------------
-By default (``--eviction-pressure-objects`` > 0, 4 objects x 1536 tokens
-each unless overridden), every setting -- the main setting and every
-length-sweep point alike -- registers and materializes
-``--eviction-pressure-objects`` distinct filler
+Every setting -- the main setting, every shape-sweep point with
+header > 0, and every rho-sweep point alike -- always registers and
+materializes a freshly reverse-computed set of distinct filler
 ``NonPrefixSegmentWorkload`` objects (see
 ``build_eviction_pressure_workloads``) immediately after that setting's
 own flush, before that setting's own head-seed/raw-register begins (see
-``register_eviction_pressure_objects``). Each filler goes through the
-exact same register-raw + register-fresh + one reuse cycle
-(``materialize_workload_via_reuse``) as the setting's own mandatory
-setup, forcing its raw segment to become genuinely device-resident via
-``ensure_device`` -- a real occupant of the finite GPU KV pool, not an
-artificial placeholder. Because every setting's own flush wipes the
-*entire* ``approx_kv`` store (``ApproxKVManager.reset()``, wired through
-``RadixCache``/``UnifiedRadixCache``'s own ``reset()``), filler objects
-cannot be built once globally and expected to persist across settings:
-they are rebuilt fresh, from the same fixed content, inside every
-``run_non_prefix_setting`` call.
+``register_eviction_pressure_objects``). The filler object COUNT is
+reverse-computed (see ``eviction_pressure_filler_count_for_rho``) from
+that setting's own ``target_rho`` (``--main-target-rho`` for the main
+setting and every shape-sweep point, or the specific
+``--target-rho-choices`` value under test for a rho-sweep point) against
+a real, live, idle ``usable_kv_capacity_tokens`` snapshot (see
+``benchmark.approx_kv.metrics``) taken immediately after that setting's
+own flush -- never a fixed object count. Every filler object's own SHAPE
+(``--pressure-filler-head-tokens``, default ``NON_PREFIX_HEAD_TOKENS``,
+x ``--pressure-filler-body-tokens``, default 2048) is fixed across every
+setting so only the reverse-computed COUNT varies with ``target_rho``,
+keeping peak-rho/eviction numbers comparable across the whole matrix.
+Each filler goes through the exact same register-raw + register-fresh +
+one reuse cycle (``materialize_workload_via_reuse``) as the setting's own
+mandatory setup, forcing its raw segment to become genuinely
+device-resident via ``ensure_device`` -- a real occupant of the finite
+GPU KV pool, not an artificial placeholder. Because every setting's own
+flush wipes the *entire* ``approx_kv`` store (``ApproxKVManager.reset()``,
+wired through ``RadixCache``/``UnifiedRadixCache``'s own ``reset()``),
+filler objects cannot be built once globally and expected to persist
+across settings: they are rebuilt fresh, from the same fixed shape but a
+per-setting-appropriate count, inside every ``run_non_prefix_setting``
+call.
 
 Every filler's own target head is dense-seeded exactly like the
 setting's own head, and all of them (N fillers plus the setting's own
@@ -194,33 +206,27 @@ runtime safety net that checks the actual resulting token-id sequences
 (never a textual heuristic alone) and raises immediately if any two
 still collide.
 
-``--eviction-pressure-objects`` x ``--eviction-pressure-body-tokens``
-must reach ``--eviction-pressure-min-fraction`` (default 30%) of the
-server's real, live, idle ``usable_kv_capacity_tokens`` (see
-``benchmark.approx_kv.metrics``), checked once up front
-(``validate_eviction_pressure_fraction``) against a real ``/metrics``
-snapshot -- this fails loudly in milliseconds on a too-weak
-configuration rather than silently running a canary that could never
-have pressured the pool. This floor check only guards the *ask*; it
-does not by itself prove eviction happened. The honest evidence that
-real device-pool eviction actually occurred is each setting's own
-``pressure_phase.evicted_tokens_total_delta`` in the output JSON (the
-genuine ``sglang:evicted_tokens_total`` Prometheus counter delta across
-that setting's pressure phase -- incremented by
-``BasePrefixCache.update_eviction_metrics`` on any real LRU eviction,
-GPU-only tier included, not merely GPU-to-CPU host-backup moves) --
-which may legitimately read 0 if the configured pressure turns out
-smaller than this deployment's real pool, and this script reports that
-outcome exactly as observed, never inferring or assuming eviction
-occurred from the configuration alone. A nonzero
-``sglang:approx_kv_dense_fallback_total`` delta during the pressure
-phase itself raises immediately (see
+There is no up-front floor check against a nominal fraction (the earlier
+``--eviction-pressure-min-fraction``/``validate_eviction_pressure_fraction``
+design): a ``target_rho`` value ``> 1`` (the entire ``--target-rho-choices``
+default set except ``0.9``) already means the fillers alone nominally
+request MORE tokens than the whole pool's measured capacity, guaranteeing
+genuine eviction pressure by construction rather than by a separate
+threshold check. The honest evidence that real device-pool eviction
+actually occurred is each setting's own
+``pressure_phase.evicted_tokens_total_delta`` /
+``pressure_and_target_evicted_tokens_total_delta`` /
+``peak_rho_observed`` in the output JSON (the genuine
+``sglang:evicted_tokens_total`` Prometheus counter delta and the genuine
+sampled ``sglang:kv_used_tokens`` gauge ratio -- incremented/updated by
+real LRU eviction and real device-pool occupancy, GPU-only tier included,
+not merely GPU-to-CPU host-backup moves) -- reported exactly as observed,
+never inferred or assumed from the nominal ``target_rho`` alone. A
+nonzero ``sglang:approx_kv_dense_fallback_total`` delta during the
+pressure phase itself raises immediately (see
 ``register_eviction_pressure_objects``): a filler object silently
 falling back to dense would mean it was never actually a genuine
 CacheTune-repaired device-resident occupant at all.
-``--eviction-pressure-objects=0`` explicitly disables this phase,
-reverting every setting to the single-object microbenchmark this script
-used before it.
 
 Every invocation writes JSONL lifecycle records (``running`` /
 ``completed`` / ``failed``) to ``--central-log``, carrying the full
@@ -258,13 +264,14 @@ actually does and what the controller contract promises.
 import argparse
 import asyncio
 import json
+import math
 import statistics
 import time
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import aiohttp
 
@@ -285,11 +292,12 @@ from sglang.srt.mem_cache.cachetune.hardware_profile import (
 
 CACHE_SALT = "phase4-r5-cachetune"
 
-# Fixed, non-CLI construction constants for every NonPrefixSegmentWorkload
-# this canary builds (main setting and every length-sweep point alike): a
-# stable head length keeps the one-time seed/register-raw setup cost
-# comparable across settings, and only body length is meant to vary
-# ("target head固定34即可").
+# Fixed default head length for eviction-pressure filler objects only
+# (see --pressure-filler-head-tokens): the main setting and every
+# shape-sweep point instead use --main-header-tokens/--header-tokens-
+# choices, which now sweep header length as its own dimension of the
+# unified header x body x rho matrix (superseding this script's earlier
+# "target head固定34即可" fixed-head convention).
 NON_PREFIX_HEAD_TOKENS = 34
 # Exactly one token must remain outside every restorable segment so each
 # reuse request still performs one genuine forward pass beyond the
@@ -328,10 +336,11 @@ _TARGET_HEAD_LITERAL_PREFIX = "TARGET_HEAD_MARKER_TEXT\n"
 # behavior).
 _PRESSURE_FILLER_HEAD_ALPHABET = "ABCDEFGHIJKLMNOPQRUVWXYZ"
 
-# Every setting (dense, the main CacheTune point, and each length-sweep
-# point) runs exactly this many *discarded* passes before the formal
-# repeats begin. This is a fixed measurement-protocol constant, not a CLI
-# knob, so every canary result is comparable under the same discipline.
+# Every setting (dense, the main CacheTune point, every shape-sweep
+# point, and every rho-sweep point) runs exactly this many *discarded*
+# passes before the formal repeats begin. This is a fixed measurement-
+# protocol constant, not a CLI knob, so every canary result is comparable
+# under the same discipline.
 WARMUP_PASSES_PER_SETTING = 1
 
 
@@ -351,8 +360,11 @@ def _pressure_filler_head_literal_prefix(index: int) -> str:
         raise ValueError(
             f"index={index} exceeds the supported "
             f"{len(_PRESSURE_FILLER_HEAD_ALPHABET)} distinct pressure-filler "
-            "head markers; reduce --eviction-pressure-objects or extend "
-            "_PRESSURE_FILLER_HEAD_ALPHABET"
+            "head markers; reduce --main-target-rho/--target-rho-choices "
+            "(fewer reverse-computed filler objects needed), raise "
+            "--pressure-filler-body-tokens (each filler occupies more "
+            "capacity, so fewer are needed for the same target_rho), or "
+            "extend _PRESSURE_FILLER_HEAD_ALPHABET"
         )
     letter = _PRESSURE_FILLER_HEAD_ALPHABET[index]
     return f"{letter}FILLERHEAD_MARKER_TEXT\n"
@@ -377,39 +389,77 @@ def _repeat_count(value: str) -> int:
     return repeats
 
 
-def _eviction_pressure_object_count(value: str) -> int:
-    """argparse ``type=`` validator for ``--eviction-pressure-objects``:
-    reject negative counts up front. 0 is valid (explicit opt-out of the
-    eviction-pressure phase, reverting to a single-object microbenchmark)."""
-    count = int(value)
-    if count < 0:
+def _non_negative_int_choice_list(value: str) -> tuple[int, ...]:
+    """argparse ``type=`` validator for ``--header-tokens-choices``: parse
+    a comma-separated list of non-negative integers. Rejects an empty
+    list and any negative entry up front. 0 is explicitly valid (the
+    header sweep's exact-context control point, see
+    ``run_exact_context_control_point``)."""
+    values = tuple(int(item) for item in value.split(",") if item.strip())
+    if not values:
         raise argparse.ArgumentTypeError(
-            f"--eviction-pressure-objects must be >= 0, got {count} (0 "
-            "explicitly disables the eviction-pressure phase)"
+            f"expected a non-empty comma-separated list, got {value!r}"
         )
-    return count
+    for item in values:
+        if item < 0:
+            raise argparse.ArgumentTypeError(
+                f"every value must be >= 0, got {item} in {value!r}"
+            )
+    return values
 
 
-def _eviction_pressure_body_tokens(value: str) -> int:
-    """argparse ``type=`` validator for ``--eviction-pressure-body-tokens``:
-    reject non-positive values up front."""
-    body_tokens = int(value)
-    if body_tokens <= 0:
+def _positive_int_choice_list(value: str) -> tuple[int, ...]:
+    """argparse ``type=`` validator for ``--body-tokens-choices``: parse a
+    comma-separated list of positive integers. Rejects an empty list and
+    any non-positive entry up front."""
+    values = tuple(int(item) for item in value.split(",") if item.strip())
+    if not values:
         raise argparse.ArgumentTypeError(
-            f"--eviction-pressure-body-tokens must be positive, got {body_tokens}"
+            f"expected a non-empty comma-separated list, got {value!r}"
         )
-    return body_tokens
+    for item in values:
+        if item <= 0:
+            raise argparse.ArgumentTypeError(
+                f"every value must be positive, got {item} in {value!r}"
+            )
+    return values
 
 
-def _eviction_pressure_min_fraction(value: str) -> float:
-    """argparse ``type=`` validator for ``--eviction-pressure-min-fraction``:
-    reject values outside (0, 1] up front."""
-    fraction = float(value)
-    if not 0.0 < fraction <= 1.0:
+def _positive_float_choice_list(value: str) -> tuple[float, ...]:
+    """argparse ``type=`` validator for ``--target-rho-choices``: parse a
+    comma-separated list of positive floats. Rejects an empty list and
+    any non-positive entry up front."""
+    values = tuple(float(item) for item in value.split(",") if item.strip())
+    if not values:
         raise argparse.ArgumentTypeError(
-            f"--eviction-pressure-min-fraction must be in (0, 1], got {fraction}"
+            f"expected a non-empty comma-separated list, got {value!r}"
         )
-    return fraction
+    for item in values:
+        if item <= 0:
+            raise argparse.ArgumentTypeError(
+                f"every value must be positive, got {item} in {value!r}"
+            )
+    return values
+
+
+def _positive_int(value: str) -> int:
+    """argparse ``type=`` validator: reject non-positive integers up
+    front (used by ``--main-header-tokens``, ``--main-body-tokens``,
+    ``--max-segment-chunk-tokens``, ``--pressure-filler-head-tokens``,
+    ``--pressure-filler-body-tokens``)."""
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError(f"must be positive, got {parsed}")
+    return parsed
+
+
+def _positive_float(value: str) -> float:
+    """argparse ``type=`` validator: reject non-positive floats up front
+    (used by ``--main-target-rho``, ``--length-sweep-rho``)."""
+    parsed = float(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError(f"must be positive, got {parsed}")
+    return parsed
 
 
 def parse_args() -> argparse.Namespace:
@@ -450,58 +500,117 @@ def parse_args() -> argparse.Namespace:
         help="Must equal the running server's SGLANG_CACHETUNE_FIRST_RECOMPUTE_LAYER.",
     )
     parser.add_argument(
-        "--body-tokens",
-        type=int,
-        default=256,
-        help="Shared-body token count for the main setting's "
-        "NonPrefixSegmentWorkload (see module docstring). Head length is "
-        f"fixed at {NON_PREFIX_HEAD_TOKENS} tokens, tail at "
-        f"{NON_PREFIX_TAIL_TOKENS} token(s), for every setting.",
+        "--main-header-tokens",
+        type=_positive_int,
+        default=64,
+        help="Distinct-head token count (source_head_ids/target_head_ids "
+        "length) for the main setting's NonPrefixSegmentWorkload. Must be "
+        "positive -- header=0 is only meaningful as a shape-sweep exact-"
+        "context control point (see --header-tokens-choices), never as "
+        "the main setting's own shape.",
     )
     parser.add_argument(
-        "--length-sweep",
-        default="128,512",
-        help="Comma-separated additional shared-body token counts used "
-        "to prove real per-length deterministic re-quantization within "
-        "the same running server/controller (no server restart); head "
-        "and tail length stay fixed across every sweep point.",
+        "--main-body-tokens",
+        type=_positive_int,
+        default=1024,
+        help="Shared-body token count for the main setting's "
+        "NonPrefixSegmentWorkload. Bodies longer than "
+        "--max-segment-chunk-tokens are registered as multiple "
+        "<= --max-segment-chunk-tokens segments within the same register/"
+        "reuse call (see body_segments_for_hash).",
+    )
+    parser.add_argument(
+        "--main-target-rho",
+        type=_positive_float,
+        default=1.5,
+        help="Target eviction-pressure ratio (fraction of the server's "
+        "real, live usable_kv_capacity_tokens, see "
+        "benchmark.approx_kv.metrics) for the main setting's own "
+        "pre-target filler phase; the filler object count is reverse-"
+        "computed from this against a real /metrics snapshot taken "
+        "immediately after this setting's own flush (see "
+        "eviction_pressure_filler_count_for_rho). A value > 1 means the "
+        "fillers alone nominally request MORE tokens than the whole "
+        "pool's measured capacity, guaranteeing genuine eviction "
+        "pressure by construction.",
+    )
+    parser.add_argument(
+        "--header-tokens-choices",
+        type=_non_negative_int_choice_list,
+        default="0,32,64,128,256",
+        help="Comma-separated header (distinct source/target head) token "
+        "counts swept, crossed with --body-tokens-choices, as the shape "
+        "sweep (replaces every earlier fixed 34-token head / 128,256,512 "
+        "body-only length-sweep default). header=0 cannot build a "
+        "NonPrefixSegmentWorkload (source_head_ids/target_head_ids "
+        "cannot differ if both are empty) so it is handled as a distinct, "
+        "honestly-labeled exact-context control point instead -- see "
+        "run_exact_context_control_point.",
+    )
+    parser.add_argument(
+        "--body-tokens-choices",
+        type=_positive_int_choice_list,
+        default="512,768,1024,2048",
+        help="Comma-separated shared-body token counts swept, crossed "
+        "with --header-tokens-choices, as the shape sweep.",
+    )
+    parser.add_argument(
+        "--target-rho-choices",
+        type=_positive_float_choice_list,
+        default="0.9,1.1,1.5,2,3",
+        help="Comma-separated target eviction-pressure ratios swept, at "
+        "the main setting's own (--main-header-tokens, --main-body-"
+        "tokens) shape, as the rho sweep -- reported separately from the "
+        "shape sweep so the two dimensions each stay a tractable number "
+        "of real requests rather than a full combinatorial explosion.",
+    )
+    parser.add_argument(
+        "--length-sweep-rho",
+        type=_positive_float,
+        default=None,
+        help="Fixed target rho applied to every shape-sweep point "
+        "(header x body cross product from --header-tokens-choices x "
+        "--body-tokens-choices). Defaults to --main-target-rho when "
+        "omitted.",
+    )
+    parser.add_argument(
+        "--max-segment-chunk-tokens",
+        type=_positive_int,
+        default=512,
+        help="Maximum token length of any single approx_kv segment this "
+        "canary registers. Bodies longer than this are split into "
+        "multiple <= this length segments (distinct content_hash per "
+        "chunk) within the same register/reuse call -- see "
+        "body_segments_for_hash/chunk_offsets; "
+        "ApproxKVRequestMetadata/register_request_segments/"
+        "restore_request_prefix_cachetune already natively support an "
+        "arbitrary number of segments per call.",
+    )
+    parser.add_argument(
+        "--pressure-filler-head-tokens",
+        type=_positive_int,
+        default=NON_PREFIX_HEAD_TOKENS,
+        help="Head token count for every eviction-pressure filler object "
+        "-- independent of --main-header-tokens/--header-tokens-choices, "
+        "since fillers always need a genuine, fixed, non-zero distinct "
+        "head to stay pairwise head-isolated regardless of what header "
+        "value the setting under test is exercising (see "
+        "_pressure_filler_head_literal_prefix / "
+        "validate_pairwise_head_isolation).",
+    )
+    parser.add_argument(
+        "--pressure-filler-body-tokens",
+        type=_positive_int,
+        default=2048,
+        help="Shared-body token count for EACH eviction-pressure filler "
+        "object, used consistently across the main setting, every shape-"
+        "sweep point, and every rho-sweep point so peak-rho/eviction "
+        "numbers stay comparable across points (only the reverse-"
+        "computed filler COUNT varies with --main-target-rho/"
+        "--target-rho-choices and the live measured capacity, never this "
+        "per-object shape).",
     )
     parser.add_argument("--repeats", type=_repeat_count, default=4)
-    parser.add_argument(
-        "--eviction-pressure-objects",
-        type=_eviction_pressure_object_count,
-        default=4,
-        help="Number of distinct filler NonPrefixSegmentWorkload objects "
-        "registered and materialized (register raw + register fresh + one "
-        "reuse, forcing real device residency via ensure_device) before "
-        "EVERY setting's own measurement (the main setting and every "
-        "length-sweep point each get their own fresh pressure phase, "
-        "since run_non_prefix_setting's own flush wipes the approx_kv "
-        "store -- see ApproxKVManager.reset -- as its first action every "
-        "time it runs). 0 explicitly disables the eviction-pressure "
-        "phase entirely, reverting to a single-object microbenchmark.",
-    )
-    parser.add_argument(
-        "--eviction-pressure-body-tokens",
-        type=_eviction_pressure_body_tokens,
-        default=1536,
-        help="Shared-body token count for EACH eviction-pressure filler "
-        "object. Deliberately larger than the default --body-tokens so "
-        "the filler objects' combined device-resident footprint can "
-        "genuinely compete with the main workload for a real, finite GPU "
-        "KV pool rather than merely existing alongside it.",
-    )
-    parser.add_argument(
-        "--eviction-pressure-min-fraction",
-        type=_eviction_pressure_min_fraction,
-        default=0.3,
-        help="Minimum required fraction of the server's LIVE, idle "
-        "usable_kv_capacity_tokens (see benchmark.approx_kv.metrics) that "
-        "--eviction-pressure-objects * --eviction-pressure-body-tokens "
-        "must reach, checked once up front against a real /metrics "
-        "snapshot. Raises loudly rather than silently running a "
-        "too-weak-to-matter pressure configuration.",
-    )
     parser.add_argument("--runner-git-sha", required=True)
     parser.add_argument("--image-digest", required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -513,7 +622,10 @@ def parse_args() -> argparse.Namespace:
         "one 'running' record at start, then one 'completed' or 'failed' "
         "record at the end (see append_run_log).",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.length_sweep_rho is None:
+        args.length_sweep_rho = args.main_target_rho
+    return args
 
 
 def fetch_text(url: str, timeout: float = 30) -> str:
@@ -717,23 +829,23 @@ def build_non_prefix_segment_workload(
     tokenized, deterministic pieces (see ``_deterministic_token_ids``).
 
     ``salt`` must be unique per distinct workload the canary constructs
-    (the main setting and each length-sweep point each pass their own
-    salt) so that different settings' bodies/tails never share content.
-    Cross-setting *head* isolation in the live server's exact radix tree
-    is guaranteed separately, by ``run_non_prefix_setting`` flushing that
-    tree as its own first action for every setting -- salt uniqueness
-    alone would not be enough for that, since ``source_head_ids``/
-    ``target_head_ids`` need the stronger, structural
-    zero-common-prefix guarantee the literal-prefix markers below provide
-    (see the module docstring's "Why /generate and non-prefix segments"
-    section).
+    (the main setting, every shape-sweep point, and every rho-sweep point
+    each pass their own salt) so that different settings' bodies/tails
+    never share content. Cross-setting *head* isolation in the live
+    server's exact radix tree is guaranteed separately, by
+    ``run_non_prefix_setting`` flushing that tree as its own first action
+    for every setting -- salt uniqueness alone would not be enough for
+    that, since ``source_head_ids``/``target_head_ids`` need the
+    stronger, structural zero-common-prefix guarantee the literal-prefix
+    markers below provide (see the module docstring's "Why /generate and
+    non-prefix segments" section).
 
     ``source_head_literal_prefix``/``target_head_literal_prefix`` default
     to this module's own fixed markers (every existing caller -- the main
-    setting, every length-sweep point -- gets the exact prior behavior
-    unchanged). ``build_eviction_pressure_workloads`` overrides
-    ``target_head_literal_prefix`` per filler object with a mutually
-    distinct marker (see ``_pressure_filler_head_literal_prefix``):
+    setting, every shape-sweep point, every rho-sweep point -- gets the
+    exact prior behavior unchanged). ``build_eviction_pressure_workloads``
+    overrides ``target_head_literal_prefix`` per filler object with a
+    mutually distinct marker (see ``_pressure_filler_head_literal_prefix``):
     eviction-pressure filler objects' target heads are ALSO dense-seeded,
     like the setting's own head, and coexist with it and with every OTHER
     filler's head within the same flush epoch -- unlike the main-vs-sweep
@@ -811,58 +923,152 @@ def eviction_pressure_total_tokens(
     device residency tier via ``ensure_device``. The "fresh" segment's
     own body would add roughly as much again once a filler's reuse call
     actually completes, so this is a floor on real footprint, not an
-    exact total -- deliberately conservative for
-    ``validate_eviction_pressure_fraction``'s own comparison against live
-    capacity.
+    exact total -- reported alongside ``observed_rho_after_pressure`` in
+    ``register_eviction_pressure_objects``'s own returned dict for
+    downstream debugging, never used to gate/validate behaviour itself.
     """
     return sum(workload.body_tokens for workload in workloads)
 
 
-def validate_eviction_pressure_fraction(
+def eviction_pressure_filler_count_for_rho(
     *,
-    total_pressure_tokens: int,
+    target_rho: float,
     usable_capacity_tokens: int,
-    min_fraction: float,
-) -> float:
-    """Raise ``RuntimeError`` if ``total_pressure_tokens`` (see
-    ``eviction_pressure_total_tokens``) is too small a fraction of
-    ``usable_capacity_tokens`` (a real, live
-    ``benchmark.approx_kv.metrics.usable_kv_capacity_tokens`` reading) to
-    plausibly matter -- otherwise returns the achieved fraction.
+    tokens_per_filler: int,
+) -> int:
+    """Reverse-compute how many filler objects (each contributing
+    ``tokens_per_filler`` tokens, see ``eviction_pressure_total_tokens``)
+    are needed so their combined *nominal* (requested, not sampled-live)
+    token footprint reaches at least
+    ``target_rho * usable_capacity_tokens``.
 
-    Checked once, up front, against a real ``/metrics`` snapshot, so a
-    too-weak eviction-pressure configuration fails loudly in
-    milliseconds rather than silently running a canary that never
-    actually pressures the pool (the ``sglang:evicted_tokens_total``
-    telemetry ``register_eviction_pressure_objects`` reports separately,
-    per setting, is the honest confirmation that real eviction actually
-    happened -- this function only guards against an ask that could not
-    possibly be large enough, it never asserts eviction occurred).
+    This is the "actual capacity自动反算...所需filler数" calculation: a
+    real, live ``usable_kv_capacity_tokens`` reading (see
+    ``benchmark.approx_kv.metrics``) drives how many filler objects a
+    given ``target_rho`` requires, rather than a fixed filler count
+    guessed independently of the server's real pool size. It is
+    ``ceil``-rounded so the achieved nominal ratio is always >=
+    ``target_rho``, never short of it by a fractional-filler rounding
+    error.
+
+    "Nominal" because it is computed purely from *requested* filler
+    tokens; the pool's real, observed occupancy at any instant also
+    depends on whatever eviction has already reclaimed by the time later
+    fillers register (see ``observed_rho`` for the genuine, sampled
+    counterpart, read from the live ``sglang:kv_used_tokens`` gauge) --
+    the two are reported side by side, never conflated.
     """
+    if target_rho <= 0:
+        raise ValueError(f"target_rho must be positive, got {target_rho}")
     if usable_capacity_tokens <= 0:
         raise ValueError(
             f"usable_capacity_tokens must be positive, got {usable_capacity_tokens}"
         )
-    if not 0.0 < min_fraction <= 1.0:
-        raise ValueError(f"min_fraction must be in (0, 1], got {min_fraction}")
-    if total_pressure_tokens < 0:
+    if tokens_per_filler <= 0:
+        raise ValueError(f"tokens_per_filler must be positive, got {tokens_per_filler}")
+    target_total_tokens = target_rho * usable_capacity_tokens
+    return math.ceil(target_total_tokens / tokens_per_filler)
+
+
+def observed_rho(snapshot: Mapping[str, float], *, capacity_tokens: int) -> float:
+    """The real, sampled ratio of this ``snapshot``'s live
+    ``sglang:kv_used_tokens`` gauge to a fixed ``capacity_tokens``
+    reference -- the genuine, *measured* occupancy fraction at the
+    instant ``snapshot`` was taken, as opposed to
+    ``eviction_pressure_filler_count_for_rho``'s nominal (requested-
+    tokens) ratio.
+
+    ``capacity_tokens`` is deliberately a caller-supplied fixed value
+    (established once, immediately after a flush, via
+    ``usable_kv_capacity_tokens`` on a genuinely idle pool snapshot) --
+    never recomputed from ``snapshot`` itself here, since
+    ``usable_kv_capacity_tokens``'s own idle heuristic could react to a
+    transient, eviction-driven usage dip in a snapshot taken mid-
+    pressure and silently swap its capacity basis out from under a
+    "peak rho" comparison across multiple snapshots of the same setting.
+    """
+    if capacity_tokens <= 0:
+        raise ValueError(f"capacity_tokens must be positive, got {capacity_tokens}")
+    used = snapshot.get("sglang:kv_used_tokens")
+    if used is None:
         raise ValueError(
-            f"total_pressure_tokens must be >= 0, got {total_pressure_tokens}"
+            "sglang:kv_used_tokens is unavailable in this snapshot -- cannot "
+            "compute observed_rho without it"
         )
-    fraction = total_pressure_tokens / usable_capacity_tokens
-    if fraction < min_fraction:
-        raise RuntimeError(
-            "eviction-pressure configuration is too weak to genuinely "
-            f"pressure this server's live usable KV capacity: "
-            f"{total_pressure_tokens} filler tokens is only "
-            f"{fraction:.1%} of {usable_capacity_tokens} usable tokens "
-            f"(need >= {min_fraction:.1%}). Increase "
-            "--eviction-pressure-objects and/or "
-            "--eviction-pressure-body-tokens, or lower "
-            "--eviction-pressure-min-fraction if a smaller genuine "
-            "pressure fraction is intentional."
+    return float(used) / float(capacity_tokens)
+
+
+def chunk_offsets(
+    total_tokens: int, max_chunk_tokens: int
+) -> tuple[tuple[int, int], ...]:
+    """Split ``total_tokens`` into contiguous ``(offset, length)`` chunks,
+    each at most ``max_chunk_tokens`` long, offsets 0-based relative to
+    the start of the span being chunked.
+
+    Used to keep every single approx_kv segment this canary registers at
+    most ``--max-segment-chunk-tokens`` long (default 512): with the
+    unified body sweep now reaching up to 2048 tokens, a body longer
+    than that is split into multiple segments within one register/reuse
+    call rather than ever registering one oversized segment (see
+    ``body_segments_for_hash``). ``ApproxKVRequestMetadata``/
+    ``register_request_segments``/``restore_request_prefix_cachetune``
+    already natively iterate over an arbitrary number of segments per
+    call, so this chunking changes nothing about the underlying server-
+    side contract -- only how this client divides one logical body into
+    that call's ``segments`` list.
+    """
+    if total_tokens <= 0:
+        raise ValueError(f"total_tokens must be positive, got {total_tokens}")
+    if max_chunk_tokens <= 0:
+        raise ValueError(f"max_chunk_tokens must be positive, got {max_chunk_tokens}")
+    chunks = []
+    offset = 0
+    while offset < total_tokens:
+        length = min(max_chunk_tokens, total_tokens - offset)
+        chunks.append((offset, length))
+        offset += length
+    return tuple(chunks)
+
+
+def body_segments_for_hash(
+    *,
+    hash_prefix: str,
+    body_start: int,
+    body_tokens: int,
+    max_chunk_tokens: int,
+) -> list[dict[str, Any]]:
+    """Build a ``register``/``reuse`` payload ``"segments"`` list for a
+    ``body_tokens``-long span anchored at ``body_start``, split into
+    ``chunk_offsets(body_tokens, max_chunk_tokens)`` pieces.
+
+    Every chunk gets its own distinct, deterministic ``content_hash``
+    (``f"{hash_prefix}:chunk{index}"``): even chunks of the same logical
+    body are independent entries in ``manager.store`` (keyed by
+    ``_segment_key``, see ``cachetune/runtime.py``), never one shared
+    key. ``hash_prefix`` is expected to already carry this module's
+    ``cachetune-raw:``/``cachetune-fresh:`` distinguishing prefix (see
+    ``_RAW_PREFIX``/``_FRESH_PREFIX`` in ``cachetune/runtime.py``):
+    ``restore_request_prefix_cachetune`` discovers a segment's
+    corresponding "fresh" companion via
+    ``segment.content_hash.replace(_RAW_PREFIX, _FRESH_PREFIX, 1)``, so a
+    caller building a raw+fresh pair for the *same* logical body MUST
+    call this twice with ``hash_prefix`` values that differ *only* by
+    that prefix swap (every ``raw_hash``/``fresh_hash`` pair this module
+    constructs already satisfies that -- see e.g. ``run_canary``'s
+    ``"cachetune-raw:phase4-r5-main"``/``"cachetune-fresh:phase4-r5-main"``)
+    for the resulting per-chunk hashes to still line up correctly at
+    reuse time.
+    """
+    return [
+        {
+            "content_hash": f"{hash_prefix}:chunk{index}",
+            "target_start": body_start + offset,
+            "length": length,
+        }
+        for index, (offset, length) in enumerate(
+            chunk_offsets(body_tokens, max_chunk_tokens)
         )
-    return fraction
+    ]
 
 
 def _first_common_prefix_length(a: Sequence[int], b: Sequence[int]) -> int:
@@ -932,12 +1138,16 @@ def dense_generate_payload(input_ids: Sequence[int]) -> dict:
 def register_generate_payload(
     *,
     input_ids: Sequence[int],
-    content_hash: str,
-    target_start: int,
-    length: int,
+    segments: Sequence[Mapping[str, Any]],
     model_fingerprint: str,
     cache_dtype: str,
 ) -> dict:
+    """``segments`` is a ready-to-send list of ``{"content_hash",
+    "target_start", "length"}`` dicts (see ``body_segments_for_hash``):
+    a body longer than ``--max-segment-chunk-tokens`` is registered as
+    MULTIPLE segments in this single call, never one oversized segment
+    -- ``register_request_segments`` (``cachetune/runtime.py``) already
+    natively iterates over an arbitrary number of segments per call."""
     return {
         "input_ids": list(input_ids),
         "sampling_params": {
@@ -948,13 +1158,7 @@ def register_generate_payload(
                     "operation": "register",
                     "model_fingerprint": model_fingerprint,
                     "cache_dtype": cache_dtype,
-                    "segments": [
-                        {
-                            "content_hash": content_hash,
-                            "target_start": target_start,
-                            "length": length,
-                        }
-                    ],
+                    "segments": [dict(segment) for segment in segments],
                 }
             },
         },
@@ -964,12 +1168,15 @@ def register_generate_payload(
 def reuse_generate_payload(
     *,
     input_ids: Sequence[int],
-    raw_content_hash: str,
-    target_start: int,
-    length: int,
+    segments: Sequence[Mapping[str, Any]],
     model_fingerprint: str,
     cache_dtype: str,
 ) -> dict:
+    """``segments`` is a ready-to-send list of ``{"content_hash",
+    "target_start", "length"}`` dicts (see ``body_segments_for_hash``),
+    each ``content_hash`` matching one of the corresponding raw-register
+    call's own per-chunk hashes -- see
+    ``restore_request_prefix_cachetune``'s ``_segment_key`` lookup."""
     return {
         "input_ids": list(input_ids),
         "sampling_params": {
@@ -981,13 +1188,7 @@ def reuse_generate_payload(
                     "plugin": "cachetune",
                     "model_fingerprint": model_fingerprint,
                     "cache_dtype": cache_dtype,
-                    "segments": [
-                        {
-                            "content_hash": raw_content_hash,
-                            "target_start": target_start,
-                            "length": length,
-                        }
-                    ],
+                    "segments": [dict(segment) for segment in segments],
                 }
             },
         },
@@ -1199,15 +1400,19 @@ def build_settings(args: argparse.Namespace) -> dict[str, Any]:
         "t_i_ms": args.t_i_ms,
         "t_o_ms": args.t_o_ms,
         "first_recompute_layer": args.first_recompute_layer,
-        "body_tokens": args.body_tokens,
-        "head_tokens": NON_PREFIX_HEAD_TOKENS,
+        "main_header_tokens": args.main_header_tokens,
+        "main_body_tokens": args.main_body_tokens,
+        "main_target_rho": args.main_target_rho,
         "tail_tokens": NON_PREFIX_TAIL_TOKENS,
-        "length_sweep": args.length_sweep,
+        "header_tokens_choices": args.header_tokens_choices,
+        "body_tokens_choices": args.body_tokens_choices,
+        "target_rho_choices": args.target_rho_choices,
+        "length_sweep_rho": args.length_sweep_rho,
+        "max_segment_chunk_tokens": args.max_segment_chunk_tokens,
+        "pressure_filler_head_tokens": args.pressure_filler_head_tokens,
+        "pressure_filler_body_tokens": args.pressure_filler_body_tokens,
         "repeats_per_setting": args.repeats,
         "warmup_passes_per_setting": WARMUP_PASSES_PER_SETTING,
-        "eviction_pressure_objects": args.eviction_pressure_objects,
-        "eviction_pressure_body_tokens": args.eviction_pressure_body_tokens,
-        "eviction_pressure_min_fraction": args.eviction_pressure_min_fraction,
         "runner_git_sha": args.runner_git_sha,
         "image_digest": args.image_digest,
         "scheduler": "S0 LRU",
@@ -1226,6 +1431,7 @@ def materialize_workload_via_reuse(
     model_fingerprint: str,
     cache_dtype: str,
     label: str,
+    max_chunk_tokens: int,
 ) -> dict[str, Any]:
     """Seed ``workload``'s own exact-match target head, register its raw
     (source-context) and fresh (target-context) body segments, then
@@ -1233,6 +1439,10 @@ def materialize_workload_via_reuse(
     CacheTune's genuine repair path to run once and materialize the raw
     segment onto the device residency tier via ``ensure_device`` (see
     ``cachetune/runtime.py``).
+
+    A body longer than ``max_chunk_tokens`` is registered/reused as
+    multiple <= ``max_chunk_tokens`` segments within each single call
+    (see ``body_segments_for_hash``), never one oversized segment.
 
     Shared by ``run_non_prefix_setting``'s own one-time setup + discarded
     warmup pass (seed head -> register raw -> register fresh -> reuse,
@@ -1260,9 +1470,12 @@ def materialize_workload_via_reuse(
         base_url,
         register_generate_payload(
             input_ids=workload.source_prompt_ids,
-            content_hash=raw_hash,
-            target_start=workload.body_start_in_source,
-            length=workload.body_tokens,
+            segments=body_segments_for_hash(
+                hash_prefix=raw_hash,
+                body_start=workload.body_start_in_source,
+                body_tokens=workload.body_tokens,
+                max_chunk_tokens=max_chunk_tokens,
+            ),
             model_fingerprint=model_fingerprint,
             cache_dtype=cache_dtype,
         ),
@@ -1274,9 +1487,12 @@ def materialize_workload_via_reuse(
         base_url,
         register_generate_payload(
             input_ids=workload.fresh_prompt_ids,
-            content_hash=fresh_hash,
-            target_start=workload.body_start_in_target,
-            length=workload.body_tokens,
+            segments=body_segments_for_hash(
+                hash_prefix=fresh_hash,
+                body_start=workload.body_start_in_target,
+                body_tokens=workload.body_tokens,
+                max_chunk_tokens=max_chunk_tokens,
+            ),
             model_fingerprint=model_fingerprint,
             cache_dtype=cache_dtype,
         ),
@@ -1287,9 +1503,12 @@ def materialize_workload_via_reuse(
         base_url,
         reuse_generate_payload(
             input_ids=workload.target_prompt_ids,
-            raw_content_hash=raw_hash,
-            target_start=workload.body_start_in_target,
-            length=workload.body_tokens,
+            segments=body_segments_for_hash(
+                hash_prefix=raw_hash,
+                body_start=workload.body_start_in_target,
+                body_tokens=workload.body_tokens,
+                max_chunk_tokens=max_chunk_tokens,
+            ),
             model_fingerprint=model_fingerprint,
             cache_dtype=cache_dtype,
         ),
@@ -1315,6 +1534,9 @@ def register_eviction_pressure_objects(
     model_fingerprint: str,
     cache_dtype: str,
     label: str,
+    max_chunk_tokens: int,
+    capacity_tokens: int,
+    target_rho: float,
 ) -> dict[str, Any]:
     """Register and materialize every eviction-pressure filler object in
     ``workloads`` (see ``build_eviction_pressure_workloads``) via
@@ -1330,18 +1552,31 @@ def register_eviction_pressure_objects(
     (a real bug, or a misconfigured pressure request whose footprint
     cannot fit in the pool even after evicting everything else), which
     this canary must never treat as a harmless, ignorable detail.
+
+    ``capacity_tokens`` is the fixed, idle-pool capacity reference
+    established once by the caller (immediately after its own flush, via
+    ``usable_kv_capacity_tokens``) and ``target_rho`` is the nominal
+    ratio ``workloads`` was reverse-sized for (see
+    ``eviction_pressure_filler_count_for_rho``) -- both are only used
+    here to report the genuine, *sampled* ``observed_rho`` (from the
+    live ``sglang:kv_used_tokens`` gauge) immediately after this pressure
+    phase completes, alongside the nominal target, never to alter
+    behaviour.
+
     Returns a dict with ``object_count``, ``total_pressure_tokens``
-    (see ``eviction_pressure_total_tokens``),
+    (see ``eviction_pressure_total_tokens``), ``target_rho`` (the
+    nominal ask), ``capacity_tokens`` (the fixed reference),
+    ``observed_rho_after_pressure`` (the genuine sampled ratio),
     ``evicted_tokens_total_delta`` (the genuine, real evidence that
-    device-pool eviction actually happened -- may legitimately be 0 if
-    the configured pressure was not large enough to evict anything, and
-    this is reported honestly rather than hidden), and
-    ``dense_fallback_total_delta`` (always 0, given the raise above, kept
-    for output-schema transparency), plus the raw ``metrics_before``/
-    ``metrics_after`` snapshots the two deltas above were computed from
-    (surfaced verbatim for downstream debugging, exactly like
-    ``run_non_prefix_setting``'s own ``metrics_before``/``metrics_after``
-    keys).
+    device-pool eviction actually happened during THIS pressure phase
+    alone -- may legitimately be 0 if the configured pressure was not
+    large enough to evict anything, and this is reported honestly rather
+    than hidden), and ``dense_fallback_total_delta`` (always 0, given the
+    raise above, kept for output-schema transparency), plus the raw
+    ``metrics_before``/``metrics_after`` snapshots the two deltas above
+    were computed from (surfaced verbatim for downstream debugging,
+    exactly like ``run_non_prefix_setting``'s own ``metrics_before``/
+    ``metrics_after`` keys).
     """
     metrics_before = metric_snapshot(base_url)
     for index, filler_workload in enumerate(workloads):
@@ -1353,6 +1588,7 @@ def register_eviction_pressure_objects(
             model_fingerprint=model_fingerprint,
             cache_dtype=cache_dtype,
             label=f"{label} pressure-filler[{index}]",
+            max_chunk_tokens=max_chunk_tokens,
         )
         time.sleep(0.1)
     metrics_after = metric_snapshot(base_url)
@@ -1373,6 +1609,11 @@ def register_eviction_pressure_objects(
     return {
         "object_count": len(workloads),
         "total_pressure_tokens": eviction_pressure_total_tokens(workloads),
+        "target_rho": target_rho,
+        "capacity_tokens": capacity_tokens,
+        "observed_rho_after_pressure": observed_rho(
+            metrics_after, capacity_tokens=capacity_tokens
+        ),
         "evicted_tokens_total_delta": metric_delta(
             metrics_before, metrics_after, "sglang:evicted_tokens_total"
         ),
@@ -1385,6 +1626,7 @@ def register_eviction_pressure_objects(
 def run_non_prefix_setting(
     *,
     base_url: str,
+    tokenizer: Any,
     workload: NonPrefixSegmentWorkload,
     raw_hash: str,
     fresh_hash: str,
@@ -1392,18 +1634,22 @@ def run_non_prefix_setting(
     cache_dtype: str,
     repeats: int,
     label: str,
-    pressure_workloads: Sequence[NonPrefixSegmentWorkload] = (),
+    max_chunk_tokens: int,
+    target_rho: float | None,
+    pressure_filler_head_tokens: int,
+    pressure_filler_body_tokens: int,
 ) -> dict[str, Any]:
-    """Flush the exact radix cache, optionally materialize a fresh
-    eviction-pressure phase, seed the exact-cache target head, register
-    the raw (source-context) body segment once, run one discarded
-    register-fresh + reuse warmup, snapshot Prometheus metrics, then run
-    ``repeats`` formal register-fresh + reuse repeats.
+    """Flush the exact radix cache, optionally reverse-compute and
+    materialize a fresh eviction-pressure phase sized for ``target_rho``,
+    seed the exact-cache target head, register the raw (source-context)
+    body segment once, run one discarded register-fresh + reuse warmup,
+    snapshot Prometheus metrics, then run ``repeats`` formal
+    register-fresh + reuse repeats.
 
-    The shared measurement routine used by both the main CacheTune
-    setting and every length-sweep point (see the module docstring's
-    "Why /generate and non-prefix segments" section for why this
-    flush -> [pressure] -> seed -> register-raw -> warmup -> repeats
+    The shared measurement routine used by the main CacheTune setting,
+    every shape-sweep point, and every rho-sweep point (see the module
+    docstring's "Why /generate and non-prefix segments" section for why
+    this flush -> [pressure] -> seed -> register-raw -> warmup -> repeats
     ordering is mandatory).
 
     The flush is this function's *own* first action -- not merely the
@@ -1417,17 +1663,24 @@ def run_non_prefix_setting(
     ``flush_exact_radix_cache``'s own docstring for why) precisely
     because it runs before any registration this call performs.
 
-    If ``pressure_workloads`` is non-empty, every filler object is
-    re-registered and re-materialized fresh on *every* call (see
-    ``register_eviction_pressure_objects``): the very flush above resets
-    the entire ``approx_kv`` store (``ApproxKVManager.reset()``, wired
+    Immediately after that flush, a real ``/metrics`` snapshot on the now
+    genuinely idle pool gives ``capacity_tokens`` (via
+    ``usable_kv_capacity_tokens``) -- a fixed reference used for this
+    setting's own ``observed_rho`` calculations (never recomputed later,
+    since a later snapshot taken mid-pressure could react to a
+    transient, eviction-driven usage dip). If ``target_rho`` is not
+    ``None``, the filler object count is reverse-computed from it against
+    that capacity (see ``eviction_pressure_filler_count_for_rho``) and a
+    fresh pressure phase is registered and materialized (see
+    ``register_eviction_pressure_objects``): the flush above resets the
+    entire ``approx_kv`` store (``ApproxKVManager.reset()``, wired
     through ``RadixCache.reset``/``UnifiedRadixCache.reset`` -- see
     ``flush_exact_radix_cache``'s own docstring), so a previous setting's
     already-registered filler objects are gone the moment this function's
     own flush runs; they cannot be built once globally and expected to
     persist across multiple settings. This means every setting (the main
-    setting and every length-sweep point alike) gets its own genuine
-    multi-object pressure phase, never just the first one.
+    setting and every shape-/rho-sweep point alike) gets its own genuine,
+    freshly-sized pressure phase, never a shared/stale one.
     ``validate_pairwise_head_isolation`` runs first (before any network
     call) to guard against a filler's dense-seeded target head colliding
     with this setting's own head or with another filler's head in the
@@ -1442,16 +1695,42 @@ def run_non_prefix_setting(
     ``combined_ms_samples`` (the ``ttft_ms``-only projections of the
     above, kept for existing consumers), ``observed_cached_tokens_per_call``
     (the reuse leg's ``cached_tokens`` projection, unchanged),
-    ``metrics_before``/``metrics_after``, and ``pressure_phase`` (``None``
-    when ``pressure_workloads`` is empty, otherwise
-    ``register_eviction_pressure_objects``'s own returned telemetry dict)
-    -- everything the caller needs to build its own output section and
-    telemetry cross-validation.
+    ``metrics_before``/``metrics_after``, ``capacity_tokens`` (this
+    setting's own fixed idle-pool reference), ``observed_rho_after_target``
+    (the genuine, sampled ``sglang:kv_used_tokens`` ratio right after this
+    setting's own formal repeats complete), ``peak_rho_observed`` (the
+    greater of that and the pressure phase's own
+    ``observed_rho_after_pressure``, or just the former when no pressure
+    phase ran), ``pressure_and_target_evicted_tokens_total_delta`` (the
+    cumulative real ``sglang:evicted_tokens_total`` delta spanning from
+    immediately after this setting's own flush through the end of its
+    formal repeats -- i.e. pressure-phase eviction PLUS whatever this
+    setting's own target/source registration additionally evicted), and
+    ``pressure_phase`` (``None`` when ``target_rho`` is ``None``,
+    otherwise ``register_eviction_pressure_objects``'s own returned
+    telemetry dict) -- everything the caller needs to build its own
+    output section and telemetry cross-validation.
     """
     flush_exact_radix_cache(base_url)
+    metrics_at_setting_start = metric_snapshot(base_url)
+    capacity_tokens = usable_kv_capacity_tokens(metrics_at_setting_start)
 
     pressure_phase: dict[str, Any] | None = None
-    if pressure_workloads:
+    if target_rho is not None:
+        tokens_per_filler = pressure_filler_head_tokens + pressure_filler_body_tokens
+        filler_count = eviction_pressure_filler_count_for_rho(
+            target_rho=target_rho,
+            usable_capacity_tokens=capacity_tokens,
+            tokens_per_filler=tokens_per_filler,
+        )
+        pressure_workloads = build_eviction_pressure_workloads(
+            tokenizer,
+            object_count=filler_count,
+            body_tokens=pressure_filler_body_tokens,
+            head_tokens=pressure_filler_head_tokens,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt_prefix=f"{CACHE_SALT}-pressure-{label}",
+        )
         validate_pairwise_head_isolation(
             [
                 (f"pressure-filler[{index}]", filler.target_head_ids)
@@ -1465,6 +1744,9 @@ def run_non_prefix_setting(
             model_fingerprint=model_fingerprint,
             cache_dtype=cache_dtype,
             label=label,
+            max_chunk_tokens=max_chunk_tokens,
+            capacity_tokens=capacity_tokens,
+            target_rho=target_rho,
         )
 
     setup_result = materialize_workload_via_reuse(
@@ -1475,6 +1757,7 @@ def run_non_prefix_setting(
         model_fingerprint=model_fingerprint,
         cache_dtype=cache_dtype,
         label=f"{label} setup+warmup (discarded)",
+        max_chunk_tokens=max_chunk_tokens,
     )
     seed_head_ms = setup_result["seed_head_ms"]
     register_raw_ms = setup_result["register_raw_ms"]
@@ -1492,9 +1775,12 @@ def run_non_prefix_setting(
             base_url,
             register_generate_payload(
                 input_ids=workload.fresh_prompt_ids,
-                content_hash=fresh_hash,
-                target_start=workload.body_start_in_target,
-                length=workload.body_tokens,
+                segments=body_segments_for_hash(
+                    hash_prefix=fresh_hash,
+                    body_start=workload.body_start_in_target,
+                    body_tokens=workload.body_tokens,
+                    max_chunk_tokens=max_chunk_tokens,
+                ),
                 model_fingerprint=model_fingerprint,
                 cache_dtype=cache_dtype,
             ),
@@ -1507,9 +1793,12 @@ def run_non_prefix_setting(
             base_url,
             reuse_generate_payload(
                 input_ids=workload.target_prompt_ids,
-                raw_content_hash=raw_hash,
-                target_start=workload.body_start_in_target,
-                length=workload.body_tokens,
+                segments=body_segments_for_hash(
+                    hash_prefix=raw_hash,
+                    body_start=workload.body_start_in_target,
+                    body_tokens=workload.body_tokens,
+                    max_chunk_tokens=max_chunk_tokens,
+                ),
                 model_fingerprint=model_fingerprint,
                 cache_dtype=cache_dtype,
             ),
@@ -1532,6 +1821,14 @@ def run_non_prefix_setting(
         )
         time.sleep(0.1)
     metrics_after = metric_snapshot(base_url)
+    observed_rho_after_target = observed_rho(
+        metrics_after, capacity_tokens=capacity_tokens
+    )
+    peak_rho_observed = (
+        max(observed_rho_after_target, pressure_phase["observed_rho_after_pressure"])
+        if pressure_phase is not None
+        else observed_rho_after_target
+    )
 
     fresh_ms_samples = [sample["ttft_ms"] for sample in fresh_raw_samples]
     reuse_ms_samples = [sample["ttft_ms"] for sample in reuse_raw_samples]
@@ -1551,7 +1848,175 @@ def run_non_prefix_setting(
         ],
         "metrics_before": metrics_before,
         "metrics_after": metrics_after,
+        "capacity_tokens": capacity_tokens,
+        "observed_rho_after_target": observed_rho_after_target,
+        "peak_rho_observed": peak_rho_observed,
+        "pressure_and_target_evicted_tokens_total_delta": metric_delta(
+            metrics_at_setting_start, metrics_after, "sglang:evicted_tokens_total"
+        ),
         "pressure_phase": pressure_phase,
+    }
+
+
+def run_exact_context_control_point(
+    *,
+    base_url: str,
+    tokenizer: Any,
+    body_tokens: int,
+    tail_tokens: int,
+    salt: str,
+    repeats: int,
+) -> dict[str, Any]:
+    """The header=0 shape-sweep control point.
+
+    ``NonPrefixSegmentWorkload`` structurally requires
+    ``source_head_ids != target_head_ids`` (see its own ``__post_init__``)
+    precisely so the registered raw/fresh segments capture genuinely
+    different preceding-context KV -- at header length 0 both heads
+    would be empty and trivially equal, so there is no way to build a
+    genuine non-prefix repair workload at all: the body would start at
+    position 0 in both source and target, making them exact-content-
+    identical by construction, never a lossy cross-context repair.
+    Rather than silently forcing a zero header through
+    ``NonPrefixSegmentWorkload`` (which would raise) or quietly coercing
+    it to some nonzero value (which would misrepresent what was actually
+    measured), this instead runs an honest, separately-labeled "exact-
+    context control point": flush, one discarded dense warmup, then
+    ``repeats`` formal flush + dense-request repeats of
+    ``body_tokens + tail_tokens`` tokens -- the same per-repeat flush
+    discipline the dense baseline uses (see module docstring), so every
+    formal repeat is a genuine, uncached dense forward pass, never an
+    accelerated repeat-of-a-repeat exact hit.
+
+    This is the cheapest-possible ("zero restore length") reference
+    point for the header sweep's low end -- never mislabeled as a
+    genuine CacheTune repair measurement: ``is_exact_context_control`` is
+    always ``True`` and ``body_source_context_differs_from_target`` is
+    always ``False`` in the returned dict, both surfaced explicitly for
+    the caller's output JSON.
+
+    Returns a dict with ``body_tokens``, ``is_exact_context_control``
+    (always ``True``), ``body_source_context_differs_from_target``
+    (always ``False``), ``dense_raw_samples``, ``dense_ms_samples``, and
+    ``dense_p50_ms``.
+    """
+    if body_tokens <= 0:
+        raise ValueError(f"body_tokens must be positive, got {body_tokens}")
+    if repeats < 1:
+        raise ValueError(f"repeats must be >= 1, got {repeats}")
+    prompt_ids = _deterministic_token_ids(
+        tokenizer, f"{salt}-exact-control-body", body_tokens
+    ) + _deterministic_token_ids(tokenizer, f"{salt}-exact-control-tail", tail_tokens)
+
+    flush_exact_radix_cache(base_url)
+    warmup_response, _ = timed_post(base_url, dense_generate_payload(prompt_ids))
+    require_finished_by_length(
+        warmup_response, "exact-context-control warmup (discarded)"
+    )
+
+    dense_raw_samples: list[dict[str, Any]] = []
+    for _ in range(repeats):
+        flush_exact_radix_cache(base_url)
+        dense_response, dense_ttft_ms = timed_post(
+            base_url, dense_generate_payload(prompt_ids)
+        )
+        require_finished_by_length(dense_response, "exact-context-control")
+        dense_raw_samples.append(
+            {
+                "ttft_ms": dense_ttft_ms,
+                "cached_tokens": int(dense_response["meta_info"]["cached_tokens"]),
+            }
+        )
+        time.sleep(0.1)
+    dense_ms_samples = [sample["ttft_ms"] for sample in dense_raw_samples]
+    return {
+        "body_tokens": body_tokens,
+        "is_exact_context_control": True,
+        "body_source_context_differs_from_target": False,
+        "dense_raw_samples": dense_raw_samples,
+        "dense_ms_samples": dense_ms_samples,
+        "dense_p50_ms": statistics.median(dense_ms_samples),
+    }
+
+
+def build_sweep_point_result(
+    *,
+    workload: NonPrefixSegmentWorkload,
+    quantized: Any,
+    repeats: int,
+    setting_result: dict[str, Any],
+) -> dict[str, Any]:
+    """Shared point-result assembly for every genuine (non-exact-control)
+    sweep point: every shape-sweep point with header > 0, and every
+    rho-sweep point, both built by ``run_non_prefix_setting``. Reused by
+    both sweep loops in ``run_canary`` so the two stay identically
+    structured and identically cross-validated against
+    ``expected_repair_totals``.
+    """
+    observed_selected_tokens_total = metric_delta(
+        setting_result["metrics_before"],
+        setting_result["metrics_after"],
+        "sglang:approx_kv_cachetune_selected_tokens_total",
+    )
+    observed_dense_fallback = metric_delta(
+        setting_result["metrics_before"],
+        setting_result["metrics_after"],
+        "sglang:approx_kv_dense_fallback_total",
+    )
+    point_expected = expected_repair_totals(
+        repair_tokens_per_call=quantized.repair_tokens,
+        recomputed_layers_per_call=0,  # not tracked per sweep point
+        repeats=repeats,
+    )
+    expected_selected_tokens_for_point = point_expected[
+        "expected_selected_tokens_total"
+    ]
+    cached_tokens_ok = all(
+        observed == workload.body_start_in_target
+        for observed in setting_result["observed_cached_tokens_per_call"]
+    )
+    pressure_phase = setting_result["pressure_phase"]
+    return {
+        "header_tokens": len(workload.target_head_ids),
+        "body_tokens": workload.body_tokens,
+        "tail_tokens": len(workload.tail_ids),
+        "is_exact_context_control": False,
+        "body_source_context_differs_from_target": (
+            workload.body_source_context_differs_from_target
+        ),
+        "repeats": repeats,
+        "seed_head_ms": setting_result["seed_head_ms"],
+        "register_raw_ms": setting_result["register_raw_ms"],
+        "expected_selected_tokens_per_call": quantized.repair_tokens,
+        "expected_selected_tokens_total": expected_selected_tokens_for_point,
+        "expected_executable_ratio": quantized.executable_ratio,
+        "observed_selected_tokens_total": observed_selected_tokens_total,
+        "observed_dense_fallback": observed_dense_fallback,
+        "observed_cached_tokens_per_call": (
+            setting_result["observed_cached_tokens_per_call"]
+        ),
+        "expected_cached_tokens_per_call": workload.body_start_in_target,
+        "fresh_raw_samples": setting_result["fresh_raw_samples"],
+        "reuse_raw_samples": setting_result["reuse_raw_samples"],
+        "fresh_ms_samples": setting_result["fresh_ms_samples"],
+        "reuse_ms_samples": setting_result["reuse_ms_samples"],
+        "combined_ms_samples": setting_result["combined_ms_samples"],
+        "fresh_p50_ms": statistics.median(setting_result["fresh_ms_samples"]),
+        "reuse_p50_ms": statistics.median(setting_result["reuse_ms_samples"]),
+        "combined_p50_ms": statistics.median(setting_result["combined_ms_samples"]),
+        "capacity_tokens": setting_result["capacity_tokens"],
+        "target_rho": pressure_phase["target_rho"] if pressure_phase else None,
+        "observed_rho_after_target": setting_result["observed_rho_after_target"],
+        "peak_rho_observed": setting_result["peak_rho_observed"],
+        "pressure_and_target_evicted_tokens_total_delta": (
+            setting_result["pressure_and_target_evicted_tokens_total_delta"]
+        ),
+        "pressure_phase": pressure_phase,
+        "passed": (
+            observed_selected_tokens_total == expected_selected_tokens_for_point
+            and observed_dense_fallback == 0
+            and cached_tokens_ok
+        ),
     }
 
 
@@ -1584,58 +2049,21 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
     if expected_recomputed_layers <= 0:
         raise RuntimeError("first_recompute_layer leaves no layers to recompute")
 
-    # ---- Real GPU eviction-pressure phase (see module docstring's
-    # "Eviction-pressure phase" section): build the filler workload set
-    # once and validate its footprint against a real, live, idle
-    # /metrics snapshot BEFORE doing anything else -- fail in
-    # milliseconds on a too-weak configuration rather than after already
-    # running the (much slower) dense baseline below. The filler
-    # workloads themselves get freshly re-registered inside every
-    # run_non_prefix_setting call (main setting and every length-sweep
-    # point): that function's own flush wipes the entire approx_kv store
-    # as its first action every time it runs (see
-    # flush_exact_radix_cache's docstring), so a filler set registered
-    # only once here would not survive past the very first setting.
-    pressure_workloads: tuple[NonPrefixSegmentWorkload, ...] = ()
-    eviction_pressure_summary: dict[str, Any] = {
-        "enabled": args.eviction_pressure_objects > 0,
-        "object_count": args.eviction_pressure_objects,
-        "body_tokens_per_object": args.eviction_pressure_body_tokens,
-        "min_fraction": args.eviction_pressure_min_fraction,
-    }
-    if args.eviction_pressure_objects > 0:
-        flush_exact_radix_cache(args.base_url)
-        capacity_snapshot = metric_snapshot(args.base_url)
-        usable_capacity_tokens = usable_kv_capacity_tokens(capacity_snapshot)
-        pressure_workloads = build_eviction_pressure_workloads(
-            tokenizer,
-            object_count=args.eviction_pressure_objects,
-            body_tokens=args.eviction_pressure_body_tokens,
-            head_tokens=NON_PREFIX_HEAD_TOKENS,
-            tail_tokens=NON_PREFIX_TAIL_TOKENS,
-            salt_prefix=f"{CACHE_SALT}-pressure",
-        )
-        total_pressure_tokens = eviction_pressure_total_tokens(pressure_workloads)
-        achieved_fraction = validate_eviction_pressure_fraction(
-            total_pressure_tokens=total_pressure_tokens,
-            usable_capacity_tokens=usable_capacity_tokens,
-            min_fraction=args.eviction_pressure_min_fraction,
-        )
-        eviction_pressure_summary.update(
-            {
-                "usable_capacity_tokens_at_validation": usable_capacity_tokens,
-                "total_pressure_tokens": total_pressure_tokens,
-                "achieved_fraction": achieved_fraction,
-            }
-        )
-
     # ---- Main TTFT benchmark point: build the non-prefix workload up
     # front (see module docstring's "Why /generate and non-prefix
-    # segments" for why source_head != target_head is mandatory). -------
+    # segments" for why source_head != target_head is mandatory). Real
+    # GPU eviction pressure (see module docstring's "Eviction-pressure
+    # phase" section) is reverse-computed and materialized fresh INSIDE
+    # run_non_prefix_setting itself, per setting, from a real, live, idle
+    # /metrics snapshot taken immediately after that call's own flush --
+    # never built once globally here, since a globally-built filler set
+    # would not survive past the very first setting's own flush (see
+    # flush_exact_radix_cache's docstring) and since the correct filler
+    # count depends on each setting's own freshly-measured capacity. ----
     main_workload = build_non_prefix_segment_workload(
         tokenizer,
-        body_tokens=args.body_tokens,
-        head_tokens=NON_PREFIX_HEAD_TOKENS,
+        body_tokens=args.main_body_tokens,
+        head_tokens=args.main_header_tokens,
         tail_tokens=NON_PREFIX_TAIL_TOKENS,
         salt=f"{CACHE_SALT}-main",
     )
@@ -1690,6 +2118,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
     fresh_hash = "cachetune-fresh:phase4-r5-main"
     main_result = run_non_prefix_setting(
         base_url=args.base_url,
+        tokenizer=tokenizer,
         workload=main_workload,
         raw_hash=raw_hash,
         fresh_hash=fresh_hash,
@@ -1697,7 +2126,10 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         cache_dtype=args.cache_dtype,
         repeats=args.repeats,
         label="main",
-        pressure_workloads=pressure_workloads,
+        max_chunk_tokens=args.max_segment_chunk_tokens,
+        target_rho=args.main_target_rho,
+        pressure_filler_head_tokens=args.pressure_filler_head_tokens,
+        pressure_filler_body_tokens=args.pressure_filler_body_tokens,
     )
     fresh_raw_samples = main_result["fresh_raw_samples"]
     cachetune_raw_samples = main_result["reuse_raw_samples"]
@@ -1756,101 +2188,130 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
     fresh_preparation_p50_ms = statistics.median(fresh_ms_samples)
     combined_p50_ms = statistics.median(combined_ms_samples)
 
-    # ---- Real per-length re-quantization sweep (no server restart) -----
-    length_sweep_targets = [
-        int(value) for value in args.length_sweep.split(",") if value.strip()
-    ]
-    length_sweep_points: list[dict[str, Any]] = []
-    for body_tokens in length_sweep_targets:
-        sweep_workload = build_non_prefix_segment_workload(
+    # ---- Shape sweep: header x body cross product (from
+    # --header-tokens-choices x --body-tokens-choices) at a FIXED rho
+    # (--length-sweep-rho, defaults to --main-target-rho) -- the exact
+    # (main_header_tokens, main_body_tokens) combo is skipped since the
+    # main setting above already measured it and re-running it here would
+    # be a redundant, wasteful re-measurement on real GPU time. header=0
+    # cannot build a genuine NonPrefixSegmentWorkload (see
+    # run_exact_context_control_point's own docstring) so it routes to
+    # that dedicated exact-context control point instead of
+    # run_non_prefix_setting.
+    shape_sweep_points: list[dict[str, Any]] = []
+    for header_tokens in args.header_tokens_choices:
+        for body_tokens in args.body_tokens_choices:
+            if (
+                header_tokens == args.main_header_tokens
+                and body_tokens == args.main_body_tokens
+            ):
+                continue
+            artifact = f"phase4-r5-cachetune-shape-h{header_tokens}-b{body_tokens}"
+            if header_tokens == 0:
+                control_result = run_exact_context_control_point(
+                    base_url=args.base_url,
+                    tokenizer=tokenizer,
+                    body_tokens=body_tokens,
+                    tail_tokens=NON_PREFIX_TAIL_TOKENS,
+                    salt=f"{CACHE_SALT}-{artifact}",
+                    repeats=args.repeats,
+                )
+                shape_sweep_points.append(
+                    {
+                        "header_tokens": 0,
+                        "tail_tokens": NON_PREFIX_TAIL_TOKENS,
+                        "target_rho": args.length_sweep_rho,
+                        **control_result,
+                        "passed": True,
+                    }
+                )
+                time.sleep(0.1)
+                continue
+
+            sweep_workload = build_non_prefix_segment_workload(
+                tokenizer,
+                body_tokens=body_tokens,
+                head_tokens=header_tokens,
+                tail_tokens=NON_PREFIX_TAIL_TOKENS,
+                salt=f"{CACHE_SALT}-{artifact}",
+            )
+            quantized = quantize_ratio(
+                r0, context_length=sweep_workload.body_tokens, bounds=bounds
+            )
+            sweep_result = run_non_prefix_setting(
+                base_url=args.base_url,
+                tokenizer=tokenizer,
+                workload=sweep_workload,
+                raw_hash=f"cachetune-raw:{artifact}",
+                fresh_hash=f"cachetune-fresh:{artifact}",
+                model_fingerprint=args.model_fingerprint,
+                cache_dtype=args.cache_dtype,
+                repeats=args.repeats,
+                label=f"shape[header={header_tokens},body={body_tokens}]",
+                max_chunk_tokens=args.max_segment_chunk_tokens,
+                target_rho=args.length_sweep_rho,
+                pressure_filler_head_tokens=args.pressure_filler_head_tokens,
+                pressure_filler_body_tokens=args.pressure_filler_body_tokens,
+            )
+            shape_sweep_points.append(
+                build_sweep_point_result(
+                    workload=sweep_workload,
+                    quantized=quantized,
+                    repeats=args.repeats,
+                    setting_result=sweep_result,
+                )
+            )
+            time.sleep(0.1)
+
+    if not all(point["passed"] for point in shape_sweep_points):
+        raise RuntimeError(f"shape sweep validation failed: {shape_sweep_points}")
+
+    # ---- Rho sweep: --target-rho-choices at the FIXED main
+    # (--main-header-tokens, --main-body-tokens) shape -- the value equal
+    # to --main-target-rho is skipped since the main setting above
+    # already measured it.
+    rho_sweep_points: list[dict[str, Any]] = []
+    for target_rho in args.target_rho_choices:
+        if target_rho == args.main_target_rho:
+            continue
+        artifact = f"phase4-r5-cachetune-rho-{target_rho}"
+        rho_workload = build_non_prefix_segment_workload(
             tokenizer,
-            body_tokens=body_tokens,
-            head_tokens=NON_PREFIX_HEAD_TOKENS,
+            body_tokens=args.main_body_tokens,
+            head_tokens=args.main_header_tokens,
             tail_tokens=NON_PREFIX_TAIL_TOKENS,
-            salt=f"{CACHE_SALT}-sweep-{body_tokens}",
+            salt=f"{CACHE_SALT}-{artifact}",
         )
         quantized = quantize_ratio(
-            r0, context_length=sweep_workload.body_tokens, bounds=bounds
+            r0, context_length=rho_workload.body_tokens, bounds=bounds
         )
-        artifact = f"phase4-r5-cachetune-sweep-{body_tokens}"
-        sweep_raw_hash = f"cachetune-raw:{artifact}"
-        sweep_fresh_hash = f"cachetune-fresh:{artifact}"
-
-        sweep_result = run_non_prefix_setting(
+        rho_result = run_non_prefix_setting(
             base_url=args.base_url,
-            workload=sweep_workload,
-            raw_hash=sweep_raw_hash,
-            fresh_hash=sweep_fresh_hash,
+            tokenizer=tokenizer,
+            workload=rho_workload,
+            raw_hash=f"cachetune-raw:{artifact}",
+            fresh_hash=f"cachetune-fresh:{artifact}",
             model_fingerprint=args.model_fingerprint,
             cache_dtype=args.cache_dtype,
             repeats=args.repeats,
-            label=f"sweep[{body_tokens}]",
-            pressure_workloads=pressure_workloads,
+            label=f"rho[{target_rho}]",
+            max_chunk_tokens=args.max_segment_chunk_tokens,
+            target_rho=target_rho,
+            pressure_filler_head_tokens=args.pressure_filler_head_tokens,
+            pressure_filler_body_tokens=args.pressure_filler_body_tokens,
         )
-        observed_selected_tokens_total = metric_delta(
-            sweep_result["metrics_before"],
-            sweep_result["metrics_after"],
-            "sglang:approx_kv_cachetune_selected_tokens_total",
-        )
-        observed_dense_fallback = metric_delta(
-            sweep_result["metrics_before"],
-            sweep_result["metrics_after"],
-            "sglang:approx_kv_dense_fallback_total",
-        )
-        point_expected = expected_repair_totals(
-            repair_tokens_per_call=quantized.repair_tokens,
-            recomputed_layers_per_call=0,  # not tracked per sweep point
-            repeats=args.repeats,
-        )
-        expected_selected_tokens_for_point = point_expected[
-            "expected_selected_tokens_total"
-        ]
-        cached_tokens_ok = all(
-            observed == sweep_workload.body_start_in_target
-            for observed in sweep_result["observed_cached_tokens_per_call"]
-        )
-        length_sweep_points.append(
-            {
-                "body_tokens": sweep_workload.body_tokens,
-                "head_tokens": NON_PREFIX_HEAD_TOKENS,
-                "tail_tokens": NON_PREFIX_TAIL_TOKENS,
-                "body_source_context_differs_from_target": (
-                    sweep_workload.body_source_context_differs_from_target
-                ),
-                "repeats": args.repeats,
-                "seed_head_ms": sweep_result["seed_head_ms"],
-                "register_raw_ms": sweep_result["register_raw_ms"],
-                "expected_selected_tokens_per_call": quantized.repair_tokens,
-                "expected_selected_tokens_total": expected_selected_tokens_for_point,
-                "expected_executable_ratio": quantized.executable_ratio,
-                "observed_selected_tokens_total": observed_selected_tokens_total,
-                "observed_dense_fallback": observed_dense_fallback,
-                "observed_cached_tokens_per_call": (
-                    sweep_result["observed_cached_tokens_per_call"]
-                ),
-                "expected_cached_tokens_per_call": sweep_workload.body_start_in_target,
-                "fresh_raw_samples": sweep_result["fresh_raw_samples"],
-                "reuse_raw_samples": sweep_result["reuse_raw_samples"],
-                "fresh_ms_samples": sweep_result["fresh_ms_samples"],
-                "reuse_ms_samples": sweep_result["reuse_ms_samples"],
-                "combined_ms_samples": sweep_result["combined_ms_samples"],
-                "fresh_p50_ms": statistics.median(sweep_result["fresh_ms_samples"]),
-                "reuse_p50_ms": statistics.median(sweep_result["reuse_ms_samples"]),
-                "combined_p50_ms": statistics.median(
-                    sweep_result["combined_ms_samples"]
-                ),
-                "pressure_phase": sweep_result["pressure_phase"],
-                "passed": (
-                    observed_selected_tokens_total == expected_selected_tokens_for_point
-                    and observed_dense_fallback == 0
-                    and cached_tokens_ok
-                ),
-            }
+        rho_sweep_points.append(
+            build_sweep_point_result(
+                workload=rho_workload,
+                quantized=quantized,
+                repeats=args.repeats,
+                setting_result=rho_result,
+            )
         )
         time.sleep(0.1)
 
-    if not all(point["passed"] for point in length_sweep_points):
-        raise RuntimeError(f"length sweep validation failed: {length_sweep_points}")
+    if not all(point["passed"] for point in rho_sweep_points):
+        raise RuntimeError(f"rho sweep validation failed: {rho_sweep_points}")
 
     metrics_final = metric_snapshot(args.base_url)
     pool_invariant = idle_pool_invariant(metrics_final)
@@ -1898,30 +2359,32 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "floor; this project does not evaluate output quality, so the "
             "floor is exercised here purely as a ratio-selection behavior."
         )
-    if args.eviction_pressure_objects > 0:
-        known_limitations.append(
-            "Eviction-pressure defaults (--eviction-pressure-objects="
-            f"{args.eviction_pressure_objects}, "
-            "--eviction-pressure-body-tokens="
-            f"{args.eviction_pressure_body_tokens}, "
-            "--eviction-pressure-min-fraction="
-            f"{args.eviction_pressure_min_fraction}) are reasonable "
-            "starting-point placeholders, NOT yet empirically tuned "
-            "against this specific deployment's real usable KV capacity "
-            "beyond the one-time validate_eviction_pressure_fraction "
-            "floor check at canary start; whether real device-pool "
-            "eviction actually occurred for a given setting must be "
-            "read from that setting's own "
-            "pressure_phase.evicted_tokens_total_delta (may legitimately "
-            "be 0 if the pool turned out larger than this configuration "
-            "assumed -- reported honestly, never hidden)."
-        )
-    else:
-        known_limitations.append(
-            "--eviction-pressure-objects=0: this run explicitly opted "
-            "out of the multi-object eviction-pressure phase and is a "
-            "single-object microbenchmark only."
-        )
+    known_limitations.append(
+        "Every setting that runs a genuine repair (main, every "
+        "shape-sweep point with header > 0, and every rho-sweep point) "
+        "runs its own freshly reverse-computed, freshly-materialized "
+        "multi-object eviction-pressure phase sized against that "
+        "setting's own real, live, idle usable_kv_capacity_tokens "
+        "snapshot (see eviction_pressure_filler_count_for_rho / "
+        "register_eviction_pressure_objects) -- never a single globally-"
+        "shared filler set and never CLI-disableable to a single-object "
+        "microbenchmark; whether real device-pool eviction actually "
+        "occurred for a given setting must be read from that setting's "
+        "own pressure_phase.evicted_tokens_total_delta / "
+        "peak_rho_observed / observed_rho_after_target (may legitimately "
+        "differ from the nominal target_rho -- reported honestly, never "
+        "hidden). The shape sweep's header=0 exact-context control "
+        "points are the one deliberate exception: they run no pressure "
+        "phase at all and carry no pressure_phase/capacity_tokens/"
+        "peak_rho_observed keys (see the next limitation)."
+    )
+    known_limitations.append(
+        "The shape sweep's header=0 points are an exact-context control "
+        "point (dense-only, is_exact_context_control=True), never a "
+        "genuine CacheTune repair measurement -- see "
+        "run_exact_context_control_point's own docstring for why header=0 "
+        "cannot build a NonPrefixSegmentWorkload at all."
+    )
 
     payload = {
         "schema_version": 4,
@@ -1952,11 +2415,12 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "exact_radix_flush_at_start_of_every_setting_rationale": (
                 "run_non_prefix_setting flushes the exact-match radix "
                 "cache as its own first action, once per setting (the "
-                "main setting and every length-sweep point) -- otherwise "
-                "a previous setting's own already-seeded target_head_ids "
-                "would still be sitting in the tree, able to silently "
-                "produce a nonzero cached_tokens for an unrelated later "
-                "setting's head-seed or raw-segment register request."
+                "main setting, every shape-sweep point with header > 0, "
+                "and every rho-sweep point) -- otherwise a previous "
+                "setting's own already-seeded target_head_ids would "
+                "still be sitting in the tree, able to silently produce "
+                "a nonzero cached_tokens for an unrelated later setting's "
+                "head-seed or raw-segment register request."
             ),
             "cachetune_reuse_flush_between_repeats": False,
             "cachetune_reuse_flush_rationale": (
@@ -1988,25 +2452,35 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                 "'[DONE]', or a mid-stream error frame all raise instead "
                 "of being silently treated as a completed request."
             ),
-            "eviction_pressure_phase_runs_once_per_setting": (
-                args.eviction_pressure_objects > 0
-            ),
+            "eviction_pressure_phase_runs_once_per_setting": True,
             "eviction_pressure_phase_rationale": (
-                "when enabled, every setting's own flush (see "
-                "exact_radix_flush_at_start_of_every_setting) also wipes "
-                "the entire approx_kv store, so eviction-pressure filler "
-                "objects are re-registered and re-materialized fresh "
-                "inside every run_non_prefix_setting call (main setting "
-                "and every length-sweep point alike), never built once "
-                "globally -- see register_eviction_pressure_objects."
+                "every setting's own flush (see "
+                "exact_radix_flush_at_start_of_every_setting) wipes the "
+                "entire approx_kv store, so eviction-pressure filler "
+                "objects are freshly reverse-computed (from that "
+                "setting's own target_rho against a real, live, idle "
+                "/metrics snapshot) and re-materialized inside every "
+                "run_non_prefix_setting call (main setting, every "
+                "shape-sweep point, and every rho-sweep point alike), "
+                "never built once globally -- see "
+                "eviction_pressure_filler_count_for_rho / "
+                "register_eviction_pressure_objects."
             ),
         },
         "workload": {
             "kind": "non_prefix_segment",
             "endpoint": "/generate",
-            "head_tokens": NON_PREFIX_HEAD_TOKENS,
+            "main_header_tokens": args.main_header_tokens,
+            "main_body_tokens": args.main_body_tokens,
+            "main_target_rho": args.main_target_rho,
             "tail_tokens": NON_PREFIX_TAIL_TOKENS,
-            "body_tokens": args.body_tokens,
+            "header_tokens_choices": list(args.header_tokens_choices),
+            "body_tokens_choices": list(args.body_tokens_choices),
+            "target_rho_choices": list(args.target_rho_choices),
+            "length_sweep_rho": args.length_sweep_rho,
+            "max_segment_chunk_tokens": args.max_segment_chunk_tokens,
+            "pressure_filler_head_tokens": args.pressure_filler_head_tokens,
+            "pressure_filler_body_tokens": args.pressure_filler_body_tokens,
             "description": (
                 "source_prompt = source_head_ids + shared_body_ids; "
                 "target_prompt = target_head_ids + shared_body_ids + "
@@ -2024,6 +2498,7 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "roofline_ratio_r0": r0,
         },
         "server_validation": {
+            "header_tokens": args.main_header_tokens,
             "body_tokens": main_workload.body_tokens,
             "num_layers": num_layers,
             "first_recompute_layer": args.first_recompute_layer,
@@ -2047,6 +2522,13 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "seed_head_ms": main_result["seed_head_ms"],
             "register_raw_ms": main_result["register_raw_ms"],
             "last_prompt_token_real_forward": True,
+            "capacity_tokens": main_result["capacity_tokens"],
+            "target_rho": args.main_target_rho,
+            "observed_rho_after_target": main_result["observed_rho_after_target"],
+            "peak_rho_observed": main_result["peak_rho_observed"],
+            "pressure_and_target_evicted_tokens_total_delta": (
+                main_result["pressure_and_target_evicted_tokens_total_delta"]
+            ),
             "pressure_phase": main_pressure_phase,
             "passed": all(telemetry_checks.values()),
         },
@@ -2072,13 +2554,14 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "target_only_speedup": dense_p50_ms / cachetune_target_p50_ms,
             "combined_speedup": dense_p50_ms / combined_p50_ms,
         },
-        "length_sweep_points": length_sweep_points,
-        "eviction_pressure": eviction_pressure_summary,
+        "shape_sweep_points": shape_sweep_points,
+        "rho_sweep_points": rho_sweep_points,
         "pool_invariant": pool_invariant,
         "health_response": health_status,
         "known_limitations": known_limitations,
         "passed": all(telemetry_checks.values())
-        and all(point["passed"] for point in length_sweep_points)
+        and all(point["passed"] for point in shape_sweep_points)
+        and all(point["passed"] for point in rho_sweep_points)
         and bool(pool_invariant.get("passed")),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -2146,8 +2629,12 @@ def main() -> int:
                 "combined_p50_ms": payload["ttft"]["combined_p50_ms"],
                 "target_only_speedup": payload["ttft"]["target_only_speedup"],
                 "combined_speedup": payload["ttft"]["combined_speedup"],
-                "length_sweep_points": len(payload["length_sweep_points"]),
-                "eviction_pressure": payload["eviction_pressure"],
+                "shape_sweep_points": len(payload["shape_sweep_points"]),
+                "rho_sweep_points": len(payload["rho_sweep_points"]),
+                "main_target_rho": payload["server_validation"]["target_rho"],
+                "peak_rho_observed": (
+                    payload["server_validation"]["peak_rho_observed"]
+                ),
             },
         },
     )

@@ -5,6 +5,8 @@ import asyncio
 import dataclasses
 import hashlib
 import json
+import math
+import statistics
 import tempfile
 import time
 import unittest
@@ -18,28 +20,40 @@ from benchmark.approx_kv.run_phase4_cachetune_canary import (
     WARMUP_PASSES_PER_SETTING,
     NonPrefixSegmentWorkload,
     _deterministic_token_ids,
-    _eviction_pressure_body_tokens,
-    _eviction_pressure_min_fraction,
-    _eviction_pressure_object_count,
     _first_common_prefix_length,
+    _non_negative_int_choice_list,
+    _positive_float,
+    _positive_float_choice_list,
+    _positive_int,
+    _positive_int_choice_list,
     _pressure_filler_head_literal_prefix,
     _repeat_count,
     append_run_log,
+    body_segments_for_hash,
     build_eviction_pressure_workloads,
     build_non_prefix_segment_workload,
     build_settings,
+    build_sweep_point_result,
+    chunk_offsets,
     dense_generate_payload,
+    eviction_pressure_filler_count_for_rho,
     eviction_pressure_total_tokens,
     expected_repair_totals,
     flush_exact_radix_cache,
+    observed_rho,
     register_eviction_pressure_objects,
     register_generate_payload,
     require_cached_tokens,
     require_finished_by_length,
     reuse_generate_payload,
+    run_exact_context_control_point,
     timed_post,
-    validate_eviction_pressure_fraction,
     validate_pairwise_head_isolation,
+)
+from sglang.srt.mem_cache.cachetune.hardware_profile import (
+    CacheTuneMode,
+    RatioBounds,
+    quantize_ratio,
 )
 from sglang.test.ci.ci_register import register_cpu_ci
 
@@ -144,53 +158,103 @@ class TestRepeatCount(unittest.TestCase):
             _repeat_count("abc")
 
 
-class TestEvictionPressureArgparseValidators(unittest.TestCase):
-    """``--eviction-pressure-objects`` / ``--eviction-pressure-body-tokens``
-    / ``--eviction-pressure-min-fraction`` must each reject invalid CLI
-    input up front, at parse time -- never silently clamped, never
-    deferred to a confusing failure deep inside the canary run."""
+class TestNewChoiceListArgparseValidators(unittest.TestCase):
+    """``--header-tokens-choices`` / ``--body-tokens-choices`` /
+    ``--target-rho-choices`` must each reject invalid CLI input up
+    front, at parse time -- never silently clamped, never deferred to a
+    confusing failure deep inside the canary run."""
 
-    def test_object_count_accepts_zero_as_explicit_opt_out(self):
-        self.assertEqual(_eviction_pressure_object_count("0"), 0)
+    def test_non_negative_int_choice_list_accepts_zero(self):
+        self.assertEqual(_non_negative_int_choice_list("0"), (0,))
 
-    def test_object_count_accepts_positive_values(self):
-        self.assertEqual(_eviction_pressure_object_count("4"), 4)
-        self.assertEqual(_eviction_pressure_object_count("26"), 26)
+    def test_non_negative_int_choice_list_accepts_multiple_values(self):
+        self.assertEqual(
+            _non_negative_int_choice_list("0,32,64,128,256"),
+            (0, 32, 64, 128, 256),
+        )
 
-    def test_object_count_rejects_negative(self):
+    def test_non_negative_int_choice_list_rejects_negative(self):
         with self.assertRaises(argparse.ArgumentTypeError):
-            _eviction_pressure_object_count("-1")
+            _non_negative_int_choice_list("0,-1,64")
 
-    def test_body_tokens_accepts_positive_values(self):
-        self.assertEqual(_eviction_pressure_body_tokens("1536"), 1536)
-        self.assertEqual(_eviction_pressure_body_tokens("1"), 1)
-
-    def test_body_tokens_rejects_zero(self):
+    def test_non_negative_int_choice_list_rejects_empty(self):
         with self.assertRaises(argparse.ArgumentTypeError):
-            _eviction_pressure_body_tokens("0")
+            _non_negative_int_choice_list("")
 
-    def test_body_tokens_rejects_negative(self):
+    def test_non_negative_int_choice_list_skips_blank_entries(self):
+        # A trailing comma or accidental double comma should not produce
+        # a spurious empty-string int() conversion.
+        self.assertEqual(_non_negative_int_choice_list("0,32,"), (0, 32))
+
+    def test_positive_int_choice_list_accepts_multiple_values(self):
+        self.assertEqual(
+            _positive_int_choice_list("512,768,1024,2048"),
+            (512, 768, 1024, 2048),
+        )
+
+    def test_positive_int_choice_list_rejects_zero(self):
         with self.assertRaises(argparse.ArgumentTypeError):
-            _eviction_pressure_body_tokens("-256")
+            _positive_int_choice_list("512,0")
 
-    def test_min_fraction_accepts_values_in_open_closed_interval(self):
-        self.assertEqual(_eviction_pressure_min_fraction("0.3"), 0.3)
-        # 1.0 (the closed end) must be accepted: "the entire pool" is a
-        # legitimate, if extreme, pressure floor.
-        self.assertEqual(_eviction_pressure_min_fraction("1.0"), 1.0)
-
-    def test_min_fraction_rejects_zero(self):
-        # The open end: 0 would make the floor check vacuous.
+    def test_positive_int_choice_list_rejects_negative(self):
         with self.assertRaises(argparse.ArgumentTypeError):
-            _eviction_pressure_min_fraction("0")
+            _positive_int_choice_list("-512")
 
-    def test_min_fraction_rejects_negative(self):
+    def test_positive_int_choice_list_rejects_empty(self):
         with self.assertRaises(argparse.ArgumentTypeError):
-            _eviction_pressure_min_fraction("-0.1")
+            _positive_int_choice_list("")
 
-    def test_min_fraction_rejects_above_one(self):
+    def test_positive_float_choice_list_accepts_multiple_values(self):
+        self.assertEqual(
+            _positive_float_choice_list("0.9,1.1,1.5,2,3"),
+            (0.9, 1.1, 1.5, 2.0, 3.0),
+        )
+
+    def test_positive_float_choice_list_rejects_zero(self):
         with self.assertRaises(argparse.ArgumentTypeError):
-            _eviction_pressure_min_fraction("1.1")
+            _positive_float_choice_list("0.9,0")
+
+    def test_positive_float_choice_list_rejects_negative(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            _positive_float_choice_list("-0.5")
+
+    def test_positive_float_choice_list_rejects_empty(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            _positive_float_choice_list("")
+
+
+class TestPositiveIntAndFloatArgparseValidators(unittest.TestCase):
+    """``_positive_int``/``_positive_float`` back
+    ``--main-header-tokens``, ``--main-body-tokens``,
+    ``--max-segment-chunk-tokens``, ``--pressure-filler-head-tokens``,
+    ``--pressure-filler-body-tokens``, ``--main-target-rho``, and
+    ``--length-sweep-rho``: all of these are structurally required to be
+    positive (a zero or negative header/body/chunk/rho value is either
+    meaningless or -- for header specifically -- must go through the
+    dedicated header=0 control point in ``--header-tokens-choices``
+    instead of ever being accepted as a single scalar main/chunk value)."""
+
+    def test_positive_int_accepts_positive_value(self):
+        self.assertEqual(_positive_int("64"), 64)
+
+    def test_positive_int_rejects_zero(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            _positive_int("0")
+
+    def test_positive_int_rejects_negative(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            _positive_int("-1")
+
+    def test_positive_float_accepts_positive_value(self):
+        self.assertEqual(_positive_float("1.5"), 1.5)
+
+    def test_positive_float_rejects_zero(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            _positive_float("0")
+
+    def test_positive_float_rejects_negative(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            _positive_float("-0.1")
 
 
 class TestExpectedRepairTotals(unittest.TestCase):
@@ -342,12 +406,17 @@ class TestBuildSettings(unittest.TestCase):
             t_i_ms=2.0,
             t_o_ms=0.5,
             first_recompute_layer=1,
-            body_tokens=256,
-            length_sweep="128,512",
+            main_header_tokens=64,
+            main_body_tokens=1024,
+            main_target_rho=1.5,
+            header_tokens_choices=(0, 32, 64, 128, 256),
+            body_tokens_choices=(512, 768, 1024, 2048),
+            target_rho_choices=(0.9, 1.1, 1.5, 2.0, 3.0),
+            length_sweep_rho=1.5,
+            max_segment_chunk_tokens=512,
+            pressure_filler_head_tokens=NON_PREFIX_HEAD_TOKENS,
+            pressure_filler_body_tokens=2048,
             repeats=4,
-            eviction_pressure_objects=4,
-            eviction_pressure_body_tokens=1536,
-            eviction_pressure_min_fraction=0.3,
             runner_git_sha="abc123",
             image_digest="sha256:deadbeef",
         )
@@ -362,30 +431,41 @@ class TestBuildSettings(unittest.TestCase):
         self.assertEqual(settings["t_c_ms"], 1.0)
         self.assertEqual(settings["t_i_ms"], 2.0)
         self.assertEqual(settings["t_o_ms"], 0.5)
-        self.assertEqual(settings["length_sweep"], "128,512")
         self.assertEqual(settings["runner_git_sha"], "abc123")
         self.assertEqual(settings["image_digest"], "sha256:deadbeef")
 
-    def test_carries_through_eviction_pressure_settings(self):
+    def test_carries_through_unified_pressure_matrix_settings(self):
         args = self._fake_args(
-            eviction_pressure_objects=6,
-            eviction_pressure_body_tokens=2048,
-            eviction_pressure_min_fraction=0.5,
+            main_target_rho=2.0,
+            header_tokens_choices=(0, 64),
+            body_tokens_choices=(512,),
+            target_rho_choices=(1.0, 2.0),
+            length_sweep_rho=2.0,
+            pressure_filler_head_tokens=40,
+            pressure_filler_body_tokens=4096,
         )
         settings = build_settings(args)
-        self.assertEqual(settings["eviction_pressure_objects"], 6)
-        self.assertEqual(settings["eviction_pressure_body_tokens"], 2048)
-        self.assertEqual(settings["eviction_pressure_min_fraction"], 0.5)
+        self.assertEqual(settings["main_target_rho"], 2.0)
+        self.assertEqual(settings["header_tokens_choices"], (0, 64))
+        self.assertEqual(settings["body_tokens_choices"], (512,))
+        self.assertEqual(settings["target_rho_choices"], (1.0, 2.0))
+        self.assertEqual(settings["length_sweep_rho"], 2.0)
+        self.assertEqual(settings["pressure_filler_head_tokens"], 40)
+        self.assertEqual(settings["pressure_filler_body_tokens"], 4096)
 
-    def test_carries_through_body_tokens_and_fixed_head_tail(self):
-        # body_tokens comes from parsed args; head/tail are fixed
-        # measurement-protocol constants, not CLI-controlled, matching
-        # the "target head固定34即可" requirement.
-        args = self._fake_args(body_tokens=384)
+    def test_carries_through_main_shape_and_fixed_tail(self):
+        # main_header_tokens/main_body_tokens come from parsed args; tail
+        # is a fixed measurement-protocol constant, not CLI-controlled.
+        args = self._fake_args(main_header_tokens=128, main_body_tokens=384)
         settings = build_settings(args)
-        self.assertEqual(settings["body_tokens"], 384)
-        self.assertEqual(settings["head_tokens"], NON_PREFIX_HEAD_TOKENS)
+        self.assertEqual(settings["main_header_tokens"], 128)
+        self.assertEqual(settings["main_body_tokens"], 384)
         self.assertEqual(settings["tail_tokens"], NON_PREFIX_TAIL_TOKENS)
+
+    def test_carries_through_max_segment_chunk_tokens(self):
+        args = self._fake_args(max_segment_chunk_tokens=256)
+        settings = build_settings(args)
+        self.assertEqual(settings["max_segment_chunk_tokens"], 256)
 
     def test_fixed_measurement_protocol_fields(self):
         settings = build_settings(self._fake_args())
@@ -1030,8 +1110,9 @@ class TestBuildEvictionPressureWorkloads(unittest.TestCase):
 
 
 class TestEvictionPressureTotalTokens(unittest.TestCase):
-    """The floor-estimate token sum ``validate_eviction_pressure_fraction``
-    compares against live server capacity."""
+    """The floor-estimate token sum reported alongside
+    ``observed_rho_after_pressure`` in ``register_eviction_pressure_objects``'s
+    own returned telemetry dict."""
 
     def _workload(self, body_tokens: int) -> NonPrefixSegmentWorkload:
         return NonPrefixSegmentWorkload(
@@ -1052,82 +1133,236 @@ class TestEvictionPressureTotalTokens(unittest.TestCase):
         self.assertEqual(eviction_pressure_total_tokens([]), 0)
 
 
-class TestValidateEvictionPressureFraction(unittest.TestCase):
-    """Fails fast against a real ``/metrics`` snapshot, before any
-    dense baseline or setting measurement runs, whenever the configured
-    eviction-pressure footprint could not plausibly matter."""
+class TestEvictionPressureFillerCountForRho(unittest.TestCase):
+    """Reverse-computes the filler object count from a target nominal
+    rho and a real, measured capacity -- the "actual capacity自动反算
+    ...所需filler数" requirement."""
 
-    def test_returns_achieved_fraction_when_above_floor(self):
-        fraction = validate_eviction_pressure_fraction(
-            total_pressure_tokens=600,
+    def test_exact_division_needs_no_rounding_up(self):
+        # target_total = 1.5 * 1000 = 1500; 1500 / 500 = 3.0 exactly.
+        count = eviction_pressure_filler_count_for_rho(
+            target_rho=1.5,
             usable_capacity_tokens=1000,
-            min_fraction=0.3,
+            tokens_per_filler=500,
         )
-        self.assertAlmostEqual(fraction, 0.6)
+        self.assertEqual(count, 3)
 
-    def test_boundary_fraction_exactly_at_floor_passes(self):
-        # Strictly-less-than semantics: a fraction exactly equal to the
-        # floor must be accepted, not rejected.
-        fraction = validate_eviction_pressure_fraction(
-            total_pressure_tokens=300,
+    def test_rounds_up_on_fractional_result(self):
+        # target_total = 0.9 * 1000 = 900; 900 / 500 = 1.8 -> ceil to 2.
+        count = eviction_pressure_filler_count_for_rho(
+            target_rho=0.9,
             usable_capacity_tokens=1000,
-            min_fraction=0.3,
+            tokens_per_filler=500,
         )
-        self.assertAlmostEqual(fraction, 0.3)
+        self.assertEqual(count, 2)
 
-    def test_raises_runtime_error_when_below_floor(self):
-        with self.assertRaises(RuntimeError) as ctx:
-            validate_eviction_pressure_fraction(
-                total_pressure_tokens=100,
-                usable_capacity_tokens=1000,
-                min_fraction=0.3,
+    def test_large_target_rho_needs_many_fillers(self):
+        count = eviction_pressure_filler_count_for_rho(
+            target_rho=3.0,
+            usable_capacity_tokens=2048,
+            tokens_per_filler=2082,  # 34 head + 2048 body
+        )
+        self.assertEqual(count, math.ceil(3.0 * 2048 / 2082))
+
+    def test_achieved_nominal_ratio_is_never_below_target(self):
+        for target_rho in (0.9, 1.1, 1.5, 2.0, 3.0):
+            count = eviction_pressure_filler_count_for_rho(
+                target_rho=target_rho,
+                usable_capacity_tokens=12345,
+                tokens_per_filler=2082,
             )
-        message = str(ctx.exception)
-        self.assertIn("100", message)
-        self.assertIn("1000", message)
+            achieved = (count * 2082) / 12345
+            self.assertGreaterEqual(achieved, target_rho)
 
-    def test_rejects_non_positive_usable_capacity(self):
+    def test_rejects_non_positive_target_rho(self):
         with self.assertRaises(ValueError):
-            validate_eviction_pressure_fraction(
-                total_pressure_tokens=100,
+            eviction_pressure_filler_count_for_rho(
+                target_rho=0.0,
+                usable_capacity_tokens=1000,
+                tokens_per_filler=500,
+            )
+
+    def test_rejects_negative_target_rho(self):
+        with self.assertRaises(ValueError):
+            eviction_pressure_filler_count_for_rho(
+                target_rho=-1.5,
+                usable_capacity_tokens=1000,
+                tokens_per_filler=500,
+            )
+
+    def test_rejects_non_positive_capacity(self):
+        with self.assertRaises(ValueError):
+            eviction_pressure_filler_count_for_rho(
+                target_rho=1.5,
                 usable_capacity_tokens=0,
-                min_fraction=0.3,
+                tokens_per_filler=500,
             )
 
-    def test_rejects_negative_total_pressure_tokens(self):
+    def test_rejects_non_positive_tokens_per_filler(self):
         with self.assertRaises(ValueError):
-            validate_eviction_pressure_fraction(
-                total_pressure_tokens=-1,
+            eviction_pressure_filler_count_for_rho(
+                target_rho=1.5,
                 usable_capacity_tokens=1000,
-                min_fraction=0.3,
+                tokens_per_filler=0,
             )
 
-    def test_rejects_min_fraction_of_zero(self):
+
+class TestObservedRho(unittest.TestCase):
+    """The genuine, sampled occupancy ratio from a live
+    ``sglang:kv_used_tokens`` gauge snapshot against a fixed capacity
+    reference -- distinct from the nominal (requested-tokens) nature of
+    ``eviction_pressure_filler_count_for_rho``."""
+
+    def test_computes_simple_ratio(self):
+        snapshot = {"sglang:kv_used_tokens": 500.0}
+        self.assertAlmostEqual(observed_rho(snapshot, capacity_tokens=1000), 0.5)
+
+    def test_ratio_can_exceed_one_under_real_pressure(self):
+        # The pool is a fixed physical size, but the SUM of nominal
+        # filler requests can (by design) exceed it; the actual gauge
+        # reading is capped at whatever physically fits, but a snapshot
+        # taken transiently mid-registration could still legitimately
+        # read higher than the fixed idle-capacity reference if that
+        # reference itself under-counts a since-grown pool -- this
+        # function must not silently clamp such a reading.
+        snapshot = {"sglang:kv_used_tokens": 1200.0}
+        self.assertAlmostEqual(observed_rho(snapshot, capacity_tokens=1000), 1.2)
+
+    def test_zero_used_tokens_is_zero_ratio(self):
+        snapshot = {"sglang:kv_used_tokens": 0.0}
+        self.assertAlmostEqual(observed_rho(snapshot, capacity_tokens=1000), 0.0)
+
+    def test_rejects_non_positive_capacity_tokens(self):
         with self.assertRaises(ValueError):
-            validate_eviction_pressure_fraction(
-                total_pressure_tokens=100,
-                usable_capacity_tokens=1000,
-                min_fraction=0.0,
-            )
+            observed_rho({"sglang:kv_used_tokens": 500.0}, capacity_tokens=0)
 
-    def test_rejects_min_fraction_above_one(self):
+    def test_raises_when_gauge_missing_from_snapshot(self):
         with self.assertRaises(ValueError):
-            validate_eviction_pressure_fraction(
-                total_pressure_tokens=100,
-                usable_capacity_tokens=1000,
-                min_fraction=1.5,
+            observed_rho({}, capacity_tokens=1000)
+
+
+class TestChunkOffsets(unittest.TestCase):
+    """Splits a body span into contiguous, <=max_chunk_tokens-long
+    ``(offset, length)`` chunks -- the client-side mechanism backing
+    ``body_segments_for_hash``."""
+
+    def test_single_chunk_when_body_fits(self):
+        self.assertEqual(chunk_offsets(300, 512), ((0, 300),))
+
+    def test_exact_multiple_splits_evenly(self):
+        self.assertEqual(
+            chunk_offsets(1024, 512),
+            ((0, 512), (512, 512)),
+        )
+
+    def test_remainder_chunk_is_shorter(self):
+        self.assertEqual(
+            chunk_offsets(1000, 512),
+            ((0, 512), (512, 488)),
+        )
+
+    def test_body_exactly_equal_to_max_chunk(self):
+        self.assertEqual(chunk_offsets(512, 512), ((0, 512),))
+
+    def test_chunks_cover_total_tokens_with_no_gap_or_overlap(self):
+        chunks = chunk_offsets(2048, 512)
+        covered = 0
+        for offset, length in chunks:
+            self.assertEqual(offset, covered)
+            covered += length
+        self.assertEqual(covered, 2048)
+
+    def test_rejects_non_positive_total_tokens(self):
+        with self.assertRaises(ValueError):
+            chunk_offsets(0, 512)
+
+    def test_rejects_non_positive_max_chunk_tokens(self):
+        with self.assertRaises(ValueError):
+            chunk_offsets(1024, 0)
+
+
+class TestBodySegmentsForHash(unittest.TestCase):
+    """Builds the ``"segments"`` payload list for one body span, with
+    distinct per-chunk ``content_hash`` values and offsets anchored at
+    ``body_start``."""
+
+    def test_single_chunk_body_produces_one_segment(self):
+        segments = body_segments_for_hash(
+            hash_prefix="cachetune-raw:test",
+            body_start=34,
+            body_tokens=300,
+            max_chunk_tokens=512,
+        )
+        self.assertEqual(
+            segments,
+            [
+                {
+                    "content_hash": "cachetune-raw:test:chunk0",
+                    "target_start": 34,
+                    "length": 300,
+                }
+            ],
+        )
+
+    def test_multi_chunk_body_produces_multiple_segments_with_distinct_hashes(self):
+        segments = body_segments_for_hash(
+            hash_prefix="cachetune-raw:test",
+            body_start=64,
+            body_tokens=1024,
+            max_chunk_tokens=512,
+        )
+        self.assertEqual(len(segments), 2)
+        self.assertEqual(segments[0]["content_hash"], "cachetune-raw:test:chunk0")
+        self.assertEqual(segments[0]["target_start"], 64)
+        self.assertEqual(segments[0]["length"], 512)
+        self.assertEqual(segments[1]["content_hash"], "cachetune-raw:test:chunk1")
+        self.assertEqual(segments[1]["target_start"], 64 + 512)
+        self.assertEqual(segments[1]["length"], 512)
+
+    def test_raw_and_fresh_hash_pairs_stay_paired_per_chunk(self):
+        # restore_request_prefix_cachetune discovers a segment's "fresh"
+        # companion via content_hash.replace(_RAW_PREFIX, _FRESH_PREFIX,
+        # 1) -- so for every chunk index, the raw and fresh segment
+        # lists built from "cachetune-raw:X"/"cachetune-fresh:X" must
+        # differ ONLY by that prefix.
+        raw_segments = body_segments_for_hash(
+            hash_prefix="cachetune-raw:phase4-r5-main",
+            body_start=64,
+            body_tokens=1024,
+            max_chunk_tokens=512,
+        )
+        fresh_segments = body_segments_for_hash(
+            hash_prefix="cachetune-fresh:phase4-r5-main",
+            body_start=64,
+            body_tokens=1024,
+            max_chunk_tokens=512,
+        )
+        for raw_segment, fresh_segment in zip(raw_segments, fresh_segments):
+            self.assertEqual(
+                raw_segment["content_hash"].replace(
+                    "cachetune-raw:", "cachetune-fresh:", 1
+                ),
+                fresh_segment["content_hash"],
             )
 
-    def test_zero_total_pressure_tokens_is_a_valid_input_that_can_still_fail(self):
-        # 0 is itself a valid (if degenerate) total -- must reach the
-        # floor comparison and fail there, not be rejected as malformed
-        # input.
-        with self.assertRaises(RuntimeError):
-            validate_eviction_pressure_fraction(
-                total_pressure_tokens=0,
-                usable_capacity_tokens=1000,
-                min_fraction=0.3,
-            )
+    def test_target_start_offsets_are_relative_to_body_start(self):
+        segments = body_segments_for_hash(
+            hash_prefix="cachetune-raw:test",
+            body_start=100,
+            body_tokens=1500,
+            max_chunk_tokens=512,
+        )
+        expected_starts = [100, 100 + 512, 100 + 1024]
+        self.assertEqual([s["target_start"] for s in segments], expected_starts)
+
+    def test_segment_lengths_sum_to_body_tokens(self):
+        segments = body_segments_for_hash(
+            hash_prefix="cachetune-raw:test",
+            body_start=0,
+            body_tokens=2048,
+            max_chunk_tokens=512,
+        )
+        self.assertEqual(sum(s["length"] for s in segments), 2048)
 
 
 class TestFirstCommonPrefixLength(unittest.TestCase):
@@ -1225,9 +1460,9 @@ class TestGeneratePayloadBuilders(unittest.TestCase):
     def test_register_generate_payload_shape(self):
         payload = register_generate_payload(
             input_ids=(1, 2, 3, 4),
-            content_hash="cachetune-raw:test",
-            target_start=2,
-            length=2,
+            segments=[
+                {"content_hash": "cachetune-raw:test", "target_start": 2, "length": 2}
+            ],
             model_fingerprint="fp",
             cache_dtype="fp16",
         )
@@ -1241,12 +1476,29 @@ class TestGeneratePayloadBuilders(unittest.TestCase):
         self.assertEqual(approx_kv["model_fingerprint"], "fp")
         self.assertEqual(approx_kv["cache_dtype"], "fp16")
 
+    def test_register_generate_payload_supports_multiple_chunked_segments(self):
+        segments = body_segments_for_hash(
+            hash_prefix="cachetune-raw:test",
+            body_start=64,
+            body_tokens=1024,
+            max_chunk_tokens=512,
+        )
+        payload = register_generate_payload(
+            input_ids=tuple(range(1024 + 64)),
+            segments=segments,
+            model_fingerprint="fp",
+            cache_dtype="fp16",
+        )
+        approx_kv = payload["sampling_params"]["custom_params"]["approx_kv"]
+        self.assertEqual(len(approx_kv["segments"]), 2)
+        self.assertEqual(approx_kv["segments"], segments)
+
     def test_reuse_generate_payload_shape(self):
         payload = reuse_generate_payload(
             input_ids=(1, 2, 3, 4, 5),
-            raw_content_hash="cachetune-raw:test",
-            target_start=2,
-            length=2,
+            segments=[
+                {"content_hash": "cachetune-raw:test", "target_start": 2, "length": 2}
+            ],
             model_fingerprint="fp",
             cache_dtype="fp16",
         )
@@ -1263,14 +1515,27 @@ class TestGeneratePayloadBuilders(unittest.TestCase):
         # payload builder must convert to a plain list for the JSON body.
         payload = register_generate_payload(
             input_ids=(7, 8, 9),
-            content_hash="h",
-            target_start=0,
-            length=3,
+            segments=[{"content_hash": "h", "target_start": 0, "length": 3}],
             model_fingerprint="fp",
             cache_dtype="fp16",
         )
         self.assertIsInstance(payload["input_ids"], list)
         self.assertEqual(payload["input_ids"], [7, 8, 9])
+
+    def test_segments_materialized_as_plain_dicts_not_aliased(self):
+        # register_generate_payload/reuse_generate_payload must copy each
+        # segment mapping rather than embedding the caller's own mutable
+        # dict by reference.
+        original_segment = {"content_hash": "h", "target_start": 0, "length": 3}
+        payload = register_generate_payload(
+            input_ids=(1, 2, 3),
+            segments=[original_segment],
+            model_fingerprint="fp",
+            cache_dtype="fp16",
+        )
+        approx_kv = payload["sampling_params"]["custom_params"]["approx_kv"]
+        original_segment["length"] = 999
+        self.assertEqual(approx_kv["segments"][0]["length"], 3)
 
 
 class TestRequireFinishedByLength(unittest.TestCase):
@@ -1690,10 +1955,12 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
         metrics_before = {
             "sglang:approx_kv_dense_fallback_total": 3.0,
             "sglang:evicted_tokens_total": 100.0,
+            "sglang:kv_used_tokens": 400.0,
         }
         metrics_after = {
             "sglang:approx_kv_dense_fallback_total": 3.0,
             "sglang:evicted_tokens_total": 116.0,
+            "sglang:kv_used_tokens": 900.0,
         }
 
         with unittest.mock.patch(
@@ -1708,6 +1975,9 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
                 model_fingerprint="qwen3-0.6b-sm75",
                 cache_dtype="fp16",
                 label="unit-test",
+                max_chunk_tokens=512,
+                capacity_tokens=1000,
+                target_rho=1.5,
             )
 
         # Every filler's own four-request sequence must have actually
@@ -1717,6 +1987,9 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
         self.assertEqual(len(session.post_calls), 8)
         self.assertEqual(result["object_count"], 2)
         self.assertEqual(result["total_pressure_tokens"], 16)
+        self.assertEqual(result["target_rho"], 1.5)
+        self.assertEqual(result["capacity_tokens"], 1000)
+        self.assertAlmostEqual(result["observed_rho_after_pressure"], 0.9)
         self.assertEqual(result["evicted_tokens_total_delta"], 16.0)
         self.assertEqual(result["dense_fallback_total_delta"], 0.0)
         self.assertEqual(result["metrics_before"], metrics_before)
@@ -1745,6 +2018,9 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
                     model_fingerprint="qwen3-0.6b-sm75",
                     cache_dtype="fp16",
                     label="unit-test",
+                    max_chunk_tokens=512,
+                    capacity_tokens=1000,
+                    target_rho=1.5,
                 )
         message = str(ctx.exception)
         self.assertIn("unit-test", message)
@@ -1762,10 +2038,12 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
         metrics_before = {
             "sglang:approx_kv_dense_fallback_total": 0.0,
             "sglang:evicted_tokens_total": 0.0,
+            "sglang:kv_used_tokens": 0.0,
         }
         metrics_after = {
             "sglang:approx_kv_dense_fallback_total": 0.0,
             "sglang:evicted_tokens_total": 8.0,
+            "sglang:kv_used_tokens": 8.0,
         }
 
         with unittest.mock.patch(
@@ -1780,9 +2058,415 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
                 model_fingerprint="qwen3-0.6b-sm75",
                 cache_dtype="fp16",
                 label="unit-test",
+                max_chunk_tokens=512,
+                capacity_tokens=1000,
+                target_rho=1.5,
             )
         self.assertEqual(result["dense_fallback_total_delta"], 0.0)
         self.assertEqual(result["evicted_tokens_total_delta"], 8.0)
+        self.assertAlmostEqual(result["observed_rho_after_pressure"], 0.008)
+
+
+def _fake_flush_urlopen(flush_urls: list) -> callable:
+    """Build a ``urllib.request.urlopen`` fake for ``flush_exact_radix_
+    cache``'s ``post_empty`` call, recording each flushed URL into
+    ``flush_urls`` -- reused by every test below that drives
+    ``run_exact_context_control_point`` end to end, so each one can
+    assert exactly how many flushes happened without duplicating the
+    same small fake-response boilerplate as ``TestFlushExactRadixCache``.
+    """
+
+    class _FakeUrlResponse:
+        def read(self):
+            return b"Cache flushed.\n"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc_info):
+            return False
+
+    def fake_urlopen(request, timeout=None):
+        flush_urls.append(request.full_url)
+        return _FakeUrlResponse()
+
+    return fake_urlopen
+
+
+class TestRunExactContextControlPoint(unittest.TestCase):
+    """The header=0 shape-sweep control point: an honest dense-only
+    reference measurement, never a genuine CacheTune repair -- see the
+    function's own docstring for why header=0 cannot build a
+    ``NonPrefixSegmentWorkload`` at all (its ``__post_init__`` requires
+    ``source_head_ids != target_head_ids``, impossible for empty
+    heads)."""
+
+    @staticmethod
+    def _dense_response(cached_tokens=0, finish_type="length"):
+        chunk = {
+            "meta_info": {
+                "finish_reason": {"type": finish_type},
+                "cached_tokens": cached_tokens,
+            }
+        }
+        return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
+
+    def test_rejects_non_positive_body_tokens(self):
+        with self.assertRaises(ValueError):
+            run_exact_context_control_point(
+                base_url="http://127.0.0.1:30000",
+                tokenizer=FakeTokenizer(),
+                body_tokens=0,
+                tail_tokens=1,
+                salt="unit-test",
+                repeats=2,
+            )
+
+    def test_rejects_repeats_below_one(self):
+        with self.assertRaises(ValueError):
+            run_exact_context_control_point(
+                base_url="http://127.0.0.1:30000",
+                tokenizer=FakeTokenizer(),
+                body_tokens=8,
+                tail_tokens=1,
+                salt="unit-test",
+                repeats=0,
+            )
+
+    def test_runs_one_flush_and_warmup_plus_repeats_flush_and_dense_pairs(self):
+        repeats = 2
+        responses = [self._dense_response() for _ in range(1 + repeats)]
+        session = _SequencedFakeClientSession(responses)
+        flush_urls: list[str] = []
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "urllib.request.urlopen", _fake_flush_urlopen(flush_urls)
+        ):
+            result = run_exact_context_control_point(
+                base_url="http://127.0.0.1:30000",
+                tokenizer=FakeTokenizer(),
+                body_tokens=8,
+                tail_tokens=1,
+                salt="unit-test",
+                repeats=repeats,
+            )
+
+        # One flush ahead of the discarded warmup, one flush ahead of
+        # each formal repeat -- 1 + repeats total, and never a flush
+        # anywhere else (there is no register/reuse phase at all for
+        # this control point).
+        self.assertEqual(len(flush_urls), 1 + repeats)
+        self.assertTrue(
+            all(url.endswith("/flush_cache?timeout=30") for url in flush_urls)
+        )
+        # One discarded warmup generate call + `repeats` formal ones.
+        self.assertEqual(len(session.post_calls), 1 + repeats)
+
+        self.assertEqual(result["body_tokens"], 8)
+        self.assertTrue(result["is_exact_context_control"])
+        self.assertFalse(result["body_source_context_differs_from_target"])
+        self.assertEqual(len(result["dense_raw_samples"]), repeats)
+        self.assertEqual(len(result["dense_ms_samples"]), repeats)
+
+    def test_dense_ms_samples_mirror_raw_sample_ttft(self):
+        repeats = 3
+        responses = [self._dense_response() for _ in range(1 + repeats)]
+        session = _SequencedFakeClientSession(responses)
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch("urllib.request.urlopen", _fake_flush_urlopen([])):
+            result = run_exact_context_control_point(
+                base_url="http://127.0.0.1:30000",
+                tokenizer=FakeTokenizer(),
+                body_tokens=8,
+                tail_tokens=1,
+                salt="unit-test",
+                repeats=repeats,
+            )
+
+        self.assertEqual(
+            result["dense_ms_samples"],
+            [sample["ttft_ms"] for sample in result["dense_raw_samples"]],
+        )
+        self.assertAlmostEqual(
+            result["dense_p50_ms"], statistics.median(result["dense_ms_samples"])
+        )
+
+    def test_cached_tokens_recorded_from_server_meta_info(self):
+        repeats = 1
+        responses = [
+            self._dense_response(cached_tokens=0),
+            self._dense_response(cached_tokens=0),
+        ]
+        session = _SequencedFakeClientSession(responses)
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch("urllib.request.urlopen", _fake_flush_urlopen([])):
+            result = run_exact_context_control_point(
+                base_url="http://127.0.0.1:30000",
+                tokenizer=FakeTokenizer(),
+                body_tokens=8,
+                tail_tokens=1,
+                salt="unit-test",
+                repeats=repeats,
+            )
+
+        self.assertEqual(result["dense_raw_samples"][0]["cached_tokens"], 0)
+
+    def test_warmup_failure_to_finish_by_length_raises_and_is_not_swallowed(self):
+        # The warmup response never finishes by length -- production
+        # code must let this propagate (never silently discard it and
+        # proceed as if the warmup succeeded).
+        responses = [self._dense_response(finish_type="abort")]
+        session = _SequencedFakeClientSession(responses)
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch("urllib.request.urlopen", _fake_flush_urlopen([])):
+            with self.assertRaises(RuntimeError) as ctx:
+                run_exact_context_control_point(
+                    base_url="http://127.0.0.1:30000",
+                    tokenizer=FakeTokenizer(),
+                    body_tokens=8,
+                    tail_tokens=1,
+                    salt="unit-test",
+                    repeats=2,
+                )
+        self.assertIn("exact-context-control warmup", str(ctx.exception))
+
+    def test_formal_repeat_failure_to_finish_by_length_raises(self):
+        responses = [
+            self._dense_response(),  # warmup succeeds
+            self._dense_response(finish_type="abort"),  # formal repeat 1 fails
+        ]
+        session = _SequencedFakeClientSession(responses)
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch("urllib.request.urlopen", _fake_flush_urlopen([])):
+            with self.assertRaises(RuntimeError) as ctx:
+                run_exact_context_control_point(
+                    base_url="http://127.0.0.1:30000",
+                    tokenizer=FakeTokenizer(),
+                    body_tokens=8,
+                    tail_tokens=1,
+                    salt="unit-test",
+                    repeats=2,
+                )
+        self.assertIn(
+            "exact-context-control request did not finish", str(ctx.exception)
+        )
+
+
+class TestBuildSweepPointResult(unittest.TestCase):
+    """Shared point-result assembly reused by both the shape sweep and
+    the rho sweep in ``run_canary`` -- exercised here against a
+    hand-built ``setting_result`` fixture matching ``run_non_prefix_
+    setting``'s exact return shape, so this doesn't need a live server
+    to validate the cross-check/``passed`` logic."""
+
+    @staticmethod
+    def _workload():
+        return build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=128,
+            head_tokens=34,
+            tail_tokens=1,
+            salt="unit-test-sweep-point",
+        )
+
+    @staticmethod
+    def _quantized(ratio=0.3, context_length=163):
+        return quantize_ratio(
+            ratio,
+            context_length=context_length,
+            bounds=RatioBounds.for_mode(CacheTuneMode.SPEED_ONLY),
+        )
+
+    @staticmethod
+    def _setting_result(**overrides):
+        base = {
+            "metrics_before": {
+                "sglang:approx_kv_cachetune_selected_tokens_total": 0.0,
+                "sglang:approx_kv_dense_fallback_total": 0.0,
+            },
+            "metrics_after": {
+                "sglang:approx_kv_cachetune_selected_tokens_total": 0.0,
+                "sglang:approx_kv_dense_fallback_total": 0.0,
+            },
+            "observed_cached_tokens_per_call": [34, 34],
+            "seed_head_ms": 1.0,
+            "register_raw_ms": 2.0,
+            "fresh_raw_samples": [{"ttft_ms": 10.0, "cached_tokens": 34}],
+            "reuse_raw_samples": [{"ttft_ms": 5.0, "cached_tokens": 34}],
+            "fresh_ms_samples": [10.0],
+            "reuse_ms_samples": [5.0],
+            "combined_ms_samples": [15.0],
+            "capacity_tokens": 4096,
+            "observed_rho_after_target": 1.5,
+            "peak_rho_observed": 1.6,
+            "pressure_and_target_evicted_tokens_total_delta": 200.0,
+            "pressure_phase": {"target_rho": 1.5},
+        }
+        base.update(overrides)
+        return base
+
+    def _metrics_after_for(self, quantized, *, repeats, dense_fallback=0.0):
+        return {
+            "sglang:approx_kv_cachetune_selected_tokens_total": float(
+                quantized.repair_tokens * repeats
+            ),
+            "sglang:approx_kv_dense_fallback_total": dense_fallback,
+        }
+
+    def test_passed_true_on_exact_match(self):
+        workload = self._workload()
+        quantized = self._quantized()
+        setting_result = self._setting_result(
+            metrics_after=self._metrics_after_for(quantized, repeats=2)
+        )
+
+        result = build_sweep_point_result(
+            workload=workload,
+            quantized=quantized,
+            repeats=2,
+            setting_result=setting_result,
+        )
+
+        self.assertTrue(result["passed"])
+        self.assertEqual(result["header_tokens"], 34)
+        self.assertEqual(result["body_tokens"], 128)
+        self.assertEqual(result["tail_tokens"], 1)
+        self.assertFalse(result["is_exact_context_control"])
+        self.assertTrue(result["body_source_context_differs_from_target"])
+        self.assertEqual(
+            result["expected_selected_tokens_per_call"], quantized.repair_tokens
+        )
+        self.assertEqual(
+            result["expected_selected_tokens_total"], quantized.repair_tokens * 2
+        )
+        self.assertEqual(
+            result["expected_executable_ratio"], quantized.executable_ratio
+        )
+        self.assertEqual(
+            result["observed_selected_tokens_total"], quantized.repair_tokens * 2
+        )
+        self.assertEqual(result["observed_dense_fallback"], 0.0)
+        self.assertEqual(result["target_rho"], 1.5)
+        self.assertEqual(result["capacity_tokens"], 4096)
+        self.assertEqual(result["observed_rho_after_target"], 1.5)
+        self.assertEqual(result["peak_rho_observed"], 1.6)
+        self.assertEqual(
+            result["pressure_and_target_evicted_tokens_total_delta"], 200.0
+        )
+        self.assertEqual(result["fresh_p50_ms"], 10.0)
+        self.assertEqual(result["reuse_p50_ms"], 5.0)
+        self.assertEqual(result["combined_p50_ms"], 15.0)
+
+    def test_passed_false_when_observed_selected_tokens_falls_short(self):
+        workload = self._workload()
+        quantized = self._quantized()
+        # Only one repeat's worth of selected tokens actually landed --
+        # e.g. a silent dense-fallback that still incremented the
+        # selected-tokens counter on one call only.
+        setting_result = self._setting_result(
+            metrics_after=self._metrics_after_for(quantized, repeats=1)
+        )
+
+        result = build_sweep_point_result(
+            workload=workload,
+            quantized=quantized,
+            repeats=2,
+            setting_result=setting_result,
+        )
+
+        self.assertFalse(result["passed"])
+
+    def test_passed_false_on_nonzero_dense_fallback(self):
+        workload = self._workload()
+        quantized = self._quantized()
+        setting_result = self._setting_result(
+            metrics_after=self._metrics_after_for(
+                quantized, repeats=2, dense_fallback=1.0
+            )
+        )
+
+        result = build_sweep_point_result(
+            workload=workload,
+            quantized=quantized,
+            repeats=2,
+            setting_result=setting_result,
+        )
+
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["observed_dense_fallback"], 1.0)
+
+    def test_passed_false_on_cached_tokens_mismatch(self):
+        workload = self._workload()
+        quantized = self._quantized()
+        setting_result = self._setting_result(
+            metrics_after=self._metrics_after_for(quantized, repeats=2),
+            observed_cached_tokens_per_call=[34, 33],
+        )
+
+        result = build_sweep_point_result(
+            workload=workload,
+            quantized=quantized,
+            repeats=2,
+            setting_result=setting_result,
+        )
+
+        self.assertFalse(result["passed"])
+
+    def test_pressure_phase_none_yields_target_rho_none(self):
+        workload = self._workload()
+        quantized = self._quantized()
+        setting_result = self._setting_result(
+            metrics_after=self._metrics_after_for(quantized, repeats=2),
+            pressure_phase=None,
+        )
+
+        result = build_sweep_point_result(
+            workload=workload,
+            quantized=quantized,
+            repeats=2,
+            setting_result=setting_result,
+        )
+
+        self.assertIsNone(result["target_rho"])
+        self.assertIsNone(result["pressure_phase"])
+        self.assertTrue(result["passed"])
+
+    def test_pressure_telemetry_passed_through_unchanged(self):
+        workload = self._workload()
+        quantized = self._quantized()
+        setting_result = self._setting_result(
+            metrics_after=self._metrics_after_for(quantized, repeats=2),
+            capacity_tokens=8192,
+            observed_rho_after_target=2.0,
+            peak_rho_observed=2.4,
+            pressure_and_target_evicted_tokens_total_delta=999.0,
+            pressure_phase={"target_rho": 2.0},
+        )
+
+        result = build_sweep_point_result(
+            workload=workload,
+            quantized=quantized,
+            repeats=2,
+            setting_result=setting_result,
+        )
+
+        self.assertEqual(result["capacity_tokens"], 8192)
+        self.assertEqual(result["observed_rho_after_target"], 2.0)
+        self.assertEqual(result["peak_rho_observed"], 2.4)
+        self.assertEqual(
+            result["pressure_and_target_evicted_tokens_total_delta"], 999.0
+        )
+        self.assertEqual(result["target_rho"], 2.0)
 
 
 class TestValidatePairwiseHeadIsolationAgainstProductionCallShape(unittest.TestCase):
