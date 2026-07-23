@@ -15,6 +15,8 @@ from pathlib import Path
 
 from benchmark.approx_kv.metrics import idle_pool_invariant
 from benchmark.approx_kv.run_phase4_cachetune_canary import (
+    _POOL_RESET_SENTINEL_SEED,
+    _POOL_RESET_SENTINEL_TOKENS,
     _PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS,
     _PRESSURE_FILLER_MARKER_CODEPOINT_POOL_SIZE,
     _PRESSURE_FILLER_MARKER_CODEPOINT_STRIDE,
@@ -48,6 +50,7 @@ from benchmark.approx_kv.run_phase4_cachetune_canary import (
     eviction_pressure_filler_count_for_rho,
     eviction_pressure_total_tokens,
     expected_repair_totals,
+    flush_and_force_gauge_refresh,
     flush_exact_radix_cache,
     main,
     observed_rho,
@@ -59,6 +62,7 @@ from benchmark.approx_kv.run_phase4_cachetune_canary import (
     require_finished_by_length,
     reuse_generate_payload,
     run_exact_context_control_point,
+    run_independent_round,
     run_non_prefix_setting,
     run_target_reuse,
     timed_post,
@@ -4267,6 +4271,326 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
         self.assertEqual(result["evicted_tokens_total_delta"], 0.0)
 
 
+class TestFlushAndForceGaugeRefresh(unittest.TestCase):
+    """``flush_and_force_gauge_refresh`` -- the shared flush -> fixed
+    dense sentinel -> ``/metrics`` snapshot helper both
+    ``capture_final_pool_reset_and_invariant`` (the run-end pool reset)
+    and ``run_independent_round`` (every round's own start) now use --
+    must never return a snapshot taken before the sentinel's own real
+    request completes. See its own docstring for the real SM75
+    body-length-sweep bug fixed by this exact ordering: a bare
+    flush-then-snapshot can read a stale ``sglang:kv_used_tokens`` Gauge
+    reading carried over from whatever was resident just before the
+    flush, since ``/flush_cache`` clears the actual pool/tree state
+    synchronously but does NOT synchronously refresh the exported
+    Prometheus gauges -- only the scheduler's own next real request does
+    that."""
+
+    @staticmethod
+    def _sentinel_response(finish_type: str = "length"):
+        chunk = {
+            "meta_info": {
+                "finish_reason": {"type": finish_type},
+                "cached_tokens": 0,
+            }
+        }
+        return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
+
+    @staticmethod
+    def _fake_flush_urlopen(call_order: list[str]) -> callable:
+        class _FakeUrlResponse:
+            def read(self):
+                return b"Cache flushed.\n"
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc_info):
+                return False
+
+        def fake_urlopen(request, timeout=None):
+            call_order.append("flush")
+            return _FakeUrlResponse()
+
+        return fake_urlopen
+
+    def test_call_order_is_flush_then_sentinel_then_snapshot(self):
+        call_order: list[str] = []
+        session = _OrderTrackingSequencedFakeClientSession(
+            [self._sentinel_response()], call_order, "sentinel_generate"
+        )
+        snapshot = {"sglang:kv_used_tokens": 0.0, "sglang:max_total_num_tokens": 100.0}
+
+        def fake_metric_snapshot(base_url):
+            call_order.append("metric_snapshot")
+            return snapshot
+
+        with unittest.mock.patch(
+            "urllib.request.urlopen", self._fake_flush_urlopen(call_order)
+        ), unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=fake_metric_snapshot,
+        ):
+            result = flush_and_force_gauge_refresh(
+                "http://127.0.0.1:30000", FakeTokenizer(), label="unit-test"
+            )
+
+        # The exact ordering this helper exists to guarantee: flush,
+        # THEN the sentinel request, THEN the snapshot the caller's own
+        # baseline is read from -- never a snapshot taken right after
+        # the flush alone.
+        self.assertEqual(call_order, ["flush", "sentinel_generate", "metric_snapshot"])
+        self.assertEqual(result, snapshot)
+
+    def test_sentinel_payload_is_fixed_deterministic_dense_request(self):
+        expected_ids = list(
+            _deterministic_token_ids(
+                FakeTokenizer(), _POOL_RESET_SENTINEL_SEED, _POOL_RESET_SENTINEL_TOKENS
+            )
+        )
+        call_order: list[str] = []
+        session = _OrderTrackingSequencedFakeClientSession(
+            [self._sentinel_response()], call_order, "sentinel_generate"
+        )
+
+        with unittest.mock.patch(
+            "urllib.request.urlopen", self._fake_flush_urlopen(call_order)
+        ), unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            return_value={"sglang:kv_used_tokens": 0.0},
+        ):
+            # Two different callers' own labels ("unit-test-a" here,
+            # "unit-test-b" below) must still post the IDENTICAL,
+            # caller-independent sentinel payload -- its only job is
+            # forcing one real scheduler iteration, never exercising
+            # anything workload- or label-specific.
+            flush_and_force_gauge_refresh(
+                "http://127.0.0.1:30000", FakeTokenizer(), label="unit-test-a"
+            )
+
+        self.assertEqual(len(session.post_calls), 1)
+        _, posted_payload = session.post_calls[0]
+        # A plain dense request (no approx_kv metadata at all).
+        self.assertNotIn("approx_kv_metadata", posted_payload)
+        self.assertEqual(posted_payload["sampling_params"]["max_new_tokens"], 1)
+        self.assertEqual(posted_payload["input_ids"], expected_ids)
+
+    def test_flush_failure_propagates_uncaught(self):
+        # No step in this helper may catch its own exceptions (see its
+        # own docstring): a real flush failure must reach main()'s
+        # existing central-log "failed" entry, never be silently
+        # swallowed into a misleadingly "clean" snapshot.
+        def raising_urlopen(request, timeout=None):
+            raise OSError("flush endpoint unreachable")
+
+        with unittest.mock.patch(
+            "urllib.request.urlopen", raising_urlopen
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            return_value={"sglang:kv_used_tokens": 0.0},
+        ):
+            with self.assertRaises(OSError):
+                flush_and_force_gauge_refresh(
+                    "http://127.0.0.1:30000", FakeTokenizer(), label="unit-test"
+                )
+
+    def test_sentinel_not_finished_by_length_propagates_uncaught(self):
+        call_order: list[str] = []
+        session = _OrderTrackingSequencedFakeClientSession(
+            [self._sentinel_response(finish_type="stop")],
+            call_order,
+            "sentinel_generate",
+        )
+
+        with unittest.mock.patch(
+            "urllib.request.urlopen", self._fake_flush_urlopen(call_order)
+        ), unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            return_value={"sglang:kv_used_tokens": 0.0},
+        ):
+            # The caller's own label ("unit-test round-start", mirroring
+            # run_independent_round's f"{label} round-start" convention)
+            # must appear verbatim in the propagated error, proving the
+            # label parameter is genuinely threaded through to this
+            # sentinel's own finish-reason check.
+            with self.assertRaisesRegex(RuntimeError, "round-start sentinel"):
+                flush_and_force_gauge_refresh(
+                    "http://127.0.0.1:30000",
+                    FakeTokenizer(),
+                    label="unit-test round-start",
+                )
+
+
+class TestRunIndependentRoundRoundStartGaugeRefresh(unittest.TestCase):
+    """Direct regression test for the real SM75 body-length-sweep bug:
+    ``run_independent_round``'s round-start baseline snapshot must be
+    taken AFTER ``flush_and_force_gauge_refresh``'s own sentinel POST
+    completes, never right after a bare flush alone -- otherwise a
+    stale ``sglang:kv_used_tokens`` gauge reading carried over from a
+    PREVIOUS setting/round (a real run observed 2048, left over from a
+    just-finished body=1024 setting's own raw+fresh footprint) leaks
+    into the NEXT setting/round's own ``already_pinned_tokens``
+    computation, producing a structurally negative delta (there,
+    ``1024 - 2048 == -1024``) instead of the correct, genuinely-measured
+    value.
+
+    Exercises ``run_independent_round`` DIRECTLY (not through
+    ``run_non_prefix_setting``) with a ``metric_snapshot`` fake whose
+    OWN returned value depends on whether the sentinel POST has already
+    been recorded in a shared ``call_order`` list at the moment it is
+    called -- reproducing the REAL causal mechanism (the Prometheus
+    gauge only reflects reality once a real request has run) rather
+    than merely replaying a fixed, order-blind sequence of values.
+    """
+
+    def _workload(self):
+        return build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=4,
+            head_tokens=3,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt="unit-test-round-start-gauge-refresh",
+        )
+
+    @staticmethod
+    def _response(cached_tokens):
+        chunk = {
+            "meta_info": {
+                "finish_reason": {"type": "length"},
+                "cached_tokens": cached_tokens,
+            }
+        }
+        return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
+
+    def test_round_start_snapshot_never_reads_a_previous_rounds_stale_gauge(self):
+        workload = self._workload()
+        reuse_cached = workload.body_start_in_target + workload.body_tokens
+        # capacity_tokens=100 (round-start's own max_total_num_tokens),
+        # already_pinned_tokens=4 (this round's own measured post-setup
+        # delta), target_rho=0.1 -> target_total=10, tokens_per_filler=
+        # pressure_filler_head_tokens(2)+pressure_filler_body_tokens(4)=
+        # 6 -> remaining=10-4=6 -> ceil(6/6)=1 filler -- the same
+        # already-proven low-pressure recipe used elsewhere in this
+        # module's test suite.
+        responses = [
+            self._response(0),  # round-start gauge-refresh sentinel
+            self._response(0),  # setup: seed target_head
+            self._response(0),  # setup: register raw (1 chunk)
+            self._response(workload.body_start_in_target),  # setup: register fresh
+            self._response(0),  # pressure filler (single)
+            self._response(len(workload.target_head_ids)),  # head re-seed (hit)
+            self._response(reuse_cached),  # reuse
+        ]
+        labels = [
+            "round_start_sentinel",
+            "setup_seed",
+            "setup_raw_chunk0",
+            "setup_fresh_chunk0",
+            "pressure_filler0",
+            "head_reseed",
+            "reuse",
+        ]
+        call_order: list[str] = []
+        session = _LabeledSequencedFakeClientSession(responses, labels, call_order)
+
+        def fake_metric_snapshot(base_url):
+            index = len(
+                [entry for entry in call_order if entry.startswith("metric_snapshot")]
+            )
+            sentinel_done = "round_start_sentinel" in call_order
+            setup_done = "setup_fresh_chunk0" in call_order
+            call_order.append(f"metric_snapshot[{index}]")
+            if not sentinel_done:
+                # The REGRESSION case this test exists to catch: if the
+                # round-start snapshot were (incorrectly) taken before
+                # the sentinel POST completes, the Prometheus gauge
+                # would still show whatever a PREVIOUS round/setting
+                # last left it at (a real SM75 run observed 2048) --
+                # reproducing the exact bug verbatim.
+                return {
+                    "sglang:max_total_num_tokens": 100.0,
+                    "sglang:kv_used_tokens": 2048.0,
+                }
+            if not setup_done:
+                # Correct round-start reading: the sentinel's own real
+                # request already forced a fresh scheduler iteration
+                # against the just-flushed, genuinely idle pool.
+                return {
+                    "sglang:max_total_num_tokens": 100.0,
+                    "sglang:kv_used_tokens": 0.0,
+                }
+            if index == 1:
+                # After-setup reading: this round's own genuine
+                # setup footprint alone.
+                return {"sglang:kv_used_tokens": 4.0}
+            # Pressure-phase-internal and round-end snapshots: kept
+            # uneventful (no further eviction/fallback), since only the
+            # round-start / after-setup transition above is under test.
+            return {
+                "sglang:kv_used_tokens": 4.0,
+                "sglang:kv_evictable_tokens": 0.0,
+                "sglang:evicted_tokens_total": 0.0,
+                "sglang:approx_kv_dense_fallback_total": 0.0,
+            }
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "urllib.request.urlopen", _labeled_flush_urlopen(call_order)
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=fake_metric_snapshot,
+        ):
+            result = run_independent_round(
+                base_url="http://127.0.0.1:30000",
+                tokenizer=FakeTokenizer(),
+                workload=workload,
+                raw_hash="cachetune-raw:unit-test-round-start-gauge-refresh",
+                fresh_hash="cachetune-fresh:unit-test-round-start-gauge-refresh",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+                max_chunk_tokens=512,
+                target_rho=0.1,
+                pressure_filler_head_tokens=2,
+                pressure_filler_body_tokens=4,
+            )
+
+        # The sentinel POST genuinely completed (and is recorded in
+        # call_order) strictly BEFORE the round-start snapshot -- never
+        # the other way around.
+        sentinel_index = call_order.index("round_start_sentinel")
+        round_start_snapshot_index = call_order.index("metric_snapshot[0]")
+        self.assertLess(sentinel_index, round_start_snapshot_index)
+        # already_pinned_tokens = 4 (after setup) - 0 (round start,
+        # correctly refreshed by the sentinel) = 4 -- never
+        # 4 - 2048 = -2044 (the negative value a reverted fix would
+        # have produced, which the already_pinned_tokens<0 ValueError
+        # guard in eviction_pressure_filler_count_for_rho would then
+        # have raised on).
+        self.assertEqual(result["already_pinned_tokens"], 4)
+        self.assertEqual(result["pressure_phase"]["object_count"], 1)
+        # Two independent flushes this round -- one before the
+        # sentinel, one immediately after it and before setup -- never
+        # just one (see run_independent_round's own docstring).
+        flush_indices = [
+            index for index, entry in enumerate(call_order) if entry == "flush[0]"
+        ] + [index for index, entry in enumerate(call_order) if entry == "flush[1]"]
+        self.assertEqual(len(flush_indices), 2)
+        flush0 = call_order.index("flush[0]")
+        flush1 = call_order.index("flush[1]")
+        setup_seed_index = call_order.index("setup_seed")
+        self.assertLess(flush0, sentinel_index)
+        self.assertLess(sentinel_index, flush1)
+        self.assertLess(flush1, setup_seed_index)
+
+
 class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
     """``run_non_prefix_setting``'s own pressure-phase wiring, exercised
     end to end (not just its constituent functions in isolation): every
@@ -4324,15 +4648,20 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
     def _one_round_responses_and_labels(
         self, workload, round_name: str, filler_count: int, *, head_reseed_hit: bool
     ):
-        """One ROUND's own complete HTTP call sequence: setup (seed +
-        raw + fresh, always 3 calls for this single-chunk workload) ->
+        """One ROUND's own complete HTTP call sequence: a round-start
+        gauge-refresh sentinel (``flush_and_force_gauge_refresh``'s own
+        dense request, sent before this round's own second flush --
+        see ``run_independent_round``'s own docstring for the real
+        SM75 stale-gauge bug this fixes) -> setup (seed + raw + fresh,
+        always 3 calls for this single-chunk workload) ->
         ``filler_count`` plain-dense pressure fillers -> head re-seed ->
         reuse. Used identically to build both the discarded warmup
         round's own sequence and every formal round's own sequence --
         never shared or reused between rounds."""
         reuse_cached = workload.body_start_in_target + workload.body_tokens
         responses = (
-            [self._response(0)]  # setup: seed target_head
+            [self._response(0)]  # round-start gauge-refresh sentinel
+            + [self._response(0)]  # setup: seed target_head
             + [self._response(0)]  # setup: register raw (1 chunk)
             + [self._response(workload.body_start_in_target)]  # setup: register fresh
             + [self._response(0)] * filler_count  # pressure fillers
@@ -4342,7 +4671,8 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
             + [self._response(reuse_cached)]  # reuse
         )
         labels = (
-            [
+            [f"{round_name}_round_start_sentinel"]
+            + [
                 f"{round_name}_setup_seed",
                 f"{round_name}_setup_raw_chunk0",
                 f"{round_name}_setup_fresh_chunk0",
@@ -4434,27 +4764,44 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
         call_order: list[str] = []
         _workload, _session, _result, _mock = self._run_low_pressure_setting(call_order)
 
-        flush0 = call_order.index("flush[0]")
-        flush1 = call_order.index("flush[1]")
+        # Every round now issues TWO independent flushes (see
+        # ``flush_and_force_gauge_refresh``'s and
+        # ``run_independent_round``'s own docstrings for why a bare
+        # single flush is not enough): one BEFORE that round's own
+        # gauge-refresh sentinel, and one immediately AFTER it (clearing
+        # away the sentinel's own tiny resident footprint before that
+        # SAME round's own setup begins) -- never a single flush shared
+        # by the whole setting, and never just one flush per round.
+        warmup_flush_a = call_order.index("flush[0]")
+        warmup_sentinel = call_order.index("warmup_round_start_sentinel")
+        warmup_flush_b = call_order.index("flush[1]")
         warmup_setup = call_order.index("warmup_setup_seed")
-        formal_setup = call_order.index("formal_setup_seed")
         warmup_reuse = call_order.index("warmup_reuse")
+        formal_flush_a = call_order.index("flush[2]")
+        formal_sentinel = call_order.index("formal_round_start_sentinel")
+        formal_flush_b = call_order.index("flush[3]")
+        formal_setup = call_order.index("formal_setup_seed")
 
-        # Two independent flushes -- one per round -- never just once
-        # for the whole setting.
-        self.assertLess(flush0, warmup_setup)
-        # The second flush happens strictly AFTER the warmup round's own
-        # reuse call completes, and strictly BEFORE the formal round's
-        # own setup begins: the formal round never depends on anything
-        # left resident by the warmup round.
-        self.assertLess(warmup_reuse, flush1)
-        self.assertLess(flush1, formal_setup)
+        self.assertLess(warmup_flush_a, warmup_sentinel)
+        self.assertLess(warmup_sentinel, warmup_flush_b)
+        self.assertLess(warmup_flush_b, warmup_setup)
+        # The formal round's own flush pair happens strictly AFTER the
+        # warmup round's own reuse call completes, and strictly BEFORE
+        # the formal round's own setup begins: the formal round never
+        # depends on anything left resident by the warmup round.
+        self.assertLess(warmup_reuse, formal_flush_a)
+        self.assertLess(formal_flush_a, formal_sentinel)
+        self.assertLess(formal_sentinel, formal_flush_b)
+        self.assertLess(formal_flush_b, formal_setup)
 
     def test_setup_seed_raw_fresh_all_precede_that_same_rounds_pressure_phase(self):
         call_order: list[str] = []
         _workload, session, result, _mock = self._run_low_pressure_setting(call_order)
 
-        self.assertEqual(len(session.post_calls), 12)
+        # (1 round-start sentinel + 3 setup + 1 pressure filler + 1
+        # head-reseed + 1 reuse) = 7 HTTP calls per round, times 2
+        # rounds (warmup + 1 formal repeat) == 14.
+        self.assertEqual(len(session.post_calls), 14)
         for round_name in ("warmup", "formal"):
             setup_calls = [
                 index
@@ -5114,14 +5461,17 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
         return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
 
     def _one_round_responses(self, workload, chunk_count, reuse_cached):
-        """One ROUND's own complete response sequence: seed head ->
-        ``chunk_count`` raw-register chunks -> ``chunk_count``
+        """One ROUND's own complete response sequence: a round-start
+        gauge-refresh sentinel (see ``run_independent_round``'s own
+        docstring for the real SM75 stale-gauge bug this fixes) -> seed
+        head -> ``chunk_count`` raw-register chunks -> ``chunk_count``
         fresh-register chunks -> one (unchunked) reuse call --
         IDENTICAL shape for the discarded warmup round and every formal
         repeat alike, since every round now independently performs its
         own full setup (never just the warmup)."""
         return (
-            [self._response(0)]  # seed target_head
+            [self._response(0)]  # round-start gauge-refresh sentinel
+            + [self._response(0)]  # seed target_head
             + [self._response(0)] * chunk_count  # raw register chunks
             + [self._response(workload.body_start_in_target)]
             * chunk_count  # fresh register chunks
@@ -5192,13 +5542,13 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
         )
         self.assertEqual(chunk_count, 2)
 
-        # (1 seed + 2 raw + 2 fresh + 1 reuse) = 6 calls PER round, times
-        # (1 discarded warmup + 2 formal repeats) = 3 rounds -- never
-        # just 6 total (that would mean only the warmup round ever
-        # registered raw/fresh, and every formal repeat merely replayed
-        # it or re-registered fresh alone, the exact bug this
-        # architecture fixes).
-        calls_per_round = 2 + 2 * chunk_count
+        # (1 round-start sentinel + 1 seed + 2 raw + 2 fresh + 1 reuse)
+        # = 7 calls PER round, times (1 discarded warmup + 2 formal
+        # repeats) = 3 rounds -- never just 7 total (that would mean
+        # only the warmup round ever registered raw/fresh, and every
+        # formal repeat merely replayed it or re-registered fresh
+        # alone, the exact bug this architecture fixes).
+        calls_per_round = 3 + 2 * chunk_count
         rounds = 1 + repeats
         self.assertEqual(len(session.post_calls), calls_per_round * rounds)
         self.assertEqual(len(result["fresh_raw_samples"]), repeats)
@@ -5208,18 +5558,18 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
         for sample in result["reuse_raw_samples"]:
             self.assertEqual(sample["cached_tokens"], reuse_cached)
 
-        # Every round's own raw+fresh register chunk call (seed and
-        # reuse excluded) must itself stay within one chunk's own small
-        # bound -- proof the old single-oversized-call code path is gone
-        # from EVERY round, not just the warmup -- and every round's own
-        # seed/reuse call still carries that round's own full,
-        # un-chunked payload.
+        # Every round's own raw+fresh register chunk call (round-start
+        # sentinel, seed, and reuse excluded) must itself stay within
+        # one chunk's own small bound -- proof the old
+        # single-oversized-call code path is gone from EVERY round, not
+        # just the warmup -- and every round's own seed/reuse call
+        # still carries that round's own full, un-chunked payload.
         bound = 64 + 512 + len(workload.tail_ids)
         for round_index in range(rounds):
             base = round_index * calls_per_round
             round_calls = session.post_calls[base : base + calls_per_round]
-            seed_call = round_calls[0]
-            raw_and_fresh_calls = round_calls[1:-1]
+            seed_call = round_calls[1]
+            raw_and_fresh_calls = round_calls[2:-1]
             reuse_call = round_calls[-1]
             self.assertEqual(seed_call[1]["input_ids"], list(workload.seed_prompt_ids))
             self.assertEqual(len(raw_and_fresh_calls), 2 * chunk_count)
@@ -5238,7 +5588,7 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
         )
         self.assertEqual(chunk_count, 4)
 
-        calls_per_round = 2 + 2 * chunk_count
+        calls_per_round = 3 + 2 * chunk_count
         rounds = 1 + repeats
         self.assertEqual(len(session.post_calls), calls_per_round * rounds)
         self.assertEqual(len(result["fresh_raw_samples"]), repeats)
@@ -5259,7 +5609,7 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
         )
         del result
         rounds = 1 + repeats
-        calls_per_round = 2 + 2 * chunk_count
+        calls_per_round = 3 + 2 * chunk_count
         self.assertEqual(len(session.post_calls), calls_per_round * rounds)
         # Every round's raw chunk payloads carry a distinct
         # ``content_hash`` per chunk, and every round's fresh chunk
@@ -5270,9 +5620,9 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
         # by an earlier round.
         for round_index in range(rounds):
             base = round_index * calls_per_round
-            raw_calls = session.post_calls[base + 1 : base + 1 + chunk_count]
+            raw_calls = session.post_calls[base + 2 : base + 2 + chunk_count]
             fresh_calls = session.post_calls[
-                base + 1 + chunk_count : base + 1 + 2 * chunk_count
+                base + 2 + chunk_count : base + 2 + 2 * chunk_count
             ]
             for chunk_index, (_, payload) in enumerate(raw_calls):
                 segment = payload["sampling_params"]["custom_params"]["approx_kv"][
@@ -5301,13 +5651,13 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
         # The first FORMAL round is round index 1 (index 0 is the
         # discarded warmup, which independently repeats the same
         # content-hash pattern -- checked separately above).
-        calls_per_round = 2 + 2 * chunk_count
+        calls_per_round = 3 + 2 * chunk_count
         first_formal_base = 1 * calls_per_round
         first_formal_fresh_calls = session.post_calls[
             first_formal_base
-            + 1
+            + 2
             + chunk_count : first_formal_base
-            + 1
+            + 2
             + 2 * chunk_count
         ]
         first_formal_reuse_segments = session.post_calls[
@@ -5341,7 +5691,7 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
         for round_name in round_names:
             responses += self._one_round_responses(workload, chunk_count, reuse_cached)
             labels += (
-                [f"{round_name}_seed"]
+                [f"{round_name}_round_start_sentinel", f"{round_name}_seed"]
                 + [f"{round_name}_raw_chunk{i}" for i in range(chunk_count)]
                 + [f"{round_name}_fresh_chunk{i}" for i in range(chunk_count)]
                 + [f"{round_name}_reuse"]
@@ -5382,17 +5732,29 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
         # round's own reuse call -- never a single flush shared by the
         # whole setting, and never a flush that lands inside another
         # round's own call sequence.
+        # Every round now issues TWO independent flushes (see
+        # ``flush_and_force_gauge_refresh``'s own docstring): one
+        # strictly before that round's own gauge-refresh sentinel, and
+        # one strictly after it but before that SAME round's own seed
+        # call -- and the round's flush PAIR always lands strictly
+        # after the PREVIOUS round's own reuse call -- never a single
+        # flush shared by the whole setting, and never a flush that
+        # lands inside another round's own call sequence.
         for round_index, round_name in enumerate(round_names):
-            flush_call = call_order.index(f"flush[{round_index}]")
+            flush_a = call_order.index(f"flush[{2 * round_index}]")
+            sentinel_call = call_order.index(f"{round_name}_round_start_sentinel")
+            flush_b = call_order.index(f"flush[{2 * round_index + 1}]")
             seed_call = call_order.index(f"{round_name}_seed")
             reuse_call = call_order.index(f"{round_name}_reuse")
-            self.assertLess(flush_call, seed_call)
+            self.assertLess(flush_a, sentinel_call)
+            self.assertLess(sentinel_call, flush_b)
+            self.assertLess(flush_b, seed_call)
             self.assertLess(seed_call, reuse_call)
             if round_index > 0:
                 previous_reuse = call_order.index(
                     f"{round_names[round_index - 1]}_reuse"
                 )
-                self.assertLess(previous_reuse, flush_call)
+                self.assertLess(previous_reuse, flush_a)
 
 
 class TestBuildSweepPointResult(unittest.TestCase):

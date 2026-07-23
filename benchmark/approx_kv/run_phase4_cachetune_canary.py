@@ -188,26 +188,43 @@ entirely. Each round, in order:
    CacheTune's plugin dispatch ever runs.
 2. ``run_independent_round`` flushes the exact-match radix cache (and
    resets ``ApproxKVManager``'s own segment store -- see
-   ``flush_exact_radix_cache``'s own docstring) as its own very first
-   action, before doing anything else -- once for the discarded warmup
-   round, and independently again for every formal repeat, never just
-   once per setting. This is what makes steps 3-5 below safe for EVERY
-   round, not merely the first: a *previous* round's own already-seeded
-   ``target_head_ids``, already-registered raw/fresh segments, and
-   already-sent pressure fillers would otherwise still be resident,
-   either silently producing a nonzero ``cached_tokens`` for this
-   round's own head-seed/register calls or -- the real SM75
+   ``flush_exact_radix_cache``'s own docstring), then posts one small,
+   fixed dense *sentinel* request to force one real scheduler iteration,
+   then snapshots ``/metrics`` -- via ``flush_and_force_gauge_refresh``
+   -- as its own very first action, before doing anything else -- once
+   for the discarded warmup round, and independently again for every
+   formal repeat, never just once per setting. The sentinel is
+   mandatory, not optional: ``/flush_cache`` clears the actual pool/tree
+   state synchronously, but gauges such as ``sglang:kv_used_tokens`` are
+   only recomputed by the scheduler's own NEXT iteration, so a bare
+   flush-then-snapshot with no intervening real request can read a
+   value carried over from a PREVIOUS round or even a previous
+   *setting* -- the real SM75 body-length-sweep bug this fixes: an
+   earlier design's bare flush-then-snapshot let a body=512 setting's
+   own ``metrics_at_round_start`` inherit a just-finished body=1024
+   setting's own stale ``kv_used_tokens=2048`` reading verbatim,
+   producing a structurally negative ``already_pinned_tokens=-1024``
+   once that setting's own post-setup reading (a genuine 1024) was
+   compared against it (see ``flush_and_force_gauge_refresh``'s own
+   docstring for the full account). This is what makes steps 3-5 below
+   safe for EVERY round, not merely the first: a *previous* round's own
+   already-seeded ``target_head_ids``, already-registered raw/fresh
+   segments, and already-sent pressure fillers would otherwise still be
+   resident, either silently producing a nonzero ``cached_tokens`` for
+   this round's own head-seed/register calls or -- the real SM75
    ``target_rho=2`` bug this per-round flush fixes -- forcing this
    round's own raw+fresh registration to transiently coexist with a
-   previous round's still-resident footprint. A fresh ``/metrics``
-   snapshot on the now genuinely idle pool immediately follows, giving
-   this round's own ``capacity_tokens`` reference.
+   previous round's still-resident footprint. This now-genuinely-fresh
+   ``/metrics`` snapshot gives this round's own ``capacity_tokens``
+   reference; a SECOND, bare flush (no sentinel needed) immediately
+   follows to clear away the gauge-refresh sentinel's own tiny resident
+   footprint before step 3 below runs.
 3. Seed the target head (one dense ``/generate`` call over
    ``target_head_ids + seed_sentinel_ids`` -- never ``target_head_ids``
    alone; see ``NonPrefixSegmentWorkload.seed_prompt_ids`` for the real
    SM75 header-sweep bug a bare-head seed caused and why the sentinel
    fixes it -- expected ``cached_tokens=0`` -- always 0, since step 2's
-   flush just cleared it again for this round).
+   own second, final flush just cleared it again for this round).
 4. Register the "raw" (source-context) body segment, THEN the "fresh"
    (target-context) body segment -- each one or more
    ``register_body_chunks`` calls (raw expected ``cached_tokens=0`` per
@@ -695,13 +712,17 @@ MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT = 5000
 # under the same discipline.
 WARMUP_PASSES_PER_SETTING = 1
 
-# A tiny, fixed dense request posted once at the very end of the run
-# (see capture_final_pool_reset_and_invariant), purely to force one real
-# scheduler iteration after the final /flush_cache so gauges such as
-# sglang:kv_used_tokens are recomputed from the actually-idle pool
-# rather than read stale immediately after the flush call returns.
-# Small on purpose: its only job is to trigger that recompute, never to
-# exercise CacheTune telemetry.
+# A tiny, fixed dense request posted (see
+# flush_and_force_gauge_refresh) every time this script needs a
+# genuinely fresh /metrics reading immediately after a /flush_cache
+# call -- both at the very end of the run
+# (capture_final_pool_reset_and_invariant) AND at the START of every
+# independent round (run_independent_round) -- purely to force one real
+# scheduler iteration so gauges such as sglang:kv_used_tokens are
+# recomputed from the actually-idle pool rather than read stale
+# immediately after the flush call returns. Small on purpose: its only
+# job is to trigger that recompute, never to exercise CacheTune
+# telemetry.
 _POOL_RESET_SENTINEL_TOKENS = 4
 _POOL_RESET_SENTINEL_SEED = f"{CACHE_SALT}-final-pool-reset-sentinel"
 
@@ -2205,6 +2226,81 @@ def metric_delta(before: dict[str, float], after: dict[str, float], name: str) -
     return after.get(name, 0.0) - before.get(name, 0.0)
 
 
+def flush_and_force_gauge_refresh(
+    base_url: str, tokenizer: Any, *, label: str
+) -> dict[str, float]:
+    """Flush the exact-match radix cache, then force one real scheduler
+    iteration via a small, fixed, dense sentinel request (see
+    ``_POOL_RESET_SENTINEL_SEED``/``_POOL_RESET_SENTINEL_TOKENS``), then
+    return a fresh ``/metrics`` snapshot -- the ONLY way to get a
+    genuinely up-to-date ``sglang:kv_used_tokens`` (and every other
+    gauge) reading immediately after a flush.
+
+    ``/flush_cache`` clears the actual pool/tree state SYNCHRONOUSLY: a
+    bare dense request posted right after a flush, with no sentinel in
+    between, already correctly reports ``cached_tokens=0`` (this is
+    exactly how every round's own subsequent ``register_round_setup``
+    seed call has always worked). But the separately-exported
+    Prometheus GAUGES (``sglang:kv_used_tokens`` and friends) are only
+    recomputed by the scheduler's own NEXT iteration, not synchronously
+    by ``/flush_cache`` itself -- so a bare ``/metrics`` scrape taken
+    immediately after a flush, with no intervening real request, can
+    still read a value carried over from whatever was resident just
+    before the flush.
+
+    THIS IS A DELIBERATE FIX for a real SM75 bug on a body-length sweep:
+    ``run_independent_round`` used to flush and immediately snapshot
+    ``/metrics`` with no intervening request, so a setting/round's own
+    ``metrics_at_round_start`` could carry over the PREVIOUS setting's
+    own final ``sglang:kv_used_tokens`` reading verbatim (e.g. 2048,
+    from a just-finished body=1024 setting's own raw+fresh footprint,
+    never cleared from the GAUGE by that flush alone); the NEXT
+    setting's own post-setup reading (e.g. 1024, for a genuine body=512
+    footprint measured from what should have been a truly-idle
+    baseline) then produced ``already_pinned_tokens = 1024 - 2048 =
+    -1024`` -- a structurally negative, nonsensical value. This script
+    never clamps that away (see ``eviction_pressure_filler_count_for_rho``'s
+    own ``already_pinned_tokens < 0`` check, which correctly raises
+    ``ValueError`` rather than silently treating a negative value as
+    zero) -- the ROOT problem, a stale baseline snapshot, had to be
+    fixed here instead, at its source.
+
+    Callers whose very next step performs its own exact-radix-match-
+    sensitive request (e.g. ``run_independent_round``'s own upcoming
+    ``register_round_setup`` seed call, which requires
+    ``cached_tokens == 0``) MUST flush again themselves before that step
+    -- this function's own contract is only "return an accurate
+    snapshot", never "leave the tree empty after returning": the
+    sentinel posted here is a plain dense request (no ``approx_kv``
+    metadata), so the scheduler DOES insert it into the exact radix tree
+    (see ``flush_exact_radix_cache``'s own docstring on which request
+    kinds do), and its own tiny footprint remains resident (moved to
+    ``sglang:kv_evictable_tokens`` once its own generation completes,
+    never counted in ``sglang:kv_used_tokens``) until the NEXT flush
+    clears it. A second, bare ``flush_exact_radix_cache`` call (no
+    sentinel needed, since nothing reads ``/metrics`` again until after
+    a further real request runs) is all a caller needs to guarantee a
+    genuinely empty tree afterward -- see ``run_independent_round``'s
+    own use of exactly that pattern.
+
+    No step here catches its own exceptions: a flush failure or a
+    failed/stuck sentinel request must propagate all the way up to
+    whichever central-log "failed" entry the caller's own top-level
+    error handling appends to, exactly like every other unrecoverable
+    error in this script (see ``post_empty``'s own docstring for the
+    same rationale) -- a silently-ignored failure here would silently
+    hide a real stale-gauge problem behind a misleadingly "clean"
+    snapshot.
+    """
+    flush_exact_radix_cache(base_url)
+    sentinel_ids = _deterministic_token_ids(
+        tokenizer, _POOL_RESET_SENTINEL_SEED, _POOL_RESET_SENTINEL_TOKENS
+    )
+    sentinel_response, _ = timed_post(base_url, dense_generate_payload(sentinel_ids))
+    require_finished_by_length(sentinel_response, f"{label} sentinel")
+    return metric_snapshot(base_url)
+
+
 def capture_final_pool_reset_and_invariant(
     base_url: str, tokenizer: Any
 ) -> dict[str, Any]:
@@ -2242,20 +2338,20 @@ def capture_final_pool_reset_and_invariant(
 
     1. Snapshots ``/metrics`` first (``metrics_pre_reset``) -- kept only
        for visibility in the result JSON, never used to gate pass/fail.
-    2. Calls ``flush_exact_radix_cache``, which clears the exact radix
-       tree (releasing every dense-cached entry, including every
-       eviction-pressure filler object) AND also resets
-       ``ApproxKVManager``, releasing every raw/fresh CacheTune segment
-       this run registered (see that function's own docstring).
-    3. Posts one small, fixed *sentinel* ``/generate`` request. Gauges
-       such as ``sglang:kv_used_tokens`` are only recomputed by the
-       scheduler's own next iteration, not synchronously by
-       ``/flush_cache`` itself (see ``schedule_batch.py``) -- so unless
-       a real request actually runs after the flush, the very next
-       ``/metrics`` scrape can still read a stale pre-flush value.
-    4. Snapshots ``/metrics`` again (``metrics_post_reset``) and runs
-       ``idle_pool_invariant`` on *that* snapshot alone -- this is the
-       only invariant result callers should gate pass/fail on.
+    2. Calls ``flush_and_force_gauge_refresh`` (``label="final
+       pool-reset"``), which flushes the exact radix tree (releasing
+       every dense-cached entry, including every eviction-pressure
+       filler object) AND resets ``ApproxKVManager`` (releasing every
+       raw/fresh CacheTune segment this run registered), THEN posts one
+       small, fixed *sentinel* ``/generate`` request to force one real
+       scheduler iteration -- gauges such as ``sglang:kv_used_tokens``
+       are only recomputed by the scheduler's own next iteration, not
+       synchronously by ``/flush_cache`` itself (see that function's
+       own docstring) -- and returns the resulting fresh ``/metrics``
+       snapshot (``metrics_post_reset``).
+    3. Runs ``idle_pool_invariant`` on ``metrics_post_reset`` alone --
+       this is the only invariant result callers should gate pass/fail
+       on, never the pre-reset snapshot from step 1.
 
     No step here catches its own exceptions: a flush failure or a
     failed/stuck sentinel request must propagate all the way up to
@@ -2266,13 +2362,9 @@ def capture_final_pool_reset_and_invariant(
     "passed" result.
     """
     metrics_pre_reset = metric_snapshot(base_url)
-    flush_exact_radix_cache(base_url)
-    sentinel_ids = _deterministic_token_ids(
-        tokenizer, _POOL_RESET_SENTINEL_SEED, _POOL_RESET_SENTINEL_TOKENS
+    metrics_post_reset = flush_and_force_gauge_refresh(
+        base_url, tokenizer, label="final pool-reset"
     )
-    sentinel_response, _ = timed_post(base_url, dense_generate_payload(sentinel_ids))
-    require_finished_by_length(sentinel_response, "final pool-reset sentinel")
-    metrics_post_reset = metric_snapshot(base_url)
     return {
         "metrics_pre_reset": metrics_pre_reset,
         "metrics_post_reset": metrics_post_reset,
@@ -3058,24 +3150,34 @@ def run_independent_round(
     entirely: every round's raw+fresh registration always runs against a
     genuinely fresh, just-flushed idle pool.
 
-    The flush is this function's OWN first action, every single call --
-    not merely the caller's responsibility, and not merely once per
-    setting the way an earlier design's ``run_non_prefix_setting`` did
-    it. This is safe (never harmful, unlike flushing BETWEEN steps
-    WITHIN the same round would be) precisely because it runs before any
-    registration this round performs: see ``flush_exact_radix_cache``'s
-    own docstring for why every round -- not just the first -- must
-    start this way now, and why the resulting cross-round Prometheus
-    telemetry deltas remain mathematically sound regardless of how many
-    independent flushes separate them (Counters are monotonic and
-    unaffected by flush; only the ``sglang:kv_used_tokens`` Gauge
-    resets, which is exactly what lets every round measure its OWN idle
-    capacity and pinned footprint freshly).
+    The flush-and-sentinel-refresh is this function's OWN first action,
+    every single call -- not merely the caller's responsibility, and
+    not merely once per setting the way an earlier design's
+    ``run_non_prefix_setting`` did it. This is safe (never harmful,
+    unlike flushing BETWEEN steps WITHIN the same round would be)
+    precisely because it runs before any registration this round
+    performs: see ``flush_exact_radix_cache``'s own docstring for why
+    every round -- not just the first -- must start this way now, and
+    why the resulting cross-round Prometheus telemetry deltas remain
+    mathematically sound regardless of how many independent flushes
+    separate them (Counters are monotonic and unaffected by flush; only
+    the ``sglang:kv_used_tokens`` Gauge resets, which is exactly what
+    lets every round measure its OWN idle capacity and pinned footprint
+    freshly -- see ``flush_and_force_gauge_refresh``'s own docstring for
+    why a bare flush alone is not enough to guarantee that Gauge itself
+    reads fresh, and the real SM75 cross-setting bug fixed by never
+    reading it without an intervening real request first).
 
-    Immediately after that flush, a real ``/metrics`` snapshot on the now
-    genuinely idle pool gives this round's own ``capacity_tokens`` (via
-    ``usable_kv_capacity_tokens``) -- a fixed reference used for this
-    round's own ``observed_rho`` calculations. ``register_round_setup``
+    Immediately after that flush-and-sentinel-refresh, this round's own
+    now-genuinely-fresh ``/metrics`` snapshot gives this round's own
+    ``capacity_tokens`` (via ``usable_kv_capacity_tokens``) -- a fixed
+    reference used for this round's own ``observed_rho`` calculations.
+    A SECOND, bare flush immediately follows (clearing away the
+    gauge-refresh sentinel's own tiny resident footprint, never leaving
+    it to risk an unwanted exact-match collision against this round's
+    own upcoming head-seed request -- see
+    ``flush_and_force_gauge_refresh``'s own docstring for why this
+    second flush needs no sentinel of its own). ``register_round_setup``
     then runs -- this round's own seed-head + raw-register +
     fresh-register setup, all together -- while the pool is still at (or
     near) that same idle baseline.
@@ -3127,9 +3229,32 @@ def run_independent_round(
     aggregation) -- everything ``run_non_prefix_setting`` needs to
     aggregate one setting's worth of otherwise fully independent rounds.
     """
-    flush_exact_radix_cache(base_url)
-    metrics_at_round_start = metric_snapshot(base_url)
+    # Flush, THEN force one real scheduler iteration via a fixed
+    # sentinel request, THEN snapshot -- never flush-then-snapshot
+    # directly (see flush_and_force_gauge_refresh's own docstring for
+    # the real SM75 body-length-sweep bug this fixes: a bare
+    # flush-then-snapshot could carry over a PREVIOUS setting's own
+    # stale sglang:kv_used_tokens gauge reading verbatim, producing a
+    # structurally negative already_pinned_tokens for the NEXT
+    # setting/round below).
+    metrics_at_round_start = flush_and_force_gauge_refresh(
+        base_url, tokenizer, label=f"{label} round-start"
+    )
     capacity_tokens = usable_kv_capacity_tokens(metrics_at_round_start)
+    # A second, bare flush clears away the gauge-refresh sentinel's own
+    # tiny resident footprint (moved to sglang:kv_evictable_tokens once
+    # its own generation completed, never sglang:kv_used_tokens -- see
+    # flush_and_force_gauge_refresh's own docstring) so
+    # register_round_setup's own seed call immediately below starts
+    # from a genuinely, fully empty exact radix tree -- never at risk
+    # of an unwanted exact-match collision against the sentinel's own
+    # token(s), which would corrupt that seed call's own
+    # ``require_cached_tokens(..., 0, ...)`` check. No sentinel is
+    # needed for THIS flush: nothing reads ``/metrics`` again until
+    # AFTER register_round_setup's own real dense requests (starting
+    # with that same seed call) naturally force a fresh scheduler
+    # iteration.
+    flush_exact_radix_cache(base_url)
 
     # This round's own complete setup -- raw AND fresh together, always
     # finished in full BEFORE any pressure filler for THIS round. Never
@@ -4091,6 +4216,33 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "anchoring the tree's exact-match boundary at a fixed, known, "
         "non-body-colliding token regardless of what the seed request's "
         "own generated token turns out to be."
+    )
+    known_limitations.append(
+        "Every run_independent_round call starts with "
+        "flush_and_force_gauge_refresh (flush, then one small fixed "
+        "dense sentinel request, then a /metrics snapshot), never a "
+        "bare flush-then-snapshot -- and a second, bare flush "
+        "immediately follows before register_round_setup's own seed "
+        "call. This is a fix for a real SM75 body-length-sweep bug: "
+        "/flush_cache clears the actual pool/tree state synchronously, "
+        "but gauges such as sglang:kv_used_tokens are only recomputed "
+        "by the scheduler's own next iteration -- so a bare "
+        "flush-then-snapshot with no intervening real request could "
+        "read a value carried over from a PREVIOUS round or even a "
+        "previous setting. Observed on a real run: switching from a "
+        "body=1024 setting (ending with kv_used_tokens=2048 resident) "
+        "to the next body=512 setting produced "
+        "already_pinned_tokens=1024-2048=-1024 -- a structurally "
+        "negative value this script never clamps away (see "
+        "eviction_pressure_filler_count_for_rho's own "
+        "already_pinned_tokens < 0 check, which correctly raises "
+        "ValueError instead). The sentinel forces a real scheduler "
+        "iteration so the snapshot genuinely reflects the just-flushed "
+        "idle pool; the second, sentinel-less flush then clears away "
+        "the sentinel's own tiny resident footprint so it can never "
+        "collide with this round's own head-seed request (see "
+        "flush_and_force_gauge_refresh's own docstring for the full "
+        "mechanism)."
     )
 
     payload = {
