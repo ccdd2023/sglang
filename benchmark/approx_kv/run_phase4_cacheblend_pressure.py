@@ -43,6 +43,18 @@ Bodies longer than 512 tokens are split into <=512-token segments; each
 segment is independently registered (raw *and* fresh) and the target
 request's ``segments`` metadata restores them contiguously, exactly like
 R1's long-body EPIC segmentation.
+
+Dense-mode fairness: the dense arm issues NO body-chunk priming request
+of its own -- only filler traffic plus the real target request. An
+earlier version primed the body by sending each chunk as a bare
+(headerless) ordinary dense request before the filler loop; that
+request commits a second, ~body_tokens-sized exact-cache entry that
+shares no prefix with (and is never reused by) the real target request,
+which silently inflated dense's true resident footprint above what
+``dense_persistent_token_estimate`` declared and biased the
+``target_rho`` comparison unfairly tighter for dense than for
+cacheblend at the same nominal setting. See
+``dense_persistent_token_estimate``'s docstring for the full accounting.
 """
 
 from __future__ import annotations
@@ -186,8 +198,38 @@ def persistent_token_estimate(header_tokens: int, body_tokens: int) -> int:
     footprints (raw + fresh), each ``body_tokens`` long, plus the
     target's own eventual committed KV (``header_tokens + body_tokens +
     1``).
+
+    This function assumes the *only* body-sized contributions are the
+    raw registration, the fresh registration, and the target's own
+    commit -- see ``dense_persistent_token_estimate`` for the matching
+    invariant on the dense-mode side, and why dense must never add a
+    fourth, unaccounted body-sized term of its own.
     """
     return 2 * body_tokens + header_tokens + body_tokens + 1
+
+
+def dense_persistent_token_estimate(header_tokens: int, body_tokens: int) -> int:
+    """Dense mode's *only* persistent contribution: the target request's
+    own eventual exact-cache commit (``header_tokens + body_tokens +
+    1``).
+
+    Dense mode must issue **no** body-chunk priming request of its own
+    before this. A previous version of this runner primed the body by
+    sending each chunk as a bare (headerless) ordinary dense request
+    before the filler loop -- that request is a genuinely different
+    token sequence from the real ``target_header + body`` target
+    request (different prefix from position 0), so it commits a
+    *second*, ~``body_tokens``-sized exact-cache entry that shares
+    nothing with, and is never reused by, the target. That second entry
+    was real GPU-resident pressure that this estimate never counted,
+    silently inflating dense mode's true working set above what
+    ``persistent_tokens`` declared and biasing ``target_rho`` unfairly
+    tighter for dense than for cacheblend at the same nominal setting.
+    Removing the priming (rather than trying to estimate its uncertain
+    survival-to-target-time) keeps this estimate exact: nothing but the
+    target's own eventual commit is resident besides filler traffic.
+    """
+    return header_tokens + body_tokens + 1
 
 
 def compute_filler_count(
@@ -349,7 +391,9 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
             args.header_tokens, args.body_tokens
         )
     else:
-        persistent_tokens = args.header_tokens + args.body_tokens + 1
+        persistent_tokens = dense_persistent_token_estimate(
+            args.header_tokens, args.body_tokens
+        )
     filler_count = compute_filler_count(
         capacity, args.target_rho, persistent_tokens, args.filler_tokens
     )
@@ -385,9 +429,13 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
             content_hash_base=content_hash_base,
             sentinel_base=910,
         )
-    else:
-        for index, chunk in enumerate(chunks):
-            request(args.base_url, chunk + [900 + index])
+    # Dense mode intentionally issues NO body-chunk priming request here.
+    # A bare (headerless) per-chunk dense request would commit a second,
+    # ~body_tokens-sized exact-cache entry that shares no prefix with --
+    # and is never reused by -- the real `target_header + body` target
+    # request below, silently inflating dense's true resident footprint
+    # above what `dense_persistent_token_estimate` declares (see that
+    # function's docstring for the full accounting bug this avoids).
 
     for filler_index in range(filler_count):
         request(

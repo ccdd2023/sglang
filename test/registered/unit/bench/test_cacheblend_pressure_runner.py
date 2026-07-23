@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 from benchmark.approx_kv.run_phase4_cacheblend_pressure import (
     build_target_segments,
     compute_filler_count,
+    dense_persistent_token_estimate,
     expected_selected_tokens,
     persistent_token_estimate,
     segment_chunks,
@@ -12,6 +14,11 @@ from benchmark.approx_kv.run_phase4_cacheblend_pressure import (
 from sglang.test.ci.ci_register import register_cpu_ci
 
 register_cpu_ci(est_time=5, suite="base-c-test-cpu")
+
+RUNNER_PATH = (
+    Path(__file__).resolve().parents[4]
+    / "benchmark/approx_kv/run_phase4_cacheblend_pressure.py"
+)
 
 
 class TestSegmentChunks(unittest.TestCase):
@@ -95,6 +102,54 @@ class TestPersistentTokenEstimate(unittest.TestCase):
         large = persistent_token_estimate(header_tokens=0, body_tokens=1024)
         # Three body-sized contributions (raw + fresh + target).
         self.assertEqual(large - small, 3 * (1024 - 512))
+
+
+class TestDensePersistentTokenEstimate(unittest.TestCase):
+    def test_accounts_for_only_the_targets_own_commit(self):
+        # Dense mode has exactly one body-sized contribution: the
+        # target's own eventual commit (header + body + 1). No priming
+        # term is added, because dense mode issues no body-chunk priming
+        # request of its own (see the module and function docstrings).
+        estimate = dense_persistent_token_estimate(header_tokens=64, body_tokens=512)
+        self.assertEqual(estimate, 64 + 512 + 1)
+
+    def test_scales_linearly_with_body_tokens(self):
+        small = dense_persistent_token_estimate(header_tokens=0, body_tokens=512)
+        large = dense_persistent_token_estimate(header_tokens=0, body_tokens=1024)
+        # A single body-sized contribution (the target's own commit).
+        self.assertEqual(large - small, 1024 - 512)
+
+    def test_is_exactly_two_body_tokens_below_cacheblend_estimate(self):
+        # CacheBlend adds two *extra* body-sized footprints beyond the
+        # target's own commit (raw + fresh source registrations) that
+        # dense mode has no equivalent of -- these two functions must
+        # never converge to the same value for body_tokens > 0, or one
+        # of them is silently missing/double-counting a real footprint.
+        header_tokens, body_tokens = 64, 512
+        dense = dense_persistent_token_estimate(header_tokens, body_tokens)
+        cacheblend = persistent_token_estimate(header_tokens, body_tokens)
+        self.assertEqual(cacheblend - dense, 2 * body_tokens)
+
+
+class TestDenseModeIssuesNoBodyChunkPriming(unittest.TestCase):
+    """Regression guard for the fairness bug where dense mode primed the
+    body chunks as bare (headerless) ordinary dense requests before the
+    filler loop -- a real ~body_tokens exact-cache entry that shared no
+    prefix with (and was never reused by) the actual target request,
+    silently inflating dense's true resident footprint above what
+    `dense_persistent_token_estimate` declared and biasing `target_rho`
+    unfairly tighter for dense than for cacheblend at the same nominal
+    setting."""
+
+    def test_runner_source_no_longer_primes_bare_body_chunks_for_dense(self):
+        source = RUNNER_PATH.read_text()
+        # The exact buggy call this bug used to send: a bare per-chunk
+        # dense request with no header and no approx_kv metadata.
+        self.assertNotIn("request(args.base_url, chunk + [900 + index])", source)
+
+    def test_runner_uses_dense_specific_estimate_in_run_round(self):
+        source = RUNNER_PATH.read_text()
+        self.assertIn("dense_persistent_token_estimate(", source)
 
 
 class TestComputeFillerCount(unittest.TestCase):
