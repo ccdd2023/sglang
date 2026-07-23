@@ -39,11 +39,20 @@ state of this worktree), this script:
   (``BLOCKED_EXIT_CODE``) so calling scripts/CI can tell "capability
   missing" apart from "ran and failed".
 
-Only once real scheduler dispatch (and a real attention-profile capture /
-selected-token recompute hook) exist should ``--allow-real-run`` ever be
-passed; even then, this script performs the same capability check again at
-that time and will not silently start treating a still-missing hook as
-available.
+``main()`` only ever takes the real-run path when **both** conditions hold:
+``inspect_scheduler_dispatch_capability()`` reports ``supported=True`` *and*
+the operator explicitly passed ``--allow-real-run`` on this invocation.
+Passing ``--allow-real-run`` alone never bypasses the capability check --
+if the scheduler still cannot dispatch to CacheCraft, the run is blocked
+regardless of the flag. Conversely, capability becoming supported (e.g.
+after scheduler dispatch and a real recompute hook are wired) is *not*
+by itself enough to start hitting a real server: the flag is a required,
+explicit operator acknowledgement, so a future capability flip can never
+silently switch a scripted/CI invocation from blocked to a real run. When
+capability is supported but the flag is missing, this script still takes
+the blocked path (log entry, no network/GPU calls, exit code
+``BLOCKED_EXIT_CODE``) with a reason that says explicitly that the only
+missing requirement was the flag.
 """
 
 from __future__ import annotations
@@ -73,6 +82,7 @@ from benchmark.approx_kv.metrics import (
     usable_kv_capacity_tokens,
 )
 from sglang.srt.mem_cache.approx_kv.cachecraft_capability import (
+    CacheCraftServerCapability,
     inspect_scheduler_dispatch_capability,
 )
 
@@ -442,6 +452,23 @@ def main() -> int:
     capability = inspect_scheduler_dispatch_capability()
     if not capability:
         return run_blocked(args, capability)
+    if not args.allow_real_run:
+        # Capability is supported, but the operator has not explicitly
+        # acknowledged it via --allow-real-run: refuse to silently switch
+        # from blocked to a real run the moment capability flips.
+        return run_blocked(
+            args,
+            CacheCraftServerCapability(
+                supported=False,
+                reason=(
+                    "inspect_scheduler_dispatch_capability() now reports "
+                    f"supported=True ({capability.reason}), but "
+                    "--allow-real-run was not passed on this invocation; "
+                    "refusing to start a real server run without explicit "
+                    "operator confirmation"
+                ),
+            ),
+        )
     return run_real(args)
 
 

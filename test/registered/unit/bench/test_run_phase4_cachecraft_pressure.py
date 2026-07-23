@@ -113,7 +113,9 @@ class TestBlockedPathMakesNoNetworkCalls(unittest.TestCase):
             self.assertEqual(entry["settings"]["formal_repeats"], 4)
 
     def test_main_dispatches_to_run_real_when_capability_supported(self):
-        args = make_args()
+        # Both required conditions must hold: capability supported AND the
+        # operator explicitly passed --allow-real-run.
+        args = make_args(allow_real_run=True)
         with patch.object(runner, "parse_args", return_value=args), patch.object(
             runner,
             "inspect_scheduler_dispatch_capability",
@@ -122,6 +124,71 @@ class TestBlockedPathMakesNoNetworkCalls(unittest.TestCase):
             exit_code = runner.main()
         self.assertEqual(exit_code, 0)
         fake_run_real.assert_called_once_with(args)
+
+    def test_main_blocks_when_capability_supported_but_flag_missing(self):
+        # A future capability flip must never silently start a real run:
+        # without --allow-real-run, main() must still take the blocked
+        # path even though the scheduler dispatch check itself passes.
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "result.json"
+            log_path = Path(tmpdir) / "central.jsonl"
+            args = make_args(
+                output=str(output_path),
+                central_log=str(log_path),
+                allow_real_run=False,
+            )
+            with patch.object(
+                runner,
+                "parse_args",
+                return_value=args,
+            ), patch.object(
+                runner,
+                "inspect_scheduler_dispatch_capability",
+                return_value=CacheCraftServerCapability(supported=True, reason="wired"),
+            ), patch.object(
+                runner,
+                "run_real",
+                side_effect=AssertionError(
+                    "run_real must never be called without --allow-real-run"
+                ),
+            ):
+                exit_code = runner.main()
+
+            self.assertEqual(exit_code, runner.BLOCKED_EXIT_CODE)
+            self.assertFalse(output_path.exists())
+            self.assertTrue(log_path.exists())
+            lines = log_path.read_text(encoding="utf-8").strip().splitlines()
+            self.assertEqual(len(lines), 1)
+            entry = json.loads(lines[0])
+            self.assertEqual(entry["status"], "blocked")
+            self.assertIn("--allow-real-run", entry["reason"])
+            self.assertIn("wired", entry["reason"])
+            self.assertEqual(entry["settings"]["formal_repeats"], 4)
+
+    def test_main_blocks_when_flag_passed_but_capability_still_unsupported(self):
+        # --allow-real-run alone must never bypass the capability check.
+        args = make_args(allow_real_run=True)
+        with patch.object(
+            runner,
+            "parse_args",
+            return_value=args,
+        ), patch.object(
+            runner,
+            "inspect_scheduler_dispatch_capability",
+            return_value=CacheCraftServerCapability(
+                supported=False, reason="no dispatch wired"
+            ),
+        ), patch.object(
+            runner,
+            "run_real",
+            side_effect=AssertionError(
+                "run_real must never be called when capability is unsupported"
+            ),
+        ):
+            exit_code = runner.main()
+        self.assertEqual(exit_code, runner.BLOCKED_EXIT_CODE)
 
 
 # ---------------------------------------------------------------------------
