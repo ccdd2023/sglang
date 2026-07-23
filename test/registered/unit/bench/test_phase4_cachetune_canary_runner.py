@@ -54,6 +54,11 @@ from benchmark.approx_kv.run_phase4_cachetune_canary import (
     timed_post,
     validate_pairwise_head_isolation,
 )
+from sglang.srt.mem_cache.approx_kv.request import (
+    ApproxKVRequestMetadata,
+    ApproxKVRequestOperation,
+    ApproxKVRequestSegment,
+)
 from sglang.srt.mem_cache.cachetune.hardware_profile import (
     CacheTuneMode,
     RatioBounds,
@@ -697,14 +702,25 @@ class TestNonPrefixSegmentWorkload(unittest.TestCase):
         self.assertEqual(workload.body_tokens, 4)
         self.assertEqual(workload.body_start_in_source, 3)
         self.assertEqual(workload.body_start_in_target, 3)
-        self.assertEqual(workload.source_prompt_ids, (1, 2, 3, 4, 5, 6, 7))
+        # Every prompt appends the same trailing tail_ids=(99,) -- see
+        # NonPrefixSegmentWorkload's own docstring for why source/fresh
+        # need it too, not just target (the real scheduler-crash bug
+        # this dataclass's tail handling now fixes).
+        self.assertEqual(workload.source_prompt_ids, (1, 2, 3, 4, 5, 6, 7, 99))
         self.assertEqual(workload.target_prompt_ids, (9, 8, 7, 4, 5, 6, 7, 99))
-        self.assertEqual(workload.fresh_prompt_ids, (9, 8, 7, 4, 5, 6, 7))
+        self.assertEqual(workload.fresh_prompt_ids, (9, 8, 7, 4, 5, 6, 7, 99))
+        self.assertEqual(workload.fresh_prompt_ids, workload.target_prompt_ids)
         self.assertTrue(workload.body_source_context_differs_from_target)
 
     def test_shared_body_appears_identically_in_both_prompts(self):
         workload = self._workload()
-        source_slice = workload.source_prompt_ids[workload.body_start_in_source :]
+        # Sliced to an explicit end (not left open-ended): all three
+        # prompts now have a trailing tail_ids beyond the body, so an
+        # open-ended slice from body_start would incorrectly include it.
+        source_slice = workload.source_prompt_ids[
+            workload.body_start_in_source : workload.body_start_in_source
+            + workload.body_tokens
+        ]
         target_slice = workload.target_prompt_ids[
             workload.body_start_in_target : workload.body_start_in_target
             + workload.body_tokens
@@ -1676,6 +1692,241 @@ class TestBodySegmentsForHash(unittest.TestCase):
             max_chunk_tokens=512,
         )
         self.assertEqual(sum(s["length"] for s in segments), 2048)
+
+
+class TestNonPrefixSegmentWorkloadPromptsLeaveFinalTokenForRealForwardPass(
+    unittest.TestCase
+):
+    """Regression coverage for a real SM75 scheduler crash: an earlier
+    version of ``NonPrefixSegmentWorkload.source_prompt_ids``/
+    ``fresh_prompt_ids`` omitted ``tail_ids`` (only ``target_prompt_ids``
+    had it), so the raw/fresh register call's own body segment(s) ended
+    EXACTLY at ``len(prompt)``. That tripped ``ApproxKVRequestMetadata.
+    validate_prompt_length``'s "approximate KV segments must leave the
+    final prompt token for a real forward pass" check inside
+    ``Req.__init__`` (``schedule_batch.py``) -- synchronously, on the
+    scheduler's own request-admission path -- and killed the scheduler
+    on a real GPU run.
+
+    These tests feed this canary's own ``body_segments_for_hash`` output
+    through the REAL, production ``ApproxKVRequestMetadata.
+    validate_prompt_length`` (never a reimplementation of its own
+    arithmetic) for every raw and fresh segment this canary would
+    actually register, across the main setting's own shape, the full
+    header x body shape sweep, an eviction-pressure filler's shape, and
+    a body=2048 multi-chunk shape (4 x 512-token segments under the
+    default ``--max-segment-chunk-tokens``) -- never just the trivial
+    single-segment case, since a multi-chunk body's LAST chunk is the
+    one that actually abuts the tail and is at risk.
+    """
+
+    @staticmethod
+    def _metadata_from_segments(segments):
+        return ApproxKVRequestMetadata(
+            operation=ApproxKVRequestOperation.REGISTER,
+            segments=tuple(
+                ApproxKVRequestSegment(
+                    content_hash=str(segment["content_hash"]),
+                    target_start=int(segment["target_start"]),
+                    length=int(segment["length"]),
+                )
+                for segment in segments
+            ),
+            model_fingerprint="test",
+            cache_dtype="auto",
+        )
+
+    def _assert_segments_pass_real_validation(
+        self, *, segments, prompt_length, context
+    ):
+        metadata = self._metadata_from_segments(segments)
+        try:
+            metadata.validate_prompt_length(prompt_length)
+        except ValueError as exc:
+            self.fail(
+                f"{context}: real ApproxKVRequestMetadata.validate_prompt_length "
+                f"rejected prompt_length={prompt_length} for segments={segments}: "
+                f"{exc}"
+            )
+
+    def _assert_raw_and_fresh_segments_pass_real_validation(
+        self, workload, *, max_chunk_tokens, context
+    ):
+        raw_segments = body_segments_for_hash(
+            hash_prefix="cachetune-raw:test",
+            body_start=workload.body_start_in_source,
+            body_tokens=workload.body_tokens,
+            max_chunk_tokens=max_chunk_tokens,
+        )
+        fresh_segments = body_segments_for_hash(
+            hash_prefix="cachetune-fresh:test",
+            body_start=workload.body_start_in_target,
+            body_tokens=workload.body_tokens,
+            max_chunk_tokens=max_chunk_tokens,
+        )
+        self.assertGreaterEqual(len(raw_segments), 1)
+        self.assertGreaterEqual(len(fresh_segments), 1)
+        self._assert_segments_pass_real_validation(
+            segments=raw_segments,
+            prompt_length=len(workload.source_prompt_ids),
+            context=f"{context} raw",
+        )
+        self._assert_segments_pass_real_validation(
+            segments=fresh_segments,
+            prompt_length=len(workload.fresh_prompt_ids),
+            context=f"{context} fresh",
+        )
+        # The exact, tightest-possible boundary (not just "doesn't
+        # raise"): the LAST segment's target_end must land exactly one
+        # token short of that prompt's own length -- the margin
+        # NON_PREFIX_TAIL_TOKENS=1 provides, never more loosely
+        # "somewhere less than".
+        last_raw_end = max(s["target_start"] + s["length"] for s in raw_segments)
+        last_fresh_end = max(s["target_start"] + s["length"] for s in fresh_segments)
+        self.assertEqual(
+            last_raw_end, workload.body_start_in_source + workload.body_tokens
+        )
+        self.assertEqual(
+            last_fresh_end, workload.body_start_in_target + workload.body_tokens
+        )
+        self.assertLessEqual(last_raw_end, len(workload.source_prompt_ids) - 1)
+        self.assertLessEqual(last_fresh_end, len(workload.fresh_prompt_ids) - 1)
+
+    def test_main_setting_shape(self):
+        # --main-header-tokens/--main-body-tokens defaults.
+        workload = build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=1024,
+            head_tokens=64,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt="phase4-r5-tail-regression-main",
+        )
+        self._assert_raw_and_fresh_segments_pass_real_validation(
+            workload, max_chunk_tokens=512, context="main"
+        )
+
+    def test_every_shape_sweep_header_x_body_combination(self):
+        # --header-tokens-choices x --body-tokens-choices defaults.
+        # header=0 is a dedicated exact-context control point that never
+        # builds a NonPrefixSegmentWorkload at all (see
+        # run_exact_context_control_point) so it is correctly excluded
+        # here -- it sends no approx_kv segments whatsoever.
+        for header_tokens in (32, 64, 128, 256):
+            for body_tokens in (512, 768, 1024, 2048):
+                with self.subTest(header_tokens=header_tokens, body_tokens=body_tokens):
+                    workload = build_non_prefix_segment_workload(
+                        FakeTokenizer(),
+                        body_tokens=body_tokens,
+                        head_tokens=header_tokens,
+                        tail_tokens=NON_PREFIX_TAIL_TOKENS,
+                        salt=(
+                            "phase4-r5-tail-regression-shape-"
+                            f"h{header_tokens}-b{body_tokens}"
+                        ),
+                    )
+                    self._assert_raw_and_fresh_segments_pass_real_validation(
+                        workload,
+                        max_chunk_tokens=512,
+                        context=f"shape[header={header_tokens},body={body_tokens}]",
+                    )
+
+    def test_eviction_pressure_filler_shape(self):
+        # --pressure-filler-head-tokens/--pressure-filler-body-tokens
+        # defaults: every filler is its own NonPrefixSegmentWorkload,
+        # going through the exact same materialize_workload_via_reuse
+        # register-raw/register-fresh path as the setting's own head.
+        workloads = build_eviction_pressure_workloads(
+            FakeTokenizer(),
+            object_count=3,
+            body_tokens=2048,
+            head_tokens=NON_PREFIX_HEAD_TOKENS,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt_prefix="phase4-r5-tail-regression-pressure",
+        )
+        for index, workload in enumerate(workloads):
+            with self.subTest(filler_index=index):
+                self._assert_raw_and_fresh_segments_pass_real_validation(
+                    workload,
+                    max_chunk_tokens=512,
+                    context=f"pressure-filler[{index}]",
+                )
+
+    def test_body_2048_registers_as_four_chunks_and_every_chunk_passes(self):
+        # The multi-segment case this regression explicitly calls out:
+        # with the default --max-segment-chunk-tokens=512, a body=2048
+        # span is registered as 4 distinct <=512-token segments per
+        # register/reuse call (see chunk_offsets) -- assert each of the
+        # 4, not just the last, individually satisfies the real
+        # validator (chunk_offsets tiles the body contiguously with no
+        # gaps, so only the LAST chunk can ever be the binding
+        # constraint -- but this checks all of them directly rather
+        # than assuming that).
+        workload = build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=2048,
+            head_tokens=64,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt="phase4-r5-tail-regression-body2048",
+        )
+        raw_segments = body_segments_for_hash(
+            hash_prefix="cachetune-raw:test",
+            body_start=workload.body_start_in_source,
+            body_tokens=workload.body_tokens,
+            max_chunk_tokens=512,
+        )
+        fresh_segments = body_segments_for_hash(
+            hash_prefix="cachetune-fresh:test",
+            body_start=workload.body_start_in_target,
+            body_tokens=workload.body_tokens,
+            max_chunk_tokens=512,
+        )
+        self.assertEqual(len(raw_segments), 4)
+        self.assertEqual(len(fresh_segments), 4)
+        for index, segment in enumerate(raw_segments):
+            with self.subTest(chunk=index, prompt="source"):
+                self._assert_segments_pass_real_validation(
+                    segments=[segment],
+                    prompt_length=len(workload.source_prompt_ids),
+                    context=f"body2048 raw chunk {index}",
+                )
+        for index, segment in enumerate(fresh_segments):
+            with self.subTest(chunk=index, prompt="fresh"):
+                self._assert_segments_pass_real_validation(
+                    segments=[segment],
+                    prompt_length=len(workload.fresh_prompt_ids),
+                    context=f"body2048 fresh chunk {index}",
+                )
+
+    def test_omitting_tail_from_source_would_have_raised(self):
+        # Direct proof this test class is not vacuous: reconstructing
+        # the OLD, buggy formula (head + body, no tail) that
+        # source_prompt_ids used to return, and feeding its own segment
+        # through the same real validator, DOES raise -- exactly the
+        # ValueError that killed the scheduler on a real SM75 run
+        # before this fix.
+        workload = build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=64,
+            head_tokens=8,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt="phase4-r5-tail-regression-negative-control",
+        )
+        raw_segments = body_segments_for_hash(
+            hash_prefix="cachetune-raw:test",
+            body_start=workload.body_start_in_source,
+            body_tokens=workload.body_tokens,
+            max_chunk_tokens=512,
+        )
+        metadata = self._metadata_from_segments(raw_segments)
+        old_buggy_prompt_length = len(workload.source_head_ids) + len(
+            workload.shared_body_ids
+        )
+        with self.assertRaises(ValueError) as ctx:
+            metadata.validate_prompt_length(old_buggy_prompt_length)
+        self.assertIn("must leave the final prompt token", str(ctx.exception))
+        # Today's actual (fixed) source_prompt_ids must NOT raise for
+        # the exact same segments.
+        metadata.validate_prompt_length(len(workload.source_prompt_ids))
 
 
 class TestFirstCommonPrefixLength(unittest.TestCase):

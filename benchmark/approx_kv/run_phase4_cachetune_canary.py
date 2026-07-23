@@ -56,18 +56,23 @@ canary exists to validate).
 This version instead builds a genuine non-prefix workload (see
 ``NonPrefixSegmentWorkload``/``build_non_prefix_segment_workload``):
 
-* ``source_prompt = source_head_ids + shared_body_ids``
+* ``source_prompt = source_head_ids + shared_body_ids + tail_ids``
 * ``target_prompt = target_head_ids + shared_body_ids + tail_ids``
+* ``fresh_prompt`` (registered from the *target* prompt's body offset,
+  under a distinguishing content-hash prefix) is token-identical to
+  ``target_prompt`` -- see ``NonPrefixSegmentWorkload.fresh_prompt_ids``
+  for why that equality is intentional and safe.
 
 with ``source_head_ids != target_head_ids`` (different token content --
-the whole point) but ``shared_body_ids`` byte-identical between the two.
-The "raw" segment is registered from the *source* prompt's body offset;
-the "fresh"/reuse segment is registered/matched from the *target*
-prompt's body offset. Each of source_head/target_head/shared_body/tail is
-tokenized *separately* (``tokenizer.encode(text, add_special_tokens=False)``)
-and the resulting integer-id lists are concatenated directly -- never
-re-tokenized as a joined string -- so segment offsets are exact by
-construction, with no BPE boundary-merging risk across piece boundaries.
+the whole point) but ``shared_body_ids`` (and the trailing ``tail_ids``)
+byte-identical between all three. The "raw" segment is registered from
+the *source* prompt's body offset; the "fresh"/reuse segment is
+registered/matched from the *target* prompt's body offset. Each of
+source_head/target_head/shared_body/tail is tokenized *separately*
+(``tokenizer.encode(text, add_special_tokens=False)``) and the resulting
+integer-id lists are concatenated directly -- never re-tokenized as a
+joined string -- so segment offsets are exact by construction, with no
+BPE boundary-merging risk across piece boundaries.
 
 ``source_head_ids``/``target_head_ids`` are more than merely *unequal*:
 they are constructed to share **zero** common exact-match token prefix
@@ -102,13 +107,19 @@ type that ever write into the exact tree (register/reuse always set
 measurement pass is, in order: seed the target head (one dense
 ``/generate`` call over ``target_head_ids`` alone) -> register the raw
 segment once (one ``/generate`` register call over
-``source_head_ids + shared_body_ids``) -> a discarded register-fresh +
-reuse warmup -> ``--repeats`` formal register-fresh + reuse repeats. The
-mandatory ``tail_ids`` (fixed at ``NON_PREFIX_TAIL_TOKENS`` token(s))
-ensures every reuse request still has a genuine final forward pass beyond
-the restored range, matching ``ApproxKVRequestMetadata``'s own invariant
+``source_head_ids + shared_body_ids + tail_ids``) -> a discarded
+register-fresh + reuse warmup -> ``--repeats`` formal register-fresh +
+reuse repeats. The mandatory ``tail_ids`` (fixed at
+``NON_PREFIX_TAIL_TOKENS`` token(s)) is appended to EVERY one of
+``source_prompt_ids``/``fresh_prompt_ids``/``target_prompt_ids`` -- not
+just the reuse target -- so every raw register, fresh register, AND
+reuse request alike still has a genuine final forward pass beyond the
+restored range, matching ``ApproxKVRequestMetadata``'s own invariant
 that a request's last prompt token is never included in any restorable
-segment.
+segment (see ``NonPrefixSegmentWorkload``'s own docstring: omitting the
+tail from the raw/fresh register prompts specifically -- an earlier
+version of this script did -- previously raised ``ValueError`` inside
+``Req.__init__`` on a real SM75 run and killed the scheduler).
 
 Measurement protocol (mandatory, applies to every setting: the main
 setting, every shape-sweep point, and every rho-sweep point)
@@ -851,16 +862,36 @@ def _deterministic_token_ids(
 class NonPrefixSegmentWorkload:
     """A genuine non-prefix cross-context repair workload.
 
-    ``source_prompt_ids = source_head_ids + shared_body_ids`` is the
-    prompt CacheTune's "raw" segment is registered from (captures the
-    body's KV under *source* context); ``target_prompt_ids =
+    ``source_prompt_ids = source_head_ids + shared_body_ids + tail_ids``
+    is the prompt CacheTune's "raw" segment is registered from (captures
+    the body's KV under *source* context); ``target_prompt_ids =
     target_head_ids + shared_body_ids + tail_ids`` is the prompt the
-    "fresh" segment is registered from and the reuse request actually
-    targets. ``source_head_ids`` and ``target_head_ids`` are required to
-    differ: this is what makes the body's source and target KV genuinely
-    distinct (not just an exact-content replay of the same context) --
-    see the module docstring's "Why /generate and non-prefix segments"
-    section for the full rationale.
+    reuse request actually targets; ``fresh_prompt_ids`` is the prompt
+    the "fresh" segment is registered from and is token-identical to
+    ``target_prompt_ids`` (same head, body, AND tail -- see that
+    property's own docstring for why that equality is intentional and
+    safe). Every one of these three prompts appends the SAME trailing
+    ``tail_ids`` -- never just ``head + body`` -- so that every
+    register/reuse call's own body segment (which still only spans
+    ``[body_start, body_start + body_tokens)``, never touching the
+    tail) leaves at least that prompt's own final token for a real
+    forward pass, satisfying ``ApproxKVRequestMetadata.
+    validate_prompt_length``'s "approximate KV segments must leave the
+    final prompt token for a real forward pass" invariant (see
+    ``sglang.srt.mem_cache.approx_kv.request``). An earlier version of
+    this dataclass omitted ``tail_ids`` from ``source_prompt_ids``/
+    ``fresh_prompt_ids`` (only ``target_prompt_ids`` had it): that made
+    the raw/fresh register call's own segment ``target_end`` land
+    EXACTLY at ``len(prompt)``, tripping that same check inside
+    ``Req.__init__`` (``schedule_batch.py``) synchronously on the
+    scheduler's own request-admission path and killing the scheduler on
+    a real SM75 run -- this is a real, previously-observed production
+    bug, not a hypothetical one. ``source_head_ids`` and
+    ``target_head_ids`` are required to differ: this is what makes the
+    body's source and target KV genuinely distinct (not just an
+    exact-content replay of the same context) -- see the module
+    docstring's "Why /generate and non-prefix segments" section for the
+    full rationale.
     """
 
     source_head_ids: tuple[int, ...]
@@ -919,7 +950,14 @@ class NonPrefixSegmentWorkload:
 
     @property
     def source_prompt_ids(self) -> tuple[int, ...]:
-        return self.source_head_ids + self.shared_body_ids
+        """``source_head_ids + shared_body_ids + tail_ids``: the prompt
+        the "raw" (source-context) segment is registered from. The
+        registered segment itself still only spans
+        ``[body_start_in_source, body_start_in_source + body_tokens)``
+        -- ``tail_ids`` is appended solely so that span never reaches
+        this prompt's own final token index (see this class's own
+        docstring for why, and the real production bug this fixes)."""
+        return self.source_head_ids + self.shared_body_ids + self.tail_ids
 
     @property
     def target_prompt_ids(self) -> tuple[int, ...]:
@@ -927,11 +965,25 @@ class NonPrefixSegmentWorkload:
 
     @property
     def fresh_prompt_ids(self) -> tuple[int, ...]:
-        """``target_head_ids + shared_body_ids`` (no tail): the minimal
-        prompt needed to capture the body's real KV under *target*
-        context for the precomputed fresh-KV adapter (see
-        ``cachetune/precomputed.py``)."""
-        return self.target_head_ids + self.shared_body_ids
+        """The prompt the "fresh" segment is registered from for the
+        precomputed fresh-KV adapter (see ``cachetune/precomputed.py``):
+        ``target_head_ids + shared_body_ids + tail_ids`` -- token-
+        identical to ``target_prompt_ids``. The fresh registration must
+        capture the body's real KV under the exact same context the
+        reuse request will later target, including the same trailing
+        ``tail_ids``, for the same "leave the final prompt token for a
+        real forward pass" reason described on ``source_prompt_ids``
+        (omitting it here, as an earlier version of this property did,
+        is what actually caused the real scheduler-killing bug this
+        class's docstring describes). This equality is intentional and
+        safe, not an accidental duplication: every request carrying
+        ``approx_kv_metadata`` (register AND reuse alike) sets
+        ``skip_radix_cache_insert = True`` (see
+        ``sglang.srt.managers.schedule_batch.Req.__init__``), so this
+        fresh-register call never populates the live server's exact
+        radix tree -- a later, token-identical reuse request cannot get
+        an unwanted full exact-prefix hit from it."""
+        return self.target_prompt_ids
 
     @property
     def body_source_context_differs_from_target(self) -> bool:
@@ -2734,13 +2786,18 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "pressure_filler_head_tokens": args.pressure_filler_head_tokens,
             "pressure_filler_body_tokens": args.pressure_filler_body_tokens,
             "description": (
-                "source_prompt = source_head_ids + shared_body_ids; "
-                "target_prompt = target_head_ids + shared_body_ids + "
-                "tail_ids; source_head_ids != target_head_ids by "
-                "construction (see NonPrefixSegmentWorkload), so the "
-                "registered raw (source-context) and fresh (target-"
-                "context) segments capture genuinely different "
-                "preceding-context KV for the byte-identical shared body."
+                "source_prompt = source_head_ids + shared_body_ids + "
+                "tail_ids; target_prompt = target_head_ids + "
+                "shared_body_ids + tail_ids; fresh_prompt is token-"
+                "identical to target_prompt; source_head_ids != "
+                "target_head_ids by construction (see "
+                "NonPrefixSegmentWorkload), so the registered raw "
+                "(source-context) and fresh (target-context) segments "
+                "capture genuinely different preceding-context KV for "
+                "the byte-identical shared body. Every prompt's "
+                "trailing tail_ids leaves at least its own final token "
+                "outside every registered segment for a real forward "
+                "pass (ApproxKVRequestMetadata.validate_prompt_length)."
             ),
         },
         "hardware_measurement": {
