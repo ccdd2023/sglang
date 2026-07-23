@@ -435,7 +435,9 @@ real device-pool eviction actually occurred is each setting's own
 ``pressure_and_target_evicted_tokens_total_delta`` /
 ``peak_rho_observed`` in the output JSON (the genuine
 ``sglang:evicted_tokens_total`` Prometheus counter delta and the genuine
-sampled ``sglang:kv_used_tokens`` gauge ratio -- incremented/updated by
+sampled resident-occupancy ratio -- see ``observed_rho``,
+``sglang:kv_used_tokens`` PLUS ``sglang:kv_evictable_tokens`` against a
+fixed capacity, never ``kv_used_tokens`` alone -- incremented/updated by
 real LRU eviction and real device-pool occupancy, GPU-only tier included,
 not merely GPU-to-CPU host-backup moves) -- reported exactly as observed,
 never inferred or assumed from the nominal ``target_rho`` alone. A
@@ -1493,8 +1495,9 @@ def eviction_pressure_filler_count_for_rho(
     any instant also depends on whatever eviction has already reclaimed
     by the time later fillers are sent (see ``observed_rho`` for the
     genuine, sampled counterpart, read from the live
-    ``sglang:kv_used_tokens`` gauge) -- the two are reported side by
-    side, never conflated.
+    ``sglang:kv_used_tokens`` PLUS ``sglang:kv_evictable_tokens``
+    gauges -- resident occupancy, not merely pinned/in-use tokens) --
+    the two are reported side by side, never conflated.
 
     Raises immediately -- before any pressure-phase HTTP request is ever
     made -- if the reverse-computed count exceeds
@@ -1543,12 +1546,35 @@ def eviction_pressure_filler_count_for_rho(
 
 
 def observed_rho(snapshot: Mapping[str, float], *, capacity_tokens: int) -> float:
-    """The real, sampled ratio of this ``snapshot``'s live
-    ``sglang:kv_used_tokens`` gauge to a fixed ``capacity_tokens``
-    reference -- the genuine, *measured* occupancy fraction at the
-    instant ``snapshot`` was taken, as opposed to
+    """The real, sampled fraction of this ``snapshot``'s live pool that
+    is genuinely RESIDENT -- ``sglang:kv_used_tokens`` (this instant's
+    pinned/in-use tokens) PLUS ``sglang:kv_evictable_tokens`` (tokens
+    still occupying device memory as LRU-evictable exact-radix entries,
+    e.g. surviving eviction-pressure fillers, that have not actually
+    been reclaimed yet) -- against a fixed ``capacity_tokens``
+    reference. This is the genuine, *measured* occupancy/pressure
+    fraction at the instant ``snapshot`` was taken, as opposed to
     ``eviction_pressure_filler_count_for_rho``'s nominal (requested-
     tokens) ratio.
+
+    A REAL SM75 bug this fixes: an earlier version of this function
+    used ``kv_used_tokens`` ALONE as the numerator -- the pool's
+    currently pinned/in-use tokens only, conceptually the same quantity
+    the server's own ``sglang:full_token_usage`` gauge reports
+    (``full_num_used / pool_size``, see
+    ``PoolStats.update_scheduler_stats`` server-side). That undercounts
+    genuine device pressure whenever a large population of dense
+    eviction-pressure fillers remains resident as LRU-evictable (not yet
+    actually evicted) exact-radix entries: on a real ``target_rho=2``
+    canary this reported ``peak_rho_observed=0.156`` (``kv_used_tokens``
+    alone, 2048 / 13130) even though the pool was in fact ~99% resident
+    (``(2048 used + 10960 evictable) / 13130 ~= 0.991``) once every
+    surviving filler is counted too -- exactly the "high pressure"
+    condition ``--target-rho-choices``/``--main-target-rho`` are meant
+    to characterize. ``used + evictable`` is equivalent to ``capacity -
+    available`` (``1 - kv_available_tokens / capacity_tokens``, up to
+    the same accounting tolerance ``idle_pool_invariant`` verifies) --
+    either reflects genuine resident occupancy, unlike ``used`` alone.
 
     ``capacity_tokens`` is deliberately a caller-supplied fixed value
     (established once, immediately after a flush, via
@@ -1558,16 +1584,33 @@ def observed_rho(snapshot: Mapping[str, float], *, capacity_tokens: int) -> floa
     transient, eviction-driven usage dip in a snapshot taken mid-
     pressure and silently swap its capacity basis out from under a
     "peak rho" comparison across multiple snapshots of the same setting.
+
+    Raises immediately -- never silently substitutes 0 or falls back to
+    ``used`` alone -- if either ``sglang:kv_used_tokens`` or
+    ``sglang:kv_evictable_tokens`` is unavailable in ``snapshot``: a
+    ``peak_rho_observed`` computed from a partially-missing snapshot
+    would be silently wrong in the exact same undercounting way this
+    fix addresses, so it must never be trusted.
     """
     if capacity_tokens <= 0:
         raise ValueError(f"capacity_tokens must be positive, got {capacity_tokens}")
     used = snapshot.get("sglang:kv_used_tokens")
-    if used is None:
-        raise ValueError(
-            "sglang:kv_used_tokens is unavailable in this snapshot -- cannot "
-            "compute observed_rho without it"
+    evictable = snapshot.get("sglang:kv_evictable_tokens")
+    missing = [
+        name
+        for name, value in (
+            ("sglang:kv_used_tokens", used),
+            ("sglang:kv_evictable_tokens", evictable),
         )
-    return float(used) / float(capacity_tokens)
+        if value is None
+    ]
+    if missing:
+        raise ValueError(
+            f"{', '.join(missing)} unavailable in this snapshot -- cannot "
+            "compute observed_rho (used + evictable, against a fixed "
+            "capacity) without both"
+        )
+    return (float(used) + float(evictable)) / float(capacity_tokens)
 
 
 def chunk_offsets(
@@ -2580,8 +2623,9 @@ def register_eviction_pressure_objects(
     ``usable_kv_capacity_tokens``) and ``target_rho`` is the nominal
     ratio ``workloads`` was reverse-sized for (see
     ``eviction_pressure_filler_count_for_rho``) -- both are used here to
-    report the genuine, *sampled* ``observed_rho`` (from the live
-    ``sglang:kv_used_tokens`` gauge) immediately after this pressure
+    report the genuine, *sampled* ``observed_rho`` (resident occupancy:
+    ``sglang:kv_used_tokens`` PLUS ``sglang:kv_evictable_tokens``, never
+    ``kv_used_tokens`` alone) immediately after this pressure
     phase completes, alongside the nominal target, AND to gate the
     ``evicted_tokens_total_delta`` assertion below. ``already_pinned_tokens``
     (default 0) is THIS ROUND's own raw+fresh source-registration
@@ -2833,9 +2877,10 @@ def run_independent_round(
     dict), ``pressure_phase`` (``None`` when ``target_rho`` is ``None``,
     otherwise ``register_eviction_pressure_objects``'s own returned
     telemetry dict), ``observed_rho_after_target`` (this round's own
-    genuine, sampled ``sglang:kv_used_tokens`` ratio right after this
-    round's own reuse call completes), ``peak_rho_observed`` (the greater
-    of that and this round's own pressure phase's own
+    genuine, sampled resident-occupancy ratio -- see ``observed_rho``,
+    ``sglang:kv_used_tokens`` PLUS ``sglang:kv_evictable_tokens`` -- right
+    after this round's own reuse call completes), ``peak_rho_observed``
+    (the greater of that and this round's own pressure phase's own
     ``observed_rho_after_pressure``, or just the former when no pressure
     phase ran this round), ``evicted_tokens_total_delta`` (this round's
     own cumulative real ``sglang:evicted_tokens_total`` delta, spanning
@@ -3758,6 +3803,26 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "they run no pressure phase at all and carry no "
         "pressure_phase/capacity_tokens/peak_rho_observed/rounds keys "
         "(see the next limitation)."
+    )
+    known_limitations.append(
+        "observed_rho_after_pressure / observed_rho_after_target / "
+        "peak_rho_observed report genuine RESIDENT pool occupancy -- "
+        "sglang:kv_used_tokens PLUS sglang:kv_evictable_tokens against a "
+        "fixed capacity_tokens reference (see observed_rho) -- not "
+        "kv_used_tokens alone. An earlier version of observed_rho used "
+        "kv_used_tokens alone (the pool's currently pinned/in-use tokens "
+        "only, the same quantity the server's own sglang:full_token_usage "
+        "gauge reports), which undercounts genuine device pressure "
+        "whenever a large population of dense eviction-pressure fillers "
+        "remains resident as LRU-evictable exact-radix entries without "
+        "having actually been reclaimed yet: a real SM75 target_rho=2 "
+        "canary reported peak_rho_observed=0.156 under that formula "
+        "(kv_used_tokens alone, 2048 / 13130) even though the pool was in "
+        "fact ~99% resident once every surviving filler was counted too "
+        "((2048 used + 10960 evictable) / 13130 ~= 0.991). observed_rho "
+        "now raises immediately if either metric is unavailable, rather "
+        "than silently falling back to a partial (and misleadingly low) "
+        "reading."
     )
     known_limitations.append(
         "The shape sweep's header=0 points are an exact-context control "

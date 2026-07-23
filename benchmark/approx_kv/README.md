@@ -318,6 +318,34 @@ also raises immediately: a plain dense filler carries no `approx_kv`
 metadata and should never be able to move that CacheTune-reuse-specific
 counter.
 
+`observed_rho()` -- the shared helper behind both
+`pressure_phase.observed_rho_after_pressure` and this round's own
+`observed_rho_after_target` (from which `peak_rho_observed` is the max
+of the two, or just the latter when no pressure phase ran) -- reports
+genuine resident pool occupancy as `(kv_used_tokens + kv_evictable_tokens)
+/ capacity_tokens`, NEVER `kv_used_tokens` alone. `kv_used_tokens` is
+only the pool's currently pinned/in-use tokens -- for this canary
+specifically, that is a round's own raw+fresh ApproxKV segment
+footprint, which register/reuse deliberately never inserts into the
+exact radix tree (`skip_radix_cache_insert=True`) and so is invisible to
+LRU eviction; the plain-dense pressure fillers this section describes
+instead land in the ordinary LRU-evictable exact-radix tree, counted by
+`kv_evictable_tokens`, not `kv_used_tokens`. An earlier version of
+`observed_rho()` read `kv_used_tokens` alone -- conceptually the same
+quantity the server's own `sglang:full_token_usage` gauge reports
+(`full_num_used / pool_size`) -- and so drastically undercounted
+genuine pressure whenever a large filler population remained resident:
+a real `target_rho=2` SM75 canary reported `peak_rho_observed=0.156`
+(`2048 / 13130`, `kv_used_tokens` alone) on a pool that was in fact
+`(2048 + 10960) / 13130 ~= 0.991` resident once every surviving filler
+was counted too. `observed_rho()` now raises immediately -- never
+silently substitutes 0 or falls back to `kv_used_tokens` alone -- if
+either `sglang:kv_used_tokens` or `sglang:kv_evictable_tokens` is
+missing from a snapshot; `capacity_tokens` itself is unaffected by this
+fix and remains the fixed, once-per-round value `usable_kv_capacity_tokens`
+establishes immediately after that round's own flush (see above), never
+recomputed from a later, possibly mid-pressure snapshot.
+
 Because CacheTune's reuse path requires a request's own exact-radix-match
 length to equal the registered segment's `target_start` exactly (any gap
 forces dense-fallback), each setting's measurement pass runs one

@@ -1613,37 +1613,113 @@ class TestEvictionPressureFillerCountForRho(unittest.TestCase):
 
 
 class TestObservedRho(unittest.TestCase):
-    """The genuine, sampled occupancy ratio from a live
-    ``sglang:kv_used_tokens`` gauge snapshot against a fixed capacity
-    reference -- distinct from the nominal (requested-tokens) nature of
-    ``eviction_pressure_filler_count_for_rho``."""
+    """The genuine, sampled RESIDENT-occupancy ratio -- live
+    ``sglang:kv_used_tokens`` PLUS ``sglang:kv_evictable_tokens`` gauges,
+    summed, against a fixed capacity reference -- distinct from the
+    nominal (requested-tokens) nature of
+    ``eviction_pressure_filler_count_for_rho``, and distinct from
+    ``kv_used_tokens`` alone: a real SM75 bug this fixes, since
+    ``kv_used_tokens`` alone undercounts genuine pressure whenever
+    LRU-evictable filler objects remain resident without yet being
+    reclaimed."""
 
-    def test_computes_simple_ratio(self):
-        snapshot = {"sglang:kv_used_tokens": 500.0}
+    def test_computes_simple_ratio_from_used_alone_when_evictable_is_zero(self):
+        snapshot = {
+            "sglang:kv_used_tokens": 500.0,
+            "sglang:kv_evictable_tokens": 0.0,
+        }
         self.assertAlmostEqual(observed_rho(snapshot, capacity_tokens=1000), 0.5)
+
+    def test_sums_used_and_evictable_tokens_before_dividing_by_capacity(self):
+        # The core fix under test: evictable (LRU-evictable, still
+        # resident, not-yet-reclaimed) tokens count toward genuine
+        # pressure exactly like used (pinned) tokens do -- never
+        # dropped from the numerator the way an earlier, buggy version
+        # of this function dropped them.
+        snapshot = {
+            "sglang:kv_used_tokens": 500.0,
+            "sglang:kv_evictable_tokens": 300.0,
+        }
+        self.assertAlmostEqual(observed_rho(snapshot, capacity_tokens=1000), 0.8)
+
+    def test_real_sm75_rho2_canary_shape_reports_genuine_high_resident_occupancy(
+        self,
+    ):
+        # The exact real-world regression this fix addresses: a real
+        # SM75 target_rho=2 canary's post-pressure snapshot, under the
+        # OLD (kv_used_tokens-alone) formula, reported
+        # peak_rho_observed=0.156 (2048 / 13130) -- appearing as LOW
+        # pressure despite target_rho=2 -- because the vast majority of
+        # the pool's genuine occupancy was sitting in
+        # kv_evictable_tokens (surviving, not-yet-evicted dense
+        # eviction-pressure fillers), never counted. The corrected
+        # formula reports the pool as genuinely ~99% resident, matching
+        # the real high-pressure condition target_rho=2 was configured
+        # to produce.
+        snapshot = {
+            "sglang:kv_used_tokens": 2048.0,
+            "sglang:kv_evictable_tokens": 10960.0,
+        }
+        self.assertAlmostEqual(
+            observed_rho(snapshot, capacity_tokens=13130), 0.99071, places=4
+        )
 
     def test_ratio_can_exceed_one_under_real_pressure(self):
         # The pool is a fixed physical size, but the SUM of nominal
         # filler requests can (by design) exceed it; the actual gauge
-        # reading is capped at whatever physically fits, but a snapshot
-        # taken transiently mid-registration could still legitimately
-        # read higher than the fixed idle-capacity reference if that
-        # reference itself under-counts a since-grown pool -- this
-        # function must not silently clamp such a reading.
-        snapshot = {"sglang:kv_used_tokens": 1200.0}
+        # readings are capped at whatever physically fits, but a
+        # snapshot taken transiently mid-registration could still
+        # legitimately read higher than the fixed idle-capacity
+        # reference if that reference itself under-counts a
+        # since-grown pool -- this function must not silently clamp
+        # such a reading.
+        snapshot = {
+            "sglang:kv_used_tokens": 900.0,
+            "sglang:kv_evictable_tokens": 300.0,
+        }
         self.assertAlmostEqual(observed_rho(snapshot, capacity_tokens=1000), 1.2)
 
-    def test_zero_used_tokens_is_zero_ratio(self):
-        snapshot = {"sglang:kv_used_tokens": 0.0}
+    def test_zero_used_and_evictable_tokens_is_zero_ratio(self):
+        snapshot = {
+            "sglang:kv_used_tokens": 0.0,
+            "sglang:kv_evictable_tokens": 0.0,
+        }
         self.assertAlmostEqual(observed_rho(snapshot, capacity_tokens=1000), 0.0)
 
     def test_rejects_non_positive_capacity_tokens(self):
         with self.assertRaises(ValueError):
-            observed_rho({"sglang:kv_used_tokens": 500.0}, capacity_tokens=0)
+            observed_rho(
+                {
+                    "sglang:kv_used_tokens": 500.0,
+                    "sglang:kv_evictable_tokens": 0.0,
+                },
+                capacity_tokens=0,
+            )
 
-    def test_raises_when_gauge_missing_from_snapshot(self):
-        with self.assertRaises(ValueError):
+    def test_raises_when_both_gauges_missing_from_snapshot(self):
+        with self.assertRaises(ValueError) as ctx:
             observed_rho({}, capacity_tokens=1000)
+        message = str(ctx.exception)
+        self.assertIn("sglang:kv_used_tokens", message)
+        self.assertIn("sglang:kv_evictable_tokens", message)
+
+    def test_raises_when_only_evictable_tokens_is_missing(self):
+        # A fail-fast requirement: a partially-available snapshot must
+        # never silently fall back to used-alone (the exact bug this
+        # fix addresses) -- it must raise, naming precisely the metric
+        # that is actually missing.
+        with self.assertRaises(ValueError) as ctx:
+            observed_rho({"sglang:kv_used_tokens": 500.0}, capacity_tokens=1000)
+        message = str(ctx.exception)
+        self.assertIn("sglang:kv_evictable_tokens", message)
+        self.assertNotIn("sglang:kv_used_tokens", message)
+
+    def test_raises_when_only_used_tokens_is_missing(self):
+        with self.assertRaises(ValueError) as ctx:
+            observed_rho({"sglang:kv_evictable_tokens": 300.0}, capacity_tokens=1000)
+        message = str(ctx.exception)
+        self.assertIn("sglang:kv_used_tokens", message)
+        self.assertNotIn("sglang:kv_evictable_tokens", message)
 
 
 class TestChunkOffsets(unittest.TestCase):
@@ -3407,6 +3483,7 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
         metrics_after = {
             "sglang:evicted_tokens_total": 0.0,
             "sglang:kv_used_tokens": 24.0,
+            "sglang:kv_evictable_tokens": 0.0,
         }
 
         with unittest.mock.patch(
@@ -3451,7 +3528,12 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
         metrics_after = {
             "sglang:approx_kv_dense_fallback_total": 3.0,
             "sglang:evicted_tokens_total": 100.0,
-            "sglang:kv_used_tokens": 900.0,
+            # used + evictable = 900 -- proves observed_rho_after_pressure
+            # sums both gauges, not just kv_used_tokens, within the full
+            # register_eviction_pressure_objects call path (not merely
+            # observed_rho's own isolated unit tests).
+            "sglang:kv_used_tokens": 600.0,
+            "sglang:kv_evictable_tokens": 300.0,
         }
 
         with unittest.mock.patch(
@@ -3529,6 +3611,7 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
             "sglang:approx_kv_dense_fallback_total": 0.0,
             "sglang:evicted_tokens_total": 8.0,
             "sglang:kv_used_tokens": 8.0,
+            "sglang:kv_evictable_tokens": 0.0,
         }
 
         with unittest.mock.patch(
@@ -3603,6 +3686,7 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
             "sglang:approx_kv_dense_fallback_total": 0.0,
             "sglang:evicted_tokens_total": 90.0,
             "sglang:kv_used_tokens": 100.0,
+            "sglang:kv_evictable_tokens": 0.0,
         }
 
         with unittest.mock.patch(
@@ -3635,6 +3719,7 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
             "sglang:approx_kv_dense_fallback_total": 0.0,
             "sglang:evicted_tokens_total": 0.0,
             "sglang:kv_used_tokens": 8.0,
+            "sglang:kv_evictable_tokens": 0.0,
         }
 
         with unittest.mock.patch(
@@ -3690,6 +3775,7 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
         metrics_after = {
             "sglang:evicted_tokens_total": 0.0,
             "sglang:kv_used_tokens": 8.0,
+            "sglang:kv_evictable_tokens": 0.0,
         }
 
         with unittest.mock.patch(
@@ -3717,6 +3803,7 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
         metrics_after = {
             "sglang:evicted_tokens_total": 0.0,
             "sglang:kv_used_tokens": 131.0,
+            "sglang:kv_evictable_tokens": 0.0,
         }
 
         with unittest.mock.patch(
@@ -3832,6 +3919,7 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
             "sglang:approx_kv_dense_fallback_total": 0.0,
             "sglang:evicted_tokens_total": 20.0,
             "sglang:kv_used_tokens": 150.0,
+            "sglang:kv_evictable_tokens": 0.0,
         }
 
         with unittest.mock.patch(
@@ -3976,9 +4064,14 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
                 {
                     "sglang:evicted_tokens_total": 0.0,
                     "sglang:kv_used_tokens": 10.0,
+                    "sglang:kv_evictable_tokens": 0.0,
                     "sglang:approx_kv_dense_fallback_total": 0.0,
                 },
-                {"sglang:kv_used_tokens": 20.0, "sglang:evicted_tokens_total": 0.0},
+                {
+                    "sglang:kv_used_tokens": 20.0,
+                    "sglang:kv_evictable_tokens": 0.0,
+                    "sglang:evicted_tokens_total": 0.0,
+                },
             ]
 
         snapshots = _one_round_snapshots() + _one_round_snapshots()
@@ -4187,10 +4280,12 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
                 {
                     "sglang:evicted_tokens_total": 0.0,
                     "sglang:kv_used_tokens": pinned + 6.0,
+                    "sglang:kv_evictable_tokens": 0.0,
                     "sglang:approx_kv_dense_fallback_total": 0.0,
                 },
                 {
                     "sglang:kv_used_tokens": pinned + 10.0,
+                    "sglang:kv_evictable_tokens": 0.0,
                     "sglang:evicted_tokens_total": 0.0,
                 },
             ]
@@ -4276,6 +4371,20 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
         # Gauge resets; the formal round's own round_start value
         # (150.0) below is exactly the warmup round's own round_end
         # value, never reset back to 0.0 by that intervening flush.
+        #
+        # kv_used_tokens stays pinned at 4.0 throughout pressure/reuse
+        # (this round's own setup raw+fresh footprint, invisible to
+        # Radix LRU eviction, never freed mid-round): the 33 completed
+        # dense pressure fillers instead land in kv_evictable_tokens
+        # (ordinary LRU-evictable exact-radix entries) -- exactly the
+        # real SM75 distinction observed_rho's own fix accounts for.
+        # pressure_after reaches the full capacity_tokens=100 (4 used +
+        # 96 evictable): the fillers' own 198 nominal tokens (33 * 6)
+        # exceed the true evictable headroom of 96, so genuine eviction
+        # (130.0 counter delta) already reclaimed some of them to fit.
+        # round_end settles at 95 (4 used + 91 evictable): the target's
+        # own recovery-slot allocation evicted a further few filler
+        # tokens to make room for its own restored body.
         warmup_snapshots = [
             {
                 "sglang:max_total_num_tokens": 100.0,
@@ -4286,14 +4395,20 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
             {
                 "sglang:evicted_tokens_total": 0.0,
                 "sglang:kv_used_tokens": 4.0,
+                "sglang:kv_evictable_tokens": 0.0,
                 "sglang:approx_kv_dense_fallback_total": 0.0,
             },
             {
                 "sglang:evicted_tokens_total": 130.0,
-                "sglang:kv_used_tokens": 100.0,
+                "sglang:kv_used_tokens": 4.0,
+                "sglang:kv_evictable_tokens": 96.0,
                 "sglang:approx_kv_dense_fallback_total": 0.0,
             },
-            {"sglang:kv_used_tokens": 95.0, "sglang:evicted_tokens_total": 150.0},
+            {
+                "sglang:kv_used_tokens": 4.0,
+                "sglang:kv_evictable_tokens": 91.0,
+                "sglang:evicted_tokens_total": 150.0,
+            },
         ]
         formal_snapshots = [
             {
@@ -4305,14 +4420,20 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
             {
                 "sglang:evicted_tokens_total": 150.0,
                 "sglang:kv_used_tokens": 4.0,
+                "sglang:kv_evictable_tokens": 0.0,
                 "sglang:approx_kv_dense_fallback_total": 0.0,
             },
             {
                 "sglang:evicted_tokens_total": 280.0,
-                "sglang:kv_used_tokens": 100.0,
+                "sglang:kv_used_tokens": 4.0,
+                "sglang:kv_evictable_tokens": 96.0,
                 "sglang:approx_kv_dense_fallback_total": 0.0,
             },
-            {"sglang:kv_used_tokens": 95.0, "sglang:evicted_tokens_total": 300.0},
+            {
+                "sglang:kv_used_tokens": 4.0,
+                "sglang:kv_evictable_tokens": 91.0,
+                "sglang:evicted_tokens_total": 300.0,
+            },
         ]
 
         with unittest.mock.patch(
@@ -4376,6 +4497,24 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
         # architecture accidentally still shares.
         self.assertEqual(len(result["rounds"]), 1)
         self.assertEqual(result["rounds"][0]["pressure_phase"]["object_count"], 33)
+        # (4) The real SM75 regression this fix addresses: under this
+        # genuine high-pressure configuration, kv_used_tokens ALONE
+        # stays pinned at a small, constant 4 throughout (this round's
+        # own setup footprint) while the 33 completed dense fillers
+        # accumulate as kv_evictable_tokens instead -- an earlier,
+        # buggy observed_rho read kv_used_tokens alone and would have
+        # reported this as near-ZERO pressure (4 / 100 = 0.04) despite
+        # target_rho=2. The corrected formula (kv_used_tokens PLUS
+        # kv_evictable_tokens) reports the pool as genuinely fully
+        # resident during the pressure phase (100 / 100 == 1.0) and
+        # still highly resident after the target's own recovery-slot
+        # allocation reclaims a few filler tokens (95 / 100 == 0.95) --
+        # peak_rho_observed takes the greater of the two, 1.0.
+        self.assertAlmostEqual(
+            result["pressure_phase"]["observed_rho_after_pressure"], 1.0
+        )
+        self.assertAlmostEqual(result["observed_rho_after_target"], 0.95)
+        self.assertAlmostEqual(result["peak_rho_observed"], 1.0)
 
 
 def _fake_flush_urlopen(flush_urls: list) -> callable:
@@ -4667,10 +4806,13 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
     def _round_snapshots(self):
         """One round's own 2 ``metric_snapshot`` calls (round_start,
         round_end) -- ``target_rho=None`` means no post-setup/pressure
-        snapshots this round."""
+        snapshots this round. round_end must carry both
+        ``kv_used_tokens`` and ``kv_evictable_tokens`` -- it feeds
+        ``observed_rho_after_target``, which sums the two (see
+        ``observed_rho``'s own real-SM75-bug docstring)."""
         return [
             {"sglang:max_total_num_tokens": 10000.0, "sglang:kv_used_tokens": 100.0},
-            {"sglang:kv_used_tokens": 200.0},
+            {"sglang:kv_used_tokens": 200.0, "sglang:kv_evictable_tokens": 0.0},
         ]
 
     def _run_with_body(self, body_tokens, repeats):
