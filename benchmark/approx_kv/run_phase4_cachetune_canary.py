@@ -156,8 +156,10 @@ setting, every shape-sweep point, and every rho-sweep point)
    ``cached_tokens`` for an unrelated later setting's head or
    raw-segment register request.
 2a. If eviction pressure is enabled (the default -- see "Eviction-
-   pressure phase" below), every filler object is registered and
-   materialized here, immediately after the flush and before step 3.
+   pressure phase" below), every filler object is sent here, immediately
+   after the flush and before step 3, as a plain dense ``/generate``
+   request -- never registered/materialized through CacheTune's own
+   register-raw/register-fresh/reuse cycle.
 3. Seed the target head once (one dense ``/generate`` call, expected
    ``cached_tokens=0``).
 4. Register the "raw" (source-context) body segment once (one or more
@@ -196,9 +198,13 @@ setting, every shape-sweep point, and every rho-sweep point)
    landed exactly where expected.
 7. After every setting above (main, shape sweep, rho sweep) has
    completed, ``capture_final_pool_reset_and_invariant`` flushes every
-   still-resident raw/fresh/pressure-filler segment this whole run
-   registered, forces one real scheduler iteration with a small fixed
-   sentinel ``/generate`` request, and only THEN snapshots ``/metrics``
+   still-resident raw/fresh CacheTune segment (every setting's own
+   registrations) and every dense-cached exact-radix entry (including
+   every eviction-pressure filler object, sent as plain dense requests
+   -- see ``register_eviction_pressure_objects`` -- never registered
+   through CacheTune's own segment store) this whole run produced,
+   forces one real scheduler iteration with a small fixed sentinel
+   ``/generate`` request, and only THEN snapshots ``/metrics``
    and runs ``idle_pool_invariant`` -- never against the pre-flush
    snapshot, whose nonzero ``kv_used_tokens`` is expected (a real SM75
    run observed exactly this: 4096 used tokens with ``accounted_tokens``
@@ -220,34 +226,61 @@ Eviction-pressure phase (real GPU contention, not a single-object
 microbenchmark, and never CLI-disableable)
 --------------------------------------------------------------------
 Every setting -- the main setting, every shape-sweep point with
-header > 0, and every rho-sweep point alike -- always registers and
-materializes a freshly reverse-computed set of distinct filler
-``NonPrefixSegmentWorkload`` objects (see
-``build_eviction_pressure_workloads``) immediately after that setting's
-own flush, before that setting's own head-seed/raw-register begins (see
-``register_eviction_pressure_objects``). The filler object COUNT is
-reverse-computed (see ``eviction_pressure_filler_count_for_rho``) from
-that setting's own ``target_rho`` (``--main-target-rho`` for the main
-setting and every shape-sweep point, or the specific
-``--target-rho-choices`` value under test for a rho-sweep point) against
-a real, live, idle ``usable_kv_capacity_tokens`` snapshot (see
+header > 0, and every rho-sweep point alike -- always sends a freshly
+reverse-computed set of distinct filler ``NonPrefixSegmentWorkload``
+objects (see ``build_eviction_pressure_workloads``) immediately after
+that setting's own flush, before that setting's own head-seed/raw-
+register begins (see ``register_eviction_pressure_objects``). The
+filler object COUNT is reverse-computed (see
+``eviction_pressure_filler_count_for_rho``) from that setting's own
+``target_rho`` (``--main-target-rho`` for the main setting and every
+shape-sweep point, or the specific ``--target-rho-choices`` value under
+test for a rho-sweep point) against a real, live, idle
+``usable_kv_capacity_tokens`` snapshot (see
 ``benchmark.approx_kv.metrics``) taken immediately after that setting's
 own flush -- never a fixed object count. Every filler object's own SHAPE
 (``--pressure-filler-head-tokens``, default ``NON_PREFIX_HEAD_TOKENS``,
 x ``--pressure-filler-body-tokens``, default 2048) is fixed across every
 setting so only the reverse-computed COUNT varies with ``target_rho``,
 keeping peak-rho/eviction numbers comparable across the whole matrix.
-Each filler goes through the exact same register-raw + register-fresh +
-one reuse cycle (``materialize_workload_via_reuse``) as the setting's own
-mandatory setup, forcing its raw segment to become genuinely
-device-resident via ``ensure_device`` -- a real occupant of the finite
-GPU KV pool, not an artificial placeholder. Because every setting's own
-flush wipes the *entire* ``approx_kv`` store (``ApproxKVManager.reset()``,
-wired through ``RadixCache``/``UnifiedRadixCache``'s own ``reset()``),
-filler objects cannot be built once globally and expected to persist
-across settings: they are rebuilt fresh, from the same fixed shape but a
-per-setting-appropriate count, inside every ``run_non_prefix_setting``
-call.
+
+Each filler is sent as exactly ONE plain, ordinary dense ``/generate``
+request (``dense_generate_payload`` over that filler's own
+``target_prompt_ids``) -- carrying NO ``approx_kv`` custom_params
+metadata whatsoever, never a register/reuse call. This is a deliberate
+fix for a real, previously-observed SM75 bug at ``target_rho=2``: an
+earlier version of this phase ran every filler through
+``materialize_workload_via_reuse`` (a full seed-head + raw-register +
+fresh-register + reuse CacheTune cycle), which captured each filler's
+raw/fresh body into ``ApproxKVManager``'s own segment store (see
+``approx_kv/runtime.py``) -- a structure the Radix LRU eviction policy
+has no knowledge of and cannot reclaim AT ALL. With enough fillers
+registered that way (observed: from filler[11] onward at
+``target_rho=2`` on a real run), the pool filled with permanently
+un-evictable segments, leaving no room for the setting's own target
+recovery-slot allocation -- its own reuse call then only restored the
+exact-match head (``cached_tokens`` reported head-only, never
+head+body). A plain dense request, by contrast, populates the ordinary
+exact radix tree exactly like any other request and is fully subject to
+normal LRU eviction -- genuine, realistic cache pressure the setting's
+own recovery allocation CAN reclaim from, exactly the way a real
+deployment's unrelated concurrent traffic would behave (the same
+"R1"/"R4"-round plain-dense-filler methodology already used by
+``research/epic-legolink``'s own ``run_phase4_epic_pressure.py``).
+Because every setting's own flush clears the *entire* exact radix tree
+(and resets ``ApproxKVManager`` too, though fillers no longer touch it
+at all), filler objects cannot be built once globally and expected to
+persist across settings: they are rebuilt fresh, from the same fixed
+shape but a per-setting-appropriate count, inside every
+``run_non_prefix_setting`` call.
+
+``NonPrefixSegmentWorkload``'s own ``source_head_ids``/
+``source_prompt_ids``/``fresh_prompt_ids`` are never sent anywhere for a
+filler -- they exist on that dataclass purely to satisfy its structural
+invariants (the SAME dataclass and pairwise-isolation infrastructure the
+setting's own genuine repair workload uses), unused dead weight for a
+filler specifically. Only ``target_prompt_ids``/``target_head_ids``
+matter for a plain-dense filler.
 
 Every filler's own target head is dense-seeded exactly like the
 setting's own head, and all of them (N fillers plus the setting's own
@@ -269,8 +302,13 @@ design): a ``target_rho`` value ``> 1`` (the entire ``--target-rho-choices``
 default set except ``0.9``) already means the fillers alone nominally
 request MORE tokens than the whole pool's measured capacity, guaranteeing
 genuine eviction pressure by construction rather than by a separate
-threshold check. The honest evidence that real device-pool eviction
-actually occurred is each setting's own
+threshold check -- and, since fillers are now genuinely evictable plain
+dense objects, ``register_eviction_pressure_objects`` itself now RAISES
+immediately if that construction holds (nominal filler tokens exceed
+capacity) yet the live ``sglang:evicted_tokens_total`` counter failed to
+move while registering them (see that function's own docstring): this
+is no longer merely reported, it is enforced. The honest evidence that
+real device-pool eviction actually occurred is each setting's own
 ``pressure_phase.evicted_tokens_total_delta`` /
 ``pressure_and_target_evicted_tokens_total_delta`` /
 ``peak_rho_observed`` in the output JSON (the genuine
@@ -280,10 +318,10 @@ real LRU eviction and real device-pool occupancy, GPU-only tier included,
 not merely GPU-to-CPU host-backup moves) -- reported exactly as observed,
 never inferred or assumed from the nominal ``target_rho`` alone. A
 nonzero ``sglang:approx_kv_dense_fallback_total`` delta during the
-pressure phase itself raises immediately (see
-``register_eviction_pressure_objects``): a filler object silently
-falling back to dense would mean it was never actually a genuine
-CacheTune-repaired device-resident occupant at all.
+pressure phase itself also raises immediately (see
+``register_eviction_pressure_objects``): a plain dense filler request
+carries no ``approx_kv`` metadata at all and should never be able to
+move that CacheTune-reuse-specific counter in the first place.
 
 Every invocation writes JSONL lifecycle records (``running`` /
 ``completed`` / ``failed``) to ``--central-log``, carrying the full
@@ -1254,17 +1292,22 @@ def build_eviction_pressure_workloads(
 def eviction_pressure_total_tokens(
     workloads: Sequence[NonPrefixSegmentWorkload],
 ) -> int:
-    """Lower-bound estimate, in tokens, of the device-resident KV
-    footprint that materializing every pressure workload's *raw* segment
-    contributes (see ``register_eviction_pressure_objects`` /
-    ``materialize_workload_via_reuse``): each filler object's mandatory
-    register+reuse cycle forces at least this many tokens onto the
-    device residency tier via ``ensure_device``. The "fresh" segment's
-    own body would add roughly as much again once a filler's reuse call
-    actually completes, so this is a floor on real footprint, not an
-    exact total -- reported alongside ``observed_rho_after_pressure`` in
+    """Lower-bound estimate, in tokens, of the exact-radix-tree KV
+    footprint that sending every pressure workload as one plain dense
+    request contributes (see ``register_eviction_pressure_objects``):
+    each filler's own single dense forward pass populates its FULL
+    ``target_prompt_ids`` (head + body + tail) into the ordinary,
+    LRU-evictable exact radix tree, so this -- the body length alone --
+    is a floor on each filler's real footprint, not an exact total (it
+    excludes each filler's own small, fixed head+tail contribution,
+    negligible next to a multi-hundred/thousand-token body). Reported
+    alongside ``observed_rho_after_pressure`` in
     ``register_eviction_pressure_objects``'s own returned dict for
-    downstream debugging, never used to gate/validate behaviour itself.
+    downstream debugging, AND used by that same function to gate its
+    own ``evicted_tokens_total_delta`` assertion (see that function's
+    docstring): this floor being enough, by itself, to exceed a
+    setting's own ``capacity_tokens`` is exactly the construction that
+    assertion relies on.
     """
     return sum(workload.body_tokens for workload in workloads)
 
@@ -1293,7 +1336,7 @@ def eviction_pressure_filler_count_for_rho(
     "Nominal" because it is computed purely from *requested* filler
     tokens; the pool's real, observed occupancy at any instant also
     depends on whatever eviction has already reclaimed by the time later
-    fillers register (see ``observed_rho`` for the genuine, sampled
+    fillers are sent (see ``observed_rho`` for the genuine, sampled
     counterpart, read from the live ``sglang:kv_used_tokens`` gauge) --
     the two are reported side by side, never conflated.
 
@@ -1748,17 +1791,22 @@ def metric_delta(before: dict[str, float], after: dict[str, float], name: str) -
 def capture_final_pool_reset_and_invariant(
     base_url: str, tokenizer: Any
 ) -> dict[str, Any]:
-    """Flush every raw/fresh/pressure-filler segment this run registered,
-    then capture the resulting genuinely-idle pool invariant -- WITHOUT
-    ever treating those now-flushed registrations as if they had been a
-    leak.
+    """Flush every raw/fresh CacheTune segment this run registered and
+    every dense-cached exact-radix-tree entry (including every
+    eviction-pressure filler object, now sent as plain dense requests --
+    see ``register_eviction_pressure_objects``), then capture the
+    resulting genuinely-idle pool invariant -- WITHOUT ever treating
+    those now-flushed registrations as if they had been a leak.
 
     Every setting this canary measures registers raw/fresh source-
-    context segments (and, for pressure settings, many filler objects,
-    see ``register_eviction_pressure_objects``) that are *meant* to stay
-    resident in the KV pool and CacheTune's segment store for that
-    setting's whole run -- "register once, reuse across repeats" is the
-    entire point. So immediately after the last measurement,
+    context segments (and, for pressure settings, many plain-dense
+    filler objects, see ``register_eviction_pressure_objects``) that are
+    *meant* to stay resident in the KV pool -- CacheTune's own segment
+    store for the raw/fresh segments, the ordinary exact radix tree for
+    dense fillers -- for that setting's whole run: "register once, reuse
+    across repeats" is the entire point for CacheTune segments, and
+    "genuine, realistic cache pressure" is the entire point for dense
+    fillers. So immediately after the last measurement,
     ``sglang:kv_used_tokens`` is genuinely nonzero by design (a real
     SM75 run observed 4096 used tokens at exactly this point, with
     ``accounted_tokens`` already matching ``max_total_num_tokens``
@@ -1771,10 +1819,11 @@ def capture_final_pool_reset_and_invariant(
 
     1. Snapshots ``/metrics`` first (``metrics_pre_reset``) -- kept only
        for visibility in the result JSON, never used to gate pass/fail.
-    2. Calls ``flush_exact_radix_cache``, which also resets
-       ``ApproxKVManager`` and therefore releases every raw/fresh/
-       pressure-filler segment this run registered (see that function's
-       own docstring).
+    2. Calls ``flush_exact_radix_cache``, which clears the exact radix
+       tree (releasing every dense-cached entry, including every
+       eviction-pressure filler object) AND also resets
+       ``ApproxKVManager``, releasing every raw/fresh CacheTune segment
+       this run registered (see that function's own docstring).
     3. Posts one small, fixed *sentinel* ``/generate`` request. Gauges
        such as ``sglang:kv_used_tokens`` are only recomputed by the
        scheduler's own next iteration, not synchronously by
@@ -2059,24 +2108,23 @@ def materialize_workload_via_reuse(
     measures -- only the register side's transient per-call footprint
     is the OOM risk being fixed here.
 
-    Shared by ``run_non_prefix_setting``'s own one-time setup + discarded
+    Used by ``run_non_prefix_setting``'s own one-time setup + discarded
     warmup pass (seed head -> register raw -> register fresh -> reuse,
-    exactly this sequence) and by ``register_eviction_pressure_objects``
-    (each pressure filler object needs this exact same one-time
-    materialization, never a timed/repeated measurement). Every step is
-    validated the same way the rest of this script validates every
-    request -- never silently swallowed.
+    exactly this sequence) for the main setting and every shape-/rho-
+    sweep point alike. Eviction-pressure filler objects do NOT go
+    through this function: they are sent as a single plain dense
+    request instead (no register/reuse at all -- see
+    ``register_eviction_pressure_objects``'s own docstring for why).
+    Every step here is validated the same way the rest of this script
+    validates every request -- never silently swallowed.
 
     Returns a dict with ``seed_head_ms``, ``register_raw_ms``,
     ``register_fresh_ms`` (each now the SUM of every chunk's own genuine
     streaming TTFT, since a multi-chunk body issues multiple independent
     register calls -- see ``register_body_chunks``), ``reuse_ms`` (the
     single reuse call's own genuine streaming TTFT) and
-    ``reuse_response`` (the final reuse call's parsed JSON body) so
-    callers needing granular per-step timing (``run_non_prefix_setting``'s
-    own setup) and callers that only need "did this materialize
-    successfully" (each pressure filler object) can both use this
-    single, already-validated code path.
+    ``reuse_response`` (the final reuse call's parsed JSON body) for
+    ``run_non_prefix_setting``'s own granular per-step timing.
     """
     seed_response, seed_head_ms = timed_post(
         base_url, dense_generate_payload(workload.target_head_ids)
@@ -2162,37 +2210,89 @@ def register_eviction_pressure_objects(
     base_url: str,
     workloads: Sequence[NonPrefixSegmentWorkload],
     *,
-    model_fingerprint: str,
-    cache_dtype: str,
     label: str,
-    max_chunk_tokens: int,
     capacity_tokens: int,
     target_rho: float,
 ) -> dict[str, Any]:
-    """Register and materialize every eviction-pressure filler object in
-    ``workloads`` (see ``build_eviction_pressure_workloads``) via
-    ``materialize_workload_via_reuse``, so their raw segments become
-    genuinely device-resident (via ``ensure_device``) before the
-    caller's own setting measurement begins.
+    """Send every eviction-pressure filler object in ``workloads`` (see
+    ``build_eviction_pressure_workloads``) as a PLAIN, ordinary dense
+    ``/generate`` request -- carrying NO ``approx_kv`` custom_params
+    metadata at all -- so each filler's KV lands in the server's
+    ordinary, LRU-evictable exact radix tree, never in
+    ``ApproxKVManager``'s own segment store.
 
-    Snapshots ``/metrics`` immediately before the first filler object and
-    immediately after the last one, and raises loudly if
-    ``sglang:approx_kv_dense_fallback_total`` increased during this
-    phase: a filler object silently falling back to dense would mean its
-    body was never actually restored via CacheTune's repair path at all
-    (a real bug, or a misconfigured pressure request whose footprint
-    cannot fit in the pool even after evicting everything else), which
-    this canary must never treat as a harmless, ignorable detail.
+    THIS IS A DELIBERATE FIX for a real, previously-observed SM75 bug at
+    ``target_rho=2``: an earlier version of this function ran every
+    filler through ``materialize_workload_via_reuse`` (a full seed-head +
+    raw-register + fresh-register + reuse CacheTune cycle). Register/
+    reuse requests always set
+    ``schedule_batch.Req.skip_radix_cache_insert=True`` whenever
+    ``approx_kv_metadata`` is present, and their raw/fresh bodies are
+    captured into ``ApproxKVManager``'s own segment store (see
+    ``approx_kv/runtime.py``) -- a structure the Radix LRU eviction
+    policy has no knowledge of and cannot reclaim AT ALL. With enough
+    fillers materialized that way (observed: from filler[11] onward at
+    ``target_rho=2`` on a real SM75 run), the pool filled with
+    permanently un-evictable segments, leaving no room for the setting's
+    own target recovery-slot allocation -- its own reuse call then only
+    restored the exact-match head (``cached_tokens`` reported head-only,
+    never head+body). Plain dense fillers, by contrast, populate the
+    exact radix tree exactly like any other ordinary request and are
+    fully subject to normal LRU eviction -- genuine, realistic cache
+    pressure the setting's own recovery allocation CAN reclaim from,
+    exactly the way a real deployment's unrelated concurrent traffic
+    would behave (the same "R1"/"R4"-round plain-dense-filler
+    methodology already used by ``research/epic-legolink``'s own
+    ``run_phase4_epic_pressure.py``).
+
+    Exactly one request per filler: ``dense_generate_payload`` over that
+    filler's own ``target_prompt_ids`` (head + body + tail, unique per
+    filler via ``build_eviction_pressure_workloads``'s pairwise
+    first-token isolation). ``source_head_ids``/``source_prompt_ids``/
+    ``fresh_prompt_ids`` are never sent anywhere for a filler -- they
+    exist on ``NonPrefixSegmentWorkload`` purely to satisfy that
+    dataclass's own structural invariants (shared with the main
+    setting's genuine repair workload), unused dead weight for a filler
+    specifically. Every filler's first (and only) appearance must
+    report ``cached_tokens=0``: pairwise isolation plus this setting's
+    own just-completed flush together guarantee no accidental exact-
+    prefix hit is possible.
 
     ``capacity_tokens`` is the fixed, idle-pool capacity reference
     established once by the caller (immediately after its own flush, via
     ``usable_kv_capacity_tokens``) and ``target_rho`` is the nominal
     ratio ``workloads`` was reverse-sized for (see
-    ``eviction_pressure_filler_count_for_rho``) -- both are only used
-    here to report the genuine, *sampled* ``observed_rho`` (from the
-    live ``sglang:kv_used_tokens`` gauge) immediately after this pressure
-    phase completes, alongside the nominal target, never to alter
-    behaviour.
+    ``eviction_pressure_filler_count_for_rho``) -- both are used here to
+    report the genuine, *sampled* ``observed_rho`` (from the live
+    ``sglang:kv_used_tokens`` gauge) immediately after this pressure
+    phase completes, alongside the nominal target, AND to gate the
+    ``evicted_tokens_total_delta`` assertion below.
+
+    Raises immediately if ``total_pressure_tokens`` (see
+    ``eviction_pressure_total_tokens``) -- the fillers' own combined
+    nominal footprint ALONE, computed from a pool that started this
+    phase genuinely idle (the caller's own just-completed flush) --
+    already exceeds ``capacity_tokens`` yet the live
+    ``sglang:evicted_tokens_total`` Prometheus counter did not increase
+    while registering them: by construction, that combination means
+    later fillers necessarily had to evict earlier ones just to fit, all
+    within this phase alone -- a zero delta despite that would mean
+    capacity accounting or eviction itself is broken, so this pressure
+    phase's own "genuine device pressure" claim must not be silently
+    trusted. (When ``total_pressure_tokens <= capacity_tokens`` -- e.g.
+    ``target_rho <= 1`` -- no such assertion is made: the fillers may
+    legitimately all coexist without any eviction at all, exactly as
+    documented in this module's own "Eviction-pressure phase" docstring
+    section.)
+
+    Also raises immediately if
+    ``sglang:approx_kv_dense_fallback_total`` increased during this
+    phase: a plain dense filler request carries no ``approx_kv``
+    metadata whatsoever and should NEVER be able to move this
+    CacheTune-reuse-specific counter at all -- a nonzero delta here
+    would mean something unexpected is happening to the server's
+    approx_kv reuse path during what must be a purely-dense phase, a
+    real defect worth catching immediately rather than silently ignored.
 
     Returns a dict with ``object_count``, ``total_pressure_tokens``
     (see ``eviction_pressure_total_tokens``), ``target_rho`` (the
@@ -2204,23 +2304,18 @@ def register_eviction_pressure_objects(
     large enough to evict anything, and this is reported honestly rather
     than hidden), and ``dense_fallback_total_delta`` (always 0, given the
     raise above, kept for output-schema transparency), plus the raw
-    ``metrics_before``/``metrics_after`` snapshots the two deltas above
-    were computed from (surfaced verbatim for downstream debugging,
-    exactly like ``run_non_prefix_setting``'s own ``metrics_before``/
+    ``metrics_before``/``metrics_after`` snapshots the deltas above were
+    computed from (surfaced verbatim for downstream debugging, exactly
+    like ``run_non_prefix_setting``'s own ``metrics_before``/
     ``metrics_after`` keys).
     """
     metrics_before = metric_snapshot(base_url)
     for index, filler_workload in enumerate(workloads):
-        materialize_workload_via_reuse(
-            base_url,
-            filler_workload,
-            raw_hash=f"cachetune-raw:phase4-r5-pressure-filler-{index}",
-            fresh_hash=f"cachetune-fresh:phase4-r5-pressure-filler-{index}",
-            model_fingerprint=model_fingerprint,
-            cache_dtype=cache_dtype,
-            label=f"{label} pressure-filler[{index}]",
-            max_chunk_tokens=max_chunk_tokens,
+        response, _ = timed_post(
+            base_url, dense_generate_payload(filler_workload.target_prompt_ids)
         )
+        require_finished_by_length(response, f"{label} pressure-filler[{index}]")
+        require_cached_tokens(response, 0, f"{label} pressure-filler[{index}]")
         time.sleep(0.1)
     metrics_after = metric_snapshot(base_url)
 
@@ -2229,25 +2324,44 @@ def register_eviction_pressure_objects(
     )
     if dense_fallback_delta != 0:
         raise RuntimeError(
-            f"{label}: {len(workloads)} eviction-pressure filler object(s) "
-            f"produced a nonzero dense_fallback delta of "
-            f"{dense_fallback_delta} while materializing -- at least one "
-            "filler's own reuse silently fell back to dense instead of a "
-            "genuine CacheTune repair; this pressure configuration cannot "
-            "be trusted to have actually occupied device residency as "
-            "intended"
+            f"{label}: {len(workloads)} plain-dense eviction-pressure "
+            f"filler object(s) produced a nonzero dense_fallback delta "
+            f"of {dense_fallback_delta} -- a plain dense request carries "
+            "no approx_kv metadata and should never be able to move "
+            "this CacheTune-reuse-specific counter at all; something "
+            "unexpected touched the approx_kv reuse path during what "
+            "must be a purely-dense pressure phase"
         )
+
+    total_pressure_tokens = eviction_pressure_total_tokens(workloads)
+    evicted_tokens_total_delta = metric_delta(
+        metrics_before, metrics_after, "sglang:evicted_tokens_total"
+    )
+    if total_pressure_tokens > capacity_tokens and evicted_tokens_total_delta <= 0:
+        raise RuntimeError(
+            f"{label}: {len(workloads)} eviction-pressure filler object(s) "
+            f"declare {total_pressure_tokens} nominal tokens against a "
+            f"pool that started this phase genuinely idle with only "
+            f"{capacity_tokens} usable tokens of capacity -- later "
+            "fillers necessarily had to evict earlier ones just to fit, "
+            "yet sglang:evicted_tokens_total did not increase "
+            f"({evicted_tokens_total_delta}) while registering them. "
+            "Either usable_kv_capacity_tokens mis-measured this pool's "
+            "real capacity, or LRU eviction is not actually reclaiming "
+            "these plain dense filler objects as intended -- this "
+            "pressure phase cannot be trusted to have genuinely "
+            "stressed the pool"
+        )
+
     return {
         "object_count": len(workloads),
-        "total_pressure_tokens": eviction_pressure_total_tokens(workloads),
+        "total_pressure_tokens": total_pressure_tokens,
         "target_rho": target_rho,
         "capacity_tokens": capacity_tokens,
         "observed_rho_after_pressure": observed_rho(
             metrics_after, capacity_tokens=capacity_tokens
         ),
-        "evicted_tokens_total_delta": metric_delta(
-            metrics_before, metrics_after, "sglang:evicted_tokens_total"
-        ),
+        "evicted_tokens_total_delta": evicted_tokens_total_delta,
         "dense_fallback_total_delta": dense_fallback_delta,
         "metrics_before": metrics_before,
         "metrics_after": metrics_after,
@@ -2314,16 +2428,18 @@ def run_non_prefix_setting(
     transient, eviction-driven usage dip). If ``target_rho`` is not
     ``None``, the filler object count is reverse-computed from it against
     that capacity (see ``eviction_pressure_filler_count_for_rho``) and a
-    fresh pressure phase is registered and materialized (see
+    fresh pressure phase of plain dense filler requests is sent (see
     ``register_eviction_pressure_objects``): the flush above resets the
     entire ``approx_kv`` store (``ApproxKVManager.reset()``, wired
     through ``RadixCache.reset``/``UnifiedRadixCache.reset`` -- see
-    ``flush_exact_radix_cache``'s own docstring), so a previous setting's
-    already-registered filler objects are gone the moment this function's
-    own flush runs; they cannot be built once globally and expected to
-    persist across multiple settings. This means every setting (the main
-    setting and every shape-/rho-sweep point alike) gets its own genuine,
-    freshly-sized pressure phase, never a shared/stale one.
+    ``flush_exact_radix_cache``'s own docstring) AND clears the exact
+    radix tree those plain dense fillers land in, so a previous
+    setting's own already-sent filler objects are gone the moment this
+    function's own flush runs; they cannot be built once globally and
+    expected to persist across multiple settings. This means every
+    setting (the main setting and every shape-/rho-sweep point alike)
+    gets its own genuine, freshly-sized pressure phase, never a
+    shared/stale one.
     ``validate_pairwise_head_isolation`` runs first (before any network
     call) to guard against a filler's dense-seeded target head colliding
     with this setting's own head or with another filler's head in the
@@ -2385,10 +2501,7 @@ def run_non_prefix_setting(
         pressure_phase = register_eviction_pressure_objects(
             base_url,
             pressure_workloads,
-            model_fingerprint=model_fingerprint,
-            cache_dtype=cache_dtype,
             label=label,
-            max_chunk_tokens=max_chunk_tokens,
             capacity_tokens=capacity_tokens,
             target_rho=target_rho,
         )
@@ -3041,15 +3154,21 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
     known_limitations.append(
         "Every setting that runs a genuine repair (main, every "
         "shape-sweep point with header > 0, and every rho-sweep point) "
-        "runs its own freshly reverse-computed, freshly-materialized "
-        "multi-object eviction-pressure phase sized against that "
-        "setting's own real, live, idle usable_kv_capacity_tokens "
-        "snapshot (see eviction_pressure_filler_count_for_rho / "
+        "runs its own freshly reverse-computed eviction-pressure phase "
+        "sized against that setting's own real, live, idle "
+        "usable_kv_capacity_tokens snapshot (see "
+        "eviction_pressure_filler_count_for_rho / "
         "register_eviction_pressure_objects) -- never a single globally-"
         "shared filler set and never CLI-disableable to a single-object "
-        "microbenchmark; whether real device-pool eviction actually "
-        "occurred for a given setting must be read from that setting's "
-        "own pressure_phase.evicted_tokens_total_delta / "
+        "microbenchmark. Every filler object is sent as a single plain "
+        "dense /generate request with no approx_kv metadata (an "
+        "ordinary, LRU-evictable exact-radix-tree entry), never through "
+        "CacheTune's own register/reuse repair path, so real device-pool "
+        "eviction can actually reclaim filler objects the way normal "
+        "concurrent traffic would in a real deployment; whether real "
+        "device-pool eviction actually occurred for a given setting must "
+        "be read from that setting's own "
+        "pressure_phase.evicted_tokens_total_delta / "
         "peak_rho_observed / observed_rho_after_target (may legitimately "
         "differ from the nominal target_rho -- reported honestly, never "
         "hidden). The shape sweep's header=0 exact-context control "
@@ -3134,16 +3253,32 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "eviction_pressure_phase_runs_once_per_setting": True,
             "eviction_pressure_phase_rationale": (
                 "every setting's own flush (see "
-                "exact_radix_flush_at_start_of_every_setting) wipes the "
-                "entire approx_kv store, so eviction-pressure filler "
-                "objects are freshly reverse-computed (from that "
-                "setting's own target_rho against a real, live, idle "
-                "/metrics snapshot) and re-materialized inside every "
-                "run_non_prefix_setting call (main setting, every "
-                "shape-sweep point, and every rho-sweep point alike), "
-                "never built once globally -- see "
+                "exact_radix_flush_at_start_of_every_setting) clears the "
+                "entire exact radix tree and resets the approx_kv store, "
+                "so eviction-pressure filler objects are freshly "
+                "reverse-computed (from that setting's own target_rho "
+                "against a real, live, idle /metrics snapshot) and "
+                "re-sent inside every run_non_prefix_setting call (main "
+                "setting, every shape-sweep point, and every rho-sweep "
+                "point alike), never built/sent once globally -- see "
                 "eviction_pressure_filler_count_for_rho / "
                 "register_eviction_pressure_objects."
+            ),
+            "eviction_pressure_fillers_are_plain_dense_requests": True,
+            "eviction_pressure_fillers_are_plain_dense_requests_rationale": (
+                "every filler object is sent as a single plain dense "
+                "/generate request with no approx_kv custom_params "
+                "metadata at all, landing in the server's ordinary, "
+                "LRU-evictable exact radix tree -- never through "
+                "CacheTune's own register/reuse repair path (whose raw/"
+                "fresh segments live in ApproxKVManager's own segment "
+                "store, a structure Radix LRU eviction cannot reclaim at "
+                "all). This is a deliberate fix for a real, previously-"
+                "observed SM75 bug at target_rho=2 where CacheTune-path "
+                "fillers accumulated as permanently un-evictable "
+                "residency and starved the setting's own target "
+                "recovery-slot allocation -- see "
+                "register_eviction_pressure_objects's own docstring."
             ),
         },
         "workload": {
@@ -3251,9 +3386,10 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "pool_invariant_metrics_pre_reset is the raw /metrics "
             "snapshot from immediately before that reset -- its "
             "kv_used_tokens is expected to be nonzero (every setting's "
-            "raw/fresh/pressure-filler segments are still resident by "
-            "design at that point) and must never be read as a pool "
-            "leak."
+            "own raw/fresh CacheTune segments, plus every eviction-"
+            "pressure filler's plain dense KV cache entry, are still "
+            "resident by design at that point) and must never be read "
+            "as a pool leak."
         ),
         "health_response": health_status,
         "known_limitations": known_limitations,

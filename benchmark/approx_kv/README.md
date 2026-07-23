@@ -205,6 +205,52 @@ tokens` (default 34); tail length is fixed at 1 token for every setting.
 `--repeats >= 2` is enforced (a single formal repeat cannot be
 distinguished from measurement noise).
 
+### Eviction-pressure fillers are plain dense objects, never CacheTune segments
+
+Every setting whose `target_rho` is set (the main setting, every
+shape-sweep point with a nonzero header, and every rho-sweep point)
+sends a reverse-computed count of filler objects immediately after its
+own flush, before its own head-seed/raw-register begins. Each filler is
+sent as exactly **one plain, ordinary `POST /generate` request** carrying
+no `approx_kv` custom_params metadata at all -- never a register/reuse
+call. This is deliberate: an earlier version of this phase ran every
+filler through the full CacheTune register-raw/register-fresh/reuse
+cycle, which stores each filler's raw/fresh body in `ApproxKVManager`'s
+own segment store -- a structure the Radix LRU eviction policy cannot
+see or reclaim at all. On a real SM75 run at `target_rho=2`, enough
+fillers accumulated that way (from filler[11] onward) to fill the pool
+with permanently un-evictable segments, leaving no room for the
+setting's own target recovery-slot allocation -- its reuse call then
+reported only the exact-match head as cached, never head+body.
+
+A plain dense request instead populates the ordinary exact radix tree,
+exactly like any other request, and is fully subject to normal LRU
+eviction -- genuine, realistic cache pressure the setting's own
+recovery allocation can reclaim from, matching the same plain-dense-
+filler methodology `research/epic-legolink`'s own
+`run_phase4_epic_pressure.py` already uses. Filler object shape
+(`--pressure-filler-head-tokens` x `--pressure-filler-body-tokens`,
+default 2048) is fixed across every setting; only the reverse-computed
+COUNT varies with `target_rho`, keeping peak-rho/eviction numbers
+comparable across the whole matrix. Fillers still get mutually
+distinct, pairwise zero-common-prefix target heads
+(`build_eviction_pressure_workloads`/`validate_pairwise_head_isolation`),
+so pressure objects can never spuriously exact-match each other or the
+setting's own head.
+
+Because pressure fillers are now genuinely evictable,
+`register_eviction_pressure_objects` itself raises immediately if a
+`target_rho` value that nominally requests more tokens than the live
+measured capacity (`target_rho > 1`) fails to move the real
+`sglang:evicted_tokens_total` Prometheus counter while registering them
+-- proof that genuine device-pool eviction actually occurred is not
+merely reported (`pressure_phase.evicted_tokens_total_delta`/
+`peak_rho_observed` in the output JSON) but enforced. A nonzero
+`sglang:approx_kv_dense_fallback_total` delta during the pressure phase
+also raises immediately: a plain dense filler carries no `approx_kv`
+metadata and should never be able to move that CacheTune-reuse-specific
+counter.
+
 Because CacheTune's reuse path requires a request's own exact-radix-match
 length to equal the registered segment's `target_start` exactly (any gap
 forces dense-fallback), each setting's measurement pass runs, in order:
@@ -278,10 +324,15 @@ the exact radix tree themselves since
 `approx_kv_metadata` is present.
 
 After every setting (main, shape sweep, rho sweep) has finished, every
-raw/fresh/pressure-filler segment registered along the way is still
-intentionally resident -- that residency is the entire point of
-"register once, reuse across repeats," not a leak. So
-`capture_final_pool_reset_and_invariant` snapshots `/metrics` first
+raw/fresh segment the main setting itself registered along the way is
+still intentionally resident in `ApproxKVManager` -- that residency is
+the entire point of "register once, reuse across repeats," not a leak.
+(Eviction-pressure filler objects are never registered at all -- see
+below -- so they hold no such residency by construction; whichever
+fillers a given rho point's own LRU pressure did not evict may still
+remain in the exact radix tree at this point, which is likewise
+expected, not a leak.) So `capture_final_pool_reset_and_invariant`
+snapshots `/metrics` first
 (`pool_invariant_metrics_pre_reset` in the output JSON -- informational
 only; a real SM75 run observed `kv_used_tokens=4096` here even though
 `accounted_tokens` already matched `max_total_num_tokens` exactly, and

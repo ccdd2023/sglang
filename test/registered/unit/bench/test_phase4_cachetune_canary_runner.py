@@ -1838,9 +1838,18 @@ class TestNonPrefixSegmentWorkloadPromptsLeaveFinalTokenForRealForwardPass(
 
     def test_eviction_pressure_filler_shape(self):
         # --pressure-filler-head-tokens/--pressure-filler-body-tokens
-        # defaults: every filler is its own NonPrefixSegmentWorkload,
-        # going through the exact same materialize_workload_via_reuse
-        # register-raw/register-fresh path as the setting's own head.
+        # defaults: every filler is its own NonPrefixSegmentWorkload.
+        # register_eviction_pressure_objects only ever sends each
+        # filler's own target_prompt_ids as a single plain dense request
+        # (see that function's own docstring) -- it never registers or
+        # reuses a filler's source_prompt_ids/fresh_prompt_ids. This
+        # test nonetheless still verifies those NEVER-SENT raw/fresh
+        # segments would themselves pass real ApproxKVRequestMetadata
+        # validation: NonPrefixSegmentWorkload is shared, well-tested
+        # infrastructure with the main setting's own genuine repair
+        # workload, and this is a regression check on that shared
+        # dataclass's own derivation logic, not a claim that fillers are
+        # materialized this way.
         workloads = build_eviction_pressure_workloads(
             FakeTokenizer(),
             object_count=3,
@@ -2899,13 +2908,30 @@ class TestMaterializeWorkloadViaReuse(unittest.TestCase):
 
 
 class TestRegisterEvictionPressureObjects(unittest.TestCase):
-    """Every filler object's mandatory register+reuse materialization
-    must run in order against the live server, and a nonzero
-    dense-fallback delta observed during this phase must raise loudly:
-    a filler silently falling back to dense would mean it never
-    actually became a genuine device-resident CacheTune-repaired
-    occupant, defeating the whole point of the eviction-pressure
-    phase."""
+    """Every eviction-pressure filler object must be sent as exactly ONE
+    plain, ordinary dense ``/generate`` request -- carrying NO
+    ``approx_kv`` custom_params metadata at all -- so its KV lands in
+    the server's ordinary, LRU-evictable exact radix tree rather than
+    CacheTune's own un-evictable segment store.
+
+    This replaces an earlier design that ran every filler through
+    ``materialize_workload_via_reuse`` (a full seed+raw-register+fresh-
+    register+reuse CacheTune cycle): a real SM75 run at ``target_rho=2``
+    showed that design's raw/fresh segments accumulate as permanently
+    un-evictable residency (``ApproxKVManager``'s own segment store is
+    invisible to Radix LRU eviction), eventually starving the setting's
+    own target recovery-slot allocation. See
+    ``register_eviction_pressure_objects``'s own docstring for the full
+    root-cause account.
+
+    A nonzero dense-fallback delta observed during this phase must
+    still raise loudly (a plain dense request should never be able to
+    move that CacheTune-reuse-specific counter at all), and -- new in
+    this fix -- a pressure configuration that nominally exceeds this
+    setting's own idle capacity must show genuine
+    ``sglang:evicted_tokens_total`` movement, or this function must
+    raise rather than silently trust an unverified "genuine pressure"
+    claim."""
 
     def _filler_workloads(self, object_count=2, body_tokens=8):
         return build_eviction_pressure_workloads(
@@ -2917,51 +2943,62 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
             salt_prefix="unit-test-pressure",
         )
 
-    def _materialize_success_responses(self, workload):
-        """The four responses one filler's own
-        ``materialize_workload_via_reuse`` call needs, in call order, to
-        pass every check that function performs: seed target_head
-        (``cached_tokens=0``), register raw (``cached_tokens=0``),
-        register fresh (``cached_tokens=workload.body_start_in_target``,
-        the REGISTER operation's own exact-match-only radix hit on the
-        already-seeded target head -- it never restores anything), reuse
-        (``cached_tokens=workload.body_start_in_target +
-        workload.body_tokens``, the full restored prefix: exact-match
-        head plus the entire restored body, never head-only)."""
-        zero_cached_chunk = {
-            "meta_info": {"finish_reason": {"type": "length"}, "cached_tokens": 0}
-        }
-        fresh_register_chunk = {
-            "meta_info": {
-                "finish_reason": {"type": "length"},
-                "cached_tokens": workload.body_start_in_target,
-            }
-        }
-        reuse_chunk = {
-            "meta_info": {
-                "finish_reason": {"type": "length"},
-                "cached_tokens": workload.body_start_in_target + workload.body_tokens,
-            }
-        }
-        chunks = [
-            zero_cached_chunk,  # seed target_head
-            zero_cached_chunk,  # register raw
-            fresh_register_chunk,  # register fresh
-            reuse_chunk,  # reuse
-        ]
-        return [
-            _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
-            for chunk in chunks
-        ]
+    def _dense_zero_cached_response(self):
+        """The single response every plain-dense filler request expects:
+        ``finish_reason=length`` and ``cached_tokens=0`` (this exact
+        content genuinely never seen before -- pairwise first-token
+        isolation plus the setting's own just-completed flush together
+        guarantee this)."""
+        chunk = {"meta_info": {"finish_reason": {"type": "length"}, "cached_tokens": 0}}
+        return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
 
-    def test_materializes_every_filler_in_order_and_returns_telemetry(self):
+    def test_sends_exactly_one_plain_dense_request_per_filler(self):
+        workloads = self._filler_workloads(object_count=3, body_tokens=8)
+        session = _FakeClientSession(self._dense_zero_cached_response())
+        metrics_before = {
+            "sglang:evicted_tokens_total": 0.0,
+            "sglang:kv_used_tokens": 0.0,
+        }
+        metrics_after = {
+            "sglang:evicted_tokens_total": 0.0,
+            "sglang:kv_used_tokens": 24.0,
+        }
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=[metrics_before, metrics_after],
+        ):
+            register_eviction_pressure_objects(
+                "http://127.0.0.1:30000",
+                workloads,
+                label="unit-test",
+                capacity_tokens=1000,
+                target_rho=0.5,
+            )
+
+        # Exactly one request per filler -- never the old four-request
+        # (seed/raw-register/fresh-register/reuse)
+        # materialize_workload_via_reuse sequence this replaces.
+        self.assertEqual(len(session.post_calls), 3)
+        for index, (_, payload) in enumerate(session.post_calls):
+            # A plain dense_generate_payload, byte-for-byte (plus the
+            # ``stream: True`` that ``timed_post`` merges in for every
+            # request regardless of payload shape): no approx_kv
+            # custom_params key anywhere in sampling_params.
+            self.assertEqual(
+                payload,
+                {
+                    **dense_generate_payload(workloads[index].target_prompt_ids),
+                    "stream": True,
+                },
+            )
+            self.assertNotIn("custom_params", payload["sampling_params"])
+
+    def test_returns_expected_telemetry(self):
         workloads = self._filler_workloads(object_count=2, body_tokens=8)
-        responses = [
-            response
-            for workload in workloads
-            for response in self._materialize_success_responses(workload)
-        ]
-        session = _SequencedFakeClientSession(responses)
+        session = _FakeClientSession(self._dense_zero_cached_response())
         metrics_before = {
             "sglang:approx_kv_dense_fallback_total": 3.0,
             "sglang:evicted_tokens_total": 100.0,
@@ -2969,7 +3006,7 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
         }
         metrics_after = {
             "sglang:approx_kv_dense_fallback_total": 3.0,
-            "sglang:evicted_tokens_total": 116.0,
+            "sglang:evicted_tokens_total": 100.0,
             "sglang:kv_used_tokens": 900.0,
         }
 
@@ -2982,36 +3019,32 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
             result = register_eviction_pressure_objects(
                 "http://127.0.0.1:30000",
                 workloads,
-                model_fingerprint="qwen3-0.6b-sm75",
-                cache_dtype="fp16",
                 label="unit-test",
-                max_chunk_tokens=512,
                 capacity_tokens=1000,
                 target_rho=1.5,
             )
 
-        # Every filler's own four-request sequence must have actually
-        # run, in order (a wrong call count would mean either a filler
-        # was skipped or the four-step materialize sequence itself
-        # regressed).
-        self.assertEqual(len(session.post_calls), 8)
+        self.assertEqual(len(session.post_calls), 2)
         self.assertEqual(result["object_count"], 2)
         self.assertEqual(result["total_pressure_tokens"], 16)
         self.assertEqual(result["target_rho"], 1.5)
         self.assertEqual(result["capacity_tokens"], 1000)
         self.assertAlmostEqual(result["observed_rho_after_pressure"], 0.9)
-        self.assertEqual(result["evicted_tokens_total_delta"], 16.0)
+        # 16 nominal tokens is well within capacity_tokens=1000, so the
+        # new evicted_tokens_total_delta assertion never engages here --
+        # a zero delta is expected and fine.
+        self.assertEqual(result["evicted_tokens_total_delta"], 0.0)
         self.assertEqual(result["dense_fallback_total_delta"], 0.0)
         self.assertEqual(result["metrics_before"], metrics_before)
         self.assertEqual(result["metrics_after"], metrics_after)
 
     def test_raises_when_dense_fallback_delta_is_nonzero(self):
-        # The core safety invariant this function exists to enforce: a
-        # filler silently falling back to dense during materialization
+        # A plain dense request carries no approx_kv metadata and
+        # should never be able to move this CacheTune-reuse-specific
+        # counter at all; a nonzero delta here is a real defect that
         # must never be treated as a harmless, ignorable detail.
         workloads = self._filler_workloads(object_count=1, body_tokens=8)
-        responses = self._materialize_success_responses(workloads[0])
-        session = _SequencedFakeClientSession(responses)
+        session = _FakeClientSession(self._dense_zero_cached_response())
         metrics_before = {"sglang:approx_kv_dense_fallback_total": 3.0}
         metrics_after = {"sglang:approx_kv_dense_fallback_total": 4.0}
 
@@ -3025,26 +3058,24 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
                 register_eviction_pressure_objects(
                     "http://127.0.0.1:30000",
                     workloads,
-                    model_fingerprint="qwen3-0.6b-sm75",
-                    cache_dtype="fp16",
                     label="unit-test",
-                    max_chunk_tokens=512,
                     capacity_tokens=1000,
                     target_rho=1.5,
                 )
         message = str(ctx.exception)
         self.assertIn("unit-test", message)
-        self.assertIn("1 eviction-pressure filler", message)
+        self.assertIn("1 plain-dense eviction-pressure", message)
 
     def test_does_not_raise_when_dense_fallback_delta_is_zero_despite_other_deltas(
         self,
     ):
         # A positive control alongside the raise-test above: OTHER
         # counters (e.g. evicted_tokens_total) moving is expected and
-        # fine; only a nonzero dense_fallback delta must raise.
+        # fine; only a nonzero dense_fallback delta must raise. Nominal
+        # pressure tokens (8) stay within capacity_tokens=1000 here, so
+        # the eviction assertion never engages either.
         workloads = self._filler_workloads(object_count=1, body_tokens=8)
-        responses = self._materialize_success_responses(workloads[0])
-        session = _SequencedFakeClientSession(responses)
+        session = _FakeClientSession(self._dense_zero_cached_response())
         metrics_before = {
             "sglang:approx_kv_dense_fallback_total": 0.0,
             "sglang:evicted_tokens_total": 0.0,
@@ -3065,16 +3096,268 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
             result = register_eviction_pressure_objects(
                 "http://127.0.0.1:30000",
                 workloads,
-                model_fingerprint="qwen3-0.6b-sm75",
-                cache_dtype="fp16",
                 label="unit-test",
-                max_chunk_tokens=512,
                 capacity_tokens=1000,
                 target_rho=1.5,
             )
         self.assertEqual(result["dense_fallback_total_delta"], 0.0)
         self.assertEqual(result["evicted_tokens_total_delta"], 8.0)
         self.assertAlmostEqual(result["observed_rho_after_pressure"], 0.008)
+
+    def test_raises_when_pressure_exceeds_capacity_but_no_eviction_observed(self):
+        # Core NEW safety invariant this fix adds: when the fillers'
+        # own nominal footprint ALONE already exceeds this setting's
+        # idle capacity, later fillers necessarily had to evict earlier
+        # ones just to fit -- a zero evicted_tokens_total delta despite
+        # that must raise, never be silently trusted as "genuine
+        # pressure occurred".
+        workloads = self._filler_workloads(object_count=3, body_tokens=50)
+        # total_pressure_tokens = 150 > capacity_tokens = 100.
+        session = _FakeClientSession(self._dense_zero_cached_response())
+        metrics_before = {
+            "sglang:approx_kv_dense_fallback_total": 0.0,
+            "sglang:evicted_tokens_total": 20.0,
+        }
+        metrics_after = {
+            "sglang:approx_kv_dense_fallback_total": 0.0,
+            "sglang:evicted_tokens_total": 20.0,  # unchanged: no eviction.
+        }
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=[metrics_before, metrics_after],
+        ):
+            with self.assertRaises(RuntimeError) as ctx:
+                register_eviction_pressure_objects(
+                    "http://127.0.0.1:30000",
+                    workloads,
+                    label="unit-test",
+                    capacity_tokens=100,
+                    target_rho=1.5,
+                )
+        message = str(ctx.exception)
+        self.assertIn("unit-test", message)
+        self.assertIn("150", message)
+        self.assertIn("100", message)
+
+    def test_does_not_raise_when_pressure_exceeds_capacity_and_eviction_observed(
+        self,
+    ):
+        # Positive control for the above: the exact same
+        # exceeds-capacity configuration, but a genuine nonzero eviction
+        # delta this time -- must not raise.
+        workloads = self._filler_workloads(object_count=3, body_tokens=50)
+        session = _FakeClientSession(self._dense_zero_cached_response())
+        metrics_before = {
+            "sglang:approx_kv_dense_fallback_total": 0.0,
+            "sglang:evicted_tokens_total": 20.0,
+            "sglang:kv_used_tokens": 100.0,
+        }
+        metrics_after = {
+            "sglang:approx_kv_dense_fallback_total": 0.0,
+            "sglang:evicted_tokens_total": 90.0,
+            "sglang:kv_used_tokens": 100.0,
+        }
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=[metrics_before, metrics_after],
+        ):
+            result = register_eviction_pressure_objects(
+                "http://127.0.0.1:30000",
+                workloads,
+                label="unit-test",
+                capacity_tokens=100,
+                target_rho=1.5,
+            )
+        self.assertEqual(result["evicted_tokens_total_delta"], 70.0)
+
+    def test_does_not_raise_when_pressure_within_capacity_despite_zero_eviction(self):
+        # target_rho <= 1 (nominal pressure stays within capacity):
+        # fillers may legitimately all coexist without any eviction at
+        # all -- the eviction assertion must never engage here.
+        workloads = self._filler_workloads(object_count=1, body_tokens=8)
+        session = _FakeClientSession(self._dense_zero_cached_response())
+        metrics_before = {
+            "sglang:approx_kv_dense_fallback_total": 0.0,
+            "sglang:evicted_tokens_total": 0.0,
+            "sglang:kv_used_tokens": 0.0,
+        }
+        metrics_after = {
+            "sglang:approx_kv_dense_fallback_total": 0.0,
+            "sglang:evicted_tokens_total": 0.0,
+            "sglang:kv_used_tokens": 8.0,
+        }
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=[metrics_before, metrics_after],
+        ):
+            result = register_eviction_pressure_objects(
+                "http://127.0.0.1:30000",
+                workloads,
+                label="unit-test",
+                capacity_tokens=1000,
+                target_rho=0.5,
+            )
+        self.assertEqual(result["evicted_tokens_total_delta"], 0.0)
+
+    def test_raises_when_a_filler_reports_nonzero_cached_tokens(self):
+        # Pairwise isolation failing to hold (or this setting's own
+        # pre-pressure flush not actually having happened) would
+        # surface as a filler's first appearance reporting a nonzero
+        # cached_tokens -- require_cached_tokens must catch this
+        # immediately, never silently accept a stray exact-prefix hit.
+        workloads = self._filler_workloads(object_count=1, body_tokens=8)
+        chunk = {"meta_info": {"finish_reason": {"type": "length"}, "cached_tokens": 6}}
+        response = _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
+        session = _FakeClientSession(response)
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=[{}, {}],
+        ):
+            with self.assertRaises(RuntimeError) as ctx:
+                register_eviction_pressure_objects(
+                    "http://127.0.0.1:30000",
+                    workloads,
+                    label="unit-test",
+                    capacity_tokens=1000,
+                    target_rho=1.5,
+                )
+        self.assertIn("pressure-filler[0]", str(ctx.exception))
+        self.assertIn("cached_tokens=6", str(ctx.exception))
+
+
+class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
+    """``run_non_prefix_setting``'s own pressure-phase wiring must call
+    ``register_eviction_pressure_objects`` with its NEW signature (no
+    ``model_fingerprint``/``cache_dtype``/``max_chunk_tokens`` -- a
+    plain dense filler request needs none of those) and interleave the
+    resulting plain-dense filler requests, in order, BEFORE the
+    setting's own seed-head/raw-register/warmup/repeat CacheTune
+    sequence -- proving the end-to-end call-site wiring survives this
+    fix's signature change, not just ``register_eviction_pressure_
+    objects`` in isolation."""
+
+    def test_pressure_fillers_sent_before_main_setting_measurement(self):
+        workload = build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=4,
+            head_tokens=3,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt="unit-test-pressure-wiring",
+        )
+        reuse_cached = workload.body_start_in_target + workload.body_tokens
+
+        def _response(cached_tokens):
+            chunk = {
+                "meta_info": {
+                    "finish_reason": {"type": "length"},
+                    "cached_tokens": cached_tokens,
+                }
+            }
+            return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
+
+        # capacity_tokens=100 (max_total_num_tokens fallback),
+        # tokens_per_filler = pressure_filler_head_tokens(2) +
+        # pressure_filler_body_tokens(4) = 6, target_rho=0.1 ->
+        # ceil(0.1 * 100 / 6) = 2 fillers.
+        pressure_responses = [_response(0), _response(0)]
+        warmup_responses = [
+            _response(0),  # seed target_head
+            _response(0),  # register raw (1 chunk, body_tokens=4)
+            _response(workload.body_start_in_target),  # register fresh
+            _response(reuse_cached),  # reuse (warmup, discarded)
+        ]
+        formal_repeat_responses = [
+            _response(workload.body_start_in_target),  # fresh register
+            _response(reuse_cached),  # reuse
+        ]
+        responses = pressure_responses + warmup_responses + formal_repeat_responses
+        session = _SequencedFakeClientSession(responses)
+
+        metrics_at_setting_start = {"sglang:max_total_num_tokens": 100.0}
+        pressure_metrics_before = {
+            "sglang:evicted_tokens_total": 0.0,
+            "sglang:kv_used_tokens": 0.0,
+        }
+        pressure_metrics_after = {
+            "sglang:evicted_tokens_total": 0.0,
+            "sglang:kv_used_tokens": 12.0,
+        }
+        metrics_before = {"sglang:kv_used_tokens": 10.0}
+        metrics_after = {"sglang:kv_used_tokens": 20.0}
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "urllib.request.urlopen", _fake_flush_urlopen([])
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=[
+                metrics_at_setting_start,
+                pressure_metrics_before,
+                pressure_metrics_after,
+                metrics_before,
+                metrics_after,
+            ],
+        ):
+            result = run_non_prefix_setting(
+                base_url="http://127.0.0.1:30000",
+                tokenizer=FakeTokenizer(),
+                workload=workload,
+                raw_hash="cachetune-raw:unit-test-pressure-wiring",
+                fresh_hash="cachetune-fresh:unit-test-pressure-wiring",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                repeats=1,
+                label="unit-test",
+                max_chunk_tokens=512,
+                target_rho=0.1,
+                pressure_filler_head_tokens=2,
+                pressure_filler_body_tokens=4,
+            )
+
+        self.assertEqual(len(session.post_calls), len(responses))
+        # The first two calls are the plain-dense pressure fillers: no
+        # approx_kv metadata, distinct target_prompt_ids each.
+        first_two_payloads = [payload for _, payload in session.post_calls[:2]]
+        for payload in first_two_payloads:
+            self.assertNotIn("custom_params", payload["sampling_params"])
+        self.assertNotEqual(
+            first_two_payloads[0]["input_ids"], first_two_payloads[1]["input_ids"]
+        )
+        # The remaining calls are the setting's own genuine CacheTune
+        # sequence, unaffected by the pressure-phase signature change:
+        # at least one of them still carries approx_kv metadata.
+        remaining_payloads = [payload for _, payload in session.post_calls[2:]]
+        self.assertTrue(
+            any(
+                "custom_params" in payload["sampling_params"]
+                for payload in remaining_payloads
+            )
+        )
+
+        self.assertIsNotNone(result["pressure_phase"])
+        self.assertEqual(result["pressure_phase"]["object_count"], 2)
+        self.assertEqual(result["pressure_phase"]["target_rho"], 0.1)
+        self.assertEqual(result["pressure_phase"]["capacity_tokens"], 100)
+        self.assertEqual(
+            result["peak_rho_observed"],
+            max(
+                result["observed_rho_after_target"],
+                result["pressure_phase"]["observed_rho_after_pressure"],
+            ),
+        )
 
 
 def _fake_flush_urlopen(flush_urls: list) -> callable:
@@ -3715,9 +3998,10 @@ class TestCaptureFinalPoolResetAndInvariant(unittest.TestCase):
     real sentinel request, and ONLY THEN snapshot again and compute
     ``idle_pool_invariant`` -- never against the pre-flush snapshot,
     whose nonzero ``kv_used_tokens`` is expected (every setting's own
-    raw/fresh/pressure-filler segments are still resident by design at
-    that point -- a real SM75 run observed exactly this: 4096 used
-    tokens with ``accounted_tokens`` already matching
+    raw/fresh CacheTune segments, plus every eviction-pressure filler's
+    plain dense KV cache entry, are still resident by design at that
+    point -- a real SM75 run observed exactly this: 4096 used tokens
+    with ``accounted_tokens`` already matching
     ``max_total_num_tokens``) and must never be misread as a pool leak.
     """
 
