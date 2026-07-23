@@ -219,10 +219,24 @@ forces dense-fallback), each setting's measurement pass runs, in order:
    populate the exact radix tree for that specific head (register/reuse
    requests always set `skip_radix_cache_insert=True` and can never do
    this themselves).
-3. Register the "raw" segment once, from
-   `source_head_ids + shared_body_ids + tail_ids`.
-4. One *discarded* register-fresh + reuse warmup pass.
-5. `--repeats` formal register-fresh + reuse repeats.
+3. Register the "raw" segment: one INDEPENDENT `/generate` call per
+   `<= --max-segment-chunk-tokens` chunk of `shared_body_ids` (default
+   512), never one oversized call spanning the entire body -- each
+   chunk's own short prompt is `corresponding_head_ids + chunk_body_
+   slice + tail_ids`. A single register call whose *stored* segment
+   sizes were already chunk-bounded still let that one call's own
+   live/transient per-request KV footprint scale with the FULL,
+   un-chunked body, which OOM'd a real SM75 server at register time for
+   body lengths above one chunk (e.g. 1024/2048); splitting register
+   itself into one independent call per chunk is the fix. The REUSE
+   call (steps 4/5 below) is deliberately NOT chunked this way: it
+   always posts the complete target prompt in one call with the
+   existing contiguous multi-segment list, since a genuine full-context
+   reuse/repair forward pass is exactly what this canary measures.
+4. One *discarded* register-fresh + reuse warmup pass (the fresh
+   registration is chunked exactly like the raw registration above).
+5. `--repeats` formal register-fresh + reuse repeats (same per-chunk
+   fresh registration, every repeat).
 
 Every formal fresh-register response's `meta_info.cached_tokens` is
 cross-checked against `body_start_in_target` (the REGISTER operation
@@ -301,7 +315,11 @@ reported (`server_validation`/each length-sweep point) but excluded from
 `known_limitations`: both represent context that would already exist
 before the measured request in a real deployment (a prior conversation
 turn's own exact-cache entry, and externally sourced/precomputed KV), the
-same reasoning that already excluded raw-segment registration itself. The
+same reasoning that already excluded raw-segment registration itself.
+(`register_raw_ms`/`register_fresh_ms` are each the SUM of every
+`<= --max-segment-chunk-tokens` chunk's own genuine streaming TTFT --
+see item 3 above -- not a single call's ms, whenever a body spans more
+than one chunk.) The
 output JSON (`schema_version: 3`) additionally records every raw
 per-repeat sample both as `{"ttft_ms": ..., "cached_tokens": ...}`
 records (`dense_raw_samples`/`fresh_raw_samples`/`cachetune_raw_samples`,

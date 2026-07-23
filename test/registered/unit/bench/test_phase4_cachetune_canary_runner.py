@@ -47,13 +47,16 @@ from benchmark.approx_kv.run_phase4_cachetune_canary import (
     expected_repair_totals,
     flush_exact_radix_cache,
     main,
+    materialize_workload_via_reuse,
     observed_rho,
+    register_body_chunks,
     register_eviction_pressure_objects,
     register_generate_payload,
     require_cached_tokens,
     require_finished_by_length,
     reuse_generate_payload,
     run_exact_context_control_point,
+    run_non_prefix_setting,
     timed_post,
     validate_pairwise_head_isolation,
 )
@@ -2469,6 +2472,432 @@ class TestTimedPost(unittest.TestCase):
         self.assertEqual(require_cached_tokens(response, 34, "test"), 34)
 
 
+class TestRegisterBodyChunks(unittest.TestCase):
+    """``register_body_chunks`` must split a body strictly longer than
+    ``max_chunk_tokens`` into that many INDEPENDENT ``/generate``
+    register calls -- one per chunk, each bounded at ``len(head_ids) +
+    max_chunk_tokens + len(tail_ids)`` -- never one oversized call
+    whose own transient per-request KV footprint scales with the full,
+    un-chunked body (the real SM75 register-time OOM this function
+    exists to avoid; see its own docstring), while staying identical to
+    the previous single-call behavior whenever the body already fits in
+    one chunk."""
+
+    def _success_response(self, cached_tokens: int) -> _FakeStreamResponse:
+        chunk = {
+            "meta_info": {
+                "finish_reason": {"type": "length"},
+                "cached_tokens": cached_tokens,
+            }
+        }
+        return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
+
+    def test_single_chunk_body_issues_exactly_one_call(self):
+        head_ids = (1, 2, 3)
+        body_ids = tuple(range(100, 108))
+        tail_ids = (999,)
+        session = _SequencedFakeClientSession([self._success_response(0)])
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            result = register_body_chunks(
+                "http://127.0.0.1:30000",
+                head_ids=head_ids,
+                shared_body_ids=body_ids,
+                tail_ids=tail_ids,
+                hash_prefix="raw-hash",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                max_chunk_tokens=512,
+                expected_cached_tokens=0,
+                label="unit-test",
+            )
+
+        self.assertEqual(len(session.post_calls), 1)
+        url, payload = session.post_calls[0]
+        self.assertEqual(url, "http://127.0.0.1:30000/generate")
+        self.assertEqual(payload["input_ids"], list(head_ids + body_ids + tail_ids))
+        segments = payload["sampling_params"]["custom_params"]["approx_kv"]["segments"]
+        self.assertEqual(len(segments), 1)
+        self.assertEqual(segments[0]["content_hash"], "raw-hash:chunk0")
+        self.assertEqual(segments[0]["target_start"], len(head_ids))
+        self.assertEqual(segments[0]["length"], len(body_ids))
+        self.assertEqual(result["chunk_count"], 1)
+        self.assertEqual(result["cached_tokens"], 0)
+        self.assertGreaterEqual(result["total_ms"], 0.0)
+
+    def test_body_1024_issues_exactly_two_independent_calls(self):
+        head_ids = tuple(range(64))
+        body_ids = tuple(range(1000, 1000 + 1024))
+        tail_ids = (999999,)
+        session = _SequencedFakeClientSession(
+            [self._success_response(0), self._success_response(0)]
+        )
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            result = register_body_chunks(
+                "http://127.0.0.1:30000",
+                head_ids=head_ids,
+                shared_body_ids=body_ids,
+                tail_ids=tail_ids,
+                hash_prefix="raw-hash",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                max_chunk_tokens=512,
+                expected_cached_tokens=0,
+                label="unit-test",
+            )
+
+        self.assertEqual(len(session.post_calls), 2)
+        self.assertEqual(result["chunk_count"], 2)
+        bound = len(head_ids) + 512 + len(tail_ids)
+        expected_bodies = [body_ids[0:512], body_ids[512:1024]]
+        for index, (url, payload) in enumerate(session.post_calls):
+            self.assertEqual(url, "http://127.0.0.1:30000/generate")
+            self.assertLessEqual(len(payload["input_ids"]), bound)
+            segments = payload["sampling_params"]["custom_params"]["approx_kv"][
+                "segments"
+            ]
+            self.assertEqual(len(segments), 1)
+            self.assertEqual(segments[0]["content_hash"], f"raw-hash:chunk{index}")
+            # Every chunk's own local target_start is len(head_ids) --
+            # identical for every chunk index, never body_start + offset.
+            self.assertEqual(segments[0]["target_start"], len(head_ids))
+            body_slice = payload["input_ids"][len(head_ids) : -len(tail_ids)]
+            self.assertEqual(body_slice, list(expected_bodies[index]))
+
+    def test_body_2048_issues_exactly_four_independent_calls(self):
+        head_ids = tuple(range(64))
+        body_ids = tuple(range(2000, 2000 + 2048))
+        tail_ids = (999999,)
+        session = _SequencedFakeClientSession([self._success_response(0)] * 4)
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            result = register_body_chunks(
+                "http://127.0.0.1:30000",
+                head_ids=head_ids,
+                shared_body_ids=body_ids,
+                tail_ids=tail_ids,
+                hash_prefix="raw-hash",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                max_chunk_tokens=512,
+                expected_cached_tokens=0,
+                label="unit-test",
+            )
+
+        self.assertEqual(len(session.post_calls), 4)
+        self.assertEqual(result["chunk_count"], 4)
+        for index, (_, payload) in enumerate(session.post_calls):
+            segments = payload["sampling_params"]["custom_params"]["approx_kv"][
+                "segments"
+            ]
+            self.assertEqual(segments[0]["content_hash"], f"raw-hash:chunk{index}")
+            self.assertEqual(segments[0]["target_start"], len(head_ids))
+            self.assertEqual(segments[0]["length"], 512)
+
+    def test_uneven_final_chunk_still_respects_the_max_chunk_tokens_bound(self):
+        head_ids = tuple(range(10))
+        body_ids = tuple(range(1000))  # 1000 tokens -> chunks of 512 + 488
+        tail_ids = (999999,)
+        session = _SequencedFakeClientSession(
+            [self._success_response(0), self._success_response(0)]
+        )
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            register_body_chunks(
+                "http://127.0.0.1:30000",
+                head_ids=head_ids,
+                shared_body_ids=body_ids,
+                tail_ids=tail_ids,
+                hash_prefix="raw-hash",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                max_chunk_tokens=512,
+                expected_cached_tokens=0,
+                label="unit-test",
+            )
+
+        first_segments = session.post_calls[0][1]["sampling_params"]["custom_params"][
+            "approx_kv"
+        ]["segments"]
+        second_segments = session.post_calls[1][1]["sampling_params"]["custom_params"][
+            "approx_kv"
+        ]["segments"]
+        self.assertEqual(first_segments[0]["length"], 512)
+        self.assertEqual(second_segments[0]["length"], 488)
+        bound = len(head_ids) + 512 + len(tail_ids)
+        self.assertLessEqual(len(session.post_calls[0][1]["input_ids"]), bound)
+        self.assertLessEqual(len(session.post_calls[1][1]["input_ids"]), bound)
+
+    def test_total_ms_is_the_exact_sum_of_every_chunk_ttft(self):
+        # Patch timed_post directly (bypassing the aiohttp session
+        # entirely) so this assertion can use exact arithmetic instead
+        # of relying on real wall-clock timing noise between chunks.
+        response = {
+            "meta_info": {"finish_reason": {"type": "length"}, "cached_tokens": 0}
+        }
+        with unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.timed_post",
+            side_effect=[(response, 12.5), (response, 7.25)],
+        ) as mock_timed_post:
+            result = register_body_chunks(
+                "http://127.0.0.1:30000",
+                head_ids=tuple(range(64)),
+                shared_body_ids=tuple(range(1024)),
+                tail_ids=(999999,),
+                hash_prefix="raw-hash",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                max_chunk_tokens=512,
+                expected_cached_tokens=0,
+                label="unit-test",
+            )
+
+        self.assertEqual(mock_timed_post.call_count, 2)
+        self.assertEqual(result["total_ms"], 19.75)
+
+    def test_content_hash_sequence_matches_reuse_side_body_segments_for_hash(self):
+        # register_body_chunks's own per-chunk content_hash sequence
+        # must be exactly what body_segments_for_hash (the REUSE-side
+        # builder) produces for the same hash_prefix/max_chunk_tokens --
+        # this is the only thing that makes a chunk registered here
+        # resolvable by a later reuse call's lookup (see
+        # approx_kv/runtime.py's _segment_key: content_hash + token
+        # content, never target_start).
+        head_ids = tuple(range(64))
+        body_ids = tuple(range(2048))
+        tail_ids = (999999,)
+        session = _SequencedFakeClientSession([self._success_response(0)] * 4)
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            register_body_chunks(
+                "http://127.0.0.1:30000",
+                head_ids=head_ids,
+                shared_body_ids=body_ids,
+                tail_ids=tail_ids,
+                hash_prefix="cachetune-raw:unit-test",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                max_chunk_tokens=512,
+                expected_cached_tokens=0,
+                label="unit-test",
+            )
+
+        observed_hashes = [
+            call[1]["sampling_params"]["custom_params"]["approx_kv"]["segments"][0][
+                "content_hash"
+            ]
+            for call in session.post_calls
+        ]
+        expected_hashes = [
+            segment["content_hash"]
+            for segment in body_segments_for_hash(
+                hash_prefix="cachetune-raw:unit-test",
+                body_start=0,  # reuse's own body_start is irrelevant to the hash
+                body_tokens=len(body_ids),
+                max_chunk_tokens=512,
+            )
+        ]
+        self.assertEqual(observed_hashes, expected_hashes)
+
+    def test_raises_when_a_later_chunk_reports_unexpected_cached_tokens(self):
+        session = _SequencedFakeClientSession(
+            [self._success_response(0), self._success_response(999)]
+        )
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            with self.assertRaises(RuntimeError) as ctx:
+                register_body_chunks(
+                    "http://127.0.0.1:30000",
+                    head_ids=tuple(range(64)),
+                    shared_body_ids=tuple(range(1024)),
+                    tail_ids=(999999,),
+                    hash_prefix="raw-hash",
+                    model_fingerprint="qwen3-0.6b-sm75",
+                    cache_dtype="fp16",
+                    max_chunk_tokens=512,
+                    expected_cached_tokens=0,
+                    label="unit-test",
+                )
+        self.assertIn("unit-test chunk1", str(ctx.exception))
+
+
+class TestMaterializeWorkloadViaReuse(unittest.TestCase):
+    """``materialize_workload_via_reuse`` must route its raw and fresh
+    body registrations through ``register_body_chunks`` -- one
+    independent ``/generate`` call per ``<= max_chunk_tokens`` chunk --
+    while its own reuse call stays exactly as before: a single call
+    over the complete, un-chunked ``target_prompt_ids`` with the
+    existing contiguous multi-segment list."""
+
+    def _workload(self, body_tokens):
+        return build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=body_tokens,
+            head_tokens=64,
+            tail_tokens=1,
+            salt=f"unit-test-materialize-{body_tokens}",
+        )
+
+    def _response(self, cached_tokens):
+        chunk = {
+            "meta_info": {
+                "finish_reason": {"type": "length"},
+                "cached_tokens": cached_tokens,
+            }
+        }
+        return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
+
+    def _success_responses(self, workload, chunk_count):
+        reuse_cached = workload.body_start_in_target + workload.body_tokens
+        return (
+            [self._response(0)]  # seed target_head
+            + [self._response(0)] * chunk_count  # raw register chunks
+            + [self._response(workload.body_start_in_target)] * chunk_count
+            + [self._response(reuse_cached)]  # reuse
+        )
+
+    def test_body_1024_issues_two_raw_and_two_fresh_register_calls(self):
+        workload = self._workload(body_tokens=1024)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        self.assertEqual(chunk_count, 2)
+        session = _SequencedFakeClientSession(
+            self._success_responses(workload, chunk_count)
+        )
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            result = materialize_workload_via_reuse(
+                "http://127.0.0.1:30000",
+                workload,
+                raw_hash="cachetune-raw:unit-test-1024",
+                fresh_hash="cachetune-fresh:unit-test-1024",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+                max_chunk_tokens=512,
+            )
+
+        # 1 seed + 2 raw + 2 fresh + 1 reuse == 6 total calls -- never
+        # one oversized raw/fresh call spanning the whole body.
+        self.assertEqual(len(session.post_calls), 6)
+        self.assertGreaterEqual(result["register_raw_ms"], 0.0)
+        self.assertGreaterEqual(result["register_fresh_ms"], 0.0)
+
+        # The reuse call (the very last one) must still be a single
+        # call over the COMPLETE, un-chunked target_prompt_ids -- never
+        # split into per-chunk calls the way register now is.
+        _, reuse_payload = session.post_calls[-1]
+        self.assertEqual(reuse_payload["input_ids"], list(workload.target_prompt_ids))
+        reuse_segments = reuse_payload["sampling_params"]["custom_params"]["approx_kv"][
+            "segments"
+        ]
+        self.assertEqual(len(reuse_segments), chunk_count)
+
+    def test_body_2048_issues_four_raw_and_four_fresh_register_calls(self):
+        workload = self._workload(body_tokens=2048)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        self.assertEqual(chunk_count, 4)
+        session = _SequencedFakeClientSession(
+            self._success_responses(workload, chunk_count)
+        )
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            materialize_workload_via_reuse(
+                "http://127.0.0.1:30000",
+                workload,
+                raw_hash="cachetune-raw:unit-test-2048",
+                fresh_hash="cachetune-fresh:unit-test-2048",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+                max_chunk_tokens=512,
+            )
+
+        # 1 seed + 4 raw + 4 fresh + 1 reuse == 10 total calls.
+        self.assertEqual(len(session.post_calls), 10)
+
+    def test_every_raw_and_fresh_chunk_prompt_is_bounded_by_head_plus_chunk_plus_tail(
+        self,
+    ):
+        # This is the direct proof that the old oversized-single-call
+        # code path (which would have sent a ~1089-token prompt in one
+        # call for this exact body/head/tail combination) is gone: every
+        # register call below must instead stay within one chunk's own
+        # small bound, regardless of the full body length.
+        workload = self._workload(body_tokens=1024)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        session = _SequencedFakeClientSession(
+            self._success_responses(workload, chunk_count)
+        )
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            materialize_workload_via_reuse(
+                "http://127.0.0.1:30000",
+                workload,
+                raw_hash="cachetune-raw:unit-test-1024b",
+                fresh_hash="cachetune-fresh:unit-test-1024b",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+                max_chunk_tokens=512,
+            )
+
+        bound = 64 + 512 + 1  # head_tokens + max_chunk_tokens + tail_tokens
+        # Every call except the first (seed) and the last (reuse) is a
+        # register call -- the seed/reuse calls are legitimately full
+        # length and are checked separately above.
+        register_calls = session.post_calls[1:-1]
+        self.assertEqual(len(register_calls), 2 * chunk_count)
+        for _, payload in register_calls:
+            self.assertLessEqual(len(payload["input_ids"]), bound)
+
+    def test_raw_and_fresh_register_content_hashes_match_reuse_segments(self):
+        workload = self._workload(body_tokens=1024)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        raw_hash = "cachetune-raw:unit-test-1024c"
+        fresh_hash = "cachetune-fresh:unit-test-1024c"
+        session = _SequencedFakeClientSession(
+            self._success_responses(workload, chunk_count)
+        )
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            materialize_workload_via_reuse(
+                "http://127.0.0.1:30000",
+                workload,
+                raw_hash=raw_hash,
+                fresh_hash=fresh_hash,
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+                max_chunk_tokens=512,
+            )
+
+        raw_calls = session.post_calls[1 : 1 + chunk_count]
+        fresh_calls = session.post_calls[1 + chunk_count : 1 + 2 * chunk_count]
+        reuse_segments = session.post_calls[-1][1]["sampling_params"]["custom_params"][
+            "approx_kv"
+        ]["segments"]
+
+        for index, (_, payload) in enumerate(raw_calls):
+            segment = payload["sampling_params"]["custom_params"]["approx_kv"][
+                "segments"
+            ][0]
+            self.assertEqual(segment["content_hash"], f"{raw_hash}:chunk{index}")
+            # The (unchanged) reuse call's own segments -- built from
+            # body_segments_for_hash(hash_prefix=raw_hash, ...) -- must
+            # reference the SAME content_hash for the same chunk index,
+            # even though its own target_start differs (body_start +
+            # offset there, vs. len(head_ids) here).
+            self.assertEqual(
+                reuse_segments[index]["content_hash"], segment["content_hash"]
+            )
+        for index, (_, payload) in enumerate(fresh_calls):
+            segment = payload["sampling_params"]["custom_params"]["approx_kv"][
+                "segments"
+            ][0]
+            self.assertEqual(segment["content_hash"], f"{fresh_hash}:chunk{index}")
+
+
 class TestRegisterEvictionPressureObjects(unittest.TestCase):
     """Every filler object's mandatory register+reuse materialization
     must run in order against the live server, and a nonzero
@@ -2841,6 +3270,170 @@ class TestRunExactContextControlPoint(unittest.TestCase):
         self.assertIn(
             "exact-context-control request did not finish", str(ctx.exception)
         )
+
+
+class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
+    """``run_non_prefix_setting``'s formal-repeat loop must ALSO route
+    its own inline fresh-register call through ``register_body_chunks``
+    -- one independent ``/generate`` call per ``<= max_chunk_tokens``
+    chunk, identically to the discarded warmup's own fresh registration
+    (delegated to ``materialize_workload_via_reuse``) -- for EVERY one
+    of ``repeats`` formal iterations, never just once. Uses
+    ``target_rho=None`` (no eviction-pressure phase) to isolate this
+    proof to the setup+warmup and formal-repeat call structure alone."""
+
+    def _workload(self, body_tokens):
+        return build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=body_tokens,
+            head_tokens=64,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt=f"unit-test-run-non-prefix-chunked-{body_tokens}",
+        )
+
+    def _response(self, cached_tokens):
+        chunk = {
+            "meta_info": {
+                "finish_reason": {"type": "length"},
+                "cached_tokens": cached_tokens,
+            }
+        }
+        return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
+
+    def _run_with_body(self, body_tokens, repeats):
+        workload = self._workload(body_tokens)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        reuse_cached = workload.body_start_in_target + workload.body_tokens
+
+        warmup_responses = (
+            [self._response(0)]  # seed target_head
+            + [self._response(0)] * chunk_count  # raw register chunks
+            + [self._response(workload.body_start_in_target)] * chunk_count
+            + [self._response(reuse_cached)]  # reuse (warmup, discarded)
+        )
+        one_formal_repeat_responses = [
+            self._response(workload.body_start_in_target)
+        ] * chunk_count + [self._response(reuse_cached)]
+        responses = warmup_responses + one_formal_repeat_responses * repeats
+        session = _SequencedFakeClientSession(responses)
+
+        metrics_at_setting_start = {"sglang:max_total_num_tokens": 10000.0}
+        metrics_before = {"sglang:kv_used_tokens": 100.0}
+        metrics_after = {"sglang:kv_used_tokens": 200.0}
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "urllib.request.urlopen", _fake_flush_urlopen([])
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=[metrics_at_setting_start, metrics_before, metrics_after],
+        ):
+            result = run_non_prefix_setting(
+                base_url="http://127.0.0.1:30000",
+                tokenizer=FakeTokenizer(),
+                workload=workload,
+                raw_hash="cachetune-raw:unit-test-run",
+                fresh_hash="cachetune-fresh:unit-test-run",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                repeats=repeats,
+                label="unit-test",
+                max_chunk_tokens=512,
+                target_rho=None,
+                pressure_filler_head_tokens=6,
+                pressure_filler_body_tokens=8,
+            )
+        return workload, chunk_count, reuse_cached, session, result
+
+    def test_body_1024_two_repeats_issues_two_fresh_chunk_calls_per_repeat(self):
+        repeats = 2
+        workload, chunk_count, reuse_cached, session, result = self._run_with_body(
+            body_tokens=1024, repeats=repeats
+        )
+        self.assertEqual(chunk_count, 2)
+
+        # Warmup (1 seed + 2 raw + 2 fresh + 1 reuse) plus repeats *
+        # (2 fresh chunk calls + 1 reuse call) -- never a single
+        # oversized fresh-register call per repeat.
+        expected_calls = (2 + 2 * chunk_count) + repeats * (chunk_count + 1)
+        self.assertEqual(len(session.post_calls), expected_calls)
+        self.assertEqual(len(result["fresh_raw_samples"]), repeats)
+        self.assertEqual(len(result["reuse_raw_samples"]), repeats)
+        for sample in result["fresh_raw_samples"]:
+            self.assertEqual(sample["cached_tokens"], workload.body_start_in_target)
+        for sample in result["reuse_raw_samples"]:
+            self.assertEqual(sample["cached_tokens"], reuse_cached)
+
+        # Every formal-repeat fresh-register chunk call (after the
+        # warmup's own 6 calls) must itself stay within one chunk's own
+        # small bound -- proof the old single-oversized-call code path
+        # is gone from the formal loop too, not just from the warmup.
+        # Each repeat is [fresh_chunk_0, ..., fresh_chunk_{N-1}, reuse]
+        # -- the trailing reuse call is deliberately EXCLUDED from this
+        # bound, since it alone still legitimately posts the complete,
+        # un-chunked target_prompt_ids (see materialize_workload_via_
+        # reuse's own docstring for why the reuse call stays unchunked).
+        bound = 64 + 512 + len(workload.tail_ids)
+        formal_calls = session.post_calls[2 + 2 * chunk_count :]
+        stride = chunk_count + 1
+        fresh_chunk_calls = [
+            payload
+            for index, (_, payload) in enumerate(formal_calls)
+            if index % stride != chunk_count
+        ]
+        reuse_calls = [
+            payload
+            for index, (_, payload) in enumerate(formal_calls)
+            if index % stride == chunk_count
+        ]
+        self.assertEqual(len(fresh_chunk_calls), repeats * chunk_count)
+        self.assertEqual(len(reuse_calls), repeats)
+        for payload in fresh_chunk_calls:
+            self.assertLessEqual(len(payload["input_ids"]), bound)
+        for payload in reuse_calls:
+            self.assertEqual(payload["input_ids"], list(workload.target_prompt_ids))
+
+    def test_body_2048_two_repeats_issues_four_fresh_chunk_calls_per_repeat(self):
+        repeats = 2
+        workload, chunk_count, reuse_cached, session, result = self._run_with_body(
+            body_tokens=2048, repeats=repeats
+        )
+        self.assertEqual(chunk_count, 4)
+
+        expected_calls = (2 + 2 * chunk_count) + repeats * (chunk_count + 1)
+        self.assertEqual(len(session.post_calls), expected_calls)
+        self.assertEqual(len(result["fresh_raw_samples"]), repeats)
+        self.assertEqual(len(result["reuse_raw_samples"]), repeats)
+
+    def test_formal_repeat_fresh_chunk_content_hashes_match_reuse_segments(self):
+        repeats = 2
+        workload, chunk_count, reuse_cached, session, result = self._run_with_body(
+            body_tokens=1024, repeats=repeats
+        )
+        del result  # only the raw HTTP call sequence matters here
+
+        # The formal loop's own calls start right after the warmup's
+        # own (1 + chunk_count + chunk_count + 1) calls.
+        formal_start = 2 + 2 * chunk_count
+        first_repeat_fresh_calls = session.post_calls[
+            formal_start : formal_start + chunk_count
+        ]
+        first_repeat_reuse_segments = session.post_calls[formal_start + chunk_count][1][
+            "sampling_params"
+        ]["custom_params"]["approx_kv"]["segments"]
+
+        for index, (_, payload) in enumerate(first_repeat_fresh_calls):
+            segment = payload["sampling_params"]["custom_params"]["approx_kv"][
+                "segments"
+            ][0]
+            self.assertEqual(
+                segment["content_hash"], f"cachetune-fresh:unit-test-run:chunk{index}"
+            )
+            self.assertEqual(
+                first_repeat_reuse_segments[index]["content_hash"],
+                f"cachetune-raw:unit-test-run:chunk{index}",
+            )
 
 
 class TestBuildSweepPointResult(unittest.TestCase):

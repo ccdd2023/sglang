@@ -106,10 +106,13 @@ type that ever write into the exact tree (register/reuse always set
 ``skip_radix_cache_insert=True``). This is why every setting's
 measurement pass is, in order: seed the target head (one dense
 ``/generate`` call over ``target_head_ids`` alone) -> register the raw
-segment once (one ``/generate`` register call over
-``source_head_ids + shared_body_ids + tail_ids``) -> a discarded
-register-fresh + reuse warmup -> ``--repeats`` formal register-fresh +
-reuse repeats. The mandatory ``tail_ids`` (fixed at
+segment once (one OR MORE ``/generate`` register calls, one per
+``<= --max-segment-chunk-tokens`` chunk of ``shared_body_ids`` -- see
+``register_body_chunks`` -- each posting a short
+``source_head_ids + chunk_body + tail_ids`` prompt, never one oversized
+call spanning ``source_head_ids + shared_body_ids + tail_ids`` in full)
+-> a discarded register-fresh + reuse warmup -> ``--repeats`` formal
+register-fresh + reuse repeats. The mandatory ``tail_ids`` (fixed at
 ``NON_PREFIX_TAIL_TOKENS`` token(s)) is appended to EVERY one of
 ``source_prompt_ids``/``fresh_prompt_ids``/``target_prompt_ids`` -- not
 just the reuse target -- so every raw register, fresh register, AND
@@ -120,6 +123,16 @@ segment (see ``NonPrefixSegmentWorkload``'s own docstring: omitting the
 tail from the raw/fresh register prompts specifically -- an earlier
 version of this script did -- previously raised ``ValueError`` inside
 ``Req.__init__`` on a real SM75 run and killed the scheduler).
+
+The raw and fresh body registrations mentioned above are each actually
+sent as one or more INDEPENDENT ``/generate`` calls -- one per
+``<= --max-segment-chunk-tokens`` chunk of ``shared_body_ids``, never
+one oversized call spanning the entire body -- via
+``register_body_chunks`` (see that function's own docstring for the
+real SM75 register-time OOM this fixes, and why the resulting per-chunk
+register-vs-reuse position mismatch is safe). Only the register side is
+split this way; every reuse call still posts the complete target prompt
+in one request.
 
 Measurement protocol (mandatory, applies to every setting: the main
 setting, every shape-sweep point, and every rho-sweep point)
@@ -147,7 +160,8 @@ setting, every shape-sweep point, and every rho-sweep point)
    materialized here, immediately after the flush and before step 3.
 3. Seed the target head once (one dense ``/generate`` call, expected
    ``cached_tokens=0``).
-4. Register the "raw" (source-context) body segment once (also expected
+4. Register the "raw" (source-context) body segment once (one or more
+   ``register_body_chunks`` calls, each also expected
    ``cached_tokens=0`` -- see the ``source_head_ids``/``target_head_ids``
    zero-common-prefix discussion above).
 5. One *discarded* register-fresh + reuse warmup pass.
@@ -694,9 +708,11 @@ def parse_args() -> argparse.Namespace:
         default=1024,
         help="Shared-body token count for the main setting's "
         "NonPrefixSegmentWorkload. Bodies longer than "
-        "--max-segment-chunk-tokens are registered as multiple "
-        "<= --max-segment-chunk-tokens segments within the same register/"
-        "reuse call (see body_segments_for_hash).",
+        "--max-segment-chunk-tokens are registered as one independent "
+        "register call per <= --max-segment-chunk-tokens chunk (never "
+        "within one oversized call -- see register_body_chunks) and "
+        "reused as multiple <= --max-segment-chunk-tokens segments "
+        "within a single reuse call (see body_segments_for_hash).",
     )
     parser.add_argument(
         "--main-target-rho",
@@ -757,13 +773,18 @@ def parse_args() -> argparse.Namespace:
         type=_positive_int,
         default=512,
         help="Maximum token length of any single approx_kv segment this "
-        "canary registers. Bodies longer than this are split into "
-        "multiple <= this length segments (distinct content_hash per "
-        "chunk) within the same register/reuse call -- see "
-        "body_segments_for_hash/chunk_offsets; "
+        "canary registers or reuses. Bodies longer than this are split "
+        "into multiple <= this length segments (distinct content_hash "
+        "per chunk) -- registered as one independent /generate call per "
+        "chunk (see register_body_chunks; keeps each register call's own "
+        "transient KV footprint bounded, avoiding a real SM75 OOM a "
+        "single oversized multi-segment register call previously "
+        "caused) but still reused within a single call's multiple "
+        "contiguous segments (see body_segments_for_hash/chunk_offsets; "
         "ApproxKVRequestMetadata/register_request_segments/"
-        "restore_request_prefix_cachetune already natively support an "
-        "arbitrary number of segments per call.",
+        "restore_request_prefix_cachetune natively support an arbitrary "
+        "number of segments per call, so the reuse side's own multi-"
+        "segment single call remains unaffected).",
     )
     parser.add_argument(
         "--pressure-filler-head-tokens",
@@ -1349,17 +1370,24 @@ def chunk_offsets(
     each at most ``max_chunk_tokens`` long, offsets 0-based relative to
     the start of the span being chunked.
 
-    Used to keep every single approx_kv segment this canary registers at
-    most ``--max-segment-chunk-tokens`` long (default 512): with the
-    unified body sweep now reaching up to 2048 tokens, a body longer
-    than that is split into multiple segments within one register/reuse
-    call rather than ever registering one oversized segment (see
-    ``body_segments_for_hash``). ``ApproxKVRequestMetadata``/
-    ``register_request_segments``/``restore_request_prefix_cachetune``
-    already natively iterate over an arbitrary number of segments per
-    call, so this chunking changes nothing about the underlying server-
-    side contract -- only how this client divides one logical body into
-    that call's ``segments`` list.
+    Used to keep every single approx_kv segment this canary registers or
+    reuses at most ``--max-segment-chunk-tokens`` long (default 512):
+    with the unified body sweep now reaching up to 2048 tokens, a body
+    longer than that is split into multiple segments rather than ever
+    registering/reusing one oversized segment. On the REUSE side those
+    segments still all travel within one single call's ``segments`` list
+    (see ``body_segments_for_hash``) -- ``ApproxKVRequestMetadata``/
+    ``restore_request_prefix_cachetune`` already natively iterate over
+    an arbitrary number of segments per call, so this chunking changes
+    nothing about that side's underlying server-side contract. On the
+    REGISTER side, each chunk instead becomes its OWN independent
+    ``/generate`` call (see ``register_body_chunks``): a single call
+    whose STORED segment sizes were already chunk-bounded still let its
+    own live/transient per-request KV footprint scale with the FULL
+    un-chunked body, which OOM'd a real SM75 server at register time --
+    this function's ``(offset, length)`` tuples are what both the
+    reuse-side grouping and the register-side per-chunk splitting are
+    built from.
     """
     if total_tokens <= 0:
         raise ValueError(f"total_tokens must be positive, got {total_tokens}")
@@ -1381,9 +1409,21 @@ def body_segments_for_hash(
     body_tokens: int,
     max_chunk_tokens: int,
 ) -> list[dict[str, Any]]:
-    """Build a ``register``/``reuse`` payload ``"segments"`` list for a
-    ``body_tokens``-long span anchored at ``body_start``, split into
-    ``chunk_offsets(body_tokens, max_chunk_tokens)`` pieces.
+    """Build a REUSE payload ``"segments"`` list for a ``body_tokens``-
+    long span anchored at ``body_start``, split into
+    ``chunk_offsets(body_tokens, max_chunk_tokens)`` pieces, all
+    traveling together within that single reuse call.
+
+    NOTE: this is the REUSE-side builder only. The REGISTER side no
+    longer sends its chunks this way -- ``register_body_chunks`` issues
+    one independent ``/generate`` call per chunk instead (see that
+    function's own docstring for the real SM75 OOM this avoids), each
+    with ``target_start = len(head_ids)`` (local to that call's own
+    short prompt), not ``body_start + offset`` as built here. The two
+    still line up correctly at reuse time purely through the shared
+    ``content_hash`` convention below (``manager.store``'s lookup key,
+    ``_segment_key``, is built from ``content_hash`` + token CONTENT --
+    never from ``target_start`` -- see ``approx_kv/runtime.py``).
 
     Every chunk gets its own distinct, deterministic ``content_hash``
     (``f"{hash_prefix}:chunk{index}"``): even chunks of the same logical
@@ -1487,11 +1527,17 @@ def register_generate_payload(
     cache_dtype: str,
 ) -> dict:
     """``segments`` is a ready-to-send list of ``{"content_hash",
-    "target_start", "length"}`` dicts (see ``body_segments_for_hash``):
-    a body longer than ``--max-segment-chunk-tokens`` is registered as
-    MULTIPLE segments in this single call, never one oversized segment
-    -- ``register_request_segments`` (``cachetune/runtime.py``) already
-    natively iterates over an arbitrary number of segments per call."""
+    "target_start", "length"}`` dicts. ``register_request_segments``
+    (``cachetune/runtime.py``) natively iterates over an arbitrary
+    number of segments per call, so this function itself places no
+    restriction on ``len(segments)`` -- but every caller in this script
+    now passes exactly ONE segment per call (see
+    ``register_body_chunks``): a body longer than
+    ``--max-segment-chunk-tokens`` is registered as one independent call
+    PER chunk, never multiple segments within one oversized call, since
+    that oversized call's own transient per-request KV footprint (not
+    just its eventually-stored segment sizes) previously OOM'd a real
+    SM75 server."""
     return {
         "input_ids": list(input_ids),
         "sampling_params": {
@@ -1854,6 +1900,134 @@ def build_settings(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def register_body_chunks(
+    base_url: str,
+    *,
+    head_ids: Sequence[int],
+    shared_body_ids: Sequence[int],
+    tail_ids: Sequence[int],
+    hash_prefix: str,
+    model_fingerprint: str,
+    cache_dtype: str,
+    max_chunk_tokens: int,
+    expected_cached_tokens: int,
+    label: str,
+) -> dict[str, Any]:
+    """Register ``shared_body_ids`` as one INDEPENDENT ``/generate``
+    register call PER ``<= max_chunk_tokens`` chunk -- never one
+    oversized call spanning the entire body, even when the resulting
+    segments are individually ``<= max_chunk_tokens``.
+
+    This is the fix for a real SM75 OOM: the previous design sent the
+    ENTIRE ``head_ids + shared_body_ids + tail_ids`` prompt (e.g.
+    ~1089 tokens for a body=1024 setting) through ONE forward pass,
+    with ``chunk_offsets``/``body_segments_for_hash`` only bounding the
+    STORED segment sizes (``<= max_chunk_tokens`` each) -- the call's
+    own live/transient per-request KV footprint during that one forward
+    pass was bounded only by the full, un-chunked body length, not by
+    ``max_chunk_tokens``. With many pressure-filler objects and/or a
+    large body this uncapped per-call peak OOM'd the 8GB SM75 GPU
+    (observed on a real run at body=1024's register-raw step).
+
+    Each chunk's own independent call instead posts a SHORT prompt --
+    ``head_ids + this_chunk's_body_slice + tail_ids``, bounded at
+    ``len(head_ids) + max_chunk_tokens + len(tail_ids)`` regardless of
+    how long the logical body is -- carrying exactly ONE segment with
+    ``target_start = len(head_ids)`` (this chunk's own local body-start
+    position within its own short prompt -- identical for EVERY chunk
+    index, since every chunk's own prompt starts fresh with the same
+    head immediately followed by that chunk's own body slice) and
+    ``content_hash = f"{hash_prefix}:chunk{index}"`` -- the SAME
+    per-chunk hash convention ``body_segments_for_hash`` already uses
+    for reuse's own (unchanged, full-prompt, multi-segment) call. Since
+    ``manager.store``'s lookup key (``_segment_key``, see
+    ``approx_kv/runtime.py``) is built purely from ``content_hash`` +
+    a hash of the token CONTENT + ``token_count`` + ``model_fingerprint``
+    + ``cache_dtype`` -- never from any absolute prompt position --
+    reuse's existing per-chunk lookup for chunk N still resolves this
+    exact registered entry regardless of what absolute prompt position
+    THIS call itself used to compute it.
+
+    This deliberately places every chunk index > 0 at a SMALLER
+    absolute prompt position at register time than that same chunk's
+    eventual reuse-time target position -- an intentional, safe
+    mismatch, not a bug. ``restore_request_prefix_cachetune`` computes
+    a per-segment ``rope_delta = overlap_start - source_position`` (see
+    ``cachetune/runtime.py``) and, whenever that delta is nonzero,
+    applies a full relative RoPE rotation of exactly that delta (see
+    ``RadixKVTransferBackend._rotate_all_copied_keys`` -- a standard
+    ``cos(delta * inv_freq)``/``sin(delta * inv_freq)`` relative
+    rotation, mathematically correct for any integer delta magnitude),
+    PROVIDED a real (non-dummy, nonzero-``rotary_dim``) RoPE config is
+    bound. ``resolve_model_rope_config`` (``approx_kv/radix_backend.py``)
+    guarantees exactly that for the Qwen2/Qwen3 architecture family this
+    canary's SM75 target always uses, bound once at ``create_tree_cache``
+    time (see ``kv_cache_builder.py``) -- the fix for an earlier real
+    "second chunk nonzero delta falls back to dense" bug, which was
+    caused by that binding never running at all (``rope_config`` stuck
+    at the ``rotary_dim=0`` dummy sentinel), not by nonzero deltas being
+    inherently unsupported. Chunk 0 happens to have ``rope_delta == 0``
+    (its own local ``target_start`` already equals its true reuse-time
+    position), but every later chunk genuinely relies on this
+    relocation -- this is exactly what makes shrinking every register
+    call's own transient footprint down to ``max_chunk_tokens`` (rather
+    than the full body) safe.
+
+    Every chunk reports the SAME ``expected_cached_tokens`` (asserted
+    per chunk via ``require_cached_tokens``, never merely assumed): a
+    REGISTER request never writes into the exact radix tree (see that
+    function's own docstring), so every chunk's own short prompt gets
+    the identical leading-``head_ids`` exact-match result, independent
+    of chunk index or body length.
+
+    Returns ``{"total_ms": float, "chunk_count": int, "cached_tokens":
+    int}``: ``total_ms`` is the SUM of every chunk's own genuine
+    streaming TTFT -- this body's total registration cost, however many
+    independent calls it took (replaces what used to be a single call's
+    own ms); ``chunk_count`` is
+    ``len(chunk_offsets(len(shared_body_ids), max_chunk_tokens))``;
+    ``cached_tokens`` is simply ``expected_cached_tokens`` (already
+    proven true for every chunk by the per-chunk assertion above).
+    """
+    head_ids = tuple(int(token) for token in head_ids)
+    shared_body_ids = tuple(int(token) for token in shared_body_ids)
+    tail_ids = tuple(int(token) for token in tail_ids)
+    body_start_local = len(head_ids)
+    total_ms = 0.0
+    chunk_count = 0
+    for index, (offset, length) in enumerate(
+        chunk_offsets(len(shared_body_ids), max_chunk_tokens)
+    ):
+        chunk_prompt_ids = (
+            head_ids + shared_body_ids[offset : offset + length] + tail_ids
+        )
+        chunk_label = f"{label} chunk{index}"
+        response, ttft_ms = timed_post(
+            base_url,
+            register_generate_payload(
+                input_ids=chunk_prompt_ids,
+                segments=[
+                    {
+                        "content_hash": f"{hash_prefix}:chunk{index}",
+                        "target_start": body_start_local,
+                        "length": length,
+                    }
+                ],
+                model_fingerprint=model_fingerprint,
+                cache_dtype=cache_dtype,
+            ),
+        )
+        require_finished_by_length(response, chunk_label)
+        require_cached_tokens(response, expected_cached_tokens, chunk_label)
+        total_ms += ttft_ms
+        chunk_count += 1
+    return {
+        "total_ms": total_ms,
+        "chunk_count": chunk_count,
+        "cached_tokens": expected_cached_tokens,
+    }
+
+
 def materialize_workload_via_reuse(
     base_url: str,
     workload: NonPrefixSegmentWorkload,
@@ -1872,9 +2046,18 @@ def materialize_workload_via_reuse(
     segment onto the device residency tier via ``ensure_device`` (see
     ``cachetune/runtime.py``).
 
-    A body longer than ``max_chunk_tokens`` is registered/reused as
-    multiple <= ``max_chunk_tokens`` segments within each single call
-    (see ``body_segments_for_hash``), never one oversized segment.
+    The raw and fresh body registrations each go through
+    ``register_body_chunks`` -- one INDEPENDENT ``/generate`` call per
+    ``<= max_chunk_tokens`` chunk, never one oversized call spanning the
+    entire body (see that function's own docstring for the real SM75
+    OOM this avoids and why the resulting per-chunk RoPE-position
+    mismatch is safe). The reuse call is deliberately NOT chunked this
+    way: it still posts the FULL ``target_prompt_ids`` in one call with
+    the existing contiguous multi-segment list (see
+    ``body_segments_for_hash``), since a genuine reuse/repair forward
+    pass over the complete target context is exactly what this canary
+    measures -- only the register side's transient per-call footprint
+    is the OOM risk being fixed here.
 
     Shared by ``run_non_prefix_setting``'s own one-time setup + discarded
     warmup pass (seed head -> register raw -> register fresh -> reuse,
@@ -1885,12 +2068,15 @@ def materialize_workload_via_reuse(
     request -- never silently swallowed.
 
     Returns a dict with ``seed_head_ms``, ``register_raw_ms``,
-    ``register_fresh_ms``, ``reuse_ms`` (every step's own genuine
-    streaming TTFT) and ``reuse_response`` (the final reuse call's parsed
-    JSON body) so callers needing granular per-step timing
-    (``run_non_prefix_setting``'s own setup) and callers that only need
-    "did this materialize successfully" (each pressure filler object)
-    can both use this single, already-validated code path.
+    ``register_fresh_ms`` (each now the SUM of every chunk's own genuine
+    streaming TTFT, since a multi-chunk body issues multiple independent
+    register calls -- see ``register_body_chunks``), ``reuse_ms`` (the
+    single reuse call's own genuine streaming TTFT) and
+    ``reuse_response`` (the final reuse call's parsed JSON body) so
+    callers needing granular per-step timing (``run_non_prefix_setting``'s
+    own setup) and callers that only need "did this materialize
+    successfully" (each pressure filler object) can both use this
+    single, already-validated code path.
     """
     seed_response, seed_head_ms = timed_post(
         base_url, dense_generate_payload(workload.target_head_ids)
@@ -1898,48 +2084,39 @@ def materialize_workload_via_reuse(
     require_finished_by_length(seed_response, f"{label} seed target_head")
     require_cached_tokens(seed_response, 0, f"{label} seed target_head")
 
-    register_raw_response, register_raw_ms = timed_post(
+    raw_chunks = register_body_chunks(
         base_url,
-        register_generate_payload(
-            input_ids=workload.source_prompt_ids,
-            segments=body_segments_for_hash(
-                hash_prefix=raw_hash,
-                body_start=workload.body_start_in_source,
-                body_tokens=workload.body_tokens,
-                max_chunk_tokens=max_chunk_tokens,
-            ),
-            model_fingerprint=model_fingerprint,
-            cache_dtype=cache_dtype,
-        ),
+        head_ids=workload.source_head_ids,
+        shared_body_ids=workload.shared_body_ids,
+        tail_ids=workload.tail_ids,
+        hash_prefix=raw_hash,
+        model_fingerprint=model_fingerprint,
+        cache_dtype=cache_dtype,
+        max_chunk_tokens=max_chunk_tokens,
+        expected_cached_tokens=0,
+        label=f"{label} raw register",
     )
-    require_finished_by_length(register_raw_response, f"{label} raw register")
-    require_cached_tokens(register_raw_response, 0, f"{label} raw register")
+    register_raw_ms = raw_chunks["total_ms"]
 
-    register_fresh_response, register_fresh_ms = timed_post(
-        base_url,
-        register_generate_payload(
-            input_ids=workload.fresh_prompt_ids,
-            segments=body_segments_for_hash(
-                hash_prefix=fresh_hash,
-                body_start=workload.body_start_in_target,
-                body_tokens=workload.body_tokens,
-                max_chunk_tokens=max_chunk_tokens,
-            ),
-            model_fingerprint=model_fingerprint,
-            cache_dtype=cache_dtype,
-        ),
-    )
-    require_finished_by_length(register_fresh_response, f"{label} fresh preparation")
     # REGISTER never restores (see approx_kv/runtime.py's
     # _register_request_segments -- it bails out immediately unless
-    # operation == REUSE), so this call's only contribution to
+    # operation == REUSE), so every fresh chunk's only contribution to
     # prefix_indices is the plain exact-match radix hit on
-    # target_head_ids, already seeded above: body_start_in_target, not 0.
-    require_cached_tokens(
-        register_fresh_response,
-        workload.body_start_in_target,
-        f"{label} fresh preparation",
+    # target_head_ids, already seeded above: body_start_in_target, not 0
+    # (asserted per chunk inside register_body_chunks).
+    fresh_chunks = register_body_chunks(
+        base_url,
+        head_ids=workload.target_head_ids,
+        shared_body_ids=workload.shared_body_ids,
+        tail_ids=workload.tail_ids,
+        hash_prefix=fresh_hash,
+        model_fingerprint=model_fingerprint,
+        cache_dtype=cache_dtype,
+        max_chunk_tokens=max_chunk_tokens,
+        expected_cached_tokens=workload.body_start_in_target,
+        label=f"{label} fresh preparation",
     )
+    register_fresh_ms = fresh_chunks["total_ms"]
 
     reuse_response, reuse_ms = timed_post(
         base_url,
@@ -2100,6 +2277,18 @@ def run_non_prefix_setting(
     snapshot Prometheus metrics, then run ``repeats`` formal
     register-fresh + reuse repeats.
 
+    Every register-fresh step (the discarded warmup's own, delegated to
+    ``materialize_workload_via_reuse``, AND every formal repeat's own,
+    inline below) goes through ``register_body_chunks`` -- one
+    INDEPENDENT ``/generate`` call per ``<= max_chunk_tokens`` chunk,
+    never one oversized call spanning the entire body -- see that
+    function's own docstring for the real SM75 register-time OOM this
+    avoids. Every formal repeat's own reuse call, like the warmup's, is
+    deliberately NOT chunked this way: it always posts the complete
+    ``target_prompt_ids`` in one call (see ``body_segments_for_hash``),
+    since a genuine full-context reuse/repair forward pass is exactly
+    what this canary measures.
+
     The shared measurement routine used by the main CacheTune setting,
     every shape-sweep point, and every rho-sweep point (see the module
     docstring's "Why /generate and non-prefix segments" section for why
@@ -2226,35 +2415,30 @@ def run_non_prefix_setting(
     fresh_raw_samples: list[dict[str, Any]] = []
     reuse_raw_samples: list[dict[str, Any]] = []
     for _ in range(repeats):
-        register_fresh_response, fresh_ttft_ms = timed_post(
-            base_url,
-            register_generate_payload(
-                input_ids=workload.fresh_prompt_ids,
-                segments=body_segments_for_hash(
-                    hash_prefix=fresh_hash,
-                    body_start=workload.body_start_in_target,
-                    body_tokens=workload.body_tokens,
-                    max_chunk_tokens=max_chunk_tokens,
-                ),
-                model_fingerprint=model_fingerprint,
-                cache_dtype=cache_dtype,
-            ),
-        )
-        require_finished_by_length(
-            register_fresh_response, f"{label} fresh preparation"
-        )
         # Same rationale as materialize_workload_via_reuse's own fresh
-        # register assertion: REGISTER never restores, so the only
+        # registration: one INDEPENDENT register call per
+        # <= max_chunk_tokens chunk (never one oversized call spanning
+        # the entire body -- see register_body_chunks's own docstring
+        # for the real SM75 OOM this avoids), for every formal repeat
+        # identically. REGISTER never restores, so the only
         # contribution to prefix_indices is the exact-match radix hit on
         # the already-seeded target head (body_start_in_target), for
         # every formal repeat identically (register/reuse requests never
         # write into the exact radix tree, so this never drifts across
-        # repeats).
-        require_cached_tokens(
-            register_fresh_response,
-            workload.body_start_in_target,
-            f"{label} fresh preparation",
+        # repeats) -- asserted per chunk inside register_body_chunks.
+        fresh_chunks = register_body_chunks(
+            base_url,
+            head_ids=workload.target_head_ids,
+            shared_body_ids=workload.shared_body_ids,
+            tail_ids=workload.tail_ids,
+            hash_prefix=fresh_hash,
+            model_fingerprint=model_fingerprint,
+            cache_dtype=cache_dtype,
+            max_chunk_tokens=max_chunk_tokens,
+            expected_cached_tokens=workload.body_start_in_target,
+            label=f"{label} fresh preparation",
         )
+        fresh_ttft_ms = fresh_chunks["total_ms"]
 
         reuse_response, reuse_ttft_ms = timed_post(
             base_url,
@@ -2284,9 +2468,7 @@ def run_non_prefix_setting(
         fresh_raw_samples.append(
             {
                 "ttft_ms": fresh_ttft_ms,
-                "cached_tokens": int(
-                    register_fresh_response["meta_info"]["cached_tokens"]
-                ),
+                "cached_tokens": fresh_chunks["cached_tokens"],
             }
         )
         reuse_raw_samples.append(
