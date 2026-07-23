@@ -209,19 +209,46 @@ distinguished from measurement noise).
 
 Every setting whose `target_rho` is set (the main setting, every
 shape-sweep point with a nonzero header, and every rho-sweep point)
-sends a reverse-computed count of filler objects immediately after its
-own flush, before its own head-seed/raw-register begins. Each filler is
-sent as exactly **one plain, ordinary `POST /generate` request** carrying
-no `approx_kv` custom_params metadata at all -- never a register/reuse
-call. This is deliberate: an earlier version of this phase ran every
-filler through the full CacheTune register-raw/register-fresh/reuse
-cycle, which stores each filler's raw/fresh body in `ApproxKVManager`'s
-own segment store -- a structure the Radix LRU eviction policy cannot
-see or reclaim at all. On a real SM75 run at `target_rho=2`, enough
-fillers accumulated that way (from filler[11] onward) to fill the pool
-with permanently un-evictable segments, leaving no room for the
-setting's own target recovery-slot allocation -- its reuse call then
-reported only the exact-match head as cached, never head+body.
+sends a reverse-computed count of filler objects immediately **after**
+its own source setup (head-seed + raw-register) completes -- never
+before it. Each filler is sent as exactly **one plain, ordinary
+`POST /generate` request** carrying no `approx_kv` custom_params
+metadata at all -- never a register/reuse call.
+
+This ordering (source setup before pressure) is itself a fix for a real
+SM75 bug at `target_rho=2`: an earlier version of this function sent
+pressure fillers *first*, before the setting's own raw-segment
+registration. Register's own segment materialization is not wired to
+evict exact-radix victims to make room for itself -- unlike the
+reuse/repair path's own recovery-slot allocation, which explicitly
+*does* evict exact-radix victims before allocating (see
+`allocate_recovery_slots` in `cachetune/runtime.py` /
+`mem_cache/common/runtime.py`) -- so under high pressure, source setup
+itself starved for device headroom and failed. The fix always completes
+source setup first, at low/no pressure, then reverse-computes the
+filler count from the setup's own real, *measured* (never estimated)
+contribution to `sglang:kv_used_tokens` (`already_pinned_tokens`,
+sampled via `/metrics` immediately after setup finishes) -- fillers are
+only sized to reach the "target pre-rho" still unmet by that already-
+resident footprint, never blind to it (see
+`eviction_pressure_filler_count_for_rho`'s own `already_pinned_tokens`
+parameter). The target's own recovery allocation (the reuse call, in
+warmup and every formal repeat) is explicitly expected and allowed to
+evict fillers to make room for itself -- that *is* the genuine eviction
+pressure this canary is constructed to exercise, at exactly the point
+(recovery time) it is meant to matter; only source setup must never
+depend on evicting anything.
+
+The plain-dense-filler design itself is a separate, earlier fix for a
+different real SM75 bug also observed at `target_rho=2`: an even
+earlier version of this phase ran every filler through the full
+CacheTune register-raw/register-fresh/reuse cycle, which stores each
+filler's raw/fresh body in `ApproxKVManager`'s own segment store -- a
+structure the Radix LRU eviction policy cannot see or reclaim at all.
+Enough fillers accumulated that way (from filler[11] onward) to fill
+the pool with permanently un-evictable segments, leaving no room for
+the setting's own target recovery-slot allocation -- its reuse call
+then reported only the exact-match head as cached, never head+body.
 
 A plain dense request instead populates the ordinary exact radix tree,
 exactly like any other request, and is fully subject to normal LRU
@@ -238,10 +265,25 @@ distinct, pairwise zero-common-prefix target heads
 so pressure objects can never spuriously exact-match each other or the
 setting's own head.
 
+Because the setting's own target head is seeded *before* any filler, it
+is the oldest entry in the exact radix tree once the pressure phase
+begins -- a plausible LRU-eviction candidate itself for any
+`target_rho > 1` setting. `ensure_target_head_resident` runs exactly
+once, immediately after the pressure phase, to guard against that: one
+plain dense re-seed request tolerant of either outcome (a cache hit if
+the head survived, or a cache miss/recompute if it was evicted). This
+is an additional, script-added safeguard -- not part of CacheTune's own
+design -- made necessary by sending genuine LRU eviction pressure after
+the head is already seeded; without it, an evicted head could never be
+restored by any later register/reuse call (both always skip radix
+insertion), permanently breaking every subsequent measurement for that
+setting.
+
 Because pressure fillers are now genuinely evictable,
 `register_eviction_pressure_objects` itself raises immediately if a
-`target_rho` value that nominally requests more tokens than the live
-measured capacity (`target_rho > 1`) fails to move the real
+`target_rho` value that nominally requests more tokens than the pool's
+TRUE evictable headroom (live measured capacity minus
+`already_pinned_tokens`, not raw capacity alone) fails to move the real
 `sglang:evicted_tokens_total` Prometheus counter while registering them
 -- proof that genuine device-pool eviction actually occurred is not
 merely reported (`pressure_phase.evicted_tokens_total_delta`/
@@ -275,14 +317,25 @@ forces dense-fallback), each setting's measurement pass runs, in order:
    un-chunked body, which OOM'd a real SM75 server at register time for
    body lengths above one chunk (e.g. 1024/2048); splitting register
    itself into one independent call per chunk is the fix. The REUSE
-   call (steps 4/5 below) is deliberately NOT chunked this way: it
+   call (steps 5/6 below) is deliberately NOT chunked this way: it
    always posts the complete target prompt in one call with the
    existing contiguous multi-segment list, since a genuine full-context
    reuse/repair forward pass is exactly what this canary measures.
-4. One *discarded* register-fresh + reuse warmup pass (the fresh
-   registration is chunked exactly like the raw registration above).
-5. `--repeats` formal register-fresh + reuse repeats (same per-chunk
-   fresh registration, every repeat).
+   Steps 2+3 together are this setting's own SOURCE setup
+   (`register_non_prefix_sources`), completed before any pressure filler
+   is ever sent (see above).
+4. If `target_rho` is set: send the reverse-computed pressure fillers
+   (see above), then re-seed the target head once via
+   `ensure_target_head_resident` (guard against LRU eviction of the
+   head itself).
+5. One *discarded* register-fresh + reuse warmup pass (the fresh
+   registration is chunked exactly like the raw registration above) --
+   `register_fresh` and the reuse call together are `run_reuse_once`,
+   the same helper used identically for this warmup pass and every
+   formal repeat below.
+6. `--repeats` formal register-fresh + reuse repeats (same per-chunk
+   fresh registration, every repeat, via that same `run_reuse_once`
+   helper).
 
 Every formal fresh-register response's `meta_info.cached_tokens` is
 cross-checked against `body_start_in_target` (the REGISTER operation

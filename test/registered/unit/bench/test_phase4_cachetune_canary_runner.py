@@ -42,21 +42,23 @@ from benchmark.approx_kv.run_phase4_cachetune_canary import (
     capture_final_pool_reset_and_invariant,
     chunk_offsets,
     dense_generate_payload,
+    ensure_target_head_resident,
     eviction_pressure_filler_count_for_rho,
     eviction_pressure_total_tokens,
     expected_repair_totals,
     flush_exact_radix_cache,
     main,
-    materialize_workload_via_reuse,
     observed_rho,
     register_body_chunks,
     register_eviction_pressure_objects,
     register_generate_payload,
+    register_non_prefix_sources,
     require_cached_tokens,
     require_finished_by_length,
     reuse_generate_payload,
     run_exact_context_control_point,
     run_non_prefix_setting,
+    run_reuse_once,
     timed_post,
     validate_pairwise_head_isolation,
 )
@@ -1541,6 +1543,74 @@ class TestEvictionPressureFillerCountForRho(unittest.TestCase):
         )
         self.assertEqual(count, MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT)
 
+    def test_already_pinned_tokens_defaults_to_zero_matching_original_formula(self):
+        # already_pinned_tokens=0 (the default) must reproduce the
+        # original, pre-fix formula exactly -- any caller that has no
+        # already-resident setup footprint to account for (e.g. a
+        # standalone reverse-computation, or a future call site that
+        # never registers sources first) is unaffected by this fix.
+        without_kwarg = eviction_pressure_filler_count_for_rho(
+            target_rho=1.5,
+            usable_capacity_tokens=1000,
+            tokens_per_filler=500,
+        )
+        with_explicit_zero = eviction_pressure_filler_count_for_rho(
+            target_rho=1.5,
+            usable_capacity_tokens=1000,
+            tokens_per_filler=500,
+            already_pinned_tokens=0,
+        )
+        self.assertEqual(without_kwarg, 3)
+        self.assertEqual(with_explicit_zero, 3)
+
+    def test_already_pinned_tokens_reduces_the_filler_count(self):
+        # target_total = 1.5 * 1000 = 1500. With already_pinned_tokens=0
+        # this needs ceil(1500/500)=3 fillers (see the default-matching
+        # test above); the setting's own raw+fresh source-registration
+        # footprint (500 tokens, already counted toward target_rho by
+        # construction -- see run_non_prefix_setting's own docstring)
+        # must reduce that to ceil((1500-500)/500)=2, never still 3.
+        count = eviction_pressure_filler_count_for_rho(
+            target_rho=1.5,
+            usable_capacity_tokens=1000,
+            tokens_per_filler=500,
+            already_pinned_tokens=500,
+        )
+        self.assertEqual(count, 2)
+
+    def test_already_pinned_tokens_exactly_meeting_target_returns_zero_fillers(self):
+        # already_pinned_tokens == target_total exactly: the setup's own
+        # footprint alone already satisfies target_rho, a legitimate
+        # "zero fillers needed" outcome, never an error.
+        count = eviction_pressure_filler_count_for_rho(
+            target_rho=1.5,
+            usable_capacity_tokens=1000,
+            tokens_per_filler=500,
+            already_pinned_tokens=1500,
+        )
+        self.assertEqual(count, 0)
+
+    def test_already_pinned_tokens_exceeding_target_returns_zero_not_negative(self):
+        # already_pinned_tokens > target_total: remaining_tokens goes
+        # negative internally, but the returned count must still be the
+        # non-negative 0, never a negative filler count.
+        count = eviction_pressure_filler_count_for_rho(
+            target_rho=1.5,
+            usable_capacity_tokens=1000,
+            tokens_per_filler=500,
+            already_pinned_tokens=2000,
+        )
+        self.assertEqual(count, 0)
+
+    def test_rejects_negative_already_pinned_tokens(self):
+        with self.assertRaises(ValueError):
+            eviction_pressure_filler_count_for_rho(
+                target_rho=1.5,
+                usable_capacity_tokens=1000,
+                tokens_per_filler=500,
+                already_pinned_tokens=-1,
+            )
+
 
 class TestObservedRho(unittest.TestCase):
     """The genuine, sampled occupancy ratio from a live
@@ -2254,15 +2324,16 @@ class _SequencedFakeClientSession:
     order -- unlike ``_FakeClientSession``, which always replays the
     same single response.
 
-    Needed to test ``materialize_workload_via_reuse`` /
-    ``register_eviction_pressure_objects``: a single filler object's
-    materialization alone already issues four sequential requests (seed
-    head, register raw, register fresh, reuse), each expected to report
-    different ``cached_tokens``, and multiple filler objects chain many
-    such sequences back to back. Raises ``AssertionError`` (never
-    silently replaying a stale response) if more ``.post()`` calls
-    happen than responses were provided -- an unexpected extra call is
-    itself a sign the production code under test regressed.
+    Needed to test ``register_non_prefix_sources`` / ``run_reuse_once``
+    / ``register_eviction_pressure_objects``: a single workload's
+    source setup plus one reuse cycle alone already issues four
+    sequential requests (seed head, register raw, register fresh,
+    reuse), each expected to report different ``cached_tokens``, and
+    multiple filler objects chain many such sequences back to back.
+    Raises ``AssertionError`` (never silently replaying a stale
+    response) if more ``.post()`` calls happen than responses were
+    provided -- an unexpected extra call is itself a sign the
+    production code under test regressed.
     """
 
     def __init__(self, responses: list):
@@ -2287,6 +2358,35 @@ class _SequencedFakeClientSession:
 
     async def __aexit__(self, *exc_info):
         return False
+
+
+class _LabeledSequencedFakeClientSession(_SequencedFakeClientSession):
+    """Like ``_SequencedFakeClientSession``, but appends a PER-CALL
+    label (looked up positionally from ``labels``, parallel to
+    ``responses``) to a shared ``call_order`` list on every
+    ``.post()``.
+
+    Needed to prove the RELATIVE order of several DIFFERENT kinds of
+    HTTP request a single ``run_non_prefix_setting`` call makes (source
+    setup, pressure filler, head re-seed, warmup, formal repeat) --
+    unlike ``_OrderTrackingSequencedFakeClientSession`` (below), which
+    only supports one fixed label shared by every call in the sequence,
+    sufficient for a flow with just one kind of HTTP request but not
+    for this multi-phase one.
+    """
+
+    def __init__(self, responses: list, labels: list[str], call_order: list[str]):
+        super().__init__(responses)
+        assert len(labels) == len(responses), (
+            f"labels ({len(labels)}) must be parallel to responses "
+            f"({len(responses)})"
+        )
+        self._labels = labels
+        self._call_order = call_order
+
+    def post(self, url, json):
+        self._call_order.append(self._labels[self._next_index])
+        return super().post(url, json)
 
 
 def _sse_data_line(payload: dict) -> bytes:
@@ -2731,13 +2831,17 @@ class TestRegisterBodyChunks(unittest.TestCase):
         self.assertIn("unit-test chunk1", str(ctx.exception))
 
 
-class TestMaterializeWorkloadViaReuse(unittest.TestCase):
-    """``materialize_workload_via_reuse`` must route its raw and fresh
-    body registrations through ``register_body_chunks`` -- one
-    independent ``/generate`` call per ``<= max_chunk_tokens`` chunk --
-    while its own reuse call stays exactly as before: a single call
-    over the complete, un-chunked ``target_prompt_ids`` with the
-    existing contiguous multi-segment list."""
+class TestRegisterNonPrefixSources(unittest.TestCase):
+    """``register_non_prefix_sources`` is this setting's own one-time
+    SOURCE setup -- seed the exact-match target head, then register the
+    raw (source-context) body segment -- split out of the former
+    monolithic ``materialize_workload_via_reuse`` specifically so it can
+    run to completion BEFORE any eviction-pressure filler is ever sent
+    (see ``run_non_prefix_setting``'s own docstring for the real SM75
+    ``target_rho=2`` bug this split fixes). Must still route the raw
+    body registration through ``register_body_chunks`` -- one
+    independent ``/generate`` call per ``<= max_chunk_tokens`` chunk,
+    never one oversized call spanning the entire body."""
 
     def _workload(self, body_tokens):
         return build_non_prefix_segment_workload(
@@ -2745,7 +2849,180 @@ class TestMaterializeWorkloadViaReuse(unittest.TestCase):
             body_tokens=body_tokens,
             head_tokens=64,
             tail_tokens=1,
-            salt=f"unit-test-materialize-{body_tokens}",
+            salt=f"unit-test-register-sources-{body_tokens}",
+        )
+
+    def _response(self, cached_tokens):
+        chunk = {
+            "meta_info": {
+                "finish_reason": {"type": "length"},
+                "cached_tokens": cached_tokens,
+            }
+        }
+        return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
+
+    def _success_responses(self, chunk_count):
+        return [self._response(0)] * (1 + chunk_count)  # seed + raw chunks
+
+    def test_body_1024_issues_one_seed_and_two_raw_register_calls(self):
+        workload = self._workload(body_tokens=1024)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        self.assertEqual(chunk_count, 2)
+        session = _SequencedFakeClientSession(self._success_responses(chunk_count))
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            result = register_non_prefix_sources(
+                "http://127.0.0.1:30000",
+                workload,
+                raw_hash="cachetune-raw:unit-test-1024",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+                max_chunk_tokens=512,
+            )
+
+        # 1 seed + 2 raw chunks == 3 total calls -- never one oversized
+        # raw call spanning the whole body, and never a fresh/reuse call
+        # at all (that is run_reuse_once's own job, not this function's).
+        self.assertEqual(len(session.post_calls), 3)
+        self.assertGreaterEqual(result["seed_head_ms"], 0.0)
+        self.assertGreaterEqual(result["register_raw_ms"], 0.0)
+
+        seed_url, seed_payload = session.post_calls[0]
+        self.assertEqual(seed_url, "http://127.0.0.1:30000/generate")
+        self.assertEqual(seed_payload["input_ids"], list(workload.target_head_ids))
+        self.assertNotIn("custom_params", seed_payload["sampling_params"])
+
+    def test_body_2048_issues_one_seed_and_four_raw_register_calls(self):
+        workload = self._workload(body_tokens=2048)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        self.assertEqual(chunk_count, 4)
+        session = _SequencedFakeClientSession(self._success_responses(chunk_count))
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            register_non_prefix_sources(
+                "http://127.0.0.1:30000",
+                workload,
+                raw_hash="cachetune-raw:unit-test-2048",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+                max_chunk_tokens=512,
+            )
+
+        # 1 seed + 4 raw chunks == 5 total calls.
+        self.assertEqual(len(session.post_calls), 5)
+
+    def test_every_raw_chunk_prompt_is_bounded_by_head_plus_chunk_plus_tail(self):
+        # Direct proof the old oversized-single-call raw-register path
+        # (which would have sent a ~1089-token prompt in one call for
+        # this exact body/head/tail combination, OOM'ing a real SM75
+        # server at register time) is gone: every raw chunk call below
+        # must instead stay within one chunk's own small bound.
+        workload = self._workload(body_tokens=1024)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        session = _SequencedFakeClientSession(self._success_responses(chunk_count))
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            register_non_prefix_sources(
+                "http://127.0.0.1:30000",
+                workload,
+                raw_hash="cachetune-raw:unit-test-1024b",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+                max_chunk_tokens=512,
+            )
+
+        bound = 64 + 512 + 1  # head_tokens + max_chunk_tokens + tail_tokens
+        raw_calls = session.post_calls[1:]  # everything after the seed call
+        self.assertEqual(len(raw_calls), chunk_count)
+        for _, payload in raw_calls:
+            self.assertLessEqual(len(payload["input_ids"]), bound)
+
+    def test_raw_register_content_hashes_match_reuse_side_body_segments_for_hash(self):
+        # register_non_prefix_sources's own per-chunk content_hash
+        # sequence must be exactly what body_segments_for_hash (the
+        # REUSE-side builder) produces for the same raw_hash -- this is
+        # the only thing that makes a chunk registered here resolvable
+        # by a later reuse call's lookup.
+        workload = self._workload(body_tokens=2048)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        raw_hash = "cachetune-raw:unit-test-1024c"
+        session = _SequencedFakeClientSession(self._success_responses(chunk_count))
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            register_non_prefix_sources(
+                "http://127.0.0.1:30000",
+                workload,
+                raw_hash=raw_hash,
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+                max_chunk_tokens=512,
+            )
+
+        observed_hashes = [
+            payload["sampling_params"]["custom_params"]["approx_kv"]["segments"][0][
+                "content_hash"
+            ]
+            for _, payload in session.post_calls[1:]
+        ]
+        expected_hashes = [
+            segment["content_hash"]
+            for segment in body_segments_for_hash(
+                hash_prefix=raw_hash,
+                body_start=0,
+                body_tokens=workload.body_tokens,
+                max_chunk_tokens=512,
+            )
+        ]
+        self.assertEqual(observed_hashes, expected_hashes)
+
+    def test_raises_when_seed_reports_nonzero_cached_tokens(self):
+        # The seed request must be the FIRST appearance of this exact
+        # target_head_ids in the tree (this setting's own just-completed
+        # flush guarantees this) -- a nonzero cached_tokens here means
+        # something upstream did not actually flush.
+        workload = self._workload(body_tokens=64)
+        chunk = {"meta_info": {"finish_reason": {"type": "length"}, "cached_tokens": 5}}
+        session = _SequencedFakeClientSession(
+            [_FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])]
+        )
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            with self.assertRaises(RuntimeError) as ctx:
+                register_non_prefix_sources(
+                    "http://127.0.0.1:30000",
+                    workload,
+                    raw_hash="cachetune-raw:unit-test-seed-nonzero",
+                    model_fingerprint="qwen3-0.6b-sm75",
+                    cache_dtype="fp16",
+                    label="unit-test",
+                    max_chunk_tokens=512,
+                )
+        self.assertIn("seed target_head", str(ctx.exception))
+
+
+class TestRunReuseOnce(unittest.TestCase):
+    """``run_reuse_once`` is the REPEATABLE half of a setting's own
+    measurement -- register the fresh (target-context) body segment,
+    then issue exactly one reuse request -- used identically for the
+    discarded warmup pass AND every formal repeat (a single
+    implementation, replacing what used to be two independently
+    maintained copies: one inside the old monolithic
+    ``materialize_workload_via_reuse``, one inline in the formal-repeat
+    loop). ASSUMES ``register_non_prefix_sources`` already ran once for
+    the same workload -- this function never seeds the head or
+    registers the raw segment itself."""
+
+    def _workload(self, body_tokens):
+        return build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=body_tokens,
+            head_tokens=64,
+            tail_tokens=1,
+            salt=f"unit-test-run-reuse-once-{body_tokens}",
         )
 
     def _response(self, cached_tokens):
@@ -2759,14 +3036,11 @@ class TestMaterializeWorkloadViaReuse(unittest.TestCase):
 
     def _success_responses(self, workload, chunk_count):
         reuse_cached = workload.body_start_in_target + workload.body_tokens
-        return (
-            [self._response(0)]  # seed target_head
-            + [self._response(0)] * chunk_count  # raw register chunks
-            + [self._response(workload.body_start_in_target)] * chunk_count
-            + [self._response(reuse_cached)]  # reuse
-        )
+        return [self._response(workload.body_start_in_target)] * chunk_count + [
+            self._response(reuse_cached)
+        ]
 
-    def test_body_1024_issues_two_raw_and_two_fresh_register_calls(self):
+    def test_body_1024_issues_two_fresh_register_calls_and_one_reuse_call(self):
         workload = self._workload(body_tokens=1024)
         chunk_count = len(chunk_offsets(workload.body_tokens, 512))
         self.assertEqual(chunk_count, 2)
@@ -2775,26 +3049,32 @@ class TestMaterializeWorkloadViaReuse(unittest.TestCase):
         )
 
         with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
-            result = materialize_workload_via_reuse(
+            result = run_reuse_once(
                 "http://127.0.0.1:30000",
                 workload,
-                raw_hash="cachetune-raw:unit-test-1024",
-                fresh_hash="cachetune-fresh:unit-test-1024",
+                raw_hash="cachetune-raw:unit-test-reuse-1024",
+                fresh_hash="cachetune-fresh:unit-test-reuse-1024",
                 model_fingerprint="qwen3-0.6b-sm75",
                 cache_dtype="fp16",
                 label="unit-test",
                 max_chunk_tokens=512,
             )
 
-        # 1 seed + 2 raw + 2 fresh + 1 reuse == 6 total calls -- never
-        # one oversized raw/fresh call spanning the whole body.
-        self.assertEqual(len(session.post_calls), 6)
-        self.assertGreaterEqual(result["register_raw_ms"], 0.0)
+        # 2 fresh chunks + 1 reuse == 3 total calls -- never a seed or
+        # raw-register call (register_non_prefix_sources's own job).
+        self.assertEqual(len(session.post_calls), 3)
         self.assertGreaterEqual(result["register_fresh_ms"], 0.0)
+        self.assertEqual(result["fresh_cached_tokens"], workload.body_start_in_target)
+        self.assertGreaterEqual(result["reuse_ms"], 0.0)
+        self.assertEqual(
+            result["reuse_cached_tokens"],
+            workload.body_start_in_target + workload.body_tokens,
+        )
+        self.assertIsInstance(result["reuse_response"], dict)
 
         # The reuse call (the very last one) must still be a single
         # call over the COMPLETE, un-chunked target_prompt_ids -- never
-        # split into per-chunk calls the way register now is.
+        # split into per-chunk calls the way register is.
         _, reuse_payload = session.post_calls[-1]
         self.assertEqual(reuse_payload["input_ids"], list(workload.target_prompt_ids))
         reuse_segments = reuse_payload["sampling_params"]["custom_params"]["approx_kv"][
@@ -2802,7 +3082,7 @@ class TestMaterializeWorkloadViaReuse(unittest.TestCase):
         ]
         self.assertEqual(len(reuse_segments), chunk_count)
 
-    def test_body_2048_issues_four_raw_and_four_fresh_register_calls(self):
+    def test_body_2048_issues_four_fresh_register_calls_and_one_reuse_call(self):
         workload = self._workload(body_tokens=2048)
         chunk_count = len(chunk_offsets(workload.body_tokens, 512))
         self.assertEqual(chunk_count, 4)
@@ -2811,28 +3091,21 @@ class TestMaterializeWorkloadViaReuse(unittest.TestCase):
         )
 
         with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
-            materialize_workload_via_reuse(
+            run_reuse_once(
                 "http://127.0.0.1:30000",
                 workload,
-                raw_hash="cachetune-raw:unit-test-2048",
-                fresh_hash="cachetune-fresh:unit-test-2048",
+                raw_hash="cachetune-raw:unit-test-reuse-2048",
+                fresh_hash="cachetune-fresh:unit-test-reuse-2048",
                 model_fingerprint="qwen3-0.6b-sm75",
                 cache_dtype="fp16",
                 label="unit-test",
                 max_chunk_tokens=512,
             )
 
-        # 1 seed + 4 raw + 4 fresh + 1 reuse == 10 total calls.
-        self.assertEqual(len(session.post_calls), 10)
+        # 4 fresh chunks + 1 reuse == 5 total calls.
+        self.assertEqual(len(session.post_calls), 5)
 
-    def test_every_raw_and_fresh_chunk_prompt_is_bounded_by_head_plus_chunk_plus_tail(
-        self,
-    ):
-        # This is the direct proof that the old oversized-single-call
-        # code path (which would have sent a ~1089-token prompt in one
-        # call for this exact body/head/tail combination) is gone: every
-        # register call below must instead stay within one chunk's own
-        # small bound, regardless of the full body length.
+    def test_every_fresh_chunk_prompt_is_bounded_by_head_plus_chunk_plus_tail(self):
         workload = self._workload(body_tokens=1024)
         chunk_count = len(chunk_offsets(workload.body_tokens, 512))
         session = _SequencedFakeClientSession(
@@ -2840,11 +3113,11 @@ class TestMaterializeWorkloadViaReuse(unittest.TestCase):
         )
 
         with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
-            materialize_workload_via_reuse(
+            run_reuse_once(
                 "http://127.0.0.1:30000",
                 workload,
-                raw_hash="cachetune-raw:unit-test-1024b",
-                fresh_hash="cachetune-fresh:unit-test-1024b",
+                raw_hash="cachetune-raw:unit-test-reuse-1024b",
+                fresh_hash="cachetune-fresh:unit-test-reuse-1024b",
                 model_fingerprint="qwen3-0.6b-sm75",
                 cache_dtype="fp16",
                 label="unit-test",
@@ -2852,25 +3125,22 @@ class TestMaterializeWorkloadViaReuse(unittest.TestCase):
             )
 
         bound = 64 + 512 + 1  # head_tokens + max_chunk_tokens + tail_tokens
-        # Every call except the first (seed) and the last (reuse) is a
-        # register call -- the seed/reuse calls are legitimately full
-        # length and are checked separately above.
-        register_calls = session.post_calls[1:-1]
-        self.assertEqual(len(register_calls), 2 * chunk_count)
-        for _, payload in register_calls:
+        fresh_calls = session.post_calls[:-1]  # everything before the reuse call
+        self.assertEqual(len(fresh_calls), chunk_count)
+        for _, payload in fresh_calls:
             self.assertLessEqual(len(payload["input_ids"]), bound)
 
-    def test_raw_and_fresh_register_content_hashes_match_reuse_segments(self):
+    def test_fresh_register_and_reuse_content_hashes_are_consistently_paired(self):
         workload = self._workload(body_tokens=1024)
         chunk_count = len(chunk_offsets(workload.body_tokens, 512))
-        raw_hash = "cachetune-raw:unit-test-1024c"
-        fresh_hash = "cachetune-fresh:unit-test-1024c"
+        raw_hash = "cachetune-raw:unit-test-reuse-1024c"
+        fresh_hash = "cachetune-fresh:unit-test-reuse-1024c"
         session = _SequencedFakeClientSession(
             self._success_responses(workload, chunk_count)
         )
 
         with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
-            materialize_workload_via_reuse(
+            run_reuse_once(
                 "http://127.0.0.1:30000",
                 workload,
                 raw_hash=raw_hash,
@@ -2881,30 +3151,135 @@ class TestMaterializeWorkloadViaReuse(unittest.TestCase):
                 max_chunk_tokens=512,
             )
 
-        raw_calls = session.post_calls[1 : 1 + chunk_count]
-        fresh_calls = session.post_calls[1 + chunk_count : 1 + 2 * chunk_count]
+        fresh_calls = session.post_calls[:chunk_count]
         reuse_segments = session.post_calls[-1][1]["sampling_params"]["custom_params"][
             "approx_kv"
         ]["segments"]
-
-        for index, (_, payload) in enumerate(raw_calls):
-            segment = payload["sampling_params"]["custom_params"]["approx_kv"][
-                "segments"
-            ][0]
-            self.assertEqual(segment["content_hash"], f"{raw_hash}:chunk{index}")
-            # The (unchanged) reuse call's own segments -- built from
-            # body_segments_for_hash(hash_prefix=raw_hash, ...) -- must
-            # reference the SAME content_hash for the same chunk index,
-            # even though its own target_start differs (body_start +
-            # offset there, vs. len(head_ids) here).
-            self.assertEqual(
-                reuse_segments[index]["content_hash"], segment["content_hash"]
-            )
         for index, (_, payload) in enumerate(fresh_calls):
             segment = payload["sampling_params"]["custom_params"]["approx_kv"][
                 "segments"
             ][0]
             self.assertEqual(segment["content_hash"], f"{fresh_hash}:chunk{index}")
+            # The reuse call's own segments are built from raw_hash, not
+            # fresh_hash -- reuse always resolves the RAW (source-
+            # context) segment store entry, never the fresh one.
+            self.assertEqual(
+                reuse_segments[index]["content_hash"], f"{raw_hash}:chunk{index}"
+            )
+
+    def test_can_be_called_repeatedly_for_warmup_then_formal_repeats(self):
+        # The exact reuse this fix depends on: run_non_prefix_setting
+        # calls this SAME function identically for its one discarded
+        # warmup pass and then again for every formal repeat -- proving
+        # it is safely callable more than once in a row for the same
+        # workload (register_fresh is genuinely redone every call; reuse
+        # never mutates workload itself).
+        workload = self._workload(body_tokens=64)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        self.assertEqual(chunk_count, 1)
+        responses = self._success_responses(workload, chunk_count) * 3
+        session = _SequencedFakeClientSession(responses)
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            for _ in range(3):
+                result = run_reuse_once(
+                    "http://127.0.0.1:30000",
+                    workload,
+                    raw_hash="cachetune-raw:unit-test-repeatable",
+                    fresh_hash="cachetune-fresh:unit-test-repeatable",
+                    model_fingerprint="qwen3-0.6b-sm75",
+                    cache_dtype="fp16",
+                    label="unit-test",
+                    max_chunk_tokens=512,
+                )
+                self.assertEqual(
+                    result["reuse_cached_tokens"],
+                    workload.body_start_in_target + workload.body_tokens,
+                )
+
+        self.assertEqual(len(session.post_calls), 3 * (chunk_count + 1))
+
+
+class TestEnsureTargetHeadResident(unittest.TestCase):
+    """``ensure_target_head_resident`` re-seeds a setting's own target
+    head with one plain dense request after the eviction-pressure
+    phase, tolerant of EITHER a survived-pressure cache hit
+    (``cached_tokens == len(target_head_ids)``) or an evicted-by-
+    pressure cache miss (``cached_tokens == 0``) -- but never a
+    corrupted partial value that is neither. This is an additional
+    defensive measure this script adds (not part of CacheTune's own
+    design) because sending genuine LRU eviction pressure immediately
+    after seeding the head -- this script's own "register sources
+    before pressure" ordering fix -- makes the head itself a plausible
+    LRU-eviction candidate; without this guard, an evicted head could
+    never be restored by any later register/reuse call (both always
+    skip radix insertion)."""
+
+    def _workload(self):
+        return build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=64,
+            head_tokens=34,
+            tail_tokens=1,
+            salt="unit-test-ensure-head-resident",
+        )
+
+    def _response(self, cached_tokens):
+        chunk = {
+            "meta_info": {
+                "finish_reason": {"type": "length"},
+                "cached_tokens": cached_tokens,
+            }
+        }
+        return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
+
+    def test_reports_hit_when_the_head_survived_pressure(self):
+        workload = self._workload()
+        session = _FakeClientSession(self._response(len(workload.target_head_ids)))
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            result = ensure_target_head_resident(
+                "http://127.0.0.1:30000", workload, label="unit-test"
+            )
+
+        self.assertEqual(len(session.post_calls), 1)
+        url, payload = session.post_calls[0]
+        self.assertEqual(url, "http://127.0.0.1:30000/generate")
+        self.assertEqual(payload["input_ids"], list(workload.target_head_ids))
+        self.assertNotIn("custom_params", payload["sampling_params"])
+        self.assertEqual(result["cached_tokens"], len(workload.target_head_ids))
+        self.assertFalse(result["was_evicted_by_pressure"])
+        self.assertGreaterEqual(result["ttft_ms"], 0.0)
+
+    def test_reports_miss_when_the_head_was_evicted_by_pressure(self):
+        workload = self._workload()
+        session = _FakeClientSession(self._response(0))
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            result = ensure_target_head_resident(
+                "http://127.0.0.1:30000", workload, label="unit-test"
+            )
+
+        self.assertEqual(result["cached_tokens"], 0)
+        self.assertTrue(result["was_evicted_by_pressure"])
+
+    def test_raises_on_a_corrupted_partial_cached_tokens_value(self):
+        # Neither 0 (clean miss) nor len(target_head_ids) (clean hit) --
+        # a corrupted or unexpected partial radix match, which must
+        # never be silently accepted as one of the two tolerated
+        # outcomes.
+        workload = self._workload()
+        session = _FakeClientSession(self._response(17))
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            with self.assertRaises(RuntimeError) as ctx:
+                ensure_target_head_resident(
+                    "http://127.0.0.1:30000", workload, label="unit-test"
+                )
+        message = str(ctx.exception)
+        self.assertIn("unit-test", message)
+        self.assertIn("17", message)
+        self.assertIn(str(len(workload.target_head_ids)), message)
 
 
 class TestRegisterEvictionPressureObjects(unittest.TestCase):
@@ -2914,24 +3289,34 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
     the server's ordinary, LRU-evictable exact radix tree rather than
     CacheTune's own un-evictable segment store.
 
-    This replaces an earlier design that ran every filler through
-    ``materialize_workload_via_reuse`` (a full seed+raw-register+fresh-
-    register+reuse CacheTune cycle): a real SM75 run at ``target_rho=2``
-    showed that design's raw/fresh segments accumulate as permanently
-    un-evictable residency (``ApproxKVManager``'s own segment store is
-    invisible to Radix LRU eviction), eventually starving the setting's
-    own target recovery-slot allocation. See
-    ``register_eviction_pressure_objects``'s own docstring for the full
-    root-cause account.
+    This replaces an earlier design that ran every filler through a
+    full seed+raw-register+fresh-register+reuse CacheTune cycle (what
+    is now ``register_non_prefix_sources`` + ``run_reuse_once``): a
+    real SM75 run at ``target_rho=2`` showed that design's raw/fresh
+    segments accumulate as permanently un-evictable residency
+    (``ApproxKVManager``'s own segment store is invisible to Radix LRU
+    eviction), eventually starving the setting's own target recovery-
+    slot allocation. See ``register_eviction_pressure_objects``'s own
+    docstring for the full root-cause account.
 
     A nonzero dense-fallback delta observed during this phase must
     still raise loudly (a plain dense request should never be able to
-    move that CacheTune-reuse-specific counter at all), and -- new in
-    this fix -- a pressure configuration that nominally exceeds this
-    setting's own idle capacity must show genuine
-    ``sglang:evicted_tokens_total`` movement, or this function must
-    raise rather than silently trust an unverified "genuine pressure"
-    claim."""
+    move that CacheTune-reuse-specific counter at all), and a pressure
+    configuration that nominally exceeds this setting's own idle
+    capacity must show genuine ``sglang:evicted_tokens_total`` movement,
+    or this function must raise rather than silently trust an unverified
+    "genuine pressure" claim.
+
+    A SECOND, separate real SM75 bug at ``target_rho=2`` -- fillers
+    being sent BEFORE the setting's own raw+fresh source registration,
+    which is NOT wired to evict exact-radix victims for itself -- is
+    fixed by this function's own ``already_pinned_tokens`` parameter:
+    the setting's own already-resident setup footprint (measured, never
+    estimated, by the caller via ``metric_delta`` on
+    ``sglang:kv_used_tokens`` immediately after source setup completes)
+    is set aside from ``capacity_tokens`` before gating the "genuine
+    eviction occurred" assertion, and is rejected immediately if it
+    alone already meets or exceeds ``capacity_tokens``."""
 
     def _filler_workloads(self, object_count=2, body_tokens=8):
         return build_eviction_pressure_workloads(
@@ -2979,8 +3364,7 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
             )
 
         # Exactly one request per filler -- never the old four-request
-        # (seed/raw-register/fresh-register/reuse)
-        # materialize_workload_via_reuse sequence this replaces.
+        # (seed/raw-register/fresh-register/reuse) cycle this replaces.
         self.assertEqual(len(session.post_calls), 3)
         for index, (_, payload) in enumerate(session.post_calls):
             # A plain dense_generate_payload, byte-for-byte (plus the
@@ -3236,66 +3620,288 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
         self.assertIn("pressure-filler[0]", str(ctx.exception))
         self.assertIn("cached_tokens=6", str(ctx.exception))
 
+    def test_already_pinned_tokens_defaults_to_zero_in_telemetry(self):
+        workloads = self._filler_workloads(object_count=1, body_tokens=8)
+        session = _FakeClientSession(self._dense_zero_cached_response())
+        metrics_before = {
+            "sglang:evicted_tokens_total": 0.0,
+            "sglang:kv_used_tokens": 0.0,
+        }
+        metrics_after = {
+            "sglang:evicted_tokens_total": 0.0,
+            "sglang:kv_used_tokens": 8.0,
+        }
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=[metrics_before, metrics_after],
+        ):
+            result = register_eviction_pressure_objects(
+                "http://127.0.0.1:30000",
+                workloads,
+                label="unit-test",
+                capacity_tokens=1000,
+                target_rho=0.5,
+            )
+        self.assertEqual(result["already_pinned_tokens"], 0)
+
+    def test_returns_already_pinned_tokens_verbatim_in_telemetry(self):
+        workloads = self._filler_workloads(object_count=1, body_tokens=8)
+        session = _FakeClientSession(self._dense_zero_cached_response())
+        metrics_before = {
+            "sglang:evicted_tokens_total": 0.0,
+            "sglang:kv_used_tokens": 123.0,
+        }
+        metrics_after = {
+            "sglang:evicted_tokens_total": 0.0,
+            "sglang:kv_used_tokens": 131.0,
+        }
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=[metrics_before, metrics_after],
+        ):
+            result = register_eviction_pressure_objects(
+                "http://127.0.0.1:30000",
+                workloads,
+                label="unit-test",
+                capacity_tokens=1000,
+                target_rho=0.5,
+                already_pinned_tokens=123,
+            )
+        self.assertEqual(result["already_pinned_tokens"], 123)
+
+    def test_rejects_negative_already_pinned_tokens(self):
+        workloads = self._filler_workloads(object_count=1, body_tokens=8)
+        with self.assertRaises(ValueError):
+            register_eviction_pressure_objects(
+                "http://127.0.0.1:30000",
+                workloads,
+                label="unit-test",
+                capacity_tokens=1000,
+                target_rho=1.5,
+                already_pinned_tokens=-1,
+            )
+
+    def test_raises_immediately_when_already_pinned_tokens_meets_or_exceeds_capacity(
+        self,
+    ):
+        # Raised BEFORE any HTTP request is ever sent (the setting's own
+        # raw+fresh source-registration footprint alone already consumes
+        # the entire measured pool -- an unrecoverable misconfiguration,
+        # never something a filler HTTP loop should even attempt). No
+        # aiohttp/metric_snapshot mock is installed on purpose: if this
+        # ever regressed into performing I/O first, this test would fail
+        # with an unmocked-network error rather than the expected
+        # ValueError.
+        workloads = self._filler_workloads(object_count=1, body_tokens=8)
+        with self.assertRaises(ValueError) as ctx:
+            register_eviction_pressure_objects(
+                "http://127.0.0.1:30000",
+                workloads,
+                label="unit-test",
+                capacity_tokens=100,
+                target_rho=1.5,
+                already_pinned_tokens=100,
+            )
+        self.assertIn("unit-test", str(ctx.exception))
+        self.assertIn("100", str(ctx.exception))
+
+    def test_already_pinned_tokens_reduces_effective_headroom_for_the_eviction_assertion(
+        self,
+    ):
+        # Same nominal capacity_tokens and filler workloads as the
+        # sibling "does not raise" test directly below -- only
+        # already_pinned_tokens differs, shrinking the TRUE evictable
+        # headroom (capacity_tokens - already_pinned_tokens) below the
+        # fillers' own nominal footprint. A zero eviction delta despite
+        # that must still raise -- this is the fix for a real SM75
+        # ordering bug at target_rho=2 where the setting's own raw/fresh
+        # source-registration footprint was never accounted for here.
+        workloads = self._filler_workloads(object_count=3, body_tokens=50)
+        # eviction_pressure_total_tokens sums body_tokens only (a
+        # deliberate lower-bound floor -- see that function's own
+        # docstring): total_pressure_tokens = 3 * 50 = 150.
+        session = _FakeClientSession(self._dense_zero_cached_response())
+        metrics_before = {
+            "sglang:approx_kv_dense_fallback_total": 0.0,
+            "sglang:evicted_tokens_total": 20.0,
+        }
+        metrics_after = {
+            "sglang:approx_kv_dense_fallback_total": 0.0,
+            "sglang:evicted_tokens_total": 20.0,  # unchanged: no eviction.
+        }
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=[metrics_before, metrics_after],
+        ):
+            with self.assertRaises(RuntimeError) as ctx:
+                register_eviction_pressure_objects(
+                    "http://127.0.0.1:30000",
+                    workloads,
+                    label="unit-test",
+                    capacity_tokens=1000,
+                    target_rho=1.5,
+                    already_pinned_tokens=900,  # effective_available=100 < 150
+                )
+        message = str(ctx.exception)
+        self.assertIn("150", message)
+        self.assertIn("100", message)
+
+    def test_zero_already_pinned_tokens_does_not_raise_for_the_same_configuration(self):
+        # The exact same capacity_tokens/workloads as the test directly
+        # above -- but already_pinned_tokens=0 (the default) means the
+        # TRUE evictable headroom is the full capacity_tokens=1000,
+        # comfortably above the fillers' 150 nominal (body-only) tokens,
+        # so the eviction assertion never engages.
+        workloads = self._filler_workloads(object_count=3, body_tokens=50)
+        session = _FakeClientSession(self._dense_zero_cached_response())
+        metrics_before = {
+            "sglang:approx_kv_dense_fallback_total": 0.0,
+            "sglang:evicted_tokens_total": 20.0,
+            "sglang:kv_used_tokens": 0.0,
+        }
+        metrics_after = {
+            "sglang:approx_kv_dense_fallback_total": 0.0,
+            "sglang:evicted_tokens_total": 20.0,
+            "sglang:kv_used_tokens": 150.0,
+        }
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=[metrics_before, metrics_after],
+        ):
+            result = register_eviction_pressure_objects(
+                "http://127.0.0.1:30000",
+                workloads,
+                label="unit-test",
+                capacity_tokens=1000,
+                target_rho=1.5,
+            )
+        self.assertEqual(result["already_pinned_tokens"], 0)
+        self.assertEqual(result["evicted_tokens_total_delta"], 0.0)
+
 
 class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
-    """``run_non_prefix_setting``'s own pressure-phase wiring must call
-    ``register_eviction_pressure_objects`` with its NEW signature (no
-    ``model_fingerprint``/``cache_dtype``/``max_chunk_tokens`` -- a
-    plain dense filler request needs none of those) and interleave the
-    resulting plain-dense filler requests, in order, BEFORE the
-    setting's own seed-head/raw-register/warmup/repeat CacheTune
-    sequence -- proving the end-to-end call-site wiring survives this
-    fix's signature change, not just ``register_eviction_pressure_
-    objects`` in isolation."""
+    """``run_non_prefix_setting``'s own pressure-phase wiring must
+    complete this setting's own SOURCE setup (seed-head + raw-register,
+    via ``register_non_prefix_sources``) BEFORE reverse-computing or
+    sending any eviction-pressure filler, then re-seed the target head
+    (via ``ensure_target_head_resident``) before the discarded warmup
+    and every formal repeat (both via ``run_reuse_once``) -- proving
+    the end-to-end call-site wiring for the real SM75 ``target_rho=2``
+    ordering bug fix, not just its constituent functions in isolation.
 
-    def test_pressure_fillers_sent_before_main_setting_measurement(self):
-        workload = build_non_prefix_segment_workload(
+    An earlier version of this test class (and of ``run_non_prefix_
+    setting`` itself) proved and required the OPPOSITE ordering --
+    pressure fillers sent BEFORE source setup -- which is exactly the
+    bug this fix corrects; see ``run_non_prefix_setting``'s own
+    docstring for the full root-cause account.
+    """
+
+    def _workload(self):
+        return build_non_prefix_segment_workload(
             FakeTokenizer(),
             body_tokens=4,
             head_tokens=3,
             tail_tokens=NON_PREFIX_TAIL_TOKENS,
             salt="unit-test-pressure-wiring",
         )
+
+    @staticmethod
+    def _response(cached_tokens):
+        chunk = {
+            "meta_info": {
+                "finish_reason": {"type": "length"},
+                "cached_tokens": cached_tokens,
+            }
+        }
+        return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
+
+    @staticmethod
+    def _labeled_metric_snapshot(call_order: list[str], snapshots: list[dict]):
+        state = {"count": 0}
+
+        def fake_metric_snapshot(base_url):
+            index = state["count"]
+            state["count"] += 1
+            call_order.append(f"metric_snapshot[{index}]")
+            return snapshots[index]
+
+        return fake_metric_snapshot
+
+    def _run_low_pressure_setting(self, call_order: list[str]):
+        """Shared fixture for the ordering/telemetry tests below: a
+        single filler (target_rho=0.1, low pressure, no genuine
+        eviction expected), already_pinned_tokens=4 threaded from a
+        measured post-setup delta, and a head that survives the
+        pressure phase (a hit, cached_tokens == full head length)."""
+        workload = self._workload()
         reuse_cached = workload.body_start_in_target + workload.body_tokens
 
-        def _response(cached_tokens):
-            chunk = {
-                "meta_info": {
-                    "finish_reason": {"type": "length"},
-                    "cached_tokens": cached_tokens,
-                }
-            }
-            return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
-
-        # capacity_tokens=100 (max_total_num_tokens fallback),
-        # tokens_per_filler = pressure_filler_head_tokens(2) +
-        # pressure_filler_body_tokens(4) = 6, target_rho=0.1 ->
-        # ceil(0.1 * 100 / 6) = 2 fillers.
-        pressure_responses = [_response(0), _response(0)]
-        warmup_responses = [
-            _response(0),  # seed target_head
-            _response(0),  # register raw (1 chunk, body_tokens=4)
-            _response(workload.body_start_in_target),  # register fresh
-            _response(reuse_cached),  # reuse (warmup, discarded)
+        responses = [
+            self._response(0),  # 0: source setup -- seed target_head
+            self._response(0),  # 1: source setup -- register raw (1 chunk)
+            self._response(0),  # 2: pressure filler[0]
+            self._response(len(workload.target_head_ids)),  # 3: head re-seed (hit)
+            self._response(workload.body_start_in_target),  # 4: warmup fresh
+            self._response(reuse_cached),  # 5: warmup reuse (discarded)
+            self._response(workload.body_start_in_target),  # 6: formal fresh
+            self._response(reuse_cached),  # 7: formal reuse
         ]
-        formal_repeat_responses = [
-            _response(workload.body_start_in_target),  # fresh register
-            _response(reuse_cached),  # reuse
+        labels = [
+            "source_setup_seed",
+            "source_setup_raw_chunk0",
+            "pressure_filler0",
+            "head_reseed",
+            "warmup_fresh_chunk0",
+            "warmup_reuse",
+            "formal_fresh_chunk0",
+            "formal_reuse",
         ]
-        responses = pressure_responses + warmup_responses + formal_repeat_responses
-        session = _SequencedFakeClientSession(responses)
+        session = _LabeledSequencedFakeClientSession(responses, labels, call_order)
 
-        metrics_at_setting_start = {"sglang:max_total_num_tokens": 100.0}
+        # capacity_tokens=100 (max_total_num_tokens fallback);
+        # already_pinned_tokens = 4.0 - 0.0 = 4 (the measured post-setup
+        # delta); tokens_per_filler = pressure_filler_head_tokens(2) +
+        # pressure_filler_body_tokens(4) = 6; target_rho=0.1 ->
+        # target_total=10, remaining=10-4=6 -> ceil(6/6)=1 filler (never
+        # still 2, the already_pinned_tokens=0 count -- proof the
+        # already-pinned footprint genuinely reduces the filler count).
+        metrics_at_setting_start = {
+            "sglang:max_total_num_tokens": 100.0,
+            "sglang:kv_used_tokens": 0.0,
+        }
+        metrics_after_source_setup = {"sglang:kv_used_tokens": 4.0}
         pressure_metrics_before = {
             "sglang:evicted_tokens_total": 0.0,
-            "sglang:kv_used_tokens": 0.0,
+            "sglang:kv_used_tokens": 4.0,
+            "sglang:approx_kv_dense_fallback_total": 0.0,
         }
         pressure_metrics_after = {
             "sglang:evicted_tokens_total": 0.0,
-            "sglang:kv_used_tokens": 12.0,
+            "sglang:kv_used_tokens": 10.0,
+            "sglang:approx_kv_dense_fallback_total": 0.0,
         }
         metrics_before = {"sglang:kv_used_tokens": 10.0}
         metrics_after = {"sglang:kv_used_tokens": 20.0}
+        snapshots = [
+            metrics_at_setting_start,
+            metrics_after_source_setup,
+            pressure_metrics_before,
+            pressure_metrics_after,
+            metrics_before,
+            metrics_after,
+        ]
 
         with unittest.mock.patch(
             "aiohttp.ClientSession", return_value=session
@@ -3303,14 +3909,8 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
             "urllib.request.urlopen", _fake_flush_urlopen([])
         ), unittest.mock.patch(
             "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
-            side_effect=[
-                metrics_at_setting_start,
-                pressure_metrics_before,
-                pressure_metrics_after,
-                metrics_before,
-                metrics_after,
-            ],
-        ):
+            side_effect=self._labeled_metric_snapshot(call_order, snapshots),
+        ) as metric_snapshot_mock:
             result = run_non_prefix_setting(
                 base_url="http://127.0.0.1:30000",
                 tokenizer=FakeTokenizer(),
@@ -3327,37 +3927,200 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
                 pressure_filler_body_tokens=4,
             )
 
-        self.assertEqual(len(session.post_calls), len(responses))
-        # The first two calls are the plain-dense pressure fillers: no
-        # approx_kv metadata, distinct target_prompt_ids each.
-        first_two_payloads = [payload for _, payload in session.post_calls[:2]]
-        for payload in first_two_payloads:
-            self.assertNotIn("custom_params", payload["sampling_params"])
-        self.assertNotEqual(
-            first_two_payloads[0]["input_ids"], first_two_payloads[1]["input_ids"]
-        )
-        # The remaining calls are the setting's own genuine CacheTune
-        # sequence, unaffected by the pressure-phase signature change:
-        # at least one of them still carries approx_kv metadata.
-        remaining_payloads = [payload for _, payload in session.post_calls[2:]]
-        self.assertTrue(
-            any(
-                "custom_params" in payload["sampling_params"]
-                for payload in remaining_payloads
-            )
-        )
+        return workload, session, result, metric_snapshot_mock
+
+    def test_source_setup_precedes_the_pressure_phase(self):
+        call_order: list[str] = []
+        _workload, session, result, _mock = self._run_low_pressure_setting(call_order)
+
+        self.assertEqual(len(session.post_calls), 8)
+        # The core ordering fix: BOTH source-setup calls appear strictly
+        # before the pressure-filler call -- the opposite of the real
+        # SM75 target_rho=2 bug this fix corrects.
+        setup_calls = [
+            index
+            for index, label in enumerate(call_order)
+            if label.startswith("source_setup")
+        ]
+        pressure_call = call_order.index("pressure_filler0")
+        self.assertTrue(all(index < pressure_call for index in setup_calls))
+        self.assertEqual(len(setup_calls), 2)
 
         self.assertIsNotNone(result["pressure_phase"])
-        self.assertEqual(result["pressure_phase"]["object_count"], 2)
-        self.assertEqual(result["pressure_phase"]["target_rho"], 0.1)
-        self.assertEqual(result["pressure_phase"]["capacity_tokens"], 100)
-        self.assertEqual(
-            result["peak_rho_observed"],
-            max(
-                result["observed_rho_after_target"],
-                result["pressure_phase"]["observed_rho_after_pressure"],
-            ),
+        self.assertEqual(result["pressure_phase"]["object_count"], 1)
+
+    def test_head_reseed_runs_after_pressure_and_before_warmup(self):
+        call_order: list[str] = []
+        self._run_low_pressure_setting(call_order)
+
+        pressure_call = call_order.index("pressure_filler0")
+        reseed_call = call_order.index("head_reseed")
+        warmup_call = call_order.index("warmup_fresh_chunk0")
+        self.assertLess(pressure_call, reseed_call)
+        self.assertLess(reseed_call, warmup_call)
+
+    def test_warmup_precedes_every_formal_repeat(self):
+        call_order: list[str] = []
+        self._run_low_pressure_setting(call_order)
+
+        warmup_call = call_order.index("warmup_reuse")
+        formal_call = call_order.index("formal_reuse")
+        self.assertLess(warmup_call, formal_call)
+
+    def test_metric_snapshot_is_called_exactly_six_times_with_pressure(self):
+        call_order: list[str] = []
+        _workload, _session, _result, metric_snapshot_mock = (
+            self._run_low_pressure_setting(call_order)
         )
+        self.assertEqual(metric_snapshot_mock.call_count, 6)
+
+    def test_already_pinned_tokens_is_threaded_from_the_measured_post_setup_delta(
+        self,
+    ):
+        call_order: list[str] = []
+        _workload, _session, result, _mock = self._run_low_pressure_setting(call_order)
+
+        self.assertEqual(result["already_pinned_tokens"], 4)
+        self.assertEqual(result["pressure_phase"]["already_pinned_tokens"], 4)
+        # already_pinned_tokens=4 -> remaining=10-4=6 -> ceil(6/6)=1
+        # filler, never the already_pinned_tokens=0 count of 2 (see
+        # eviction_pressure_filler_count_for_rho's own dedicated tests
+        # for that formula in isolation).
+        self.assertEqual(result["pressure_phase"]["object_count"], 1)
+
+    def test_returns_head_reseed_telemetry(self):
+        call_order: list[str] = []
+        _workload, _session, result, _mock = self._run_low_pressure_setting(call_order)
+
+        self.assertIsNotNone(result["head_reseed_after_pressure"])
+        self.assertFalse(
+            result["head_reseed_after_pressure"]["was_evicted_by_pressure"]
+        )
+        self.assertEqual(result["head_reseed_after_pressure"]["cached_tokens"], 3)
+
+    def test_pressure_fillers_are_plain_dense_requests_distinct_from_the_main_head(
+        self,
+    ):
+        call_order: list[str] = []
+        workload, session, _result, _mock = self._run_low_pressure_setting(call_order)
+
+        # session.post_calls is HTTP-only (no metric_snapshot entries),
+        # unlike the shared call_order list -- look the offset up via
+        # the session's own parallel _labels list, never via
+        # call_order.index (which would be off, since call_order
+        # interleaves metric_snapshot labels too).
+        pressure_index = session._labels.index("pressure_filler0")
+        _, pressure_payload = session.post_calls[pressure_index]
+        self.assertNotIn("custom_params", pressure_payload["sampling_params"])
+        self.assertNotEqual(
+            pressure_payload["input_ids"], list(workload.target_head_ids)
+        )
+
+    def test_high_pressure_capacity_fake_full_body_restored_genuine_eviction_zero_fallback(
+        self,
+    ):
+        # The explicitly required "high-pressure capacity fake": a
+        # target_rho=2-equivalent configuration (net of
+        # already_pinned_tokens=4, remaining=196 -> ceil(196/6)=33
+        # fillers, deliberately exceeding the pool's TRUE evictable
+        # headroom of 96) must still: (1) fully restore the target's
+        # head+body on formal reuse (never merely the head), (2) show a
+        # genuine evicted_tokens_total_delta > 0 during the pressure
+        # phase, and (3) never move the dense_fallback counter at all --
+        # proving the reordered setup-before-pressure design remains
+        # correct even under genuine, heavy real eviction pressure, not
+        # just the low-pressure/no-eviction case the other tests above
+        # exercise.
+        workload = self._workload()
+        reuse_cached = workload.body_start_in_target + workload.body_tokens
+        filler_count = 33  # ceil((2.0 * 100 - 4) / 6)
+
+        responses = (
+            [
+                self._response(0),  # source setup -- seed target_head
+                self._response(0),  # source setup -- register raw (1 chunk)
+            ]
+            + [self._response(0)] * filler_count  # pressure fillers
+            + [self._response(0)]  # head re-seed: evicted by pressure (a miss)
+            + [
+                self._response(workload.body_start_in_target),  # warmup fresh
+                self._response(reuse_cached),  # warmup reuse (discarded)
+                self._response(workload.body_start_in_target),  # formal fresh
+                self._response(reuse_cached),  # formal reuse
+            ]
+        )
+        session = _SequencedFakeClientSession(responses)
+
+        metrics_at_setting_start = {
+            "sglang:max_total_num_tokens": 100.0,
+            "sglang:kv_used_tokens": 0.0,
+        }
+        metrics_after_source_setup = {"sglang:kv_used_tokens": 4.0}
+        pressure_metrics_before = {
+            "sglang:evicted_tokens_total": 0.0,
+            "sglang:kv_used_tokens": 4.0,
+            "sglang:approx_kv_dense_fallback_total": 0.0,
+        }
+        pressure_metrics_after = {
+            "sglang:evicted_tokens_total": 130.0,
+            "sglang:kv_used_tokens": 100.0,
+            "sglang:approx_kv_dense_fallback_total": 0.0,
+        }
+        metrics_before = {"sglang:kv_used_tokens": 90.0}
+        metrics_after = {
+            "sglang:kv_used_tokens": 95.0,
+            "sglang:evicted_tokens_total": 150.0,
+        }
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "urllib.request.urlopen", _fake_flush_urlopen([])
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=[
+                metrics_at_setting_start,
+                metrics_after_source_setup,
+                pressure_metrics_before,
+                pressure_metrics_after,
+                metrics_before,
+                metrics_after,
+            ],
+        ):
+            result = run_non_prefix_setting(
+                base_url="http://127.0.0.1:30000",
+                tokenizer=FakeTokenizer(),
+                workload=workload,
+                raw_hash="cachetune-raw:unit-test-high-pressure",
+                fresh_hash="cachetune-fresh:unit-test-high-pressure",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                repeats=1,
+                label="unit-test",
+                max_chunk_tokens=512,
+                target_rho=2.0,
+                pressure_filler_head_tokens=2,
+                pressure_filler_body_tokens=4,
+            )
+
+        self.assertEqual(len(session.post_calls), len(responses))
+        self.assertEqual(result["pressure_phase"]["object_count"], filler_count)
+        # (1) Full head+body restored on the formal reuse call, despite
+        # heavy pressure -- never merely the exact-match head.
+        self.assertEqual(result["reuse_raw_samples"][-1]["cached_tokens"], reuse_cached)
+        self.assertEqual(result["observed_cached_tokens_per_call"], [reuse_cached])
+        # (2) Genuine device-pool eviction actually occurred during the
+        # pressure phase -- not merely reported, but the real Prometheus
+        # delta the pressure phase itself asserts on.
+        self.assertGreater(result["pressure_phase"]["evicted_tokens_total_delta"], 0)
+        # (3) Zero dense-fallback throughout: a plain dense filler
+        # request, a plain dense head re-seed, and a genuine CacheTune
+        # repair all completed successfully with no fallback anywhere.
+        self.assertEqual(result["pressure_phase"]["dense_fallback_total_delta"], 0.0)
+        # The head re-seed guard tolerated the eviction (a miss) without
+        # raising, and every subsequent fresh-register/reuse call still
+        # succeeded against the freshly-reseeded head.
+        self.assertTrue(result["head_reseed_after_pressure"]["was_evicted_by_pressure"])
 
 
 def _fake_flush_urlopen(flush_urls: list) -> callable:
@@ -3557,10 +4320,10 @@ class TestRunExactContextControlPoint(unittest.TestCase):
 
 class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
     """``run_non_prefix_setting``'s formal-repeat loop must ALSO route
-    its own inline fresh-register call through ``register_body_chunks``
-    -- one independent ``/generate`` call per ``<= max_chunk_tokens``
-    chunk, identically to the discarded warmup's own fresh registration
-    (delegated to ``materialize_workload_via_reuse``) -- for EVERY one
+    its own fresh-register call through ``register_body_chunks`` -- one
+    independent ``/generate`` call per ``<= max_chunk_tokens`` chunk,
+    identically to the discarded warmup's own fresh registration (both
+    delegated to the SAME ``run_reuse_once`` helper) -- for EVERY one
     of ``repeats`` formal iterations, never just once. Uses
     ``target_rho=None`` (no eviction-pressure phase) to isolate this
     proof to the setup+warmup and formal-repeat call structure alone."""
@@ -3770,6 +4533,12 @@ class TestBuildSweepPointResult(unittest.TestCase):
             "reuse_ms_samples": [5.0],
             "combined_ms_samples": [15.0],
             "capacity_tokens": 4096,
+            "already_pinned_tokens": 512,
+            "head_reseed_after_pressure": {
+                "ttft_ms": 3.0,
+                "cached_tokens": 34,
+                "was_evicted_by_pressure": False,
+            },
             "observed_rho_after_target": 1.5,
             "peak_rho_observed": 1.6,
             "pressure_and_target_evicted_tokens_total_delta": 200.0,
@@ -3821,6 +4590,8 @@ class TestBuildSweepPointResult(unittest.TestCase):
         self.assertEqual(result["observed_dense_fallback"], 0.0)
         self.assertEqual(result["target_rho"], 1.5)
         self.assertEqual(result["capacity_tokens"], 4096)
+        self.assertEqual(result["already_pinned_tokens"], 512)
+        self.assertEqual(result["head_reseed_after_pressure"]["cached_tokens"], 34)
         self.assertEqual(result["observed_rho_after_target"], 1.5)
         self.assertEqual(result["peak_rho_observed"], 1.6)
         self.assertEqual(
@@ -3913,12 +4684,47 @@ class TestBuildSweepPointResult(unittest.TestCase):
         self.assertIsNone(result["pressure_phase"])
         self.assertTrue(result["passed"])
 
-    def test_pressure_telemetry_passed_through_unchanged(self):
+    def test_already_pinned_tokens_and_head_reseed_are_none_when_no_pressure_phase_ran(
+        self,
+    ):
+        # The genuine production shape for a header=0 or target_rho=None
+        # setting: run_non_prefix_setting never even samples a
+        # post-setup snapshot or runs a pressure phase in that case, so
+        # both keys are None -- must pass through as None, never KeyError
+        # or a stale nonzero placeholder from an unrelated setting.
         workload = self._workload()
         quantized = self._quantized()
         setting_result = self._setting_result(
             metrics_after=self._metrics_after_for(quantized, repeats=2),
+            pressure_phase=None,
+            already_pinned_tokens=None,
+            head_reseed_after_pressure=None,
+        )
+
+        result = build_sweep_point_result(
+            workload=workload,
+            quantized=quantized,
+            repeats=2,
+            setting_result=setting_result,
+        )
+
+        self.assertIsNone(result["already_pinned_tokens"])
+        self.assertIsNone(result["head_reseed_after_pressure"])
+        self.assertTrue(result["passed"])
+
+    def test_pressure_telemetry_passed_through_unchanged(self):
+        workload = self._workload()
+        quantized = self._quantized()
+        head_reseed = {
+            "ttft_ms": 4.0,
+            "cached_tokens": 0,
+            "was_evicted_by_pressure": True,
+        }
+        setting_result = self._setting_result(
+            metrics_after=self._metrics_after_for(quantized, repeats=2),
             capacity_tokens=8192,
+            already_pinned_tokens=2048,
+            head_reseed_after_pressure=head_reseed,
             observed_rho_after_target=2.0,
             peak_rho_observed=2.4,
             pressure_and_target_evicted_tokens_total_delta=999.0,
@@ -3933,6 +4739,8 @@ class TestBuildSweepPointResult(unittest.TestCase):
         )
 
         self.assertEqual(result["capacity_tokens"], 8192)
+        self.assertEqual(result["already_pinned_tokens"], 2048)
+        self.assertEqual(result["head_reseed_after_pressure"], head_reseed)
         self.assertEqual(result["observed_rho_after_target"], 2.0)
         self.assertEqual(result["peak_rho_observed"], 2.4)
         self.assertEqual(

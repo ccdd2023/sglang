@@ -155,17 +155,35 @@ setting, every shape-sweep point, and every rho-sweep point)
    sitting in the tree, ready to silently produce a nonzero
    ``cached_tokens`` for an unrelated later setting's head or
    raw-segment register request.
-2a. If eviction pressure is enabled (the default -- see "Eviction-
-   pressure phase" below), every filler object is sent here, immediately
-   after the flush and before step 3, as a plain dense ``/generate``
-   request -- never registered/materialized through CacheTune's own
-   register-raw/register-fresh/reuse cycle.
 3. Seed the target head once (one dense ``/generate`` call, expected
    ``cached_tokens=0``).
 4. Register the "raw" (source-context) body segment once (one or more
    ``register_body_chunks`` calls, each also expected
    ``cached_tokens=0`` -- see the ``source_head_ids``/``target_head_ids``
-   zero-common-prefix discussion above).
+   zero-common-prefix discussion above). Steps 3+4 together are this
+   setting's own SOURCE setup (``register_non_prefix_sources``),
+   deliberately completed BEFORE step 4a below runs: register's own
+   segment materialization is not wired to evict exact-radix victims to
+   make room for itself, so it must always run while the pool is still
+   at (or near) its post-flush idle baseline -- see
+   ``run_non_prefix_setting``'s own docstring for the real SM75
+   ``target_rho=2`` bug this ordering fixes.
+4a. If eviction pressure is enabled (the default -- see "Eviction-
+   pressure phase" below), every filler object is sent here, immediately
+   AFTER step 4 completes (never before it), as a plain dense
+   ``/generate`` request -- never registered/materialized through
+   CacheTune's own register-raw/register-fresh/reuse cycle. The filler
+   count is reverse-computed against the setup's own real, measured
+   contribution to ``sglang:kv_used_tokens`` (``already_pinned_tokens``),
+   not blind to it -- see "Eviction-pressure phase" below.
+4b. If step 4a ran, one guard re-seed of the target head
+   (``ensure_target_head_resident``): step 3's own seed is the OLDEST
+   exact-radix entry once pressure begins, a plausible LRU-eviction
+   candidate for any ``target_rho > 1`` setting; this guard call
+   tolerates either outcome (hit or miss) and ensures the head is
+   resident again before step 5 -- see that function's own docstring for
+   why this additional, script-added safeguard is necessary under this
+   ordering.
 5. One *discarded* register-fresh + reuse warmup pass.
 6. ``--repeats`` (``>= 2``) formal register-fresh + reuse repeats,
    recording every repeat's raw wall-clock sample -- never just a derived
@@ -228,43 +246,52 @@ microbenchmark, and never CLI-disableable)
 Every setting -- the main setting, every shape-sweep point with
 header > 0, and every rho-sweep point alike -- always sends a freshly
 reverse-computed set of distinct filler ``NonPrefixSegmentWorkload``
-objects (see ``build_eviction_pressure_workloads``) immediately after
-that setting's own flush, before that setting's own head-seed/raw-
-register begins (see ``register_eviction_pressure_objects``). The
-filler object COUNT is reverse-computed (see
-``eviction_pressure_filler_count_for_rho``) from that setting's own
-``target_rho`` (``--main-target-rho`` for the main setting and every
-shape-sweep point, or the specific ``--target-rho-choices`` value under
-test for a rho-sweep point) against a real, live, idle
-``usable_kv_capacity_tokens`` snapshot (see
+objects (see ``build_eviction_pressure_workloads``) immediately AFTER
+that setting's own source setup (head-seed + raw-register, see
+``register_non_prefix_sources``) completes, NEVER before it (see
+``register_eviction_pressure_objects``). This ordering is itself a
+deliberate fix for a real SM75 bug at ``target_rho=2``: an earlier
+version of this phase ran BEFORE source setup, and register's own
+segment materialization is not wired to evict exact-radix victims to
+make room for itself (unlike the reuse/repair path's own recovery-slot
+allocation, which explicitly does) -- under high pressure, setup then
+starved for device headroom and failed. The filler object COUNT is
+reverse-computed (see ``eviction_pressure_filler_count_for_rho``) from
+that setting's own ``target_rho`` (``--main-target-rho`` for the main
+setting and every shape-sweep point, or the specific
+``--target-rho-choices`` value under test for a rho-sweep point)
+against a real, live, idle ``usable_kv_capacity_tokens`` snapshot (see
 ``benchmark.approx_kv.metrics``) taken immediately after that setting's
-own flush -- never a fixed object count. Every filler object's own SHAPE
-(``--pressure-filler-head-tokens``, default ``NON_PREFIX_HEAD_TOKENS``,
-x ``--pressure-filler-body-tokens``, default 2048) is fixed across every
-setting so only the reverse-computed COUNT varies with ``target_rho``,
-keeping peak-rho/eviction numbers comparable across the whole matrix.
+own flush, NET OF ``already_pinned_tokens`` -- the setup's own real,
+measured (never estimated) contribution to ``sglang:kv_used_tokens``,
+sampled immediately after setup completes -- never a fixed object count
+and never blind to what setup has already consumed. Every filler
+object's own SHAPE (``--pressure-filler-head-tokens``, default
+``NON_PREFIX_HEAD_TOKENS``, x ``--pressure-filler-body-tokens``, default
+2048) is fixed across every setting so only the reverse-computed COUNT
+varies with ``target_rho``, keeping peak-rho/eviction numbers comparable
+across the whole matrix.
 
 Each filler is sent as exactly ONE plain, ordinary dense ``/generate``
 request (``dense_generate_payload`` over that filler's own
 ``target_prompt_ids``) -- carrying NO ``approx_kv`` custom_params
 metadata whatsoever, never a register/reuse call. This is a deliberate
-fix for a real, previously-observed SM75 bug at ``target_rho=2``: an
-earlier version of this phase ran every filler through
-``materialize_workload_via_reuse`` (a full seed-head + raw-register +
-fresh-register + reuse CacheTune cycle), which captured each filler's
-raw/fresh body into ``ApproxKVManager``'s own segment store (see
-``approx_kv/runtime.py``) -- a structure the Radix LRU eviction policy
-has no knowledge of and cannot reclaim AT ALL. With enough fillers
-registered that way (observed: from filler[11] onward at
-``target_rho=2`` on a real run), the pool filled with permanently
-un-evictable segments, leaving no room for the setting's own target
-recovery-slot allocation -- its own reuse call then only restored the
-exact-match head (``cached_tokens`` reported head-only, never
-head+body). A plain dense request, by contrast, populates the ordinary
-exact radix tree exactly like any other request and is fully subject to
-normal LRU eviction -- genuine, realistic cache pressure the setting's
-own recovery allocation CAN reclaim from, exactly the way a real
-deployment's unrelated concurrent traffic would behave (the same
+fix for a separate real, previously-observed SM75 bug at
+``target_rho=2``: an earlier version of this phase ran every filler
+through a full seed-head + raw-register + fresh-register + reuse
+CacheTune cycle, which captured each filler's raw/fresh body into
+``ApproxKVManager``'s own segment store (see ``approx_kv/runtime.py``)
+-- a structure the Radix LRU eviction policy has no knowledge of and
+cannot reclaim AT ALL. With enough fillers registered that way (observed:
+from filler[11] onward at ``target_rho=2`` on a real run), the pool
+filled with permanently un-evictable segments, leaving no room for the
+setting's own target recovery-slot allocation -- its own reuse call then
+only restored the exact-match head (``cached_tokens`` reported head-only,
+never head+body). A plain dense request, by contrast, populates the
+ordinary exact radix tree exactly like any other request and is fully
+subject to normal LRU eviction -- genuine, realistic cache pressure the
+setting's own recovery allocation CAN reclaim from, exactly the way a
+real deployment's unrelated concurrent traffic would behave (the same
 "R1"/"R4"-round plain-dense-filler methodology already used by
 ``research/epic-legolink``'s own ``run_phase4_epic_pressure.py``).
 Because every setting's own flush clears the *entire* exact radix tree
@@ -273,6 +300,17 @@ at all), filler objects cannot be built once globally and expected to
 persist across settings: they are rebuilt fresh, from the same fixed
 shape but a per-setting-appropriate count, inside every
 ``run_non_prefix_setting`` call.
+
+Because the setting's own target head is seeded (by
+``register_non_prefix_sources``) BEFORE any filler, it is the OLDEST
+entry in the exact radix tree once this phase begins -- a plausible
+LRU-eviction candidate for any ``target_rho > 1`` setting.
+``ensure_target_head_resident`` runs once, immediately after this phase
+completes, to guard against exactly that (tolerant of either a survived
+hit or an evicted-and-recomputed miss) -- see that function's own
+docstring for why this additional, script-added safeguard (not part of
+the paper's own design) is necessary under this ordering, and why one
+guard call suffices for the rest of the setting's run.
 
 ``NonPrefixSegmentWorkload``'s own ``source_head_ids``/
 ``source_prompt_ids``/``fresh_prompt_ids`` are never sent anywhere for a
@@ -299,13 +337,17 @@ still collide.
 There is no up-front floor check against a nominal fraction (the earlier
 ``--eviction-pressure-min-fraction``/``validate_eviction_pressure_fraction``
 design): a ``target_rho`` value ``> 1`` (the entire ``--target-rho-choices``
-default set except ``0.9``) already means the fillers alone nominally
-request MORE tokens than the whole pool's measured capacity, guaranteeing
-genuine eviction pressure by construction rather than by a separate
-threshold check -- and, since fillers are now genuinely evictable plain
-dense objects, ``register_eviction_pressure_objects`` itself now RAISES
-immediately if that construction holds (nominal filler tokens exceed
-capacity) yet the live ``sglang:evicted_tokens_total`` counter failed to
+default set except ``0.9``) still guarantees, by construction, that
+fillers alone nominally request MORE tokens than the pool's TRUE
+evictable headroom (``capacity_tokens - already_pinned_tokens``, not
+merely raw ``capacity_tokens`` -- see
+``eviction_pressure_filler_count_for_rho``'s own docstring for the
+proof this reduction preserves), guaranteeing genuine eviction pressure
+by construction rather than by a separate threshold check -- and, since
+fillers are now genuinely evictable plain dense objects,
+``register_eviction_pressure_objects`` itself now RAISES immediately if
+that construction holds (nominal filler tokens exceed the TRUE evictable
+headroom) yet the live ``sglang:evicted_tokens_total`` counter failed to
 move while registering them (see that function's own docstring): this
 is no longer merely reported, it is enforced. The honest evidence that
 real device-pool eviction actually occurred is each setting's own
@@ -495,12 +537,14 @@ _PRESSURE_FILLER_MARKER_CODEPOINT_STRIDE = 2654435761
 
 # Defensive upper bound on a single setting's reverse-computed filler
 # object count (see eviction_pressure_filler_count_for_rho). Each filler
-# object costs several real, blocking HTTP round trips (register-raw,
-# then a register-fresh + reuse cycle in materialize_workload_via_reuse)
-# plus an explicit 0.1s sleep in register_eviction_pressure_objects, so an
-# unbounded count from a pathological (--main-target-rho/--target-rho-
-# choices, --pressure-filler-body-tokens, live measured capacity)
-# combination could otherwise silently spend hours issuing real requests
+# object costs one real, blocking HTTP round trip (a single plain dense
+# /generate call -- see register_eviction_pressure_objects's own
+# docstring for why fillers are plain dense requests, never a
+# register/reuse cycle) plus an explicit 0.1s sleep in that same
+# function, so an unbounded count from a pathological
+# (--main-target-rho/--target-rho-choices, --pressure-filler-body-tokens,
+# live measured capacity) combination could otherwise silently spend
+# hours issuing real requests
 # before this setting's own measurement even begins -- this raises
 # immediately instead, the moment the count is known, before any of that
 # per-filler HTTP loop starts. Deliberately far above any plausible real
@@ -1317,11 +1361,12 @@ def eviction_pressure_filler_count_for_rho(
     target_rho: float,
     usable_capacity_tokens: int,
     tokens_per_filler: int,
+    already_pinned_tokens: int = 0,
 ) -> int:
     """Reverse-compute how many filler objects (each contributing
     ``tokens_per_filler`` tokens, see ``eviction_pressure_total_tokens``)
     are needed so their combined *nominal* (requested, not sampled-live)
-    token footprint reaches at least
+    token footprint, PLUS ``already_pinned_tokens``, reaches at least
     ``target_rho * usable_capacity_tokens``.
 
     This is the "actual capacity自动反算...所需filler数" calculation: a
@@ -1333,12 +1378,30 @@ def eviction_pressure_filler_count_for_rho(
     ``target_rho``, never short of it by a fractional-filler rounding
     error.
 
+    ``already_pinned_tokens`` (default 0, preserving the original
+    filler-only formula for any caller that has no such footprint to
+    account for) is the setting's own raw+fresh source-registration KV
+    that is ALREADY resident by the time fillers are computed -- see
+    ``run_non_prefix_setting``'s "register sources before pressure"
+    ordering. That footprint counts toward ``target_rho`` exactly like a
+    filler's own tokens do (both occupy the same live pool), so it is
+    subtracted from the nominal target before dividing by
+    ``tokens_per_filler``: fillers only need to make up the REMAINDER,
+    the "target pre-rho" still unmet by the setup's own already-pinned
+    footprint. If ``already_pinned_tokens`` alone already meets or
+    exceeds the nominal target (a small pool / large setup body / high
+    ``target_rho`` combination), zero fillers are needed at all -- this
+    is a legitimate outcome, not an error, and is returned as ``0``
+    rather than a negative count.
+
     "Nominal" because it is computed purely from *requested* filler
-    tokens; the pool's real, observed occupancy at any instant also
-    depends on whatever eviction has already reclaimed by the time later
-    fillers are sent (see ``observed_rho`` for the genuine, sampled
-    counterpart, read from the live ``sglang:kv_used_tokens`` gauge) --
-    the two are reported side by side, never conflated.
+    tokens (plus the setup's own *measured*, not estimated,
+    ``already_pinned_tokens``); the pool's real, observed occupancy at
+    any instant also depends on whatever eviction has already reclaimed
+    by the time later fillers are sent (see ``observed_rho`` for the
+    genuine, sampled counterpart, read from the live
+    ``sglang:kv_used_tokens`` gauge) -- the two are reported side by
+    side, never conflated.
 
     Raises immediately -- before any pressure-phase HTTP request is ever
     made -- if the reverse-computed count exceeds
@@ -1360,19 +1423,27 @@ def eviction_pressure_filler_count_for_rho(
         )
     if tokens_per_filler <= 0:
         raise ValueError(f"tokens_per_filler must be positive, got {tokens_per_filler}")
+    if already_pinned_tokens < 0:
+        raise ValueError(
+            f"already_pinned_tokens must be >= 0, got {already_pinned_tokens}"
+        )
     target_total_tokens = target_rho * usable_capacity_tokens
-    filler_count = math.ceil(target_total_tokens / tokens_per_filler)
+    remaining_tokens = target_total_tokens - already_pinned_tokens
+    if remaining_tokens <= 0:
+        return 0
+    filler_count = math.ceil(remaining_tokens / tokens_per_filler)
     if filler_count > MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT:
         raise ValueError(
             f"reverse-computed filler_count={filler_count} exceeds the "
             f"sanity bound of {MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT} "
             f"(target_rho={target_rho}, "
             f"usable_capacity_tokens={usable_capacity_tokens}, "
-            f"tokens_per_filler={tokens_per_filler}) -- this would require "
-            "thousands of real, blocking per-filler HTTP round trips "
-            "before this setting's own measurement even begins; raise "
-            "--pressure-filler-body-tokens (fewer, larger fillers needed "
-            "for the same target_rho) or lower --main-target-rho/"
+            f"tokens_per_filler={tokens_per_filler}, "
+            f"already_pinned_tokens={already_pinned_tokens}) -- this would "
+            "require thousands of real, blocking per-filler HTTP round "
+            "trips before this setting's own measurement even begins; "
+            "raise --pressure-filler-body-tokens (fewer, larger fillers "
+            "needed for the same target_rho) or lower --main-target-rho/"
             "--target-rho-choices instead"
         )
     return filler_count
@@ -2077,53 +2148,49 @@ def register_body_chunks(
     }
 
 
-def materialize_workload_via_reuse(
+def register_non_prefix_sources(
     base_url: str,
     workload: NonPrefixSegmentWorkload,
     *,
     raw_hash: str,
-    fresh_hash: str,
     model_fingerprint: str,
     cache_dtype: str,
     label: str,
     max_chunk_tokens: int,
 ) -> dict[str, Any]:
-    """Seed ``workload``'s own exact-match target head, register its raw
-    (source-context) and fresh (target-context) body segments, then
-    issue exactly one real reuse request against it -- forcing
-    CacheTune's genuine repair path to run once and materialize the raw
-    segment onto the device residency tier via ``ensure_device`` (see
-    ``cachetune/runtime.py``).
+    """Seed ``workload``'s own exact-match target head and register its
+    raw (source-context) body segment -- this setting's own one-time
+    SOURCE setup, completed while eviction pressure is still low/absent.
 
-    The raw and fresh body registrations each go through
-    ``register_body_chunks`` -- one INDEPENDENT ``/generate`` call per
-    ``<= max_chunk_tokens`` chunk, never one oversized call spanning the
-    entire body (see that function's own docstring for the real SM75
-    OOM this avoids and why the resulting per-chunk RoPE-position
-    mismatch is safe). The reuse call is deliberately NOT chunked this
-    way: it still posts the FULL ``target_prompt_ids`` in one call with
-    the existing contiguous multi-segment list (see
-    ``body_segments_for_hash``), since a genuine reuse/repair forward
-    pass over the complete target context is exactly what this canary
-    measures -- only the register side's transient per-call footprint
-    is the OOM risk being fixed here.
+    This is deliberately a SEPARATE, standalone function -- not folded
+    together with the fresh-register + reuse cycle the way an earlier
+    version of this script's single ``materialize_workload_via_reuse``
+    did -- because of a real SM75 bug at ``target_rho=2``: that earlier
+    version's caller (``run_non_prefix_setting``) sent eviction-pressure
+    fillers BEFORE this setup ran, and register's own segment
+    materialization is NOT wired to evict exact-radix victims to make
+    room for itself (unlike the reuse/repair path's own recovery-slot
+    allocation, which explicitly DOES evict exact-radix victims before
+    allocating -- see ``allocate_recovery_slots`` in
+    ``cachetune/runtime.py`` / ``mem_cache/common/runtime.py``) -- under
+    high pressure this setup starved for device headroom and failed.
+    The fix is calling this function FIRST, before any filler is ever
+    reverse-computed or sent (see ``run_non_prefix_setting``'s own
+    docstring for the full ordering).
 
-    Used by ``run_non_prefix_setting``'s own one-time setup + discarded
-    warmup pass (seed head -> register raw -> register fresh -> reuse,
-    exactly this sequence) for the main setting and every shape-/rho-
-    sweep point alike. Eviction-pressure filler objects do NOT go
-    through this function: they are sent as a single plain dense
-    request instead (no register/reuse at all -- see
-    ``register_eviction_pressure_objects``'s own docstring for why).
-    Every step here is validated the same way the rest of this script
-    validates every request -- never silently swallowed.
+    The raw body registration goes through ``register_body_chunks`` --
+    one INDEPENDENT ``/generate`` call per ``<= max_chunk_tokens`` chunk,
+    never one oversized call spanning the entire body (see that
+    function's own docstring for the real SM75 OOM this avoids and why
+    the resulting per-chunk RoPE-position mismatch is safe).
 
-    Returns a dict with ``seed_head_ms``, ``register_raw_ms``,
-    ``register_fresh_ms`` (each now the SUM of every chunk's own genuine
-    streaming TTFT, since a multi-chunk body issues multiple independent
-    register calls -- see ``register_body_chunks``), ``reuse_ms`` (the
-    single reuse call's own genuine streaming TTFT) and
-    ``reuse_response`` (the final reuse call's parsed JSON body) for
+    Called exactly once per setting, before any pressure filler and
+    before ``run_reuse_once`` is ever called for that same setting (by
+    the discarded warmup pass or any formal repeat).
+
+    Returns a dict with ``seed_head_ms`` and ``register_raw_ms`` (each
+    the genuine streaming TTFT, summed across every chunk where
+    applicable -- see ``register_body_chunks``), for
     ``run_non_prefix_setting``'s own granular per-step timing.
     """
     seed_response, seed_head_ms = timed_post(
@@ -2146,12 +2213,74 @@ def materialize_workload_via_reuse(
     )
     register_raw_ms = raw_chunks["total_ms"]
 
+    return {
+        "seed_head_ms": seed_head_ms,
+        "register_raw_ms": register_raw_ms,
+    }
+
+
+def run_reuse_once(
+    base_url: str,
+    workload: NonPrefixSegmentWorkload,
+    *,
+    raw_hash: str,
+    fresh_hash: str,
+    model_fingerprint: str,
+    cache_dtype: str,
+    label: str,
+    max_chunk_tokens: int,
+) -> dict[str, Any]:
+    """Register ``workload``'s fresh (target-context) body segment, then
+    issue exactly one real reuse request against it -- forcing
+    CacheTune's genuine repair path to run once and materialize the raw
+    segment onto the device residency tier via ``ensure_device`` (see
+    ``cachetune/runtime.py``).
+
+    ASSUMES ``register_non_prefix_sources`` has already run once for
+    this exact ``workload`` (the target head and raw segment must
+    already be registered/resident): this function only performs the
+    REPEATABLE half of a setting's measurement. Fresh registration is
+    genuinely redone on every call (unlike raw, registered once by
+    ``register_non_prefix_sources`` and reused across every repeat)
+    because it measures the cost of freshly computing this segment from
+    the target's own real context every time -- a real per-repeat
+    baseline comparison against CacheTune's actual repair cost
+    (``fresh_preparation_p50_ms``), not merely idempotent bookkeeping.
+    This is exactly why ``run_non_prefix_setting`` calls this SAME
+    function identically for its one discarded warmup pass AND every
+    formal repeat -- a single implementation of "fresh-register +
+    reuse", not two independently-maintained copies (an earlier version
+    of this script had one copy inside ``materialize_workload_via_reuse``
+    and a second, divergent inline copy in the formal-repeat loop).
+
+    The fresh registration goes through ``register_body_chunks`` -- one
+    INDEPENDENT ``/generate`` call per ``<= max_chunk_tokens`` chunk,
+    never one oversized call spanning the entire body (see that
+    function's own docstring for the real SM75 OOM this avoids). The
+    reuse call is deliberately NOT chunked this way: it still posts the
+    FULL ``target_prompt_ids`` in one call with the existing contiguous
+    multi-segment list (see ``body_segments_for_hash``), since a genuine
+    reuse/repair forward pass over the complete target context is
+    exactly what this canary measures -- only the register side's
+    transient per-call footprint is the OOM risk chunking fixes.
+
+    Returns a dict with ``register_fresh_ms`` (the genuine streaming
+    TTFT, summed across every chunk), ``fresh_cached_tokens`` (always
+    ``workload.body_start_in_target``, already proven true per chunk by
+    ``register_body_chunks``'s own assertion), ``reuse_ms`` (the single
+    reuse call's own genuine streaming TTFT), ``reuse_cached_tokens``
+    (the reuse response's own observed ``meta_info.cached_tokens``,
+    proven equal to ``body_start_in_target + body_tokens`` by this
+    function's own assertion) and ``reuse_response`` (the reuse call's
+    parsed JSON body).
+    """
     # REGISTER never restores (see approx_kv/runtime.py's
     # _register_request_segments -- it bails out immediately unless
     # operation == REUSE), so every fresh chunk's only contribution to
     # prefix_indices is the plain exact-match radix hit on
-    # target_head_ids, already seeded above: body_start_in_target, not 0
-    # (asserted per chunk inside register_body_chunks).
+    # target_head_ids, already seeded by register_non_prefix_sources:
+    # body_start_in_target, not 0 (asserted per chunk inside
+    # register_body_chunks).
     fresh_chunks = register_body_chunks(
         base_url,
         head_ids=workload.target_head_ids,
@@ -2191,18 +2320,91 @@ def materialize_workload_via_reuse(
     # PLUS the entire body (body_tokens), not head-only -- confirmed by
     # a real SM75 run reporting exactly this head+body value where an
     # earlier version of this script expected head-only.
-    require_cached_tokens(
+    reuse_cached_tokens = require_cached_tokens(
         reuse_response,
         workload.body_start_in_target + workload.body_tokens,
         f"{label} reuse",
     )
 
     return {
-        "seed_head_ms": seed_head_ms,
-        "register_raw_ms": register_raw_ms,
         "register_fresh_ms": register_fresh_ms,
+        "fresh_cached_tokens": fresh_chunks["cached_tokens"],
         "reuse_ms": reuse_ms,
+        "reuse_cached_tokens": reuse_cached_tokens,
         "reuse_response": reuse_response,
+    }
+
+
+def ensure_target_head_resident(
+    base_url: str,
+    workload: NonPrefixSegmentWorkload,
+    *,
+    label: str,
+) -> dict[str, Any]:
+    """Re-seed ``workload``'s own exact-match target head with one plain
+    dense ``/generate`` request, tolerant of EITHER outcome -- a cache
+    hit (``cached_tokens == len(target_head_ids)``, the head survived
+    the pressure phase) or a cache miss (``cached_tokens == 0``, the
+    head was evicted and just got recomputed and freshly re-inserted) --
+    never requiring a SPECIFIC one of those two values, only that the
+    request completes successfully with one of them.
+
+    This guards a real correctness risk this script's own "register
+    sources before pressure" ordering introduces (see
+    ``run_non_prefix_setting``'s docstring for that ordering and why it
+    is otherwise mandatory): the target head is seeded once by
+    ``register_non_prefix_sources`` BEFORE any eviction-pressure filler
+    is sent, making it the OLDEST entry in the exact radix tree at the
+    moment pressure begins -- a plausible LRU-eviction candidate for any
+    ``target_rho > 1`` setting (genuine pool overflow is exactly what
+    such a setting is constructed to create). If the head were evicted
+    and nothing re-seeded it, every subsequent ``run_reuse_once`` call
+    this setting makes would fail loudly: register/reuse requests always
+    force ``skip_radix_cache_insert=True`` (see this module's own
+    docstring), so ONLY a plain dense request like this one can ever
+    re-populate the exact radix tree for that head again -- neither
+    ``register_fresh``'s own ``expected_cached_tokens=
+    body_start_in_target`` assertion nor reuse's own full-restore
+    assertion could recover from a silently evicted head, permanently
+    breaking the "any gap forces dense-fallback" invariant for the rest
+    of this setting's run.
+
+    Called exactly once per setting whose ``target_rho`` is set,
+    positioned immediately after the pressure-filler phase completes and
+    before the discarded warmup ``run_reuse_once`` call begins: nothing
+    else grows the exact radix tree during warmup or any formal repeat
+    (both register and reuse always skip radix insertion, see above), so
+    this single guard call is sufficient to protect the head for the
+    remainder of the setting's run -- it never needs to be repeated
+    before every formal repeat.
+
+    This step is NOT part of the paper's own repair-controller design;
+    it is an additional defensive measure this script adds because
+    genuine LRU eviction pressure (the entire point of ``target_rho >
+    1``) sent immediately after seeding the head creates exactly this
+    risk. Returns ``{"ttft_ms": float, "cached_tokens": int,
+    "was_evicted_by_pressure": bool}`` (the last key set from
+    ``cached_tokens == 0``) for caller-side telemetry -- never silently
+    discarded.
+    """
+    response, ttft_ms = timed_post(
+        base_url, dense_generate_payload(workload.target_head_ids)
+    )
+    require_finished_by_length(response, label)
+    cached_tokens = int(response["meta_info"]["cached_tokens"])
+    expected_head_tokens = len(workload.target_head_ids)
+    if cached_tokens not in (0, expected_head_tokens):
+        raise RuntimeError(
+            f"{label}: expected cached_tokens to be either 0 (head was "
+            "evicted by pressure and just got recomputed) or "
+            f"{expected_head_tokens} (head survived pressure), observed "
+            f"{cached_tokens} instead -- this indicates a corrupted or "
+            "unexpected partial radix match, not a clean hit-or-miss"
+        )
+    return {
+        "ttft_ms": ttft_ms,
+        "cached_tokens": cached_tokens,
+        "was_evicted_by_pressure": cached_tokens == 0,
     }
 
 
@@ -2213,6 +2415,7 @@ def register_eviction_pressure_objects(
     label: str,
     capacity_tokens: int,
     target_rho: float,
+    already_pinned_tokens: int = 0,
 ) -> dict[str, Any]:
     """Send every eviction-pressure filler object in ``workloads`` (see
     ``build_eviction_pressure_workloads``) as a PLAIN, ordinary dense
@@ -2223,9 +2426,8 @@ def register_eviction_pressure_objects(
 
     THIS IS A DELIBERATE FIX for a real, previously-observed SM75 bug at
     ``target_rho=2``: an earlier version of this function ran every
-    filler through ``materialize_workload_via_reuse`` (a full seed-head +
-    raw-register + fresh-register + reuse CacheTune cycle). Register/
-    reuse requests always set
+    filler through a full seed-head + raw-register + fresh-register +
+    reuse CacheTune cycle. Register/reuse requests always set
     ``schedule_batch.Req.skip_radix_cache_insert=True`` whenever
     ``approx_kv_metadata`` is present, and their raw/fresh bodies are
     captured into ``ApproxKVManager``'s own segment store (see
@@ -2266,24 +2468,40 @@ def register_eviction_pressure_objects(
     report the genuine, *sampled* ``observed_rho`` (from the live
     ``sglang:kv_used_tokens`` gauge) immediately after this pressure
     phase completes, alongside the nominal target, AND to gate the
-    ``evicted_tokens_total_delta`` assertion below.
+    ``evicted_tokens_total_delta`` assertion below. ``already_pinned_tokens``
+    (default 0) is the setting's own raw+fresh source-registration
+    footprint, ALREADY resident by the time this phase runs (see
+    ``run_non_prefix_setting``'s "register sources before pressure"
+    ordering) -- it is permanently non-evictable for the remainder of
+    this setting (register/reuse never populate the exact radix tree
+    fillers land in, but the raw/fresh segments themselves live in
+    ``ApproxKVManager``'s own segment store, distinct from -- and
+    additive with -- the capacity these plain-dense fillers compete for)
+    and therefore reduces the TRUE evictable headroom available to
+    fillers below ``capacity_tokens`` by that same amount.
+
+    Raises immediately, before sending any filler, if
+    ``already_pinned_tokens >= capacity_tokens``: the setup's own
+    footprint alone already consumes the entire measured pool, an
+    unrecoverable misconfiguration for this phase (there would be zero
+    room left in which fillers, or anything else, could ever coexist).
 
     Raises immediately if ``total_pressure_tokens`` (see
     ``eviction_pressure_total_tokens``) -- the fillers' own combined
-    nominal footprint ALONE, computed from a pool that started this
-    phase genuinely idle (the caller's own just-completed flush) --
-    already exceeds ``capacity_tokens`` yet the live
-    ``sglang:evicted_tokens_total`` Prometheus counter did not increase
-    while registering them: by construction, that combination means
-    later fillers necessarily had to evict earlier ones just to fit, all
-    within this phase alone -- a zero delta despite that would mean
-    capacity accounting or eviction itself is broken, so this pressure
-    phase's own "genuine device pressure" claim must not be silently
-    trusted. (When ``total_pressure_tokens <= capacity_tokens`` -- e.g.
-    ``target_rho <= 1`` -- no such assertion is made: the fillers may
-    legitimately all coexist without any eviction at all, exactly as
-    documented in this module's own "Eviction-pressure phase" docstring
-    section.)
+    nominal footprint ALONE -- already exceeds ``capacity_tokens -
+    already_pinned_tokens`` (the TRUE evictable headroom remaining after
+    the setting's own already-pinned setup footprint is set aside) yet
+    the live ``sglang:evicted_tokens_total`` Prometheus counter did not
+    increase while registering them: by construction, that combination
+    means later fillers necessarily had to evict earlier ones just to
+    fit, all within this phase alone -- a zero delta despite that would
+    mean capacity accounting or eviction itself is broken, so this
+    pressure phase's own "genuine device pressure" claim must not be
+    silently trusted. (When ``total_pressure_tokens <= capacity_tokens -
+    already_pinned_tokens`` -- e.g. ``target_rho <= 1`` -- no such
+    assertion is made: the fillers may legitimately all coexist without
+    any eviction at all, exactly as documented in this module's own
+    "Eviction-pressure phase" docstring section.)
 
     Also raises immediately if
     ``sglang:approx_kv_dense_fallback_total`` increased during this
@@ -2297,18 +2515,35 @@ def register_eviction_pressure_objects(
     Returns a dict with ``object_count``, ``total_pressure_tokens``
     (see ``eviction_pressure_total_tokens``), ``target_rho`` (the
     nominal ask), ``capacity_tokens`` (the fixed reference),
-    ``observed_rho_after_pressure`` (the genuine sampled ratio),
-    ``evicted_tokens_total_delta`` (the genuine, real evidence that
-    device-pool eviction actually happened during THIS pressure phase
-    alone -- may legitimately be 0 if the configured pressure was not
-    large enough to evict anything, and this is reported honestly rather
-    than hidden), and ``dense_fallback_total_delta`` (always 0, given the
-    raise above, kept for output-schema transparency), plus the raw
+    ``already_pinned_tokens`` (surfaced verbatim, for transparency about
+    how much of ``capacity_tokens`` this phase treated as already
+    unavailable to fillers), ``observed_rho_after_pressure`` (the
+    genuine sampled ratio), ``evicted_tokens_total_delta`` (the genuine,
+    real evidence that device-pool eviction actually happened during
+    THIS pressure phase alone -- may legitimately be 0 if the configured
+    pressure was not large enough to evict anything, and this is
+    reported honestly rather than hidden), and
+    ``dense_fallback_total_delta`` (always 0, given the raise above,
+    kept for output-schema transparency), plus the raw
     ``metrics_before``/``metrics_after`` snapshots the deltas above were
     computed from (surfaced verbatim for downstream debugging, exactly
     like ``run_non_prefix_setting``'s own ``metrics_before``/
     ``metrics_after`` keys).
     """
+    if already_pinned_tokens < 0:
+        raise ValueError(
+            f"already_pinned_tokens must be >= 0, got {already_pinned_tokens}"
+        )
+    if already_pinned_tokens >= capacity_tokens:
+        raise ValueError(
+            f"{label}: already_pinned_tokens={already_pinned_tokens} already "
+            f"meets or exceeds capacity_tokens={capacity_tokens} -- this "
+            "setting's own raw+fresh source-registration footprint alone "
+            "consumes the entire measured pool, leaving no room for any "
+            "eviction-pressure filler (or anything else) to ever coexist"
+        )
+    effective_available_tokens = capacity_tokens - already_pinned_tokens
+
     metrics_before = metric_snapshot(base_url)
     for index, filler_workload in enumerate(workloads):
         response, _ = timed_post(
@@ -2337,14 +2572,19 @@ def register_eviction_pressure_objects(
     evicted_tokens_total_delta = metric_delta(
         metrics_before, metrics_after, "sglang:evicted_tokens_total"
     )
-    if total_pressure_tokens > capacity_tokens and evicted_tokens_total_delta <= 0:
+    if (
+        total_pressure_tokens > effective_available_tokens
+        and evicted_tokens_total_delta <= 0
+    ):
         raise RuntimeError(
             f"{label}: {len(workloads)} eviction-pressure filler object(s) "
             f"declare {total_pressure_tokens} nominal tokens against a "
-            f"pool that started this phase genuinely idle with only "
-            f"{capacity_tokens} usable tokens of capacity -- later "
-            "fillers necessarily had to evict earlier ones just to fit, "
-            "yet sglang:evicted_tokens_total did not increase "
+            f"pool with only {effective_available_tokens} tokens of TRUE "
+            f"evictable headroom ({capacity_tokens} usable capacity minus "
+            f"{already_pinned_tokens} already pinned by this setting's own "
+            "raw+fresh source registration) -- later fillers necessarily "
+            "had to evict earlier ones just to fit, yet "
+            "sglang:evicted_tokens_total did not increase "
             f"({evicted_tokens_total_delta}) while registering them. "
             "Either usable_kv_capacity_tokens mis-measured this pool's "
             "real capacity, or LRU eviction is not actually reclaiming "
@@ -2358,6 +2598,7 @@ def register_eviction_pressure_objects(
         "total_pressure_tokens": total_pressure_tokens,
         "target_rho": target_rho,
         "capacity_tokens": capacity_tokens,
+        "already_pinned_tokens": already_pinned_tokens,
         "observed_rho_after_pressure": observed_rho(
             metrics_after, capacity_tokens=capacity_tokens
         ),
@@ -2384,30 +2625,43 @@ def run_non_prefix_setting(
     pressure_filler_head_tokens: int,
     pressure_filler_body_tokens: int,
 ) -> dict[str, Any]:
-    """Flush the exact radix cache, optionally reverse-compute and
-    materialize a fresh eviction-pressure phase sized for ``target_rho``,
-    seed the exact-cache target head, register the raw (source-context)
-    body segment once, run one discarded register-fresh + reuse warmup,
-    snapshot Prometheus metrics, then run ``repeats`` formal
-    register-fresh + reuse repeats.
-
-    Every register-fresh step (the discarded warmup's own, delegated to
-    ``materialize_workload_via_reuse``, AND every formal repeat's own,
-    inline below) goes through ``register_body_chunks`` -- one
-    INDEPENDENT ``/generate`` call per ``<= max_chunk_tokens`` chunk,
-    never one oversized call spanning the entire body -- see that
-    function's own docstring for the real SM75 register-time OOM this
-    avoids. Every formal repeat's own reuse call, like the warmup's, is
-    deliberately NOT chunked this way: it always posts the complete
-    ``target_prompt_ids`` in one call (see ``body_segments_for_hash``),
-    since a genuine full-context reuse/repair forward pass is exactly
-    what this canary measures.
+    """Flush the exact radix cache, register this setting's own raw
+    (source-context) body segment and seed its target head (this
+    setting's own SOURCE setup, completed at still-low pressure),
+    optionally reverse-compute and materialize a fresh eviction-pressure
+    phase sized against the setup's own measured resident footprint, run
+    one discarded register-fresh + reuse warmup, snapshot Prometheus
+    metrics, then run ``repeats`` formal register-fresh + reuse repeats.
 
     The shared measurement routine used by the main CacheTune setting,
     every shape-sweep point, and every rho-sweep point (see the module
     docstring's "Why /generate and non-prefix segments" section for why
-    this flush -> [pressure] -> seed -> register-raw -> warmup -> repeats
+    this flush -> source-setup -> [pressure] -> warmup -> repeats
     ordering is mandatory).
+
+    THIS ORDERING (source setup strictly BEFORE any pressure filler) is
+    itself a deliberate fix for a real SM75 bug at ``target_rho=2``: an
+    earlier version of this function sent pressure fillers FIRST, before
+    this setting's own source setup -- register's own segment
+    materialization is NOT wired to evict exact-radix victims to make
+    room for itself (unlike the reuse/repair path's own recovery-slot
+    allocation, which explicitly DOES evict exact-radix victims before
+    allocating -- see ``allocate_recovery_slots`` in
+    ``cachetune/runtime.py`` / ``mem_cache/common/runtime.py``), so under
+    high pressure this setup starved for device headroom and failed (the
+    failure surfaced inside the setup+warmup call itself). The fix:
+    always complete source setup (``register_non_prefix_sources``) FIRST,
+    at low/no pressure, and reverse-compute the filler count from the
+    setup's own real, *measured* (never merely estimated)
+    ``already_pinned_tokens`` contribution to ``sglang:kv_used_tokens``
+    (see below) -- fillers only need to fill the "target PRE-rho" still
+    unmet by the setup's own already-resident footprint. The target's
+    own recovery allocation (the reuse call, in warmup and every formal
+    repeat) is explicitly expected and allowed to evict fillers to make
+    room for itself -- that IS the genuine eviction pressure this canary
+    is constructed to exercise, at exactly the point (recovery time) it
+    is meant to matter; only SOURCE setup must never depend on evicting
+    anything.
 
     The flush is this function's *own* first action -- not merely the
     caller's responsibility -- because this function runs once per
@@ -2425,13 +2679,26 @@ def run_non_prefix_setting(
     ``usable_kv_capacity_tokens``) -- a fixed reference used for this
     setting's own ``observed_rho`` calculations (never recomputed later,
     since a later snapshot taken mid-pressure could react to a
-    transient, eviction-driven usage dip). If ``target_rho`` is not
-    ``None``, the filler object count is reverse-computed from it against
-    that capacity (see ``eviction_pressure_filler_count_for_rho``) and a
-    fresh pressure phase of plain dense filler requests is sent (see
-    ``register_eviction_pressure_objects``): the flush above resets the
-    entire ``approx_kv`` store (``ApproxKVManager.reset()``, wired
-    through ``RadixCache.reset``/``UnifiedRadixCache.reset`` -- see
+    transient, eviction-driven usage dip). ``register_non_prefix_sources``
+    then runs -- this setting's own seed-head + raw-register setup --
+    while the pool is still at (or near) that same idle baseline.
+
+    If ``target_rho`` is not ``None``, a SECOND ``/metrics`` snapshot,
+    taken immediately after source setup completes, gives
+    ``already_pinned_tokens`` (via ``metric_delta`` against
+    ``metrics_at_setting_start``) -- the setup's own real, measured
+    contribution to ``sglang:kv_used_tokens``. The filler object count is
+    then reverse-computed from ``target_rho`` against ``capacity_tokens``
+    net of that already-pinned footprint (see
+    ``eviction_pressure_filler_count_for_rho``'s own
+    ``already_pinned_tokens`` parameter), and a fresh pressure phase of
+    plain dense filler requests is sent (see
+    ``register_eviction_pressure_objects``, also given
+    ``already_pinned_tokens`` to correctly gate its own "genuine eviction
+    occurred" assertion against the TRUE evictable headroom). The flush
+    above resets the entire ``approx_kv`` store
+    (``ApproxKVManager.reset()``, wired through
+    ``RadixCache.reset``/``UnifiedRadixCache.reset`` -- see
     ``flush_exact_radix_cache``'s own docstring) AND clears the exact
     radix tree those plain dense fillers land in, so a previous
     setting's own already-sent filler objects are gone the moment this
@@ -2445,6 +2712,29 @@ def run_non_prefix_setting(
     with this setting's own head or with another filler's head in the
     live exact radix tree.
 
+    Because the target head is seeded (by ``register_non_prefix_sources``)
+    BEFORE any filler, it is the OLDEST exact-radix entry once pressure
+    begins -- a plausible LRU-eviction candidate for any ``target_rho >
+    1`` setting. ``ensure_target_head_resident`` runs exactly once,
+    immediately after the pressure phase (only when one ran), to guard
+    against exactly that -- see its own docstring for why this is a
+    necessary, additional defensive measure this script adds (not part
+    of the paper's own design, and not explicitly requested, but
+    required for correctness under this ordering) and why one guard call
+    here suffices for the rest of the setting's run.
+
+    Every register-fresh step (the discarded warmup's own, AND every
+    formal repeat's own, both delegated identically to
+    ``run_reuse_once``) goes through ``register_body_chunks`` -- one
+    INDEPENDENT ``/generate`` call per ``<= max_chunk_tokens`` chunk,
+    never one oversized call spanning the entire body -- see that
+    function's own docstring for the real SM75 register-time OOM this
+    avoids. Every reuse call, warmup and formal alike, is deliberately
+    NOT chunked this way: it always posts the complete
+    ``target_prompt_ids`` in one call (see ``body_segments_for_hash``),
+    since a genuine full-context reuse/repair forward pass is exactly
+    what this canary measures.
+
     Returns a dict with ``seed_head_ms``, ``register_raw_ms``,
     ``fresh_raw_samples``, ``reuse_raw_samples`` (each a list of
     ``{"ttft_ms": float, "cached_tokens": int}`` records, one per formal
@@ -2455,16 +2745,22 @@ def run_non_prefix_setting(
     above, kept for existing consumers), ``observed_cached_tokens_per_call``
     (the reuse leg's ``cached_tokens`` projection, unchanged),
     ``metrics_before``/``metrics_after``, ``capacity_tokens`` (this
-    setting's own fixed idle-pool reference), ``observed_rho_after_target``
-    (the genuine, sampled ``sglang:kv_used_tokens`` ratio right after this
-    setting's own formal repeats complete), ``peak_rho_observed`` (the
-    greater of that and the pressure phase's own
-    ``observed_rho_after_pressure``, or just the former when no pressure
-    phase ran), ``pressure_and_target_evicted_tokens_total_delta`` (the
-    cumulative real ``sglang:evicted_tokens_total`` delta spanning from
-    immediately after this setting's own flush through the end of its
-    formal repeats -- i.e. pressure-phase eviction PLUS whatever this
-    setting's own target/source registration additionally evicted), and
+    setting's own fixed idle-pool reference), ``already_pinned_tokens``
+    (``None`` when ``target_rho`` is ``None``, otherwise the setup's own
+    real measured contribution to ``sglang:kv_used_tokens`` used to size
+    the pressure phase -- see above), ``head_reseed_after_pressure``
+    (``None`` when ``target_rho`` is ``None``, otherwise
+    ``ensure_target_head_resident``'s own returned dict),
+    ``observed_rho_after_target`` (the genuine, sampled
+    ``sglang:kv_used_tokens`` ratio right after this setting's own formal
+    repeats complete), ``peak_rho_observed`` (the greater of that and the
+    pressure phase's own ``observed_rho_after_pressure``, or just the
+    former when no pressure phase ran),
+    ``pressure_and_target_evicted_tokens_total_delta`` (the cumulative
+    real ``sglang:evicted_tokens_total`` delta spanning from immediately
+    after this setting's own flush through the end of its formal repeats
+    -- i.e. pressure-phase eviction PLUS whatever this setting's own
+    target/source registration additionally evicted), and
     ``pressure_phase`` (``None`` when ``target_rho`` is ``None``,
     otherwise ``register_eviction_pressure_objects``'s own returned
     telemetry dict) -- everything the caller needs to build its own
@@ -2474,13 +2770,44 @@ def run_non_prefix_setting(
     metrics_at_setting_start = metric_snapshot(base_url)
     capacity_tokens = usable_kv_capacity_tokens(metrics_at_setting_start)
 
+    # Source setup FIRST, always, at low/no pressure -- see this
+    # function's own docstring for the real SM75 bug this ordering
+    # fixes. Never call register_eviction_pressure_objects before this.
+    setup_result = register_non_prefix_sources(
+        base_url,
+        workload,
+        raw_hash=raw_hash,
+        model_fingerprint=model_fingerprint,
+        cache_dtype=cache_dtype,
+        label=f"{label} setup",
+        max_chunk_tokens=max_chunk_tokens,
+    )
+    seed_head_ms = setup_result["seed_head_ms"]
+    register_raw_ms = setup_result["register_raw_ms"]
+
     pressure_phase: dict[str, Any] | None = None
+    already_pinned_tokens: int | None = None
+    head_reseed_after_pressure: dict[str, Any] | None = None
     if target_rho is not None:
+        # Real, measured (never estimated) post-setup footprint: what
+        # register_non_prefix_sources itself already consumed of the
+        # pool, sampled AFTER it completes -- this is what lets fillers
+        # be sized against the setup's own true resident footprint
+        # rather than a blind guess.
+        metrics_after_source_setup = metric_snapshot(base_url)
+        already_pinned_tokens = round(
+            metric_delta(
+                metrics_at_setting_start,
+                metrics_after_source_setup,
+                "sglang:kv_used_tokens",
+            )
+        )
         tokens_per_filler = pressure_filler_head_tokens + pressure_filler_body_tokens
         filler_count = eviction_pressure_filler_count_for_rho(
             target_rho=target_rho,
             usable_capacity_tokens=capacity_tokens,
             tokens_per_filler=tokens_per_filler,
+            already_pinned_tokens=already_pinned_tokens,
         )
         pressure_workloads = build_eviction_pressure_workloads(
             tokenizer,
@@ -2504,23 +2831,35 @@ def run_non_prefix_setting(
             label=label,
             capacity_tokens=capacity_tokens,
             target_rho=target_rho,
+            already_pinned_tokens=already_pinned_tokens,
+        )
+        # The target head was seeded above by register_non_prefix_sources,
+        # BEFORE any filler -- see ensure_target_head_resident's own
+        # docstring for why it is now the oldest exact-radix entry and a
+        # plausible LRU-eviction candidate once fillers accumulate past
+        # capacity. One guard call here is sufficient for the rest of
+        # this setting's run (nothing else grows the exact radix tree
+        # during warmup/formal repeats).
+        head_reseed_after_pressure = ensure_target_head_resident(
+            base_url, workload, label=f"{label} post-pressure head re-seed"
         )
 
-    setup_result = materialize_workload_via_reuse(
+    # Discarded warmup: one fresh-register + reuse cycle whose own
+    # telemetry is intentionally not kept, exactly like the previous
+    # implementation discarded it -- run_reuse_once assumes
+    # register_non_prefix_sources has already run for this workload,
+    # true here regardless of whether a pressure phase (and therefore a
+    # head re-seed) ran in between.
+    run_reuse_once(
         base_url,
         workload,
         raw_hash=raw_hash,
         fresh_hash=fresh_hash,
         model_fingerprint=model_fingerprint,
         cache_dtype=cache_dtype,
-        label=f"{label} setup+warmup (discarded)",
+        label=f"{label} warmup (discarded)",
         max_chunk_tokens=max_chunk_tokens,
     )
-    seed_head_ms = setup_result["seed_head_ms"]
-    register_raw_ms = setup_result["register_raw_ms"]
-    # setup_result's own register_fresh_ms/reuse_ms/reuse_response are
-    # this call's discarded warmup pass -- intentionally not kept, exactly
-    # like the previous inline implementation discarded them.
 
     # Snapshot AFTER warmup: the warmup's own telemetry contribution must
     # not be counted as part of the formal-repeat delta below.
@@ -2528,64 +2867,27 @@ def run_non_prefix_setting(
     fresh_raw_samples: list[dict[str, Any]] = []
     reuse_raw_samples: list[dict[str, Any]] = []
     for _ in range(repeats):
-        # Same rationale as materialize_workload_via_reuse's own fresh
-        # registration: one INDEPENDENT register call per
-        # <= max_chunk_tokens chunk (never one oversized call spanning
-        # the entire body -- see register_body_chunks's own docstring
-        # for the real SM75 OOM this avoids), for every formal repeat
-        # identically. REGISTER never restores, so the only
-        # contribution to prefix_indices is the exact-match radix hit on
-        # the already-seeded target head (body_start_in_target), for
-        # every formal repeat identically (register/reuse requests never
-        # write into the exact radix tree, so this never drifts across
-        # repeats) -- asserted per chunk inside register_body_chunks.
-        fresh_chunks = register_body_chunks(
+        repeat_result = run_reuse_once(
             base_url,
-            head_ids=workload.target_head_ids,
-            shared_body_ids=workload.shared_body_ids,
-            tail_ids=workload.tail_ids,
-            hash_prefix=fresh_hash,
+            workload,
+            raw_hash=raw_hash,
+            fresh_hash=fresh_hash,
             model_fingerprint=model_fingerprint,
             cache_dtype=cache_dtype,
+            label=label,
             max_chunk_tokens=max_chunk_tokens,
-            expected_cached_tokens=workload.body_start_in_target,
-            label=f"{label} fresh preparation",
         )
-        fresh_ttft_ms = fresh_chunks["total_ms"]
-
-        reuse_response, reuse_ttft_ms = timed_post(
-            base_url,
-            reuse_generate_payload(
-                input_ids=workload.target_prompt_ids,
-                segments=body_segments_for_hash(
-                    hash_prefix=raw_hash,
-                    body_start=workload.body_start_in_target,
-                    body_tokens=workload.body_tokens,
-                    max_chunk_tokens=max_chunk_tokens,
-                ),
-                model_fingerprint=model_fingerprint,
-                cache_dtype=cache_dtype,
-            ),
-        )
-        require_finished_by_length(reuse_response, f"{label} reuse")
-        # Full restored prefix (head + entire body), not head-only --
-        # see require_cached_tokens's own docstring for why a successful
-        # CacheTune reuse always extends prefix_indices by the complete
-        # restore_length regardless of the controller's selected ratio.
-        observed_reuse_cached_tokens = require_cached_tokens(
-            reuse_response,
-            workload.body_start_in_target + workload.body_tokens,
-            f"{label} reuse",
-        )
-
         fresh_raw_samples.append(
             {
-                "ttft_ms": fresh_ttft_ms,
-                "cached_tokens": fresh_chunks["cached_tokens"],
+                "ttft_ms": repeat_result["register_fresh_ms"],
+                "cached_tokens": repeat_result["fresh_cached_tokens"],
             }
         )
         reuse_raw_samples.append(
-            {"ttft_ms": reuse_ttft_ms, "cached_tokens": observed_reuse_cached_tokens}
+            {
+                "ttft_ms": repeat_result["reuse_ms"],
+                "cached_tokens": repeat_result["reuse_cached_tokens"],
+            }
         )
         time.sleep(0.1)
     metrics_after = metric_snapshot(base_url)
@@ -2617,6 +2919,8 @@ def run_non_prefix_setting(
         "metrics_before": metrics_before,
         "metrics_after": metrics_after,
         "capacity_tokens": capacity_tokens,
+        "already_pinned_tokens": already_pinned_tokens,
+        "head_reseed_after_pressure": head_reseed_after_pressure,
         "observed_rho_after_target": observed_rho_after_target,
         "peak_rho_observed": peak_rho_observed,
         "pressure_and_target_evicted_tokens_total_delta": metric_delta(
@@ -2781,6 +3085,8 @@ def build_sweep_point_result(
         "reuse_p50_ms": statistics.median(setting_result["reuse_ms_samples"]),
         "combined_p50_ms": statistics.median(setting_result["combined_ms_samples"]),
         "capacity_tokens": setting_result["capacity_tokens"],
+        "already_pinned_tokens": setting_result["already_pinned_tokens"],
+        "head_reseed_after_pressure": setting_result["head_reseed_after_pressure"],
         "target_rho": pressure_phase["target_rho"] if pressure_phase else None,
         "observed_rho_after_target": setting_result["observed_rho_after_target"],
         "peak_rho_observed": setting_result["peak_rho_observed"],
@@ -3154,21 +3460,36 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
     known_limitations.append(
         "Every setting that runs a genuine repair (main, every "
         "shape-sweep point with header > 0, and every rho-sweep point) "
-        "runs its own freshly reverse-computed eviction-pressure phase "
-        "sized against that setting's own real, live, idle "
-        "usable_kv_capacity_tokens snapshot (see "
+        "runs its own freshly reverse-computed eviction-pressure phase, "
+        "sent immediately AFTER (never before) that setting's own "
+        "source setup (head-seed + raw-register) completes, sized "
+        "against that setting's own real, live, idle "
+        "usable_kv_capacity_tokens snapshot NET OF already_pinned_tokens "
+        "(the setup's own real, measured -- not estimated -- "
+        "contribution to sglang:kv_used_tokens, see "
         "eviction_pressure_filler_count_for_rho / "
         "register_eviction_pressure_objects) -- never a single globally-"
         "shared filler set and never CLI-disableable to a single-object "
-        "microbenchmark. Every filler object is sent as a single plain "
-        "dense /generate request with no approx_kv metadata (an "
-        "ordinary, LRU-evictable exact-radix-tree entry), never through "
-        "CacheTune's own register/reuse repair path, so real device-pool "
-        "eviction can actually reclaim filler objects the way normal "
-        "concurrent traffic would in a real deployment; whether real "
-        "device-pool eviction actually occurred for a given setting must "
-        "be read from that setting's own "
-        "pressure_phase.evicted_tokens_total_delta / "
+        "microbenchmark. This source-setup-before-pressure ordering is "
+        "itself a fix for a real SM75 target_rho=2 bug: register's own "
+        "segment materialization is not wired to evict exact-radix "
+        "victims to make room for itself (unlike the reuse/repair "
+        "path's own recovery-slot allocation, which explicitly does), "
+        "so sending pressure first previously starved source setup of "
+        "device headroom under high pressure. A one-time "
+        "ensure_target_head_resident guard re-seed runs immediately "
+        "after the pressure phase (see run_non_prefix_setting's own "
+        "docstring) since the setting's own head, seeded before any "
+        "filler, is the oldest exact-radix entry once pressure begins "
+        "and a plausible LRU-eviction candidate itself. Every filler "
+        "object is sent as a single plain dense /generate request with "
+        "no approx_kv metadata (an ordinary, LRU-evictable "
+        "exact-radix-tree entry), never through CacheTune's own "
+        "register/reuse repair path, so real device-pool eviction can "
+        "actually reclaim filler objects the way normal concurrent "
+        "traffic would in a real deployment; whether real device-pool "
+        "eviction actually occurred for a given setting must be read "
+        "from that setting's own pressure_phase.evicted_tokens_total_delta / "
         "peak_rho_observed / observed_rho_after_target (may legitimately "
         "differ from the nominal target_rho -- reported honestly, never "
         "hidden). The shape sweep's header=0 exact-context control "
@@ -3257,12 +3578,35 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
                 "entire exact radix tree and resets the approx_kv store, "
                 "so eviction-pressure filler objects are freshly "
                 "reverse-computed (from that setting's own target_rho "
-                "against a real, live, idle /metrics snapshot) and "
-                "re-sent inside every run_non_prefix_setting call (main "
-                "setting, every shape-sweep point, and every rho-sweep "
-                "point alike), never built/sent once globally -- see "
+                "against a real, live, idle /metrics snapshot, net of "
+                "already_pinned_tokens) and re-sent inside every "
+                "run_non_prefix_setting call (main setting, every "
+                "shape-sweep point, and every rho-sweep point alike), "
+                "never built/sent once globally -- see "
                 "eviction_pressure_filler_count_for_rho / "
                 "register_eviction_pressure_objects."
+            ),
+            "eviction_pressure_phase_sent_after_source_setup": True,
+            "eviction_pressure_phase_sent_after_source_setup_rationale": (
+                "each setting's pressure phase is sent AFTER (never "
+                "before) that setting's own source setup (head-seed + "
+                "raw-register, see register_non_prefix_sources) "
+                "completes, and its filler count is reverse-computed "
+                "net of already_pinned_tokens (the setup's own real, "
+                "measured -- never estimated -- contribution to "
+                "sglang:kv_used_tokens, sampled right after setup "
+                "finishes). This is a fix for a real SM75 target_rho=2 "
+                "bug where sending pressure BEFORE source setup starved "
+                "setup of device headroom: register's own segment "
+                "materialization, unlike the reuse/repair path's own "
+                "recovery-slot allocation, is not wired to evict "
+                "exact-radix victims to make room for itself. A "
+                "one-time ensure_target_head_resident guard re-seed "
+                "runs immediately after the pressure phase to protect "
+                "the setting's own target head -- seeded before any "
+                "filler, and therefore the oldest exact-radix entry -- "
+                "from this same pressure; see run_non_prefix_setting's "
+                "own docstring."
             ),
             "eviction_pressure_fillers_are_plain_dense_requests": True,
             "eviction_pressure_fillers_are_plain_dense_requests_rationale": (
@@ -3342,6 +3686,8 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
             "register_raw_ms": main_result["register_raw_ms"],
             "last_prompt_token_real_forward": True,
             "capacity_tokens": main_result["capacity_tokens"],
+            "already_pinned_tokens": main_result["already_pinned_tokens"],
+            "head_reseed_after_pressure": main_result["head_reseed_after_pressure"],
             "target_rho": args.main_target_rho,
             "observed_rho_after_target": main_result["observed_rho_after_target"],
             "peak_rho_observed": main_result["peak_rho_observed"],
