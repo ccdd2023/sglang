@@ -885,5 +885,163 @@ class TestCacheBlendRecoveryAllocationEviction(unittest.TestCase):
         self.assertTrue(newly_allocated <= set(allocator.freed))
 
 
+class _WrongTypeCacheBlendPlugin:
+    """Satisfies the `RecoveryPlugin` protocol shape (`name` /
+    `build_plan` / `scheduler_metadata`) well enough for
+    `RecoveryPluginRegistry.register` to accept it under the CacheBlend
+    plugin name, but is deliberately *not* a `CacheBlendRecoveryPlugin`
+    instance -- simulating a scheduler-side registration bug/mismatch
+    that `restore_request_prefix_cacheblend` must reject defensively
+    instead of trusting."""
+
+    name = CACHEBLEND_PLUGIN_NAME
+
+    def build_plan(self, context, store):
+        raise NotImplementedError
+
+    def scheduler_metadata(self, context):
+        return ()
+
+
+class TestCacheBlendSchedulerSafetyFallbacks(unittest.TestCase):
+    """`restore_request_prefix_cacheblend` is called directly from
+    `Req.init_next_round_input`, a scheduler-critical path with no
+    wrapping try/except at the call site. Every failure mode -- including
+    a misregistered plugin of the wrong type and a KV-transfer execution
+    exception -- must be caught, logged, and turned into an honest
+    dense_fallback (`return False`) rather than escaping and killing the
+    scheduler process."""
+
+    def _build_tree(self, allocator, req_pool, metrics=None):
+        manager = ApproxKVManager(
+            ApproxKVFeatureConfig(core_enabled=True),
+            metrics_collector=metrics,
+        )
+        tree = FakeEvictingTree(allocator, req_pool)
+        tree.approx_kv = manager
+        return tree, manager
+
+    def test_wrong_plugin_type_falls_back_instead_of_raising(self):
+        kvcache = FakeKVCache()
+        allocator = FakeAllocator(kvcache)
+        req_pool = FakeReqToTokenPool()
+        metrics = FakeMetricsCollector()
+        tree, manager = self._build_tree(allocator, req_pool, metrics)
+        manager.register_plugin(_WrongTypeCacheBlendPlugin())
+
+        reuse = FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REUSE,
+                segments=(
+                    ApproxKVRequestSegment(
+                        content_hash="cacheblend-raw:pressure",
+                        target_start=0,
+                        length=3,
+                    ),
+                ),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+                plugin=CACHEBLEND_PLUGIN_NAME,
+            ),
+            (10, 11, 12, 13),
+        )
+
+        # Must not raise TypeError (or anything else) out of this call --
+        # that would escape init_next_round_input and kill the scheduler.
+        result = restore_request_prefix_cacheblend(tree, reuse)
+
+        self.assertFalse(result)
+        self.assertEqual(metrics.fallbacks, [("cacheblend_plugin_wrong_type", 0)])
+        self.assertEqual(metrics.requests, [("reuse", "dense_fallback")])
+        # No recovery buffer was ever allocated for this rejection path,
+        # so nothing should have been freed either.
+        self.assertEqual(allocator.freed, [])
+
+    def test_transfer_execution_failure_frees_slot_once_and_falls_back(self):
+        kvcache = FakeKVCache()
+        allocator = FakeAllocator(kvcache)
+        req_pool = FakeReqToTokenPool()
+        req_pool.req_to_token[0, :3] = torch.tensor([200, 201, 202])
+        metrics = FakeMetricsCollector()
+        tree, manager = self._build_tree(allocator, req_pool, metrics)
+
+        raw_segment = ApproxKVRequestSegment(
+            content_hash="cacheblend-raw:pressure", target_start=0, length=3
+        )
+        fresh_segment = ApproxKVRequestSegment(
+            content_hash="cacheblend-fresh:pressure", target_start=0, length=3
+        )
+        tokens = (10, 11, 12, 13)
+        register_request_segments(
+            tree,
+            FakeReq(
+                ApproxKVRequestMetadata(
+                    operation=ApproxKVRequestOperation.REGISTER,
+                    segments=(raw_segment,),
+                    model_fingerprint="model",
+                    cache_dtype="fp32",
+                ),
+                tokens,
+            ),
+        )
+        register_request_segments(
+            tree,
+            FakeReq(
+                ApproxKVRequestMetadata(
+                    operation=ApproxKVRequestOperation.REGISTER,
+                    segments=(fresh_segment,),
+                    model_fingerprint="model",
+                    cache_dtype="fp32",
+                ),
+                tokens,
+            ),
+        )
+
+        plugin = CacheBlendRecoveryPlugin(
+            config=CacheBlendConfig(
+                ratio=0.05,
+                probe_stages=(GradualFilterStage(probe_layer_id=0, keep_ratio=1.0),),
+                first_recompute_layer=1,
+            )
+        )
+        manager.register_plugin(plugin)
+        self.assertFalse(plugin.capable)
+
+        def _boom(plan, backend):
+            del plan, backend
+            raise RuntimeError("simulated CacheBlend transfer execution failure")
+
+        manager.execute = _boom
+
+        next_index = allocator.next_index
+        reuse = FakeReq(
+            ApproxKVRequestMetadata(
+                operation=ApproxKVRequestOperation.REUSE,
+                segments=(raw_segment,),
+                model_fingerprint="model",
+                cache_dtype="fp32",
+                plugin=CACHEBLEND_PLUGIN_NAME,
+            ),
+            tokens + (9999,),
+        )
+
+        # Must not raise out of this call -- the exception from
+        # `manager.execute` must be caught and turned into a dense
+        # fallback instead of escaping init_next_round_input.
+        result = restore_request_prefix_cacheblend(tree, reuse)
+
+        self.assertFalse(result)
+        self.assertGreater(allocator.next_index, next_index)
+        newly_allocated = set(range(next_index, allocator.next_index))
+        # The recovery buffer allocated for this restore attempt must be
+        # freed exactly once -- no leak, and no double-free of the same
+        # indices.
+        self.assertEqual(sorted(allocator.freed), sorted(newly_allocated))
+        self.assertEqual(
+            metrics.fallbacks, [("cacheblend_transfer_execution_failed", 3)]
+        )
+        self.assertEqual(metrics.requests[-1], ("reuse", "dense_fallback"))
+
+
 if __name__ == "__main__":
     unittest.main()

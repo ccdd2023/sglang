@@ -33,6 +33,15 @@ Wires the actual per-request flow:
    flight mismatch) aborts the *entire* restore and frees the
    provisional allocation, falling back to the normal dense/exact path --
    never a partial, silently-degraded write.
+7. This function is called directly from ``Req.init_next_round_input``,
+   a scheduler-critical path with no wrapping try/except at the call
+   site: every failure mode this module can hit -- including a
+   misregistered plugin of the wrong type and a KV-transfer execution
+   exception -- must be caught, logged, recorded as an honest
+   ``dense_fallback`` via ``manager.record_fallback`` /
+   ``manager.record_request``, and returned as ``False`` rather than
+   raised or re-raised, or it would escape this call site and kill the
+   scheduler process.
 
 The restore buffer itself is allocated via the shared common-core
 ``approx_kv.runtime.allocate_recovery_slots`` (ported from the R1
@@ -135,10 +144,17 @@ def restore_request_prefix_cacheblend(tree_cache: Any, req: Any) -> bool:
         manager.record_request("reuse", "dense_fallback")
         return False
     if not isinstance(plugin, CacheBlendRecoveryPlugin):
-        raise TypeError(
-            "the 'cacheblend' plugin registration must be a "
-            "CacheBlendRecoveryPlugin instance"
+        logger.error(
+            "CacheBlend plugin registration has unexpected type %s "
+            "(expected CacheBlendRecoveryPlugin) for request %s; falling "
+            "back to dense instead of raising out of the scheduler's "
+            "init_next_round_input path",
+            type(plugin).__name__,
+            getattr(req, "rid", "<unknown>"),
         )
+        manager.record_fallback("cacheblend_plugin_wrong_type", 0)
+        manager.record_request("reuse", "dense_fallback")
+        return False
 
     if req.needs_host_load_back():
         manager.record_request("reuse", "exact_host_preferred")
@@ -348,7 +364,15 @@ def restore_request_prefix_cacheblend(tree_cache: Any, req: Any) -> bool:
             stats = manager.execute(plan, backend)
         except Exception:
             allocator.free(restored_indices)
-            raise
+            logger.exception(
+                "CacheBlend KV transfer execution failed for request %s",
+                getattr(req, "rid", "<unknown>"),
+            )
+            manager.record_fallback(
+                "cacheblend_transfer_execution_failed", restore_length
+            )
+            manager.record_request("reuse", "dense_fallback")
+            return False
         if fallback_reasons or stats.recomputed_tokens:
             allocator.free(restored_indices)
             manager.record_request("reuse", "dense_fallback")

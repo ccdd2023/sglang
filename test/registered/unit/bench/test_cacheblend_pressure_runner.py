@@ -152,6 +152,114 @@ class TestDenseModeIssuesNoBodyChunkPriming(unittest.TestCase):
         self.assertIn("dense_persistent_token_estimate(", source)
 
 
+# The contract's lossy body sizes: 512 is exactly one segment at the
+# runner's default --segment-tokens=512, the other three each need
+# multiple raw/fresh segments registered and recovered contiguously.
+CONTRACT_BODY_TOKENS = (512, 768, 1024, 2048)
+DEFAULT_SEGMENT_TOKENS = 512
+CONTRACT_HEADER_TOKENS = (0, 32, 64, 128, 256)
+
+
+class TestSegmentedRegistrationCoversFullBodyPerSetting(unittest.TestCase):
+    """`segment_chunks` + `build_target_segments` are the two pure
+    functions that decide, for every (header, body) contract setting,
+    how a body > 512 tokens is split into <=512-token raw/fresh source
+    segments and how those segments are expected to recover *contiguously*
+    at the target. This is real per-setting coverage of every lossy body
+    size in the contract (512/768/1024/2048), not just the single 512/488
+    example the earlier tests exercised."""
+
+    def test_chunk_count_and_lengths_match_expected_512_token_segments(self):
+        expected = {
+            512: [512],
+            768: [512, 256],
+            1024: [512, 512],
+            2048: [512, 512, 512, 512],
+        }
+        for body_tokens in CONTRACT_BODY_TOKENS:
+            with self.subTest(body_tokens=body_tokens):
+                body = list(range(1_000, 1_000 + body_tokens))
+                chunks = segment_chunks(body, DEFAULT_SEGMENT_TOKENS)
+                self.assertEqual(
+                    [len(chunk) for chunk in chunks], expected[body_tokens]
+                )
+                # Splitting must be lossless: concatenating every chunk
+                # back together reproduces the original body exactly, in
+                # order, with nothing dropped or duplicated at a chunk
+                # boundary.
+                self.assertEqual([token for chunk in chunks for token in chunk], body)
+
+    def test_target_segments_are_gapless_and_cover_the_whole_body(self):
+        for body_tokens in CONTRACT_BODY_TOKENS:
+            for header_tokens in CONTRACT_HEADER_TOKENS:
+                with self.subTest(body_tokens=body_tokens, header_tokens=header_tokens):
+                    body = list(range(1_000, 1_000 + body_tokens))
+                    chunks = segment_chunks(body, DEFAULT_SEGMENT_TOKENS)
+                    chunk_lengths = [len(chunk) for chunk in chunks]
+                    segments = build_target_segments(
+                        chunk_lengths,
+                        header_tokens=header_tokens,
+                        hash_prefix="cacheblend-raw:",
+                        content_hash_base="base",
+                    )
+                    # First segment starts exactly at the end of the
+                    # (already exact-cache-seeded) header -- restoring
+                    # the body picks up immediately where the target's
+                    # own exact prefix leaves off.
+                    self.assertEqual(segments[0]["target_start"], header_tokens)
+                    # Every following segment starts exactly where the
+                    # previous one ends: no gap (which `runtime.py`
+                    # would refuse to bridge) and no overlap.
+                    for previous, current in zip(segments, segments[1:]):
+                        previous_end = previous["target_start"] + previous["length"]
+                        self.assertEqual(current["target_start"], previous_end)
+                    # The final segment ends exactly at header + body:
+                    # the whole body is covered, continuously, by the
+                    # segmented registration -- for every body size in
+                    # the contract, not just 512.
+                    last = segments[-1]
+                    self.assertEqual(
+                        last["target_start"] + last["length"],
+                        header_tokens + body_tokens,
+                    )
+                    # Segment indices are 0..n-1 in order, so raw and
+                    # fresh registration (which reuse this same chunk
+                    # list, see TestRawAndFreshSegmentsShareChunkBoundaries
+                    # below) address identical content-hash keys.
+                    self.assertEqual(
+                        [segment["content_hash"] for segment in segments],
+                        [f"cacheblend-raw:base-chunk{i}" for i in range(len(segments))],
+                    )
+
+
+class TestRawAndFreshSegmentsShareChunkBoundaries(unittest.TestCase):
+    """`run_round` must compute the segment boundaries exactly once
+    (a single `chunks = segment_chunks(...)` call) and reuse that same
+    `chunks`/`chunk_lengths` value for the raw registration, the fresh
+    registration, and the target's restore segments. If raw and fresh
+    were ever segmented independently (e.g. two separate
+    `segment_chunks` calls), a future edit could silently desync their
+    chunk boundaries -- registering under one set of content-hash keys
+    while restore looks up another -- and every setting with body > 512
+    would dense-fallback via `store_miss` instead of truly restoring."""
+
+    def test_run_round_computes_chunk_boundaries_exactly_once(self):
+        source = RUNNER_PATH.read_text()
+        self.assertEqual(source.count("segment_chunks(body, args.segment_tokens)"), 1)
+
+    def test_both_raw_and_fresh_registration_calls_reuse_the_same_chunks(self):
+        source = RUNNER_PATH.read_text()
+        # Both register_source_segments calls in run_round must pass the
+        # single `chunks` variable computed above -- not a fresh,
+        # independently-segmented list of their own.
+        self.assertEqual(source.count("chunks=chunks,"), 2)
+
+    def test_target_segments_are_built_from_the_same_chunk_lengths(self):
+        source = RUNNER_PATH.read_text()
+        self.assertIn("chunk_lengths = [len(chunk) for chunk in chunks]", source)
+        self.assertIn("build_target_segments(\n                chunk_lengths,", source)
+
+
 class TestComputeFillerCount(unittest.TestCase):
     def test_zero_when_persistent_tokens_already_exceed_target(self):
         count = compute_filler_count(
