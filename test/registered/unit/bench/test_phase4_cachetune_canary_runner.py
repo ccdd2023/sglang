@@ -13,6 +13,7 @@ import unittest
 import unittest.mock
 from pathlib import Path
 
+from benchmark.approx_kv.metrics import idle_pool_invariant
 from benchmark.approx_kv.run_phase4_cachetune_canary import (
     _PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS,
     _PRESSURE_FILLER_MARKER_CODEPOINT_POOL_SIZE,
@@ -38,12 +39,14 @@ from benchmark.approx_kv.run_phase4_cachetune_canary import (
     build_non_prefix_segment_workload,
     build_settings,
     build_sweep_point_result,
+    capture_final_pool_reset_and_invariant,
     chunk_offsets,
     dense_generate_payload,
     eviction_pressure_filler_count_for_rho,
     eviction_pressure_total_tokens,
     expected_repair_totals,
     flush_exact_radix_cache,
+    main,
     observed_rho,
     register_eviction_pressure_objects,
     register_generate_payload,
@@ -3093,6 +3096,298 @@ class TestValidatePairwiseHeadIsolationAgainstProductionCallShape(unittest.TestC
         ] + [("main", setting_workload.target_head_ids)]
 
         validate_pairwise_head_isolation(labeled_heads)  # must not raise
+
+
+class _OrderTrackingSequencedFakeClientSession(_SequencedFakeClientSession):
+    """Like ``_SequencedFakeClientSession``, but appends ``label`` to a
+    shared ``call_order`` list on every ``.post()`` -- lets a test
+    interleave-verify HTTP-layer call order against ``urllib.request.
+    urlopen``-based calls (e.g. ``flush_exact_radix_cache``) and
+    ``metric_snapshot`` calls, none of which share a single mockable
+    entry point on their own."""
+
+    def __init__(self, responses: list, call_order: list[str], label: str):
+        super().__init__(responses)
+        self._call_order = call_order
+        self._label = label
+
+    def post(self, url, json):
+        self._call_order.append(self._label)
+        return super().post(url, json)
+
+
+class TestCaptureFinalPoolResetAndInvariant(unittest.TestCase):
+    """``capture_final_pool_reset_and_invariant`` must snapshot ``/metrics``
+    BEFORE flushing (informational only, never gating), flush + force one
+    real sentinel request, and ONLY THEN snapshot again and compute
+    ``idle_pool_invariant`` -- never against the pre-flush snapshot,
+    whose nonzero ``kv_used_tokens`` is expected (every setting's own
+    raw/fresh/pressure-filler segments are still resident by design at
+    that point -- a real SM75 run observed exactly this: 4096 used
+    tokens with ``accounted_tokens`` already matching
+    ``max_total_num_tokens``) and must never be misread as a pool leak.
+    """
+
+    @staticmethod
+    def _fake_flush_urlopen(call_order: list[str]) -> callable:
+        class _FakeUrlResponse:
+            def read(self):
+                return b"Cache flushed.\n"
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc_info):
+                return False
+
+        def fake_urlopen(request, timeout=None):
+            call_order.append("flush")
+            return _FakeUrlResponse()
+
+        return fake_urlopen
+
+    @staticmethod
+    def _sentinel_response(finish_type: str = "length"):
+        chunk = {
+            "meta_info": {
+                "finish_reason": {"type": finish_type},
+                "cached_tokens": 0,
+            }
+        }
+        return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
+
+    @staticmethod
+    def _fake_metric_snapshot(
+        call_order: list[str],
+        metrics_pre: dict,
+        metrics_post: dict,
+    ) -> callable:
+        state = {"count": 0}
+
+        def fake_metric_snapshot(base_url):
+            state["count"] += 1
+            call_order.append(f"metric_snapshot_{state['count']}")
+            return metrics_pre if state["count"] == 1 else metrics_post
+
+        return fake_metric_snapshot
+
+    _METRICS_PRE_RESET_STILL_RESIDENT = {
+        "sglang:max_total_num_tokens": 13130.0,
+        "sglang:kv_available_tokens": 9034.0,
+        "sglang:kv_evictable_tokens": 0.0,
+        "sglang:kv_used_tokens": 4096.0,
+    }
+    _METRICS_POST_RESET_IDLE = {
+        "sglang:max_total_num_tokens": 13130.0,
+        "sglang:kv_available_tokens": 13130.0,
+        "sglang:kv_evictable_tokens": 0.0,
+        "sglang:kv_used_tokens": 0.0,
+    }
+
+    def test_flush_and_sentinel_happen_between_pre_and_post_snapshots(self):
+        call_order: list[str] = []
+        session = _OrderTrackingSequencedFakeClientSession(
+            [self._sentinel_response()], call_order, "sentinel_generate"
+        )
+
+        with unittest.mock.patch(
+            "urllib.request.urlopen", self._fake_flush_urlopen(call_order)
+        ), unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=self._fake_metric_snapshot(
+                call_order,
+                self._METRICS_PRE_RESET_STILL_RESIDENT,
+                self._METRICS_POST_RESET_IDLE,
+            ),
+        ):
+            result = capture_final_pool_reset_and_invariant(
+                "http://127.0.0.1:30000", FakeTokenizer()
+            )
+
+        # The exact ordering this fix exists to guarantee: pre-reset
+        # snapshot, THEN flush, THEN the sentinel request, THEN the
+        # post-reset snapshot idle_pool_invariant is computed from.
+        self.assertEqual(
+            call_order,
+            [
+                "metric_snapshot_1",
+                "flush",
+                "sentinel_generate",
+                "metric_snapshot_2",
+            ],
+        )
+        self.assertEqual(len(session.post_calls), 1)
+        self.assertEqual(
+            result["metrics_pre_reset"], self._METRICS_PRE_RESET_STILL_RESIDENT
+        )
+        self.assertEqual(result["metrics_post_reset"], self._METRICS_POST_RESET_IDLE)
+
+    def test_used_tokens_reach_idle_only_after_reset_never_treated_as_leak(self):
+        call_order: list[str] = []
+        session = _OrderTrackingSequencedFakeClientSession(
+            [self._sentinel_response()], call_order, "sentinel_generate"
+        )
+
+        with unittest.mock.patch(
+            "urllib.request.urlopen", self._fake_flush_urlopen(call_order)
+        ), unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=self._fake_metric_snapshot(
+                call_order,
+                self._METRICS_PRE_RESET_STILL_RESIDENT,
+                self._METRICS_POST_RESET_IDLE,
+            ),
+        ):
+            result = capture_final_pool_reset_and_invariant(
+                "http://127.0.0.1:30000", FakeTokenizer()
+            )
+
+        # The still-resident pre-reset snapshot would FAIL idle_pool_
+        # invariant on its own (kv_used_tokens=4096, exactly the real
+        # SM75 observation) -- proving that residency really is nonzero
+        # and would misreport as a leak if it were ever (wrongly) used
+        # to gate pass/fail directly.
+        pre_reset_checked_directly = idle_pool_invariant(result["metrics_pre_reset"])
+        self.assertFalse(pre_reset_checked_directly["passed"])
+        self.assertEqual(pre_reset_checked_directly["kv_used_tokens"], 4096.0)
+        # But the function's OWN returned invariant is computed from the
+        # post-reset snapshot alone, where used tokens genuinely reached
+        # (near-)zero after the flush + sentinel -- this is what
+        # actually gates pass/fail, and it must pass.
+        self.assertTrue(result["pool_invariant"]["passed"])
+        self.assertEqual(result["pool_invariant"]["kv_used_tokens"], 0.0)
+
+    def test_sentinel_payload_is_fixed_deterministic_dense_request(self):
+        call_order: list[str] = []
+        session = _OrderTrackingSequencedFakeClientSession(
+            [self._sentinel_response()], call_order, "sentinel_generate"
+        )
+
+        with unittest.mock.patch(
+            "urllib.request.urlopen", self._fake_flush_urlopen(call_order)
+        ), unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=self._fake_metric_snapshot(
+                call_order,
+                self._METRICS_PRE_RESET_STILL_RESIDENT,
+                self._METRICS_POST_RESET_IDLE,
+            ),
+        ):
+            capture_final_pool_reset_and_invariant(
+                "http://127.0.0.1:30000", FakeTokenizer()
+            )
+
+        self.assertEqual(len(session.post_calls), 1)
+        _, posted_payload = session.post_calls[0]
+        # A plain dense request (no approx_kv metadata at all): its only
+        # job is forcing one real scheduler iteration, never exercising
+        # any CacheTune-specific path.
+        self.assertNotIn("approx_kv_metadata", posted_payload)
+        self.assertEqual(posted_payload["sampling_params"]["max_new_tokens"], 1)
+        self.assertGreater(len(posted_payload["input_ids"]), 0)
+
+    def test_flush_failure_propagates_uncaught(self):
+        # No step in this function may catch its own exceptions (see its
+        # own docstring): a real flush failure must reach main()'s
+        # existing central-log "failed" entry, never be silently
+        # swallowed into a misleadingly "passed" result.
+        def raising_urlopen(request, timeout=None):
+            raise OSError("flush endpoint unreachable")
+
+        with unittest.mock.patch(
+            "urllib.request.urlopen", raising_urlopen
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            return_value=self._METRICS_PRE_RESET_STILL_RESIDENT,
+        ):
+            with self.assertRaises(OSError):
+                capture_final_pool_reset_and_invariant(
+                    "http://127.0.0.1:30000", FakeTokenizer()
+                )
+
+    def test_sentinel_not_finished_by_length_propagates_uncaught(self):
+        call_order: list[str] = []
+        # The sentinel request itself getting cut short (e.g. an abort
+        # or length-limit mismatch) must also propagate, not be
+        # swallowed -- a stuck/failed sentinel means the post-reset
+        # snapshot can never be trusted at all.
+        session = _OrderTrackingSequencedFakeClientSession(
+            [self._sentinel_response(finish_type="abort")],
+            call_order,
+            "sentinel_generate",
+        )
+
+        with unittest.mock.patch(
+            "urllib.request.urlopen", self._fake_flush_urlopen(call_order)
+        ), unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            return_value=self._METRICS_PRE_RESET_STILL_RESIDENT,
+        ):
+            with self.assertRaises(RuntimeError):
+                capture_final_pool_reset_and_invariant(
+                    "http://127.0.0.1:30000", FakeTokenizer()
+                )
+
+
+class TestMainRunCanaryExceptionCentralLog(unittest.TestCase):
+    """``main()``'s pre-existing ``try``/``except`` around
+    ``run_canary(args)`` must append a ``status="failed"`` central-log
+    entry (carrying the exception) and then RE-RAISE -- never swallow --
+    when ``run_canary`` fails for any reason, including a failure inside
+    the new ``capture_final_pool_reset_and_invariant`` step this fix
+    adds (e.g. the final flush or sentinel request itself failing). This
+    proves that step's exceptions are never accidentally caught before
+    reaching this pre-existing central-log-on-failure path -- ``main``
+    itself is intentionally left unmodified by this fix, so this test
+    also guards against a future regression silently breaking that
+    composition."""
+
+    def test_run_canary_failure_appends_failed_entry_and_reraises(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            central_log = Path(tmp_dir) / "central.jsonl"
+            output_path = Path(tmp_dir) / "result.json"
+            fake_args = argparse.Namespace(
+                central_log=central_log,
+                output=output_path,
+                mode="speed_only",
+            )
+            failure = RuntimeError(
+                "final pool-reset sentinel request did not finish by length"
+            )
+
+            with unittest.mock.patch(
+                "benchmark.approx_kv.run_phase4_cachetune_canary.parse_args",
+                return_value=fake_args,
+            ), unittest.mock.patch(
+                "benchmark.approx_kv.run_phase4_cachetune_canary.build_settings",
+                return_value={"mode": "speed_only"},
+            ), unittest.mock.patch(
+                "benchmark.approx_kv.run_phase4_cachetune_canary.run_canary",
+                side_effect=failure,
+            ):
+                with self.assertRaises(RuntimeError):
+                    main()
+
+            lines = central_log.read_text(encoding="utf-8").strip().splitlines()
+
+        self.assertEqual(len(lines), 2)
+        running_entry = json.loads(lines[0])
+        failed_entry = json.loads(lines[1])
+        self.assertEqual(running_entry["status"], "running")
+        self.assertEqual(failed_entry["status"], "failed")
+        self.assertIn(
+            "final pool-reset sentinel request did not finish by length",
+            failed_entry["error"],
+        )
+        self.assertFalse(output_path.exists())
 
 
 if __name__ == "__main__":

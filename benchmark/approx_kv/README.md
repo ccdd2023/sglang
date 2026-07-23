@@ -263,6 +263,23 @@ the exact radix tree themselves since
 `schedule_batch.Req.skip_radix_cache_insert` is forced `True` whenever
 `approx_kv_metadata` is present.
 
+After every setting (main, shape sweep, rho sweep) has finished, every
+raw/fresh/pressure-filler segment registered along the way is still
+intentionally resident -- that residency is the entire point of
+"register once, reuse across repeats," not a leak. So
+`capture_final_pool_reset_and_invariant` snapshots `/metrics` first
+(`pool_invariant_metrics_pre_reset` in the output JSON -- informational
+only; a real SM75 run observed `kv_used_tokens=4096` here even though
+`accounted_tokens` already matched `max_total_num_tokens` exactly, and
+that nonzero usage must never be read as a pool leak), then flushes
+(also resetting `ApproxKVManager`, releasing every such segment), posts
+one small fixed sentinel `/generate` request to force a real scheduler
+iteration (gauges like `kv_used_tokens` are only recomputed on the
+scheduler's own next iteration, not synchronously by `/flush_cache`
+itself), and only then snapshots again
+(`pool_invariant_metrics_post_reset`) and runs `idle_pool_invariant` --
+the ONLY invariant result `passed` is ever gated on.
+
 This fork has no ModelRunner hook for a genuine inline per-layer forward
 over an arbitrary token subset, so every real repair in this canary uses
 the precomputed fresh-KV adapter (`cachetune-raw:`/`cachetune-fresh:`

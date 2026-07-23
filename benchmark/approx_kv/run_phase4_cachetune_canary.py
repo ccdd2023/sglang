@@ -180,6 +180,20 @@ setting, every shape-sweep point, and every rho-sweep point)
    signals (generic SGLang accounting, unrelated to CacheTune's own
    Prometheus counters) that the live request's own prefix boundary
    landed exactly where expected.
+7. After every setting above (main, shape sweep, rho sweep) has
+   completed, ``capture_final_pool_reset_and_invariant`` flushes every
+   still-resident raw/fresh/pressure-filler segment this whole run
+   registered, forces one real scheduler iteration with a small fixed
+   sentinel ``/generate`` request, and only THEN snapshots ``/metrics``
+   and runs ``idle_pool_invariant`` -- never against the pre-flush
+   snapshot, whose nonzero ``kv_used_tokens`` is expected (a real SM75
+   run observed exactly this: 4096 used tokens with ``accounted_tokens``
+   already matching ``max_total_num_tokens``) and must never be
+   misreported as a pool leak. Both the pre-reset and post-reset raw
+   ``/metrics`` snapshots are saved in the output JSON
+   (``pool_invariant_metrics_pre_reset``/``_post_reset``) for
+   visibility, but only the post-reset snapshot's invariant gates
+   ``passed``.
 
 Register/reuse requests never need inter-repeat flushing:
 ``schedule_batch.Req.skip_radix_cache_insert`` is forced True whenever
@@ -451,6 +465,16 @@ MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT = 5000
 # protocol constant, not a CLI knob, so every canary result is comparable
 # under the same discipline.
 WARMUP_PASSES_PER_SETTING = 1
+
+# A tiny, fixed dense request posted once at the very end of the run
+# (see capture_final_pool_reset_and_invariant), purely to force one real
+# scheduler iteration after the final /flush_cache so gauges such as
+# sglang:kv_used_tokens are recomputed from the actually-idle pool
+# rather than read stale immediately after the flush call returns.
+# Small on purpose: its only job is to trigger that recompute, never to
+# exercise CacheTune telemetry.
+_POOL_RESET_SENTINEL_TOKENS = 4
+_POOL_RESET_SENTINEL_SEED = f"{CACHE_SALT}-final-pool-reset-sentinel"
 
 
 def _pressure_filler_marker_codepoint_for_combined_index(combined_index: int) -> int:
@@ -1675,6 +1699,69 @@ def metric_delta(before: dict[str, float], after: dict[str, float], name: str) -
     return after.get(name, 0.0) - before.get(name, 0.0)
 
 
+def capture_final_pool_reset_and_invariant(
+    base_url: str, tokenizer: Any
+) -> dict[str, Any]:
+    """Flush every raw/fresh/pressure-filler segment this run registered,
+    then capture the resulting genuinely-idle pool invariant -- WITHOUT
+    ever treating those now-flushed registrations as if they had been a
+    leak.
+
+    Every setting this canary measures registers raw/fresh source-
+    context segments (and, for pressure settings, many filler objects,
+    see ``register_eviction_pressure_objects``) that are *meant* to stay
+    resident in the KV pool and CacheTune's segment store for that
+    setting's whole run -- "register once, reuse across repeats" is the
+    entire point. So immediately after the last measurement,
+    ``sglang:kv_used_tokens`` is genuinely nonzero by design (a real
+    SM75 run observed 4096 used tokens at exactly this point, with
+    ``accounted_tokens`` already matching ``max_total_num_tokens``
+    exactly): running ``idle_pool_invariant`` directly against that
+    snapshot would misreport this expected, by-design residency as a
+    pool leak and fail an otherwise fully-successful canary for no real
+    defect.
+
+    So this function:
+
+    1. Snapshots ``/metrics`` first (``metrics_pre_reset``) -- kept only
+       for visibility in the result JSON, never used to gate pass/fail.
+    2. Calls ``flush_exact_radix_cache``, which also resets
+       ``ApproxKVManager`` and therefore releases every raw/fresh/
+       pressure-filler segment this run registered (see that function's
+       own docstring).
+    3. Posts one small, fixed *sentinel* ``/generate`` request. Gauges
+       such as ``sglang:kv_used_tokens`` are only recomputed by the
+       scheduler's own next iteration, not synchronously by
+       ``/flush_cache`` itself (see ``schedule_batch.py``) -- so unless
+       a real request actually runs after the flush, the very next
+       ``/metrics`` scrape can still read a stale pre-flush value.
+    4. Snapshots ``/metrics`` again (``metrics_post_reset``) and runs
+       ``idle_pool_invariant`` on *that* snapshot alone -- this is the
+       only invariant result callers should gate pass/fail on.
+
+    No step here catches its own exceptions: a flush failure or a
+    failed/stuck sentinel request must propagate all the way up to
+    ``main``'s existing central-log "failed" entry, exactly like every
+    other unrecoverable error in this script (see ``post_empty``'s own
+    docstring for the same rationale) -- a silently-ignored failure here
+    would silently hide a real final-state problem behind a misleading
+    "passed" result.
+    """
+    metrics_pre_reset = metric_snapshot(base_url)
+    flush_exact_radix_cache(base_url)
+    sentinel_ids = _deterministic_token_ids(
+        tokenizer, _POOL_RESET_SENTINEL_SEED, _POOL_RESET_SENTINEL_TOKENS
+    )
+    sentinel_response, _ = timed_post(base_url, dense_generate_payload(sentinel_ids))
+    require_finished_by_length(sentinel_response, "final pool-reset sentinel")
+    metrics_post_reset = metric_snapshot(base_url)
+    return {
+        "metrics_pre_reset": metrics_pre_reset,
+        "metrics_post_reset": metrics_post_reset,
+        "pool_invariant": idle_pool_invariant(metrics_post_reset),
+    }
+
+
 def expected_repair_totals(
     *,
     repair_tokens_per_call: int,
@@ -2715,8 +2802,16 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
     if not all(point["passed"] for point in rho_sweep_points):
         raise RuntimeError(f"rho sweep validation failed: {rho_sweep_points}")
 
-    metrics_final = metric_snapshot(args.base_url)
-    pool_invariant = idle_pool_invariant(metrics_final)
+    # Every setting above intentionally left raw/fresh/pressure-filler
+    # segments resident (see capture_final_pool_reset_and_invariant's own
+    # docstring) -- flush them and force one real scheduler iteration
+    # before trusting the pool's idle invariant, instead of gating
+    # pass/fail on a pre-flush snapshot that would misreport that
+    # by-design residency as a leak.
+    final_pool_reset = capture_final_pool_reset_and_invariant(args.base_url, tokenizer)
+    metrics_pre_reset = final_pool_reset["metrics_pre_reset"]
+    metrics_post_reset = final_pool_reset["metrics_post_reset"]
+    pool_invariant = final_pool_reset["pool_invariant"]
     health_status = fetch_text(f"{args.base_url}/health")
 
     known_limitations = [
@@ -2964,6 +3059,20 @@ def run_canary(args: argparse.Namespace) -> dict[str, Any]:
         "shape_sweep_points": shape_sweep_points,
         "rho_sweep_points": rho_sweep_points,
         "pool_invariant": pool_invariant,
+        "pool_invariant_metrics_pre_reset": metrics_pre_reset,
+        "pool_invariant_metrics_post_reset": metrics_post_reset,
+        "pool_invariant_reset_note": (
+            "pool_invariant (and its gating 'passed' bit) is computed "
+            "ONLY from pool_invariant_metrics_post_reset, i.e. after "
+            "flush_exact_radix_cache and one sentinel /generate request "
+            "(see capture_final_pool_reset_and_invariant). "
+            "pool_invariant_metrics_pre_reset is the raw /metrics "
+            "snapshot from immediately before that reset -- its "
+            "kv_used_tokens is expected to be nonzero (every setting's "
+            "raw/fresh/pressure-filler segments are still resident by "
+            "design at that point) and must never be read as a pool "
+            "leak."
+        ),
         "health_response": health_status,
         "known_limitations": known_limitations,
         "passed": all(telemetry_checks.values())
