@@ -52,13 +52,13 @@ from benchmark.approx_kv.run_phase4_cachetune_canary import (
     register_body_chunks,
     register_eviction_pressure_objects,
     register_generate_payload,
-    register_non_prefix_sources,
+    register_round_setup,
     require_cached_tokens,
     require_finished_by_length,
     reuse_generate_payload,
     run_exact_context_control_point,
     run_non_prefix_setting,
-    run_reuse_once,
+    run_target_reuse,
     timed_post,
     validate_pairwise_head_isolation,
 )
@@ -2324,15 +2324,15 @@ class _SequencedFakeClientSession:
     order -- unlike ``_FakeClientSession``, which always replays the
     same single response.
 
-    Needed to test ``register_non_prefix_sources`` / ``run_reuse_once``
-    / ``register_eviction_pressure_objects``: a single workload's
-    source setup plus one reuse cycle alone already issues four
-    sequential requests (seed head, register raw, register fresh,
-    reuse), each expected to report different ``cached_tokens``, and
-    multiple filler objects chain many such sequences back to back.
-    Raises ``AssertionError`` (never silently replaying a stale
-    response) if more ``.post()`` calls happen than responses were
-    provided -- an unexpected extra call is itself a sign the
+    Needed to test ``register_round_setup`` / ``run_target_reuse`` /
+    ``register_eviction_pressure_objects``: a single round's own setup
+    plus one reuse call alone already issues four sequential requests
+    (seed head, register raw, register fresh, reuse), each expected to
+    report different ``cached_tokens``, and multiple filler objects
+    chain many such sequences back to back. Raises ``AssertionError``
+    (never silently replaying a stale response) if more ``.post()``
+    calls happen than responses were provided -- an unexpected extra
+    call is itself a sign the
     production code under test regressed.
     """
 
@@ -2367,12 +2367,12 @@ class _LabeledSequencedFakeClientSession(_SequencedFakeClientSession):
     ``.post()``.
 
     Needed to prove the RELATIVE order of several DIFFERENT kinds of
-    HTTP request a single ``run_non_prefix_setting`` call makes (source
-    setup, pressure filler, head re-seed, warmup, formal repeat) --
-    unlike ``_OrderTrackingSequencedFakeClientSession`` (below), which
-    only supports one fixed label shared by every call in the sequence,
-    sufficient for a flow with just one kind of HTTP request but not
-    for this multi-phase one.
+    HTTP request a single ``run_non_prefix_setting`` call makes (round
+    setup, pressure filler, head re-seed, warmup round, formal repeat)
+    -- unlike ``_OrderTrackingSequencedFakeClientSession`` (below),
+    which only supports one fixed label shared by every call in the
+    sequence, sufficient for a flow with just one kind of HTTP request
+    but not for this multi-phase one.
     """
 
     def __init__(self, responses: list, labels: list[str], call_order: list[str]):
@@ -2831,17 +2831,23 @@ class TestRegisterBodyChunks(unittest.TestCase):
         self.assertIn("unit-test chunk1", str(ctx.exception))
 
 
-class TestRegisterNonPrefixSources(unittest.TestCase):
-    """``register_non_prefix_sources`` is this setting's own one-time
-    SOURCE setup -- seed the exact-match target head, then register the
-    raw (source-context) body segment -- split out of the former
-    monolithic ``materialize_workload_via_reuse`` specifically so it can
-    run to completion BEFORE any eviction-pressure filler is ever sent
-    (see ``run_non_prefix_setting``'s own docstring for the real SM75
-    ``target_rho=2`` bug this split fixes). Must still route the raw
-    body registration through ``register_body_chunks`` -- one
-    independent ``/generate`` call per ``<= max_chunk_tokens`` chunk,
-    never one oversized call spanning the entire body."""
+class TestRegisterRoundSetup(unittest.TestCase):
+    """``register_round_setup`` is one ROUND's own complete, indivisible
+    setup: seed the exact-match target head, then register BOTH the raw
+    (source-context) AND fresh (target-context) body segments, in that
+    order -- always finished in full while THIS round's own eviction
+    pressure is still low/absent. Both body registrations must route
+    through ``register_body_chunks`` -- one independent ``/generate``
+    call per ``<= max_chunk_tokens`` chunk, never one oversized call
+    spanning the entire body.
+
+    Registering raw AND fresh together (rather than raw once per
+    *setting* and fresh again on every repeat, an earlier design's
+    split between a since-removed ``register_non_prefix_sources``
+    function and a since-removed ``run_reuse_once`` function) is a
+    deliberate fix for a real SM75 ``target_rho=2`` ``MemoryError`` --
+    see ``run_independent_round``'s own docstring for the full root
+    cause."""
 
     def _workload(self, body_tokens):
         return build_non_prefix_segment_workload(
@@ -2849,180 +2855,7 @@ class TestRegisterNonPrefixSources(unittest.TestCase):
             body_tokens=body_tokens,
             head_tokens=64,
             tail_tokens=1,
-            salt=f"unit-test-register-sources-{body_tokens}",
-        )
-
-    def _response(self, cached_tokens):
-        chunk = {
-            "meta_info": {
-                "finish_reason": {"type": "length"},
-                "cached_tokens": cached_tokens,
-            }
-        }
-        return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
-
-    def _success_responses(self, chunk_count):
-        return [self._response(0)] * (1 + chunk_count)  # seed + raw chunks
-
-    def test_body_1024_issues_one_seed_and_two_raw_register_calls(self):
-        workload = self._workload(body_tokens=1024)
-        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
-        self.assertEqual(chunk_count, 2)
-        session = _SequencedFakeClientSession(self._success_responses(chunk_count))
-
-        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
-            result = register_non_prefix_sources(
-                "http://127.0.0.1:30000",
-                workload,
-                raw_hash="cachetune-raw:unit-test-1024",
-                model_fingerprint="qwen3-0.6b-sm75",
-                cache_dtype="fp16",
-                label="unit-test",
-                max_chunk_tokens=512,
-            )
-
-        # 1 seed + 2 raw chunks == 3 total calls -- never one oversized
-        # raw call spanning the whole body, and never a fresh/reuse call
-        # at all (that is run_reuse_once's own job, not this function's).
-        self.assertEqual(len(session.post_calls), 3)
-        self.assertGreaterEqual(result["seed_head_ms"], 0.0)
-        self.assertGreaterEqual(result["register_raw_ms"], 0.0)
-
-        seed_url, seed_payload = session.post_calls[0]
-        self.assertEqual(seed_url, "http://127.0.0.1:30000/generate")
-        self.assertEqual(seed_payload["input_ids"], list(workload.target_head_ids))
-        self.assertNotIn("custom_params", seed_payload["sampling_params"])
-
-    def test_body_2048_issues_one_seed_and_four_raw_register_calls(self):
-        workload = self._workload(body_tokens=2048)
-        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
-        self.assertEqual(chunk_count, 4)
-        session = _SequencedFakeClientSession(self._success_responses(chunk_count))
-
-        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
-            register_non_prefix_sources(
-                "http://127.0.0.1:30000",
-                workload,
-                raw_hash="cachetune-raw:unit-test-2048",
-                model_fingerprint="qwen3-0.6b-sm75",
-                cache_dtype="fp16",
-                label="unit-test",
-                max_chunk_tokens=512,
-            )
-
-        # 1 seed + 4 raw chunks == 5 total calls.
-        self.assertEqual(len(session.post_calls), 5)
-
-    def test_every_raw_chunk_prompt_is_bounded_by_head_plus_chunk_plus_tail(self):
-        # Direct proof the old oversized-single-call raw-register path
-        # (which would have sent a ~1089-token prompt in one call for
-        # this exact body/head/tail combination, OOM'ing a real SM75
-        # server at register time) is gone: every raw chunk call below
-        # must instead stay within one chunk's own small bound.
-        workload = self._workload(body_tokens=1024)
-        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
-        session = _SequencedFakeClientSession(self._success_responses(chunk_count))
-
-        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
-            register_non_prefix_sources(
-                "http://127.0.0.1:30000",
-                workload,
-                raw_hash="cachetune-raw:unit-test-1024b",
-                model_fingerprint="qwen3-0.6b-sm75",
-                cache_dtype="fp16",
-                label="unit-test",
-                max_chunk_tokens=512,
-            )
-
-        bound = 64 + 512 + 1  # head_tokens + max_chunk_tokens + tail_tokens
-        raw_calls = session.post_calls[1:]  # everything after the seed call
-        self.assertEqual(len(raw_calls), chunk_count)
-        for _, payload in raw_calls:
-            self.assertLessEqual(len(payload["input_ids"]), bound)
-
-    def test_raw_register_content_hashes_match_reuse_side_body_segments_for_hash(self):
-        # register_non_prefix_sources's own per-chunk content_hash
-        # sequence must be exactly what body_segments_for_hash (the
-        # REUSE-side builder) produces for the same raw_hash -- this is
-        # the only thing that makes a chunk registered here resolvable
-        # by a later reuse call's lookup.
-        workload = self._workload(body_tokens=2048)
-        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
-        raw_hash = "cachetune-raw:unit-test-1024c"
-        session = _SequencedFakeClientSession(self._success_responses(chunk_count))
-
-        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
-            register_non_prefix_sources(
-                "http://127.0.0.1:30000",
-                workload,
-                raw_hash=raw_hash,
-                model_fingerprint="qwen3-0.6b-sm75",
-                cache_dtype="fp16",
-                label="unit-test",
-                max_chunk_tokens=512,
-            )
-
-        observed_hashes = [
-            payload["sampling_params"]["custom_params"]["approx_kv"]["segments"][0][
-                "content_hash"
-            ]
-            for _, payload in session.post_calls[1:]
-        ]
-        expected_hashes = [
-            segment["content_hash"]
-            for segment in body_segments_for_hash(
-                hash_prefix=raw_hash,
-                body_start=0,
-                body_tokens=workload.body_tokens,
-                max_chunk_tokens=512,
-            )
-        ]
-        self.assertEqual(observed_hashes, expected_hashes)
-
-    def test_raises_when_seed_reports_nonzero_cached_tokens(self):
-        # The seed request must be the FIRST appearance of this exact
-        # target_head_ids in the tree (this setting's own just-completed
-        # flush guarantees this) -- a nonzero cached_tokens here means
-        # something upstream did not actually flush.
-        workload = self._workload(body_tokens=64)
-        chunk = {"meta_info": {"finish_reason": {"type": "length"}, "cached_tokens": 5}}
-        session = _SequencedFakeClientSession(
-            [_FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])]
-        )
-
-        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
-            with self.assertRaises(RuntimeError) as ctx:
-                register_non_prefix_sources(
-                    "http://127.0.0.1:30000",
-                    workload,
-                    raw_hash="cachetune-raw:unit-test-seed-nonzero",
-                    model_fingerprint="qwen3-0.6b-sm75",
-                    cache_dtype="fp16",
-                    label="unit-test",
-                    max_chunk_tokens=512,
-                )
-        self.assertIn("seed target_head", str(ctx.exception))
-
-
-class TestRunReuseOnce(unittest.TestCase):
-    """``run_reuse_once`` is the REPEATABLE half of a setting's own
-    measurement -- register the fresh (target-context) body segment,
-    then issue exactly one reuse request -- used identically for the
-    discarded warmup pass AND every formal repeat (a single
-    implementation, replacing what used to be two independently
-    maintained copies: one inside the old monolithic
-    ``materialize_workload_via_reuse``, one inline in the formal-repeat
-    loop). ASSUMES ``register_non_prefix_sources`` already ran once for
-    the same workload -- this function never seeds the head or
-    registers the raw segment itself."""
-
-    def _workload(self, body_tokens):
-        return build_non_prefix_segment_workload(
-            FakeTokenizer(),
-            body_tokens=body_tokens,
-            head_tokens=64,
-            tail_tokens=1,
-            salt=f"unit-test-run-reuse-once-{body_tokens}",
+            salt=f"unit-test-register-round-setup-{body_tokens}",
         )
 
     def _response(self, cached_tokens):
@@ -3035,12 +2868,13 @@ class TestRunReuseOnce(unittest.TestCase):
         return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
 
     def _success_responses(self, workload, chunk_count):
-        reuse_cached = workload.body_start_in_target + workload.body_tokens
-        return [self._response(workload.body_start_in_target)] * chunk_count + [
-            self._response(reuse_cached)
-        ]
+        return (
+            [self._response(0)]  # seed
+            + [self._response(0)] * chunk_count  # raw chunks
+            + [self._response(workload.body_start_in_target)] * chunk_count  # fresh
+        )
 
-    def test_body_1024_issues_two_fresh_register_calls_and_one_reuse_call(self):
+    def test_body_1024_issues_one_seed_two_raw_and_two_fresh_register_calls(self):
         workload = self._workload(body_tokens=1024)
         chunk_count = len(chunk_offsets(workload.body_tokens, 512))
         self.assertEqual(chunk_count, 2)
@@ -3049,40 +2883,33 @@ class TestRunReuseOnce(unittest.TestCase):
         )
 
         with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
-            result = run_reuse_once(
+            result = register_round_setup(
                 "http://127.0.0.1:30000",
                 workload,
-                raw_hash="cachetune-raw:unit-test-reuse-1024",
-                fresh_hash="cachetune-fresh:unit-test-reuse-1024",
+                raw_hash="cachetune-raw:unit-test-1024",
+                fresh_hash="cachetune-fresh:unit-test-1024",
                 model_fingerprint="qwen3-0.6b-sm75",
                 cache_dtype="fp16",
                 label="unit-test",
                 max_chunk_tokens=512,
             )
 
-        # 2 fresh chunks + 1 reuse == 3 total calls -- never a seed or
-        # raw-register call (register_non_prefix_sources's own job).
-        self.assertEqual(len(session.post_calls), 3)
+        # 1 seed + 2 raw chunks + 2 fresh chunks == 5 total calls -- both
+        # raw AND fresh registered together as one setup, never just raw
+        # (that would be an earlier design's split), and never a reuse
+        # call at all (that is run_target_reuse's own job).
+        self.assertEqual(len(session.post_calls), 5)
+        self.assertGreaterEqual(result["seed_head_ms"], 0.0)
+        self.assertGreaterEqual(result["register_raw_ms"], 0.0)
         self.assertGreaterEqual(result["register_fresh_ms"], 0.0)
         self.assertEqual(result["fresh_cached_tokens"], workload.body_start_in_target)
-        self.assertGreaterEqual(result["reuse_ms"], 0.0)
-        self.assertEqual(
-            result["reuse_cached_tokens"],
-            workload.body_start_in_target + workload.body_tokens,
-        )
-        self.assertIsInstance(result["reuse_response"], dict)
 
-        # The reuse call (the very last one) must still be a single
-        # call over the COMPLETE, un-chunked target_prompt_ids -- never
-        # split into per-chunk calls the way register is.
-        _, reuse_payload = session.post_calls[-1]
-        self.assertEqual(reuse_payload["input_ids"], list(workload.target_prompt_ids))
-        reuse_segments = reuse_payload["sampling_params"]["custom_params"]["approx_kv"][
-            "segments"
-        ]
-        self.assertEqual(len(reuse_segments), chunk_count)
+        seed_url, seed_payload = session.post_calls[0]
+        self.assertEqual(seed_url, "http://127.0.0.1:30000/generate")
+        self.assertEqual(seed_payload["input_ids"], list(workload.target_head_ids))
+        self.assertNotIn("custom_params", seed_payload["sampling_params"])
 
-    def test_body_2048_issues_four_fresh_register_calls_and_one_reuse_call(self):
+    def test_body_2048_issues_one_seed_four_raw_and_four_fresh_register_calls(self):
         workload = self._workload(body_tokens=2048)
         chunk_count = len(chunk_offsets(workload.body_tokens, 512))
         self.assertEqual(chunk_count, 4)
@@ -3091,21 +2918,27 @@ class TestRunReuseOnce(unittest.TestCase):
         )
 
         with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
-            run_reuse_once(
+            register_round_setup(
                 "http://127.0.0.1:30000",
                 workload,
-                raw_hash="cachetune-raw:unit-test-reuse-2048",
-                fresh_hash="cachetune-fresh:unit-test-reuse-2048",
+                raw_hash="cachetune-raw:unit-test-2048",
+                fresh_hash="cachetune-fresh:unit-test-2048",
                 model_fingerprint="qwen3-0.6b-sm75",
                 cache_dtype="fp16",
                 label="unit-test",
                 max_chunk_tokens=512,
             )
 
-        # 4 fresh chunks + 1 reuse == 5 total calls.
-        self.assertEqual(len(session.post_calls), 5)
+        # 1 seed + 4 raw chunks + 4 fresh chunks == 9 total calls.
+        self.assertEqual(len(session.post_calls), 9)
 
-    def test_every_fresh_chunk_prompt_is_bounded_by_head_plus_chunk_plus_tail(self):
+    def test_raw_runs_entirely_before_fresh(self):
+        # Raw must be registered BEFORE fresh, in that order, within
+        # this one setup step -- see this class's own docstring for why
+        # the exact ordering inside setup itself does not matter for
+        # correctness (both complete before any pressure filler either
+        # way), but a stable, deterministic order still makes the
+        # content-hash-pairing assertions below unambiguous.
         workload = self._workload(body_tokens=1024)
         chunk_count = len(chunk_offsets(workload.body_tokens, 512))
         session = _SequencedFakeClientSession(
@@ -3113,11 +2946,49 @@ class TestRunReuseOnce(unittest.TestCase):
         )
 
         with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
-            run_reuse_once(
+            register_round_setup(
                 "http://127.0.0.1:30000",
                 workload,
-                raw_hash="cachetune-raw:unit-test-reuse-1024b",
-                fresh_hash="cachetune-fresh:unit-test-reuse-1024b",
+                raw_hash="cachetune-raw:unit-test-order",
+                fresh_hash="cachetune-fresh:unit-test-order",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+                max_chunk_tokens=512,
+            )
+
+        raw_calls = session.post_calls[1 : 1 + chunk_count]
+        fresh_calls = session.post_calls[1 + chunk_count :]
+        for _, payload in raw_calls:
+            segment = payload["sampling_params"]["custom_params"]["approx_kv"][
+                "segments"
+            ][0]
+            self.assertTrue(segment["content_hash"].startswith("cachetune-raw:"))
+        for _, payload in fresh_calls:
+            segment = payload["sampling_params"]["custom_params"]["approx_kv"][
+                "segments"
+            ][0]
+            self.assertTrue(segment["content_hash"].startswith("cachetune-fresh:"))
+
+    def test_every_raw_and_fresh_chunk_prompt_is_bounded_by_head_plus_chunk_plus_tail(
+        self,
+    ):
+        # Direct proof the old oversized-single-call register path (which
+        # would have sent a ~1089-token prompt in one call for this exact
+        # body/head/tail combination, OOM'ing a real SM75 server at
+        # register time) is gone from BOTH raw and fresh registration.
+        workload = self._workload(body_tokens=1024)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        session = _SequencedFakeClientSession(
+            self._success_responses(workload, chunk_count)
+        )
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            register_round_setup(
+                "http://127.0.0.1:30000",
+                workload,
+                raw_hash="cachetune-raw:unit-test-1024b",
+                fresh_hash="cachetune-fresh:unit-test-1024b",
                 model_fingerprint="qwen3-0.6b-sm75",
                 cache_dtype="fp16",
                 label="unit-test",
@@ -3125,22 +2996,27 @@ class TestRunReuseOnce(unittest.TestCase):
             )
 
         bound = 64 + 512 + 1  # head_tokens + max_chunk_tokens + tail_tokens
-        fresh_calls = session.post_calls[:-1]  # everything before the reuse call
-        self.assertEqual(len(fresh_calls), chunk_count)
-        for _, payload in fresh_calls:
+        register_calls = session.post_calls[1:]  # everything after the seed call
+        self.assertEqual(len(register_calls), 2 * chunk_count)
+        for _, payload in register_calls:
             self.assertLessEqual(len(payload["input_ids"]), bound)
 
-    def test_fresh_register_and_reuse_content_hashes_are_consistently_paired(self):
-        workload = self._workload(body_tokens=1024)
+    def test_raw_and_fresh_content_hashes_match_reuse_side_body_segments_for_hash(self):
+        # Both raw's and fresh's own per-chunk content_hash sequence
+        # must be exactly what body_segments_for_hash (the REUSE-side
+        # builder) produces for the respective raw_hash/fresh_hash --
+        # this is the only thing that makes a chunk registered here
+        # resolvable by a later reuse call's lookup.
+        workload = self._workload(body_tokens=2048)
         chunk_count = len(chunk_offsets(workload.body_tokens, 512))
-        raw_hash = "cachetune-raw:unit-test-reuse-1024c"
-        fresh_hash = "cachetune-fresh:unit-test-reuse-1024c"
+        raw_hash = "cachetune-raw:unit-test-1024c"
+        fresh_hash = "cachetune-fresh:unit-test-1024c"
         session = _SequencedFakeClientSession(
             self._success_responses(workload, chunk_count)
         )
 
         with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
-            run_reuse_once(
+            register_round_setup(
                 "http://127.0.0.1:30000",
                 workload,
                 raw_hash=raw_hash,
@@ -3151,66 +3027,250 @@ class TestRunReuseOnce(unittest.TestCase):
                 max_chunk_tokens=512,
             )
 
-        fresh_calls = session.post_calls[:chunk_count]
-        reuse_segments = session.post_calls[-1][1]["sampling_params"]["custom_params"][
-            "approx_kv"
-        ]["segments"]
-        for index, (_, payload) in enumerate(fresh_calls):
-            segment = payload["sampling_params"]["custom_params"]["approx_kv"][
-                "segments"
-            ][0]
-            self.assertEqual(segment["content_hash"], f"{fresh_hash}:chunk{index}")
-            # The reuse call's own segments are built from raw_hash, not
-            # fresh_hash -- reuse always resolves the RAW (source-
-            # context) segment store entry, never the fresh one.
-            self.assertEqual(
-                reuse_segments[index]["content_hash"], f"{raw_hash}:chunk{index}"
+        raw_calls = session.post_calls[1 : 1 + chunk_count]
+        fresh_calls = session.post_calls[1 + chunk_count :]
+        observed_raw_hashes = [
+            payload["sampling_params"]["custom_params"]["approx_kv"]["segments"][0][
+                "content_hash"
+            ]
+            for _, payload in raw_calls
+        ]
+        observed_fresh_hashes = [
+            payload["sampling_params"]["custom_params"]["approx_kv"]["segments"][0][
+                "content_hash"
+            ]
+            for _, payload in fresh_calls
+        ]
+        expected_raw_hashes = [
+            segment["content_hash"]
+            for segment in body_segments_for_hash(
+                hash_prefix=raw_hash,
+                body_start=0,
+                body_tokens=workload.body_tokens,
+                max_chunk_tokens=512,
             )
+        ]
+        expected_fresh_hashes = [
+            segment["content_hash"]
+            for segment in body_segments_for_hash(
+                hash_prefix=fresh_hash,
+                body_start=0,
+                body_tokens=workload.body_tokens,
+                max_chunk_tokens=512,
+            )
+        ]
+        self.assertEqual(observed_raw_hashes, expected_raw_hashes)
+        self.assertEqual(observed_fresh_hashes, expected_fresh_hashes)
 
-    def test_can_be_called_repeatedly_for_warmup_then_formal_repeats(self):
-        # The exact reuse this fix depends on: run_non_prefix_setting
-        # calls this SAME function identically for its one discarded
-        # warmup pass and then again for every formal repeat -- proving
-        # it is safely callable more than once in a row for the same
-        # workload (register_fresh is genuinely redone every call; reuse
-        # never mutates workload itself).
+    def test_raises_when_seed_reports_nonzero_cached_tokens(self):
+        # The seed request must be the FIRST appearance of this exact
+        # target_head_ids in the tree (this round's own just-completed
+        # flush guarantees this) -- a nonzero cached_tokens here means
+        # something upstream did not actually flush.
         workload = self._workload(body_tokens=64)
-        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
-        self.assertEqual(chunk_count, 1)
-        responses = self._success_responses(workload, chunk_count) * 3
-        session = _SequencedFakeClientSession(responses)
+        chunk = {"meta_info": {"finish_reason": {"type": "length"}, "cached_tokens": 5}}
+        session = _SequencedFakeClientSession(
+            [_FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])]
+        )
 
         with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
-            for _ in range(3):
-                result = run_reuse_once(
+            with self.assertRaises(RuntimeError) as ctx:
+                register_round_setup(
                     "http://127.0.0.1:30000",
                     workload,
-                    raw_hash="cachetune-raw:unit-test-repeatable",
-                    fresh_hash="cachetune-fresh:unit-test-repeatable",
+                    raw_hash="cachetune-raw:unit-test-seed-nonzero",
+                    fresh_hash="cachetune-fresh:unit-test-seed-nonzero",
                     model_fingerprint="qwen3-0.6b-sm75",
                     cache_dtype="fp16",
                     label="unit-test",
                     max_chunk_tokens=512,
                 )
-                self.assertEqual(
-                    result["reuse_cached_tokens"],
-                    workload.body_start_in_target + workload.body_tokens,
-                )
+        self.assertIn("seed target_head", str(ctx.exception))
 
-        self.assertEqual(len(session.post_calls), 3 * (chunk_count + 1))
+
+class TestRunTargetReuse(unittest.TestCase):
+    """``run_target_reuse`` is the reuse-ONLY half of one round's own
+    measurement -- issue exactly one reuse request against segments a
+    prior ``register_round_setup`` call already registered for the SAME
+    round. Used identically for the discarded warmup round and every
+    formal repeat, via ``run_independent_round``.
+
+    Performs NO registration of its own: an earlier design (a since-
+    removed ``run_reuse_once`` function) registered fresh again on every
+    call and shared ONE raw registration (from a since-removed
+    ``register_non_prefix_sources``, called once per *setting*) across
+    every repeat -- see ``register_round_setup``'s own docstring for the
+    real SM75 ``target_rho=2`` ``MemoryError`` that split caused."""
+
+    def _workload(self, body_tokens):
+        return build_non_prefix_segment_workload(
+            FakeTokenizer(),
+            body_tokens=body_tokens,
+            head_tokens=64,
+            tail_tokens=1,
+            salt=f"unit-test-run-target-reuse-{body_tokens}",
+        )
+
+    def _response(self, cached_tokens):
+        chunk = {
+            "meta_info": {
+                "finish_reason": {"type": "length"},
+                "cached_tokens": cached_tokens,
+            }
+        }
+        return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
+
+    def test_body_1024_issues_exactly_one_reuse_call(self):
+        workload = self._workload(body_tokens=1024)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        self.assertEqual(chunk_count, 2)
+        reuse_cached = workload.body_start_in_target + workload.body_tokens
+        session = _SequencedFakeClientSession([self._response(reuse_cached)])
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            result = run_target_reuse(
+                "http://127.0.0.1:30000",
+                workload,
+                raw_hash="cachetune-raw:unit-test-reuse-1024",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+                max_chunk_tokens=512,
+            )
+
+        # Exactly ONE call -- never a seed, raw-register, or
+        # fresh-register call (register_round_setup's own job).
+        self.assertEqual(len(session.post_calls), 1)
+        self.assertGreaterEqual(result["reuse_ms"], 0.0)
+        self.assertEqual(result["reuse_cached_tokens"], reuse_cached)
+        self.assertIsInstance(result["reuse_response"], dict)
+
+        # The reuse call must still be a single call over the COMPLETE,
+        # un-chunked target_prompt_ids -- never split into per-chunk
+        # calls the way register is.
+        _, reuse_payload = session.post_calls[0]
+        self.assertEqual(reuse_payload["input_ids"], list(workload.target_prompt_ids))
+        reuse_segments = reuse_payload["sampling_params"]["custom_params"]["approx_kv"][
+            "segments"
+        ]
+        self.assertEqual(len(reuse_segments), chunk_count)
+
+    def test_body_2048_still_issues_exactly_one_reuse_call(self):
+        workload = self._workload(body_tokens=2048)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        self.assertEqual(chunk_count, 4)
+        reuse_cached = workload.body_start_in_target + workload.body_tokens
+        session = _SequencedFakeClientSession([self._response(reuse_cached)])
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            run_target_reuse(
+                "http://127.0.0.1:30000",
+                workload,
+                raw_hash="cachetune-raw:unit-test-reuse-2048",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+                max_chunk_tokens=512,
+            )
+
+        self.assertEqual(len(session.post_calls), 1)
+
+    def test_reuse_content_hashes_are_built_from_raw_hash_not_a_fresh_hash(self):
+        workload = self._workload(body_tokens=1024)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        raw_hash = "cachetune-raw:unit-test-reuse-1024c"
+        reuse_cached = workload.body_start_in_target + workload.body_tokens
+        session = _SequencedFakeClientSession([self._response(reuse_cached)])
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            run_target_reuse(
+                "http://127.0.0.1:30000",
+                workload,
+                raw_hash=raw_hash,
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                label="unit-test",
+                max_chunk_tokens=512,
+            )
+
+        reuse_segments = session.post_calls[0][1]["sampling_params"]["custom_params"][
+            "approx_kv"
+        ]["segments"]
+        expected_hashes = [
+            segment["content_hash"]
+            for segment in body_segments_for_hash(
+                hash_prefix=raw_hash,
+                body_start=workload.body_start_in_target,
+                body_tokens=workload.body_tokens,
+                max_chunk_tokens=512,
+            )
+        ]
+        self.assertEqual(len(reuse_segments), chunk_count)
+        self.assertEqual(
+            [segment["content_hash"] for segment in reuse_segments], expected_hashes
+        )
+
+    def test_can_be_called_repeatedly_against_independently_registered_segments(self):
+        # The exact reuse this fix depends on: run_independent_round
+        # calls this SAME function identically for the discarded warmup
+        # round and every formal repeat -- proving it is safely callable
+        # more than once in a row for the same workload, with no
+        # internal state of its own carried between calls.
+        workload = self._workload(body_tokens=64)
+        reuse_cached = workload.body_start_in_target + workload.body_tokens
+        session = _SequencedFakeClientSession([self._response(reuse_cached)] * 3)
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            for _ in range(3):
+                result = run_target_reuse(
+                    "http://127.0.0.1:30000",
+                    workload,
+                    raw_hash="cachetune-raw:unit-test-repeatable",
+                    model_fingerprint="qwen3-0.6b-sm75",
+                    cache_dtype="fp16",
+                    label="unit-test",
+                    max_chunk_tokens=512,
+                )
+                self.assertEqual(result["reuse_cached_tokens"], reuse_cached)
+
+        self.assertEqual(len(session.post_calls), 3)
+
+    def test_raises_when_reuse_reports_head_only_cached_tokens(self):
+        # A successful CacheTune reuse always extends prefix_indices by
+        # the FULL restored body (body_start_in_target + body_tokens),
+        # never just the exact-match head alone -- a head-only value
+        # here means the recovery-slot allocation silently failed to
+        # restore the body.
+        workload = self._workload(body_tokens=64)
+        session = _SequencedFakeClientSession(
+            [self._response(workload.body_start_in_target)]
+        )
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            with self.assertRaises(RuntimeError) as ctx:
+                run_target_reuse(
+                    "http://127.0.0.1:30000",
+                    workload,
+                    raw_hash="cachetune-raw:unit-test-reuse-head-only",
+                    model_fingerprint="qwen3-0.6b-sm75",
+                    cache_dtype="fp16",
+                    label="unit-test",
+                    max_chunk_tokens=512,
+                )
+        self.assertIn("reuse", str(ctx.exception))
 
 
 class TestEnsureTargetHeadResident(unittest.TestCase):
-    """``ensure_target_head_resident`` re-seeds a setting's own target
-    head with one plain dense request after the eviction-pressure
-    phase, tolerant of EITHER a survived-pressure cache hit
-    (``cached_tokens == len(target_head_ids)``) or an evicted-by-
-    pressure cache miss (``cached_tokens == 0``) -- but never a
-    corrupted partial value that is neither. This is an additional
+    """``ensure_target_head_resident`` re-seeds a round's own target
+    head with one plain dense request after that round's own
+    eviction-pressure phase, tolerant of EITHER a survived-pressure
+    cache hit (``cached_tokens == len(target_head_ids)``) or an
+    evicted-by-pressure cache miss (``cached_tokens == 0``) -- but never
+    a corrupted partial value that is neither. This is an additional
     defensive measure this script adds (not part of CacheTune's own
     design) because sending genuine LRU eviction pressure immediately
-    after seeding the head -- this script's own "register sources
-    before pressure" ordering fix -- makes the head itself a plausible
+    after seeding the head -- this script's own "register setup before
+    pressure" ordering, per round -- makes the head itself a plausible
     LRU-eviction candidate; without this guard, an evicted head could
     never be restored by any later register/reuse call (both always
     skip radix insertion)."""
@@ -3291,7 +3351,7 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
 
     This replaces an earlier design that ran every filler through a
     full seed+raw-register+fresh-register+reuse CacheTune cycle (what
-    is now ``register_non_prefix_sources`` + ``run_reuse_once``): a
+    is now ``register_round_setup`` + ``run_target_reuse``): a
     real SM75 run at ``target_rho=2`` showed that design's raw/fresh
     segments accumulate as permanently un-evictable residency
     (``ApproxKVManager``'s own segment store is invisible to Radix LRU
@@ -3792,20 +3852,26 @@ class TestRegisterEvictionPressureObjects(unittest.TestCase):
 
 
 class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
-    """``run_non_prefix_setting``'s own pressure-phase wiring must
-    complete this setting's own SOURCE setup (seed-head + raw-register,
-    via ``register_non_prefix_sources``) BEFORE reverse-computing or
-    sending any eviction-pressure filler, then re-seed the target head
-    (via ``ensure_target_head_resident``) before the discarded warmup
-    and every formal repeat (both via ``run_reuse_once``) -- proving
-    the end-to-end call-site wiring for the real SM75 ``target_rho=2``
-    ordering bug fix, not just its constituent functions in isolation.
+    """``run_non_prefix_setting``'s own pressure-phase wiring, exercised
+    end to end (not just its constituent functions in isolation): every
+    ROUND -- the one discarded warmup round AND every formal repeat,
+    each via ``run_independent_round`` -- must flush, complete its OWN
+    setup (seed-head + raw-register + fresh-register, via
+    ``register_round_setup``) BEFORE reverse-computing or sending any
+    eviction-pressure filler sized from THAT round's own post-setup
+    measurement, then re-seed the target head (via
+    ``ensure_target_head_resident``) before that SAME round's own
+    ``run_target_reuse`` call.
 
-    An earlier version of this test class (and of ``run_non_prefix_
-    setting`` itself) proved and required the OPPOSITE ordering --
-    pressure fillers sent BEFORE source setup -- which is exactly the
-    bug this fix corrects; see ``run_non_prefix_setting``'s own
-    docstring for the full root-cause account.
+    This is the current (fully-independent-round) architecture, fixing
+    a real SM75 ``target_rho=2`` ``MemoryError``: an earlier design
+    shared ONE raw registration across the discarded warmup and every
+    formal repeat, re-registering only fresh (and re-sizing pressure)
+    on each repeat -- see ``run_independent_round``'s own docstring for
+    the full root-cause account. An even earlier design before that
+    proved and required sending pressure fillers BEFORE any source
+    setup at all, the first of the two real SM75 bugs this module's
+    test suite has now fixed.
     """
 
     def _workload(self):
@@ -3839,74 +3905,88 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
 
         return fake_metric_snapshot
 
+    def _one_round_responses_and_labels(
+        self, workload, round_name: str, filler_count: int, *, head_reseed_hit: bool
+    ):
+        """One ROUND's own complete HTTP call sequence: setup (seed +
+        raw + fresh, always 3 calls for this single-chunk workload) ->
+        ``filler_count`` plain-dense pressure fillers -> head re-seed ->
+        reuse. Used identically to build both the discarded warmup
+        round's own sequence and every formal round's own sequence --
+        never shared or reused between rounds."""
+        reuse_cached = workload.body_start_in_target + workload.body_tokens
+        responses = (
+            [self._response(0)]  # setup: seed target_head
+            + [self._response(0)]  # setup: register raw (1 chunk)
+            + [self._response(workload.body_start_in_target)]  # setup: register fresh
+            + [self._response(0)] * filler_count  # pressure fillers
+            + [
+                self._response(len(workload.target_head_ids) if head_reseed_hit else 0)
+            ]  # head re-seed
+            + [self._response(reuse_cached)]  # reuse
+        )
+        labels = (
+            [
+                f"{round_name}_setup_seed",
+                f"{round_name}_setup_raw_chunk0",
+                f"{round_name}_setup_fresh_chunk0",
+            ]
+            + [f"{round_name}_pressure_filler{i}" for i in range(filler_count)]
+            + [f"{round_name}_head_reseed", f"{round_name}_reuse"]
+        )
+        return responses, labels
+
     def _run_low_pressure_setting(self, call_order: list[str]):
-        """Shared fixture for the ordering/telemetry tests below: a
-        single filler (target_rho=0.1, low pressure, no genuine
-        eviction expected), already_pinned_tokens=4 threaded from a
-        measured post-setup delta, and a head that survives the
+        """Shared fixture for the ordering/telemetry tests below: ONE
+        discarded warmup round plus ONE formal repeat, each
+        independently sized to a single filler (target_rho=0.1, low
+        pressure, no genuine eviction expected), each with its own
+        already_pinned_tokens=4 threaded from THAT round's own measured
+        post-setup delta, and a head that survives each round's own
         pressure phase (a hit, cached_tokens == full head length)."""
         workload = self._workload()
-        reuse_cached = workload.body_start_in_target + workload.body_tokens
-
-        responses = [
-            self._response(0),  # 0: source setup -- seed target_head
-            self._response(0),  # 1: source setup -- register raw (1 chunk)
-            self._response(0),  # 2: pressure filler[0]
-            self._response(len(workload.target_head_ids)),  # 3: head re-seed (hit)
-            self._response(workload.body_start_in_target),  # 4: warmup fresh
-            self._response(reuse_cached),  # 5: warmup reuse (discarded)
-            self._response(workload.body_start_in_target),  # 6: formal fresh
-            self._response(reuse_cached),  # 7: formal reuse
-        ]
-        labels = [
-            "source_setup_seed",
-            "source_setup_raw_chunk0",
-            "pressure_filler0",
-            "head_reseed",
-            "warmup_fresh_chunk0",
-            "warmup_reuse",
-            "formal_fresh_chunk0",
-            "formal_reuse",
-        ]
+        warmup_responses, warmup_labels = self._one_round_responses_and_labels(
+            workload, "warmup", filler_count=1, head_reseed_hit=True
+        )
+        formal_responses, formal_labels = self._one_round_responses_and_labels(
+            workload, "formal", filler_count=1, head_reseed_hit=True
+        )
+        responses = warmup_responses + formal_responses
+        labels = warmup_labels + formal_labels
         session = _LabeledSequencedFakeClientSession(responses, labels, call_order)
 
-        # capacity_tokens=100 (max_total_num_tokens fallback);
-        # already_pinned_tokens = 4.0 - 0.0 = 4 (the measured post-setup
-        # delta); tokens_per_filler = pressure_filler_head_tokens(2) +
-        # pressure_filler_body_tokens(4) = 6; target_rho=0.1 ->
-        # target_total=10, remaining=10-4=6 -> ceil(6/6)=1 filler (never
-        # still 2, the already_pinned_tokens=0 count -- proof the
-        # already-pinned footprint genuinely reduces the filler count).
-        metrics_at_setting_start = {
-            "sglang:max_total_num_tokens": 100.0,
-            "sglang:kv_used_tokens": 0.0,
-        }
-        metrics_after_source_setup = {"sglang:kv_used_tokens": 4.0}
-        pressure_metrics_before = {
-            "sglang:evicted_tokens_total": 0.0,
-            "sglang:kv_used_tokens": 4.0,
-            "sglang:approx_kv_dense_fallback_total": 0.0,
-        }
-        pressure_metrics_after = {
-            "sglang:evicted_tokens_total": 0.0,
-            "sglang:kv_used_tokens": 10.0,
-            "sglang:approx_kv_dense_fallback_total": 0.0,
-        }
-        metrics_before = {"sglang:kv_used_tokens": 10.0}
-        metrics_after = {"sglang:kv_used_tokens": 20.0}
-        snapshots = [
-            metrics_at_setting_start,
-            metrics_after_source_setup,
-            pressure_metrics_before,
-            pressure_metrics_after,
-            metrics_before,
-            metrics_after,
-        ]
+        # capacity_tokens=100 (max_total_num_tokens fallback), re-read
+        # fresh from EVERY round's own round_start snapshot;
+        # already_pinned_tokens = 4.0 - 0.0 = 4 for EACH round (that
+        # round's own measured post-setup delta); tokens_per_filler =
+        # pressure_filler_head_tokens(2) + pressure_filler_body_tokens(4)
+        # = 6; target_rho=0.1 -> target_total=10, remaining=10-4=6 ->
+        # ceil(6/6)=1 filler each round (never still 2, the
+        # already_pinned_tokens=0 count -- proof the already-pinned
+        # footprint genuinely reduces the filler count every round).
+        def _one_round_snapshots():
+            return [
+                {"sglang:max_total_num_tokens": 100.0, "sglang:kv_used_tokens": 0.0},
+                {"sglang:kv_used_tokens": 4.0},
+                {
+                    "sglang:evicted_tokens_total": 0.0,
+                    "sglang:kv_used_tokens": 4.0,
+                    "sglang:approx_kv_dense_fallback_total": 0.0,
+                },
+                {
+                    "sglang:evicted_tokens_total": 0.0,
+                    "sglang:kv_used_tokens": 10.0,
+                    "sglang:approx_kv_dense_fallback_total": 0.0,
+                },
+                {"sglang:kv_used_tokens": 20.0, "sglang:evicted_tokens_total": 0.0},
+            ]
+
+        snapshots = _one_round_snapshots() + _one_round_snapshots()
 
         with unittest.mock.patch(
             "aiohttp.ClientSession", return_value=session
         ), unittest.mock.patch(
-            "urllib.request.urlopen", _fake_flush_urlopen([])
+            "urllib.request.urlopen", _labeled_flush_urlopen(call_order)
         ), unittest.mock.patch(
             "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
             side_effect=self._labeled_metric_snapshot(call_order, snapshots),
@@ -3929,37 +4009,79 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
 
         return workload, session, result, metric_snapshot_mock
 
-    def test_source_setup_precedes_the_pressure_phase(self):
+    def test_every_round_flushes_before_its_own_setup(self):
+        call_order: list[str] = []
+        _workload, _session, _result, _mock = self._run_low_pressure_setting(call_order)
+
+        flush0 = call_order.index("flush[0]")
+        flush1 = call_order.index("flush[1]")
+        warmup_setup = call_order.index("warmup_setup_seed")
+        formal_setup = call_order.index("formal_setup_seed")
+        warmup_reuse = call_order.index("warmup_reuse")
+
+        # Two independent flushes -- one per round -- never just once
+        # for the whole setting.
+        self.assertLess(flush0, warmup_setup)
+        # The second flush happens strictly AFTER the warmup round's own
+        # reuse call completes, and strictly BEFORE the formal round's
+        # own setup begins: the formal round never depends on anything
+        # left resident by the warmup round.
+        self.assertLess(warmup_reuse, flush1)
+        self.assertLess(flush1, formal_setup)
+
+    def test_setup_seed_raw_fresh_all_precede_that_same_rounds_pressure_phase(self):
         call_order: list[str] = []
         _workload, session, result, _mock = self._run_low_pressure_setting(call_order)
 
-        self.assertEqual(len(session.post_calls), 8)
-        # The core ordering fix: BOTH source-setup calls appear strictly
-        # before the pressure-filler call -- the opposite of the real
-        # SM75 target_rho=2 bug this fix corrects.
-        setup_calls = [
-            index
-            for index, label in enumerate(call_order)
-            if label.startswith("source_setup")
-        ]
-        pressure_call = call_order.index("pressure_filler0")
-        self.assertTrue(all(index < pressure_call for index in setup_calls))
-        self.assertEqual(len(setup_calls), 2)
+        self.assertEqual(len(session.post_calls), 12)
+        for round_name in ("warmup", "formal"):
+            setup_calls = [
+                index
+                for index, label in enumerate(call_order)
+                if label.startswith(f"{round_name}_setup")
+            ]
+            pressure_call = call_order.index(f"{round_name}_pressure_filler0")
+            self.assertEqual(len(setup_calls), 3)
+            self.assertTrue(all(index < pressure_call for index in setup_calls))
 
         self.assertIsNotNone(result["pressure_phase"])
         self.assertEqual(result["pressure_phase"]["object_count"], 1)
 
-    def test_head_reseed_runs_after_pressure_and_before_warmup(self):
+    def test_fresh_is_registered_exactly_once_per_round_never_again_after_pressure(
+        self,
+    ):
+        call_order: list[str] = []
+        _workload, _session, _result, _mock = self._run_low_pressure_setting(call_order)
+
+        fresh_labels = [
+            label for label in call_order if label.endswith("_setup_fresh_chunk0")
+        ]
+        # Exactly one fresh-register call per round (warmup + 1 formal
+        # repeat == 2 total) -- never re-registered separately after
+        # that SAME round's own pressure phase, and never shared across
+        # rounds.
+        self.assertEqual(
+            fresh_labels, ["warmup_setup_fresh_chunk0", "formal_setup_fresh_chunk0"]
+        )
+        for round_name in ("warmup", "formal"):
+            fresh_index = call_order.index(f"{round_name}_setup_fresh_chunk0")
+            pressure_index = call_order.index(f"{round_name}_pressure_filler0")
+            reuse_index = call_order.index(f"{round_name}_reuse")
+            self.assertLess(fresh_index, pressure_index)
+            self.assertLess(pressure_index, reuse_index)
+
+    def test_head_reseed_runs_after_pressure_and_before_reuse_each_round(self):
         call_order: list[str] = []
         self._run_low_pressure_setting(call_order)
 
-        pressure_call = call_order.index("pressure_filler0")
-        reseed_call = call_order.index("head_reseed")
-        warmup_call = call_order.index("warmup_fresh_chunk0")
-        self.assertLess(pressure_call, reseed_call)
-        self.assertLess(reseed_call, warmup_call)
+        for round_name in ("warmup", "formal"):
+            pressure_call = call_order.index(f"{round_name}_pressure_filler0")
+            reseed_call = call_order.index(f"{round_name}_head_reseed")
+            reuse_call = call_order.index(f"{round_name}_reuse")
+            self.assertLess(pressure_call, reseed_call)
+            self.assertLess(reseed_call, reuse_call)
 
-    def test_warmup_precedes_every_formal_repeat(self):
+    def test_warmup_round_precedes_every_formal_repeat(self):
         call_order: list[str] = []
         self._run_low_pressure_setting(call_order)
 
@@ -3967,12 +4089,17 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
         formal_call = call_order.index("formal_reuse")
         self.assertLess(warmup_call, formal_call)
 
-    def test_metric_snapshot_is_called_exactly_six_times_with_pressure(self):
+    def test_metric_snapshot_is_called_five_times_per_round_with_pressure(self):
         call_order: list[str] = []
         _workload, _session, _result, metric_snapshot_mock = (
             self._run_low_pressure_setting(call_order)
         )
-        self.assertEqual(metric_snapshot_mock.call_count, 6)
+        # 5 snapshots/round (round_start, after_setup, pressure_before,
+        # pressure_after, round_end) x 2 rounds (warmup + 1 formal
+        # repeat) == 10 -- never just 5 total (that would mean the
+        # pressure phase and its own sizing snapshot only ran once for
+        # the whole setting, the exact bug this architecture fixes).
+        self.assertEqual(metric_snapshot_mock.call_count, 10)
 
     def test_already_pinned_tokens_is_threaded_from_the_measured_post_setup_delta(
         self,
@@ -3987,6 +4114,10 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
         # eviction_pressure_filler_count_for_rho's own dedicated tests
         # for that formula in isolation).
         self.assertEqual(result["pressure_phase"]["object_count"], 1)
+        # The formal repeat's own round is also directly visible (in
+        # full) via the new "rounds" key.
+        self.assertEqual(len(result["rounds"]), 1)
+        self.assertEqual(result["rounds"][0]["already_pinned_tokens"], 4)
 
     def test_returns_head_reseed_telemetry(self):
         call_order: list[str] = []
@@ -4004,17 +4135,107 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
         call_order: list[str] = []
         workload, session, _result, _mock = self._run_low_pressure_setting(call_order)
 
-        # session.post_calls is HTTP-only (no metric_snapshot entries),
-        # unlike the shared call_order list -- look the offset up via
-        # the session's own parallel _labels list, never via
-        # call_order.index (which would be off, since call_order
-        # interleaves metric_snapshot labels too).
-        pressure_index = session._labels.index("pressure_filler0")
-        _, pressure_payload = session.post_calls[pressure_index]
-        self.assertNotIn("custom_params", pressure_payload["sampling_params"])
-        self.assertNotEqual(
-            pressure_payload["input_ids"], list(workload.target_head_ids)
-        )
+        # session.post_calls is HTTP-only (no metric_snapshot/flush
+        # entries), unlike the shared call_order list -- look the
+        # offset up via the session's own parallel _labels list, never
+        # via call_order.index (which would be off, since call_order
+        # interleaves metric_snapshot and flush labels too).
+        for round_name in ("warmup", "formal"):
+            pressure_index = session._labels.index(f"{round_name}_pressure_filler0")
+            _, pressure_payload = session.post_calls[pressure_index]
+            self.assertNotIn("custom_params", pressure_payload["sampling_params"])
+            self.assertNotEqual(
+                pressure_payload["input_ids"], list(workload.target_head_ids)
+            )
+
+    def test_each_round_computes_its_own_independent_already_pinned_tokens(self):
+        # The direct "no cross-round store/state reuse" proof: three
+        # rounds (warmup + 2 formal repeats), each with a DIFFERENT
+        # already_pinned_tokens (4, 6, 8) from THAT round's own
+        # post-setup measurement alone. If a bug ever let a later
+        # round's computation inherit or accumulate an earlier round's
+        # own pinned footprint (e.g. reusing round 0's snapshot pair, or
+        # summing deltas across rounds), the values asserted below would
+        # not match -- they can ONLY match if every round freshly
+        # re-measures and re-computes from its OWN flush-reset baseline.
+        workload = self._workload()
+        call_order: list[str] = []
+        already_pinned_by_round = [4.0, 6.0, 8.0]
+        round_names = ["warmup", "formal0", "formal1"]
+        responses: list = []
+        labels: list[str] = []
+        snapshots: list[dict] = []
+        for round_name, pinned in zip(round_names, already_pinned_by_round):
+            # target_rho=0.1 -> target_total=10; remaining = 10 - pinned
+            # is always in (0, 6] for pinned in {4, 6, 8}, so
+            # eviction_pressure_filler_count_for_rho always returns 1 --
+            # keeping the HTTP call shape uniform across rounds while
+            # still varying the underlying already_pinned computation.
+            round_responses, round_labels = self._one_round_responses_and_labels(
+                workload, round_name, filler_count=1, head_reseed_hit=True
+            )
+            responses += round_responses
+            labels += round_labels
+            snapshots += [
+                {"sglang:max_total_num_tokens": 100.0, "sglang:kv_used_tokens": 0.0},
+                {"sglang:kv_used_tokens": pinned},
+                {
+                    "sglang:evicted_tokens_total": 0.0,
+                    "sglang:kv_used_tokens": pinned,
+                    "sglang:approx_kv_dense_fallback_total": 0.0,
+                },
+                {
+                    "sglang:evicted_tokens_total": 0.0,
+                    "sglang:kv_used_tokens": pinned + 6.0,
+                    "sglang:approx_kv_dense_fallback_total": 0.0,
+                },
+                {
+                    "sglang:kv_used_tokens": pinned + 10.0,
+                    "sglang:evicted_tokens_total": 0.0,
+                },
+            ]
+        session = _LabeledSequencedFakeClientSession(responses, labels, call_order)
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "urllib.request.urlopen", _labeled_flush_urlopen(call_order)
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=self._labeled_metric_snapshot(call_order, snapshots),
+        ):
+            result = run_non_prefix_setting(
+                base_url="http://127.0.0.1:30000",
+                tokenizer=FakeTokenizer(),
+                workload=workload,
+                raw_hash="cachetune-raw:unit-test-round-independence",
+                fresh_hash="cachetune-fresh:unit-test-round-independence",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                repeats=2,
+                label="unit-test",
+                max_chunk_tokens=512,
+                target_rho=0.1,
+                pressure_filler_head_tokens=2,
+                pressure_filler_body_tokens=4,
+            )
+
+        # "rounds" holds only the 2 FORMAL repeats, excluding the
+        # discarded warmup round -- each with its OWN already_pinned_
+        # tokens, exactly matching that round's own snapshot pair
+        # (6 for the first formal repeat, 8 for the second), never the
+        # warmup's own 4, and never an accumulated/inherited value.
+        self.assertEqual(len(result["rounds"]), 2)
+        self.assertEqual(result["rounds"][0]["already_pinned_tokens"], 6)
+        self.assertEqual(result["rounds"][1]["already_pinned_tokens"], 8)
+        # The setting-level aggregate reports the LAST formal round's
+        # own value.
+        self.assertEqual(result["already_pinned_tokens"], 8)
+        # Every round -- including both formal repeats -- independently
+        # computed the SAME filler_count=1 from its own (different)
+        # pinned footprint, never silently drifting or accumulating.
+        self.assertEqual(result["rounds"][0]["pressure_phase"]["object_count"], 1)
+        self.assertEqual(result["rounds"][1]["pressure_phase"]["object_count"], 1)
 
     def test_high_pressure_capacity_fake_full_body_restored_genuine_eviction_zero_fallback(
         self,
@@ -4024,53 +4245,75 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
         # already_pinned_tokens=4, remaining=196 -> ceil(196/6)=33
         # fillers, deliberately exceeding the pool's TRUE evictable
         # headroom of 96) must still: (1) fully restore the target's
-        # head+body on formal reuse (never merely the head), (2) show a
-        # genuine evicted_tokens_total_delta > 0 during the pressure
-        # phase, and (3) never move the dense_fallback counter at all --
-        # proving the reordered setup-before-pressure design remains
-        # correct even under genuine, heavy real eviction pressure, not
-        # just the low-pressure/no-eviction case the other tests above
-        # exercise.
+        # head+body on EVERY round's own reuse call (never merely the
+        # head), (2) show a genuine evicted_tokens_total_delta > 0
+        # during EVERY round's own pressure phase, and (3) never move
+        # the dense_fallback counter at all -- proving the per-round
+        # setup-before-pressure design remains correct even under
+        # genuine, heavy, REPEATED real eviction pressure (the
+        # discarded warmup round AND the formal repeat each
+        # independently re-derive and re-send their own 33-filler
+        # batch from their own fresh post-setup measurement), not just
+        # a single round or the low-pressure/no-eviction case the other
+        # tests above exercise.
         workload = self._workload()
         reuse_cached = workload.body_start_in_target + workload.body_tokens
         filler_count = 33  # ceil((2.0 * 100 - 4) / 6)
 
-        responses = (
-            [
-                self._response(0),  # source setup -- seed target_head
-                self._response(0),  # source setup -- register raw (1 chunk)
-            ]
-            + [self._response(0)] * filler_count  # pressure fillers
-            + [self._response(0)]  # head re-seed: evicted by pressure (a miss)
-            + [
-                self._response(workload.body_start_in_target),  # warmup fresh
-                self._response(reuse_cached),  # warmup reuse (discarded)
-                self._response(workload.body_start_in_target),  # formal fresh
-                self._response(reuse_cached),  # formal reuse
-            ]
+        warmup_responses, warmup_labels = self._one_round_responses_and_labels(
+            workload, "warmup", filler_count=filler_count, head_reseed_hit=False
         )
+        formal_responses, formal_labels = self._one_round_responses_and_labels(
+            workload, "formal", filler_count=filler_count, head_reseed_hit=False
+        )
+        responses = warmup_responses + formal_responses
         session = _SequencedFakeClientSession(responses)
 
-        metrics_at_setting_start = {
-            "sglang:max_total_num_tokens": 100.0,
-            "sglang:kv_used_tokens": 0.0,
-        }
-        metrics_after_source_setup = {"sglang:kv_used_tokens": 4.0}
-        pressure_metrics_before = {
-            "sglang:evicted_tokens_total": 0.0,
-            "sglang:kv_used_tokens": 4.0,
-            "sglang:approx_kv_dense_fallback_total": 0.0,
-        }
-        pressure_metrics_after = {
-            "sglang:evicted_tokens_total": 130.0,
-            "sglang:kv_used_tokens": 100.0,
-            "sglang:approx_kv_dense_fallback_total": 0.0,
-        }
-        metrics_before = {"sglang:kv_used_tokens": 90.0}
-        metrics_after = {
-            "sglang:kv_used_tokens": 95.0,
-            "sglang:evicted_tokens_total": 150.0,
-        }
+        # sglang:kv_used_tokens is a Gauge -- it resets to 0 at the
+        # start of EVERY round (right after that round's own flush).
+        # sglang:evicted_tokens_total is a Counter -- it is monotonic
+        # and carries on accumulating ACROSS rounds even though the
+        # Gauge resets; the formal round's own round_start value
+        # (150.0) below is exactly the warmup round's own round_end
+        # value, never reset back to 0.0 by that intervening flush.
+        warmup_snapshots = [
+            {
+                "sglang:max_total_num_tokens": 100.0,
+                "sglang:kv_used_tokens": 0.0,
+                "sglang:evicted_tokens_total": 0.0,
+            },
+            {"sglang:kv_used_tokens": 4.0},
+            {
+                "sglang:evicted_tokens_total": 0.0,
+                "sglang:kv_used_tokens": 4.0,
+                "sglang:approx_kv_dense_fallback_total": 0.0,
+            },
+            {
+                "sglang:evicted_tokens_total": 130.0,
+                "sglang:kv_used_tokens": 100.0,
+                "sglang:approx_kv_dense_fallback_total": 0.0,
+            },
+            {"sglang:kv_used_tokens": 95.0, "sglang:evicted_tokens_total": 150.0},
+        ]
+        formal_snapshots = [
+            {
+                "sglang:max_total_num_tokens": 100.0,
+                "sglang:kv_used_tokens": 0.0,
+                "sglang:evicted_tokens_total": 150.0,
+            },
+            {"sglang:kv_used_tokens": 4.0},
+            {
+                "sglang:evicted_tokens_total": 150.0,
+                "sglang:kv_used_tokens": 4.0,
+                "sglang:approx_kv_dense_fallback_total": 0.0,
+            },
+            {
+                "sglang:evicted_tokens_total": 280.0,
+                "sglang:kv_used_tokens": 100.0,
+                "sglang:approx_kv_dense_fallback_total": 0.0,
+            },
+            {"sglang:kv_used_tokens": 95.0, "sglang:evicted_tokens_total": 300.0},
+        ]
 
         with unittest.mock.patch(
             "aiohttp.ClientSession", return_value=session
@@ -4078,14 +4321,7 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
             "urllib.request.urlopen", _fake_flush_urlopen([])
         ), unittest.mock.patch(
             "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
-            side_effect=[
-                metrics_at_setting_start,
-                metrics_after_source_setup,
-                pressure_metrics_before,
-                pressure_metrics_after,
-                metrics_before,
-                metrics_after,
-            ],
+            side_effect=warmup_snapshots + formal_snapshots,
         ):
             result = run_non_prefix_setting(
                 base_url="http://127.0.0.1:30000",
@@ -4110,17 +4346,36 @@ class TestRunNonPrefixSettingWithEvictionPressure(unittest.TestCase):
         self.assertEqual(result["reuse_raw_samples"][-1]["cached_tokens"], reuse_cached)
         self.assertEqual(result["observed_cached_tokens_per_call"], [reuse_cached])
         # (2) Genuine device-pool eviction actually occurred during the
-        # pressure phase -- not merely reported, but the real Prometheus
-        # delta the pressure phase itself asserts on.
+        # LAST formal round's own pressure phase -- not merely reported,
+        # but the real Prometheus delta that pressure phase itself
+        # asserts on.
         self.assertGreater(result["pressure_phase"]["evicted_tokens_total_delta"], 0)
-        # (3) Zero dense-fallback throughout: a plain dense filler
-        # request, a plain dense head re-seed, and a genuine CacheTune
-        # repair all completed successfully with no fallback anywhere.
+        # ... and the setting-level aggregate delta spans the ENTIRE
+        # last (only) formal round, start to end (150.0 -> 300.0 ==
+        # 150.0) -- the pressure phase's own 130.0 contribution PLUS a
+        # further 20.0 evicted by the target's own recovery-slot
+        # allocation during that same round's reuse call, EXCLUDING the
+        # discarded warmup round's own independent 150.0 contribution
+        # entirely (metric_delta always spans the FIRST formal round's
+        # own start through the LAST formal round's own end).
+        self.assertEqual(
+            result["pressure_and_target_evicted_tokens_total_delta"], 150.0
+        )
+        # (3) Zero dense-fallback throughout every round: a plain dense
+        # filler request, a plain dense head re-seed, and a genuine
+        # CacheTune repair all completed successfully with no fallback
+        # anywhere, in EVERY round.
         self.assertEqual(result["pressure_phase"]["dense_fallback_total_delta"], 0.0)
         # The head re-seed guard tolerated the eviction (a miss) without
-        # raising, and every subsequent fresh-register/reuse call still
+        # raising, in every round, and every subsequent reuse call still
         # succeeded against the freshly-reseeded head.
         self.assertTrue(result["head_reseed_after_pressure"]["was_evicted_by_pressure"])
+        # Both rounds independently rebuilt the SAME 33-filler batch
+        # from their own fresh post-setup measurement -- proof the
+        # per-round pressure phase is not a one-time setup this
+        # architecture accidentally still shares.
+        self.assertEqual(len(result["rounds"]), 1)
+        self.assertEqual(result["rounds"][0]["pressure_phase"]["object_count"], 33)
 
 
 def _fake_flush_urlopen(flush_urls: list) -> callable:
@@ -4144,6 +4399,41 @@ def _fake_flush_urlopen(flush_urls: list) -> callable:
 
     def fake_urlopen(request, timeout=None):
         flush_urls.append(request.full_url)
+        return _FakeUrlResponse()
+
+    return fake_urlopen
+
+
+def _labeled_flush_urlopen(call_order: list[str]) -> callable:
+    """Like ``_fake_flush_urlopen``, but appends a positional
+    ``flush[N]`` label to a SHARED ``call_order`` list on every flush --
+    the same list a ``_LabeledSequencedFakeClientSession`` (HTTP POST
+    calls) and a labeled ``metric_snapshot`` fake (see
+    ``TestRunNonPrefixSettingWithEvictionPressure``'s own
+    ``_labeled_metric_snapshot``) also append to, so a single test can
+    verify the RELATIVE order of flush, metric-snapshot, and POST calls
+    all together -- proving every independent round's own flush truly
+    is that round's very first action, strictly before that SAME
+    round's own setup/pressure/reuse calls and strictly after the
+    PREVIOUS round's own reuse call.
+    """
+
+    class _FakeUrlResponse:
+        def read(self):
+            return b"Cache flushed.\n"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc_info):
+            return False
+
+    state = {"count": 0}
+
+    def fake_urlopen(request, timeout=None):
+        index = state["count"]
+        state["count"] += 1
+        call_order.append(f"flush[{index}]")
         return _FakeUrlResponse()
 
     return fake_urlopen
@@ -4319,14 +4609,24 @@ class TestRunExactContextControlPoint(unittest.TestCase):
 
 
 class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
-    """``run_non_prefix_setting``'s formal-repeat loop must ALSO route
-    its own fresh-register call through ``register_body_chunks`` -- one
+    """``run_non_prefix_setting``'s EVERY round -- the one discarded
+    warmup round AND each of ``repeats`` formal repeats alike, all via
+    ``run_independent_round`` -- must INDEPENDENTLY route its OWN seed +
+    raw-register + fresh-register through ``register_body_chunks``: one
     independent ``/generate`` call per ``<= max_chunk_tokens`` chunk,
-    identically to the discarded warmup's own fresh registration (both
-    delegated to the SAME ``run_reuse_once`` helper) -- for EVERY one
-    of ``repeats`` formal iterations, never just once. Uses
-    ``target_rho=None`` (no eviction-pressure phase) to isolate this
-    proof to the setup+warmup and formal-repeat call structure alone."""
+    never one oversized call spanning the entire body, and never reusing
+    an earlier round's own raw/fresh registration.
+
+    This is the current (fully-independent-round) architecture -- an
+    earlier design had ``register_non_prefix_sources`` register raw ONCE
+    for the whole setting and a since-removed ``run_reuse_once`` merely
+    re-register fresh (chunked) on every repeat, reusing that one raw
+    registration across warmup and every formal repeat; see
+    ``run_independent_round``'s own docstring for the real SM75
+    ``target_rho=2`` ``MemoryError`` this fixed. Uses ``target_rho=
+    None`` (no eviction-pressure phase) to isolate this proof to the
+    chunked-registration call structure across multiple independent
+    rounds alone."""
 
     def _workload(self, body_tokens):
         return build_non_prefix_segment_workload(
@@ -4346,26 +4646,47 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
         }
         return _FakeStreamResponse([_sse_data_line(chunk), _SSE_DONE_LINE])
 
+    def _one_round_responses(self, workload, chunk_count, reuse_cached):
+        """One ROUND's own complete response sequence: seed head ->
+        ``chunk_count`` raw-register chunks -> ``chunk_count``
+        fresh-register chunks -> one (unchunked) reuse call --
+        IDENTICAL shape for the discarded warmup round and every formal
+        repeat alike, since every round now independently performs its
+        own full setup (never just the warmup)."""
+        return (
+            [self._response(0)]  # seed target_head
+            + [self._response(0)] * chunk_count  # raw register chunks
+            + [self._response(workload.body_start_in_target)]
+            * chunk_count  # fresh register chunks
+            + [self._response(reuse_cached)]  # reuse
+        )
+
+    def _round_names(self, repeats):
+        return ["warmup"] + [f"formal{i}" for i in range(repeats)]
+
+    def _round_snapshots(self):
+        """One round's own 2 ``metric_snapshot`` calls (round_start,
+        round_end) -- ``target_rho=None`` means no post-setup/pressure
+        snapshots this round."""
+        return [
+            {"sglang:max_total_num_tokens": 10000.0, "sglang:kv_used_tokens": 100.0},
+            {"sglang:kv_used_tokens": 200.0},
+        ]
+
     def _run_with_body(self, body_tokens, repeats):
         workload = self._workload(body_tokens)
         chunk_count = len(chunk_offsets(workload.body_tokens, 512))
         reuse_cached = workload.body_start_in_target + workload.body_tokens
+        rounds = 1 + repeats  # discarded warmup + `repeats` formal
 
-        warmup_responses = (
-            [self._response(0)]  # seed target_head
-            + [self._response(0)] * chunk_count  # raw register chunks
-            + [self._response(workload.body_start_in_target)] * chunk_count
-            + [self._response(reuse_cached)]  # reuse (warmup, discarded)
-        )
-        one_formal_repeat_responses = [
-            self._response(workload.body_start_in_target)
-        ] * chunk_count + [self._response(reuse_cached)]
-        responses = warmup_responses + one_formal_repeat_responses * repeats
+        responses = []
+        for _ in range(rounds):
+            responses += self._one_round_responses(workload, chunk_count, reuse_cached)
         session = _SequencedFakeClientSession(responses)
 
-        metrics_at_setting_start = {"sglang:max_total_num_tokens": 10000.0}
-        metrics_before = {"sglang:kv_used_tokens": 100.0}
-        metrics_after = {"sglang:kv_used_tokens": 200.0}
+        snapshots = []
+        for _ in range(rounds):
+            snapshots += self._round_snapshots()
 
         with unittest.mock.patch(
             "aiohttp.ClientSession", return_value=session
@@ -4373,7 +4694,7 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
             "urllib.request.urlopen", _fake_flush_urlopen([])
         ), unittest.mock.patch(
             "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
-            side_effect=[metrics_at_setting_start, metrics_before, metrics_after],
+            side_effect=snapshots,
         ):
             result = run_non_prefix_setting(
                 base_url="http://127.0.0.1:30000",
@@ -4392,18 +4713,24 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
             )
         return workload, chunk_count, reuse_cached, session, result
 
-    def test_body_1024_two_repeats_issues_two_fresh_chunk_calls_per_repeat(self):
+    def test_body_1024_two_repeats_every_round_issues_two_raw_and_two_fresh_chunk_calls(
+        self,
+    ):
         repeats = 2
         workload, chunk_count, reuse_cached, session, result = self._run_with_body(
             body_tokens=1024, repeats=repeats
         )
         self.assertEqual(chunk_count, 2)
 
-        # Warmup (1 seed + 2 raw + 2 fresh + 1 reuse) plus repeats *
-        # (2 fresh chunk calls + 1 reuse call) -- never a single
-        # oversized fresh-register call per repeat.
-        expected_calls = (2 + 2 * chunk_count) + repeats * (chunk_count + 1)
-        self.assertEqual(len(session.post_calls), expected_calls)
+        # (1 seed + 2 raw + 2 fresh + 1 reuse) = 6 calls PER round, times
+        # (1 discarded warmup + 2 formal repeats) = 3 rounds -- never
+        # just 6 total (that would mean only the warmup round ever
+        # registered raw/fresh, and every formal repeat merely replayed
+        # it or re-registered fresh alone, the exact bug this
+        # architecture fixes).
+        calls_per_round = 2 + 2 * chunk_count
+        rounds = 1 + repeats
+        self.assertEqual(len(session.post_calls), calls_per_round * rounds)
         self.assertEqual(len(result["fresh_raw_samples"]), repeats)
         self.assertEqual(len(result["reuse_raw_samples"]), repeats)
         for sample in result["fresh_raw_samples"]:
@@ -4411,46 +4738,88 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
         for sample in result["reuse_raw_samples"]:
             self.assertEqual(sample["cached_tokens"], reuse_cached)
 
-        # Every formal-repeat fresh-register chunk call (after the
-        # warmup's own 6 calls) must itself stay within one chunk's own
-        # small bound -- proof the old single-oversized-call code path
-        # is gone from the formal loop too, not just from the warmup.
-        # Each repeat is [fresh_chunk_0, ..., fresh_chunk_{N-1}, reuse]
-        # -- the trailing reuse call is deliberately EXCLUDED from this
-        # bound, since it alone still legitimately posts the complete,
-        # un-chunked target_prompt_ids (see materialize_workload_via_
-        # reuse's own docstring for why the reuse call stays unchunked).
+        # Every round's own raw+fresh register chunk call (seed and
+        # reuse excluded) must itself stay within one chunk's own small
+        # bound -- proof the old single-oversized-call code path is gone
+        # from EVERY round, not just the warmup -- and every round's own
+        # seed/reuse call still carries that round's own full,
+        # un-chunked payload.
         bound = 64 + 512 + len(workload.tail_ids)
-        formal_calls = session.post_calls[2 + 2 * chunk_count :]
-        stride = chunk_count + 1
-        fresh_chunk_calls = [
-            payload
-            for index, (_, payload) in enumerate(formal_calls)
-            if index % stride != chunk_count
-        ]
-        reuse_calls = [
-            payload
-            for index, (_, payload) in enumerate(formal_calls)
-            if index % stride == chunk_count
-        ]
-        self.assertEqual(len(fresh_chunk_calls), repeats * chunk_count)
-        self.assertEqual(len(reuse_calls), repeats)
-        for payload in fresh_chunk_calls:
-            self.assertLessEqual(len(payload["input_ids"]), bound)
-        for payload in reuse_calls:
-            self.assertEqual(payload["input_ids"], list(workload.target_prompt_ids))
+        for round_index in range(rounds):
+            base = round_index * calls_per_round
+            round_calls = session.post_calls[base : base + calls_per_round]
+            seed_call = round_calls[0]
+            raw_and_fresh_calls = round_calls[1:-1]
+            reuse_call = round_calls[-1]
+            self.assertEqual(seed_call[1]["input_ids"], list(workload.target_head_ids))
+            self.assertEqual(len(raw_and_fresh_calls), 2 * chunk_count)
+            for _, payload in raw_and_fresh_calls:
+                self.assertLessEqual(len(payload["input_ids"]), bound)
+            self.assertEqual(
+                reuse_call[1]["input_ids"], list(workload.target_prompt_ids)
+            )
 
-    def test_body_2048_two_repeats_issues_four_fresh_chunk_calls_per_repeat(self):
+    def test_body_2048_two_repeats_every_round_issues_four_raw_and_four_fresh_chunk_calls(
+        self,
+    ):
         repeats = 2
         workload, chunk_count, reuse_cached, session, result = self._run_with_body(
             body_tokens=2048, repeats=repeats
         )
         self.assertEqual(chunk_count, 4)
 
-        expected_calls = (2 + 2 * chunk_count) + repeats * (chunk_count + 1)
-        self.assertEqual(len(session.post_calls), expected_calls)
+        calls_per_round = 2 + 2 * chunk_count
+        rounds = 1 + repeats
+        self.assertEqual(len(session.post_calls), calls_per_round * rounds)
         self.assertEqual(len(result["fresh_raw_samples"]), repeats)
         self.assertEqual(len(result["reuse_raw_samples"]), repeats)
+
+    def test_every_round_including_warmup_independently_registers_its_own_raw_and_fresh(
+        self,
+    ):
+        # The direct "no cross-round store reuse" proof for THIS class:
+        # every one of (1 discarded warmup + repeats formal) rounds
+        # issues its OWN chunk_count raw-register calls AND its OWN
+        # chunk_count fresh-register calls -- never just once for the
+        # warmup, with formal repeats only re-registering fresh (or
+        # worse, nothing at all).
+        repeats = 3
+        workload, chunk_count, reuse_cached, session, result = self._run_with_body(
+            body_tokens=1024, repeats=repeats
+        )
+        del result
+        rounds = 1 + repeats
+        calls_per_round = 2 + 2 * chunk_count
+        self.assertEqual(len(session.post_calls), calls_per_round * rounds)
+        # Every round's raw chunk payloads carry a distinct
+        # ``content_hash`` per chunk, and every round's fresh chunk
+        # payloads (the next ``chunk_count`` calls) carry the parallel
+        # per-chunk ``content_hash`` pattern -- proof EVERY round
+        # genuinely re-registers both raw and fresh from scratch, never
+        # merely a resend of an already-registered segment left behind
+        # by an earlier round.
+        for round_index in range(rounds):
+            base = round_index * calls_per_round
+            raw_calls = session.post_calls[base + 1 : base + 1 + chunk_count]
+            fresh_calls = session.post_calls[
+                base + 1 + chunk_count : base + 1 + 2 * chunk_count
+            ]
+            for chunk_index, (_, payload) in enumerate(raw_calls):
+                segment = payload["sampling_params"]["custom_params"]["approx_kv"][
+                    "segments"
+                ][0]
+                self.assertEqual(
+                    segment["content_hash"],
+                    f"cachetune-raw:unit-test-run:chunk{chunk_index}",
+                )
+            for chunk_index, (_, payload) in enumerate(fresh_calls):
+                segment = payload["sampling_params"]["custom_params"]["approx_kv"][
+                    "segments"
+                ][0]
+                self.assertEqual(
+                    segment["content_hash"],
+                    f"cachetune-fresh:unit-test-run:chunk{chunk_index}",
+                )
 
     def test_formal_repeat_fresh_chunk_content_hashes_match_reuse_segments(self):
         repeats = 2
@@ -4459,17 +4828,23 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
         )
         del result  # only the raw HTTP call sequence matters here
 
-        # The formal loop's own calls start right after the warmup's
-        # own (1 + chunk_count + chunk_count + 1) calls.
-        formal_start = 2 + 2 * chunk_count
-        first_repeat_fresh_calls = session.post_calls[
-            formal_start : formal_start + chunk_count
+        # The first FORMAL round is round index 1 (index 0 is the
+        # discarded warmup, which independently repeats the same
+        # content-hash pattern -- checked separately above).
+        calls_per_round = 2 + 2 * chunk_count
+        first_formal_base = 1 * calls_per_round
+        first_formal_fresh_calls = session.post_calls[
+            first_formal_base
+            + 1
+            + chunk_count : first_formal_base
+            + 1
+            + 2 * chunk_count
         ]
-        first_repeat_reuse_segments = session.post_calls[formal_start + chunk_count][1][
-            "sampling_params"
-        ]["custom_params"]["approx_kv"]["segments"]
+        first_formal_reuse_segments = session.post_calls[
+            first_formal_base + calls_per_round - 1
+        ][1]["sampling_params"]["custom_params"]["approx_kv"]["segments"]
 
-        for index, (_, payload) in enumerate(first_repeat_fresh_calls):
+        for index, (_, payload) in enumerate(first_formal_fresh_calls):
             segment = payload["sampling_params"]["custom_params"]["approx_kv"][
                 "segments"
             ][0]
@@ -4477,9 +4852,77 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
                 segment["content_hash"], f"cachetune-fresh:unit-test-run:chunk{index}"
             )
             self.assertEqual(
-                first_repeat_reuse_segments[index]["content_hash"],
+                first_formal_reuse_segments[index]["content_hash"],
                 f"cachetune-raw:unit-test-run:chunk{index}",
             )
+
+    def test_every_round_flushes_before_its_own_setup_and_after_the_previous_reuse(
+        self,
+    ):
+        repeats = 2
+        workload = self._workload(1024)
+        chunk_count = len(chunk_offsets(workload.body_tokens, 512))
+        reuse_cached = workload.body_start_in_target + workload.body_tokens
+        round_names = self._round_names(repeats)
+        rounds = len(round_names)
+
+        responses = []
+        labels = []
+        for round_name in round_names:
+            responses += self._one_round_responses(workload, chunk_count, reuse_cached)
+            labels += (
+                [f"{round_name}_seed"]
+                + [f"{round_name}_raw_chunk{i}" for i in range(chunk_count)]
+                + [f"{round_name}_fresh_chunk{i}" for i in range(chunk_count)]
+                + [f"{round_name}_reuse"]
+            )
+        call_order: list = []
+        session = _LabeledSequencedFakeClientSession(responses, labels, call_order)
+
+        snapshots = []
+        for _ in range(rounds):
+            snapshots += self._round_snapshots()
+
+        with unittest.mock.patch(
+            "aiohttp.ClientSession", return_value=session
+        ), unittest.mock.patch(
+            "urllib.request.urlopen", _labeled_flush_urlopen(call_order)
+        ), unittest.mock.patch(
+            "benchmark.approx_kv.run_phase4_cachetune_canary.metric_snapshot",
+            side_effect=snapshots,
+        ):
+            run_non_prefix_setting(
+                base_url="http://127.0.0.1:30000",
+                tokenizer=FakeTokenizer(),
+                workload=workload,
+                raw_hash="cachetune-raw:unit-test-run",
+                fresh_hash="cachetune-fresh:unit-test-run",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                repeats=repeats,
+                label="unit-test",
+                max_chunk_tokens=512,
+                target_rho=None,
+                pressure_filler_head_tokens=6,
+                pressure_filler_body_tokens=8,
+            )
+
+        # Exactly `rounds` independent flushes -- one strictly before
+        # EACH round's own seed call and strictly after the PREVIOUS
+        # round's own reuse call -- never a single flush shared by the
+        # whole setting, and never a flush that lands inside another
+        # round's own call sequence.
+        for round_index, round_name in enumerate(round_names):
+            flush_call = call_order.index(f"flush[{round_index}]")
+            seed_call = call_order.index(f"{round_name}_seed")
+            reuse_call = call_order.index(f"{round_name}_reuse")
+            self.assertLess(flush_call, seed_call)
+            self.assertLess(seed_call, reuse_call)
+            if round_index > 0:
+                previous_reuse = call_order.index(
+                    f"{round_names[round_index - 1]}_reuse"
+                )
+                self.assertLess(previous_reuse, flush_call)
 
 
 class TestBuildSweepPointResult(unittest.TestCase):
@@ -4543,6 +4986,15 @@ class TestBuildSweepPointResult(unittest.TestCase):
             "peak_rho_observed": 1.6,
             "pressure_and_target_evicted_tokens_total_delta": 200.0,
             "pressure_phase": {"target_rho": 1.5},
+            # The 2 formal rounds' own raw run_independent_round result
+            # dicts (repeats=2 in every test below) -- deliberately
+            # DIFFERENT per-round already_pinned_tokens values so a
+            # naive "just copy round 0" passthrough bug would be
+            # visible in test_rounds_passed_through_verbatim below.
+            "rounds": [
+                {"already_pinned_tokens": 500, "pressure_phase": {"target_rho": 1.5}},
+                {"already_pinned_tokens": 512, "pressure_phase": {"target_rho": 1.5}},
+            ],
         }
         base.update(overrides)
         return base
@@ -4747,6 +5199,34 @@ class TestBuildSweepPointResult(unittest.TestCase):
             result["pressure_and_target_evicted_tokens_total_delta"], 999.0
         )
         self.assertEqual(result["target_rho"], 2.0)
+
+    def test_rounds_passed_through_verbatim(self):
+        # "rounds" is a pure passthrough of every formal round's own
+        # raw run_independent_round result -- never re-derived,
+        # truncated, or collapsed to just the last round's own entry.
+        workload = self._workload()
+        quantized = self._quantized()
+        rounds = [
+            {"already_pinned_tokens": 100, "pressure_phase": {"target_rho": 0.5}},
+            {"already_pinned_tokens": 200, "pressure_phase": {"target_rho": 0.5}},
+        ]
+        setting_result = self._setting_result(
+            metrics_after=self._metrics_after_for(quantized, repeats=2),
+            rounds=rounds,
+        )
+
+        result = build_sweep_point_result(
+            workload=workload,
+            quantized=quantized,
+            repeats=2,
+            setting_result=setting_result,
+        )
+
+        self.assertEqual(result["rounds"], rounds)
+        # A genuine passthrough preserves object identity (the
+        # production code reads "rounds" straight from setting_result,
+        # never a re-derived or copied list).
+        self.assertIs(result["rounds"], rounds)
 
 
 class TestValidatePairwiseHeadIsolationAgainstProductionCallShape(unittest.TestCase):

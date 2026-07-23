@@ -207,13 +207,18 @@ distinguished from measurement noise).
 
 ### Eviction-pressure fillers are plain dense objects, never CacheTune segments
 
-Every setting whose `target_rho` is set (the main setting, every
-shape-sweep point with a nonzero header, and every rho-sweep point)
-sends a reverse-computed count of filler objects immediately **after**
-its own source setup (head-seed + raw-register) completes -- never
-before it. Each filler is sent as exactly **one plain, ordinary
-`POST /generate` request** carrying no `approx_kv` custom_params
-metadata at all -- never a register/reuse call.
+Every ROUND of every setting whose `target_rho` is set (the main
+setting, every shape-sweep point with a nonzero header, and every
+rho-sweep point) -- the one discarded warmup round AND each of
+`--repeats` formal repeats, every one a fully independent unit via
+`run_independent_round` -- sends a reverse-computed count of filler
+objects immediately **after** THAT SAME round's own source setup
+(head-seed + raw-register + fresh-register, via `register_round_setup`)
+completes -- never before it, and never reusing a filler count or
+footprint measurement from any other round. Each filler is sent as
+exactly **one plain, ordinary `POST /generate` request** carrying no
+`approx_kv` custom_params metadata at all -- never a register/reuse
+call.
 
 This ordering (source setup before pressure) is itself a fix for a real
 SM75 bug at `target_rho=2`: an earlier version of this function sent
@@ -225,19 +230,37 @@ reuse/repair path's own recovery-slot allocation, which explicitly
 `allocate_recovery_slots` in `cachetune/runtime.py` /
 `mem_cache/common/runtime.py`) -- so under high pressure, source setup
 itself starved for device headroom and failed. The fix always completes
-source setup first, at low/no pressure, then reverse-computes the
-filler count from the setup's own real, *measured* (never estimated)
-contribution to `sglang:kv_used_tokens` (`already_pinned_tokens`,
-sampled via `/metrics` immediately after setup finishes) -- fillers are
-only sized to reach the "target pre-rho" still unmet by that already-
-resident footprint, never blind to it (see
-`eviction_pressure_filler_count_for_rho`'s own `already_pinned_tokens`
-parameter). The target's own recovery allocation (the reuse call, in
-warmup and every formal repeat) is explicitly expected and allowed to
-evict fillers to make room for itself -- that *is* the genuine eviction
-pressure this canary is constructed to exercise, at exactly the point
-(recovery time) it is meant to matter; only source setup must never
-depend on evicting anything.
+that round's own source setup first, at low/no pressure, then
+reverse-computes the filler count from that SAME round's own real,
+*measured* (never estimated) contribution to `sglang:kv_used_tokens`
+(`already_pinned_tokens`, sampled via `/metrics` immediately after that
+round's own setup finishes) -- fillers are only sized to reach the
+"target pre-rho" still unmet by that round's own already-resident
+footprint, never blind to it and never inherited from another round
+(see `eviction_pressure_filler_count_for_rho`'s own
+`already_pinned_tokens` parameter). That round's own target recovery
+allocation (the reuse call) is explicitly expected and allowed to evict
+that SAME round's own fillers to make room for itself -- that *is* the
+genuine eviction pressure this canary is constructed to exercise, at
+exactly the point (recovery time) it is meant to matter; only source
+setup must never depend on evicting anything.
+
+A SECOND, later real SM75 bug at `target_rho=2` -- also fixed by
+restructuring, not by this ordering alone -- came from a design where
+only the discarded warmup round performed this setup-then-pressure
+sequence once for the WHOLE setting, and every formal repeat merely
+re-registered "fresh" and re-sent a freshly re-sized pressure batch
+against that SAME already-resident raw registration. Each formal
+repeat's fresh re-registration then had to transiently coexist with the
+warmup's still-resident raw segment plus whatever fillers survived
+LRU eviction, producing two consecutive `MemoryError`s on formal
+fresh-register calls, followed by target-reuse OOM. The fix (see
+"measurement pass runs, in order" below) makes every round -- the
+discarded warmup round and every formal repeat alike -- a fully
+independent unit via `run_independent_round`: its own flush, its own
+complete raw+fresh setup, its own freshly re-sized pressure phase, and
+its own reuse call, never depending on or reusing anything left
+resident by any other round.
 
 The plain-dense-filler design itself is a separate, earlier fix for a
 different real SM75 bug also observed at `target_rho=2`: an even
@@ -252,32 +275,34 @@ then reported only the exact-match head as cached, never head+body.
 
 A plain dense request instead populates the ordinary exact radix tree,
 exactly like any other request, and is fully subject to normal LRU
-eviction -- genuine, realistic cache pressure the setting's own
+eviction -- genuine, realistic cache pressure that same round's own
 recovery allocation can reclaim from, matching the same plain-dense-
 filler methodology `research/epic-legolink`'s own
 `run_phase4_epic_pressure.py` already uses. Filler object shape
 (`--pressure-filler-head-tokens` x `--pressure-filler-body-tokens`,
-default 2048) is fixed across every setting; only the reverse-computed
-COUNT varies with `target_rho`, keeping peak-rho/eviction numbers
-comparable across the whole matrix. Fillers still get mutually
-distinct, pairwise zero-common-prefix target heads
+default 2048) is fixed across every setting AND every round; only the
+reverse-computed COUNT varies, both with `target_rho` and with each
+round's own independently-measured `already_pinned_tokens`, keeping
+peak-rho/eviction numbers comparable across the whole matrix. Fillers
+still get mutually distinct, pairwise zero-common-prefix target heads
 (`build_eviction_pressure_workloads`/`validate_pairwise_head_isolation`),
 so pressure objects can never spuriously exact-match each other or the
 setting's own head.
 
-Because the setting's own target head is seeded *before* any filler, it
-is the oldest entry in the exact radix tree once the pressure phase
+Because that round's own target head is seeded *before* any filler (as
+part of that SAME round's own `register_round_setup`), it is the oldest
+entry in the exact radix tree once that round's own pressure phase
 begins -- a plausible LRU-eviction candidate itself for any
-`target_rho > 1` setting. `ensure_target_head_resident` runs exactly
-once, immediately after the pressure phase, to guard against that: one
-plain dense re-seed request tolerant of either outcome (a cache hit if
-the head survived, or a cache miss/recompute if it was evicted). This
-is an additional, script-added safeguard -- not part of CacheTune's own
-design -- made necessary by sending genuine LRU eviction pressure after
-the head is already seeded; without it, an evicted head could never be
-restored by any later register/reuse call (both always skip radix
-insertion), permanently breaking every subsequent measurement for that
-setting.
+`target_rho > 1` round. `ensure_target_head_resident` runs exactly once
+per round, immediately after that round's own pressure phase, to guard
+against that: one plain dense re-seed request tolerant of either
+outcome (a cache hit if the head survived, or a cache miss/recompute if
+it was evicted). This is an additional, script-added safeguard -- not
+part of CacheTune's own design -- made necessary by sending genuine LRU
+eviction pressure after the head is already seeded; without it, an
+evicted head could never be restored by any later register/reuse call
+(both always skip radix insertion), permanently breaking every
+subsequent measurement for that round.
 
 Because pressure fillers are now genuinely evictable,
 `register_eviction_pressure_objects` itself raises immediately if a
@@ -295,66 +320,90 @@ counter.
 
 Because CacheTune's reuse path requires a request's own exact-radix-match
 length to equal the registered segment's `target_start` exactly (any gap
-forces dense-fallback), each setting's measurement pass runs, in order:
+forces dense-fallback), each setting's measurement pass runs one
+discarded warmup ROUND followed by `--repeats` formal ROUNDS, every
+round -- warmup and formal alike -- an identically-shaped, fully
+independent unit via `run_independent_round` (no round ever depends on
+or reuses anything left resident by another round). Each round runs, in
+order:
 
-1. Flush the exact-match radix cache once more (see below) -- this
-   function runs once per setting (the main setting and every
-   length-sweep point), and settings are otherwise never isolated from
-   each other, so a previous setting's own already-seeded
-   `target_head_ids` would otherwise still be in the tree.
-2. Seed the target head once: one plain dense `/generate` call whose
-   entire prompt is exactly `target_head_ids` -- this is the only way to
-   populate the exact radix tree for that specific head (register/reuse
-   requests always set `skip_radix_cache_insert=True` and can never do
-   this themselves).
-3. Register the "raw" segment: one INDEPENDENT `/generate` call per
-   `<= --max-segment-chunk-tokens` chunk of `shared_body_ids` (default
-   512), never one oversized call spanning the entire body -- each
-   chunk's own short prompt is `corresponding_head_ids + chunk_body_
-   slice + tail_ids`. A single register call whose *stored* segment
-   sizes were already chunk-bounded still let that one call's own
-   live/transient per-request KV footprint scale with the FULL,
-   un-chunked body, which OOM'd a real SM75 server at register time for
-   body lengths above one chunk (e.g. 1024/2048); splitting register
-   itself into one independent call per chunk is the fix. The REUSE
-   call (steps 5/6 below) is deliberately NOT chunked this way: it
-   always posts the complete target prompt in one call with the
-   existing contiguous multi-segment list, since a genuine full-context
-   reuse/repair forward pass is exactly what this canary measures.
-   Steps 2+3 together are this setting's own SOURCE setup
-   (`register_non_prefix_sources`), completed before any pressure filler
-   is ever sent (see above).
-4. If `target_rho` is set: send the reverse-computed pressure fillers
-   (see above), then re-seed the target head once via
-   `ensure_target_head_resident` (guard against LRU eviction of the
-   head itself).
-5. One *discarded* register-fresh + reuse warmup pass (the fresh
-   registration is chunked exactly like the raw registration above) --
-   `register_fresh` and the reuse call together are `run_reuse_once`,
-   the same helper used identically for this warmup pass and every
-   formal repeat below.
-6. `--repeats` formal register-fresh + reuse repeats (same per-chunk
-   fresh registration, every repeat, via that same `run_reuse_once`
-   helper).
+1. Flush the exact-match radix cache once more (see below) -- this now
+   runs at the START OF EVERY ROUND (the discarded warmup round AND
+   each of `--repeats` formal repeats independently, never merely once
+   per setting), so that round's own raw+fresh registration always
+   starts from a genuinely idle pool, isolated both from a previous
+   setting's own seeded `target_head_ids` and from any earlier round's
+   (within this SAME setting) own registered segments or surviving
+   pressure fillers.
+2. Seed the target head once (this round's own copy): one plain dense
+   `/generate` call whose entire prompt is exactly `target_head_ids` --
+   this is the only way to populate the exact radix tree for that
+   specific head (register/reuse requests always set
+   `skip_radix_cache_insert=True` and can never do this themselves).
+3. Register the "raw" segment (this round's own copy): one INDEPENDENT
+   `/generate` call per `<= --max-segment-chunk-tokens` chunk of
+   `shared_body_ids` (default 512), never one oversized call spanning
+   the entire body -- each chunk's own short prompt is
+   `corresponding_head_ids + chunk_body_slice + tail_ids`. A single
+   register call whose *stored* segment sizes were already
+   chunk-bounded still let that one call's own live/transient
+   per-request KV footprint scale with the FULL, un-chunked body, which
+   OOM'd a real SM75 server at register time for body lengths above one
+   chunk (e.g. 1024/2048); splitting register itself into one
+   independent call per chunk is the fix.
+4. Register the "fresh" segment (this round's own copy, same
+   per-chunk chunking as raw above). Steps 2+3+4 together are THIS
+   ROUND's own complete SOURCE setup (`register_round_setup`), always
+   finished in full before any pressure filler THIS SAME round sends
+   (see above) -- never before a previous round's own setup, and never
+   shared with any other round.
+5. If `target_rho` is set: measure this round's own real, post-setup
+   `already_pinned_tokens` contribution, send this round's own
+   reverse-computed pressure fillers sized from it (see above), then
+   re-seed the target head once via `ensure_target_head_resident`
+   (guard against LRU eviction of the head itself during this round's
+   own pressure phase).
+6. This round's own single reuse call (`run_target_reuse`) against the
+   raw/fresh segments THIS SAME round just registered in steps 3-4 --
+   never against a different round's own registration. The reuse call
+   is deliberately NOT chunked like steps 3-4: it always posts the
+   complete target prompt in one call with the existing contiguous
+   multi-segment list, since a genuine full-context reuse/repair
+   forward pass is exactly what this canary measures.
+
+The discarded warmup round runs this exact same six-step sequence once
+and its own result is thrown away; each of the `--repeats` formal
+repeats then runs the identical six-step sequence again, completely
+independently, its own result recorded. This fixes a real SM75
+`target_rho=2` bug from an earlier design where only the warmup round
+performed steps 1-4 once for the whole setting and every formal repeat
+merely re-ran steps 4+6 (re-register fresh, then reuse) against that one
+shared raw registration -- see the "Eviction-pressure fillers" section
+above for the full root-cause account.
 
 Every formal fresh-register response's `meta_info.cached_tokens` is
 cross-checked against `body_start_in_target` (the REGISTER operation
 never restores anything -- see `approx_kv/runtime.py`'s
 `_register_request_segments` -- so its only contribution is the
-exact-match radix hit on the already-seeded target head). Every formal
-reuse response's `meta_info.cached_tokens` (generic SGLang accounting,
-unrelated to CacheTune's own Prometheus counters) is cross-checked
-against `body_start_in_target + body_tokens` -- confirmed on a real
-SM75 run that this counts the *entire* prefix already resolved without
-a fresh forward pass, not just the exact-match head: a successful
-CacheTune reuse always extends `req.prefix_indices` by the complete
-restored body span regardless of the controller's selected repair
-ratio (the ratio only decides how many of those positions get a
+exact-match radix hit on that SAME round's already-seeded target head).
+Every formal reuse response's `meta_info.cached_tokens` (generic SGLang
+accounting, unrelated to CacheTune's own Prometheus counters) is
+cross-checked against `body_start_in_target + body_tokens` -- confirmed
+on a real SM75 run that this counts the *entire* prefix already resolved
+without a fresh forward pass, not just the exact-match head: a
+successful CacheTune reuse always extends `req.prefix_indices` by the
+complete restored body span regardless of the controller's selected
+repair ratio (the ratio only decides how many of those positions get a
 genuine recompute forward pass versus a straight KV copy, never how
 many get restored in total; see `cachetune/runtime.py`'s
 `restore_request_prefix_cachetune`). The output JSON's
 `server_validation.body_source_context_differs_from_target` is
-computed from the actual constructed workload (never hardcoded).
+computed from the actual constructed workload (never hardcoded). Every
+formal round's own complete raw telemetry (setup timings, pressure
+sizing/eviction, head-reseed, reuse) is additionally available in full,
+per-round, via the output JSON's `rounds` list -- never collapsed to
+just a single setting-wide value, now that every round independently
+re-sizes and re-sends its own pressure phase.
 
 `--central-log` is required: every invocation appends JSONL lifecycle
 records (`running`, then `completed` or `failed`) to this shared log,
@@ -362,29 +411,43 @@ carrying the full settings, image/model/git identity, warmup/repeat
 counts, output path, and (on success) a short result summary.
 
 Dense flushes the exact-match radix cache before its warmup and before
-every formal repeat. Each setting's own measurement pass (step 1 above)
-flushes once more of its own accord, right before its head is seeded or
-any raw/fresh segment is registered -- covering both dense's own
-leftover exact-cache entry and cross-setting isolation for every
-subsequent length-sweep point uniformly, so a dense forward's (or a
-previous setting's seeded head's) exact-cache entry can never be
-silently reused by a later "reuse" request. Register/reuse repeats are
-never flushed between themselves -- `/flush_cache` also resets the
-`ApproxKVManager` segment store, which would delete the very
-"raw"/"fresh" segments those repeats depend on, and they cannot pollute
-the exact radix tree themselves since
-`schedule_batch.Req.skip_radix_cache_insert` is forced `True` whenever
-`approx_kv_metadata` is present.
+every formal repeat -- unchanged by, and unrelated to, the CacheTune
+per-round restructuring below. Each CacheTune setting's own measurement
+pass (step 1 above) now flushes at the START OF EVERY ROUND, not once
+per setting: the discarded warmup round's own flush, and each formal
+repeat's own flush, every one immediately before that SAME round's own
+head is seeded or any raw/fresh segment is registered. This covers
+cross-setting isolation (a previous setting's own seeded
+`target_head_ids` can never still be in the tree) AND cross-round
+isolation within the SAME setting (an earlier round's own registered
+segments, surviving pressure fillers, or seeded head can never still be
+resident when a later round's own setup begins) uniformly. Flushing
+between what an earlier design called "repeats" is now not merely safe
+but MANDATORY: `/flush_cache` also resets the `ApproxKVManager` segment
+store, but every round -- including every formal repeat -- always
+re-registers its OWN raw+fresh segments from scratch immediately
+afterward (steps 2-4 above), so there is nothing left over from a
+previous round for a later round to depend on. (Register/reuse calls
+still cannot pollute the exact radix tree themselves, independent of
+this flush, since `schedule_batch.Req.skip_radix_cache_insert` is forced
+`True` whenever `approx_kv_metadata` is present.) See
+`flush_exact_radix_cache`'s own docstring, and `run_independent_round`'s
+own docstring, for the full real-SM75-bug account of why every round
+must now flush independently.
 
-After every setting (main, shape sweep, rho sweep) has finished, every
-raw/fresh segment the main setting itself registered along the way is
-still intentionally resident in `ApproxKVManager` -- that residency is
-the entire point of "register once, reuse across repeats," not a leak.
-(Eviction-pressure filler objects are never registered at all -- see
-below -- so they hold no such residency by construction; whichever
-fillers a given rho point's own LRU pressure did not evict may still
-remain in the exact radix tree at this point, which is likewise
-expected, not a leak.) So `capture_final_pool_reset_and_invariant`
+After every setting (main, shape sweep, rho sweep) has finished, the
+LAST formal round's own raw/fresh segments are still intentionally
+resident in `ApproxKVManager` -- simply because nothing flushes again
+until the START of the next round (the next setting's own discarded
+warmup round, or this run's own final cleanup below), not because
+anything is "registered once and reused across repeats" any more (every
+earlier round's own registration was already wiped by ITS successor
+round's own flush, per the per-round design above). This trailing
+residency is expected, not a leak. (Eviction-pressure filler objects are
+never registered at all -- see below -- so they hold no such residency
+by construction; whichever fillers the last round's own LRU pressure did
+not evict may still remain in the exact radix tree at this point, which
+is likewise expected, not a leak.) So `capture_final_pool_reset_and_invariant`
 snapshots `/metrics` first
 (`pool_invariant_metrics_pre_reset` in the output JSON -- informational
 only; a real SM75 run observed `kv_used_tokens=4096` here even though
@@ -412,9 +475,14 @@ The runner also sweeps a few additional real body lengths against the
 per-request deterministic ratio re-quantization, and reports
 `dense_p50_ms`, `cachetune_target_p50_ms`, `fresh_preparation_p50_ms` and
 `combined_p50_ms` (target plus fresh preparation) -- never excluding
-preparation cost before claiming an end-to-end result. The one-time
-per-setting `seed_head_ms`/`register_raw_ms` setup costs are always
-reported (`server_validation`/each length-sweep point) but excluded from
+preparation cost before claiming an end-to-end result. The
+`seed_head_ms`/`register_raw_ms` setup costs are now genuinely
+re-measured by EVERY round (warmup and every formal repeat
+independently re-seed and re-register from scratch, per the per-round
+design above); the setting-level `server_validation`/each
+length-sweep-point result reports the LAST formal round's own value
+(every other round's own value remains available in full via that same
+result's `rounds` list). Both are excluded from
 `combined_ms`/`combined_p50_ms`, with the rationale spelled out in
 `known_limitations`: both represent context that would already exist
 before the measured request in a real deployment (a prior conversation
@@ -422,8 +490,8 @@ turn's own exact-cache entry, and externally sourced/precomputed KV), the
 same reasoning that already excluded raw-segment registration itself.
 (`register_raw_ms`/`register_fresh_ms` are each the SUM of every
 `<= --max-segment-chunk-tokens` chunk's own genuine streaming TTFT --
-see item 3 above -- not a single call's ms, whenever a body spans more
-than one chunk.) The
+see items 3-4 above -- not a single call's ms, whenever a body spans
+more than one chunk.) The
 output JSON (`schema_version: 3`) additionally records every raw
 per-repeat sample both as `{"ttft_ms": ..., "cached_tokens": ...}`
 records (`dense_raw_samples`/`fresh_raw_samples`/`cachetune_raw_samples`,
