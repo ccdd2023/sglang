@@ -1,0 +1,310 @@
+{
+  "body_sweep_ratio1pct_header64_rho2": [
+    {
+      "body_tokens": 512,
+      "combined_p50_ms": 192.81665049493313,
+      "combined_speedup": 0.4528121055956438,
+      "dense_p50_ms": 87.30971350451,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": null,
+      "fresh_preparation_p50_ms": 94.18517949234229,
+      "peak_rho": 2.066793602437167,
+      "pre_target_rho": 2.0277989337395277,
+      "target_only_speedup": 0.8927418160838214,
+      "target_p50_ms": 97.79951149539556
+    },
+    {
+      "body_tokens": 768,
+      "combined_p50_ms": 296.1893460014835,
+      "combined_speedup": 0.4315605548360279,
+      "dense_p50_ms": 127.82363849692047,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": null,
+      "fresh_preparation_p50_ms": 160.45299550023628,
+      "peak_rho": 2.0887281035795886,
+      "pre_target_rho": 2.03023610053313,
+      "target_only_speedup": 0.939223854142245,
+      "target_p50_ms": 136.09496600111015
+    },
+    {
+      "body_tokens": 1024,
+      "combined_p50_ms": 367.27990749204764,
+      "combined_speedup": 0.8150300884664885,
+      "dense_p50_ms": 299.3441754952073,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": 2,
+      "fresh_preparation_p50_ms": 185.57724649872398,
+      "peak_rho": 2.1106626047220107,
+      "pre_target_rho": 2.0326732673267327,
+      "target_only_speedup": 1.6423837665032606,
+      "target_p50_ms": 182.26201549259713
+    },
+    {
+      "body_tokens": 2048,
+      "combined_p50_ms": 862.0175609830767,
+      "combined_speedup": 1.1378798894621116,
+      "dense_p50_ms": 980.8724470058223,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": 1,
+      "fresh_preparation_p50_ms": 375.5570614885073,
+      "peak_rho": 2.1984006092916983,
+      "pre_target_rho": 2.0424219345011423,
+      "target_only_speedup": 2.015767261087112,
+      "target_p50_ms": 486.6000484980759
+    }
+  ],
+  "git_sha": "67f0c1119",
+  "header_sweep_ratio1pct_body1024_rho2": [
+    {
+      "combined_p50_ms": 341.46438499737997,
+      "combined_speedup": 0.7829283059892314,
+      "dense_p50_ms": 267.3421325016534,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": 2,
+      "fresh_preparation_p50_ms": 174.85410950757796,
+      "header_tokens": 0,
+      "peak_rho": 2.1057882711348057,
+      "pre_target_rho": 2.0277989337395277,
+      "target_only_speedup": 1.602761906583863,
+      "target_p50_ms": 166.80090249428758
+    },
+    {
+      "combined_p50_ms": 350.16043701034505,
+      "combined_speedup": 0.7965090184907275,
+      "dense_p50_ms": 278.90594599739416,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": 2,
+      "fresh_preparation_p50_ms": 179.10076849511825,
+      "header_tokens": 32,
+      "peak_rho": 2.108225437928408,
+      "pre_target_rho": 2.03023610053313,
+      "target_only_speedup": 1.6314947729401985,
+      "target_p50_ms": 170.9511735025444
+    },
+    {
+      "combined_p50_ms": 367.27990749204764,
+      "combined_speedup": 0.8101985554662303,
+      "dense_p50_ms": 297.5696505018277,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": 2,
+      "fresh_preparation_p50_ms": 185.57724649872398,
+      "header_tokens": 64,
+      "peak_rho": 2.1106626047220107,
+      "pre_target_rho": 2.0326732673267327,
+      "target_only_speedup": 1.6326476457400636,
+      "target_p50_ms": 182.26201549259713
+    },
+    {
+      "combined_p50_ms": 400.25430700188735,
+      "combined_speedup": 0.8041499238714966,
+      "dense_p50_ms": 321.8644705048064,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": 2,
+      "fresh_preparation_p50_ms": 203.94493349886034,
+      "header_tokens": 128,
+      "peak_rho": 2.1155369383092157,
+      "pre_target_rho": 2.0375476009139377,
+      "target_only_speedup": 1.64721605966574,
+      "target_p50_ms": 195.39906050340505
+    },
+    {
+      "combined_p50_ms": 472.43289099424146,
+      "combined_speedup": 0.8036188519835855,
+      "dense_p50_ms": 379.65597750007873,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": 2,
+      "fresh_preparation_p50_ms": 249.54974600404967,
+      "header_tokens": 256,
+      "peak_rho": 2.1252856054836253,
+      "pre_target_rho": 2.0472962680883473,
+      "target_only_speedup": 1.7008929946481255,
+      "target_p50_ms": 223.20979549840558
+    }
+  ],
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "key_findings": [
+    "At body1024/rho~2, 1% repair is fastest: target-only 1.64x; increasing the ratio monotonically raises target latency.",
+    "Body length controls crossover: body512/768 target-only remain below 1x, body1024 is 1.64x, and body2048 is 2.02x at ratio1%.",
+    "Body2048 is the first CacheBlend setting with positive one-shot combined latency: combined 862.0ms versus dense 980.9ms, about 1.14x.",
+    "At body1024, fresh preparation makes single-use combined latency slower than dense, but the fresh cost amortizes after about 2 target reuses.",
+    "Target-only and combined latency remain stable from peak rho~0.99 through 3.12 with real eviction."
+  ],
+  "known_limitations": [
+    "Successful repair uses the precomputed fresh-KV adapter; the generic online ModelRunner selected-token hook remains unavailable.",
+    "Fresh preparation and target are sequential, not genuinely overlapped critical paths.",
+    "No accuracy metric was collected.",
+    "Results are single-model SM75 measurements."
+  ],
+  "model": "Qwen/Qwen3-0.6B",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "passed": true,
+  "ratio_sweep_body1024_header64_rho2": [
+    {
+      "combined_p50_ms": 367.27990749204764,
+      "combined_speedup": 0.8150300884664885,
+      "dense_p50_ms": 299.3441754952073,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": 2,
+      "fresh_preparation_p50_ms": 185.57724649872398,
+      "peak_rho": 2.1106626047220107,
+      "pre_target_rho": 2.0326732673267327,
+      "ratio": 0.01,
+      "selected_tokens_per_request": 10.0,
+      "target_only_speedup": 1.6423837665032606,
+      "target_p50_ms": 182.26201549259713
+    },
+    {
+      "combined_p50_ms": 374.67254149669316,
+      "combined_speedup": 0.7989487948581077,
+      "dense_p50_ms": 299.3441754952073,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": 2,
+      "fresh_preparation_p50_ms": 187.1590680020745,
+      "peak_rho": 2.1106626047220107,
+      "pre_target_rho": 2.0326732673267327,
+      "ratio": 0.05,
+      "selected_tokens_per_request": 51.0,
+      "target_only_speedup": 1.5834764400833174,
+      "target_p50_ms": 189.04239300172776
+    },
+    {
+      "combined_p50_ms": 384.22872950468445,
+      "combined_speedup": 0.7790780660287865,
+      "dense_p50_ms": 299.3441754952073,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": 2,
+      "fresh_preparation_p50_ms": 187.30917799985036,
+      "peak_rho": 2.1106626047220107,
+      "pre_target_rho": 2.0326732673267327,
+      "ratio": 0.15,
+      "selected_tokens_per_request": 154.0,
+      "target_only_speedup": 1.521888639115658,
+      "target_p50_ms": 196.69256199267693
+    },
+    {
+      "combined_p50_ms": 401.0872279977775,
+      "combined_speedup": 0.746331856512933,
+      "dense_p50_ms": 299.3441754952073,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": 3,
+      "fresh_preparation_p50_ms": 189.09006899775704,
+      "peak_rho": 2.1106626047220107,
+      "pre_target_rho": 2.0326732673267327,
+      "ratio": 0.3,
+      "selected_tokens_per_request": 307.0,
+      "target_only_speedup": 1.4129659801889687,
+      "target_p50_ms": 211.85518950369442
+    }
+  ],
+  "rho_sweep_ratio1pct_body1024_header64": [
+    {
+      "combined_p50_ms": 379.9505679999129,
+      "combined_speedup": 0.7895049231701832,
+      "dense_p50_ms": 299.97284399723867,
+      "eviction_observed": false,
+      "fresh_break_even_reuses": 2,
+      "fresh_preparation_p50_ms": 193.148835998727,
+      "peak_rho": 0.9895658796648895,
+      "pre_target_rho": 0.9115765422696116,
+      "target_only_speedup": 1.610918020754305,
+      "target_p50_ms": 186.21235850150697,
+      "target_rho": 0.9
+    },
+    {
+      "combined_p50_ms": 368.1012424858636,
+      "combined_speedup": 0.8109759382634795,
+      "dense_p50_ms": 298.5212505009258,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": 2,
+      "fresh_preparation_p50_ms": 186.11212199175498,
+      "peak_rho": 1.213785224676314,
+      "pre_target_rho": 1.1357958872810359,
+      "target_only_speedup": 1.640072799669704,
+      "target_p50_ms": 182.01707299886039,
+      "target_rho": 1.1
+    },
+    {
+      "combined_p50_ms": 369.5382774894824,
+      "combined_speedup": 0.8100954941290575,
+      "dense_p50_ms": 299.361293502443,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": 2,
+      "fresh_preparation_p50_ms": 186.0444034973625,
+      "peak_rho": 1.606169078446306,
+      "pre_target_rho": 1.5281797410510283,
+      "target_only_speedup": 1.6346554272597673,
+      "target_p50_ms": 183.13418749312405,
+      "target_rho": 1.5
+    },
+    {
+      "combined_p50_ms": 367.27990749204764,
+      "combined_speedup": 0.8146730583369435,
+      "dense_p50_ms": 299.21304550225614,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": 2,
+      "fresh_preparation_p50_ms": 185.57724649872398,
+      "peak_rho": 2.1106626047220107,
+      "pre_target_rho": 2.0326732673267327,
+      "target_only_speedup": 1.6416643078020234,
+      "target_p50_ms": 182.26201549259713,
+      "target_rho": 2.0
+    },
+    {
+      "combined_p50_ms": 371.5661735041067,
+      "combined_speedup": 0.8116147956914328,
+      "dense_p50_ms": 301.568603994383,
+      "eviction_observed": true,
+      "fresh_break_even_reuses": 2,
+      "fresh_preparation_p50_ms": 187.55996700929245,
+      "peak_rho": 3.1196496572734196,
+      "pre_target_rho": 3.0416603198781416,
+      "target_only_speedup": 1.6435834815221841,
+      "target_p50_ms": 183.48237700411119,
+      "target_rho": 3.0
+    }
+  ],
+  "schema_version": 1,
+  "server_validation": {
+    "all_requests_first_token": true,
+    "all_requests_zero_dense_fallback": true,
+    "eviction_aware_recovery_allocation": true,
+    "non_prefix_distinct_heads": true,
+    "passed": true,
+    "qwen_default_rope_bound": true,
+    "segmented_raw_and_fresh_sources": true,
+    "selected_token_telemetry_matches_ratio": true
+  },
+  "settings": {
+    "body_tokens": [
+      512,
+      768,
+      1024,
+      2048
+    ],
+    "central_log": "/home/chris/Workspaces/kvcache-research/results/BENCHMARK_RUN_LOG.jsonl",
+    "formal_repeats": 4,
+    "header_tokens": [
+      0,
+      32,
+      64,
+      128,
+      256
+    ],
+    "mem_fraction_static": 0.35,
+    "ratios": [
+      0.01,
+      0.05,
+      0.15,
+      0.3
+    ],
+    "rho_targets": [
+      0.9,
+      1.1,
+      1.5,
+      2.0,
+      3.0
+    ],
+    "segment_tokens": 512,
+    "warmup": 1
+  }
+}
