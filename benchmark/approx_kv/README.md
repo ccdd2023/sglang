@@ -93,7 +93,10 @@ python3 -m benchmark.approx_kv.run_phase4_cachetune_canary \
   --model-fingerprint Qwen/Qwen3-0.6B@c1899de289a04d12100db370d81485cdf75e47ca \
   --mode speed_only \
   --t-c-ms 19.0 --t-i-ms 1.0 --t-o-ms 0.5 \
-  --body-tokens 256 --length-sweep 128,512 \
+  --main-header-tokens 64 --main-body-tokens 1024 --main-target-rho 1.5 \
+  --header-tokens-choices 0,32,64,128,256 \
+  --body-tokens-choices 512,768,1024,2048 \
+  --target-rho-choices 0.9,1.1,1.5,2,3 \
   --repeats 4 \
   --runner-git-sha <cachetune-git-sha> \
   --image-digest sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781 \
@@ -185,11 +188,15 @@ literal marker text is prepended ahead of each head's generated content
 (diverging at its very first character) to force divergence starting at
 token 0 instead.
 
-Head length is fixed at 34 tokens and tail length at 1 token for every
-setting (`--body-tokens` only controls the shared body -- the quantity
-CacheTune's controller actually sizes its repair ratio against); `--repeats`
-`>= 2` is enforced (a single formal repeat cannot be distinguished from
-measurement noise).
+Header (distinct source/target head) and shared-body token counts are
+controlled by `--main-header-tokens`/`--main-body-tokens` for the main
+setting and swept via `--header-tokens-choices`/`--body-tokens-choices`
+for the shape sweep -- the shared body is the quantity CacheTune's
+controller actually sizes its repair ratio against. Only eviction-
+pressure filler objects use a separate, fixed `--pressure-filler-head-
+tokens` (default 34); tail length is fixed at 1 token for every setting.
+`--repeats >= 2` is enforced (a single formal repeat cannot be
+distinguished from measurement noise).
 
 Because CacheTune's reuse path requires a request's own exact-radix-match
 length to equal the registered segment's `target_start` exactly (any gap

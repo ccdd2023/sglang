@@ -199,8 +199,9 @@ head) coexist in the exact radix tree within the same flush epoch --
 unlike the main-vs-sweep case, the per-setting flush does *not* isolate
 them from each other. ``build_eviction_pressure_workloads`` gives each
 filler a mutually distinct target-head literal-prefix marker (a
-different leading letter, never a decimal index -- see
-``_pressure_filler_head_literal_prefix``) to keep them pairwise
+different leading Unicode code point drawn from a real-tokenizer-
+validated pool, never a decimal index nor a bare fixed-width letter code
+-- see ``_pressure_filler_head_literal_prefix``) to keep them pairwise
 zero-common-prefix, and ``validate_pairwise_head_isolation`` is a
 runtime safety net that checks the actual resulting token-id sequences
 (never a textual heuristic alone) and raises immediately if any two
@@ -318,23 +319,103 @@ NON_PREFIX_TAIL_TOKENS = 1
 _SOURCE_HEAD_LITERAL_PREFIX = "SOURCE_HEAD_MARKER_TEXT\n"
 _TARGET_HEAD_LITERAL_PREFIX = "TARGET_HEAD_MARKER_TEXT\n"
 
-# Distinct leading letters for every eviction-pressure filler object's own
-# *target* head marker (see _pressure_filler_head_literal_prefix,
-# build_eviction_pressure_workloads). Every filler's target head is
-# dense-seeded (to populate the exact radix tree, exactly like the main/
-# sweep setting's own head -- see materialize_workload_via_reuse), and all
-# N fillers plus the setting's own head coexist in the same tree within
-# one flush epoch (run_non_prefix_setting flushes once per *setting*, not
-# once per filler object). A decimal index (e.g. "0", "1", ...) would NOT
-# stay collision-free once the object count reaches double digits ("1" is
-# a leading-token prefix of "10".."19"), so this uses a fixed alphabet of
-# single letters instead (excluding S/T, already used by
-# _SOURCE_HEAD_LITERAL_PREFIX/_TARGET_HEAD_LITERAL_PREFIX, purely for
-# readability -- validate_pairwise_head_isolation is the actual runtime
-# safety net if any of this textual convention ever fails to produce
-# token-id-level divergence against a real tokenizer's BPE merge
-# behavior).
-_PRESSURE_FILLER_HEAD_ALPHABET = "ABCDEFGHIJKLMNOPQRUVWXYZ"
+# Unicode code-point ranges sampled by _pressure_filler_head_literal_prefix
+# to build every eviction-pressure filler object's own *target* head
+# marker (see build_eviction_pressure_workloads). Every filler's target
+# head is dense-seeded (to populate the exact radix tree, exactly like
+# the main/sweep setting's own head -- see materialize_workload_via_
+# reuse), and all N fillers plus the setting's own head coexist in the
+# same tree within one flush epoch (run_non_prefix_setting flushes once
+# per *setting*, not once per filler object), so every one of these
+# markers must tokenize to a first token id that is pairwise distinct
+# from every other one (validate_pairwise_head_isolation is the runtime
+# safety net that actually checks this).
+#
+# An earlier version of this scheme used a fixed 24-letter ASCII
+# alphabet ("A".."Z" minus S/T) with a positional-numeral encoding for
+# counts above 24. That was empirically PROVEN WRONG against the real
+# Qwen3-0.6B tokenizer: two distinct, equal-length letter codes (e.g.
+# "AA" and "AB") can still tokenize to the SAME first token id, because
+# BPE merge behavior can fold a shared leading character into a shared
+# merge token -- string-level prefix-freeness does not imply token-level
+# first-token distinctness. Worse, ANY short "generic-looking" synthetic
+# ASCII/hex text (regardless of alphabet, digit count, or length) was
+# measured to plateau at only ~183-400 distinct achievable *first
+# tokens* under this tokenizer's real BPE vocabulary -- nowhere near
+# enough for hundreds/thousands of filler objects.
+#
+# These particular code-point ranges (CJK Unified Ideographs, Hiragana/
+# Katakana, Hangul syllables, and several emoji/symbol blocks) were
+# chosen because empirical testing against the real Qwen3-0.6B tokenizer
+# showed each contains many individual characters that real-world
+# multilingual training corpora represent with their own dedicated
+# vocabulary entries -- together reaching thousands of distinct
+# achievable first tokens (>=8000 with zero collisions in the retry
+# search below), instead of the few-hundred ceiling synthetic ASCII text
+# hits. This is still just an empirically-good candidate SOURCE, never
+# trusted alone: _build_pressure_filler_workload_avoiding_first_token_
+# collisions validates every candidate against the real tokenizer passed
+# in and retries on any actual collision, so correctness never depends
+# on an assumption about these ranges' behavior under any particular
+# tokenizer.
+_PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS: tuple[tuple[int, int], ...] = (
+    (0x2190, 0x2BFF),  # Arrows, math operators, misc technical, dingbats
+    (0x2C00, 0x2DFF),  # Glagolitic, Latin Extended-C, Coptic, Georgian Supp.
+    (0x1F000, 0x1F0FF),  # Mahjong / domino / playing cards
+    (0x1F100, 0x1F2FF),  # Enclosed alphanumeric / ideographic supplement
+    (0x1F300, 0x1F5FF),  # Misc symbols and pictographs
+    (0x1F600, 0x1F64F),  # Emoticons
+    (0x1F680, 0x1F6FF),  # Transport and map symbols
+    (0x1F700, 0x1F77F),  # Alchemical symbols
+    (0x1F780, 0x1F7FF),  # Geometric shapes extended
+    (0x1F800, 0x1F8FF),  # Supplemental arrows-C
+    (0x1F900, 0x1F9FF),  # Supplemental symbols and pictographs
+    (0x1FA00, 0x1FA6F),  # Chess symbols
+    (0x1FA70, 0x1FAFF),  # Symbols and pictographs extended-A
+    (0x4E00, 0x9FFF),  # CJK Unified Ideographs
+    (0x3040, 0x30FF),  # Hiragana + Katakana
+    (0xAC00, 0xD7A3),  # Hangul syllables
+)
+
+_PRESSURE_FILLER_MARKER_CODEPOINT_POOL_SIZE = sum(
+    high - low for low, high in _PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS
+)
+
+# Large odd multiplier (Knuth's multiplicative-hash constant) used to
+# permute a combined (filler index, retry attempt) integer across the
+# code-point pool above. Scanning the pool SEQUENTIALLY (combined_index
+# directly as an offset) was empirically found to cluster many adjacent
+# code points onto the SAME first token -- BPE merges neighboring code
+# points within a block together far more often than distant ones --
+# which exhausted the retry budget almost immediately (observed failure
+# at the 49th filler object in one such check). This constant is
+# coprime with every pool size this module can produce in practice
+# (verified for the current pool via math.gcd in this module's tests),
+# so multiplying by it and reducing modulo the pool size is a true
+# bijection over one full pool-sized cycle of combined_index values --
+# consecutive combined indices land on widely-separated pool positions
+# instead of adjacent ones, which was verified empirically to let the
+# retry search reach 8,000+ distinct fillers with zero exhaustion (see
+# tests).
+_PRESSURE_FILLER_MARKER_CODEPOINT_STRIDE = 2654435761
+
+# Defensive upper bound on a single setting's reverse-computed filler
+# object count (see eviction_pressure_filler_count_for_rho). Each filler
+# object costs several real, blocking HTTP round trips (register-raw,
+# then a register-fresh + reuse cycle in materialize_workload_via_reuse)
+# plus an explicit 0.1s sleep in register_eviction_pressure_objects, so an
+# unbounded count from a pathological (--main-target-rho/--target-rho-
+# choices, --pressure-filler-body-tokens, live measured capacity)
+# combination could otherwise silently spend hours issuing real requests
+# before this setting's own measurement even begins -- this raises
+# immediately instead, the moment the count is known, before any of that
+# per-filler HTTP loop starts. Deliberately far above any plausible real
+# combination this project's SM75/RTX6000-class hardware would ever need
+# at the documented default --pressure-filler-body-tokens (2048): even a
+# ~374k-token usable capacity (a rough RTX 6000 48GB order-of-magnitude
+# estimate for this project's small Qwen3-0.6B model) at target_rho=3
+# only reverse-computes to roughly 540 fillers, well under this bound.
+MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT = 5000
 
 # Every setting (dense, the main CacheTune point, every shape-sweep
 # point, and every rho-sweep point) runs exactly this many *discarded*
@@ -344,30 +425,76 @@ _PRESSURE_FILLER_HEAD_ALPHABET = "ABCDEFGHIJKLMNOPQRUVWXYZ"
 WARMUP_PASSES_PER_SETTING = 1
 
 
-def _pressure_filler_head_literal_prefix(index: int) -> str:
-    """Deterministic, mutually-distinct literal marker text for
-    eviction-pressure filler object ``index``'s own *target* head (see
-    ``_PRESSURE_FILLER_HEAD_ALPHABET``, ``build_eviction_pressure_workloads``).
+def _pressure_filler_marker_codepoint_for_combined_index(combined_index: int) -> int:
+    """Map a combined ``(filler_index, retry_attempt)`` integer to one
+    Unicode code point drawn from
+    ``_PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS``.
 
-    Raises rather than silently wrapping/reusing a letter once ``index``
-    exceeds the supported alphabet size: a wrapped/reused leading letter
-    would defeat the whole point of this function (guaranteed first-
-    character divergence per filler object).
+    Every ``combined_index`` in ``[0, _PRESSURE_FILLER_MARKER_CODEPOINT_
+    POOL_SIZE)`` maps to a DISTINCT code point (multiplying by
+    ``_PRESSURE_FILLER_MARKER_CODEPOINT_STRIDE`` and reducing modulo the
+    pool size is a bijection over exactly one pool-sized cycle, since the
+    stride is coprime with the pool size -- see that constant's own
+    comment and this module's tests); ``combined_index`` values are
+    reduced modulo the pool size first, so the mapping is total (defined
+    for any non-negative integer) and simply repeats every pool-sized
+    cycle rather than raising once the immediate pool is exhausted --
+    ``_build_pressure_filler_workload_avoiding_first_token_collisions``'s
+    own bounded retry budget, not this function, is what actually caps
+    how many attempts get made in practice.
     """
-    if index < 0:
-        raise ValueError(f"index must be >= 0, got {index}")
-    if index >= len(_PRESSURE_FILLER_HEAD_ALPHABET):
-        raise ValueError(
-            f"index={index} exceeds the supported "
-            f"{len(_PRESSURE_FILLER_HEAD_ALPHABET)} distinct pressure-filler "
-            "head markers; reduce --main-target-rho/--target-rho-choices "
-            "(fewer reverse-computed filler objects needed), raise "
-            "--pressure-filler-body-tokens (each filler occupies more "
-            "capacity, so fewer are needed for the same target_rho), or "
-            "extend _PRESSURE_FILLER_HEAD_ALPHABET"
-        )
-    letter = _PRESSURE_FILLER_HEAD_ALPHABET[index]
-    return f"{letter}FILLERHEAD_MARKER_TEXT\n"
+    if combined_index < 0:
+        raise ValueError(f"combined_index must be >= 0, got {combined_index}")
+    offset = combined_index % _PRESSURE_FILLER_MARKER_CODEPOINT_POOL_SIZE
+    permuted_offset = (
+        offset * _PRESSURE_FILLER_MARKER_CODEPOINT_STRIDE
+    ) % _PRESSURE_FILLER_MARKER_CODEPOINT_POOL_SIZE
+    for low, high in _PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS:
+        span = high - low
+        if permuted_offset < span:
+            return low + permuted_offset
+        permuted_offset -= span
+    raise AssertionError(
+        "unreachable: _PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS span "
+        "accounting does not match _PRESSURE_FILLER_MARKER_CODEPOINT_"
+        "POOL_SIZE -- this is a bug in this module's own constants, not "
+        "a caller error"
+    )
+
+
+def _pressure_filler_head_literal_prefix(combined_index: int) -> str:
+    """Deterministic literal marker TEXT for one CANDIDATE attempt (a
+    combined ``(filler_index, retry_attempt)`` index -- see
+    ``_build_pressure_filler_workload_avoiding_first_token_collisions``)
+    of an eviction-pressure filler object's own *target* head (see
+    ``_PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS``,
+    ``build_eviction_pressure_workloads``).
+
+    Every distinct ``combined_index`` (within one pool-sized cycle, see
+    ``_pressure_filler_marker_codepoint_for_combined_index``) gets its
+    own distinct leading Unicode code point, chosen from ranges (CJK
+    ideographs, Hiragana/Katakana, Hangul syllables, common emoji/symbol
+    blocks) empirically found to each tokenize to many distinct first
+    tokens under the real Qwen3-0.6B tokenizer -- unlike short synthetic
+    ASCII/hex text (this project's original scheme), which plateaus at
+    only ~183-400 distinct achievable first tokens regardless of
+    alphabet or length (see ``_PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS``'s
+    own comment for the full empirical history).
+
+    IMPORTANT -- exactly like the original ASCII scheme this replaces,
+    a distinct leading code point is still only an empirically-good
+    STARTING POINT, never a proof, of first-TOKEN distinctness on its
+    own: ``build_eviction_pressure_workloads`` (via
+    ``_build_pressure_filler_workload_avoiding_first_token_collisions``)
+    is what actually guarantees the required token-level zero-common-
+    prefix property, by validating each candidate's real
+    ``target_head_ids[0]`` against the real tokenizer passed in and
+    retrying with the NEXT ``combined_index`` on any detected collision.
+    This function must never be trusted alone to guarantee pairwise
+    isolation; only that downstream real-tokenizer validation may be.
+    """
+    codepoint = _pressure_filler_marker_codepoint_for_combined_index(combined_index)
+    return chr(codepoint) + "-pressure-filler-marker\n"
 
 
 def _repeat_count(value: str) -> int:
@@ -873,6 +1000,78 @@ def build_non_prefix_segment_workload(
     )
 
 
+_MAX_PRESSURE_FILLER_FIRST_TOKEN_COLLISION_RETRIES = 64
+
+
+def _build_pressure_filler_workload_avoiding_first_token_collisions(
+    tokenizer: Any,
+    *,
+    index: int,
+    body_tokens: int,
+    head_tokens: int,
+    tail_tokens: int,
+    salt_prefix: str,
+    reserved_first_token_ids: set[int],
+) -> NonPrefixSegmentWorkload:
+    """Build filler ``index``'s workload, trying up to
+    ``_MAX_PRESSURE_FILLER_FIRST_TOKEN_COLLISION_RETRIES`` distinct
+    candidate target-head markers (via ``_pressure_filler_head_literal_
+    prefix`` over an expanded ``index * RETRIES + attempt`` combined
+    index space, so every attempt -- for every filler -- is a globally
+    distinct code point, never repeating a candidate already tried by
+    this or any other filler) until one produces a target head whose
+    first token id is not already in ``reserved_first_token_ids``.
+
+    This directly validates against the REAL ``tokenizer`` passed in --
+    not a textual heuristic -- so it is correct by construction for
+    whatever tokenizer a given deployment actually uses, unlike relying
+    on ``_pressure_filler_head_literal_prefix``'s code-point choice alone
+    (see that function's docstring: a distinct leading code point is an
+    empirically-good starting point, never a proof, of first-token
+    distinctness). ``reserved_first_token_ids`` is mutated by the caller
+    (``build_eviction_pressure_workloads``) after each accepted filler,
+    so every later filler also avoids every earlier filler's (and any
+    externally reserved, e.g. the setting's own head's) first token.
+
+    Raises ``RuntimeError`` (never silently returns a colliding
+    workload) if every attempt collides -- this would mean fewer than
+    ``_MAX_PRESSURE_FILLER_FIRST_TOKEN_COLLISION_RETRIES`` distinct first
+    tokens remain reachable from this filler's candidate markers, which
+    was empirically observed to require several thousand already-
+    accepted fillers against the real Qwen3-0.6B tokenizer and the
+    current ``_PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS`` pool (>=8,000
+    fillers succeeded with zero exhaustion in that check) -- reachable
+    only near or beyond ``MAX_REASONABLE_EVICTION_PRESSURE_FILLER_
+    COUNT``, and would indicate a genuine tokenizer/vocab
+    misconfiguration or an exhausted code-point pool worth surfacing
+    loudly rather than masking.
+    """
+    for attempt in range(_MAX_PRESSURE_FILLER_FIRST_TOKEN_COLLISION_RETRIES):
+        combined_index = (
+            index * _MAX_PRESSURE_FILLER_FIRST_TOKEN_COLLISION_RETRIES + attempt
+        )
+        marker = _pressure_filler_head_literal_prefix(combined_index)
+        candidate = build_non_prefix_segment_workload(
+            tokenizer,
+            body_tokens=body_tokens,
+            head_tokens=head_tokens,
+            tail_tokens=tail_tokens,
+            salt=f"{salt_prefix}-filler-{index}",
+            target_head_literal_prefix=marker,
+        )
+        if candidate.target_head_ids[0] not in reserved_first_token_ids:
+            return candidate
+    raise RuntimeError(
+        f"could not find a first-token-distinct target-head marker for "
+        f"pressure filler {index} after "
+        f"{_MAX_PRESSURE_FILLER_FIRST_TOKEN_COLLISION_RETRIES} attempts "
+        "against the real tokenizer -- this should only be reachable "
+        "near or beyond MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT; "
+        "check for a tokenizer/vocab misconfiguration or an exhausted "
+        "_PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS pool"
+    )
+
+
 def build_eviction_pressure_workloads(
     tokenizer: Any,
     *,
@@ -881,6 +1080,7 @@ def build_eviction_pressure_workloads(
     head_tokens: int,
     tail_tokens: int,
     salt_prefix: str,
+    reserved_first_token_ids: frozenset[int] = frozenset(),
 ) -> tuple[NonPrefixSegmentWorkload, ...]:
     """Build ``object_count`` distinct filler ``NonPrefixSegmentWorkload``
     objects meant purely to occupy real, finite GPU KV-pool capacity
@@ -890,26 +1090,51 @@ def build_eviction_pressure_workloads(
 
     Each filler gets its own ``salt_prefix-filler-{index}`` content salt
     (so no two fillers, and no filler and any main/sweep setting, ever
-    share body/tail content) AND its own mutually distinct target-head
-    literal-prefix marker via ``_pressure_filler_head_literal_prefix``
-    (so no two fillers' dense-seeded target heads -- nor a filler's head
-    and the setting's own head -- can collide in the live server's exact
-    radix tree; see ``build_non_prefix_segment_workload``'s docstring and
-    ``validate_pairwise_head_isolation``).
+    share body/tail content) AND its own target-head marker, chosen so
+    that its resulting target head's FIRST TOKEN is guaranteed -- by
+    direct validation against this call's real ``tokenizer``, not by
+    trusting any textual convention -- to differ from every other
+    filler's first token and from every id in ``reserved_first_token_ids``
+    (pass the calling setting's own head's first token here so a filler
+    can never collide with it either; see ``validate_pairwise_head_
+    isolation``, the downstream, redundant final check).
+
+    An earlier version of this function relied solely on a fixed-width,
+    string-prefix-free letter code, on the (incorrect) assumption that
+    string-level distinctness at a fixed width was sufficient. It
+    empirically is NOT: e.g. at ``object_count=64``, two of the
+    resulting markers were found, against the real Qwen3-0.6B tokenizer,
+    to tokenize to the SAME first token id despite being distinct
+    strings, and short synthetic ASCII/hex text was separately found to
+    plateau at only ~183-400 distinct achievable first tokens regardless
+    of alphabet or length -- far short of what hundreds/thousands of
+    filler objects need. This function now draws candidate markers from
+    ``_PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS`` (empirically verified to
+    sustain >=8,000 zero-collision fillers) and performs a bounded,
+    real-tokenizer-validated retry search per filler (see
+    ``_build_pressure_filler_workload_avoiding_first_token_collisions``)
+    so correctness never depends on any assumption about a specific
+    tokenizer's BPE merge behaviour -- it holds for whatever tokenizer is
+    actually passed in, fake or real, for any ``object_count`` up to
+    ``MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT``.
     """
     if object_count <= 0:
         raise ValueError(f"object_count must be positive, got {object_count}")
-    return tuple(
-        build_non_prefix_segment_workload(
+    accepted_first_token_ids: set[int] = set(reserved_first_token_ids)
+    workloads: list[NonPrefixSegmentWorkload] = []
+    for index in range(object_count):
+        workload = _build_pressure_filler_workload_avoiding_first_token_collisions(
             tokenizer,
+            index=index,
             body_tokens=body_tokens,
             head_tokens=head_tokens,
             tail_tokens=tail_tokens,
-            salt=f"{salt_prefix}-filler-{index}",
-            target_head_literal_prefix=_pressure_filler_head_literal_prefix(index),
+            salt_prefix=salt_prefix,
+            reserved_first_token_ids=accepted_first_token_ids,
         )
-        for index in range(object_count)
-    )
+        accepted_first_token_ids.add(workload.target_head_ids[0])
+        workloads.append(workload)
+    return tuple(workloads)
 
 
 def eviction_pressure_total_tokens(
@@ -957,6 +1182,18 @@ def eviction_pressure_filler_count_for_rho(
     fillers register (see ``observed_rho`` for the genuine, sampled
     counterpart, read from the live ``sglang:kv_used_tokens`` gauge) --
     the two are reported side by side, never conflated.
+
+    Raises immediately -- before any pressure-phase HTTP request is ever
+    made -- if the reverse-computed count exceeds
+    ``MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT``: this is a
+    defensive sanity bound only (never hit by any plausible real
+    ``--main-target-rho``/``--target-rho-choices``/``--pressure-filler-
+    body-tokens`` combination against a real GPU pool -- see that
+    constant's own comment), catching a pathological misconfiguration
+    (e.g. an accidentally tiny ``--pressure-filler-body-tokens`` against
+    a large measured capacity) up front rather than letting
+    ``register_eviction_pressure_objects`` silently spend a very long
+    time issuing thousands of real, blocking per-filler HTTP requests.
     """
     if target_rho <= 0:
         raise ValueError(f"target_rho must be positive, got {target_rho}")
@@ -967,7 +1204,21 @@ def eviction_pressure_filler_count_for_rho(
     if tokens_per_filler <= 0:
         raise ValueError(f"tokens_per_filler must be positive, got {tokens_per_filler}")
     target_total_tokens = target_rho * usable_capacity_tokens
-    return math.ceil(target_total_tokens / tokens_per_filler)
+    filler_count = math.ceil(target_total_tokens / tokens_per_filler)
+    if filler_count > MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT:
+        raise ValueError(
+            f"reverse-computed filler_count={filler_count} exceeds the "
+            f"sanity bound of {MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT} "
+            f"(target_rho={target_rho}, "
+            f"usable_capacity_tokens={usable_capacity_tokens}, "
+            f"tokens_per_filler={tokens_per_filler}) -- this would require "
+            "thousands of real, blocking per-filler HTTP round trips "
+            "before this setting's own measurement even begins; raise "
+            "--pressure-filler-body-tokens (fewer, larger fillers needed "
+            "for the same target_rho) or lower --main-target-rho/"
+            "--target-rho-choices instead"
+        )
+    return filler_count
 
 
 def observed_rho(snapshot: Mapping[str, float], *, capacity_tokens: int) -> float:
@@ -1119,7 +1370,7 @@ def validate_pairwise_head_isolation(
                     "against an earlier head already sitting in the "
                     "exact radix tree. Use more diverse literal-prefix "
                     "markers for these two heads (see "
-                    "_PRESSURE_FILLER_HEAD_ALPHABET / "
+                    "_PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS / "
                     "_SOURCE_HEAD_LITERAL_PREFIX / "
                     "_TARGET_HEAD_LITERAL_PREFIX)."
                 )
@@ -1730,6 +1981,7 @@ def run_non_prefix_setting(
             head_tokens=pressure_filler_head_tokens,
             tail_tokens=NON_PREFIX_TAIL_TOKENS,
             salt_prefix=f"{CACHE_SALT}-pressure-{label}",
+            reserved_first_token_ids=frozenset({workload.target_head_ids[0]}),
         )
         validate_pairwise_head_isolation(
             [

@@ -14,7 +14,10 @@ import unittest.mock
 from pathlib import Path
 
 from benchmark.approx_kv.run_phase4_cachetune_canary import (
-    _PRESSURE_FILLER_HEAD_ALPHABET,
+    _PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS,
+    _PRESSURE_FILLER_MARKER_CODEPOINT_POOL_SIZE,
+    _PRESSURE_FILLER_MARKER_CODEPOINT_STRIDE,
+    MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT,
     NON_PREFIX_HEAD_TOKENS,
     NON_PREFIX_TAIL_TOKENS,
     WARMUP_PASSES_PER_SETTING,
@@ -27,6 +30,7 @@ from benchmark.approx_kv.run_phase4_cachetune_canary import (
     _positive_int,
     _positive_int_choice_list,
     _pressure_filler_head_literal_prefix,
+    _pressure_filler_marker_codepoint_for_combined_index,
     _repeat_count,
     append_run_log,
     body_segments_for_hash,
@@ -125,6 +129,45 @@ class CharLevelFakeTokenizer:
             int(hashlib.sha256(char.encode("utf-8")).hexdigest()[:8], 16) % 100000
             for char in text
         ]
+
+
+class AlwaysCollidingFillerMarkerFakeTokenizer:
+    """Pathological fake used ONLY to prove
+    ``_build_pressure_filler_workload_avoiding_first_token_collisions``'s
+    bounded retry budget actually exhausts and raises ``RuntimeError``
+    cleanly -- never hangs, never silently returns a colliding workload
+    -- when a real vocabulary is genuinely too impoverished to keep every
+    filler's target head pairwise first-token-distinct.
+
+    Every ``_pressure_filler_head_literal_prefix`` candidate marker
+    starts with a non-ASCII Unicode code point (see
+    ``_PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS``), while every OTHER
+    piece this module tokenizes (source/target head literal prefixes,
+    ``workloads.deterministic_code``'s body/tail text) is plain ASCII.
+    This fake exploits exactly that split: any text starting with a
+    non-ASCII character always encodes to first token id 0, regardless
+    of which code point it actually is, simulating a vocabulary that
+    cannot distinguish ANY of these markers; everything else hashes
+    normally (per whitespace-split word, like ``FakeTokenizer``) so
+    non-filler content (and a filler's own body/tail) stays properly
+    self-consistent and never trips
+    ``NonPrefixSegmentWorkload.__post_init__``'s unrelated source/target
+    common-prefix check.
+    """
+
+    def encode(self, text, add_special_tokens=False):
+        del add_special_tokens
+        if text and ord(text[0]) > 127:
+            rest = [
+                int(hashlib.sha256(word.encode("utf-8")).hexdigest()[:8], 16) % 100000
+                + 1
+                for word in text.split()
+            ] or [1]
+            return [0] + rest
+        return [
+            int(hashlib.sha256(word.encode("utf-8")).hexdigest()[:8], 16) % 100000
+            for word in text.split()
+        ] or [0]
 
 
 class TestRepeatCount(unittest.TestCase):
@@ -719,27 +762,116 @@ class TestNonPrefixSegmentWorkload(unittest.TestCase):
             workload.source_head_ids = (1,)  # type: ignore[misc]
 
 
+class TestPressureFillerMarkerCodepointForCombinedIndex(unittest.TestCase):
+    """The low-level combined-index -> Unicode code point mapper behind
+    ``_pressure_filler_head_literal_prefix`` (see
+    ``_PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS``).
+
+    This replaces an original fixed 24-object single-letter-alphabet
+    scheme (which raised ``ValueError`` once a setting's reverse-
+    computed filler count exceeded 24 on a real GPU run) AND a since-
+    abandoned width-based multi-letter-code redesign that was
+    empirically found to be insufficient: two distinct, equal-length
+    letter codes could still tokenize to the SAME first token under the
+    real Qwen3-0.6B tokenizer's BPE merge behavior, and short synthetic
+    ASCII/hex text was separately found to plateau at only ~183-400
+    distinct achievable first tokens regardless of alphabet or length --
+    far short of what hundreds/thousands of filler objects need. This
+    code-point-pool-based scheme was verified, against the real
+    Qwen3-0.6B tokenizer outside this test suite, to sustain >=8,000
+    zero-collision fillers.
+    """
+
+    def test_is_deterministic(self):
+        self.assertEqual(
+            _pressure_filler_marker_codepoint_for_combined_index(5),
+            _pressure_filler_marker_codepoint_for_combined_index(5),
+        )
+
+    def test_rejects_negative_combined_index(self):
+        with self.assertRaises(ValueError):
+            _pressure_filler_marker_codepoint_for_combined_index(-1)
+
+    def test_every_codepoint_falls_within_a_declared_block(self):
+        # Sampled, not exhaustive, across several full pool cycles.
+        for combined_index in range(
+            0, _PRESSURE_FILLER_MARKER_CODEPOINT_POOL_SIZE * 3, 37
+        ):
+            codepoint = _pressure_filler_marker_codepoint_for_combined_index(
+                combined_index
+            )
+            in_some_block = any(
+                low <= codepoint < high
+                for low, high in _PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS
+            )
+            self.assertTrue(
+                in_some_block,
+                f"codepoint {codepoint:#x} for combined_index="
+                f"{combined_index} must fall within one of "
+                "_PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS",
+            )
+
+    def test_combined_indices_within_one_pool_cycle_are_all_distinct(self):
+        # The stride is coprime with the pool size (see
+        # test_stride_is_coprime_with_pool_size below), so this must be
+        # a true bijection over one full pool-sized cycle -- this is the
+        # exact property build_eviction_pressure_workloads's retry
+        # search depends on to reach thousands of fillers.
+        codepoints = [
+            _pressure_filler_marker_codepoint_for_combined_index(i)
+            for i in range(_PRESSURE_FILLER_MARKER_CODEPOINT_POOL_SIZE)
+        ]
+        self.assertEqual(len(codepoints), len(set(codepoints)))
+
+    def test_wraps_around_by_modulo_beyond_one_pool_cycle(self):
+        # Total (defined for any non-negative integer) rather than
+        # raising once the immediate pool is exhausted -- the bounded
+        # retry budget in _build_pressure_filler_workload_avoiding_
+        # first_token_collisions, not this function, is what actually
+        # caps how many attempts get made in practice.
+        pool_size = _PRESSURE_FILLER_MARKER_CODEPOINT_POOL_SIZE
+        self.assertEqual(
+            _pressure_filler_marker_codepoint_for_combined_index(0),
+            _pressure_filler_marker_codepoint_for_combined_index(pool_size),
+        )
+        self.assertEqual(
+            _pressure_filler_marker_codepoint_for_combined_index(41),
+            _pressure_filler_marker_codepoint_for_combined_index(pool_size + 41),
+        )
+
+    def test_stride_is_coprime_with_pool_size(self):
+        # This is the mathematical property the whole scheme depends on:
+        # multiplying by the stride and reducing modulo the pool size is
+        # only a true bijection (every combined_index in one cycle maps
+        # to a DIFFERENT code point) if the two are coprime. If a future
+        # edit to _PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS ever changes
+        # the pool size to something sharing a common factor with the
+        # stride, this test must catch it up front, before
+        # test_combined_indices_within_one_pool_cycle_are_all_distinct
+        # would otherwise start silently failing in a confusing way.
+        self.assertEqual(
+            math.gcd(
+                _PRESSURE_FILLER_MARKER_CODEPOINT_STRIDE,
+                _PRESSURE_FILLER_MARKER_CODEPOINT_POOL_SIZE,
+            ),
+            1,
+        )
+
+
 class TestPressureFillerHeadLiteralPrefix(unittest.TestCase):
-    """Every eviction-pressure filler object needs its own mutually
-    distinct target-head literal-prefix marker (see
-    ``_PRESSURE_FILLER_HEAD_ALPHABET``); this generator must be
-    deterministic, in-range-valid, and loudly reject anything it cannot
-    keep distinct."""
-
-    def test_index_zero_uses_first_alphabet_letter(self):
-        self.assertEqual(
-            _pressure_filler_head_literal_prefix(0), "AFILLERHEAD_MARKER_TEXT\n"
-        )
-
-    def test_index_one_uses_second_alphabet_letter(self):
-        self.assertEqual(
-            _pressure_filler_head_literal_prefix(1), "BFILLERHEAD_MARKER_TEXT\n"
-        )
-
-    def test_last_valid_index_uses_last_alphabet_letter(self):
-        last_index = len(_PRESSURE_FILLER_HEAD_ALPHABET) - 1
-        prefix = _pressure_filler_head_literal_prefix(last_index)
-        self.assertTrue(prefix.startswith(_PRESSURE_FILLER_HEAD_ALPHABET[-1]))
+    """Every eviction-pressure filler object needs its own CANDIDATE
+    target-head literal-prefix marker (see
+    ``_PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS``); this generator must be
+    deterministic and its text's leading character must be exactly the
+    code point ``_pressure_filler_marker_codepoint_for_combined_index``
+    picked for that same combined index. A distinct leading code point
+    is only an empirically-good STARTING candidate, never proof, of
+    first-TOKEN distinctness on its own -- ``build_eviction_pressure_
+    workloads`` (via ``_build_pressure_filler_workload_avoiding_first_
+    token_collisions``) is what actually guarantees that, by validating
+    each candidate against a real tokenizer and retrying on collision
+    (see ``TestBuildEvictionPressureWorkloads`` for that guarantee's own
+    tests)."""
 
     def test_is_deterministic(self):
         self.assertEqual(
@@ -747,32 +879,29 @@ class TestPressureFillerHeadLiteralPrefix(unittest.TestCase):
             _pressure_filler_head_literal_prefix(3),
         )
 
-    def test_every_valid_index_produces_a_distinct_prefix(self):
-        prefixes = [
-            _pressure_filler_head_literal_prefix(index)
-            for index in range(len(_PRESSURE_FILLER_HEAD_ALPHABET))
-        ]
-        self.assertEqual(len(prefixes), len(set(prefixes)))
+    def test_leading_character_matches_the_codepoint_mapper(self):
+        for combined_index in (0, 1, 2, 1000, 5000):
+            marker = _pressure_filler_head_literal_prefix(combined_index)
+            expected_codepoint = _pressure_filler_marker_codepoint_for_combined_index(
+                combined_index
+            )
+            self.assertEqual(ord(marker[0]), expected_codepoint)
 
-    def test_rejects_negative_index(self):
+    def test_two_different_combined_indices_produce_different_markers(self):
+        self.assertNotEqual(
+            _pressure_filler_head_literal_prefix(0),
+            _pressure_filler_head_literal_prefix(1),
+        )
+
+    def test_rejects_negative_combined_index(self):
         with self.assertRaises(ValueError):
             _pressure_filler_head_literal_prefix(-1)
 
-    def test_rejects_index_at_alphabet_length(self):
-        with self.assertRaises(ValueError):
-            _pressure_filler_head_literal_prefix(len(_PRESSURE_FILLER_HEAD_ALPHABET))
-
-    def test_rejects_index_far_beyond_alphabet_length(self):
-        with self.assertRaises(ValueError):
-            _pressure_filler_head_literal_prefix(999)
-
-    def test_excludes_source_and_target_head_markers_own_letters(self):
-        # S and T are already used by _SOURCE_HEAD_LITERAL_PREFIX /
-        # _TARGET_HEAD_LITERAL_PREFIX; the pressure-filler alphabet must
-        # never reuse either, or a filler could collide with the
-        # setting's own head/source markers.
-        self.assertNotIn("S", _PRESSURE_FILLER_HEAD_ALPHABET)
-        self.assertNotIn("T", _PRESSURE_FILLER_HEAD_ALPHABET)
+    def test_64_candidate_markers_are_all_distinct(self):
+        # The exact real-GPU-reported scenario: 64 filler objects, well
+        # past the original 24-marker cap.
+        markers = [_pressure_filler_head_literal_prefix(i) for i in range(64)]
+        self.assertEqual(len(markers), len(set(markers)))
 
 
 class TestBuildNonPrefixSegmentWorkload(unittest.TestCase):
@@ -1080,6 +1209,161 @@ class TestBuildEvictionPressureWorkloads(unittest.TestCase):
         ]
         validate_pairwise_head_isolation(labeled_heads)  # must not raise
 
+    def test_64_fillers_past_the_original_24_marker_cap_are_all_distinct(self):
+        # Regression test for a real report from a live GPU run: a
+        # larger live capacity/rho combination reverse-computed a
+        # filler_count of 64, past the OLD single-letter-alphabet cap
+        # of 24, which raised ValueError deep into a long-running
+        # canary. The code-point-pool-based marker scheme (see
+        # _PRESSURE_FILLER_MARKER_CODEPOINT_BLOCKS /
+        # _pressure_filler_head_literal_prefix) must keep working --
+        # with all 64 fillers mutually distinct in both body and target
+        # head -- well past that old cap.
+        workloads = build_eviction_pressure_workloads(
+            FakeTokenizer(),
+            object_count=64,
+            body_tokens=48,
+            head_tokens=34,
+            tail_tokens=1,
+            salt_prefix="phase4-r5-pressure-past-cap",
+        )
+        self.assertEqual(len(workloads), 64)
+        target_heads = [workload.target_head_ids for workload in workloads]
+        self.assertEqual(
+            len(target_heads),
+            len(set(target_heads)),
+            "all 64 filler target heads must be mutually distinct",
+        )
+        bodies = [workload.shared_body_ids for workload in workloads]
+        self.assertEqual(
+            len(bodies),
+            len(set(bodies)),
+            "all 64 filler bodies must be mutually distinct",
+        )
+
+    def test_64_fillers_past_the_original_24_marker_cap_pass_pairwise_head_isolation(
+        self,
+    ):
+        # Same >24-filler scenario as above, but proven against the
+        # real safety net (validate_pairwise_head_isolation, a genuine
+        # token-ID-level pairwise common-prefix check) using the
+        # finer-granularity char-level fake tokenizer, exactly like
+        # test_fillers_pass_pairwise_head_isolation_against_a_bpe_like_tokenizer
+        # above does for the <=24 case.
+        workloads = build_eviction_pressure_workloads(
+            CharLevelFakeTokenizer(),
+            object_count=64,
+            body_tokens=32,
+            head_tokens=NON_PREFIX_HEAD_TOKENS,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt_prefix="phase4-r5-pressure-past-cap",
+        )
+        labeled_heads = [
+            (f"pressure-filler[{index}]", workload.target_head_ids)
+            for index, workload in enumerate(workloads)
+        ]
+        validate_pairwise_head_isolation(labeled_heads)  # must not raise
+
+    def test_500_fillers_well_past_any_short_ascii_text_ceiling_pass_pairwise_head_isolation(
+        self,
+    ):
+        # A short synthetic-ASCII/hex-text marker scheme (this module's
+        # own earlier, abandoned design) was empirically measured to
+        # plateau at only ~183-400 distinct achievable first tokens
+        # under the real Qwen3-0.6B tokenizer, regardless of alphabet or
+        # length -- far short of a genuinely "arbitrary reasonable"
+        # filler count. This proves the CURRENT code-point-pool-based
+        # scheme clears that ceiling by a wide margin (500 is also
+        # comfortably past this project's own ~540-filler realistic
+        # worst-case estimate for --pressure-filler-body-tokens's
+        # documented default against a large RTX 6000-class pool -- see
+        # MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT's own comment).
+        workloads = build_eviction_pressure_workloads(
+            CharLevelFakeTokenizer(),
+            object_count=500,
+            body_tokens=8,
+            head_tokens=NON_PREFIX_HEAD_TOKENS,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt_prefix="phase4-r5-pressure-past-ascii-ceiling",
+        )
+        self.assertEqual(len(workloads), 500)
+        labeled_heads = [
+            (f"pressure-filler[{index}]", workload.target_head_ids)
+            for index, workload in enumerate(workloads)
+        ]
+        validate_pairwise_head_isolation(labeled_heads)  # must not raise
+
+    def test_reserved_first_token_ids_are_also_avoided(self):
+        # Mirrors run_non_prefix_setting's real call site: the setting's
+        # own head's first token is passed in as reserved so a filler
+        # can never collide with it either, not just with other
+        # fillers.
+        tokenizer = CharLevelFakeTokenizer()
+        reserved_workload = build_non_prefix_segment_workload(
+            tokenizer,
+            body_tokens=8,
+            head_tokens=NON_PREFIX_HEAD_TOKENS,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt="phase4-r5-pressure-reserved-setting-head",
+        )
+        reserved_first_token = reserved_workload.target_head_ids[0]
+        workloads = build_eviction_pressure_workloads(
+            tokenizer,
+            object_count=16,
+            body_tokens=8,
+            head_tokens=NON_PREFIX_HEAD_TOKENS,
+            tail_tokens=NON_PREFIX_TAIL_TOKENS,
+            salt_prefix="phase4-r5-pressure-reserved",
+            reserved_first_token_ids=frozenset({reserved_first_token}),
+        )
+        for workload in workloads:
+            self.assertNotEqual(workload.target_head_ids[0], reserved_first_token)
+        labeled_heads = [("setting-own-head", reserved_workload.target_head_ids)] + [
+            (f"pressure-filler[{index}]", workload.target_head_ids)
+            for index, workload in enumerate(workloads)
+        ]
+        validate_pairwise_head_isolation(labeled_heads)  # must not raise
+
+    def test_retry_search_raises_cleanly_instead_of_hanging_when_exhausted(self):
+        # Proves _build_pressure_filler_workload_avoiding_first_token_
+        # collisions's bounded retry budget actually fires and raises
+        # RuntimeError -- never hangs, never silently returns a
+        # colliding workload -- when a vocabulary is genuinely too
+        # impoverished to keep filler heads pairwise first-token-
+        # distinct (see AlwaysCollidingFillerMarkerFakeTokenizer). The
+        # first filler must still succeed (nothing reserved yet); only
+        # the second, which collides on every one of its attempts,
+        # must raise.
+        with self.assertRaises(RuntimeError) as ctx:
+            build_eviction_pressure_workloads(
+                AlwaysCollidingFillerMarkerFakeTokenizer(),
+                object_count=2,
+                body_tokens=4,
+                head_tokens=2,
+                tail_tokens=1,
+                salt_prefix="phase4-r5-pressure-exhaustion",
+            )
+        self.assertIn("pressure filler 1", str(ctx.exception))
+
+    def test_retry_search_single_filler_succeeds_even_against_a_hostile_tokenizer(
+        self,
+    ):
+        # With nothing yet reserved, even the hostile
+        # AlwaysCollidingFillerMarkerFakeTokenizer accepts the very
+        # first candidate for filler 0 -- the exhaustion failure mode
+        # above is about the SECOND-and-later fillers colliding with an
+        # already-accepted first token, not about the first attempt
+        # ever being rejected outright.
+        workloads = build_eviction_pressure_workloads(
+            AlwaysCollidingFillerMarkerFakeTokenizer(),
+            object_count=1,
+            body_tokens=4,
+            head_tokens=2,
+            tail_tokens=1,
+            salt_prefix="phase4-r5-pressure-single-hostile",
+        )
+        self.assertEqual(len(workloads), 1)
+
     def test_different_salt_prefixes_isolate_two_settings_filler_sets(self):
         # Mirrors two different settings (e.g. the main setting and a
         # length-sweep point) each building their own filler set: they
@@ -1205,6 +1489,35 @@ class TestEvictionPressureFillerCountForRho(unittest.TestCase):
                 usable_capacity_tokens=1000,
                 tokens_per_filler=0,
             )
+
+    def test_rejects_reverse_computed_count_beyond_the_sanity_bound(self):
+        # Defense-in-depth fail-fast: the exact filler count needed
+        # cannot be known before the run's own live capacity probe (see
+        # module docstring / this function's docstring), so this cannot
+        # catch every pathological input "before ANY request" -- but it
+        # DOES catch it before the actual per-filler HTTP registration
+        # loop starts for that setting, which is the earliest point the
+        # real count is known. A tiny tokens_per_filler against a huge
+        # capacity is exactly the kind of misconfiguration (e.g. an
+        # accidentally-small --pressure-filler-body-tokens) that would
+        # otherwise silently launch thousands of real, blocking
+        # per-filler HTTP registrations.
+        with self.assertRaises(ValueError):
+            eviction_pressure_filler_count_for_rho(
+                target_rho=100.0,
+                usable_capacity_tokens=10_000_000,
+                tokens_per_filler=1,
+            )
+
+    def test_accepts_reverse_computed_count_at_the_sanity_bound(self):
+        # Exactly MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT must
+        # still be accepted -- only counts strictly beyond it fail fast.
+        count = eviction_pressure_filler_count_for_rho(
+            target_rho=1.0,
+            usable_capacity_tokens=MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT * 500,
+            tokens_per_filler=500,
+        )
+        self.assertEqual(count, MAX_REASONABLE_EVICTION_PRESSURE_FILLER_COUNT)
 
 
 class TestObservedRho(unittest.TestCase):
