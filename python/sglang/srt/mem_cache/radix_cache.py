@@ -6,6 +6,13 @@ from sglang.srt.mem_cache.approx_kv.radix_backend import (
     AllocatorCPUResidencyBackend,
 )
 from sglang.srt.mem_cache.cache_init_params import CacheInitParams
+from sglang.srt.mem_cache.cache_policy import (
+    CacheProtectionState,
+    PrefetchCandidate,
+    PrefetchDecision,
+    PrefetchMode,
+    plan_prefetch,
+)
 
 """
 Copyright 2023-2024 SGLang Team
@@ -243,6 +250,8 @@ class TreeNode:
         self.hash_value: Optional[List[str]] = None
         # priority for priority-aware eviction
         self.priority = priority
+        self.cache_protection = CacheProtectionState()
+        self.cache_object_boundaries: set[str] = set()
 
         self.id = TreeNode.counter if id is None else id
         TreeNode.counter += 1
@@ -347,6 +356,7 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
     ##### Public API #####
 
     def reset(self):
+        self.eviction_strategy.reset()
         # Initialize root with minimum priority so any real priority overrides it
         self.root_node = TreeNode(priority=-sys.maxsize)
         self.root_node.key = RadixKey(token_ids=array("q"), extra_key=None)
@@ -411,6 +421,10 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
         """
         key = params.key
         key, _ = key.maybe_to_bigram_view(self.is_eagle)
+        if params.req is not None:
+            self._observe_cache_protection(
+                getattr(params.req, "cache_protection_metadata", ())
+            )
 
         if self.disable or len(key) == 0:
             return self._empty_match_result
@@ -450,8 +464,13 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
             value = torch.tensor(key.token_ids[: len(key)], dtype=torch.int64)
 
         prefix_len, last_node = self._insert_helper(
-            self.root_node, key, value, priority, chunked
+            self.root_node,
+            key,
+            value,
+            priority,
+            chunked,
         )
+        self._apply_cache_protection(key, params.cache_protection)
         return InsertResult(prefix_len=prefix_len, last_device_node=last_node)
 
     def cache_finished_req(
@@ -485,7 +504,12 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
         if is_insert:
             priority = getattr(req, "priority", 0) or 0
             result = self.insert(
-                InsertParams(key=radix_key, value=values, priority=priority)
+                InsertParams(
+                    key=radix_key,
+                    value=values,
+                    priority=priority,
+                    cache_protection=getattr(req, "cache_protection_metadata", ()),
+                )
             )
             session_leaf = result.last_device_node
             # Free the duplicates that were already in the tree
@@ -506,6 +530,7 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
         # Remove req slot release the cache lock
         if req.last_node is not None:
             self.dec_lock_ref(req.last_node)
+        self._handle_workflow_prefetch(req)
 
     def cache_unfinished_req(self, req: Req, chunked=False):
         """Cache request when it is unfinished."""
@@ -529,6 +554,7 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
                 value=values,
                 chunked=chunked,
                 priority=getattr(req, "priority", 0) or 0,
+                cache_protection=getattr(req, "cache_protection_metadata", ()),
             )
         )
         new_prefix_len = result.prefix_len
@@ -582,6 +608,104 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
     def total_size(self):
         return self._total_size_helper()
 
+    def find_cache_object_node(self, object_id: str) -> TreeNode | None:
+        best_node = None
+        best_rank = (-1, -1)
+        stack = [(self.root_node, 0)]
+        while stack:
+            node, depth = stack.pop()
+            if object_id in node.cache_object_boundaries:
+                rank = (int(node.backuped), depth)
+                if rank > best_rank:
+                    best_node = node
+                    best_rank = rank
+            stack.extend((child, depth + 1) for child in node.children.values())
+        return best_node
+
+    def plan_cache_prefetch(
+        self,
+        *,
+        mode: PrefetchMode,
+        required_tokens: int,
+        target_next_use_step: int | None,
+    ) -> PrefetchDecision:
+        available_tokens = self.token_to_kv_pool_allocator.available_size()
+        candidates = tuple(
+            PrefetchCandidate(
+                candidate_id=node.id,
+                token_count=sum(
+                    len(descendant.value)
+                    for descendant in self._subtree_nodes(node)
+                    if descendant.value is not None
+                ),
+                protection=node.cache_protection.clone(),
+                last_access_time=node.last_access_time,
+            )
+            for node in self._prefetch_candidate_roots()
+        )
+        return plan_prefetch(
+            mode=mode,
+            required_tokens=required_tokens,
+            available_tokens=available_tokens,
+            candidates=candidates,
+            target_next_use_step=target_next_use_step,
+        )
+
+    def _subtree_nodes(self, root: TreeNode) -> tuple[TreeNode, ...]:
+        nodes = []
+        stack = [root]
+        while stack:
+            node = stack.pop()
+            nodes.append(node)
+            stack.extend(node.children.values())
+        return tuple(nodes)
+
+    def _prefetch_candidate_roots(self) -> tuple[TreeNode, ...]:
+        roots = []
+        stack = [self.root_node]
+        while stack:
+            node = stack.pop()
+            children = tuple(node.children.values())
+            stack.extend(children)
+            if node is self.root_node or not node.cache_object_boundaries:
+                continue
+            descendants = [
+                descendant
+                for child in children
+                for descendant in self._subtree_nodes(child)
+            ]
+            if any(descendant.cache_object_boundaries for descendant in descendants):
+                continue
+            device_nodes = [
+                descendant
+                for descendant in (node, *descendants)
+                if descendant.value is not None
+            ]
+            if not device_nodes or any(
+                descendant.lock_ref > 0 for descendant in device_nodes
+            ):
+                continue
+            roots.append(node)
+        return tuple(roots)
+
+    def _workflow_object_kind(self, node: TreeNode) -> str:
+        kinds = {item.object_kind.value for item in node.cache_protection.values()}
+        if not kinds:
+            return "untracked"
+        if len(kinds) > 1:
+            return "mixed"
+        return next(iter(kinds))
+
+    def _record_workflow_eviction(self, node: TreeNode, num_tokens: int) -> None:
+        collector = getattr(self, "metrics_collector", None)
+        callback = getattr(collector, "increment_workflow_cache_eviction", None)
+        if callback is not None:
+            callback(
+                self.eviction_policy,
+                self._workflow_object_kind(node),
+                num_tokens,
+            )
+
     def evict(self, params: EvictParams) -> EvictResult:
         if self.disable:
             return EvictResult()
@@ -598,6 +722,7 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
         while num_evicted < num_tokens and len(eviction_heap):
             _priority, x = heapq.heappop(eviction_heap)
 
+            self._record_workflow_eviction(x, len(x.value))
             self.token_to_kv_pool_allocator.free(x.value)
             num_evicted += len(x.value)
             self._delete_leaf(x)
@@ -667,6 +792,61 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
 
     ##### Internal Helper Functions #####
 
+    def _observe_cache_protection(self, metadata) -> None:
+        self.eviction_strategy.observe(metadata)
+
+    def _remove_cache_object_metadata(self, object_id: str) -> None:
+        stack = [self.root_node]
+        while stack:
+            node = stack.pop()
+            node.cache_protection.discard(object_id)
+            node.cache_object_boundaries.discard(object_id)
+            stack.extend(node.children.values())
+
+    def _remove_deleted_boundary_metadata(self, node: TreeNode) -> None:
+        for object_id in tuple(node.cache_object_boundaries):
+            self._remove_cache_object_metadata(object_id)
+
+    def _handle_workflow_prefetch(self, req: Req) -> None:
+        return
+
+    def _apply_cache_protection(self, key: RadixKey, metadata) -> None:
+        if not metadata or len(key) == 0:
+            return
+        self._observe_cache_protection(metadata)
+        for object_id in {item.object_id for item in metadata}:
+            self._remove_cache_object_metadata(object_id)
+        for item in metadata:
+            protected_len = min(
+                len(key),
+                (
+                    item.protected_tokens
+                    if item.protected_tokens is not None
+                    else len(key)
+                ),
+            )
+            protected_key = key[:protected_len].page_aligned(self.page_size)
+            if len(protected_key) == 0:
+                continue
+            node = self.root_node
+            node.cache_protection.update((item,))
+            remaining = protected_key
+            child_key = remaining.child_key(self.page_size)
+            while len(remaining) > 0:
+                child = node.children[child_key]
+                prefix_len = child.key.match(
+                    remaining,
+                    page_size=self.page_size,
+                )
+                if prefix_len < len(child.key):
+                    child = self._split_node(child.key, child, prefix_len)
+                child.cache_protection.update((item,))
+                node = child
+                remaining = remaining[prefix_len:]
+                if len(remaining):
+                    child_key = remaining.child_key(self.page_size)
+            node.cache_object_boundaries.add(item.object_id)
+
     def _match_prefix_helper(self, node: TreeNode, key: RadixKey):
         access_time = time.monotonic()
         node.last_access_time = access_time
@@ -697,6 +877,7 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
         # new_node -> child
         # New node inherits child's priority (represents shared prefix)
         new_node = TreeNode(priority=child.priority)
+        new_node.cache_protection = child.cache_protection.clone()
         new_node.hit_count = child.hit_count
         new_node.children = {key[split_len:].child_key(self.page_size): child}
         new_node.parent = child.parent
@@ -797,6 +978,7 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
                 ), f"{key=}, {child.key.child_key(self.page_size)=}"
 
     def _delete_leaf(self, node):
+        self._remove_deleted_boundary_metadata(node)
         key = node.key.child_key(self.page_size)
         v = node.parent.children.pop(key, None)
         assert v == node, f"parent does not have child key, {key}"

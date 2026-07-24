@@ -143,6 +143,10 @@ class FullComponent(TreeComponent):
             _, x = heapq.heappop(heap)
             if x not in self.cache.evictable_device_leaves:
                 continue
+            self.cache._record_workflow_eviction(
+                x,
+                len(x.component_data[self.component_type].value),
+            )
             self.cache._evict_device_leaf(x, tracker)
             if x.parent is not None and x.parent in self.cache.evictable_device_leaves:
                 heapq.heappush(

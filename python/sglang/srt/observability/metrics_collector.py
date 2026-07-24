@@ -2006,6 +2006,28 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
             ),
             labelnames=labels.keys(),
         )
+        self.workflow_cache_evicted_tokens_total = Counter(
+            name="sglang:workflow_cache_evicted_tokens_total",
+            documentation=(
+                "KV tokens evicted by cache policy and logical object kind."
+            ),
+            labelnames=[*labels.keys(), "policy", "object_kind"],
+        )
+        self.workflow_prefetch_requests_total = Counter(
+            name="sglang:workflow_prefetch_requests_total",
+            documentation="Workflow prefetch attempts by mode and outcome.",
+            labelnames=[*labels.keys(), "mode", "outcome"],
+        )
+        self.workflow_prefetch_loaded_tokens_total = Counter(
+            name="sglang:workflow_prefetch_loaded_tokens_total",
+            documentation="Workflow prefetch tokens loaded to GPU.",
+            labelnames=[*labels.keys(), "mode"],
+        )
+        self.workflow_prefetch_evicted_tokens_total = Counter(
+            name="sglang:workflow_prefetch_evicted_tokens_total",
+            documentation="Tokens evicted to admit workflow prefetch.",
+            labelnames=[*labels.keys(), "mode"],
+        )
 
     def increment_eviction_num_tokens(self, num_tokens: int) -> None:
         self.eviction_num_tokens.labels(**self.labels).inc(num_tokens)
@@ -2051,12 +2073,8 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
         num_tokens: int,
         num_bytes: int,
     ) -> None:
-        self.approx_kv_host_export_tokens_total.labels(**self.labels).inc(
-            num_tokens
-        )
-        self.approx_kv_host_export_bytes_total.labels(**self.labels).inc(
-            num_bytes
-        )
+        self.approx_kv_host_export_tokens_total.labels(**self.labels).inc(num_tokens)
+        self.approx_kv_host_export_bytes_total.labels(**self.labels).inc(num_bytes)
 
     def record_approx_kv_transfer(self, stats) -> None:
         self.approx_kv_copied_tokens_total.labels(**self.labels).inc(
@@ -2081,6 +2099,41 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
         )
         if not genuinely_layerwise:
             self.approx_kv_epic_non_layerwise_total.labels(**self.labels).inc()
+
+    def increment_workflow_cache_eviction(
+        self,
+        policy: str,
+        object_kind: str,
+        num_tokens: int,
+    ) -> None:
+        self.workflow_cache_evicted_tokens_total.labels(
+            **self.labels,
+            policy=policy,
+            object_kind=object_kind,
+        ).inc(num_tokens)
+
+    def record_workflow_prefetch(
+        self,
+        mode: str,
+        outcome: str,
+        loaded_tokens: int,
+        evicted_tokens: int,
+    ) -> None:
+        self.workflow_prefetch_requests_total.labels(
+            **self.labels,
+            mode=mode,
+            outcome=outcome,
+        ).inc()
+        if loaded_tokens:
+            self.workflow_prefetch_loaded_tokens_total.labels(
+                **self.labels,
+                mode=mode,
+            ).inc(loaded_tokens)
+        if evicted_tokens:
+            self.workflow_prefetch_evicted_tokens_total.labels(
+                **self.labels,
+                mode=mode,
+            ).inc(evicted_tokens)
 
 
 class EncoderMetricsCollector(_StatLoggerDIMixin):

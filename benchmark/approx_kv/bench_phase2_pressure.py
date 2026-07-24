@@ -6,7 +6,7 @@ import json
 import statistics
 import time
 from dataclasses import asdict, dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import aiohttp
 
@@ -23,6 +23,11 @@ from benchmark.approx_kv.workloads import (
     TraceInvocation,
     build_messages,
 )
+
+CustomParamsFactory = Callable[
+    [CacheObject, TraceInvocation],
+    Mapping[str, Any] | None,
+]
 
 
 @dataclass(frozen=True)
@@ -116,6 +121,7 @@ async def send_request(
     cache_salt: str,
     is_probe: bool,
     scrape_metrics: bool,
+    custom_params: Mapping[str, Any] | None = None,
 ) -> RequestResult:
     suffix = (
         f"{invocation.suffix};"
@@ -135,6 +141,8 @@ async def send_request(
         "stream": True,
         "stream_options": {"include_usage": True},
     }
+    if custom_params:
+        payload["custom_params"] = dict(custom_params)
     start = time.perf_counter()
     first_sse_time: float | None = None
     first_token_time: float | None = None
@@ -253,6 +261,7 @@ async def execute_trace(
     cache_salt: str,
     probe_object_ids: set[str],
     scrape_metrics: bool,
+    custom_params_factory: CustomParamsFactory | None = None,
 ) -> list[RequestResult]:
     results = []
     for invocation in trace:
@@ -270,6 +279,14 @@ async def execute_trace(
                 and invocation.phase != "fill"
             ),
             scrape_metrics=scrape_metrics,
+            custom_params=(
+                None
+                if custom_params_factory is None
+                else custom_params_factory(
+                    objects[invocation.object_id],
+                    invocation,
+                )
+            ),
         )
         results.append(result)
         if not request_succeeded(result):
@@ -311,6 +328,8 @@ async def benchmark_server(
     request_timeout_s: float,
     probe_object_ids: set[str],
     metrics_scrape_mode: str,
+    custom_params_factory: CustomParamsFactory | None = None,
+    reset_between_measured_repeats: bool = False,
 ) -> dict[str, Any]:
     if metrics_scrape_mode not in ("boundary", "per_request"):
         raise ValueError("metrics_scrape_mode must be boundary or per_request")
@@ -337,11 +356,15 @@ async def benchmark_server(
                     repeat=repeat,
                     cache_salt="warmup",
                     probe_object_ids=probe_object_ids,
-                    scrape_metrics=(metrics_scrape_mode == "per_request"),
+                    scrape_metrics=(
+                        metrics_scrape_mode == "per_request"
+                    ),
+                    custom_params_factory=custom_params_factory,
                 )
             )
             if warmup_results and not request_succeeded(warmup_results[-1]):
                 break
+        await refresh_health(session, base_url)
         warmup_metrics = await wait_for_idle_metrics(
             session,
             base_url=base_url,
@@ -355,6 +378,18 @@ async def benchmark_server(
                     base_url=base_url,
                 )
                 for repeat in range(measured_repeats):
+                    if repeat > 0 and reset_between_measured_repeats:
+                        await flush_cache(session, base_url)
+                        await refresh_health(session, base_url)
+                        repeat_baseline = await wait_for_idle_metrics(
+                            session,
+                            base_url=base_url,
+                        )
+                        if not clean_cache_invariant(repeat_baseline)["passed"]:
+                            raise RuntimeError(
+                                "cache did not return to a clean state between "
+                                f"measured repeats: {repeat_baseline}"
+                            )
                     measured_results.extend(
                         await execute_trace(
                             session,
@@ -366,15 +401,15 @@ async def benchmark_server(
                             repeat=repeat,
                             cache_salt="measured",
                             probe_object_ids=probe_object_ids,
-                            scrape_metrics=(
-                                metrics_scrape_mode == "per_request"
-                            ),
+                            scrape_metrics=(metrics_scrape_mode == "per_request"),
+                            custom_params_factory=custom_params_factory,
                         )
                     )
                     if measured_results and not request_succeeded(
                         measured_results[-1]
                     ):
                         break
+                await refresh_health(session, base_url)
                 measured_metrics_after = await wait_for_idle_metrics(
                     session,
                     base_url=base_url,

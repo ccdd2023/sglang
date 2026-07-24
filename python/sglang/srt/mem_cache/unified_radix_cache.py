@@ -12,6 +12,9 @@ from typing import TYPE_CHECKING, Any, Iterator, NamedTuple, Optional, TypeVar
 
 import torch
 
+from sglang.srt.disaggregation.kv_events import StorageMedium
+from sglang.srt.distributed.communication_tags import P2PTag
+from sglang.srt.environ import envs
 from sglang.srt.mem_cache.approx_kv.config import ApproxKVFeatureConfig
 from sglang.srt.mem_cache.approx_kv.hicache_backend import (
     HiCacheResidencyBackend,
@@ -20,9 +23,6 @@ from sglang.srt.mem_cache.approx_kv.manager import ApproxKVManager
 from sglang.srt.mem_cache.approx_kv.radix_backend import (
     AllocatorCPUResidencyBackend,
 )
-from sglang.srt.disaggregation.kv_events import StorageMedium
-from sglang.srt.distributed.communication_tags import P2PTag
-from sglang.srt.environ import envs
 from sglang.srt.mem_cache.base_prefix_cache import (
     BasePrefixCache,
     DecLockRefParams,
@@ -36,6 +36,7 @@ from sglang.srt.mem_cache.base_prefix_cache import (
     MatchPrefixParams,
     MatchResult,
 )
+from sglang.srt.mem_cache.cache_policy import CacheProtectionState
 from sglang.srt.mem_cache.events import KVCacheEventMixin
 from sglang.srt.mem_cache.hicache_storage import (
     PoolName,
@@ -101,6 +102,8 @@ class UnifiedTreeNode:
         self.hash_value = None
         self.hit_count = 0
         self.priority = priority
+        self.cache_protection = CacheProtectionState()
+        self.cache_object_boundaries: set[str] = set()
         self.lru_prev: list[UnifiedTreeNode | None] = [None] * (
             _NUM_COMPONENT_TYPES * 2
         )
@@ -472,8 +475,79 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
             self.approx_kv.reset()
         self._reset_full()
 
+    def _workflow_object_kind(self, node: UnifiedTreeNode) -> str:
+        kinds = {item.object_kind.value for item in node.cache_protection.values()}
+        if not kinds:
+            return "untracked"
+        if len(kinds) > 1:
+            return "mixed"
+        return next(iter(kinds))
+
+    def _observe_cache_protection(self, metadata) -> None:
+        self.eviction_strategy.observe(metadata)
+
+    def _remove_cache_object_metadata(self, object_id: str) -> None:
+        stack = [self.root_node]
+        while stack:
+            node = stack.pop()
+            node.cache_protection.discard(object_id)
+            node.cache_object_boundaries.discard(object_id)
+            stack.extend(node.children.values())
+
+    def _remove_deleted_boundary_metadata(self, node: UnifiedTreeNode) -> None:
+        for object_id in tuple(node.cache_object_boundaries):
+            self._remove_cache_object_metadata(object_id)
+
+    def _apply_cache_protection(self, key: RadixKey, metadata) -> None:
+        if not metadata or len(key) == 0:
+            return
+        self._observe_cache_protection(metadata)
+        for object_id in {item.object_id for item in metadata}:
+            self._remove_cache_object_metadata(object_id)
+        for item in metadata:
+            protected_len = min(
+                len(key),
+                (
+                    item.protected_tokens
+                    if item.protected_tokens is not None
+                    else len(key)
+                ),
+            )
+            protected_key = key[:protected_len].page_aligned(self.page_size)
+            if len(protected_key) == 0:
+                continue
+            node = self.root_node
+            node.cache_protection.update((item,))
+            remaining = protected_key
+            child_key = remaining.child_key(self.page_size)
+            while len(remaining) > 0:
+                child = node.children[child_key]
+                prefix_len = child.key.match(
+                    remaining,
+                    page_size=self.page_size,
+                )
+                if prefix_len < len(child.key):
+                    child = self._split_node(child.key, child, prefix_len)
+                child.cache_protection.update((item,))
+                node = child
+                remaining = remaining[prefix_len:]
+                if len(remaining):
+                    child_key = remaining.child_key(self.page_size)
+            node.cache_object_boundaries.add(item.object_id)
+
+    def _record_workflow_eviction(self, node: UnifiedTreeNode, num_tokens: int) -> None:
+        collector = getattr(self, "metrics_collector", None)
+        callback = getattr(collector, "increment_workflow_cache_eviction", None)
+        if callback is not None:
+            callback(
+                self.eviction_policy,
+                self._workflow_object_kind(node),
+                num_tokens,
+            )
+
     def _reset_full(self) -> None:
         """Full reset: destroy entire tree and all state."""
+        self.eviction_strategy.reset()
         self.root_node = UnifiedTreeNode(self.tree_components)
         self.root_node.priority = -sys.maxsize
         self.root_node.key = RadixKey(array("q"), None)
@@ -603,6 +677,10 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
 
         key = params.key
         key, _ = key.maybe_to_bigram_view(self.is_eagle)
+        if params.req is not None:
+            self._observe_cache_protection(
+                getattr(params.req, "cache_protection_metadata", ())
+            )
         if self.disable or len(key) == 0:
             return self._empty_match_result
         key = key.page_aligned(self.page_size)
@@ -637,6 +715,7 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
             value = torch.tensor(key.token_ids[: len(key)], dtype=torch.int64)
 
         result = self._insert_helper(self.root_node, key, value, params)
+        self._apply_cache_protection(key, params.cache_protection)
         return result
 
     def evict(self, params: EvictParams) -> EvictResult:
@@ -766,6 +845,7 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
             insert_params = InsertParams(
                 prev_prefix_len=req.cache_protected_len,
                 priority=getattr(req, "priority", 0) or 0,
+                cache_protection=getattr(req, "cache_protection_metadata", ()),
             )
 
             # components prepare insert data + return effective cache_len
@@ -836,6 +916,7 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
             prev_prefix_len=req.cache_protected_len,
             chunked=chunked,
             priority=getattr(req, "priority", 0) or 0,
+            cache_protection=getattr(req, "cache_protection_metadata", ()),
         )
         effective_cache_len = len(token_ids)
         for comp in self._components_tuple:
@@ -1054,6 +1135,7 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
         self, key: RadixKey, child: UnifiedTreeNode, split_len: int
     ) -> UnifiedTreeNode:
         new_node = UnifiedTreeNode(self.tree_components, priority=child.priority)
+        new_node.cache_protection = child.cache_protection.clone()
         new_node.children = {key[split_len:].child_key(self.page_size): child}
         new_node.parent = child.parent
         new_node.key = child.key[:split_len]
@@ -1204,7 +1286,12 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
         # only a tombstone for this span (e.g. the whole leaf is outside the SWA
         # window). Materialize it anyway so the Full KV stays cacheable.
         if len(key):
-            target_node = self._add_new_node(node, key, value, priority=priority)
+            target_node = self._add_new_node(
+                node,
+                key,
+                value,
+                priority=priority,
+            )
             is_new_leaf = True
         else:
             target_node = node
@@ -1337,6 +1424,7 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
         self._update_evictable_leaf_sets(node)
 
     def _remove_leaf_from_parent(self, node: UnifiedTreeNode):
+        self._remove_deleted_boundary_metadata(node)
         key = node.key.child_key(self.page_size)
         v = node.parent.children.pop(key, None)
         assert v == node

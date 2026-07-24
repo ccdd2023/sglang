@@ -7,6 +7,7 @@ import logging
 import os
 import threading
 import time
+from dataclasses import replace
 from queue import Empty
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
@@ -26,6 +27,10 @@ from sglang.srt.mem_cache.base_prefix_cache import (
     InsertResult,
     MatchPrefixParams,
     MatchResult,
+)
+from sglang.srt.mem_cache.cache_policy import (
+    PrefetchDecision,
+    PrefetchMode,
 )
 from sglang.srt.mem_cache.hicache_storage import (
     PoolHitPolicy,
@@ -66,10 +71,10 @@ from sglang.srt.observability.metrics_collector import (
 )
 
 if TYPE_CHECKING:
-    from sglang.srt.mem_cache.cache_init_params import CacheInitParams
     from sglang.srt.mem_cache.approx_kv.hicache_backend import (
         HiCacheResidencyBackend,
     )
+    from sglang.srt.mem_cache.cache_init_params import CacheInitParams
     from sglang.srt.server_args import ServerArgs
 
 logger = logging.getLogger(__name__)
@@ -1154,6 +1159,7 @@ class HiRadixCache(RadixCache):
             _, x = heapq.heappop(heap)
             if x.lock_ref > 0:
                 continue
+            self._record_workflow_eviction(x, len(x.value))
             if x.backuped:
                 num_evicted += self._evict_backuped(x)
             else:
@@ -1182,6 +1188,7 @@ class HiRadixCache(RadixCache):
             _, x = heapq.heappop(heap)
             if x.lock_ref > 0:
                 continue
+            self._record_workflow_eviction(x, len(x.value))
             if x.backuped:
                 num_evicted += self._evict_backuped(x)
             elif self.write_backup(x, write_back=True) > 0:
@@ -1234,6 +1241,10 @@ class HiRadixCache(RadixCache):
 
         if any(n.host_ref_counter > 0 for n in nodes):
             return 0
+        for object_id in {
+            object_id for node in nodes for object_id in node.cache_object_boundaries
+        }:
+            self._remove_cache_object_metadata(object_id)
 
         logger.warning(
             "write_back: KV cache on device are dropped without backup due to host memory pressure, subtree root %d, num_nodes %d",
@@ -1287,6 +1298,7 @@ class HiRadixCache(RadixCache):
             self._record_remove_event(x, medium=StorageMedium.CPU)
             num_evicted += self.cache_controller.evict_host(x.host_value)
 
+            self._remove_deleted_boundary_metadata(x)
             key = x.key.child_key(self.page_size)
             v = x.parent.children.pop(key, None)
             assert v == x, f"parent does not have child key, {key}"
@@ -1299,7 +1311,11 @@ class HiRadixCache(RadixCache):
                 heapq.heappush(eviction_heap, (new_priority, x.parent))
 
     def load_back(
-        self, node: TreeNode, mem_quota: Optional[int] = None
+        self,
+        node: TreeNode,
+        mem_quota: Optional[int] = None,
+        *,
+        allow_device_eviction: bool = True,
     ) -> Optional[torch.Tensor]:
 
         last_hit_node = node
@@ -1335,7 +1351,7 @@ class HiRadixCache(RadixCache):
             node_id=last_hit_node.id,
             **self._get_extra_pools(),
         )
-        if device_indices is None:
+        if device_indices is None and allow_device_eviction:
             self.evict(EvictParams(num_tokens=len(host_indices)))
             device_indices = self.cache_controller.load(
                 host_indices=host_indices,
@@ -1370,6 +1386,197 @@ class HiRadixCache(RadixCache):
         self.inc_lock_ref(last_hit_node)
 
         return device_indices
+
+    def _record_workflow_prefetch(
+        self,
+        *,
+        mode: PrefetchMode,
+        outcome: str,
+        loaded_tokens: int = 0,
+        evicted_tokens: int = 0,
+    ) -> None:
+        collector = getattr(self, "metrics_collector", None)
+        callback = getattr(collector, "record_workflow_prefetch", None)
+        if callback is not None:
+            callback(
+                mode.value,
+                outcome,
+                loaded_tokens,
+                evicted_tokens,
+            )
+
+    def _handle_workflow_prefetch(self, req) -> None:
+        if not req.cache_prefetch_hints:
+            return
+        from sglang.srt.runtime_context import get_server_args
+
+        policy = get_server_args().workflow_prefetch_policy
+        if policy in ("legacy", "p0"):
+            return
+        mode = PrefetchMode(policy)
+        for hint in req.cache_prefetch_hints:
+            self.prefetch_cache_object(
+                object_id=hint.object_id,
+                mode=mode,
+                target_next_use_step=hint.next_use_step,
+            )
+
+    def _evict_prefetch_victims(self, victim_ids: tuple[int, ...]) -> int:
+        if not victim_ids:
+            return 0
+        roots = {node.id: node for node in self._prefetch_candidate_roots()}
+        missing = [node_id for node_id in victim_ids if node_id not in roots]
+        if missing:
+            raise RuntimeError(
+                f"prefetch victim set changed before eviction: {missing}"
+            )
+        start_time = time.perf_counter()
+        num_evicted = 0
+        for node_id in victim_ids:
+            root = roots[node_id]
+            nodes = self._subtree_nodes(root)
+            depths = {}
+            for node in nodes:
+                depth = 0
+                current = node
+                while current is not root:
+                    depth += 1
+                    current = current.parent
+                depths[node.id] = depth
+            for node in sorted(
+                nodes,
+                key=lambda item: depths[item.id],
+                reverse=True,
+            ):
+                if node.value is None:
+                    continue
+                if node.lock_ref > 0:
+                    raise RuntimeError(
+                        f"prefetch selected a locked cache node: {node.id}"
+                    )
+                if any(not child.evicted for child in node.children.values()):
+                    raise RuntimeError(
+                        f"prefetch victim subtree is not leaf-closed: {node.id}"
+                    )
+                self._record_workflow_eviction(node, len(node.value))
+                if node.backuped:
+                    num_evicted += self._evict_backuped(node)
+                else:
+                    num_evicted += self._evict_regular(node)
+        self.update_eviction_metrics(num_evicted, start_time)
+        return num_evicted
+
+    def prefetch_cache_object(
+        self,
+        *,
+        object_id: str,
+        mode: PrefetchMode,
+        target_next_use_step: int | None,
+    ) -> PrefetchDecision:
+        node = self.find_cache_object_node(object_id)
+        if node is None:
+            decision = PrefetchDecision(
+                mode=mode,
+                admitted=False,
+                required_tokens=0,
+                available_tokens=self.token_to_kv_pool_allocator.available_size(),
+                reason="object_not_found",
+            )
+            self._record_workflow_prefetch(mode=mode, outcome=decision.reason)
+            return decision
+        if not node.evicted:
+            decision = PrefetchDecision(
+                mode=mode,
+                admitted=mode != PrefetchMode.OFF,
+                required_tokens=0,
+                available_tokens=self.token_to_kv_pool_allocator.available_size(),
+                reason=(
+                    "prefetch_disabled"
+                    if mode == PrefetchMode.OFF
+                    else "already_resident"
+                ),
+            )
+            self._record_workflow_prefetch(mode=mode, outcome=decision.reason)
+            return decision
+
+        current = node
+        required_tokens = 0
+        while current.evicted:
+            if not current.backuped:
+                decision = PrefetchDecision(
+                    mode=mode,
+                    admitted=False,
+                    required_tokens=required_tokens,
+                    available_tokens=self.token_to_kv_pool_allocator.available_size(),
+                    reason="host_backup_missing",
+                )
+                self._record_workflow_prefetch(mode=mode, outcome=decision.reason)
+                return decision
+            required_tokens += len(current.host_value)
+            current = current.parent
+        if required_tokens < self.load_back_threshold:
+            decision = PrefetchDecision(
+                mode=mode,
+                admitted=False,
+                required_tokens=required_tokens,
+                available_tokens=self.token_to_kv_pool_allocator.available_size(),
+                reason="below_load_back_threshold",
+            )
+            self._record_workflow_prefetch(mode=mode, outcome=decision.reason)
+            return decision
+
+        decision = self.plan_cache_prefetch(
+            mode=mode,
+            required_tokens=required_tokens,
+            target_next_use_step=target_next_use_step,
+        )
+        if not decision.admitted:
+            self._record_workflow_prefetch(mode=mode, outcome=decision.reason)
+            return decision
+        if decision.victim_ids and self.cache_controller.write_policy == "write_back":
+            rejected = replace(
+                decision,
+                admitted=False,
+                victim_ids=(),
+                victim_tokens=0,
+                reason="write_back_victim_eviction_unsupported",
+            )
+            self._record_workflow_prefetch(
+                mode=mode,
+                outcome=rejected.reason,
+            )
+            return rejected
+
+        evicted_tokens = self._evict_prefetch_victims(decision.victim_ids)
+        loaded = self.load_back(node, allow_device_eviction=False)
+        if loaded is None:
+            failed = replace(decision, admitted=False, reason="load_back_failed")
+            self._record_workflow_prefetch(
+                mode=mode,
+                outcome=failed.reason,
+                evicted_tokens=evicted_tokens,
+            )
+            return failed
+        consumer_index = self.ready_to_load_host_cache()
+        deadline = time.monotonic() + 30.0
+        while not self.is_load_back_event_done(consumer_index):
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"workflow prefetch timed out for object {object_id}"
+                )
+            time.sleep(0.001)
+        completed = replace(
+            decision,
+            loaded_tokens=len(loaded),
+            reason="loaded",
+        )
+        self._record_workflow_prefetch(
+            mode=mode,
+            outcome=completed.reason,
+            loaded_tokens=len(loaded),
+            evicted_tokens=evicted_tokens,
+        )
+        return completed
 
     def init_load_back(
         self,
@@ -1620,6 +1827,10 @@ class HiRadixCache(RadixCache):
     def match_prefix(self, params: MatchPrefixParams):
         if self.disable:
             return self._empty_match_result
+        if params.req is not None:
+            self._observe_cache_protection(
+                getattr(params.req, "cache_protection_metadata", ())
+            )
 
         key = params.key
         key, _ = key.maybe_to_bigram_view(self.is_eagle)
@@ -1763,6 +1974,7 @@ class HiRadixCache(RadixCache):
     def _split_node(self, key: RadixKey, child: TreeNode, split_len: int):
         # child node split into new_node -> child
         new_node = TreeNode(priority=child.priority)
+        new_node.cache_protection = child.cache_protection.clone()
         new_node.children = {key[split_len:].child_key(self.page_size): child}
         new_node.parent = child.parent
         new_node.lock_ref = child.lock_ref
@@ -1802,6 +2014,7 @@ class HiRadixCache(RadixCache):
 
         key, value = key.maybe_to_bigram_view(self.is_eagle, value)
         key = key.page_aligned(self.page_size)
+        protection_key = key
         if value is not None:
             value = value[: len(key)]
 
@@ -1873,6 +2086,10 @@ class HiRadixCache(RadixCache):
 
             if self.cache_controller.write_policy != "write_back":
                 self._inc_hit_count(new_node, chunked)
+        self._apply_cache_protection(
+            protection_key,
+            params.cache_protection,
+        )
         return InsertResult(prefix_len=total_prefix_length)
 
     def release_aborted_request(self, rid: str):

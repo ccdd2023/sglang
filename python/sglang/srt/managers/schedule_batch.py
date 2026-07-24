@@ -83,20 +83,24 @@ from sglang.srt.mem_cache.allocation import (
 )
 from sglang.srt.mem_cache.allocation_sizing import get_alloc_reserve_per_decode
 from sglang.srt.mem_cache.allocator import BaseTokenToKVPoolAllocator
+from sglang.srt.mem_cache.approx_kv.epic_runtime import restore_request_prefix_epic
+from sglang.srt.mem_cache.approx_kv.request import parse_request_metadata
+from sglang.srt.mem_cache.approx_kv.runtime import restore_request_prefix
 from sglang.srt.mem_cache.base_prefix_cache import (
     BasePrefixCache,
     EvictParams,
     MatchPrefixParams,
     zero_match_result,
 )
+from sglang.srt.mem_cache.cache_policy import (
+    parse_cache_prefetch_hints,
+    parse_cache_protection_metadata,
+)
 from sglang.srt.mem_cache.common import (
     evict_from_tree_cache,
     free_swa_out_of_window_slots,
     release_kv_cache,
 )
-from sglang.srt.mem_cache.approx_kv.epic_runtime import restore_request_prefix_epic
-from sglang.srt.mem_cache.approx_kv.request import parse_request_metadata
-from sglang.srt.mem_cache.approx_kv.runtime import restore_request_prefix
 from sglang.srt.mem_cache.memory_pool import ReqToTokenPool
 from sglang.srt.mem_cache.radix_cache import RadixKey
 from sglang.srt.model_executor.forward_batch_info import ForwardBatch, ForwardMode
@@ -821,6 +825,16 @@ class Req(ReqDllmMixin):
             }
         self.sampling_params = sampling_params
         self.approx_kv_metadata = parse_request_metadata(
+            sampling_params.custom_params
+            if isinstance(sampling_params.custom_params, dict)
+            else None
+        )
+        self.cache_protection_metadata = parse_cache_protection_metadata(
+            sampling_params.custom_params
+            if isinstance(sampling_params.custom_params, dict)
+            else None
+        )
+        self.cache_prefetch_hints = parse_cache_prefetch_hints(
             sampling_params.custom_params
             if isinstance(sampling_params.custom_params, dict)
             else None

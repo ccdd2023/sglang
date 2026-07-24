@@ -81,6 +81,7 @@ class TraceInvocation:
     next_use_step: int | None
     next_use_distance: int | None
     intervening_unique_prefix_tokens: int | None
+    next_use_request_step: int | None = None
 
 
 def deterministic_code(seed: str, blocks: int) -> str:
@@ -549,6 +550,7 @@ def build_workflow_trace(
                     None if next_use_step is None else next_use_step - item["step"]
                 ),
                 intervening_unique_prefix_tokens=intervening_tokens,
+                next_use_request_step=next_use_step,
             )
         )
         next_use_by_object[item["object_id"]] = item["step"]

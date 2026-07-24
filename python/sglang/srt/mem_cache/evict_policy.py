@@ -1,13 +1,37 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Tuple, Union
+from typing import TYPE_CHECKING, Iterable, Tuple, Union
+
+from sglang.srt.mem_cache.cache_policy import (
+    CacheProtectionMetadata,
+    belady_eviction_key,
+    hierarchical_eviction_key,
+    steps_eviction_key,
+    value_density_eviction_key,
+)
 
 if TYPE_CHECKING:
     from sglang.srt.mem_cache.radix_cache import TreeNode
 
 
 class EvictionStrategy(ABC):
+    def __init__(self) -> None:
+        self.current_step = 0
+
+    def observe(
+        self,
+        metadata: Iterable[CacheProtectionMetadata],
+    ) -> None:
+        steps = [
+            item.current_step for item in metadata if item.current_step is not None
+        ]
+        if steps:
+            self.current_step = max(self.current_step, max(steps))
+
+    def reset(self) -> None:
+        self.current_step = 0
+
     @abstractmethod
     def get_priority(self, node: TreeNode) -> Union[float, Tuple]:
         pass
@@ -46,8 +70,33 @@ class PriorityStrategy(EvictionStrategy):
         return (node.priority, node.last_access_time)
 
 
+class WorkflowStepsStrategy(EvictionStrategy):
+    def get_priority(self, node: TreeNode) -> Tuple[int, int, float]:
+        return steps_eviction_key(node.cache_protection, node.last_access_time)
+
+
+class BeladyStrategy(EvictionStrategy):
+    def get_priority(self, node: TreeNode) -> Tuple[int, int, float]:
+        return belady_eviction_key(node.cache_protection, node.last_access_time)
+
+
+class RecoveryValueStrategy(EvictionStrategy):
+    def get_priority(self, node: TreeNode) -> Tuple[int, float, int, float]:
+        return value_density_eviction_key(
+            node.cache_protection,
+            node.last_access_time,
+            self.current_step,
+        )
+
+
+class HierarchicalObjectStrategy(EvictionStrategy):
+    def get_priority(self, node: TreeNode) -> Tuple[int, float, int, float]:
+        return hierarchical_eviction_key(node.cache_protection, node.last_access_time)
+
+
 class SLRUStrategy(EvictionStrategy):
     def __init__(self, protected_threshold: int = 2):
+        super().__init__()
         self.protected_threshold = protected_threshold
 
     def get_priority(self, node: TreeNode) -> Tuple[int, float]:

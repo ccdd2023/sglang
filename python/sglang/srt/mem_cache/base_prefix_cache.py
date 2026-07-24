@@ -25,6 +25,7 @@ from sglang.srt.observability.metrics_collector import (
 
 if TYPE_CHECKING:
     from sglang.srt.managers.schedule_batch import Req
+    from sglang.srt.mem_cache.cache_policy import CacheProtectionMetadata
     from sglang.srt.mem_cache.radix_cache import RadixKey
     from sglang.srt.mem_cache.unified_cache_components.tree_component import (
         ComponentType,
@@ -67,6 +68,7 @@ class InsertParams:
     # General
     chunked: bool = False
     priority: int = 0
+    cache_protection: tuple[CacheProtectionMetadata, ...] = ()
 
 
 @dataclasses.dataclass

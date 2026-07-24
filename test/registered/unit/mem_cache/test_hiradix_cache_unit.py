@@ -8,8 +8,16 @@ import torch
 
 from sglang.srt.disaggregation.kv_events import BlockStored, StorageMedium
 from sglang.srt.mem_cache.allocator import TokenToKVPoolAllocator
-from sglang.srt.mem_cache.base_prefix_cache import InsertParams, MatchPrefixParams
+from sglang.srt.mem_cache.base_prefix_cache import (
+    EvictParams,
+    InsertParams,
+    MatchPrefixParams,
+)
 from sglang.srt.mem_cache.cache_init_params import CacheInitParams
+from sglang.srt.mem_cache.cache_policy import (
+    CacheProtectionMetadata,
+    PrefetchMode,
+)
 from sglang.srt.mem_cache.hiradix_cache import HiRadixCache
 from sglang.srt.mem_cache.memory_pool import MHATokenToKVPool, ReqToTokenPool
 from sglang.srt.mem_cache.radix_cache import RadixKey
@@ -95,6 +103,143 @@ class TestHiRadixCacheKVEvents(CustomTestCase):
             for e in cache.take_events()
             if isinstance(e, BlockStored) and e.medium == StorageMedium.CPU
         ]
+
+    def test_cache_protection_metadata_survives_split(self):
+        cache, allocator = self._build_cache()
+        first = CacheProtectionMetadata("first", next_use_step=5)
+        second = CacheProtectionMetadata("second", next_use_step=2)
+
+        first_value = allocator.alloc(4)
+        second_value = allocator.alloc(4)
+        self.assertIsNotNone(first_value)
+        self.assertIsNotNone(second_value)
+        cache.insert(
+            InsertParams(
+                key=RadixKey(array("q", [1, 2, 3, 4])),
+                value=first_value,
+                cache_protection=(first,),
+            )
+        )
+        cache.insert(
+            InsertParams(
+                key=RadixKey(array("q", [1, 2, 5, 6])),
+                value=second_value,
+                cache_protection=(second,),
+            )
+        )
+
+        shared = self._leaf_for(cache, [1, 2])
+        first_leaf = self._leaf_for(cache, [1, 2, 3, 4])
+        second_leaf = self._leaf_for(cache, [1, 2, 5, 6])
+        self.assertEqual(
+            set(shared.cache_protection.objects),
+            {"first", "second"},
+        )
+        self.assertEqual(
+            set(first_leaf.cache_protection.objects),
+            {"first"},
+        )
+        self.assertEqual(
+            set(second_leaf.cache_protection.objects),
+            {"second"},
+        )
+
+    def test_free_space_prefetch_loads_back_and_releases_lock(self):
+        cache, allocator = self._build_cache()
+        cache.load_back_threshold = 1
+        item = CacheProtectionMetadata(
+            "target",
+            protected_tokens=4,
+            current_step=0,
+            next_use_step=1,
+            next_use_request_step=3,
+            recoverable_from_lower_tier=True,
+        )
+        value = allocator.alloc(4)
+        self.assertIsNotNone(value)
+        cache.insert(
+            InsertParams(
+                key=RadixKey(array("q", [1, 2, 3, 4])),
+                value=value,
+                cache_protection=(item,),
+            )
+        )
+        node = cache.find_cache_object_node("target")
+        self.assertIsNotNone(node)
+        self.assertEqual(cache.write_backup(node, write_back=True), 4)
+        cache.writing_check(write_back=True)
+        self.assertTrue(node.backuped)
+
+        cache.evict(EvictParams(num_tokens=4))
+        self.assertTrue(node.evicted)
+        decision = cache.prefetch_cache_object(
+            object_id="target",
+            mode=PrefetchMode.FREE_SPACE_ONLY,
+            target_next_use_step=3,
+        )
+
+        self.assertTrue(decision.admitted)
+        self.assertEqual(decision.loaded_tokens, 4)
+        self.assertFalse(node.evicted)
+        self.assertEqual(node.lock_ref, 0)
+        self.assertNotIn(node.id, cache.ongoing_load_back)
+
+    def test_dead_object_prefetch_evicts_dynamic_suffix_subtree(self):
+        cache, allocator = self._build_cache()
+        cache.load_back_threshold = 1
+        target = CacheProtectionMetadata(
+            "target",
+            protected_tokens=4,
+            current_step=0,
+            next_use_request_step=8,
+            recoverable_from_lower_tier=True,
+        )
+        target_value = allocator.alloc(4)
+        self.assertIsNotNone(target_value)
+        cache.insert(
+            InsertParams(
+                key=RadixKey(array("q", [1, 2, 3, 4])),
+                value=target_value,
+                cache_protection=(target,),
+            )
+        )
+        target_node = cache.find_cache_object_node("target")
+        self.assertEqual(cache.write_backup(target_node, write_back=True), 4)
+        cache.writing_check(write_back=True)
+        cache.evict(EvictParams(num_tokens=4))
+        self.assertTrue(target_node.evicted)
+
+        victim = CacheProtectionMetadata(
+            "dead",
+            protected_tokens=4,
+            current_step=1,
+            retired=True,
+        )
+        victim_value = allocator.alloc(5)
+        self.assertIsNotNone(victim_value)
+        cache.insert(
+            InsertParams(
+                key=RadixKey(array("q", [10, 11, 12, 13, 99])),
+                value=victim_value,
+                cache_protection=(victim,),
+            )
+        )
+        pressure = allocator.alloc(allocator.available_size() - 3)
+        self.assertIsNotNone(pressure)
+        try:
+            decision = cache.prefetch_cache_object(
+                object_id="target",
+                mode=PrefetchMode.DEAD_OBJECT_ONLY,
+                target_next_use_step=8,
+            )
+        finally:
+            allocator.free(pressure)
+
+        self.assertTrue(decision.admitted)
+        self.assertGreaterEqual(decision.victim_tokens, 4)
+        self.assertGreaterEqual(decision.loaded_tokens, 4)
+        self.assertIsNone(cache.find_cache_object_node("dead"))
+        self.assertFalse(target_node.evicted)
 
     def test_split_pending_write_through_publishes_fragments(self):
         cache, allocator = self._build_cache()

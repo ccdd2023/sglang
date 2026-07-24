@@ -163,6 +163,28 @@ def build_kv_cache(
         or hybrid_lightning_config(tp_worker.model_runner.model_config) is not None
     )
     is_dsa = is_deepseek_dsa(model_config.hf_config)
+    workflow_eviction_policies = {
+        "workflow_steps",
+        "belady",
+        "recovery_value",
+        "hierarchical",
+    }
+    if (
+        server_args.radix_eviction_policy in workflow_eviction_policies
+        and (is_hybrid_swa or is_hybrid_ssm)
+        and not enable_hierarchical_cache
+    ):
+        raise ValueError(
+            "workflow radix eviction policies require the standard or unified "
+            "Radix cache; enable hierarchical cache for hybrid SWA/SSM models"
+        )
+    if server_args.workflow_prefetch_policy not in ("legacy", "p0"):
+        if not enable_hierarchical_cache:
+            raise ValueError("workflow prefetch p1-p3 requires hierarchical cache")
+        if is_hybrid_swa or is_hybrid_ssm or is_dsa:
+            raise ValueError(
+                "workflow prefetch p1-p3 currently supports HiRadixCache only"
+            )
 
     sliding_window_size = None
     if is_hybrid_swa:
