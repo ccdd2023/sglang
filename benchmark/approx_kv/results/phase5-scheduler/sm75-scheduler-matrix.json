@@ -1,0 +1,2310 @@
+{
+  "config_order": [
+    {
+      "policy": "hierarchical",
+      "prefetch_mode": "p0",
+      "pressure": 1.1,
+      "restart": 0
+    },
+    {
+      "policy": "lru",
+      "prefetch_mode": "p0",
+      "pressure": 1.5,
+      "restart": 0
+    },
+    {
+      "policy": "belady",
+      "prefetch_mode": "p0",
+      "pressure": 2.0,
+      "restart": 0
+    },
+    {
+      "policy": "workflow_steps",
+      "prefetch_mode": "p0",
+      "pressure": 1.5,
+      "restart": 0
+    },
+    {
+      "policy": "hierarchical",
+      "prefetch_mode": "p0",
+      "pressure": 3.0,
+      "restart": 0
+    },
+    {
+      "policy": "workflow_steps",
+      "prefetch_mode": "p0",
+      "pressure": 2.0,
+      "restart": 0
+    },
+    {
+      "policy": "belady",
+      "prefetch_mode": "p0",
+      "pressure": 1.5,
+      "restart": 0
+    },
+    {
+      "policy": "recovery_value",
+      "prefetch_mode": "p0",
+      "pressure": 3.0,
+      "restart": 0
+    },
+    {
+      "policy": "hierarchical",
+      "prefetch_mode": "p0",
+      "pressure": 2.0,
+      "restart": 0
+    },
+    {
+      "policy": "workflow_steps",
+      "prefetch_mode": "p0",
+      "pressure": 1.1,
+      "restart": 0
+    },
+    {
+      "policy": "belady",
+      "prefetch_mode": "p0",
+      "pressure": 1.1,
+      "restart": 0
+    },
+    {
+      "policy": "lru",
+      "prefetch_mode": "p0",
+      "pressure": 3.0,
+      "restart": 0
+    },
+    {
+      "policy": "workflow_steps",
+      "prefetch_mode": "p0",
+      "pressure": 3.0,
+      "restart": 0
+    },
+    {
+      "policy": "belady",
+      "prefetch_mode": "p0",
+      "pressure": 3.0,
+      "restart": 0
+    },
+    {
+      "policy": "lru",
+      "prefetch_mode": "p0",
+      "pressure": 2.0,
+      "restart": 0
+    },
+    {
+      "policy": "recovery_value",
+      "prefetch_mode": "p0",
+      "pressure": 1.5,
+      "restart": 0
+    },
+    {
+      "policy": "recovery_value",
+      "prefetch_mode": "p0",
+      "pressure": 1.1,
+      "restart": 0
+    },
+    {
+      "policy": "lru",
+      "prefetch_mode": "p0",
+      "pressure": 1.1,
+      "restart": 0
+    },
+    {
+      "policy": "hierarchical",
+      "prefetch_mode": "p0",
+      "pressure": 1.5,
+      "restart": 0
+    },
+    {
+      "policy": "recovery_value",
+      "prefetch_mode": "p0",
+      "pressure": 2.0,
+      "restart": 0
+    }
+  ],
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "machine": {
+    "compute_capability": [
+      7,
+      5
+    ],
+    "cuda": "12.9",
+    "gpu": "NVIDIA GeForce RTX 2080 SUPER",
+    "gpu_memory_bytes": 8163426304,
+    "python": "3.12.3 (main, Mar  3 2026, 12:15:18) [GCC 13.3.0]",
+    "torch": "2.9.1+cu129",
+    "transformers": "5.12.1"
+  },
+  "model": "Qwen/Qwen3-0.6B",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "run_id": "phase5-scheduler-20260724T123616Z",
+  "runs": [
+    {
+      "actual_reusable_pressure": 1.1533130236100533,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "hierarchical",
+        "policy_label": "S4 hierarchical object policy",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 1.1,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 58020.0,
+          "sglang:evicted_tokens_total": 10678.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 88.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 93214.0,
+          "sglang:queue_time_seconds_count": 90.0,
+          "sglang:queue_time_seconds_sum": 0.02121215101033158,
+          "sglang:time_to_first_token_seconds_count": 88.0,
+          "sglang:time_to_first_token_seconds_sum": 17.11098743000366,
+          "sglang:workflow_cache_evicted_tokens_total": 10678.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 824.0,
+          "sglang:kv_evictable_tokens": 12306.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 1.0,
+        "cached_tokens": 20538,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              1024,
+              1029,
+              1024,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 148.4095290006735
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              1024,
+              1029,
+              1024,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 148.4940744994674
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              1024,
+              1029,
+              1024,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 148.5023454997645
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              1024,
+              1030,
+              1024,
+              1030
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 148.04455149987916
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              1025,
+              1031,
+              1025,
+              1031
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 148.89267650050897
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 148.50240584992207,
+        "ttft_p50_ms": 148.5023454997645,
+        "ttft_p95_ms": 149.37610900051368,
+        "ttft_total_ms": 2970.0481169984414
+      }
+    },
+    {
+      "actual_reusable_pressure": 1.5371667936024371,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "lru",
+        "policy_label": "S0 LRU",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 1.5,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 42250.0,
+          "sglang:evicted_tokens_total": 49234.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 110.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 116530.0,
+          "sglang:queue_time_seconds_count": 112.0,
+          "sglang:queue_time_seconds_sum": 0.021982090998790227,
+          "sglang:time_to_first_token_seconds_count": 110.0,
+          "sglang:time_to_first_token_seconds_sum": 25.496462789004,
+          "sglang:workflow_cache_evicted_tokens_total": 49234.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 548.0,
+          "sglang:kv_evictable_tokens": 12582.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.5102519039250146,
+        "cached_tokens": 10452,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              16,
+              1029,
+              16,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.13983099996403
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              16,
+              1029,
+              16,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.04390849915944
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              16,
+              1029,
+              16,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 215.9499355011576
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1029,
+              16,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.05821650064172
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              16,
+              1030,
+              16,
+              1030
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 215.47613599886972
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 215.93475329991634,
+        "ttft_p50_ms": 215.90314649984066,
+        "ttft_p95_ms": 282.3461979987769,
+        "ttft_total_ms": 4318.695065998327
+      }
+    },
+    {
+      "actual_reusable_pressure": 2.0745620715917745,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "belady",
+        "policy_label": "S2 Belady oracle",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 2.0,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 60794.0,
+          "sglang:evicted_tokens_total": 66800.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 144.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 152570.0,
+          "sglang:queue_time_seconds_count": 146.0,
+          "sglang:queue_time_seconds_sum": 0.023260835996552487,
+          "sglang:time_to_first_token_seconds_count": 144.0,
+          "sglang:time_to_first_token_seconds_sum": 32.56195596700309,
+          "sglang:workflow_cache_evicted_tokens_total": 66800.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 566.0,
+          "sglang:kv_evictable_tokens": 12564.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.5082991603202499,
+        "cached_tokens": 10412,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              15,
+              1024,
+              15,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 217.60385200013843
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.46790099930513
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 217.12928150100197
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.5787760004605
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              16,
+              1031,
+              16,
+              1031
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.38228849951702
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 216.75684030005868,
+        "ttft_p50_ms": 216.99627900034102,
+        "ttft_p95_ms": 285.0177950003854,
+        "ttft_total_ms": 4335.136806001174
+      }
+    },
+    {
+      "actual_reusable_pressure": 1.5371667936024371,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "workflow_steps",
+        "policy_label": "S1 steps-only",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 1.5,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 60268.0,
+          "sglang:evicted_tokens_total": 31238.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 110.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 116530.0,
+          "sglang:queue_time_seconds_count": 112.0,
+          "sglang:queue_time_seconds_sum": 0.02063546099452651,
+          "sglang:time_to_first_token_seconds_count": 110.0,
+          "sglang:time_to_first_token_seconds_sum": 23.036798049004574,
+          "sglang:workflow_cache_evicted_tokens_total": 31238.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 559.0,
+          "sglang:kv_evictable_tokens": 12571.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.7051357156805311,
+        "cached_tokens": 14444,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              1024,
+              1024,
+              1024,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 149.17870850058534
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              1024,
+              1024,
+              1024,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 149.8879049995594
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 215.5886045002262
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 215.16900250026083
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              16,
+              1030,
+              16,
+              1030
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.03268050107727
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 188.80287600013617,
+        "ttft_p50_ms": 150.10050850014522,
+        "ttft_p95_ms": 282.17549700093514,
+        "ttft_total_ms": 3776.0575200027233
+      }
+    },
+    {
+      "actual_reusable_pressure": 3.0725818735719725,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "hierarchical",
+        "policy_label": "S4 hierarchical object policy",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 3.0,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 59770.0,
+          "sglang:evicted_tokens_total": 134412.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 206.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 218282.0,
+          "sglang:queue_time_seconds_count": 208.0,
+          "sglang:queue_time_seconds_sum": 0.04239205101293919,
+          "sglang:time_to_first_token_seconds_count": 206.0,
+          "sglang:time_to_first_token_seconds_sum": 50.09964837699408,
+          "sglang:workflow_cache_evicted_tokens_total": 134412.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 973.0,
+          "sglang:kv_evictable_tokens": 12157.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.7047451669595782,
+        "cached_tokens": 14436,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              1024,
+              1024,
+              1024,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 149.87508849935693
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              1024,
+              1024,
+              1024,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 149.86798999962048
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              16,
+              16,
+              16,
+              16
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 282.06190199944103
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 215.5149864993291
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              1025,
+              1025,
+              1025,
+              1025
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 149.68454649988416
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 189.30842379968453,
+        "ttft_p50_ms": 150.9415539994734,
+        "ttft_p95_ms": 283.6040349993709,
+        "ttft_total_ms": 3786.1684759936907
+      }
+    },
+    {
+      "actual_reusable_pressure": 2.0745620715917745,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "workflow_steps",
+        "policy_label": "S1 steps-only",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 2.0,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 60794.0,
+          "sglang:evicted_tokens_total": 66800.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 144.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 152570.0,
+          "sglang:queue_time_seconds_count": 146.0,
+          "sglang:queue_time_seconds_sum": 0.025925034015017445,
+          "sglang:time_to_first_token_seconds_count": 144.0,
+          "sglang:time_to_first_token_seconds_sum": 32.55004990000998,
+          "sglang:workflow_cache_evicted_tokens_total": 66800.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 566.0,
+          "sglang:kv_evictable_tokens": 12564.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.5082991603202499,
+        "cached_tokens": 10412,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              15,
+              1024,
+              15,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 217.46470099969883
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.7922425001525
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 215.1570249998258
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.82703800029412
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              16,
+              1031,
+              16,
+              1031
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 213.92201050002768
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 215.3551446500387,
+        "ttft_p50_ms": 215.19409049960814,
+        "ttft_p95_ms": 283.82579299977806,
+        "ttft_total_ms": 4307.102893000774
+      }
+    },
+    {
+      "actual_reusable_pressure": 1.5371667936024371,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "belady",
+        "policy_label": "S2 Belady oracle",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 1.5,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 60268.0,
+          "sglang:evicted_tokens_total": 31238.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 110.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 116530.0,
+          "sglang:queue_time_seconds_count": 112.0,
+          "sglang:queue_time_seconds_sum": 0.01777256298555585,
+          "sglang:time_to_first_token_seconds_count": 110.0,
+          "sglang:time_to_first_token_seconds_sum": 22.952249155983736,
+          "sglang:workflow_cache_evicted_tokens_total": 31238.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 559.0,
+          "sglang:kv_evictable_tokens": 12571.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.7051357156805311,
+        "cached_tokens": 14444,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              1024,
+              1024,
+              1024,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 148.35596699958842
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              1024,
+              1024,
+              1024,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 149.3329264994827
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.83189199989283
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.30305250032688
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              16,
+              1030,
+              16,
+              1030
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 213.97134800099593
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 188.1319100498331,
+        "ttft_p50_ms": 148.94537599866453,
+        "ttft_p95_ms": 280.4267479987175,
+        "ttft_total_ms": 3762.638200996662
+      }
+    },
+    {
+      "actual_reusable_pressure": 3.0725818735719725,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "recovery_value",
+        "policy_label": "S3 recovery-aware value density",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 3.0,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 61790.0,
+          "sglang:evicted_tokens_total": 131582.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 206.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 218282.0,
+          "sglang:queue_time_seconds_count": 208.0,
+          "sglang:queue_time_seconds_sum": 0.03227207199597615,
+          "sglang:time_to_first_token_seconds_count": 206.0,
+          "sglang:time_to_first_token_seconds_sum": 49.875886864994754,
+          "sglang:workflow_cache_evicted_tokens_total": 131582.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 568.0,
+          "sglang:kv_evictable_tokens": 12562.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.5082991603202499,
+        "cached_tokens": 10412,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              15,
+              1024,
+              15,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 217.423028999292
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 215.73547000025428
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.0058734998529
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.53147200049716
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              16,
+              1031,
+              16,
+              1031
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 217.58093899916275
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 216.58919265000804,
+        "ttft_p50_ms": 217.58093899916275,
+        "ttft_p95_ms": 284.673637999731,
+        "ttft_total_ms": 4331.783853000161
+      }
+    },
+    {
+      "actual_reusable_pressure": 2.0745620715917745,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "hierarchical",
+        "policy_label": "S4 hierarchical object policy",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 2.0,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 58778.0,
+          "sglang:evicted_tokens_total": 69628.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 144.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 152570.0,
+          "sglang:queue_time_seconds_count": 146.0,
+          "sglang:queue_time_seconds_sum": 0.023422675001711468,
+          "sglang:time_to_first_token_seconds_count": 144.0,
+          "sglang:time_to_first_token_seconds_sum": 32.772428392010625,
+          "sglang:workflow_cache_evicted_tokens_total": 69628.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 972.0,
+          "sglang:kv_evictable_tokens": 12158.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.7047451669595782,
+        "cached_tokens": 14436,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              1024,
+              1024,
+              1024,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 149.64018800128542
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              1024,
+              1024,
+              1024,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 149.4889109999349
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              16,
+              16,
+              16,
+              16
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 281.4164029996391
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 215.04860499953793
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              1025,
+              1025,
+              1025,
+              1025
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 148.9464019996376
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 188.9567701998203,
+        "ttft_p50_ms": 149.5926480001799,
+        "ttft_p95_ms": 281.61838699998043,
+        "ttft_total_ms": 3779.1354039964062
+      }
+    },
+    {
+      "actual_reusable_pressure": 1.1533130236100533,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "workflow_steps",
+        "policy_label": "S1 steps-only",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 1.1,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 58018.0,
+          "sglang:evicted_tokens_total": 9886.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 88.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 93214.0,
+          "sglang:queue_time_seconds_count": 90.0,
+          "sglang:queue_time_seconds_sum": 0.021811187001731014,
+          "sglang:time_to_first_token_seconds_count": 88.0,
+          "sglang:time_to_first_token_seconds_sum": 17.2544098459839,
+          "sglang:workflow_cache_evicted_tokens_total": 9886.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 427.0,
+          "sglang:kv_evictable_tokens": 12703.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 1.0,
+        "cached_tokens": 20538,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              1024,
+              1029,
+              1024,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 150.1054269992892
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              1024,
+              1029,
+              1024,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 149.73406450008042
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              1024,
+              1029,
+              1024,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 149.77221250046568
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              1024,
+              1030,
+              1024,
+              1030
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 149.54030749868252
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              1025,
+              1031,
+              1025,
+              1031
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 148.90119549818337
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 149.556235199816,
+        "ttft_p50_ms": 149.57598699947994,
+        "ttft_p95_ms": 150.3633210013504,
+        "ttft_total_ms": 2991.12470399632
+      }
+    },
+    {
+      "actual_reusable_pressure": 1.1533130236100533,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "belady",
+        "policy_label": "S2 Belady oracle",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 1.1,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 58018.0,
+          "sglang:evicted_tokens_total": 9886.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 88.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 93214.0,
+          "sglang:queue_time_seconds_count": 90.0,
+          "sglang:queue_time_seconds_sum": 0.018616579985973658,
+          "sglang:time_to_first_token_seconds_count": 88.0,
+          "sglang:time_to_first_token_seconds_sum": 17.37039000198274,
+          "sglang:workflow_cache_evicted_tokens_total": 9886.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 427.0,
+          "sglang:kv_evictable_tokens": 12703.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 1.0,
+        "cached_tokens": 20538,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              1024,
+              1029,
+              1024,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 151.38001500054088
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              1024,
+              1029,
+              1024,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 151.6261620017758
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              1024,
+              1029,
+              1024,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 151.58402650013159
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              1024,
+              1030,
+              1024,
+              1030
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 151.37536650036054
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              1025,
+              1031,
+              1025,
+              1031
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 151.07668999917223
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 151.48062185016897,
+        "ttft_p50_ms": 151.55503949972626,
+        "ttft_p95_ms": 152.5437799973588,
+        "ttft_total_ms": 3029.6124370033795
+      }
+    },
+    {
+      "actual_reusable_pressure": 3.0725818735719725,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "lru",
+        "policy_label": "S0 LRU",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 3.0,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 23520.0,
+          "sglang:evicted_tokens_total": 169852.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 206.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 218282.0,
+          "sglang:queue_time_seconds_count": 208.0,
+          "sglang:queue_time_seconds_sum": 0.03118520499265287,
+          "sglang:time_to_first_token_seconds_count": 206.0,
+          "sglang:time_to_first_token_seconds_sum": 54.51528978100032,
+          "sglang:workflow_cache_evicted_tokens_total": 169852.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 568.0,
+          "sglang:kv_evictable_tokens": 12562.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.5106424526459676,
+        "cached_tokens": 10460,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              16,
+              1029,
+              16,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.38330050114018
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              16,
+              1030,
+              16,
+              1030
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.33775900004548
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              16,
+              1030,
+              16,
+              1030
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.3401425000775
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1030,
+              16,
+              1030
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.5413494999957
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              16,
+              1031,
+              16,
+              1031
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.18564550003794
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 214.36657590002142,
+        "ttft_p50_ms": 214.18564550003794,
+        "ttft_p95_ms": 280.5673200018646,
+        "ttft_total_ms": 4287.331518000428
+      }
+    },
+    {
+      "actual_reusable_pressure": 3.0725818735719725,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "workflow_steps",
+        "policy_label": "S1 steps-only",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 3.0,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 61790.0,
+          "sglang:evicted_tokens_total": 131582.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 206.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 218282.0,
+          "sglang:queue_time_seconds_count": 208.0,
+          "sglang:queue_time_seconds_sum": 0.03276795997953741,
+          "sglang:time_to_first_token_seconds_count": 206.0,
+          "sglang:time_to_first_token_seconds_sum": 49.66617301999213,
+          "sglang:workflow_cache_evicted_tokens_total": 131582.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 568.0,
+          "sglang:kv_evictable_tokens": 12562.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.5082991603202499,
+        "cached_tokens": 10412,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              15,
+              1024,
+              15,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.81190999879618
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 215.23329150113568
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 215.0132440001471
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 215.29698700214794
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              16,
+              1031,
+              16,
+              1031
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.97632750106277
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 215.56599375035148,
+        "ttft_p50_ms": 215.12467049979023,
+        "ttft_p95_ms": 284.05585899963626,
+        "ttft_total_ms": 4311.31987500703
+      }
+    },
+    {
+      "actual_reusable_pressure": 3.0725818735719725,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "belady",
+        "policy_label": "S2 Belady oracle",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 3.0,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 61790.0,
+          "sglang:evicted_tokens_total": 131582.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 206.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 218282.0,
+          "sglang:queue_time_seconds_count": 208.0,
+          "sglang:queue_time_seconds_sum": 0.032325127020158106,
+          "sglang:time_to_first_token_seconds_count": 206.0,
+          "sglang:time_to_first_token_seconds_sum": 49.60637030201542,
+          "sglang:workflow_cache_evicted_tokens_total": 131582.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 568.0,
+          "sglang:kv_evictable_tokens": 12562.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.5082991603202499,
+        "cached_tokens": 10412,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              15,
+              1024,
+              15,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.95193449886574
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 215.35083549861156
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.91330299795663
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.6662720006134
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              16,
+              1031,
+              16,
+              1031
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.45319000122254
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 215.24845189978805,
+        "ttft_p50_ms": 215.09983000032662,
+        "ttft_p95_ms": 283.80008499880205,
+        "ttft_total_ms": 4304.969037995761
+      }
+    },
+    {
+      "actual_reusable_pressure": 2.0745620715917745,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "lru",
+        "policy_label": "S0 LRU",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 2.0,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 22530.0,
+          "sglang:evicted_tokens_total": 105064.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 144.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 152570.0,
+          "sglang:queue_time_seconds_count": 146.0,
+          "sglang:queue_time_seconds_sum": 0.028989151996938745,
+          "sglang:time_to_first_token_seconds_count": 144.0,
+          "sglang:time_to_first_token_seconds_sum": 37.65888427403843,
+          "sglang:workflow_cache_evicted_tokens_total": 105064.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 566.0,
+          "sglang:kv_evictable_tokens": 12564.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.5104471782854911,
+        "cached_tokens": 10456,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              16,
+              1029,
+              16,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.59941549842188
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              16,
+              1029,
+              16,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.40105900041817
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              16,
+              1029,
+              16,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.72092599874304
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1030,
+              16,
+              1030
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 217.02918600021803
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              16,
+              1031,
+              16,
+              1031
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 215.55789400008507
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 216.56211289991916,
+        "ttft_p50_ms": 216.40408000166644,
+        "ttft_p95_ms": 284.4559590012068,
+        "ttft_total_ms": 4331.242257998383
+      }
+    },
+    {
+      "actual_reusable_pressure": 1.5371667936024371,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "recovery_value",
+        "policy_label": "S3 recovery-aware value density",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 1.5,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 60268.0,
+          "sglang:evicted_tokens_total": 31238.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 110.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 116530.0,
+          "sglang:queue_time_seconds_count": 112.0,
+          "sglang:queue_time_seconds_sum": 0.017205363041284727,
+          "sglang:time_to_first_token_seconds_count": 110.0,
+          "sglang:time_to_first_token_seconds_sum": 22.91244416200061,
+          "sglang:workflow_cache_evicted_tokens_total": 31238.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 559.0,
+          "sglang:kv_evictable_tokens": 12571.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.7051357156805311,
+        "cached_tokens": 14444,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              1024,
+              1024,
+              1024,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 148.1381274988962
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              1024,
+              1024,
+              1024,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 148.37457750036265
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.7384100007912
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.40385500136472
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              16,
+              1030,
+              16,
+              1030
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 213.49459900011425
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 187.84198545035906,
+        "ttft_p50_ms": 148.4909080008947,
+        "ttft_p95_ms": 280.3605039989634,
+        "ttft_total_ms": 3756.839709007181
+      }
+    },
+    {
+      "actual_reusable_pressure": 1.1533130236100533,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "recovery_value",
+        "policy_label": "S3 recovery-aware value density",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 1.1,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 58018.0,
+          "sglang:evicted_tokens_total": 9886.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 88.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 93214.0,
+          "sglang:queue_time_seconds_count": 90.0,
+          "sglang:queue_time_seconds_sum": 0.021215990993368905,
+          "sglang:time_to_first_token_seconds_count": 88.0,
+          "sglang:time_to_first_token_seconds_sum": 17.137338659991656,
+          "sglang:workflow_cache_evicted_tokens_total": 9886.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 427.0,
+          "sglang:kv_evictable_tokens": 12703.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 1.0,
+        "cached_tokens": 20538,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              1024,
+              1029,
+              1024,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 148.68875700085482
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              1024,
+              1029,
+              1024,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 148.55095599887136
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              1024,
+              1029,
+              1024,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 149.0582580008777
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              1024,
+              1030,
+              1024,
+              1030
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 149.04134049902495
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              1025,
+              1031,
+              1025,
+              1031
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 148.71160499933467
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 148.76137250012107,
+        "ttft_p50_ms": 148.71340799982136,
+        "ttft_p95_ms": 149.32787100042333,
+        "ttft_total_ms": 2975.2274500024214
+      }
+    },
+    {
+      "actual_reusable_pressure": 1.1533130236100533,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "lru",
+        "policy_label": "S0 LRU",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 1.1,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 35830.0,
+          "sglang:evicted_tokens_total": 32074.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 88.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 93214.0,
+          "sglang:queue_time_seconds_count": 90.0,
+          "sglang:queue_time_seconds_sum": 0.01815967497168458,
+          "sglang:time_to_first_token_seconds_count": 88.0,
+          "sglang:time_to_first_token_seconds_sum": 20.202138191991253,
+          "sglang:workflow_cache_evicted_tokens_total": 32074.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 427.0,
+          "sglang:kv_evictable_tokens": 12703.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.5104471782854911,
+        "cached_tokens": 10456,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              16,
+              1029,
+              16,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.59466900018742
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              16,
+              1029,
+              16,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.12373549942276
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              16,
+              1029,
+              16,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.24445949964866
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1030,
+              16,
+              1030
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 216.27184150202083
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              16,
+              1031,
+              16,
+              1031
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 215.8947915013414
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 216.25373125079932,
+        "ttft_p50_ms": 215.94963050119986,
+        "ttft_p95_ms": 283.48280299906037,
+        "ttft_total_ms": 4325.074625015986
+      }
+    },
+    {
+      "actual_reusable_pressure": 1.5371667936024371,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "hierarchical",
+        "policy_label": "S4 hierarchical object policy",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 1.5,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 58254.0,
+          "sglang:evicted_tokens_total": 34002.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 110.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 116530.0,
+          "sglang:queue_time_seconds_count": 112.0,
+          "sglang:queue_time_seconds_sum": 0.020353414980490925,
+          "sglang:time_to_first_token_seconds_count": 110.0,
+          "sglang:time_to_first_token_seconds_sum": 23.363846054973692,
+          "sglang:workflow_cache_evicted_tokens_total": 34002.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 934.0,
+          "sglang:kv_evictable_tokens": 12196.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.9025580941222417,
+        "cached_tokens": 18488,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              1024,
+              1024,
+              1024,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 149.69083500000124
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              1024,
+              1024,
+              1024,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 150.25234099994123
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              1024,
+              1024,
+              1024,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 150.1251655008673
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1029,
+              16,
+              1029
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 217.21731800062116
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              1025,
+              1030,
+              1025,
+              1030
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 149.733385998843
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 163.46327875016868,
+        "ttft_p50_ms": 150.25234099994123,
+        "ttft_p95_ms": 283.15011499944376,
+        "ttft_total_ms": 3269.2655750033737
+      }
+    },
+    {
+      "actual_reusable_pressure": 2.0745620715917745,
+      "settings": {
+        "enable_hicache": false,
+        "formal_repeats": 2,
+        "mem_fraction_static": 0.35,
+        "policy": "recovery_value",
+        "policy_label": "S3 recovery-aware value density",
+        "prefetch_mode": "p0",
+        "restart": 0,
+        "target_pressure": 2.0,
+        "warmup_repeats": 1
+      },
+      "telemetry_delta": {
+        "counters": {
+          "sglang:backuped_tokens_total": null,
+          "sglang:cached_tokens_total": 60794.0,
+          "sglang:evicted_tokens_total": 66800.0,
+          "sglang:load_back_tokens_total": null,
+          "sglang:num_requests_total": 144.0,
+          "sglang:prefetched_tokens_total": null,
+          "sglang:prompt_tokens_total": 152570.0,
+          "sglang:queue_time_seconds_count": 146.0,
+          "sglang:queue_time_seconds_sum": 0.02184333400145988,
+          "sglang:time_to_first_token_seconds_count": 144.0,
+          "sglang:time_to_first_token_seconds_sum": 32.29905825098831,
+          "sglang:workflow_cache_evicted_tokens_total": 66800.0,
+          "sglang:workflow_prefetch_evicted_tokens_total": null,
+          "sglang:workflow_prefetch_loaded_tokens_total": null,
+          "sglang:workflow_prefetch_requests_total": null
+        },
+        "dense_fallbacks": null,
+        "fallback_metric": null,
+        "fallback_metric_available": false,
+        "gauges_after": {
+          "sglang:kv_available_tokens": 566.0,
+          "sglang:kv_evictable_tokens": 12564.0,
+          "sglang:kv_used_tokens": 0.0,
+          "sglang:max_total_num_tokens": 13130.0,
+          "sglang:num_queue_reqs": 0.0,
+          "sglang:num_running_reqs": 0.0
+        }
+      },
+      "workflow_summary": {
+        "cache_hit_fraction": 0.5082991603202499,
+        "cached_tokens": 10412,
+        "expected_reusable_tokens": 20484,
+        "per_object": {
+          "phase2-object-00": {
+            "cached_tokens": [
+              15,
+              1024,
+              15,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 215.94200900108262
+          },
+          "phase2-object-01": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 213.83343750130734
+          },
+          "phase2-object-02": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 213.8398645001871
+          },
+          "phase2-object-07": {
+            "cached_tokens": [
+              16,
+              1024,
+              16,
+              1024
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 214.4855850001477
+          },
+          "phase2-object-08": {
+            "cached_tokens": [
+              16,
+              1031,
+              16,
+              1031
+            ],
+            "requests": 4,
+            "ttft_p50_ms": 213.43868849908176
+          }
+        },
+        "requests": 20,
+        "ttft_mean_ms": 214.23467865042767,
+        "ttft_p50_ms": 214.26140450057574,
+        "ttft_p95_ms": 283.1501020009455,
+        "ttft_total_ms": 4284.693573008553
+      }
+    }
+  ],
+  "schema_version": 1,
+  "settings": {
+    "attention_backend": "torch_native",
+    "catalog_size": 48,
+    "central_log": "/home/chris/Workspaces/kvcache-research/results/BENCHMARK_RUN_LOG.jsonl",
+    "chunked_prefill_size": 1024,
+    "enable_hicache": false,
+    "formal_repeats": 2,
+    "hicache_ratio": 2.0,
+    "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+    "kv_bytes_per_token": 114688,
+    "mem_fraction_static": 0.35,
+    "metrics_scrape_mode": "boundary",
+    "model": "Qwen/Qwen3-0.6B",
+    "model_name": "default",
+    "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+    "order_seed": 20260724,
+    "output_dir": "/home/chris/Workspaces/kvcache-research/results/phase5-scheduler-formal-5a87166b4",
+    "policies": [
+      "lru",
+      "workflow_steps",
+      "belady",
+      "recovery_value",
+      "hierarchical"
+    ],
+    "port": 30011,
+    "prefetch_modes": [
+      "p0"
+    ],
+    "pressure_points": [
+      1.1,
+      1.5,
+      2.0,
+      3.0
+    ],
+    "request_timeout_s": 300,
+    "restarts": 1,
+    "sampling_backend": "pytorch",
+    "server_seed": 17,
+    "server_start_timeout_s": 600,
+    "source_git_sha": "5a87166b436e00fa730aa7062e949516ca823a96",
+    "target_prefix_sizes": [
+      1024
+    ],
+    "warmup_repeats": 1,
+    "workflow_cycles": 2
+  },
+  "source_git_sha": "5a87166b436e00fa730aa7062e949516ca823a96"
+}

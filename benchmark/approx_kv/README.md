@@ -150,19 +150,19 @@ at every high-pressure point:
 
 | rho | S0 mean | S4 mean | mean speedup | S0/S4 hit fraction |
 | ---: | ---: | ---: | ---: | ---: |
-| 1.5 | 217.04 ms | 163.52 ms | `1.33x` | 0.510 / 0.903 |
-| 2.0 | 216.25 ms | 188.25 ms | `1.15x` | 0.510 / 0.705 |
-| 3.0 | 216.64 ms | 188.91 ms | `1.15x` | 0.511 / 0.705 |
+| 1.5 | 215.93 ms | 163.46 ms | `1.32x` | 0.510 / 0.903 |
+| 2.0 | 216.56 ms | 188.96 ms | `1.15x` | 0.510 / 0.705 |
+| 3.0 | 214.37 ms | 189.31 ms | `1.13x` | 0.511 / 0.705 |
 
-Two additional server restarts reproduced S4 speedups of `1.31-1.33x` at
-rho 1.5 and `1.14-1.16x` at rho 2.0.
+Two additional server restarts reproduced S4 speedups of `1.32-1.34x` at
+rho 1.5 and `1.11-1.15x` at rho 2.0.
 
 The S4 + HiCache prefetch matrix found:
 
 - P1 issued no proactive loads under pressure, as required by free-space-only
   admission;
 - P2 loaded 2,016 tokens and evicted 2,088 admission tokens per setting;
-- P3 loaded 4,032 and evicted 4,104 tokens at rho 3;
+- P3 loaded 5,040 and evicted 5,112 tokens at rho 3;
 - P2/P3 did not provide a stable mean-TTFT gain and increased p95.
 
 The sequential default is therefore **S4 + P0**. P1-P3 remain implemented
