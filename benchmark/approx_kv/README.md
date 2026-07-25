@@ -60,3 +60,24 @@ python3 -m benchmark.approx_kv.run_phase3_canary \
 The canary uses the Phase 2 object generator and verifies host export, async
 H2D, full-layer copy, mismatch fallback, reset-induced store miss, exact-Radix
 isolation, and final KV-pool accounting.
+
+## Corrected Phase 4 R2 key rerun
+
+`run_phase4_cacheblend_key_rerun.py` remeasures the ratio-1% body1024/2048
+cells with three server restarts and paired dense baselines.
+
+For each raw/fresh chunk, the runner:
+
+1. incrementally materializes `header + body[:chunk_end]` in an isolated
+   exact-cache namespace;
+2. registers only the current <=512-token chunk from those exact KVs;
+3. applies rho=2 pressure;
+4. re-seeds the target head and runs the real CacheBlend target.
+
+The result reports target-only, fresh-adapter-combined, request-path and
+full-lifecycle ledgers separately, plus first-token equality, mechanism
+counters, eviction, fallback and pool-reset evidence.
+
+Committed result:
+
+`benchmark/approx_kv/results/phase4-r2/sm75-causal-key-rerun.json`
