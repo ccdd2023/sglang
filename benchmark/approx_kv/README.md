@@ -585,3 +585,22 @@ as the existing flat `ttft_ms`-only float lists (`dense_ms_samples`/
 per-length-sweep-point equivalents) alongside the derived medians, so the
 formal-repeat measurements are always independently reproducible from
 the recorded data.
+
+## Corrected Phase 4 R5 key rerun
+
+`run_phase4_cachetune_key_rerun.py` remeasures body1024/2048 at rho=2 with
+three server restarts and paired dense baselines.
+
+The corrected path runs GPU-only and uses an isolated exact-cache namespace to
+incrementally materialize each raw/fresh cumulative causal prefix before
+registering only the current <=512-token chunk. It then applies pressure,
+re-seeds the target head and runs the real CacheTune target.
+
+The result keeps separate target-only, fresh-adapter-combined, request-path
+and full-lifecycle ledgers. It also records the committed SM75 controller
+decision, first-token equality, selected-token/recomputed-layer counters,
+eviction, fallback and pool-reset evidence.
+
+Committed result:
+
+`benchmark/approx_kv/results/phase4-r5/sm75-causal-key-rerun.json`
