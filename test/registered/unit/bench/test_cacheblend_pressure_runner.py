@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from benchmark.approx_kv.run_phase4_cacheblend_pressure import (
+    build_causal_registration_requests,
     build_target_segments,
     compute_filler_count,
     dense_persistent_token_estimate,
     expected_selected_tokens,
     persistent_token_estimate,
+    register_source_segments,
     segment_chunks,
 )
 from sglang.test.ci.ci_register import register_cpu_ci
@@ -42,6 +45,82 @@ class TestSegmentChunks(unittest.TestCase):
     def test_rejects_non_positive_segment_tokens(self):
         with self.assertRaises(ValueError):
             segment_chunks([1, 2, 3], 0)
+
+
+class TestCausalRegistrationRequests(unittest.TestCase):
+    def test_later_chunks_include_all_prior_body_tokens(self):
+        requests = build_causal_registration_requests(
+            header=[10, 11],
+            chunks=[[20, 21], [22, 23], [24]],
+            hash_prefix="fresh:",
+            content_hash_base="artifact",
+            sentinel_base=900,
+        )
+
+        self.assertEqual(requests[0]["input_ids"], [10, 11, 20, 21, 900])
+        self.assertEqual(requests[1]["input_ids"], [10, 11, 20, 21, 22, 23, 901])
+        self.assertEqual(requests[2]["input_ids"], [10, 11, 20, 21, 22, 23, 24, 902])
+
+    def test_segments_use_true_absolute_body_offsets(self):
+        requests = build_causal_registration_requests(
+            header=[10, 11],
+            chunks=[[20, 21], [22, 23], [24]],
+            hash_prefix="raw:",
+            content_hash_base="artifact",
+            sentinel_base=900,
+        )
+
+        self.assertEqual(
+            [request["segment"]["target_start"] for request in requests],
+            [2, 4, 6],
+        )
+        self.assertEqual(
+            [request["segment"]["length"] for request in requests],
+            [2, 2, 1],
+        )
+        self.assertEqual(
+            [request["segment"]["content_hash"] for request in requests],
+            ["raw:artifact-chunk0", "raw:artifact-chunk1", "raw:artifact-chunk2"],
+        )
+
+    def test_registration_incrementally_materializes_then_copies_each_chunk(self):
+        responses = [
+            {"ttft_ms": 1.0, "cached_tokens": 0, "output_ids": [1]},
+            {"ttft_ms": 2.0, "cached_tokens": 4, "output_ids": [1]},
+            {"ttft_ms": 3.0, "cached_tokens": 4, "output_ids": [1]},
+            {"ttft_ms": 4.0, "cached_tokens": 6, "output_ids": [1]},
+        ]
+        with mock.patch(
+            "benchmark.approx_kv.run_phase4_cacheblend_pressure.request",
+            side_effect=responses,
+        ) as request_mock:
+            result = register_source_segments(
+                "http://127.0.0.1:30011",
+                header=[10, 11],
+                chunks=[[20, 21], [22, 23]],
+                hash_prefix="raw:",
+                content_hash_base="artifact",
+                sentinel_base=900,
+            )
+
+        self.assertEqual(request_mock.call_count, 4)
+        self.assertEqual(len(request_mock.call_args_list[0].args), 2)
+        self.assertTrue(
+            request_mock.call_args_list[0]
+            .kwargs["extra_key"]
+            .startswith("approx-kv-causal:")
+        )
+        self.assertEqual(
+            request_mock.call_args_list[1].args[2]["operation"], "register"
+        )
+        self.assertEqual(result["total_ms"], 10.0)
+        self.assertTrue(result["incremental_exact_materialization"])
+        self.assertEqual(
+            [row["materialize_cached_tokens"] for row in result["rows"]], [0, 4]
+        )
+        self.assertEqual(
+            [row["register_cached_tokens"] for row in result["rows"]], [4, 6]
+        )
 
 
 class TestBuildTargetSegments(unittest.TestCase):
@@ -249,10 +328,13 @@ class TestRawAndFreshSegmentsShareChunkBoundaries(unittest.TestCase):
 
     def test_both_raw_and_fresh_registration_calls_reuse_the_same_chunks(self):
         source = RUNNER_PATH.read_text()
+        run_round_source = source[
+            source.index("def run_round") : source.index("\ndef main")
+        ]
         # Both register_source_segments calls in run_round must pass the
         # single `chunks` variable computed above -- not a fresh,
         # independently-segmented list of their own.
-        self.assertEqual(source.count("chunks=chunks,"), 2)
+        self.assertEqual(run_round_source.count("chunks=chunks,"), 2)
 
     def test_target_segments_are_built_from_the_same_chunk_lengths(self):
         source = RUNNER_PATH.read_text()

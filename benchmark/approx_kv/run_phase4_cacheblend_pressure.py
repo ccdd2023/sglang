@@ -270,6 +270,8 @@ def request(
     base_url: str,
     input_ids: list[int],
     metadata: dict | None = None,
+    *,
+    extra_key: str | None = None,
 ) -> dict:
     sampling_params = {"max_new_tokens": 1, "temperature": 0}
     if metadata is not None:
@@ -278,13 +280,16 @@ def request(
     first = None
     payload = None
     saw_done = False
+    request_payload = {
+        "input_ids": input_ids,
+        "sampling_params": sampling_params,
+        "stream": True,
+    }
+    if extra_key is not None:
+        request_payload["extra_key"] = extra_key
     with requests.post(
         f"{base_url}/generate",
-        json={
-            "input_ids": input_ids,
-            "sampling_params": sampling_params,
-            "stream": True,
-        },
+        json=request_payload,
         stream=True,
         timeout=180,
     ) as response:
@@ -339,6 +344,40 @@ def build_metadata(
     return metadata
 
 
+def build_causal_registration_requests(
+    *,
+    header: list[int],
+    chunks: list[list[int]],
+    hash_prefix: str,
+    content_hash_base: str,
+    sentinel_base: int,
+) -> list[dict]:
+    """Build one registration request per chunk using the full causal prefix.
+
+    Chunk ``i`` is computed from ``header + body[:chunk_i_end]`` and only
+    chunk ``i`` is stored. This preserves every earlier body chunk as causal
+    context while keeping the stored segment size bounded by the configured
+    chunk size.
+    """
+    requests_to_send = []
+    body_prefix: list[int] = []
+    offset = 0
+    for index, chunk in enumerate(chunks):
+        body_prefix.extend(chunk)
+        requests_to_send.append(
+            {
+                "input_ids": header + body_prefix + [sentinel_base + index],
+                "segment": {
+                    "content_hash": f"{hash_prefix}{content_hash_base}-chunk{index}",
+                    "target_start": len(header) + offset,
+                    "length": len(chunk),
+                },
+            }
+        )
+        offset += len(chunk)
+    return requests_to_send
+
+
 def register_source_segments(
     base_url: str,
     *,
@@ -347,32 +386,77 @@ def register_source_segments(
     hash_prefix: str,
     content_hash_base: str,
     sentinel_base: int,
-) -> float:
-    """Register every chunk (independently, at a constant
-    ``target_start=header length``) under ``hash_prefix``. Returns the
-    summed client-observed latency of these registration requests -- for
-    the fresh (precomputed-adapter) hash this *is* the honest
-    "preparation cost" this task requires be reported, not hidden inside
-    the target-only TTFT.
+) -> dict:
+    """Materialize and register every chunk from its cumulative prefix.
+
+    Each chunk first runs as a plain dense request. Prior chunks therefore
+    exact-match and only the next chunk is newly computed. A second request
+    over the same prompt registers the current chunk from those exact KVs.
     """
     total_ms = 0.0
-    for index, chunk in enumerate(chunks):
-        result = request(
+    rows = []
+    materialization_namespace = f"approx-kv-causal:{hash_prefix}{content_hash_base}"
+    for index, registration in enumerate(
+        build_causal_registration_requests(
+            header=header,
+            chunks=chunks,
+            hash_prefix=hash_prefix,
+            content_hash_base=content_hash_base,
+            sentinel_base=sentinel_base,
+        )
+    ):
+        materialize = request(
             base_url,
-            header + chunk + [sentinel_base + index],
+            registration["input_ids"],
+            extra_key=materialization_namespace,
+        )
+        expected_materialize_cached = (
+            0 if index == 0 else registration["segment"]["target_start"]
+        )
+        if materialize["cached_tokens"] != expected_materialize_cached:
+            raise RuntimeError(
+                "unexpected causal-prefix materialization hit for "
+                f"chunk{index}: observed={materialize['cached_tokens']}, "
+                f"expected={expected_materialize_cached}"
+            )
+        registered = request(
+            base_url,
+            registration["input_ids"],
             build_metadata(
                 operation="register",
-                segments=[
-                    {
-                        "content_hash": f"{hash_prefix}{content_hash_base}-chunk{index}",
-                        "target_start": len(header),
-                        "length": len(chunk),
-                    }
-                ],
+                segments=[registration["segment"]],
             ),
+            extra_key=materialization_namespace,
         )
-        total_ms += result["ttft_ms"]
-    return total_ms
+        expected_register_cached = registration["segment"]["target_start"] + (
+            registration["segment"]["length"]
+        )
+        if registered["cached_tokens"] != expected_register_cached:
+            raise RuntimeError(
+                f"chunk{index} register cached_tokens="
+                f"{registered['cached_tokens']}, expected="
+                f"{expected_register_cached}"
+            )
+        total_ms += materialize["ttft_ms"] + registered["ttft_ms"]
+        rows.append(
+            {
+                "chunk_index": index,
+                "prompt_tokens": len(registration["input_ids"]),
+                "segment": registration["segment"],
+                "materialize_ms": materialize["ttft_ms"],
+                "register_ms": registered["ttft_ms"],
+                "ttft_ms": materialize["ttft_ms"] + registered["ttft_ms"],
+                "materialize_cached_tokens": materialize["cached_tokens"],
+                "register_cached_tokens": registered["cached_tokens"],
+            }
+        )
+    return {
+        "total_ms": total_ms,
+        "chunk_count": len(rows),
+        "rows": rows,
+        "causal_prefix_registration": True,
+        "incremental_exact_materialization": True,
+    }
 
 
 def _counter_delta(before: dict, after: dict, name: str) -> float | None:
@@ -408,9 +492,11 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
     chunks = segment_chunks(body, args.segment_tokens)
     chunk_lengths = [len(chunk) for chunk in chunks]
 
+    raw_registration = None
+    fresh_registration = None
     fresh_preparation_ms = 0.0
     if args.mode == "cacheblend":
-        register_source_segments(
+        raw_registration = register_source_segments(
             args.base_url,
             header=source_header,
             chunks=chunks,
@@ -418,10 +504,9 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
             content_hash_base=content_hash_base,
             sentinel_base=900,
         )
-        # The dense preparation request: real target-context KV, computed
-        # under the *actual* target header, registered as the "fresh"
-        # source. This is the precomputed adapter's real cost.
-        fresh_preparation_ms = register_source_segments(
+        # The dense preparation requests compute each chunk under the full
+        # cumulative target causal prefix and register only that chunk.
+        fresh_registration = register_source_segments(
             args.base_url,
             header=target_header,
             chunks=chunks,
@@ -429,6 +514,7 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
             content_hash_base=content_hash_base,
             sentinel_base=910,
         )
+        fresh_preparation_ms = fresh_registration["total_ms"]
     # Dense mode intentionally issues NO body-chunk priming request here.
     # A bare (headerless) per-chunk dense request would commit a second,
     # ~body_tokens-sized exact-cache entry that shares no prefix with --
@@ -522,6 +608,8 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
         "target": target,
         "fresh_preparation_ms": fresh_preparation_ms,
         "combined_ms": combined_ms,
+        "raw_registration": raw_registration,
+        "fresh_registration": fresh_registration,
         "cacheblend_telemetry": cacheblend_telemetry,
         "baseline_metrics": metric_subset(baseline),
         "before_target_metrics": metric_subset(before_target),
@@ -571,6 +659,9 @@ def main() -> None:
             "remains unavailable; cacheblend mode uses an explicit dense "
             "preparation request (fresh_preparation_ms) as a server-safe "
             "precomputed-adapter substitute.",
+            "Long bodies use cumulative causal-prefix registration: chunk i "
+            "is computed from header + body[:chunk_i_end] and only chunk i "
+            "is stored at its true absolute position.",
             "Source/target contexts are genuinely non-prefix (distinct "
             "header token ranges) whenever header_tokens > 0; at "
             "header_tokens == 0 both contexts are empty, which is an "
