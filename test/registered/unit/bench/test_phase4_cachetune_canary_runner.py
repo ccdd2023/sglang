@@ -2849,15 +2849,7 @@ class TestTimedPost(unittest.TestCase):
 
 
 class TestRegisterBodyChunks(unittest.TestCase):
-    """``register_body_chunks`` must split a body strictly longer than
-    ``max_chunk_tokens`` into that many INDEPENDENT ``/generate``
-    register calls -- one per chunk, each bounded at ``len(head_ids) +
-    max_chunk_tokens + len(tail_ids)`` -- never one oversized call
-    whose own transient per-request KV footprint scales with the full,
-    un-chunked body (the real SM75 register-time OOM this function
-    exists to avoid; see its own docstring), while staying identical to
-    the previous single-call behavior whenever the body already fits in
-    one chunk."""
+    """Historical short-context and corrected causal registration modes."""
 
     def _success_response(self, cached_tokens: int) -> _FakeStreamResponse:
         chunk = {
@@ -2925,21 +2917,22 @@ class TestRegisterBodyChunks(unittest.TestCase):
 
         self.assertEqual(len(session.post_calls), 2)
         self.assertEqual(result["chunk_count"], 2)
-        bound = len(head_ids) + 512 + len(tail_ids)
         expected_bodies = [body_ids[0:512], body_ids[512:1024]]
         for index, (url, payload) in enumerate(session.post_calls):
             self.assertEqual(url, "http://127.0.0.1:30000/generate")
-            self.assertLessEqual(len(payload["input_ids"]), bound)
             segments = payload["sampling_params"]["custom_params"]["approx_kv"][
                 "segments"
             ]
             self.assertEqual(len(segments), 1)
             self.assertEqual(segments[0]["content_hash"], f"raw-hash:chunk{index}")
-            # Every chunk's own local target_start is len(head_ids) --
-            # identical for every chunk index, never body_start + offset.
             self.assertEqual(segments[0]["target_start"], len(head_ids))
             body_slice = payload["input_ids"][len(head_ids) : -len(tail_ids)]
             self.assertEqual(body_slice, list(expected_bodies[index]))
+        self.assertEqual(
+            result["prompt_tokens_per_chunk"],
+            [len(head_ids) + 512 + 1, len(head_ids) + 512 + 1],
+        )
+        self.assertFalse(result["causal_prefix_registration"])
 
     def test_body_2048_issues_exactly_four_independent_calls(self):
         head_ids = tuple(range(64))
@@ -2970,8 +2963,12 @@ class TestRegisterBodyChunks(unittest.TestCase):
             self.assertEqual(segments[0]["content_hash"], f"raw-hash:chunk{index}")
             self.assertEqual(segments[0]["target_start"], len(head_ids))
             self.assertEqual(segments[0]["length"], 512)
+            body_slice = payload["input_ids"][len(head_ids) : -len(tail_ids)]
+            self.assertEqual(
+                body_slice, list(body_ids[index * 512 : (index + 1) * 512])
+            )
 
-    def test_uneven_final_chunk_still_respects_the_max_chunk_tokens_bound(self):
+    def test_uneven_final_chunk_still_respects_the_short_prompt_bound(self):
         head_ids = tuple(range(10))
         body_ids = tuple(range(1000))  # 1000 tokens -> chunks of 512 + 488
         tail_ids = (999999,)
@@ -3004,6 +3001,64 @@ class TestRegisterBodyChunks(unittest.TestCase):
         bound = len(head_ids) + 512 + len(tail_ids)
         self.assertLessEqual(len(session.post_calls[0][1]["input_ids"]), bound)
         self.assertLessEqual(len(session.post_calls[1][1]["input_ids"]), bound)
+
+    def test_causal_mode_materializes_each_cumulative_prefix_before_registering(self):
+        head_ids = tuple(range(64))
+        body_ids = tuple(range(1000, 2024))
+        tail_ids = (999999,)
+        first_prompt_tokens = len(head_ids) + 512 + len(tail_ids)
+        second_prompt_tokens = len(head_ids) + 1024 + len(tail_ids)
+        session = _SequencedFakeClientSession(
+            [
+                self._success_response(0),
+                self._success_response(first_prompt_tokens - len(tail_ids)),
+                self._success_response(len(head_ids) + 512),
+                self._success_response(second_prompt_tokens - len(tail_ids)),
+            ]
+        )
+
+        with unittest.mock.patch("aiohttp.ClientSession", return_value=session):
+            result = register_body_chunks(
+                "http://127.0.0.1:30000",
+                head_ids=head_ids,
+                shared_body_ids=body_ids,
+                tail_ids=tail_ids,
+                hash_prefix="raw-hash",
+                model_fingerprint="qwen3-0.6b-sm75",
+                cache_dtype="fp16",
+                max_chunk_tokens=512,
+                expected_cached_tokens=0,
+                label="unit-test",
+                causal_prefix_registration=True,
+            )
+
+        self.assertEqual(len(session.post_calls), 4)
+        materialize0 = session.post_calls[0][1]
+        register0 = session.post_calls[1][1]
+        materialize1 = session.post_calls[2][1]
+        register1 = session.post_calls[3][1]
+        self.assertNotIn("custom_params", materialize0["sampling_params"])
+        self.assertNotIn("custom_params", materialize1["sampling_params"])
+        self.assertEqual(materialize0["extra_key"], register0["extra_key"])
+        self.assertEqual(materialize1["extra_key"], register1["extra_key"])
+        self.assertEqual(materialize0["input_ids"], register0["input_ids"])
+        self.assertEqual(materialize1["input_ids"], register1["input_ids"])
+        self.assertEqual(len(materialize0["input_ids"]), first_prompt_tokens)
+        self.assertEqual(len(materialize1["input_ids"]), second_prompt_tokens)
+        self.assertEqual(
+            register0["sampling_params"]["custom_params"]["approx_kv"]["segments"][0][
+                "target_start"
+            ],
+            len(head_ids),
+        )
+        self.assertEqual(
+            register1["sampling_params"]["custom_params"]["approx_kv"]["segments"][0][
+                "target_start"
+            ],
+            len(head_ids) + 512,
+        )
+        self.assertTrue(result["causal_prefix_registration"])
+        self.assertTrue(result["incremental_exact_materialization"])
 
     def test_total_ms_is_the_exact_sum_of_every_chunk_ttft(self):
         # Patch timed_post directly (bypassing the aiohttp session
@@ -3241,13 +3296,9 @@ class TestRegisterRoundSetup(unittest.TestCase):
             ][0]
             self.assertTrue(segment["content_hash"].startswith("cachetune-fresh:"))
 
-    def test_every_raw_and_fresh_chunk_prompt_is_bounded_by_head_plus_chunk_plus_tail(
+    def test_every_raw_and_fresh_chunk_prompt_uses_the_historical_short_context(
         self,
     ):
-        # Direct proof the old oversized-single-call register path (which
-        # would have sent a ~1089-token prompt in one call for this exact
-        # body/head/tail combination, OOM'ing a real SM75 server at
-        # register time) is gone from BOTH raw and fresh registration.
         workload = self._workload(body_tokens=1024)
         chunk_count = len(chunk_offsets(workload.body_tokens, 512))
         session = _SequencedFakeClientSession(
@@ -3266,11 +3317,19 @@ class TestRegisterRoundSetup(unittest.TestCase):
                 max_chunk_tokens=512,
             )
 
-        bound = 64 + 512 + 1  # head_tokens + max_chunk_tokens + tail_tokens
         register_calls = session.post_calls[1:]  # everything after the seed call
         self.assertEqual(len(register_calls), 2 * chunk_count)
-        for _, payload in register_calls:
-            self.assertLessEqual(len(payload["input_ids"]), bound)
+        expected_prompt_lengths = [64 + 512 + 1, 64 + 512 + 1]
+        raw_calls = register_calls[:chunk_count]
+        fresh_calls = register_calls[chunk_count:]
+        self.assertEqual(
+            [len(payload["input_ids"]) for _, payload in raw_calls],
+            expected_prompt_lengths,
+        )
+        self.assertEqual(
+            [len(payload["input_ids"]) for _, payload in fresh_calls],
+            expected_prompt_lengths,
+        )
 
     def test_raw_and_fresh_content_hashes_match_reuse_side_body_segments_for_hash(self):
         # Both raw's and fresh's own per-chunk content_hash sequence
@@ -5558,13 +5617,7 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
         for sample in result["reuse_raw_samples"]:
             self.assertEqual(sample["cached_tokens"], reuse_cached)
 
-        # Every round's own raw+fresh register chunk call (round-start
-        # sentinel, seed, and reuse excluded) must itself stay within
-        # one chunk's own small bound -- proof the old
-        # single-oversized-call code path is gone from EVERY round, not
-        # just the warmup -- and every round's own seed/reuse call
-        # still carries that round's own full, un-chunked payload.
-        bound = 64 + 512 + len(workload.tail_ids)
+        # The historical canary keeps short per-chunk registration prompts.
         for round_index in range(rounds):
             base = round_index * calls_per_round
             round_calls = session.post_calls[base : base + calls_per_round]
@@ -5573,8 +5626,18 @@ class TestRunNonPrefixSettingChunkedFreshRegister(unittest.TestCase):
             reuse_call = round_calls[-1]
             self.assertEqual(seed_call[1]["input_ids"], list(workload.seed_prompt_ids))
             self.assertEqual(len(raw_and_fresh_calls), 2 * chunk_count)
-            for _, payload in raw_and_fresh_calls:
-                self.assertLessEqual(len(payload["input_ids"]), bound)
+            expected_lengths = [
+                64 + 512 + len(workload.tail_ids),
+                64 + 512 + len(workload.tail_ids),
+            ]
+            self.assertEqual(
+                [len(payload["input_ids"]) for _, payload in raw_and_fresh_calls[:2]],
+                expected_lengths,
+            )
+            self.assertEqual(
+                [len(payload["input_ids"]) for _, payload in raw_and_fresh_calls[2:]],
+                expected_lengths,
+            )
             self.assertEqual(
                 reuse_call[1]["input_ids"], list(workload.target_prompt_ids)
             )

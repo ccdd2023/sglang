@@ -114,10 +114,7 @@ runs its own measurement pass, in order: flush -> seed the target head
 (one dense ``/generate`` call over ``target_head_ids + seed_sentinel_
 ids``) -> register the raw segment (one OR MORE ``/generate`` register
 calls, one per ``<= --max-segment-chunk-tokens`` chunk of
-``shared_body_ids`` -- see ``register_body_chunks`` -- each posting a
-short ``source_head_ids + chunk_body + tail_ids`` prompt, never one
-oversized call spanning ``source_head_ids + shared_body_ids +
-tail_ids`` in full)
+``shared_body_ids`` -- see ``register_body_chunks``)
 -> register the fresh segment the same chunked way -> reuse. Every
 round performs ALL of these steps itself, from scratch, every time --
 never sharing a raw or fresh registration with any other round (see
@@ -137,13 +134,11 @@ version of this script did -- previously raised ``ValueError`` inside
 
 The raw and fresh body registrations mentioned above are each actually
 sent as one or more INDEPENDENT ``/generate`` calls -- one per
-``<= --max-segment-chunk-tokens`` chunk of ``shared_body_ids``, never
-one oversized call spanning the entire body -- via
-``register_body_chunks`` (see that function's own docstring for the
-real SM75 register-time OOM this fixes, and why the resulting per-chunk
-register-vs-reuse position mismatch is safe). Only the register side is
-split this way; every reuse call still posts the complete target prompt
-in one request.
+``<= --max-segment-chunk-tokens`` stored chunk of ``shared_body_ids`` --
+via ``register_body_chunks``. The historical canary keeps short per-chunk
+contexts. The corrected key-rerun runner opts into cumulative causal-prefix
+materialization before registration. Every reuse call posts the complete
+target prompt in one request.
 
 Measurement protocol (mandatory, applies to every setting: the main
 setting, every shape-sweep point, and every rho-sweep point)
@@ -1895,16 +1890,10 @@ def body_segments_for_hash(
     ``chunk_offsets(body_tokens, max_chunk_tokens)`` pieces, all
     traveling together within that single reuse call.
 
-    NOTE: this is the REUSE-side builder only. The REGISTER side no
-    longer sends its chunks this way -- ``register_body_chunks`` issues
-    one independent ``/generate`` call per chunk instead (see that
-    function's own docstring for the real SM75 OOM this avoids), each
-    with ``target_start = len(head_ids)`` (local to that call's own
-    short prompt), not ``body_start + offset`` as built here. The two
-    still line up correctly at reuse time purely through the shared
-    ``content_hash`` convention below (``manager.store``'s lookup key,
-    ``_segment_key``, is built from ``content_hash`` + token CONTENT --
-    never from ``target_start`` -- see ``approx_kv/runtime.py``).
+    NOTE: this is the REUSE-side builder only. The historical registration
+    path stores chunks from short local contexts. The corrected key-rerun path
+    materializes the cumulative body prefix and stores each chunk at the same
+    ``body_start + offset`` used here.
 
     Every chunk gets its own distinct, deterministic ``content_hash``
     (``f"{hash_prefix}:chunk{index}"``): even chunks of the same logical
@@ -2476,71 +2465,22 @@ def register_body_chunks(
     max_chunk_tokens: int,
     expected_cached_tokens: int,
     label: str,
+    causal_prefix_registration: bool = False,
 ) -> dict[str, Any]:
-    """Register ``shared_body_ids`` as one INDEPENDENT ``/generate``
-    register call PER ``<= max_chunk_tokens`` chunk -- never one
-    oversized call spanning the entire body, even when the resulting
-    segments are individually ``<= max_chunk_tokens``.
+    """Register one stored segment per chunk.
 
-    This is the fix for a real SM75 OOM: the previous design sent the
-    ENTIRE ``head_ids + shared_body_ids + tail_ids`` prompt (e.g.
-    ~1089 tokens for a body=1024 setting) through ONE forward pass,
-    with ``chunk_offsets``/``body_segments_for_hash`` only bounding the
-    STORED segment sizes (``<= max_chunk_tokens`` each) -- the call's
-    own live/transient per-request KV footprint during that one forward
-    pass was bounded only by the full, un-chunked body length, not by
-    ``max_chunk_tokens``. With many pressure-filler objects and/or a
-    large body this uncapped per-call peak OOM'd the 8GB SM75 GPU
-    (observed on a real run at body=1024's register-raw step).
-
-    Each chunk's own independent call instead posts a SHORT prompt --
-    ``head_ids + this_chunk's_body_slice + tail_ids``, bounded at
-    ``len(head_ids) + max_chunk_tokens + len(tail_ids)`` regardless of
-    how long the logical body is -- carrying exactly ONE segment with
-    ``target_start = len(head_ids)`` (this chunk's own local body-start
-    position within its own short prompt -- identical for EVERY chunk
-    index, since every chunk's own prompt starts fresh with the same
-    head immediately followed by that chunk's own body slice) and
-    ``content_hash = f"{hash_prefix}:chunk{index}"`` -- the SAME
-    per-chunk hash convention ``body_segments_for_hash`` already uses
-    for reuse's own (unchanged, full-prompt, multi-segment) call. Since
-    ``manager.store``'s lookup key (``_segment_key``, see
-    ``approx_kv/runtime.py``) is built purely from ``content_hash`` +
-    a hash of the token CONTENT + ``token_count`` + ``model_fingerprint``
-    + ``cache_dtype`` -- never from any absolute prompt position --
-    reuse's existing per-chunk lookup for chunk N still resolves this
-    exact registered entry regardless of what absolute prompt position
-    THIS call itself used to compute it.
-
-    This deliberately places every chunk index > 0 at a SMALLER
-    absolute prompt position at register time than that same chunk's
-    eventual reuse-time target position -- an intentional, safe
-    mismatch, not a bug. ``restore_request_prefix_cachetune`` computes
-    a per-segment ``rope_delta = overlap_start - source_position`` (see
-    ``cachetune/runtime.py``) and, whenever that delta is nonzero,
-    applies a full relative RoPE rotation of exactly that delta (see
-    ``RadixKVTransferBackend._rotate_all_copied_keys`` -- a standard
-    ``cos(delta * inv_freq)``/``sin(delta * inv_freq)`` relative
-    rotation, mathematically correct for any integer delta magnitude),
-    PROVIDED a real (non-dummy, nonzero-``rotary_dim``) RoPE config is
-    bound. ``resolve_model_rope_config`` (``approx_kv/radix_backend.py``)
-    guarantees exactly that for the Qwen2/Qwen3 architecture family this
-    canary's SM75 target always uses, bound once at ``create_tree_cache``
-    time (see ``kv_cache_builder.py``) -- the fix for an earlier real
-    "second chunk nonzero delta falls back to dense" bug, which was
-    caused by that binding never running at all (``rope_config`` stuck
-    at the ``rotary_dim=0`` dummy sentinel), not by nonzero deltas being
-    inherently unsupported. Chunk 0 happens to have ``rope_delta == 0``
-    (its own local ``target_start`` already equals its true reuse-time
-    position), but every later chunk genuinely relies on this
-    relocation -- this is exactly what makes shrinking every register
-    call's own transient footprint down to ``max_chunk_tokens`` (rather
-    than the full body) safe.
+    The historical path keeps each request short and computes a chunk only
+    under ``head_ids``. The corrected key-rerun path sets
+    ``causal_prefix_registration=True``: it first materializes the cumulative
+    prefix as a plain dense request, then registers the current chunk from the
+    exact KVs produced by that request. Prior chunks exact-match, so each
+    materialization only extends one additional chunk without requiring one
+    oversized allocation.
 
     Every chunk reports the SAME ``expected_cached_tokens`` (asserted
     per chunk via ``require_cached_tokens``, never merely assumed): a
     REGISTER request never writes into the exact radix tree (see that
-    function's own docstring), so every chunk's own short prompt gets
+    function's own docstring), so every chunk's cumulative prompt gets
     the identical leading-``head_ids`` exact-match result, independent
     of chunk index or body length.
 
@@ -2556,39 +2496,93 @@ def register_body_chunks(
     head_ids = tuple(int(token) for token in head_ids)
     shared_body_ids = tuple(int(token) for token in shared_body_ids)
     tail_ids = tuple(int(token) for token in tail_ids)
-    body_start_local = len(head_ids)
     total_ms = 0.0
     chunk_count = 0
+    prompt_tokens: list[int] = []
+    rows: list[dict[str, Any]] = []
     for index, (offset, length) in enumerate(
         chunk_offsets(len(shared_body_ids), max_chunk_tokens)
     ):
+        chunk_end = offset + length
         chunk_prompt_ids = (
-            head_ids + shared_body_ids[offset : offset + length] + tail_ids
+            head_ids + shared_body_ids[:chunk_end] + tail_ids
+            if causal_prefix_registration
+            else head_ids + shared_body_ids[offset:chunk_end] + tail_ids
         )
         chunk_label = f"{label} chunk{index}"
-        response, ttft_ms = timed_post(
-            base_url,
-            register_generate_payload(
-                input_ids=chunk_prompt_ids,
-                segments=[
-                    {
-                        "content_hash": f"{hash_prefix}:chunk{index}",
-                        "target_start": body_start_local,
-                        "length": length,
-                    }
-                ],
-                model_fingerprint=model_fingerprint,
-                cache_dtype=cache_dtype,
-            ),
+        materialize_ms = 0.0
+        materialize_cached_tokens = None
+        materialization_namespace = f"approx-kv-causal-materialization:{hash_prefix}"
+        if causal_prefix_registration:
+            materialize_payload = dense_generate_payload(chunk_prompt_ids)
+            materialize_payload["extra_key"] = materialization_namespace
+            materialize_response, materialize_ms = timed_post(
+                base_url, materialize_payload
+            )
+            require_finished_by_length(
+                materialize_response, f"{chunk_label} causal materialization"
+            )
+            expected_materialize_cached = 0 if index == 0 else len(head_ids) + offset
+            materialize_cached_tokens = require_cached_tokens(
+                materialize_response,
+                expected_materialize_cached,
+                f"{chunk_label} causal materialization",
+            )
+        register_payload = register_generate_payload(
+            input_ids=chunk_prompt_ids,
+            segments=[
+                {
+                    "content_hash": f"{hash_prefix}:chunk{index}",
+                    "target_start": (
+                        len(head_ids) + offset
+                        if causal_prefix_registration
+                        else len(head_ids)
+                    ),
+                    "length": length,
+                }
+            ],
+            model_fingerprint=model_fingerprint,
+            cache_dtype=cache_dtype,
         )
+        if causal_prefix_registration:
+            register_payload["extra_key"] = materialization_namespace
+        response, ttft_ms = timed_post(base_url, register_payload)
         require_finished_by_length(response, chunk_label)
-        require_cached_tokens(response, expected_cached_tokens, chunk_label)
-        total_ms += ttft_ms
+        expected_register_cached = (
+            len(head_ids) + chunk_end
+            if causal_prefix_registration
+            else expected_cached_tokens
+        )
+        registered_cached_tokens = require_cached_tokens(
+            response, expected_register_cached, chunk_label
+        )
+        total_ms += materialize_ms + ttft_ms
         chunk_count += 1
+        prompt_tokens.append(len(chunk_prompt_ids))
+        rows.append(
+            {
+                "chunk_index": index,
+                "prompt_tokens": len(chunk_prompt_ids),
+                "materialize_ms": materialize_ms,
+                "register_ms": ttft_ms,
+                "materialize_cached_tokens": materialize_cached_tokens,
+                "register_cached_tokens": registered_cached_tokens,
+                "target_start": (
+                    len(head_ids) + offset
+                    if causal_prefix_registration
+                    else len(head_ids)
+                ),
+                "length": length,
+            }
+        )
     return {
         "total_ms": total_ms,
         "chunk_count": chunk_count,
         "cached_tokens": expected_cached_tokens,
+        "prompt_tokens_per_chunk": prompt_tokens,
+        "causal_prefix_registration": causal_prefix_registration,
+        "incremental_exact_materialization": causal_prefix_registration,
+        "rows": rows,
     }
 
 
@@ -2602,6 +2596,7 @@ def register_round_setup(
     cache_dtype: str,
     label: str,
     max_chunk_tokens: int,
+    causal_prefix_registration: bool = False,
 ) -> dict[str, Any]:
     """Seed ``workload``'s own exact-match target head (via
     ``workload.seed_prompt_ids`` -- ``target_head_ids`` PLUS an explicit
@@ -2635,11 +2630,9 @@ def register_round_setup(
     see ``run_independent_round``'s own docstring for the complete
     per-round ordering this function is one part of.
 
-    Both body registrations go through ``register_body_chunks`` -- one
-    INDEPENDENT ``/generate`` call per ``<= max_chunk_tokens`` chunk,
-    never one oversized call spanning the entire body (see that
-    function's own docstring for the real SM75 OOM this avoids and why
-    the resulting per-chunk RoPE-position mismatch is safe). Fresh's own
+    Both body registrations go through ``register_body_chunks``. The
+    corrected key-rerun path explicitly enables cumulative causal-prefix
+    materialization and true absolute positions. Fresh's own
     register call never restores anything (see ``approx_kv/runtime.py``'s
     ``_register_request_segments`` -- it bails out immediately unless
     ``operation == REUSE``), so every fresh chunk's only contribution to
@@ -2679,6 +2672,7 @@ def register_round_setup(
         max_chunk_tokens=max_chunk_tokens,
         expected_cached_tokens=0,
         label=f"{label} raw register",
+        causal_prefix_registration=causal_prefix_registration,
     )
     register_raw_ms = raw_chunks["total_ms"]
 
@@ -2693,6 +2687,7 @@ def register_round_setup(
         max_chunk_tokens=max_chunk_tokens,
         expected_cached_tokens=workload.body_start_in_target,
         label=f"{label} fresh preparation",
+        causal_prefix_registration=causal_prefix_registration,
     )
     register_fresh_ms = fresh_chunks["total_ms"]
 
@@ -2701,6 +2696,8 @@ def register_round_setup(
         "register_raw_ms": register_raw_ms,
         "register_fresh_ms": register_fresh_ms,
         "fresh_cached_tokens": fresh_chunks["cached_tokens"],
+        "raw_registration": raw_chunks,
+        "fresh_registration": fresh_chunks,
     }
 
 
@@ -2741,12 +2738,8 @@ def run_target_reuse(
 
     The reuse call posts the FULL ``target_prompt_ids`` in one call with
     the existing contiguous multi-segment list (see
-    ``body_segments_for_hash``), never chunked the way register calls
-    are: a genuine reuse/repair forward pass over the complete target
-    context is exactly what this canary measures, and the register
-    side's transient per-call footprint (the OOM risk chunking there
-    fixes, see ``register_body_chunks``) does not apply to this single
-    call.
+    ``body_segments_for_hash``): a genuine reuse/repair forward pass over
+    the complete target context is exactly what this canary measures.
 
     Returns a dict with ``reuse_ms`` (the genuine streaming TTFT),
     ``reuse_cached_tokens`` (the reuse response's own observed
@@ -3115,6 +3108,7 @@ def run_independent_round(
     target_rho: float | None,
     pressure_filler_head_tokens: int,
     pressure_filler_body_tokens: int,
+    causal_prefix_registration: bool = False,
 ) -> dict[str, Any]:
     """Run ONE fully self-contained, independent measurement round: flush
     -> capacity snapshot -> this round's own complete setup (seed head +
@@ -3269,6 +3263,7 @@ def run_independent_round(
         cache_dtype=cache_dtype,
         label=f"{label} setup",
         max_chunk_tokens=max_chunk_tokens,
+        causal_prefix_registration=causal_prefix_registration,
     )
 
     pressure_phase: dict[str, Any] | None = None
@@ -3356,8 +3351,16 @@ def run_independent_round(
         "register_raw_ms": setup_result["register_raw_ms"],
         "register_fresh_ms": setup_result["register_fresh_ms"],
         "fresh_cached_tokens": setup_result["fresh_cached_tokens"],
+        "raw_registration": setup_result["raw_registration"],
+        "fresh_registration": setup_result["fresh_registration"],
         "reuse_ms": reuse_result["reuse_ms"],
         "reuse_cached_tokens": reuse_result["reuse_cached_tokens"],
+        "reuse_response": reuse_result["reuse_response"],
+        "first_output_token": (
+            int(reuse_result["reuse_response"]["output_ids"][0])
+            if reuse_result["reuse_response"].get("output_ids")
+            else None
+        ),
         "capacity_tokens": capacity_tokens,
         "already_pinned_tokens": already_pinned_tokens,
         "head_reseed_after_pressure": head_reseed_after_pressure,
@@ -3422,12 +3425,8 @@ def run_non_prefix_setting(
     setup/pressure/reuse steps.
 
     Every register step (raw AND fresh, inside every round's own
-    ``register_round_setup``) goes through ``register_body_chunks`` --
-    one INDEPENDENT ``/generate`` call per ``<= max_chunk_tokens`` chunk,
-    never one oversized call spanning the entire body -- see that
-    function's own docstring for the real SM75 register-time OOM this
-    avoids. Every reuse call, warmup and formal alike, is deliberately
-    NOT chunked this way: it always posts the complete
+    ``register_round_setup``) goes through ``register_body_chunks``.
+    Every reuse call, warmup and formal alike, posts the complete
     ``target_prompt_ids`` in one call (see ``body_segments_for_hash``),
     since a genuine full-context reuse/repair forward pass is exactly
     what this canary measures.
