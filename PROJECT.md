@@ -2,14 +2,14 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-24T17:03:19-07:00
+最后更新：2026-07-26T14:41:07-07:00
 
 ## 项目概况
 
 | 项目 | 当前值 |
 | --- | --- |
 | 名称 | `code-agent-kvcache` |
-| 阶段 | Phase 5 scheduler/eviction/prefetch 已完成；暂停在 Phase 6 之前 |
+| 阶段 | Phase4/5 Closeout与Phase6零GPU实现进行中；GPU验证阻塞；未进入Phase7 |
 | 业务目标 | 在 SGLang 上比较多种跨 context 近似 KV 恢复与 workflow-aware cache scheduling，降低 Coding Agent TTFT |
 | 技术栈 | SGLang、HiCache、Docker、KVFlow、KVCOMM、CacheBlend、Cache-Craft、EPIC、CacheTune |
 | 默认分支 | `main` |
@@ -26,6 +26,70 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-26 Phase4/5 Closeout与Phase6实现进展
+
+- 已按用户要求停止全部既有Docker容器；后续只允许任务自身的短期容器。
+- Phase6实现worktree为
+  `/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate`，
+  分支为`research/cross-store-substrate`，基于
+  `research/scheduler-policies@c185428fd`。
+- 已实现P6-0合同：
+  - fixed40对象、确定性token SHA256、dead/live、长度、segment和chunk语义；
+  - provisional chunk配置进入manifest hash；
+  - 统一artifact schema、contract hash与漂移校验。
+- 已实现P6-1/P6-2/P6-3 substrate：
+  - exact/approx/host统一对象、byte-authoritative budget和统一event ordinal；
+  - S0与S4跨store策略；
+  - reserve-before-victim、allocation、commit和失败账本；
+  - exact/approx双向pressure；
+  - approximate device→host真实demotion及cross-store-aware demand H2D load；
+  - dependency wire metadata、注册期dependency pin、dependent-first atomic closure；
+  - orphan拒绝、stale/double-free防护、store lifecycle/reset gauge；
+  - cross-store victim/demotion/failure/wasted/peak telemetry。
+- 第一轮Claude Opus 5 Max代码review提出CR-01至CR-22；阻断项已逐项修复或显式封锁：
+  - 请求执行中不再调用全量`tree_cache.reset()`；
+  - 不可逆victim后的失败保留真实资源状态和byte ledger；
+  - HiRadix exact cross-store路径在专用语义完成前明确unsupported，避免host ref泄漏；
+  - fixed40、schema、S4 class order、wire alias和event clock已统一。
+- 已实现GPU runner：
+  - `run_p6_h_host_roundtrip.py`；
+  - `run_p6_4_capacity_pilot.py`；
+  - `run_cl1_qualification.py`；
+  - `run_cl2_chunk_gate.py`。
+- Claude Opus 5 Max完成三轮代码review：
+  - 第一轮CR-01至CR-22；
+  - 第二轮CR2-01至CR2-16；
+  - 最终delta CR3-01至CR3-03；
+  - 上述finding均已修复并增加对应回归。
+- 800对象、400 victim的CPU压力路径由`3.087s`优化到`0.188s`。
+- 当前相关CPU回归为`169 passed, 1 skipped`；isort/Black/ruff和
+  `git diff --check`全部通过。
+- 独立GPT-5.6 Sol Max最终review提出8项P1；全部修复后完成两次delta核对，
+  最终结论为“无剩余P0/P1”。
+- Phase6核心提交：
+  `391bb89901cebebd50ffc9f27a648b09a99abf7e`。
+- P6-0 artifact提交及远程branch head：
+  `c487e36af5f7ce4da556da1b88c85df750a0b14d`。
+- 远程分支：
+  `ccdd2023/sglang:research/cross-store-substrate`，本地与远程SHA已核对一致。
+- P6-0合同：
+  - contract SHA256
+    `a498daa36449993ff166dd70870005be22a1da0a7d09e97e8f779d72cbf3fb30`；
+  - fixed40 workload SHA256
+    `30c9ae8de429a6389e58bbdcdf096101cf6296ff14d4e6fcf5c2b87c6b1f0749`；
+  - source tree
+    `2ec26d8503d1a2f7515f379ed3a4f60c2dba42c2`；
+  - provisional chunk为`1024`。
+- CL0 authority manifest已重新生成，R2/R5 final heads更新为
+  `ce55860a9`与`71f15d5d1`。
+- GPU仍不可用：
+  - loaded kernel module：`580.159.03`；
+  - installed userspace/NVML：`580.173.02`；
+  - NVIDIA模块被图形会话占用，安全恢复通常需要系统重启。
+  - `/var/run/reboot-required`明确存在，当前还有活动SSH/tmux会话，因此未擅自重启。
+- 因此CL1、CL2、P6-H和P6-4尚未运行；这不是实验负结果，而是环境阻塞。
+- 当前严格停在Phase7 Entry之前，不执行Phase7 integrated evaluation。
 
 - 用户已将当前实验明确收窄为：不研究 AST、label、自动分段或 indexing；手工固定一个大代码段，在不同 role/prefix/context 下做有损 KV 恢复与调度实验。
 - “有损 KV”专指避免完整目标-context prefill，通过 raw KV reuse + RoPE、KVCOMM base/offset/anchor 或局部 recompute/repair 近似恢复 KV；不指量化、低比特或普通 KV pruning。

@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-25T23:47:04-07:00
+最后更新：2026-07-26T14:41:07-07:00
 
 ## 新会话启动顺序
 
@@ -11,6 +11,57 @@
 5. 开始工作后持续维护上述文件，不把重要信息只留在聊天中。
 
 ## 当前快照
+
+### 2026-07-26T14:00:08-07:00 Phase6零GPU实现完成主体，GPU验证阻塞
+
+- Phase6 worktree/branch：
+  - `/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate`
+  - `research/cross-store-substrate`
+  - base `research/scheduler-policies@c185428fd`
+- 已实现：
+  - P6-0 fixed40/token hash/chunk/schema/contract verification；
+  - P6-1 exact/approx/host对象、event clock、S0/S4、dependency closure；
+  - P6-2 byte budget、reserve/commit/failure账本、双向pressure；
+  - device→host demotion、cross-store-aware H2D load；
+  - P6-3 lifecycle、orphan拒绝、dependency pin、reset/store gauges；
+  - P6-H、P6-4、CL1、CL2 runner。
+- Opus三轮review的CR-01至CR-22、CR2-01至CR2-16、CR3-01至CR3-03
+  已全部处理；最后一次delta确认无遗留前置finding。
+- 800对象、400 victim路径为`0.188s`；格式、lint和diff检查通过。
+- 独立GPT-5.6 Sol Max最终review提出8项P1，全部修复；最后delta结论为
+  “无剩余P0/P1”。
+- 最终CPU验证：`169 passed, 1 skipped`。
+- 核心提交：`391bb89901cebebd50ffc9f27a648b09a99abf7e`。
+- P6-0/远程branch head：
+  `c487e36af5f7ce4da556da1b88c85df750a0b14d`。
+- P6-0 contract/workload SHA256：
+  - `a498daa36449993ff166dd70870005be22a1da0a7d09e97e8f779d72cbf3fb30`
+  - `30c9ae8de429a6389e58bbdcdf096101cf6296ff14d4e6fcf5c2b87c6b1f0749`
+- 尚未完成：
+  - CL1/CL2/P6-H/P6-4 GPU运行；
+  - GPU结果双模型review。
+- GPU阻塞：
+  - loaded NVIDIA module `580.159.03`；
+  - userspace/NVML `580.173.02`；
+  - 图形会话占用模块，安全修复通常需要重启。
+  - `/var/run/reboot-required`存在；因有活动SSH/tmux会话，未擅自重启。
+- 下一步：
+  1. 用户安排安全系统重启以加载NVIDIA `580.173.02`；
+  2. 复核`nvidia-smi`、保持无无关Docker容器；
+  3. 运行CL1→CL2→P6-H→P6-4；
+  4. 对GPU结果做Sol/Opus双模型review；
+  5. 严格停在Phase7 Entry前汇报。
+
+### 关键约束
+
+- 不得把GPU环境阻塞写成Phase6 negative result。
+- P6-4在CL2未运行时只能使用预注册
+  `provisional_worst_case` chunk，CL2最终值不同时必须重跑受影响cell。
+- R4-like不可达时只允许降低representation multiplicity，不改变对象长度。
+- HiRadix exact cross-store eviction当前明确unsupported；P6-H使用标准Radix的
+  approximate host路径，不宣称HiCache exact-host统一已完成。
+- 所有旧Docker容器已停止；不要恢复无关长期容器。
+- 不得进入Phase7。
 
 ### 2026-07-25T23:47:04-07:00 V4 latest plan完成双模型review并定稿
 

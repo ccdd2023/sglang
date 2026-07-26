@@ -619,3 +619,143 @@ than accepted changes:
 
 No result in this file promotes R2 or R5 to practical winner. No Phase 6 plan
 change is accepted merely because it is recorded in this review.
+
+
+Phase 6 Implementation Review Update (2026-07-26)
+==================================================
+
+Review configuration
+--------------------
+
+- Claude Opus 5 / Max Thinking / long context: four implementation-review
+  passes, including final delta verification.
+- GPT-5.6 Sol / Max Thinking / long context: independent final review and two
+  delta verifications.
+- Scope: the uncommitted then committed
+  `research/cross-store-substrate` implementation, P6-0/P6-H/P6-4, CL1/CL2,
+  telemetry, tests and provenance.
+- GPU experiments were not run because the loaded NVIDIA module
+  `580.159.03` does not match userspace/NVML `580.173.02`.
+
+Claude Opus findings and disposition
+------------------------------------
+
+All findings below were implemented and re-reviewed as closed.
+
+- CR-01 rollback budget/resource mismatch: closed by allocator-owned inverse
+  accounting and production-resource tests.
+- CR-02 in-request full cache reset: closed; reset is runner-boundary only.
+- CR-03 irreversible-action facts hidden on success: closed with explicit
+  action/destroyed/peak fields.
+- CR-04 HiRadix host semantics bypass: closed by startup-time rejection.
+- CR-05 token/byte accounting mismatch: closed with byte-authoritative store
+  configuration and transfer validation.
+- CR-06 host demotion unreachable: closed with real device-to-host actions.
+- CR-07 parent victim cascade missing: closed by dynamic resource exposure.
+- CR-08 standard eviction metrics missing: closed.
+- CR-09 failed-action victims absent from telemetry: closed.
+- CR-10 host demotion over-selection: closed by live budget updates.
+- CR-11 commit failure budget leak: closed with commit-state tracking.
+- CR-12 coordinator budget recreated per allocation: closed; coordinator and
+  peak accounting persist.
+- CR-13 seed usage erased reservations: closed by active-reservation guard.
+- CR-14 conflicting S4 class orders: closed with one shared class-order source.
+- CR-15 wire object-kind incompatibility: closed with aliases and conservative
+  fallback.
+- CR-16 duplicate exact IDs: closed with node-unique physical IDs.
+- CR-17 mixed event-clock units/global rewind: closed.
+- CR-18 scheduler hot-path exceptions: closed with explicit fallback.
+- CR-19 replacement rollback lost previous records: closed transactionally.
+- CR-20 manifest not bound to workload tokens: closed with deterministic token
+  SHA256 and contract verification.
+- CR-21 incomplete unified artifact schema: closed.
+- CR-22 failure-injection order differed from protocol: closed with
+  reserve-before-victim ordering.
+
+- CR2-01 P6-4 treated expected fallback as negative: closed with separate
+  validity, reachability and diagnostic-unavailable states.
+- CR2-02 no proof of real approximate recovery: closed with server outcomes,
+  cached-token cross-checks and directional pressure evidence.
+- CR2-03 P6-H violated <=512 segment contract: closed.
+- CR2-04 missing central logs/failure artifacts: closed for all runners.
+- CR2-05 host bytes/time were estimates: closed with measured payload bytes and
+  synchronous wall-clock duration.
+- CR2-06 P6-H scope confused generic host with HiCache: closed; artifact says
+  `allocator_cpu_copy` and `hicache_tier_exercised=false`.
+- CR2-07 HiCache incompatibility silently degraded requests: closed by startup
+  rejection.
+- CR2-08 O(n^2) store/runtime risk: closed with object/dependent indexes,
+  O(1) counters and snapshot reuse. The 800-object/400-victim CPU path improved
+  from 3.087 s to 0.188 s.
+- CR2-09 demotion lacked undo: closed with reversible AppliedAction and raw
+  allocator rollback load.
+- CR2-10 replacement could create orphan: closed.
+- CR2-11 exact/cross-store next-use semantics differed: closed with one helper.
+- CR2-12 commit and undo could both execute: closed with commit flags.
+- CR2-13 remaining hot-path KeyError/capacity escapes: closed with explicit
+  fallback outcomes.
+- CR2-14 host/device bytes used different sources: closed by cross-store byte
+  equality enforcement.
+- CR2-15 nested coordinator allocation: closed by explicit rejection and a
+  non-reentrant rollback loader.
+- CR2-16 missing physical rho/exact baseline: closed with exact-only profiles
+  and frozen resident/temporary multiplicities.
+
+- CR3-01 P6-H/P6-4 lacked target-head seed: closed; both now seed the exact
+  header in the measured namespace.
+- CR3-02 client/server outcome disagreement: closed; server request-outcome
+  labels are authoritative.
+- CR3-03 skipped roots hid live dependents from closure: closed by separating
+  excluded roots from inactive resources.
+
+Claude Opus final result: no remaining P0/P1.
+
+GPT-5.6 Sol findings and disposition
+------------------------------------
+
+All eight findings were implemented and re-reviewed as closed.
+
+1. Exact requester could not evict approximate objects: closed by routing
+   exact-memory pressure through the shared coordinator and recording
+   requester-to-victim direction.
+2. Host admission bypassed host budget: closed by enforcing the configured
+   limit in the store; an 8-byte budget cannot retain 16 bytes.
+3. UnifiedRadixCache silently used the legacy path: closed by startup rejection.
+4. P6-4 footprint differed from the frozen contract: closed with one
+   representation-profile source, header bytes and peak
+   max(resident, temporary) physical rho.
+5. Registration/fallback reachability was not attributable: closed with
+   per-request register outcomes and same-replay reservation/fallback windows.
+6. CL1/CL2 used target-only timing as request-path: closed; seed-head time is
+   included, and N=1/2/4/8 amortization plus break-even are reported.
+7. CL2 rejected valid R0/R1-k0/NONE outcomes: closed with the full candidate
+   enum.
+8. Source/model provenance was weak: closed with `--revision`, clean-tree
+   rejection, Git tree SHA and pending result-commit status.
+
+The final directional delta additionally requires both:
+
+- `requester=exact -> provenance=approximate`; and
+- `requester=approximate -> provenance=exact`.
+
+GPT-5.6 Sol final result: no remaining P0/P1.
+
+Persistent implementation evidence
+----------------------------------
+
+- Core commit:
+  `391bb89901cebebd50ffc9f27a648b09a99abf7e`.
+- P6-0 artifact / remote branch head:
+  `c487e36af5f7ce4da556da1b88c85df750a0b14d`.
+- P6-0 contract SHA256:
+  `a498daa36449993ff166dd70870005be22a1da0a7d09e97e8f779d72cbf3fb30`.
+- Fixed40 workload SHA256:
+  `30c9ae8de429a6389e58bbdcdf096101cf6296ff14d4e6fcf5c2b87c6b1f0749`.
+- Final related CPU regression:
+  `169 passed, 1 skipped`.
+- Formatting/static checks:
+  isort, Black, ruff F401/F821/UP037 and `git diff --check` passed.
+
+This update does not claim Phase 6 GPU completion. CL1, CL2, P6-H and P6-4
+remain blocked until a safe host reboot loads the installed NVIDIA driver.
+Phase 7 has not started.

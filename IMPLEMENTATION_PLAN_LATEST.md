@@ -4,9 +4,9 @@
 >
 > 状态：Current / Latest
 >
-> 最后更新：2026-07-25T23:47:04-07:00
+> 最后更新：2026-07-26T14:41:07-07:00
 >
-> 当前阶段：Phase 6尚未开始；Closeout CL0仍阻塞Phase 6 Entry。
+> 当前阶段：CL0、Phase6 P6-0/P6-1/P6-2/P6-3实现及P6-0合同已提交推送；CL1/CL2/P6-H/P6-4因GPU驱动版本不匹配阻塞；未进入Phase7。
 >
 > 取代版本：[`IMPLEMENTATION_PLAN_V3_ARCHIVED.md`](IMPLEMENTATION_PLAN_V3_ARCHIVED.md)
 
@@ -37,8 +37,8 @@
 - Phase4：R0/R1/R2/R4/R5筛选；R3 defer。
 - Phase5：S0–S4、P0–P3 exact-cache scheduler isolation。
 - Corrected R2/R5 key rerun：
-  - R2结果`e36f1529b`；
-  - R5结果`abcedd62b`。
+  - R2最终closeout head `ce55860a9`；
+  - R5最终closeout head `71f15d5d1`。
 
 ### 2.2 Corrected R2/R5结果
 
@@ -75,6 +75,7 @@ V4不为Phase4/5收尾新增phase编号。
 ```text
 Phase4/5 Closeout Lane ─┐
        CL1 -> CL2 ------+------> P6-4 Capacity Pilot
+                \ provisional_worst_case chunk ---^
                        |
 Phase6 Substrate ------+------> Phase7 Integrated Evaluation
 ```
@@ -910,8 +911,8 @@ CL4与Phase6里程碑review可并行进行；Phase7 Entry前必须将两条lane�
 
 | Lane/Phase | logical cells | server starts | GPU时间 |
 | --- | ---: | ---: | ---: |
-| Closeout | `30–34` | `10–15` | 约`0.5h` |
-| Phase6 | `25–30` | `9–11` | 约`0.8–1.0h` |
+| Closeout | `24–30` | `14–16` | 约`1.5–2.5h` |
+| Phase6 | `21–24` | `6–8` | 约`1.0–1.5h` |
 | Phase7 practical=NONE | `55–70` | `25–35` | 约`3–5h` |
 | Phase7 practical存在 | `70–92` | `35–50` | 约`5–8h` |
 | primary补restart/async/重试上界 | — | 总计最高约`90` | `10–14h` |

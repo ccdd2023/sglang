@@ -1585,3 +1585,51 @@
 - 修复schema/rho/ledger/memory迁移回归、CL2依赖、host canary、R1 footprint、NONE停止分支、baseline命名和R4 diagnostic。
 - 使用`P6-H`命名generic host canary，避免历史P6-5歧义。
 - CL0仍阻塞Phase6 Entry，未启动实现或GPU实验。
+
+## 2026-07-26T13:06:53-07:00 — Phase6零GPU主体实现与runner完成
+
+- 停止全部既有Docker容器后，从
+  `research/scheduler-policies@c185428fd`创建
+  `research/cross-store-substrate`。
+- 完成P6-0 fixed40/token hash/chunk/schema合同。
+- 完成exact/approx/host统一对象、byte budget、S0/S4、reserve/commit、
+  双向pressure、真实approx host demotion/H2D、dependency atomic closure和
+  lifecycle/reset telemetry。
+- 第一轮Claude Opus 5 Max代码review报告CR-01至CR-22；已修复请求内reset、
+  rollback/accounting、host demotion、S4顺序、wire兼容、manifest漂移等阻断项。
+- 新增P6-H、P6-4、CL1和CL2正式runner。
+- 相关CPU回归扩大为`154 passed, 1 skipped`；Opus第二轮review正在进行。
+- GPU仍因loaded driver `580.159.03`与userspace/NVML `580.173.02`不匹配而
+  不可用；CL1/CL2/P6-H/P6-4未运行，严格未进入Phase7。
+
+## 2026-07-26T14:00:08-07:00 — Opus三轮代码review finding全部关闭
+
+- Claude Opus 5 Max依次完成CR-01至CR-22、CR2-01至CR2-16和
+  CR3-01至CR3-03三轮只读review，最终delta结论为“无剩余P0/P1”。
+- 修复范围包括allocator失败语义、dependency closure、host demotion rollback、
+  store索引/性能、HiRadix启动拒绝、P6-H/P6-4 header seed、服务端outcome、
+  central log和统一artifact证据。
+- 800对象、400 victim CPU路径从`3.087s`降至`0.188s`。
+- 最终相关回归`167 passed, 1 skipped`；isort、Black、ruff和diff检查通过。
+- 独立GPT-5.6 Sol Max最终review已启动；GPU仍因driver/library mismatch阻塞。
+
+## 2026-07-26T14:41:07-07:00 — Phase6核心与P6-0提交推送，停在GPU门
+
+- GPT-5.6 Sol Max最终review提出8项P1；完成双向requester→victim pressure、
+  host admission budget、Unified启动拒绝、P6-4 footprint/registration证据、
+  CL1 request-path与N摊销、CL2完整candidate及clean-tree provenance修复后，
+  最终delta结论为“无剩余P0/P1”。
+- 最终相关CPU回归为`169 passed, 1 skipped`；isort、Black、ruff和diff检查通过。
+- Phase6核心提交：
+  `391bb89901cebebd50ffc9f27a648b09a99abf7e`。
+- P6-0 artifact提交及远程branch head：
+  `c487e36af5f7ce4da556da1b88c85df750a0b14d`。
+- P6-0 contract/workload SHA256：
+  - `a498daa36449993ff166dd70870005be22a1da0a7d09e97e8f779d72cbf3fb30`
+  - `30c9ae8de429a6389e58bbdcdf096101cf6296ff14d4e6fcf5c2b87c6b1f0749`
+- 使用显式`ccdd2023` SSH身份完成dry-run、push和远程SHA核对。
+- CL0 authority manifest已重算，R2/R5 final heads更新为`ce55860a9`/
+  `71f15d5d1`。
+- GPU仍为loaded `580.159.03`、userspace `580.173.02`；
+  `/var/run/reboot-required`存在。因活动SSH/tmux会话，未擅自重启。
+- 当前严格停在Phase7前；下一步必须先由用户安排安全重启。

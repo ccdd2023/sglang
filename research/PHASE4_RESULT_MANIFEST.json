@@ -43,7 +43,7 @@
       "worktree": "epic-legolink"
     },
     {
-      "branch_head": "e36f1529b838c12a9eb2af7ba4dde91ae9ec124b",
+      "branch_head": "ce55860a973b0a425be5fe2986e5b539b8c87b1c",
       "notes": [
         "The corrected causal rerun supersedes the specified key cells.",
         "Historical combined-positive claims must not be cited without the replacement."
@@ -69,7 +69,7 @@
       "worktree": "cacheblend"
     },
     {
-      "branch_head": "e36f1529b838c12a9eb2af7ba4dde91ae9ec124b",
+      "branch_head": "ce55860a973b0a425be5fe2986e5b539b8c87b1c",
       "notes": [
         "Fallback is indirectly verified because the explicit metric is absent."
       ],
@@ -95,7 +95,7 @@
       "worktree": "kvcomm"
     },
     {
-      "branch_head": "abcedd62b5a5d801742734e300a5df21e1436737",
+      "branch_head": "71f15d5d13bef0ef634b09f94e151e9afd514a96",
       "notes": [
         "Final-SHA rho_sweep_points is empty.",
         "The corrected causal rerun supersedes the specified key cells."
@@ -120,7 +120,7 @@
       "worktree": "cachetune"
     },
     {
-      "branch_head": "abcedd62b5a5d801742734e300a5df21e1436737",
+      "branch_head": "71f15d5d13bef0ef634b09f94e151e9afd514a96",
       "notes": [
         "Explicit dense-fallback counter is zero in every formal recovery round."
       ],
