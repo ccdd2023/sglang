@@ -1,8 +1,38 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping, Sequence
+
+from sglang.srt.mem_cache.cross_store.types import CrossStoreKind
+
+from .types import ResidencyTier
+
+logger = logging.getLogger(__name__)
+_WARNED_OBJECT_KINDS: set[str] = set()
+_OBJECT_KIND_ALIASES = {
+    "stage_variant": CrossStoreKind.EXACT_VARIANT,
+    "anchor_delta": CrossStoreKind.ANCHOR,
+    "repair_metadata": CrossStoreKind.REPAIR_STATE,
+}
+
+
+def _object_kind(value: Any) -> CrossStoreKind:
+    normalized = str(value)
+    alias = _OBJECT_KIND_ALIASES.get(normalized)
+    if alias is not None:
+        return alias
+    try:
+        return CrossStoreKind(normalized)
+    except ValueError:
+        if normalized not in _WARNED_OBJECT_KINDS:
+            logger.warning(
+                "Unknown approximate KV object_kind %r; using " "precomputed_adapter",
+                normalized,
+            )
+            _WARNED_OBJECT_KINDS.add(normalized)
+        return CrossStoreKind.PRECOMPUTED_ADAPTER
 
 
 class ApproxKVRequestOperation(str, Enum):
@@ -16,6 +46,14 @@ class ApproxKVRequestSegment:
     target_start: int
     length: int
     source_offset: int = 0
+    object_id: str | None = None
+    object_kind: CrossStoreKind = CrossStoreKind.PRECOMPUTED_ADAPTER
+    dense_cost_ms: float | None = None
+    recovery_cost_ms: float | None = None
+    next_use_ordinal: int | None = None
+    retired: bool = False
+    residency: ResidencyTier | None = None
+    dependencies: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         if not self.content_hash:
@@ -24,6 +62,16 @@ class ApproxKVRequestSegment:
             raise ValueError("segment offsets must be non-negative")
         if self.length <= 0:
             raise ValueError("segment length must be positive")
+        if self.object_id is not None and not self.object_id:
+            raise ValueError("object_id must be non-empty when provided")
+        if self.dense_cost_ms is not None and self.dense_cost_ms < 0:
+            raise ValueError("dense_cost_ms must be non-negative")
+        if self.recovery_cost_ms is not None and self.recovery_cost_ms < 0:
+            raise ValueError("recovery_cost_ms must be non-negative")
+        if self.next_use_ordinal is not None and self.next_use_ordinal < 0:
+            raise ValueError("next_use_ordinal must be non-negative")
+        if self.object_id is not None and self.object_id in self.dependencies:
+            raise ValueError("a segment cannot depend on itself")
 
     @property
     def target_end(self) -> int:
@@ -42,9 +90,7 @@ class ApproxKVRequestMetadata:
         if not self.segments:
             raise ValueError("segments must not be empty")
         if not self.model_fingerprint or not self.cache_dtype:
-            raise ValueError(
-                "model_fingerprint and cache_dtype must be non-empty"
-            )
+            raise ValueError("model_fingerprint and cache_dtype must be non-empty")
 
     def validate_prompt_length(self, prompt_length: int) -> None:
         if prompt_length <= 0:
@@ -90,6 +136,39 @@ def parse_request_metadata(
             target_start=int(segment["target_start"]),
             length=int(segment["length"]),
             source_offset=int(segment.get("source_offset", 0)),
+            object_id=(
+                None if segment.get("object_id") is None else str(segment["object_id"])
+            ),
+            object_kind=_object_kind(
+                segment.get(
+                    "object_kind",
+                    CrossStoreKind.PRECOMPUTED_ADAPTER.value,
+                )
+            ),
+            dense_cost_ms=(
+                None
+                if segment.get("dense_cost_ms") is None
+                else float(segment["dense_cost_ms"])
+            ),
+            recovery_cost_ms=(
+                None
+                if segment.get("recovery_cost_ms") is None
+                else float(segment["recovery_cost_ms"])
+            ),
+            next_use_ordinal=(
+                None
+                if segment.get("next_use_ordinal") is None
+                else int(segment["next_use_ordinal"])
+            ),
+            retired=bool(segment.get("retired", False)),
+            residency=(
+                None
+                if segment.get("residency") is None
+                else ResidencyTier(str(segment["residency"]))
+            ),
+            dependencies=frozenset(
+                str(value) for value in segment.get("dependencies", ())
+            ),
         )
         for segment in raw_segments
     )

@@ -114,6 +114,37 @@ def evict_from_tree_cache(tree_cache: BasePrefixCache | None, num_tokens: int):
         return
 
     allocator = tree_cache.token_to_kv_pool_allocator
+    manager = getattr(tree_cache, "approx_kv", None)
+    if (
+        manager is not None
+        and manager.config.cross_store_enabled
+        and hasattr(tree_cache, "cross_store_resources")
+        and allocator.available_size() < num_tokens
+    ):
+        try:
+            result = manager.cross_store_coordinator(tree_cache).make_room(
+                num_tokens,
+                requester="exact",
+            )
+        except (
+            AttributeError,
+            KeyError,
+            MemoryError,
+            RuntimeError,
+            TypeError,
+            ValueError,
+        ):
+            manager.record_fallback(
+                "cross_store_exact_pressure_error",
+                num_tokens,
+            )
+        else:
+            if result.committed:
+                return
+            manager.record_fallback(
+                "cross_store_exact_pressure_failed",
+                num_tokens,
+            )
 
     if isinstance(allocator, SWATokenToKVPoolAllocator):
         # Hybrid allocator

@@ -15,6 +15,11 @@ if TYPE_CHECKING:
     from sglang.srt.mem_cache.radix_cache import TreeNode
 
 
+def _event_ordinal(node: TreeNode) -> int:
+    ordinal = getattr(node, "event_ordinal", None)
+    return 0 if ordinal is None else int(ordinal)
+
+
 class EvictionStrategy(ABC):
     def __init__(self) -> None:
         self.current_step = 0
@@ -39,7 +44,7 @@ class EvictionStrategy(ABC):
 
 class LRUStrategy(EvictionStrategy):
     def get_priority(self, node: TreeNode) -> float:
-        return node.last_access_time
+        return _event_ordinal(node)
 
 
 class LFUStrategy(EvictionStrategy):
@@ -72,26 +77,26 @@ class PriorityStrategy(EvictionStrategy):
 
 class WorkflowStepsStrategy(EvictionStrategy):
     def get_priority(self, node: TreeNode) -> Tuple[int, int, float]:
-        return steps_eviction_key(node.cache_protection, node.last_access_time)
+        return steps_eviction_key(node.cache_protection, _event_ordinal(node))
 
 
 class BeladyStrategy(EvictionStrategy):
     def get_priority(self, node: TreeNode) -> Tuple[int, int, float]:
-        return belady_eviction_key(node.cache_protection, node.last_access_time)
+        return belady_eviction_key(node.cache_protection, _event_ordinal(node))
 
 
 class RecoveryValueStrategy(EvictionStrategy):
     def get_priority(self, node: TreeNode) -> Tuple[int, float, int, float]:
         return value_density_eviction_key(
             node.cache_protection,
-            node.last_access_time,
+            _event_ordinal(node),
             self.current_step,
         )
 
 
 class HierarchicalObjectStrategy(EvictionStrategy):
     def get_priority(self, node: TreeNode) -> Tuple[int, float, int, float]:
-        return hierarchical_eviction_key(node.cache_protection, node.last_access_time)
+        return hierarchical_eviction_key(node.cache_protection, _event_ordinal(node))
 
 
 class SLRUStrategy(EvictionStrategy):

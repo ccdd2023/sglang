@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -36,6 +37,30 @@ def _allocator(tree_cache: Any) -> Any:
 def allocate_recovery_slots(tree_cache: Any, num_tokens: int):
     """Allocate approximate-recovery slots after evicting exact Radix victims."""
     allocator = _allocator(tree_cache)
+    manager = getattr(tree_cache, "approx_kv", None)
+    if (
+        manager is not None
+        and manager.config.cross_store_enabled
+        and hasattr(tree_cache, "cross_store_resources")
+    ):
+        try:
+            result = manager.cross_store_coordinator(tree_cache).allocate_tokens(
+                num_tokens
+            )
+        except (
+            AttributeError,
+            KeyError,
+            MemoryError,
+            RuntimeError,
+            TypeError,
+            ValueError,
+        ):
+            manager.record_fallback("cross_store_error", num_tokens)
+            return None
+        if result.committed:
+            return result.allocation
+        manager.record_fallback("cross_store_reservation_failed", num_tokens)
+        return None
     if (
         hasattr(tree_cache, "evict")
         and hasattr(tree_cache, "is_chunk_cache")
@@ -104,6 +129,7 @@ def _register_request_segments(tree_cache: Any, req: Any) -> int:
 
     allocator = _allocator(tree_cache)
     registered = 0
+    requested_tokens = sum(segment.length for segment in metadata.segments)
     for segment in metadata.segments:
         target_end = segment.target_end
         if target_end > req.effective_kv_committed_len():
@@ -125,55 +151,132 @@ def _register_request_segments(tree_cache: Any, req: Any) -> int:
             segment.target_start : target_end,
         ].clone()
 
-        if manager.config.host_residency_enabled:
-            load_result = manager.export_to_host(DeviceKVRef(source_indices))
-            handle = manager.register_segment(
-                key=key,
-                token_ids=tokens,
-                source_start=segment.target_start,
-                residency=ResidencyTier.HOST,
-                backend_ref=load_result.backend_ref,
-                release_backend=load_result.release_backend,
-            )
-            if handle is None:
-                if load_result.release_backend is not None:
-                    load_result.release_backend(
-                        load_result.backend_ref,
-                        ResidencyTier.HOST,
+        register_to_host = (
+            manager.config.host_residency_enabled
+            and segment.residency != ResidencyTier.DEVICE
+        )
+        dependency_leases = []
+        try:
+            dependency_missing = False
+            for dependency in sorted(segment.dependencies):
+                try:
+                    dependency_leases.append(
+                        manager.store.pin(
+                            manager.store.handle_for_object_id(dependency),
+                            ttl_s=3600,
+                        )
                     )
-                raise RuntimeError("approximate KV manager rejected source segment")
-            manager.record_host_export(
-                load_result.num_tokens,
-                load_result.bytes_transferred,
-            )
-        else:
-            target_indices = allocator.alloc(segment.length)
-            if target_indices is None or len(target_indices) != segment.length:
-                if target_indices is not None:
-                    allocator.free(target_indices)
-                raise MemoryError("unable to allocate device slots for approximate KV")
-            try:
-                allocator.get_kvcache().move_kv_cache(
-                    target_indices,
-                    source_indices,
+                except KeyError:
+                    manager.record_fallback(
+                        "registration_dependency_missing",
+                        segment.length,
+                    )
+                    dependency_missing = True
+                    break
+            if dependency_missing:
+                continue
+            if register_to_host:
+                load_result = manager.export_to_host(DeviceKVRef(source_indices))
+                expected_bytes = (
+                    segment.length * manager.config.cross_store_bytes_per_token
                 )
-            except Exception:
-                allocator.free(target_indices)
-                raise
-            handle = manager.register_segment(
-                key=key,
-                token_ids=tokens,
-                source_start=segment.target_start,
-                residency=ResidencyTier.DEVICE,
-                backend_ref=DeviceKVRef(target_indices),
-                release_backend=_release_device_ref(allocator),
-            )
-            if handle is None:
-                allocator.free(target_indices)
-                raise RuntimeError("approximate KV manager rejected source segment")
+                if manager.config.cross_store_enabled:
+                    try:
+                        transfer_bytes = manager.validate_transfer_bytes(
+                            load_result.bytes_transferred,
+                            expected_bytes=expected_bytes,
+                        )
+                    except ValueError:
+                        if load_result.release_backend is not None:
+                            load_result.release_backend(
+                                load_result.backend_ref,
+                                ResidencyTier.HOST,
+                            )
+                        raise
+                    resident_bytes = expected_bytes
+                else:
+                    transfer_bytes = (
+                        load_result.bytes_transferred
+                        if load_result.bytes_transferred > 0
+                        else expected_bytes
+                    )
+                    resident_bytes = transfer_bytes
+                handle = manager.register_segment(
+                    key=key,
+                    token_ids=tokens,
+                    source_start=segment.target_start,
+                    residency=ResidencyTier.HOST,
+                    backend_ref=load_result.backend_ref,
+                    release_backend=load_result.release_backend,
+                    resident_bytes=resident_bytes,
+                    object_id=segment.object_id or f"approx:{segment.content_hash}",
+                    object_kind=segment.object_kind,
+                    dependencies=segment.dependencies,
+                    dense_cost_ms=segment.dense_cost_ms,
+                    recovery_cost_ms=segment.recovery_cost_ms,
+                    next_use_ordinal=segment.next_use_ordinal,
+                    retired=segment.retired,
+                )
+                if handle is None:
+                    continue
+                manager.record_host_export(
+                    load_result.num_tokens or segment.length,
+                    transfer_bytes,
+                    duration_ms=load_result.duration_ms,
+                )
+            else:
+                target_indices = (
+                    allocate_recovery_slots(tree_cache, segment.length)
+                    if manager.config.cross_store_registration_evicts_exact
+                    else allocator.alloc(segment.length)
+                )
+                if target_indices is None or len(target_indices) != segment.length:
+                    if target_indices is not None:
+                        allocator.free(target_indices)
+                    raise MemoryError(
+                        "unable to allocate device slots for approximate KV"
+                    )
+                try:
+                    allocator.get_kvcache().move_kv_cache(
+                        target_indices,
+                        source_indices,
+                    )
+                except Exception:
+                    allocator.free(target_indices)
+                    raise
+                handle = manager.register_segment(
+                    key=key,
+                    token_ids=tokens,
+                    source_start=segment.target_start,
+                    residency=ResidencyTier.DEVICE,
+                    backend_ref=DeviceKVRef(target_indices),
+                    release_backend=_release_device_ref(allocator),
+                    resident_bytes=(
+                        segment.length * manager.config.cross_store_bytes_per_token
+                    ),
+                    object_id=segment.object_id or f"approx:{segment.content_hash}",
+                    object_kind=segment.object_kind,
+                    dependencies=segment.dependencies,
+                    dense_cost_ms=segment.dense_cost_ms,
+                    recovery_cost_ms=segment.recovery_cost_ms,
+                    next_use_ordinal=segment.next_use_ordinal,
+                    retired=segment.retired,
+                )
+                if handle is None:
+                    continue
+        finally:
+            for lease in reversed(dependency_leases):
+                manager.store.unpin(lease)
         registered += segment.length
 
-    manager.record_request("register", "success")
+    manager.record_request(
+        "register",
+        (
+            "success"
+            if registered == requested_tokens
+            else ("dense_only" if registered == 0 else "partial")
+        ),
+    )
     req.approx_kv_registered_tokens = registered
     return registered
 
@@ -193,6 +296,25 @@ class ResolvedReuseSpans:
     restore_length: int
     spans: tuple[TransferSpan, ...]
     rope_config: RoPEConfig
+    leases: tuple[Any, ...]
+
+
+@contextmanager
+def pin_reuse_sources(manager: Any, resolved: ResolvedReuseSpans):
+    leases = list(resolved.leases)
+    try:
+        if not leases:
+            manager.record_fallback(
+                "source_pin_stale",
+                resolved.restore_length,
+            )
+            manager.record_request("reuse", "dense_fallback")
+            yield False
+            return
+        yield True
+    finally:
+        for lease in reversed(leases):
+            manager.store.unpin(lease)
 
 
 def resolve_reuse_spans(
@@ -234,6 +356,7 @@ def resolve_reuse_spans(
         return None
 
     handles = []
+    leases = []
     for segment in active_segments:
         overlap_start = max(segment.target_start, exact_length)
         overlap_end = min(segment.target_end, restore_end)
@@ -253,23 +376,40 @@ def resolve_reuse_spans(
         )
         handle = manager.store.lookup(key)
         if handle is None:
+            for lease in reversed(leases):
+                manager.store.unpin(lease)
             manager.record_fallback("store_miss", restore_length)
             manager.record_request("reuse", "dense_fallback")
             return None
         try:
+            lease = manager.store.pin(handle, ttl_s=3600)
+        except KeyError:
+            for acquired in reversed(leases):
+                manager.store.unpin(acquired)
+            manager.record_fallback("source_pin_stale", restore_length)
+            manager.record_request("reuse", "dense_fallback")
+            return None
+        leases.append(lease)
+        try:
             handle = manager.ensure_device(handle)
-        except Exception:
+        except (KeyError, MemoryError, RuntimeError, TypeError, ValueError):
+            for acquired in reversed(leases):
+                manager.store.unpin(acquired)
             manager.record_fallback("residency_load_failed", restore_length)
             manager.record_request("reuse", "dense_fallback")
             return None
         handles.append((segment, handle, overlap_start, overlap_end))
 
     if not handles or handles[0][2] != exact_length:
+        for lease in reversed(leases):
+            manager.store.unpin(lease)
         manager.record_fallback("prefix_gap", restore_length)
         manager.record_request("reuse", "dense_fallback")
         return None
     for previous, current in zip(handles, handles[1:]):
         if previous[3] != current[2]:
+            for lease in reversed(leases):
+                manager.store.unpin(lease)
             manager.record_fallback("prefix_gap", restore_length)
             manager.record_request("reuse", "dense_fallback")
             return None
@@ -285,6 +425,8 @@ def resolve_reuse_spans(
         source_position = handle.source_start + source_offset
         rope_delta = overlap_start - source_position
         if rope_delta != 0 and rope_config.rotary_dim == 0:
+            for lease in reversed(leases):
+                manager.store.unpin(lease)
             manager.record_fallback("rope_config_unavailable", restore_length)
             manager.record_request("reuse", "dense_fallback")
             return None
@@ -306,6 +448,7 @@ def resolve_reuse_spans(
         restore_length=restore_length,
         spans=tuple(spans),
         rope_config=rope_config,
+        leases=tuple(leases),
     )
 
 
@@ -321,62 +464,70 @@ def finalize_copy_reuse(
     the plain reuse path and EPIC's k=0 degenerate case (no leading-k
     repair requested, pure copy).
     """
-    allocator = _allocator(tree_cache)
-    restored_indices = allocate_recovery_slots(
-        tree_cache,
-        resolved.restore_length,
-    )
-    if restored_indices is None or len(restored_indices) != resolved.restore_length:
-        if restored_indices is not None:
+    with pin_reuse_sources(manager, resolved) as pinned:
+        if not pinned:
+            return False
+        allocator = _allocator(tree_cache)
+        restored_indices = allocate_recovery_slots(
+            tree_cache,
+            resolved.restore_length,
+        )
+        if restored_indices is None or len(restored_indices) != resolved.restore_length:
+            if restored_indices is not None:
+                allocator.free(restored_indices)
+            manager.record_fallback(
+                "device_allocation_failed",
+                resolved.restore_length,
+            )
+            manager.record_request("reuse", "dense_fallback")
+            return False
+
+        fallback_reasons: list[str] = []
+        backend = RadixKVTransferBackend(
+            allocator=allocator,
+            target_indices=lambda start, length: restored_indices[
+                start : start + length
+            ],
+            dense_prefill=lambda start, length, reason: fallback_reasons.append(reason),
+            rope=resolved.rope_config,
+        )
+        target_tokens = tuple(
+            int(token)
+            for token in req.full_untruncated_fill_ids[
+                resolved.exact_length : resolved.restore_end
+            ]
+        )
+        try:
+            stats = manager.execute(
+                KVReusePlan(
+                    target_token_ids=target_tokens,
+                    recovery_mode=RecoveryMode.COPY,
+                    copied_spans=resolved.spans,
+                    require_full_coverage=True,
+                ),
+                backend,
+            )
+        except Exception:
             allocator.free(restored_indices)
-        manager.record_fallback("device_allocation_failed", resolved.restore_length)
-        manager.record_request("reuse", "dense_fallback")
-        return False
+            raise
+        if fallback_reasons or stats.recomputed_tokens:
+            allocator.free(restored_indices)
+            manager.record_request("reuse", "dense_fallback")
+            return False
 
-    fallback_reasons: list[str] = []
-    backend = RadixKVTransferBackend(
-        allocator=allocator,
-        target_indices=lambda start, length: restored_indices[start : start + length],
-        dense_prefill=lambda start, length, reason: fallback_reasons.append(reason),
-        rope=resolved.rope_config,
-    )
-    target_tokens = tuple(
-        int(token)
-        for token in req.full_untruncated_fill_ids[
-            resolved.exact_length : resolved.restore_end
-        ]
-    )
-    try:
-        stats = manager.execute(
-            KVReusePlan(
-                target_token_ids=target_tokens,
-                recovery_mode=RecoveryMode.COPY,
-                copied_spans=resolved.spans,
-                require_full_coverage=True,
-            ),
-            backend,
+        req.prefix_indices = torch.cat(
+            (
+                req.prefix_indices,
+                restored_indices.to(
+                    device=req.prefix_indices.device,
+                    dtype=req.prefix_indices.dtype,
+                ),
+            )
         )
-    except Exception:
-        allocator.free(restored_indices)
-        raise
-    if fallback_reasons or stats.recomputed_tokens:
-        allocator.free(restored_indices)
-        manager.record_request("reuse", "dense_fallback")
-        return False
-
-    req.prefix_indices = torch.cat(
-        (
-            req.prefix_indices,
-            restored_indices.to(
-                device=req.prefix_indices.device,
-                dtype=req.prefix_indices.dtype,
-            ),
-        )
-    )
-    req.approx_kv_restored_len = resolved.restore_length
-    req.approx_kv_stats = stats
-    manager.record_request("reuse", "success")
-    return True
+        req.approx_kv_restored_len = resolved.restore_length
+        req.approx_kv_stats = stats
+        manager.record_request("reuse", "success")
+        return True
 
 
 def restore_request_prefix(tree_cache: Any, req: Any) -> bool:

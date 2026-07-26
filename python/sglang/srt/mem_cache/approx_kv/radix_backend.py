@@ -61,14 +61,23 @@ class KVPoolAllocator(Protocol):
 
 
 class AllocatorCPUResidencyBackend:
-    def __init__(self, allocator: KVPoolAllocator) -> None:
+    def __init__(
+        self,
+        allocator: KVPoolAllocator,
+        allocate_slots: Callable[[int], Any] | None = None,
+    ) -> None:
         self._allocator = allocator
+        self._allocate_slots = allocate_slots or allocator.alloc
 
     def export_to_host(self, device_ref: DeviceKVRef) -> ResidencyLoadResult:
+        started = time.perf_counter()
         payload = self._allocator.get_cpu_copy(device_ref.indices)
         return ResidencyLoadResult(
             backend_ref=CPUKVRef(payload),
             release_backend=self.release_host,
+            num_tokens=len(device_ref.indices),
+            bytes_transferred=_payload_nbytes(payload),
+            duration_ms=(time.perf_counter() - started) * 1000.0,
         )
 
     def load(
@@ -76,15 +85,40 @@ class AllocatorCPUResidencyBackend:
         handle: KVSegmentHandle,
         target_tier: ResidencyTier,
     ) -> ResidencyLoadResult:
+        return self._load(
+            handle,
+            target_tier,
+            allocate_slots=self._allocate_slots,
+        )
+
+    def load_for_rollback(
+        self,
+        handle: KVSegmentHandle,
+        target_tier: ResidencyTier,
+    ) -> ResidencyLoadResult:
+        return self._load(
+            handle,
+            target_tier,
+            allocate_slots=self._allocator.alloc,
+        )
+
+    def _load(
+        self,
+        handle: KVSegmentHandle,
+        target_tier: ResidencyTier,
+        *,
+        allocate_slots: Callable[[int], Any],
+    ) -> ResidencyLoadResult:
         if target_tier != ResidencyTier.DEVICE:
             raise NotImplementedError("allocator backend loads only to device")
         if not isinstance(handle.backend_ref, CPUKVRef):
             raise TypeError("host-resident handle must carry CPUKVRef")
-        indices = self._allocator.alloc(len(handle.token_ids))
+        indices = allocate_slots(len(handle.token_ids))
         if indices is None or len(indices) != len(handle.token_ids):
             if indices is not None:
                 self._allocator.free(indices)
             raise MemoryError("unable to allocate device slots for approximate KV")
+        started = time.perf_counter()
         try:
             self._allocator.load_cpu_copy(
                 handle.backend_ref.payload,
@@ -96,6 +130,9 @@ class AllocatorCPUResidencyBackend:
         return ResidencyLoadResult(
             backend_ref=DeviceKVRef(indices),
             release_backend=self.release_device,
+            num_tokens=len(handle.token_ids),
+            bytes_transferred=_payload_nbytes(handle.backend_ref.payload),
+            duration_ms=(time.perf_counter() - started) * 1000.0,
         )
 
     def release_device(
@@ -120,6 +157,17 @@ class AllocatorCPUResidencyBackend:
             CPUKVRef,
         ):
             raise TypeError("allocator releaser received a non-host KV ref")
+
+
+def _payload_nbytes(payload: Any) -> int:
+    if isinstance(payload, torch.Tensor):
+        return payload.numel() * payload.element_size()
+    if isinstance(payload, dict):
+        return sum(_payload_nbytes(value) for value in payload.values())
+    if isinstance(payload, (list, tuple)):
+        return sum(_payload_nbytes(value) for value in payload)
+    nbytes = getattr(payload, "nbytes", None)
+    return int(nbytes) if nbytes is not None else 0
 
 
 class RadixKVTransferBackend:

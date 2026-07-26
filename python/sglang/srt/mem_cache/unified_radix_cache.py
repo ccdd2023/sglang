@@ -37,6 +37,7 @@ from sglang.srt.mem_cache.base_prefix_cache import (
     MatchResult,
 )
 from sglang.srt.mem_cache.cache_policy import CacheProtectionState
+from sglang.srt.mem_cache.cross_store.event_clock import global_event_clock
 from sglang.srt.mem_cache.events import KVCacheEventMixin
 from sglang.srt.mem_cache.hicache_storage import (
     PoolName,
@@ -99,6 +100,8 @@ class UnifiedTreeNode:
         ]
         self.last_access_time = get_and_increase_time_counter()
         self.creation_time = get_and_increase_time_counter()
+        self.event_ordinal = global_event_clock().tick()
+        self.creation_event_ordinal = self.event_ordinal
         self.hash_value = None
         self.hit_count = 0
         self.priority = priority
@@ -392,6 +395,11 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
             ApproxKVFeatureConfig.from_env(),
             metrics_collector=getattr(self, "metrics_collector", None),
         )
+        if self.approx_kv.config.cross_store_enabled:
+            raise ValueError(
+                "SGLANG_APPROX_KV_CROSS_STORE is not supported with "
+                "UnifiedRadixCache; use standard RadixCache for Phase6"
+            )
         if (
             self.approx_kv.config.host_residency_enabled
             and self.token_to_kv_pool_allocator is not None
@@ -1095,8 +1103,10 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
             comp.refresh_lru(LRURefreshPhase.MATCH_END, node_update, self.root_node)
 
         cur_time = get_and_increase_time_counter()
+        event_ordinal = global_event_clock().tick()
         while node_update:
             node_update.last_access_time = cur_time
+            node_update.event_ordinal = event_ordinal
             cur_time -= 0.00001
             node_update = node_update.parent
 
@@ -1141,6 +1151,8 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
         new_node.key = child.key[:split_len]
         new_node.hit_count = child.hit_count
         new_node.creation_time = child.creation_time
+        new_node.event_ordinal = child.event_ordinal
+        new_node.creation_event_ordinal = child.creation_event_ordinal
 
         self._for_each_component_lru(child, UnifiedLRUList.remove_node)
 
@@ -1164,6 +1176,7 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
             child, UnifiedLRUList.insert_mru, skip_existing=True
         )
         child.last_access_time = get_and_increase_time_counter()
+        child.event_ordinal = global_event_clock().tick()
 
         self._update_evictable_leaf_sets(new_node)
         self._update_evictable_leaf_sets(child)
@@ -1171,6 +1184,7 @@ class UnifiedRadixCache(KVCacheEventMixin, BasePrefixCache):
 
     def _touch_node(self, node: UnifiedTreeNode):
         node.last_access_time = get_and_increase_time_counter()
+        node.event_ordinal = global_event_clock().tick()
         if node != self.root_node:
             for comp in self._components_tuple:
                 if comp.component_type == BASE_COMPONENT_TYPE:

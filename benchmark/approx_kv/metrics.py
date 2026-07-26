@@ -23,6 +23,14 @@ COUNTER_METRICS = (
     "sglang:workflow_prefetch_requests_total",
     "sglang:workflow_prefetch_loaded_tokens_total",
     "sglang:workflow_prefetch_evicted_tokens_total",
+    "sglang:cross_store_evicted_bytes_total",
+    "sglang:cross_store_demoted_bytes_total",
+    "sglang:cross_store_reservation_failures_total",
+    "sglang:cross_store_wasted_bytes_total",
+    "sglang:approx_kv_host_export_duration_seconds_count",
+    "sglang:approx_kv_host_export_duration_seconds_sum",
+    "sglang:approx_kv_h2d_duration_seconds_count",
+    "sglang:approx_kv_h2d_duration_seconds_sum",
     "sglang:queue_time_seconds_count",
     "sglang:queue_time_seconds_sum",
     "sglang:time_to_first_token_seconds_count",
@@ -36,6 +44,12 @@ GAUGE_METRICS = (
     "sglang:kv_available_tokens",
     "sglang:kv_evictable_tokens",
     "sglang:kv_used_tokens",
+    "sglang:cross_store_peak_device_bytes",
+    "sglang:approx_kv_store_records",
+    "sglang:approx_kv_store_device_bytes",
+    "sglang:approx_kv_store_host_bytes",
+    "sglang:approx_kv_store_leases",
+    "sglang:approx_kv_store_orphans",
 )
 
 FALLBACK_METRICS = (
@@ -90,11 +104,7 @@ def telemetry_delta(
             delta = 0.0
         counters[name] = delta
     fallback_name = next(
-        (
-            name
-            for name in FALLBACK_METRICS
-            if name in before or name in after
-        ),
+        (name for name in FALLBACK_METRICS if name in before or name in after),
         None,
     )
     fallback_count = (
@@ -195,9 +205,7 @@ def clean_pool_reset_invariant(
         clean_baseline["sglang:kv_available_tokens"],
     )
     tolerance = max(16.0, 0.01 * maximum)
-    deltas = {
-        name: post_flush[name] - clean_baseline[name] for name in names
-    }
+    deltas = {name: post_flush[name] - clean_baseline[name] for name in names}
     return {
         "metrics_available": True,
         "passed": all(abs(delta) <= tolerance for delta in deltas.values()),

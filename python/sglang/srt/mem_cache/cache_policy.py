@@ -4,6 +4,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Iterable, Mapping, Sequence
 
+from sglang.srt.mem_cache.cross_store.class_order import (
+    s4_class,
+    s4_next_use_key,
+)
+
 
 class CacheObjectKind(str, Enum):
     EXACT_VARIANT = "exact_variant"
@@ -312,20 +317,11 @@ def value_density_eviction_key(
 
 
 def _hierarchical_class(item: CacheProtectionMetadata) -> int:
-    if not item.has_future_use:
-        return 0
-    if (
-        item.object_kind == CacheObjectKind.EXACT_VARIANT
-        and item.recoverable_from_lower_tier
-    ):
-        return 1
-    if item.object_kind == CacheObjectKind.REPAIR_METADATA:
-        return 2
-    if item.object_kind == CacheObjectKind.ANCHOR:
-        return 3
-    if item.object_kind in (CacheObjectKind.EXACT_VARIANT, CacheObjectKind.FILLER):
-        return 4
-    return 5
+    return s4_class(
+        item.object_kind.value,
+        retired=not item.has_future_use,
+        recoverable_from_lower_tier=item.recoverable_from_lower_tier,
+    )
 
 
 def hierarchical_eviction_key(
@@ -337,10 +333,9 @@ def hierarchical_eviction_key(
         (
             _hierarchical_class(item),
             item.value_density,
-            -(
-                item.next_use_request_step
-                if item.next_use_request_step is not None
-                else item.next_use_distance or 0
+            s4_next_use_key(
+                item.next_use_request_step,
+                item.next_use_distance,
             ),
         )
         for item in state.values()

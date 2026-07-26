@@ -50,7 +50,9 @@ class FakeKVCache:
         return self.v_buffer[layer_id]
 
     def get_kv_size_bytes(self):
-        key_bytes = sum(buffer.numel() * buffer.element_size() for buffer in self.k_buffer)
+        key_bytes = sum(
+            buffer.numel() * buffer.element_size() for buffer in self.k_buffer
+        )
         value_bytes = sum(
             buffer.numel() * buffer.element_size() for buffer in self.v_buffer
         )
@@ -127,6 +129,7 @@ class TestApproxKVRuntime(unittest.TestCase):
         config = ApproxKVFeatureConfig(
             core_enabled=True,
             host_residency_enabled=True,
+            cross_store_bytes_per_token=256,
         )
         self.manager = ApproxKVManager(config)
         self.manager.bind_residency_backend(
@@ -153,12 +156,10 @@ class TestApproxKVRuntime(unittest.TestCase):
 
     def test_host_register_load_copy_and_last_token_forward(self):
         source_keys = [
-            buffer[torch.tensor([0, 1, 2])].clone()
-            for buffer in self.kvcache.k_buffer
+            buffer[torch.tensor([0, 1, 2])].clone() for buffer in self.kvcache.k_buffer
         ]
         source_values = [
-            buffer[torch.tensor([0, 1, 2])].clone()
-            for buffer in self.kvcache.v_buffer
+            buffer[torch.tensor([0, 1, 2])].clone() for buffer in self.kvcache.v_buffer
         ]
         source = FakeReq(
             self.metadata(ApproxKVRequestOperation.REGISTER),
@@ -167,6 +168,14 @@ class TestApproxKVRuntime(unittest.TestCase):
         self.assertEqual(register_request_segments(self.tree, source), 3)
         handle = self.manager.store.handles()[0]
         self.assertEqual(handle.residency, ResidencyTier.HOST)
+        expected_host_bytes = sum(
+            tensor.numel() * tensor.element_size()
+            for tensor in (*source_keys, *source_values)
+        )
+        self.assertEqual(
+            self.manager.store.host_owned_bytes,
+            expected_host_bytes,
+        )
 
         reuse = FakeReq(
             self.metadata(ApproxKVRequestOperation.REUSE),
@@ -200,6 +209,25 @@ class TestApproxKVRuntime(unittest.TestCase):
         self.assertFalse(restore_request_prefix(self.tree, mismatch))
         self.assertEqual(self.allocator.next_index, next_index)
         self.assertEqual(len(mismatch.prefix_indices), 0)
+
+    def test_missing_registration_dependency_keeps_request_dense(self):
+        metadata = ApproxKVRequestMetadata(
+            operation=ApproxKVRequestOperation.REGISTER,
+            segments=(
+                ApproxKVRequestSegment(
+                    content_hash="dependent",
+                    target_start=0,
+                    length=3,
+                    object_id="dependent",
+                    dependencies=frozenset({"missing"}),
+                ),
+            ),
+            model_fingerprint="model",
+            cache_dtype="fp32",
+        )
+        source = FakeReq(metadata, (10, 11, 12, 13))
+        self.assertEqual(register_request_segments(self.tree, source), 0)
+        self.assertEqual(self.manager.store.record_count, 0)
 
     def test_registration_error_releases_request_before_reraising(self):
         req = SimpleNamespace(

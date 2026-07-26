@@ -175,3 +175,84 @@ Compact artifacts:
 - `results/phase5-scheduler/sm75-scheduler-matrix.json`;
 - `results/phase5-scheduler/sm75-prefetch-matrix.json`;
 - `results/phase5-scheduler/sm75-restart-validation.json`.
+
+## Phase 6 cross-store substrate
+
+The Phase 6 path is disabled by default. Standard `RadixCache` enables it with:
+
+```text
+SGLANG_APPROX_KV_CORE=1
+SGLANG_APPROX_KV_CROSS_STORE=1
+SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT=1
+SGLANG_APPROX_KV_BYTES_PER_TOKEN=<model KV bytes per token>
+SGLANG_APPROX_KV_HOST_BUDGET_BYTES=<host byte budget>
+```
+
+It adds byte-authoritative exact/approximate competition, dependency-closed
+victim selection, reversible host demotion, allocator reservation telemetry,
+and reset-state store gauges. `SGLANG_APPROX_KV_CROSS_STORE` with
+`HiRadixCache` is rejected at startup because exact HiCache victims require
+different host-reference semantics.
+
+Freeze the commit-bound fixed40 contract first:
+
+```bash
+python3 -m benchmark.approx_kv.run_p6_0_contract \
+  --source-git-sha <phase6-core-sha> \
+  --image-digest <image-digest> \
+  --chunked-prefill-size 1024 \
+  --chunk-source provisional_worst_case \
+  --output /results/phase6/p6-0-contract.json \
+  --central-log /results/BENCHMARK_RUN_LOG.jsonl
+```
+
+Closeout qualification and chunk selection:
+
+```bash
+python3 -m benchmark.approx_kv.run_cl1_qualification \
+  --source-git-sha <phase6-core-sha> \
+  --model-revision <model-revision> \
+  --image-digest <image-digest> \
+  --output /results/phase6/cl1.json \
+  --log-dir /results/phase6/logs \
+  --central-log /results/BENCHMARK_RUN_LOG.jsonl
+
+python3 -m benchmark.approx_kv.run_cl2_chunk_gate \
+  --selected-candidate <r0|r1_k0|r1_k4|r1_k8|r1_k16|r1_k32|NONE> \
+  --source-git-sha <phase6-core-sha> \
+  --model-revision <model-revision> \
+  --image-digest <image-digest> \
+  --output /results/phase6/cl2.json \
+  --log-dir /results/phase6/logs \
+  --central-log /results/BENCHMARK_RUN_LOG.jsonl
+```
+
+Phase 6 validity runners:
+
+```bash
+python3 -m benchmark.approx_kv.run_p6_h_host_roundtrip \
+  --source-git-sha <phase6-core-sha> \
+  --model-revision <model-revision> \
+  --image-digest <image-digest> \
+  --output /results/phase6/p6-h.json \
+  --log /results/phase6/logs/p6-h-server.log \
+  --central-log /results/BENCHMARK_RUN_LOG.jsonl
+
+python3 -m benchmark.approx_kv.run_p6_4_capacity_pilot \
+  --source-git-sha <phase6-core-sha> \
+  --model-revision <model-revision> \
+  --image-digest <image-digest> \
+  --output /results/phase6/p6-4.json \
+  --log-dir /results/phase6/logs \
+  --central-log /results/BENCHMARK_RUN_LOG.jsonl
+```
+
+P6-H uses synchronous `AllocatorCPUResidencyBackend` copies and explicitly
+records `hicache_tier_exercised=false`; it does not qualify the later HiCache
+H4/RH4 track. P6-4 disables performance ranking and reports `valid`,
+`diagnostic-unavailable`, or `invalid` separately from dense fallback
+reachability.
+
+All Phase 6 and closeout runners reject a dirty source tree, record the Git
+tree SHA, pass the frozen model revision to the server, and leave
+`result_git_sha` pending until the result artifact is committed.

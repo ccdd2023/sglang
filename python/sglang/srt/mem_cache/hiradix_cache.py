@@ -82,6 +82,12 @@ logger = logging.getLogger(__name__)
 
 class HiRadixCache(RadixCache):
 
+    def cross_store_resources(self, bytes_per_token: int):
+        raise NotImplementedError(
+            "cross-store exact eviction is not supported by HiRadixCache; "
+            "its host-backed nodes require HiCache-specific eviction semantics"
+        )
+
     def __init__(self, params: CacheInitParams, server_args: ServerArgs):
         self._enable_metrics_flag = params.enable_metrics
 
@@ -218,6 +224,12 @@ class HiRadixCache(RadixCache):
         self.evictable_host_leaves = set()
 
         super().__init__(params=params)
+        if self.approx_kv.config.cross_store_enabled:
+            raise ValueError(
+                "SGLANG_APPROX_KV_CROSS_STORE is not supported with "
+                "HiRadixCache; use standard RadixCache for the Phase6 "
+                "generic allocator-CPU host canary"
+            )
         if self.approx_kv.config.host_residency_enabled:
             self.approx_kv.bind_residency_backend(
                 HiCacheResidencyBackend(self.cache_controller)

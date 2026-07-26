@@ -22,6 +22,10 @@ from sglang.srt.mem_cache.evict_policy import (
 def _make_node(**kwargs):
     node = MagicMock()
     node.last_access_time = kwargs.get("last_access_time", 0.0)
+    node.event_ordinal = kwargs.get(
+        "event_ordinal",
+        int(node.last_access_time),
+    )
     node.hit_count = kwargs.get("hit_count", 0)
     node.creation_time = kwargs.get("creation_time", 0.0)
     node.priority = kwargs.get("priority", 0)

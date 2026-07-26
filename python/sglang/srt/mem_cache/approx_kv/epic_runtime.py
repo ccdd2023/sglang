@@ -54,6 +54,7 @@ from .runtime import (
     _allocator,
     allocate_recovery_slots,
     finalize_copy_reuse,
+    pin_reuse_sources,
     resolve_reuse_spans,
 )
 from .transfer import _validate_bounds
@@ -406,33 +407,45 @@ def restore_request_prefix_epic(tree_cache: Any, req: Any) -> bool:
     if resolved is None:
         return False
 
-    try:
-        plugin = manager.plugins.get("epic")
-    except KeyError:
-        manager.record_fallback("epic_plugin_missing", resolved.restore_length)
-        manager.record_request("reuse", "dense_fallback")
-        return False
-    if not isinstance(plugin, EPICLeadingKPlugin):
-        manager.record_fallback("epic_plugin_wrong_type", resolved.restore_length)
-        manager.record_request("reuse", "dense_fallback")
-        return False
+    with pin_reuse_sources(manager, resolved) as pinned:
+        if not pinned:
+            return False
+        try:
+            plugin = manager.plugins.get("epic")
+        except KeyError:
+            manager.record_fallback("epic_plugin_missing", resolved.restore_length)
+            manager.record_request("reuse", "dense_fallback")
+            return False
+        if not isinstance(plugin, EPICLeadingKPlugin):
+            manager.record_fallback("epic_plugin_wrong_type", resolved.restore_length)
+            manager.record_request("reuse", "dense_fallback")
+            return False
 
-    k = plugin.leading_k_window(resolved.restore_length)
-    if k <= 0:
-        # No leading-k repair requested (or the region is too small to
-        # carve one out): this degenerates to exactly the R0 raw-copy
-        # mechanism, reusing it directly rather than re-implementing it.
-        return finalize_copy_reuse(tree_cache, req, manager, resolved)
-    if not plugin.attention_sink:
-        manager.record_fallback(
-            "epic_attention_sink_disabled",
-            resolved.restore_length,
-        )
-        manager.record_request("reuse", "dense_fallback")
-        return False
+        k = plugin.leading_k_window(resolved.restore_length)
+        if k <= 0:
+            # No leading-k repair requested (or the region is too small to
+            # carve one out): this degenerates to exactly the R0 raw-copy
+            # mechanism, reusing it directly rather than re-implementing it.
+            return finalize_copy_reuse(tree_cache, req, manager, resolved)
+        if not plugin.attention_sink:
+            manager.record_fallback(
+                "epic_attention_sink_disabled",
+                resolved.restore_length,
+            )
+            manager.record_request("reuse", "dense_fallback")
+            return False
 
-    if metadata.plugin == "epic_precomputed":
-        return _restore_with_precomputed_leading_k(
+        if metadata.plugin == "epic_precomputed":
+            return _restore_with_precomputed_leading_k(
+                tree_cache,
+                req,
+                manager,
+                resolved,
+                plugin,
+                k,
+            )
+
+        return _restore_with_leading_k_repair(
             tree_cache,
             req,
             manager,
@@ -440,8 +453,6 @@ def restore_request_prefix_epic(tree_cache: Any, req: Any) -> bool:
             plugin,
             k,
         )
-
-    return _restore_with_leading_k_repair(tree_cache, req, manager, resolved, plugin, k)
 
 
 def _restore_with_precomputed_leading_k(

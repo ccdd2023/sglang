@@ -7,12 +7,21 @@ from sglang.srt.mem_cache.approx_kv.radix_backend import (
 )
 from sglang.srt.mem_cache.cache_init_params import CacheInitParams
 from sglang.srt.mem_cache.cache_policy import (
+    CacheObjectKind,
     CacheProtectionState,
     PrefetchCandidate,
     PrefetchDecision,
     PrefetchMode,
     plan_prefetch,
 )
+from sglang.srt.mem_cache.cross_store import (
+    CrossStoreKind,
+    CrossStoreObject,
+    CrossStoreResource,
+    CrossStoreTier,
+    ObjectProvenance,
+)
+from sglang.srt.mem_cache.cross_store.event_clock import global_event_clock
 
 """
 Copyright 2023-2024 SGLang Team
@@ -238,6 +247,8 @@ class TreeNode:
         self.lock_ref = 0
         self.last_access_time = time.monotonic()
         self.creation_time = time.monotonic()
+        self.event_ordinal = global_event_clock().tick()
+        self.creation_event_ordinal = self.event_ordinal
 
         self.hit_count = 0
         # indicating the node is locked to protect from eviction
@@ -328,9 +339,18 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
             self.approx_kv.config.host_residency_enabled
             and self.token_to_kv_pool_allocator is not None
         ):
+
+            def allocate_approx_slots(num_tokens: int):
+                from sglang.srt.mem_cache.approx_kv.runtime import (
+                    allocate_recovery_slots,
+                )
+
+                return allocate_recovery_slots(self, num_tokens)
+
             self.approx_kv.bind_residency_backend(
                 AllocatorCPUResidencyBackend(
                     self.token_to_kv_pool_allocator,
+                    allocate_slots=allocate_approx_slots,
                 )
             )
         self.reset()
@@ -608,6 +628,82 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
     def total_size(self):
         return self._total_size_helper()
 
+    def cross_store_resources(
+        self, bytes_per_token: int
+    ) -> tuple[CrossStoreResource, ...]:
+        if bytes_per_token <= 0:
+            raise ValueError("bytes_per_token must be positive")
+        return tuple(
+            self._cross_store_leaf_resource(node, bytes_per_token)
+            for node in tuple(self.evictable_leaves)
+            if node.value is not None and node.lock_ref == 0
+        )
+
+    def _cross_store_leaf_resource(
+        self, node: TreeNode, bytes_per_token: int
+    ) -> CrossStoreResource:
+        metadata = node.cache_protection.values()
+        kinds = {item.object_kind for item in metadata}
+        if CacheObjectKind.CANONICAL_BASE in kinds:
+            kind = CrossStoreKind.CANONICAL_BASE
+        elif CacheObjectKind.ANCHOR in kinds:
+            kind = CrossStoreKind.ANCHOR
+        elif CacheObjectKind.REPAIR_METADATA in kinds:
+            kind = CrossStoreKind.REPAIR_STATE
+        else:
+            kind = CrossStoreKind.EXACT_VARIANT
+        item = CrossStoreObject(
+            object_id=f"exact-node:{node.id}",
+            kind=kind,
+            tier=CrossStoreTier.DEVICE,
+            provenance=ObjectProvenance.EXACT,
+            token_count=len(node.value),
+            resident_bytes=len(node.value) * bytes_per_token,
+            event_ordinal=node.event_ordinal,
+            dense_cost_ms=max(
+                (
+                    entry.dense_cost_ms
+                    for entry in metadata
+                    if entry.dense_cost_ms is not None
+                ),
+                default=None,
+            ),
+            recovery_cost_ms=min(
+                (
+                    entry.recovery_cost_ms
+                    for entry in metadata
+                    if entry.recovery_cost_ms is not None
+                ),
+                default=None,
+            ),
+            next_use_ordinal=min(
+                (
+                    entry.next_use_request_step
+                    for entry in metadata
+                    if entry.next_use_request_step is not None
+                ),
+                default=None,
+            ),
+            retired=bool(metadata) and all(entry.retired for entry in metadata),
+            recoverable_from_lower_tier=any(
+                entry.recoverable_from_lower_tier for entry in metadata
+            ),
+        )
+
+        def evict():
+            if node not in self.evictable_leaves or node.value is None:
+                raise KeyError("exact victim changed before eviction")
+            started = time.perf_counter()
+            token_count = len(node.value)
+            self._record_workflow_eviction(node, len(node.value))
+            self.token_to_kv_pool_allocator.free(node.value)
+            self._delete_leaf(node)
+            self._record_remove_event(node)
+            self.update_eviction_metrics(token_count, started)
+            return None
+
+        return CrossStoreResource(item=item, evict=evict)
+
     def find_cache_object_node(self, object_id: str) -> TreeNode | None:
         best_node = None
         best_rank = (-1, -1)
@@ -849,7 +945,9 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
 
     def _match_prefix_helper(self, node: TreeNode, key: RadixKey):
         access_time = time.monotonic()
+        event_ordinal = global_event_clock().tick()
         node.last_access_time = access_time
+        node.event_ordinal = event_ordinal
 
         child_key = key.child_key(self.page_size)
 
@@ -857,6 +955,7 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
         while len(key) > 0 and child_key in node.children.keys():
             child = node.children[child_key]
             child.last_access_time = access_time
+            child.event_ordinal = event_ordinal
             prefix_len = child.key.match(key, page_size=self.page_size)
             if prefix_len < len(child.key):
                 new_node = self._split_node(child.key, child, prefix_len)
@@ -879,6 +978,8 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
         new_node = TreeNode(priority=child.priority)
         new_node.cache_protection = child.cache_protection.clone()
         new_node.hit_count = child.hit_count
+        new_node.event_ordinal = child.event_ordinal
+        new_node.creation_event_ordinal = child.creation_event_ordinal
         new_node.children = {key[split_len:].child_key(self.page_size): child}
         new_node.parent = child.parent
         new_node.lock_ref = child.lock_ref
@@ -916,7 +1017,9 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
         if priority is None:
             priority = 0
         access_time = time.monotonic()
+        event_ordinal = global_event_clock().tick()
         node.last_access_time = access_time
+        node.event_ordinal = event_ordinal
         # Update priority along the path (take max to propagate higher priority)
         node.priority = max(node.priority, priority)
         if len(key) == 0:
@@ -928,6 +1031,7 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
         while len(key) > 0 and child_key in node.children.keys():
             node = node.children[child_key]
             node.last_access_time = access_time
+            node.event_ordinal = event_ordinal
             prefix_len = node.key.match(key, page_size=self.page_size)
             total_prefix_length += prefix_len
             key = key[prefix_len:]
@@ -946,6 +1050,8 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
 
         if len(key):
             new_node = TreeNode(priority=priority)
+            new_node.event_ordinal = event_ordinal
+            new_node.creation_event_ordinal = event_ordinal
             new_node.parent = node
             new_node.key = key
             new_node.value = value.clone()

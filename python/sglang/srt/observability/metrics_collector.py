@@ -1435,9 +1435,11 @@ class TokenizerMetricsCollector(_StatLoggerDIMixin):
     ) -> None:
         # We need to import prometheus_client after setting the env variable `PROMETHEUS_MULTIPROC_DIR`
         from prometheus_client import Counter as _PromCounter
+        from prometheus_client import Gauge as _PromGauge
         from prometheus_client import Histogram as _PromHistogram
 
         Counter = self._counter_cls or _PromCounter
+        Gauge = self._gauge_cls or _PromGauge
         Histogram = self._histogram_cls or _PromHistogram
 
         self.labels = labels or {}
@@ -1864,9 +1866,11 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
     ) -> None:
         # We need to import prometheus_client after setting the env variable `PROMETHEUS_MULTIPROC_DIR`
         from prometheus_client import Counter as _PromCounter
+        from prometheus_client import Gauge as _PromGauge
         from prometheus_client import Histogram as _PromHistogram
 
         Counter = self._counter_cls or _PromCounter
+        Gauge = self._gauge_cls or _PromGauge
         Histogram = self._histogram_cls or _PromHistogram
 
         self.labels = labels
@@ -1985,6 +1989,12 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
             documentation="Approximate KV bytes exported to host.",
             labelnames=labels.keys(),
         )
+        self.approx_kv_host_export_duration_seconds = Histogram(
+            name="sglang:approx_kv_host_export_duration_seconds",
+            documentation="Approximate KV device-to-host transfer duration.",
+            labelnames=labels.keys(),
+            buckets=bucket_load_back_duration,
+        )
         self.approx_kv_epic_layers_recomputed_total = Counter(
             name="sglang:approx_kv_epic_layers_recomputed_total",
             documentation=(
@@ -2027,6 +2037,70 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
             name="sglang:workflow_prefetch_evicted_tokens_total",
             documentation="Tokens evicted to admit workflow prefetch.",
             labelnames=[*labels.keys(), "mode"],
+        )
+        self.cross_store_evicted_bytes_total = Counter(
+            name="sglang:cross_store_evicted_bytes_total",
+            documentation="Bytes evicted by cross-store allocation.",
+            labelnames=[
+                *labels.keys(),
+                "requester",
+                "provenance",
+                "object_kind",
+            ],
+        )
+        self.cross_store_demoted_bytes_total = Counter(
+            name="sglang:cross_store_demoted_bytes_total",
+            documentation="Bytes demoted by cross-store allocation.",
+            labelnames=[
+                *labels.keys(),
+                "requester",
+                "provenance",
+                "object_kind",
+            ],
+        )
+        self.cross_store_reservation_failures_total = Counter(
+            name="sglang:cross_store_reservation_failures_total",
+            documentation="Cross-store reservation failures by reset requirement.",
+            labelnames=[*labels.keys(), "requires_reset"],
+        )
+        self.cross_store_wasted_bytes_total = Counter(
+            name="sglang:cross_store_wasted_bytes_total",
+            documentation=(
+                "Irreversibly evicted bytes from failed cross-store allocations."
+            ),
+            labelnames=labels.keys(),
+        )
+        self.cross_store_peak_device_bytes = Gauge(
+            name="sglang:cross_store_peak_device_bytes",
+            documentation=(
+                "Peak device bytes including active cross-store reservations."
+            ),
+            labelnames=labels.keys(),
+        )
+        self.approx_kv_store_records = Gauge(
+            name="sglang:approx_kv_store_records",
+            documentation="Current approximate KV store record count.",
+            labelnames=labels.keys(),
+        )
+        self.approx_kv_store_device_bytes = Gauge(
+            name="sglang:approx_kv_store_device_bytes",
+            documentation="Current device-resident approximate KV bytes.",
+            labelnames=labels.keys(),
+        )
+        self.approx_kv_store_host_bytes = Gauge(
+            name="sglang:approx_kv_store_host_bytes",
+            documentation="Current host-resident approximate KV bytes.",
+            labelnames=labels.keys(),
+        )
+        self.approx_kv_store_leases = Gauge(
+            name="sglang:approx_kv_store_leases",
+            documentation="Current approximate KV lease count.",
+            labelnames=labels.keys(),
+        )
+        self.approx_kv_store_orphans = Gauge(
+            name="sglang:approx_kv_store_orphans",
+            documentation="Current approximate KV orphan dependency count.",
+            labelnames=labels.keys(),
         )
 
     def increment_eviction_num_tokens(self, num_tokens: int) -> None:
@@ -2075,6 +2149,79 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
     ) -> None:
         self.approx_kv_host_export_tokens_total.labels(**self.labels).inc(num_tokens)
         self.approx_kv_host_export_bytes_total.labels(**self.labels).inc(num_bytes)
+
+    def observe_approx_kv_host_export(self, duration_ms: float) -> None:
+        self.approx_kv_host_export_duration_seconds.labels(**self.labels).observe(
+            duration_ms / 1000.0
+        )
+
+    def increment_cross_store_eviction(
+        self,
+        *,
+        requester: str,
+        provenance: str,
+        object_kind: str,
+        num_bytes: int,
+    ) -> None:
+        self.cross_store_evicted_bytes_total.labels(
+            **self.labels,
+            requester=requester,
+            provenance=provenance,
+            object_kind=object_kind,
+        ).inc(num_bytes)
+
+    def increment_cross_store_demotion(
+        self,
+        *,
+        requester: str,
+        provenance: str,
+        object_kind: str,
+        num_bytes: int,
+    ) -> None:
+        self.cross_store_demoted_bytes_total.labels(
+            **self.labels,
+            requester=requester,
+            provenance=provenance,
+            object_kind=object_kind,
+        ).inc(num_bytes)
+
+    def increment_cross_store_reservation_failure(
+        self,
+        *,
+        requires_reset: bool,
+    ) -> None:
+        self.cross_store_reservation_failures_total.labels(
+            **self.labels,
+            requires_reset=str(bool(requires_reset)).lower(),
+        ).inc()
+
+    def record_cross_store_result(
+        self,
+        *,
+        committed: bool,
+        destroyed_bytes: int,
+        peak_device_bytes: int,
+    ) -> None:
+        self.cross_store_peak_device_bytes.labels(**self.labels).set(peak_device_bytes)
+        if not committed and destroyed_bytes:
+            self.cross_store_wasted_bytes_total.labels(**self.labels).inc(
+                destroyed_bytes
+            )
+
+    def set_approx_kv_store_state(
+        self,
+        *,
+        records: int,
+        device_bytes: int,
+        host_bytes: int,
+        leases: int,
+        orphans: int,
+    ) -> None:
+        self.approx_kv_store_records.labels(**self.labels).set(records)
+        self.approx_kv_store_device_bytes.labels(**self.labels).set(device_bytes)
+        self.approx_kv_store_host_bytes.labels(**self.labels).set(host_bytes)
+        self.approx_kv_store_leases.labels(**self.labels).set(leases)
+        self.approx_kv_store_orphans.labels(**self.labels).set(orphans)
 
     def record_approx_kv_transfer(self, stats) -> None:
         self.approx_kv_copied_tokens_total.labels(**self.labels).inc(

@@ -51,6 +51,10 @@ class ApproxKVFeatureConfig:
     epic_enabled: bool = False
     epic_k: int = 0
     epic_attention_sink: bool = True
+    cross_store_enabled: bool = False
+    cross_store_bytes_per_token: int = 1
+    cross_store_host_budget_bytes: int = 0
+    cross_store_registration_evicts_exact: bool = False
 
     def __post_init__(self) -> None:
         if self.epic_k not in SUPPORTED_EPIC_K_VALUES:
@@ -60,12 +64,25 @@ class ApproxKVFeatureConfig:
             )
         if self.epic_enabled and not self.core_enabled:
             raise ValueError("core_enabled=True is required when epic_enabled is True")
+        if self.cross_store_enabled and not self.core_enabled:
+            raise ValueError(
+                "core_enabled=True is required when cross_store_enabled is True"
+            )
+        if self.cross_store_bytes_per_token <= 0:
+            raise ValueError("cross_store_bytes_per_token must be positive")
+        if self.cross_store_host_budget_bytes < 0:
+            raise ValueError("cross_store_host_budget_bytes must be non-negative")
+        if self.cross_store_registration_evicts_exact and not self.cross_store_enabled:
+            raise ValueError(
+                "cross_store_enabled=True is required when registration "
+                "may evict exact cache"
+            )
 
     @classmethod
     def from_env(
         cls,
         env: Mapping[str, str] | None = None,
-    ) -> "ApproxKVFeatureConfig":
+    ) -> ApproxKVFeatureConfig:
         env = os.environ if env is None else env
         core = _read_bool(env, "SGLANG_APPROX_KV_CORE", False)
         host = _read_bool(env, "SGLANG_APPROX_KV_HOST", False)
@@ -74,6 +91,18 @@ class ApproxKVFeatureConfig:
         epic_k = _read_epic_k(env, "SGLANG_APPROX_KV_EPIC_K", 0)
         epic_attention_sink = _read_bool(
             env, "SGLANG_APPROX_KV_EPIC_ATTENTION_SINK", True
+        )
+        cross_store_enabled = _read_bool(env, "SGLANG_APPROX_KV_CROSS_STORE", False)
+        cross_store_bytes_per_token = int(
+            env.get("SGLANG_APPROX_KV_BYTES_PER_TOKEN", "1")
+        )
+        cross_store_host_budget_bytes = int(
+            env.get("SGLANG_APPROX_KV_HOST_BUDGET_BYTES", "0")
+        )
+        cross_store_registration_evicts_exact = _read_bool(
+            env,
+            "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT",
+            False,
         )
         if (host or prefetch) and not core:
             raise ValueError(
@@ -86,6 +115,10 @@ class ApproxKVFeatureConfig:
             )
         if epic_enabled and not core:
             raise ValueError("SGLANG_APPROX_KV_CORE=1 is required when EPIC is enabled")
+        if cross_store_enabled and not core:
+            raise ValueError(
+                "SGLANG_APPROX_KV_CORE=1 is required when cross-store is enabled"
+            )
         return cls(
             core_enabled=core,
             host_residency_enabled=host,
@@ -93,4 +126,10 @@ class ApproxKVFeatureConfig:
             epic_enabled=epic_enabled,
             epic_k=epic_k,
             epic_attention_sink=epic_attention_sink,
+            cross_store_enabled=cross_store_enabled,
+            cross_store_bytes_per_token=cross_store_bytes_per_token,
+            cross_store_host_budget_bytes=cross_store_host_budget_bytes,
+            cross_store_registration_evicts_exact=(
+                cross_store_registration_evicts_exact
+            ),
         )
