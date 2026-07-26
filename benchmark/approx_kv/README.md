@@ -601,6 +601,11 @@ and full-lifecycle ledgers. It also records the committed SM75 controller
 decision, first-token equality, selected-token/recomputed-layer counters,
 eviction, fallback and pool-reset evidence.
 
+The old body1024/body2048 rho2 files and the corresponding cells in
+`sm75-unified-pressure.json` are superseded by this rerun. In particular, the
+historical body2048 `1.04x` combined result is not the current result; the
+causally corrected adapter-combined result is below `1x`.
+
 Committed result:
 
 `benchmark/approx_kv/results/phase4-r5/sm75-causal-key-rerun.json`

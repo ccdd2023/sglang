@@ -1,0 +1,28 @@
+{
+  "artifact": "benchmark/approx_kv/results/phase4-r5/sm75-causal-key-rerun.json",
+  "artifact_sha256": "007099d686cc9a1ff24d63182009be421d1f9a1de770d9a783c935a24e81c262",
+  "implementation_commit": "46d1f85c22a98b7305b4f3ef299da56c65d2a025",
+  "result_commit": "abcedd62b5a5d801742734e300a5df21e1436737",
+  "raw_result": "/home/chris/Workspaces/kvcache-research/results/phase4-r5-corrected-46d1f85c2/result.json",
+  "server_logs": [
+    "/home/chris/Workspaces/kvcache-research/results/phase4-r5-corrected-46d1f85c2/server-restart0.log",
+    "/home/chris/Workspaces/kvcache-research/results/phase4-r5-corrected-46d1f85c2/server-restart1.log",
+    "/home/chris/Workspaces/kvcache-research/results/phase4-r5-corrected-46d1f85c2/server-restart2.log"
+  ],
+  "server_plugin_env": {
+    "SGLANG_APPROX_KV_CACHETUNE": "1",
+    "SGLANG_APPROX_KV_CORE": "1",
+    "SGLANG_CACHETUNE_FIRST_RECOMPUTE_LAYER": "1",
+    "SGLANG_CACHETUNE_MODE": "speed_only",
+    "SGLANG_CACHETUNE_PROBE_LAYERS": "0",
+    "SGLANG_CACHETUNE_T_C_MS": "0.025747446",
+    "SGLANG_CACHETUNE_T_I_MS": "0.002326677",
+    "SGLANG_CACHETUNE_T_O_MS": "1.825835613",
+    "SGLANG_ENABLE_UNIFIED_RADIX_TREE": "1"
+  },
+  "targeted_cpu_test": {
+    "command": "python -m pytest -q test/registered/unit/bench/test_phase4_cachetune_canary_runner.py test/registered/unit/bench/test_phase4_cachetune_key_rerun.py",
+    "result": "272 passed, 27 subtests passed",
+    "source_commit": "46d1f85c22a98b7305b4f3ef299da56c65d2a025"
+  }
+}

@@ -1,4 +1,17 @@
 {
+  "superseded_cells": [
+    {
+      "body_tokens": [
+        1024,
+        2048
+      ],
+      "header_tokens": 64,
+      "replacement_commit": "abcedd62b5a5d801742734e300a5df21e1436737",
+      "replacement_path": "benchmark/approx_kv/results/phase4-r5/sm75-causal-key-rerun.json",
+      "rho_logical_demand": 2.0,
+      "reason": "The corrected rerun uses cumulative causal-prefix materialization, paired dense baselines, three restarts, and complete cost ledgers."
+    }
+  ],
   "hardware_measurement": {
     "roofline_ratio_r0": 0.08287621308776057,
     "t_c_ms": 0.025747446,
