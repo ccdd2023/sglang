@@ -1,0 +1,158 @@
+{
+  "artifacts": [
+    {
+      "branch_head": "61c39791e4372e098de5d599665a5723cb4aeda9",
+      "notes": [
+        "Dense denominator is reused from the R1 measurement.",
+        "R1-k0 is the mechanism-equivalent full OAT proxy."
+      ],
+      "path": "/home/chris/Workspaces/kvcache-research/worktrees/raw-rope/benchmark/approx_kv/results/phase4-r0/sm75-unified-pressure.json",
+      "relative_path": "benchmark/approx_kv/results/phase4-r0/sm75-unified-pressure.json",
+      "scope": "R0 numerator body1024/2048, header64, rho2",
+      "sha256": "29010d11f212d024025db627c15bddc4769084a028d650050ae01cf1957420b0",
+      "status": "representative",
+      "superseded_cells": [],
+      "worktree": "raw-rope"
+    },
+    {
+      "branch_head": "984bfd8730309dfa32c57b86d00ca7ffd852d0cd",
+      "notes": [
+        "OAT slices, not a full Cartesian matrix."
+      ],
+      "path": "/home/chris/Workspaces/kvcache-research/worktrees/epic-legolink/benchmark/approx_kv/results/phase4-r1/sm75-eviction-pressure.json",
+      "relative_path": "benchmark/approx_kv/results/phase4-r1/sm75-eviction-pressure.json",
+      "scope": "R1 pressure OAT slices",
+      "sha256": "1f2e822fb163991fa7c479bc877ca6dfd5a149acde5138c07a39f6ce98924215",
+      "status": "authoritative_historical",
+      "superseded_cells": [],
+      "worktree": "epic-legolink"
+    },
+    {
+      "branch_head": "984bfd8730309dfa32c57b86d00ca7ffd852d0cd",
+      "notes": [
+        "No eviction pressure.",
+        "Older code SHA before eviction-aware allocation.",
+        "Header/body axes differ from the unified pressure contract."
+      ],
+      "path": "/home/chris/Workspaces/kvcache-research/worktrees/epic-legolink/benchmark/approx_kv/results/phase4-r1/sm75-inrequest-matrix.json",
+      "relative_path": "benchmark/approx_kv/results/phase4-r1/sm75-inrequest-matrix.json",
+      "scope": "R1 k/head/body matrix",
+      "sha256": "bd7d4ac9b73105db20af4e675a24469a3b396d946e02e21bca2fd413c212c00a",
+      "status": "historical_mechanism_only",
+      "superseded_cells": [],
+      "worktree": "epic-legolink"
+    },
+    {
+      "branch_head": "e36f1529b838c12a9eb2af7ba4dde91ae9ec124b",
+      "notes": [
+        "The corrected causal rerun supersedes the specified key cells.",
+        "Historical combined-positive claims must not be cited without the replacement."
+      ],
+      "path": "/home/chris/Workspaces/kvcache-research/worktrees/cacheblend/benchmark/approx_kv/results/phase4-r2/sm75-unified-pressure.json",
+      "relative_path": "benchmark/approx_kv/results/phase4-r2/sm75-unified-pressure.json",
+      "scope": "R2 ratio/header/body/rho OAT slices",
+      "sha256": "d7183e35a1d7c4c777cbdb5ba08f234125d5073d7818569057a2e820f677cdd1",
+      "status": "historical_oat",
+      "superseded_cells": [
+        {
+          "body_tokens": [
+            1024,
+            2048
+          ],
+          "header_tokens": 64,
+          "ratio": 0.01,
+          "replacement": "benchmark/approx_kv/results/phase4-r2/sm75-causal-key-rerun.json",
+          "replacement_commit": "e36f1529b838c12a9eb2af7ba4dde91ae9ec124b",
+          "rho_logical_demand": 2.0
+        }
+      ],
+      "worktree": "cacheblend"
+    },
+    {
+      "branch_head": "e36f1529b838c12a9eb2af7ba4dde91ae9ec124b",
+      "notes": [
+        "Fallback is indirectly verified because the explicit metric is absent."
+      ],
+      "path": "/home/chris/Workspaces/kvcache-research/worktrees/cacheblend/benchmark/approx_kv/results/phase4-r2/sm75-causal-key-rerun.json",
+      "relative_path": "benchmark/approx_kv/results/phase4-r2/sm75-causal-key-rerun.json",
+      "scope": "R2 corrected causal body1024/2048 key cells",
+      "sha256": "84d280441359c0940f48e9f5fff96b2e308c10779f6bcbf116c7530f08cbbbce",
+      "status": "authoritative_corrected",
+      "superseded_cells": [],
+      "worktree": "cacheblend"
+    },
+    {
+      "branch_head": "cd81c3e92b7dd03ff3ddfc2d52001c04a22eb55f",
+      "notes": [
+        "Setup break-even remains formula-based, not measured N reuse."
+      ],
+      "path": "/home/chris/Workspaces/kvcache-research/worktrees/kvcomm/benchmark/approx_kv/results/phase4-r4/sm75-unified-pressure.json",
+      "relative_path": "benchmark/approx_kv/results/phase4-r4/sm75-unified-pressure.json",
+      "scope": "R4 header/body/rho OAT slices",
+      "sha256": "5ae9762bde587d8eea0fef818a82e0edee30964537f07fe6024607c9e7916cc2",
+      "status": "authoritative_historical_diagnostic",
+      "superseded_cells": [],
+      "worktree": "kvcomm"
+    },
+    {
+      "branch_head": "abcedd62b5a5d801742734e300a5df21e1436737",
+      "notes": [
+        "Final-SHA rho_sweep_points is empty.",
+        "The corrected causal rerun supersedes the specified key cells."
+      ],
+      "path": "/home/chris/Workspaces/kvcache-research/worktrees/cachetune/benchmark/approx_kv/results/phase4-r5/sm75-unified-pressure.json",
+      "relative_path": "benchmark/approx_kv/results/phase4-r5/sm75-unified-pressure.json",
+      "scope": "R5 body/shape result",
+      "sha256": "08b128ef482f9d60bc603ee95e780df1e861273aad21d3270970d7b3db73099a",
+      "status": "historical_oat",
+      "superseded_cells": [
+        {
+          "body_tokens": [
+            1024,
+            2048
+          ],
+          "header_tokens": 64,
+          "replacement": "benchmark/approx_kv/results/phase4-r5/sm75-causal-key-rerun.json",
+          "replacement_commit": "abcedd62b5a5d801742734e300a5df21e1436737",
+          "rho_logical_demand": 2.0
+        }
+      ],
+      "worktree": "cachetune"
+    },
+    {
+      "branch_head": "abcedd62b5a5d801742734e300a5df21e1436737",
+      "notes": [
+        "Explicit dense-fallback counter is zero in every formal recovery round."
+      ],
+      "path": "/home/chris/Workspaces/kvcache-research/worktrees/cachetune/benchmark/approx_kv/results/phase4-r5/sm75-causal-key-rerun.json",
+      "relative_path": "benchmark/approx_kv/results/phase4-r5/sm75-causal-key-rerun.json",
+      "scope": "R5 corrected causal body1024/2048 key cells",
+      "sha256": "007099d686cc9a1ff24d63182009be421d1f9a1de770d9a783c935a24e81c262",
+      "status": "authoritative_corrected",
+      "superseded_cells": [],
+      "worktree": "cachetune"
+    }
+  ],
+  "matrix_definition": "Phase 4 results are one-at-a-time slices around fixed representative points unless explicitly stated otherwise.",
+  "r1_rho0p9_raw": {
+    "authoritative": {
+      "path": "/home/chris/Workspaces/kvcache-research/results/phase4-epic-pressure-rho/k0-fixed-rho0p9.json",
+      "sha256": "fbfec1c1e1e5bec3722b068f793368ee56fbb723136f7bf46f6ffd18e2d25992"
+    },
+    "stale": [
+      {
+        "path": "/home/chris/Workspaces/kvcache-research/results/phase4-epic-pressure-rho/dense-rho0p9.json",
+        "reason": "Conflicting/incorrect eviction_observed metadata; use k0-fixed-rho0p9.json and the compact result.",
+        "sha256": "69ebc7f9fdd32580dc669c69b5d929cb15850ae8cb6e17ef1fba771c082d8213",
+        "status": "stale_do_not_use"
+      },
+      {
+        "path": "/home/chris/Workspaces/kvcache-research/results/phase4-epic-pressure-rho/k0-rho0p9-fixed.json",
+        "reason": "Conflicting/incorrect eviction_observed metadata; use k0-fixed-rho0p9.json and the compact result.",
+        "sha256": "c7a14a28fe5f96242d2ececfd3da1427f1f11611017f75f57543d983bc37992d",
+        "status": "stale_do_not_use"
+      }
+    ]
+  },
+  "schema_version": 1
+}

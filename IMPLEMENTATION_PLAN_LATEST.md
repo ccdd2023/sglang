@@ -1,0 +1,991 @@
+# 实施计划 V4（Latest）：Cross-Store Substrate -> Integrated Evaluation
+
+> 版本：V4
+>
+> 状态：Current / Latest
+>
+> 最后更新：2026-07-25T23:47:04-07:00
+>
+> 当前阶段：Phase 6尚未开始；Closeout CL0仍阻塞Phase 6 Entry。
+>
+> 取代版本：[`IMPLEMENTATION_PLAN_V3_ARCHIVED.md`](IMPLEMENTATION_PLAN_V3_ARCHIVED.md)
+
+## 1. 文档职责与版本规则
+
+- `PROJECT.md`：项目事实、结果和明确决策的最终事实来源。
+- 本文件：当前最新、可执行的phase计划。
+- `CONSOLIDATED_PHASE4_PHASE6_REVIEW.txt`：Phase4/5审计、corrected rerun与双模型review证据。
+- `HANDOFF.md`：当前快照和下一步。
+- `TRACKING.md`：不可改写时间线。
+- V1/V2/V3 archive只用于历史追溯。
+
+若本文件与`PROJECT.md`中更新、明确的事实或决策冲突，以`PROJECT.md`为准并立即同步。
+
+重大计划变更必须：
+
+1. 归档当前latest；
+2. 提升版本号；
+3. GPT-5.6 Sol Max Thinking与Claude Opus 5 Max Thinking独立review；
+4. 全文互换并交叉consolidate；
+5. 主会话完成final disposition后才标记`Current / Latest`。
+
+## 2. 已冻结的证据与结论
+
+### 2.1 已完成阶段
+
+- Phase1–3：SM75、pressure harness、approximate KV common core。
+- Phase4：R0/R1/R2/R4/R5筛选；R3 defer。
+- Phase5：S0–S4、P0–P3 exact-cache scheduler isolation。
+- Corrected R2/R5 key rerun：
+  - R2结果`e36f1529b`；
+  - R5结果`abcedd62b`。
+
+### 2.2 Corrected R2/R5结果
+
+| 路径 | body | target-only | adapter-combined | request-path | recovery-object lifecycle |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| R2 | 1024 | `1.659x` | `0.441x` | `0.526x` | `0.324x` |
+| R2 | 2048 | `2.044x` | `0.407x` | `0.434x` | `0.246x` |
+| R5 | 1024 | `1.614x` | `0.449x` | `0.527x` | `0.327x` |
+| R5 | 2048 | `1.978x` | `0.406x` | `0.433x` | `0.246x` |
+
+固定结论：
+
+- target-only recovery收益存在；
+- 旧R2 `1.14x`和R5 `1.04x` single-use combined正收益已被推翻；
+- R2/R5是precomputed oracle，不是practical candidate；
+- R2与R5的target差异高度受1% vs 8.3% repair ratio影响，不能写成机制优劣；
+- first-token一致只是不发生粗暴损坏的guardrail，不是semantic correctness；
+- 不需要再次强制重跑同一R2/R5矩阵。
+- corrected rerun仍有pressure残差：setup evictable未完全补偿，recovery arm eviction多约10.6–22.4%；
+- R5 dense/recovery两臂的filler token内容不同，因此不用于精细机制排序。
+
+### 2.3 Phase5结论边界
+
+- Phase5只测exact Radix，不代表lossy recovery。
+- workflow-only与all-reusable/full-trace分母会改变策略排序。
+- S4 synthetic kind不能外推为真实approx object hierarchy。
+- 原rho sweep改变对象数及dead/live组成。
+- prefetch host tier饱和且H2D同步，只能作为功能/开销canary。
+
+## 3. V4 Phase架构
+
+V4不为Phase4/5收尾新增phase编号。
+
+```text
+Phase4/5 Closeout Lane ─┐
+       CL1 -> CL2 ------+------> P6-4 Capacity Pilot
+                       |
+Phase6 Substrate ------+------> Phase7 Integrated Evaluation
+```
+
+资源约束：
+
+- 0-GPU closeout与Phase6工程可以并行；
+- 本机只有一张SM75，CL1、CL2和P6-4 GPU任务全局串行；
+- CL2必须在P6-4前完成，或P6-4使用预注册worst-case provisional chunk并在CL2改变配置后重跑受影响pilot。
+
+V3 -> V4编号映射：
+
+| V3 | V4 |
+| --- | --- |
+| G0 | Closeout CL0 |
+| P6-3a | Closeout CL1 |
+| P6-3b | Closeout CL2 |
+| P6-0/P6-1/P6-2 | Phase6 P6-0/P6-1/P6-2/P6-3/P6-4/P6-H |
+| P6-3c/P6-3.5/P6-4 | Phase7 P7-1/P7-2 |
+| P6-5/P6-5.5 | Phase7 P7-3/P7-4 |
+
+### Closeout Lane
+
+- 前阶段结果、schema、artifact和候选确认；
+- 可与Phase6工程并行；
+- 必须在Phase7 Entry前完成。
+
+### Phase6：Cross-Store Substrate & Feasibility
+
+只回答：
+
+> exact、approx和host对象能否在同一budget中安全竞争？
+
+不选择winner，不发布scheduler或prefetch性能claim。
+
+### Phase7：Integrated Recovery × Scheduling Evaluation
+
+只回答：
+
+> 在正确的cross-store底座上，recovery、scheduler、HiCache和prefetch是否产生可证明收益？
+
+### 可选Phase8
+
+只有Phase7证明值得扩大时，才进入scale、concurrency、RTX PRO 6000和large-codebase评测。
+
+## 4. Entry与依赖
+
+### Phase6 Entry
+
+允许创建Phase6分支并实现底座。必须完成：
+
+- CL0 0-GPU收尾；
+- V4双模型Plan Review及主会话disposition；
+- 无`accepted-blocking-P0`。
+
+Phase6 Entry前不要求新的Phase4/5 GPU重跑。
+
+### Phase7 Entry
+
+必须完成：
+
+- 全部Closeout Lane；
+- Phase6 exit gate；
+- Phase6结果双模型review；
+- practical family与chunk配置已冻结或显式NONE/waive。
+
+### 条件项
+
+| 项 | 是否阻塞 | 触发条件 |
+| --- | --- | --- |
+| R2/R5 matched repair ratio | 否 | 仅当发布两机制性能排序 |
+| corrected R2/R5 rho1.1/3 | 否 | 仅当发布rho稳健性 |
+| R2显式fallback GPU补点 | 否 | 仅当间接证据不足 |
+| R3深层实现 | 否 | 仅当要覆盖order-sensitive轴 |
+| register-and-insert原型 | 否 | 仅当估计理想setup下限 |
+| async prefetch | 阻塞prefetch性能claim | 不阻塞Phase7其他矩阵 |
+
+## 5. 跨阶段共享合同
+
+### 5.1 Recovery分类
+
+| 路径 | 定位 |
+| --- | --- |
+| R0 / R1-k0 | speed ceiling，同一物理恢复family |
+| R1 EPIC | genuine in-request candidate family |
+| R2 CacheBlend | precomputed oracle family默认代表 |
+| R5 CacheTune | 与R2冗余的hardware-controller oracle point |
+| R4 KVCOMM | canonical/anchor/delta diagnostic |
+| R3 Cache-Craft | defer；order-sensitive轴未覆盖 |
+
+R5不因“被R2性能支配”而排除；默认不进入primary是因为与R2高度冗余且没有practical-ledger收益。
+
+### 5.2 Baseline
+
+| ID | 配置 |
+| --- | --- |
+| D0 | dense，无reuse |
+| E0 | exact + S0 + GPU-only + P0 |
+| E4 | exact + S4 + GPU-only + P0 |
+| C0 | R0 ceiling + S0 |
+| C4 | R0 ceiling + S4 |
+| PR-S0 | practical recovery + S0 |
+| PR-S4 | practical recovery + S4 |
+| O2 | R2 precomputed oracle |
+| H4 | exact + S4 + HiCache + P0 |
+| RH4 | practical recovery + S4 + HiCache + P0；practical=NONE时不存在 |
+
+### 5.3 Paired launch block
+
+`paired launch block`：
+
+> 同一`(body, rho, restart)`下，以相同image/model/capacity目标/server-seed计划连续启动的一组相邻server进程。
+
+eviction policy、HiCache、chunked-prefill或capacity不同均需独立server进程，配对发生在launch block级，不虚构同进程比较。
+
+### 5.4 成本ledger
+
+原子字段：
+
+- `source_preparation_ms`
+- `target_adapter_preparation_ms`
+- `materialize_ms`
+- `register_copy_ms`
+- `transfer_ms`
+- `seed_head_ms`
+- `post_pressure_reseed_ms`
+- `target_only_ms`
+- `cold_start_ms`
+
+逐路径定义：
+
+- R0/R1：`source_preparation_ms = canonical source materialization + registration`；
+- R2/R5：额外记录`target_adapter_preparation_ms = fresh materialization + fresh registration`；
+- R4：`source_preparation_ms = canonical + anchor + delta setup`。
+
+派生字段：
+
+```text
+request_path_ms =
+  seed_head
+  + target_adapter_preparation
+  + post_pressure_reseed
+  + transfer
+  + target_only
+
+recovery_object_lifecycle_ms =
+  source_preparation
+  + request_path
+
+amortized_ms_N =
+  (source_preparation + target_adapter_preparation) / N
+  + seed_head
+  + post_pressure_reseed
+  + transfer
+  + target_only
+```
+
+`protocol_overhead_ms`无独立one-token control、KV-copy时间和register elapsed时必须写`not_measured`。
+
+禁止把target-only称为end-to-end。
+
+必须输出：
+
+- `amortized_ms_N1/N2/N4/N8`
+- `break_even_reuse_count`
+
+`cold_start_ms`细分：
+
+- server-first-use；
+- plugin-first-use；
+- shape-first-use；
+- setting-warmup；
+- steady-state。
+
+### 5.5 Matched-state
+
+primary方案固定：
+
+1. 每round完整清空并重建同等source状态；
+2. 每round只发送一个measured target；
+3. approximate target不写回exact；
+4. exact baseline只使用本round预构造的exact source。
+
+只改变final suffix不能防止body exact hit。
+
+native-system结果另报，并给approx写回加provenance/taint。
+
+### 5.6 Pressure与rho
+
+- same filler manifest；
+- 预算扣除`setup_used + setup_evictable`；
+- 记录resident与temporary peak tokens/pages/bytes。
+
+rho固定为：
+
+- `rho_logical_demand = logical reusable working set / configured capacity`；
+- `rho_physical_demand = requested physical pages including all representations and scratch / capacity`；
+- `rho_resident = sampled (used + evictable) / capacity`；
+- `rho_host = host working set / host capacity`。
+
+GPU侧统一以tokens/pages记录，跨tier比较必须同时记录bytes。setup footprint只能在physical demand或filler补偿中计入一次，不得重复计算。
+
+不得只写`rho`。
+
+### 5.7 Flush/reset
+
+每个setting：
+
+1. cold-start；
+2. 独立warmup；
+3. warmup后清空exact、approx、HiCache、metadata、generation、host ref、extra-key scratch；
+4. 验证accounting；
+5. formal；
+6. formal repeat之间再次完整清空；
+7. post-setting reset invariant。
+
+### 5.8 Cache outcome
+
+每请求只归入：
+
+- exact GPU hit；
+- approximate GPU recovery；
+- host demand load；
+- dense fallback。
+
+带approx taint的一律计为approximate。
+
+### 5.9 Correctness guardrail
+
+- exact first；
+- controlled reconstruction；
+- 不支持时dense fallback；
+- 性能请求`max_new_tokens=1`；
+- 独立quality canary `max_new_tokens>=8`；
+- 记录逐token一致率、decode eviction delta；
+- 可用时记录top-k/logprob差异；
+- 不扩展semantic correctness claim。
+
+### 5.10 统计
+
+- primary estimator预注册；
+- paired delta/ratio和per-restart同时报告；
+- all-reusable为primary p95分母；
+- 任何晋级要求p95恶化`<=5%`；
+- workflow-only为SLA视图；
+- full-trace wall-clock单独报告；
+- 同trace请求不是独立实验样本；
+- screening 1 restart，primary补至3；
+- 报告miss count、CI和比较数量。
+- server restart主要是timing replicate；改变workload seed时所有策略必须paired。
+- all-reusable p95只适用于workflow-trace实验；单target CL1使用paired target p95/target sample分布。
+
+### 5.11 统一Manifest/Schema
+
+Closeout、Phase6和Phase7统一保存：
+
+- run ID；
+- source/result commit；
+- raw SHA256；
+- server argv和plugin env；
+- machine/GPU/image；
+- requested/observed capacity；
+- `crosses_chunk_boundary`；
+- `segment_count`；
+- warmup/formal/restart；
+- test命令和结果；
+- cold-start/steady-state；
+- per-request/per-trace/per-restart；
+- ledger及rho definitions；
+- validity/negative/inconclusive状态。
+
+### 5.12 共享客户端、Memory与Transfer指标
+
+- workflow wall-clock；
+- all-reusable、workflow-only、per-role TTFT/miss；
+- cache outcome四分类；
+- victim count/tokens/bytes by object kind；
+- evict/demote bytes；
+- H2D/D2H bytes和time；
+- materialization scratch peak；
+- allocator reservation peak；
+- wasted/churn bytes；
+- orphan count必须为0。
+
+## 6. Phase4/5 Closeout Lane（不新增Phase）
+
+Closeout可与Phase6并行，但必须在Phase7前完成。
+
+### CL0：0-GPU治理与artifact收尾
+
+1. 旧R2/R5 key-cell加`superseded_by`。
+2. Phase4全矩阵改OAT slices。
+3. 记录R5 final-SHA rho sweep为空。
+4. 标注R1旧矩阵SHA/pressure/axis。
+5. authoritative raw manifest与R1 stale raw。
+6. 统一rho、ledger、excluded components。
+7. 从raw生成paired/per-restart/cold-start/formula-N。
+8. Phase5 all-reusable/full-trace/per-role重算。
+9. R2 fallback缺counter时写`indirectly_verified`。
+10. artifact保存server env、raw SHA、server log、测试命令。
+11. CPU测试：
+    - ledger恒等式；
+    - pressure补偿；
+    - extra-key无flush GC。
+12. authority文档仓库完成版本化备份。
+
+### CL1：R0/R1 Candidate Qualification
+
+```text
+paths = R0/R1-k0, R1-k4, R1-k8, R1-k16, R1-k32
+body = 1024, 2048
+header = 64
+rho_logical_demand = 2.0
+tier = GPU-only
+scheduler = S0
+prefetch = P0
+restart = 1 screening
+```
+
+k0和screening winner补至3 restart。
+
+要求：
+
+- cumulative causal-prefix；
+- isolated extra-key；
+- paired dense/filler；
+- pressure扣除used+evictable；
+- 全ledger；
+- explicit fallback；
+- first-token及独立8-token canary；
+- pool reset、raw SHA、server env。
+
+promotion规则：
+
+1. fallback/pool/guardrail通过；
+2. body2048 request-path在至少2/3 restart中`>1.0x`；
+3. p95恶化`<=5%`；
+4. 选median paired request-path最高者；
+5. 差异`<=2%`时优先repair更多且p95更低；
+6. 无通过者则`practical family = NONE`。
+
+promotion规则在CL1执行前冻结；CL1只产生数据，不得在看到结果后修改规则。
+
+CL1的p95定义为全部formal measured target samples上的paired target p95；不使用workflow all-reusable分母。
+
+### CL2：Chunk Configuration Gate
+
+```text
+arms = dense, R1-k0, selected R1-k
+body = 768, 1024
+chunked_prefill_size = 1024, 4096
+rho_logical_demand = 2.0
+restart = 2 screening
+formal = 2
+```
+
+复用CL1 raw。
+
+CL2是P6-4 capacity pilot的前置配置门。
+
+输出：
+
+- Phase7固定chunk配置；
+- 敏感性；
+- 披露模板。
+
+可显式waive，但所有结论必须限定在预注册chunk配置。
+
+waive时：
+
+- P6-4使用预注册worst-case provisional chunk；
+- 若Phase7最终chunk配置不同，必须重跑受影响的P6-4 feasibility cell。
+
+### CL3：Phase5零GPU重算
+
+- workflow-only；
+- all-reusable；
+- full-trace wall-clock；
+- per-role TTFT/miss；
+- paired/per-restart；
+- corrected hit-fraction clamp；
+- Belady-style与offline optimum。
+
+### CL4：Closeout Dual Review
+
+Sol/Opus独立review、全文互换、主会话disposition。CL4可与Phase6里程碑review并行，但Phase7 Entry前必须形成统一disposition并冻结candidate、chunk和stop manifest。
+
+## 7. Phase6：Cross-Store Substrate & Feasibility
+
+### 7.1 Phase6目标
+
+- exact/approx/host统一对象语义；
+- 跨store预算与双向pressure；
+- 原子allocation与rollback；
+- lifecycle/GC；
+- fixed40 capacity feasibility。
+- generic host roundtrip correctness。
+
+### 7.2 Phase6非目标
+
+- 不选practical winner；
+- 不发布scheduler speedup；
+- 不发布HiCache/prefetch性能；
+- 不做R2/R5机制排名。
+
+### 7.3 P6-0：Contract Freeze
+
+- fixed40对象、ID、顺序、dead/live；
+- 至少两档长度；
+- header64、body1024/2048、segment<=512；
+- `chunked_prefill_size`使用CL2结果；未完成时使用预注册worst-case provisional值；
+- matched-state、pressure、rho、ledger、reset及§5.11统一schema全部冻结；
+- `chunked_prefill_size`采用CL2结果；CL2未完成时只能使用预注册worst-case provisional值；
+- logical cells/server starts/rounds/GPU-hour预算。
+
+### 7.4 P6-1：Object DAG与Policy
+
+对象：
+
+- exact stage variant/bundle；
+- R0 canonical chain；
+- R1 repair state；
+- R2/R5 adapter family；
+- R4 canonical/anchor/delta；
+- host copy；
+- materialization scratch。
+
+每条边定义dependency、orphan、atomic closure、demotion/load、provenance。
+
+Policy：
+
+- S0跨exact/approx/host统一`event_ordinal`；
+- S4冻结class order、value、dependency和tie-break。
+
+### 7.5 P6-2：Allocator与Rollback
+
+预算：
+
+- token/page/byte；
+- exact可驱逐/demote approx；
+- approx可驱逐exact；
+- host demotion；
+- temporary reservation。
+
+协议：
+
+1. reserve；
+2. 枚举victims；
+3. 选atomic closure；
+4. evict/demote；
+5. allocate；
+6. commit；
+7. 失败rollback或dense fallback。
+
+lock order：
+
+```text
+global policy state
+-> object metadata
+-> host transfer state
+-> device allocator
+```
+
+failure injection覆盖reserve后、victim后、evict后、allocation后、commit前。
+
+### 7.6 P6-3：Lifecycle与GC
+
+- generation/lease/slot/host-ref归零；
+- no stale handle/double free；
+- orphan=0；
+- extra-key无flush GC；
+- host transfer lock release；
+- rollback后accounting恢复；
+- ledger/pressure CPU tests。
+
+### 7.7 P6-4：Fixed40 Capacity Pilot
+
+P6-4开始前必须完成CL2，或使用预注册worst-case provisional chunk。CL2最终选择不同配置时，重跑受影响feasibility cell。
+
+```text
+R0 footprint
+R1-like worst-case repair/temporary footprint (pre-registered k=32)
+R2-like ~2x
+R4-like ~5x
+body = 2048
+rho_logical_demand = 1.1, 1.5, 2.0, 3.0
+restart = 1
+warmup = 1
+formal validity = 2
+performance ranking = disabled
+```
+
+要求：
+
+- 同一40对象；
+- 只调capacity；
+- E0/E4独立server、同paired block；
+- capacity不改变chunking语义；
+- exact/approx真实竞争；
+- fallback/rollback可达；
+- pool reset。
+
+R4-like不可达时只允许一次性调整固定对象长度/representation multiplicity并重新冻结manifest；仍不可达则标`diagnostic-unavailable`。
+
+本pilot同时取代单独的Phase5 fixed-40 exact-only重跑；E0/E4作为pilot baseline。
+
+### 7.8 P6-H：Generic Host Roundtrip Canary
+
+与具体recovery winner无关，使用最小approx object证明：
+
+- GPU object真实demote到host；
+- host ref/accounting正确；
+- demand load和H2D completion；
+- transfer lock释放；
+- temporary peak可容纳；
+- reset后host/device ref归零。
+
+```text
+restart = 1
+warmup = 1
+formal validity = 2
+performance claim = disabled
+```
+
+### 7.9 Phase6 Exit Gate
+
+必须证明：
+
+- exact、approx、host同budget安全竞争；
+- 双向pressure有效；
+- allocation失败可回滚；
+- fixed40四rho可运行或有明确不可达结论；
+- R1-like worst-case footprint可运行或有明确不可达结论；
+- generic host roundtrip canary通过；
+- 无泄漏、无orphan；
+- raw/commit/env/test provenance完整。
+
+Phase6结果经双模型review后才允许Phase7。
+
+## 8. Phase7：Integrated Recovery × Scheduling Evaluation
+
+### 8.1 Phase7 Entry
+
+- Closeout CL0–CL4完成；
+- Phase6 Exit通过；
+- practical family已冻结或为NONE；
+- chunk配置已执行或waive；
+- Phase7 primary manifest已预注册。
+
+### 8.2 P7-0：Candidate Freeze
+
+| Track | 候选 |
+| --- | --- |
+| Ceiling | R0 |
+| Practical | selected R1-k或NONE |
+| Oracle | R2 |
+| Diagnostic | R4 |
+
+R5因与R2冗余不进默认矩阵，不使用“被R2性能支配”理由。
+
+### 8.3 P7-1：Recovery Evaluation
+
+```text
+body = 1024, 2048
+rho_logical_demand = 1.5, 2.0
+scheduler = S0
+tier = GPU-only
+prefetch = P0
+restart = 1 screening
+formal = 2
+```
+
+primary补至3 restart。
+
+每路径：
+
+- paired D0；
+- 全ledger；
+- 一次setup后连续8 targets，N=1/2/4/8取前缀；
+- cold-start；
+- explicit fallback；
+- recovered tokens；
+- materialize/register/transfer；
+- quality guardrail；
+- physical footprint。
+
+R4按相同合同重测，但不参与practical排序。
+
+### 8.4 P7-2：Scheduler Evaluation
+
+#### Revalidation
+
+若`practical family=NONE`，跳过practical revalidation，仅保留exact/ceiling/oracle diagnostic。
+
+```text
+practical recovery
+body = 2048
+rho_logical_demand = 1.5, 3.0
+scheduler = S0-S4
+restart = 1
+formal = 2
+```
+
+primary：
+
+- all-reusable request TTFT；
+- full-trace wall-clock；
+- workflow-only SLA；
+- miss count。
+
+S1/S2/S3晋级：
+
+- mean改善`>=5%`；
+- p95恶化`<=5%`；
+- 或fallback降低`>=50%`且S0每trace至少1次；
+- 或physical peak降低`>=10%`；
+- 或victim correctness=100%且S4<100%。
+
+通过后补至3 restart。
+
+S2只能称Belady-style。若S1/S2在冻结trace上产生同一victim顺序，必须标记为退化同序；真正upper bound使用GPU-free variable-size offline optimum。
+
+R4独立diagnostic：
+
+```text
+R4
+body = 2048
+rho_logical_demand = 2.0
+scheduler = S0-S4
+restart = 1
+formal = 2
+output = canonical/anchor/delta victim sequence
+```
+
+#### Main Matrix
+
+```text
+R0 ceiling × S0/S4
+selected R1 practical × S0/S4（若非NONE）
+GPU-only
+P0
+```
+
+diagnostic：
+
+- R2 body2048 rho1.5/2；
+- R4 `body2048 / rho2 / S0-S4` canonical/anchor/delta victim-sequence diagnostic；
+- S2 eviction-onset/rho3。
+
+body1024：rho1.5/2。
+body2048：rho1.1/1.5/2/3。
+
+每个paired launch block测D0/E0/E4和当前recovery arm。
+
+practical=NONE时：
+
+- 跳过practical revalidation；
+- 不生成PR-S0/PR-S4；
+- 跳过RH4和practical host矩阵；
+- 跳过prefetch性能track；
+- 保留R0 ceiling、R2 oracle、R4 diagnostic；
+- exact-only prefetch若执行，只能标Phase5回归canary。
+
+### 8.5 P7-3：HiCache Demand Load
+
+practical=NONE时整个practical HiCache track跳过。
+
+#### Feasibility
+
+```text
+practical recovery
+body = 2048
+rho_logical_demand = 1.5
+S4 + HiCache + P0
+write policy = write-through
+```
+
+证明：
+
+- source demote；
+- host ref/accounting；
+- demand load或explicit fallback；
+- H2D peak；
+- reset。
+
+失败则HiCache track blocked。
+
+#### Matrix
+
+```text
+body = 2048
+rho_logical_demand = 1.5, 2.0, 3.0
+rho_host显式记录
+```
+
+H4/RH4同block。
+
+basic demand-load不强制`rho_host>=1`；host eviction/admission claim必须至少一个`rho_host>=1`且出现非零host miss/demotion。
+
+### 8.6 P7-4：Prefetch
+
+#### 功能/安全
+
+```text
+body = 2048
+rho_logical_demand = 2.0, 3.0
+P0-P3
+warmup = 1
+formal = 2
+restart = 1
+```
+
+只验证hint/load/admission/churn/lock/no leak。
+
+practical=NONE或host feasibility失败时：
+
+- practical prefetch功能/性能track停止；
+- 可预注册选择执行E4+HiCache exact-only回归canary，或整体跳过；
+- 不得把exact-only canary写成Phase7 practical结论。
+
+#### Async性能
+
+只有真实async H2D存在时执行，并预注册serial within-request或concurrent cross-request模式。
+
+晋级：
+
+- mean改善`>=3%`；
+- p95恶化`<=5%`；
+- wasted bytes`<=10%`loaded；
+- churn bytes`<=20%`useful loaded；
+- 不驱逐更早next-use对象。
+
+### 8.7 P7-5：Final Validation
+
+工程状态：
+
+- `VALID`
+- `INVALID`
+
+机制状态：
+
+- `POSITIVE`
+- `NEGATIVE`
+- `INCONCLUSIVE`
+
+primary cells预注册并做3 restart。同trace请求不作独立样本。
+
+工程有效性必须包含：
+
+- 100% completion；
+- no OOM/allocator corruption/stale handle/double free；
+- exact/approx/host accounting；
+- explicit success/load/fallback；
+- rollback/reset；
+- orphan=0；
+- raw/commit/env/test provenance。
+
+最终双模型review冻结：
+
+- speed ceiling；
+- practical或NONE；
+- precomputed oracle；
+- diagnostic；
+- host/prefetch结论。
+
+## 9. Phase8（Potential Scope — Not Yet Created）
+
+只有Phase7满足至少一项时创建：
+
+- practical recovery在至少两个rho上稳定为正；
+- host demand-load显示可扩展收益；
+- async prefetch有真实overlap收益；
+- SM75结果值得扩大验证。
+
+Phase8候选范围：
+
+- RTX PRO 6000；
+- 更大模型/context；
+- 并发workflow；
+- real repository/codebase artifact；
+- source/dependency invalidation；
+- end-to-end coding correctness。
+
+Phase8必须另行版本化规划，不在V4中预先承诺矩阵。
+
+Phase7 schema必须提前采集足以判断Phase8触发条件的forward-compatible字段：
+
+- per-role/per-artifact latency与hit；
+- host transfer/overlap；
+- concurrency-ready identifiers；
+- source/revision/invalidation metadata。
+
+## 10. 双模型Review制度
+
+Reviewer：
+
+- GPT-5.6 Sol / Max Thinking / long context；
+- Claude Opus 5 / Max Thinking / long context。
+
+里程碑：
+
+1. V4定稿；
+2. Closeout完成；
+3. Phase6 allocator完成；
+4. Phase6 capacity pilot完成；
+5. Phase6 exit；
+6. Phase7 recovery/scheduler；
+7. Phase7 host/prefetch；
+8. 最终结论。
+
+CL4与Phase6里程碑review可并行进行；Phase7 Entry前必须将两条lane的finding合并为一份统一disposition。
+
+流程：
+
+1. 独立review；
+2. atomic findings；
+3. 全文互换；
+4. cross-consolidate；
+5. 主会话disposition。
+
+只有主会话接受为`accepted-blocking-P0`的finding阻塞。override必须记录理由和风险。模型不可用时不得静默替换。
+
+## 11. 预算与Early-stop
+
+执行前同时报告：
+
+- logical cells；
+- server startups；
+- arm rounds；
+- estimated GPU hours。
+
+预估：
+
+| Lane/Phase | logical cells | server starts | GPU时间 |
+| --- | ---: | ---: | ---: |
+| Closeout | `30–34` | `10–15` | 约`0.5h` |
+| Phase6 | `25–30` | `9–11` | 约`0.8–1.0h` |
+| Phase7 practical=NONE | `55–70` | `25–35` | 约`3–5h` |
+| Phase7 practical存在 | `70–92` | `35–50` | 约`5–8h` |
+| primary补restart/async/重试上界 | — | 总计最高约`90` | `10–14h` |
+
+关键路径是`max(Closeout, Phase6工程+pilot) + Phase7`，不是把Closeout与Phase6简单相加。
+
+Early-stop：
+
+1. Closeout screening后只给k0/winner补restart；
+2. Phase6只做validity；
+3. Phase7先1 restart screening；
+4. 只补预声明primary；
+5. 工程INVALID立即停止路径；
+6. practical=NONE时跳过practical scheduler/HiCache；
+7. host feasibility失败则停止host/prefetch；
+8. async不存在则不做prefetch性能。
+
+## 12. 交付物
+
+### Closeout
+
+- correction manifest；
+- R0/R1 qualification；
+- chunk配置/waiver；
+- Phase5重算；
+- dual review。
+
+### Phase6
+
+- shared contract；
+- unified manifest/schema；
+- object DAG；
+- event-clock/S4 spec；
+- allocator/rollback；
+- lifecycle/GC tests；
+- R1-like worst-case footprint report；
+- generic host roundtrip canary；
+- fixed40 capacity pilot；
+- Phase6 exit review。
+
+### Phase7
+
+- candidate manifest；
+- recovery N-amortization；
+- scheduler revalidation/main matrix；
+- host feasibility/demand-load；
+- prefetch functionality/async；
+- variable-size offline optimum；
+- per-restart compact/raw SHA；
+- logical cells/server starts/rounds/GPU-hour budget；
+- final dual review。
+
+## 13. Review Disposition Mapping
+
+| Review范围 | V4锚点 | 状态 |
+| --- | --- | --- |
+| C-01–C-16 Phase4 provenance/fairness | CL0、§5、CL1/CL2 | accepted |
+| C-17–C-23 R1/R3/R4 | CL1、P7-1/P7-2、defer | accepted/conditional |
+| C-24–C-38 Phase5 metrics/prefetch | CL3、P6-4、P7-2/P7-4 | accepted |
+| C-39–C-65 Phase6 architecture/statistics/governance | §5、Phase6、§10–§12 | accepted |
+| PRC-01–PRC-05 artifact/ledger | CL0、§5.4 | accepted |
+| PRC-06 register-and-insert | 条件项 | conditional |
+| PRC-07–PRC-12 fairness/provenance | §5、CL0、P6-0 | accepted |
+| PRC-13 remote persistence | 已完成 | completed |
+| PRC-14–PRC-20 guardrail/GC/tests | §5.9、CL0、P6-3 | accepted |
+| PRC-21 R0/R1/R4 backfill | CL1、P7-1/P7-2 | accepted |
+| PRC-22 chunk factorial | CL2 | accepted/waive allowed |
+| PRC-23 rho robustness | 条件项 | conditional |
+
+## 14. 当前状态
+
+- V3已归档为`IMPLEMENTATION_PLAN_V3_ARCHIVED.md`。
+- V4已完成GPT-5.6 Sol Max Thinking与Claude Opus 5 Max Thinking独立review、全文互换、交叉consolidate与最终delta verification。
+- 双模型确认V4定稿P0已闭合；generic host canary使用`P6-H`避免复用历史`P6-5`标签。
+- Phase6分支未创建。
+- Closeout CL0尚未完成。
+- 未启动新的GPU实验。

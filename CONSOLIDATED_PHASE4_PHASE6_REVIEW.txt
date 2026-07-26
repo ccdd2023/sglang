@@ -1,0 +1,621 @@
+Phase 4–6 Consolidated Review
+=============================
+
+Status
+------
+
+Baseline review frozen at 2026-07-24T20:27:09-07:00.
+
+This file is the persistent review requested by the user. It starts with the
+pre-rerun consolidated audit and will be updated in place with:
+
+1. corrected R2 CacheBlend key-rerun results;
+2. corrected R5 CacheTune key-rerun results;
+3. post-rerun independent reviews from the same two agent configurations;
+4. the final cross-consolidated assessment.
+
+The pre-rerun review used:
+
+- Agent A: GPT-5.6 Sol, long_context, max reasoning.
+- Agent B: Claude Opus 5, long_context, max reasoning. This is the nearest
+  available configuration to the requested Opus 5.5x Thinking setting.
+
+No Phase 6 plan recommendation below is treated as accepted merely because it
+is recorded here.
+
+Pre-rerun Executive Findings
+----------------------------
+
+- A full Phase 4 or Phase 5 rerun was not recommended.
+- R2 and R5 require corrected key reruns before their practical/combined
+  conclusions can be retained.
+- Phase 5's workflow-only and all-reusable/full-trace denominators produce
+  different policy rankings. S4 remains better than S0 under both reviewed
+  denominators, but "S4 is uniquely better" and "Belady did not beat S4"
+  require scope-qualified wording.
+- R5 body2048 combined performance spans roughly 0.698x–1.113x under the
+  audited cost/baseline choices. The historical 1.041x value is one cell in
+  that sensitivity grid, not a unique authoritative point estimate.
+- R2/R5 fresh registrations for long bodies used header + current chunk rather
+  than the full cumulative target causal prefix.
+- Phase 5 prefetch ran with a host tier larger than the working set and a
+  synchronous H2D path, so it is primarily a functionality/overhead canary.
+
+Accepted Rerun Contract for This Follow-up
+------------------------------------------
+
+R2 CacheBlend:
+
+- ratio = 1%;
+- body = 1024 and 2048;
+- header = 64;
+- target rho = 2;
+- source segment size <= 512;
+- raw and fresh chunks registered from their full cumulative causal prefixes;
+- dense and recovery measured in the same server restart with matched
+  target-head residency and pressure construction;
+- warmup = 1 and formal repeats = 2 per arm;
+- 3 independent server restarts;
+- report target-only, adapter-combined, request-path and full-lifecycle cost
+  ledgers separately;
+- compare the deterministic first output token against dense;
+- preserve fallback, eviction, telemetry and pool-reset evidence.
+
+R5 CacheTune:
+
+- body = 1024 and 2048;
+- header = 64;
+- target rho = 2;
+- speed_only controller with the committed hardware calibration;
+- source segment size <= 512;
+- raw and fresh chunks registered from their full cumulative causal prefixes;
+- dense and recovery measured in the same server restart with matched
+  target-head residency and pressure construction;
+- warmup = 1 and formal repeats = 2 per arm;
+- 3 independent server restarts;
+- expose seed-head, raw-register, fresh-register, post-pressure reseed, target,
+  transfer and all derived combined ledgers without silently excluding any;
+- compare the deterministic first output token against dense;
+- preserve controller telemetry, fallback, eviction and pool-reset evidence.
+
+Consolidated Suggestion Register
+--------------------------------
+
+C-01. Clarify that R0 independently reran the numerator while reusing R1's
+dense denominator; embed an R0/R1-k0 cross-check.
+Comment: provenance clarification, not a new performance measurement.
+
+C-02. Describe Phase 4 coverage as one-at-a-time slices rather than a complete
+header/body/rho Cartesian matrix.
+Comment: limits the claim to the cells actually executed.
+
+C-03. State that R0/R1/R2/R4 share one dense denominator and R5 uses another.
+Comment: common-denominator normalization is sensitivity analysis, not a
+substitute for a matched rerun.
+
+C-04. Mark R5 body2048 combined 1.041x as pending and publish its audited
+cost/denominator grid.
+Comment: the grid exposes uncertainty; no grid cell is automatically promoted
+to the new authoritative result.
+
+C-05. Freeze one intent-to-treat cost ledger across all recovery paths.
+Comment: source, fresh adapter, anchor, header, reseed, transfer and target
+boundaries must be defined before ranking.
+
+C-06. Correct the R5 final-SHA coverage statement; the retained artifact has
+no final rho sweep.
+Comment: a documentation correction is separate from deciding to rerun it.
+
+C-07. Label the R1 in-request matrix as old-SHA, no-pressure and different-axis
+evidence.
+Comment: prevents mechanism validation from being merged with pressure results.
+
+C-08. Create an authoritative raw-input manifest and mark stale R1 rho0.9
+files.
+Comment: zero-GPU data governance work.
+
+C-09. Inline recompute/copied/fallback mechanism assertions in each published
+cell.
+Comment: existing pressure numbers require a targeted rerun only if they must
+serve as standalone mechanism proof.
+
+C-10. Standardize result manifests with run_id, source_git_sha, machine,
+server_argv and chunk/segment metadata.
+Comment: should be frozen before new Phase 6 runners.
+
+C-11. Save raw paths, SHA256 values and server logs; version raw data or its
+hash manifest.
+Comment: required for long-term regeneration.
+
+C-12. Make runners reject a source_git_sha that differs from HEAD unless an
+explicit historical-commit mode is selected.
+Comment: converts silent provenance mistakes into visible failures.
+
+C-13. Document the cross-chunk causal-context limitation and correct R2/R5
+fresh target construction.
+Comment: the R2/R5 ground-truth meaning is directly affected; R0/R1/R4 still
+need separate wording as source-context approximation versus defect.
+
+C-14. Rerun R2 body1024/2048 after the causal fix.
+Comment: this is the minimum matrix that determines whether the practical
+combined claim survives.
+
+C-15. Match R5 dense and recovery head residency, pressure state and reseed
+accounting.
+Comment: depends on the cost ledger in C-05.
+
+C-16. Separate body-length and chunk-boundary effects with a
+chunked_prefill_size control.
+Comment: existing evidence is suggestive but not a controlled causal estimate.
+
+C-17. Sweep supported R1 k values at body2048/rho2 before fixing k32 as the
+practical parameter.
+Comment: parameter-selection evidence, not a rejection of the current k32 cell.
+
+C-18. Measure actual R4 N=1/2/4/8 reuse rather than only formula-based
+break-even.
+Comment: tests whether setup objects remain usable under pressure.
+
+C-19. Add deterministic first-token comparison and reserve stronger logit/KL
+guardrails.
+Comment: first-token equality is a low-cost safety signal, not a semantic
+quality claim.
+
+C-20. Execute the R3 blocked runner once and persist a real blocked log entry.
+Comment: audit-chain improvement only.
+
+C-21. Make the R3 gate check dispatch, attention-profile and selected-token
+recompute capabilities.
+Comment: avoids a success-shaped run that only falls back densely.
+
+C-22. List order-sensitive reuse safety as an uncovered Phase 6 axis.
+Comment: scope declaration does not require immediately implementing R3.
+
+C-23. Append a correction for R3 commit 57fc991fc's remote status.
+Comment: preserve history and append the current fact.
+
+C-24. Report both workflow-only and all-reusable request denominators.
+Comment: treats them as different service objectives rather than forcing one
+universal winner.
+
+C-25. Scope the claims that S4 is uniquely better and that Belady did not beat
+S4.
+Comment: does not erase the measured S4-over-S0 improvement.
+
+C-26. Rename S2 as Belady-style and compute a true variable-size offline bound
+if an upper bound is needed.
+Comment: naming and offline optimization are separate zero-GPU tasks.
+
+C-27. State that S1 uses active invocation ordinal.
+Comment: explains the near-order-equivalence of S1 and S2 in the current trace.
+
+C-28. Limit Phase 5 S4 evidence to synthetic static-kind prioritization.
+Comment: constrains transfer to a real approximate-object DAG without changing
+the measured Phase 5 telemetry.
+
+C-29. Report per-formal-trace and per-restart statistics.
+Comment: avoids treating pooled requests as independent experiments.
+
+C-30. Label p95 as an n=20 deterministic-trace order statistic and also report
+it over the broader reusable set with miss counts.
+Comment: makes the coarse, bimodal resolution visible.
+
+C-31. Clamp cache-hit fraction per request rather than after aggregation.
+Comment: small numerical effect, cleaner definition.
+
+C-32. Generate role-level TTFT baselines from existing Phase 5 raw data.
+Comment: zero-GPU exact-only reference for Phase 6.
+
+C-33. Rerun S0/S4 with one fixed 40-object set and capacity-only rho changes.
+Comment: timing remains disputed; run now only if the Phase 5 cross-rho claim
+must stand independently, otherwise fold it into Phase 6.
+
+C-34. Freeze each filler's dead/live identity.
+Comment: necessary for C-33 to remove composition changes.
+
+C-35. Add rho3 S0/S4 restarts.
+Comment: can be included in C-33 rather than run separately.
+
+C-36. Introduce host pressure (rho_host >= 1) before treating prefetch as a
+performance experiment.
+Comment: first prove that host misses or evictions exist.
+
+C-37. Add full workflow wall-clock to prefetch measurements.
+Comment: current raw data cannot reconstruct the inter-request synchronous cost.
+
+C-38. Record hicache_ratio=4.0 with the Phase 5 prefetch result.
+Comment: explains host-tier saturation.
+
+C-39. Treat approximate-store byte budgeting, reverse pressure and demotion as
+new P6-1 subsystem work.
+Comment: not merely metadata wiring.
+
+C-40. Include at least two object lengths in the fixed Phase 6 workload.
+Comment: exposes size-aware victim behavior at added design complexity.
+
+C-41. Feed S3 with measured Phase 4 recovery profiles.
+Comment: becomes actionable after P6-3 measurements exist.
+
+C-42. Replace the matched-state varying-suffix assumption and define how E0/E4
+obtain stage-specific exact entries.
+Comment: body-before-suffix remains exactly matchable.
+
+C-43. Freeze a complete state ledger before each target dispatch.
+Comment: makes residency, pressure and setup differences explicit.
+
+C-44. Add approximate-origin provenance for native-system writeback.
+Comment: prevents later approximate entries from being counted as exact hits.
+
+C-45. Define one cross-store LRU event clock.
+Comment: event ordinals are reproducible; wall-clock timestamps require more
+care.
+
+C-46. Freeze S4 class order, DAG edge meaning and atomic victim closures.
+Comment: design contract against orphaned or circularly-valued objects.
+
+C-47. Record resident and temporary-peak physical bytes/pages.
+Comment: peak reservations can cause OOM even when steady-state rho looks safe.
+
+C-48. Add a cross-store allocation-failure injection gate to P6-1.
+Comment: catches rollback/lease/generation leaks before the GPU matrix.
+
+C-49. Pilot R2-like and R4-like worst physical footprints, not only R0.
+Comment: feasibility cells, not a full performance matrix.
+
+C-50. Record requested and observed capacity and predefine alignment tolerance.
+Comment: exact equality may be impossible under page alignment.
+
+C-51. Remove the PROJECT/plan T0 terminology split.
+Comment: fact-source consistency, not a runtime defect.
+
+C-52. Preregister the recovery-winner rule and confirm the winner with new
+P6-4 rounds.
+Comment: separates selection from final estimation.
+
+C-53. Quantify fallback, footprint and victim-correctness gates separately.
+Comment: these have different units and should not be hidden in one score.
+
+C-54. Use one p95 degradation rule everywhere.
+Comment: current wording can produce opposite pass/fail decisions.
+
+C-55. State uncertainty and multiple-comparison handling for qualification
+gates.
+Comment: transparency is required even if a full hypothesis-testing framework
+is not used.
+
+C-56. Pair D0/E0/E4 within each body/rho/restart block.
+Comment: controls session drift at the cost of more baseline cells.
+
+C-57. Fix host budget and write policy, pair H4/RH4, and record D2H/H2D plus
+temporary peaks.
+Comment: equal ratios alone do not guarantee equal physical budgets.
+
+C-58. Split synchronous functionality/safety and asynchronous performance
+prefetch gates.
+Comment: prevents the synchronous implementation from answering an impossible
+performance question.
+
+C-59. Record CUDA-event overlap only after a true asynchronous path exists.
+Comment: not meaningful for the current synchronous canary.
+
+C-60. Decide whether prefetch means within-request demand-load pipelining or
+cross-request/concurrent prefetch.
+Comment: the serial client design cannot test both.
+
+C-61. Move metrics/schema/statistics/quality implementation before P6-2.
+Comment: reduces broad reruns caused by late instrumentation changes.
+
+C-62. Preregister the final primary cells.
+Comment: pairs with C-52 to avoid post-selection restart choices.
+
+C-63. Separate INVALID engineering outcomes from NEGATIVE mechanism outcomes.
+Comment: allocator failure and a valid negative policy result are not the same.
+
+C-64. State that restart mostly resamples timing noise, or introduce paired
+decision-level workload seeds.
+Comment: changing seeds also changes the workload and must remain paired across
+policies.
+
+C-65. Put the authority documents under version control and push them only
+after explicit repository/identity verification.
+Comment: separate governance action, not an automatic consequence of the
+experimental recommendations.
+
+Open Questions Before the Rerun
+-------------------------------
+
+The user has now resolved the execution question for R2 and R5 by requesting
+the reruns. These six broader review questions remain open:
+
+1. whether to run the fixed-40-object Phase 5 matrix now or in Phase 6;
+2. whether R0 needs more independent cells beyond the R1-k0 proxy;
+3. whether R1 pressure cells need standalone mechanism-counter reruns;
+4. whether any prefetch performance rerun is worth doing after a host-pressure
+   canary;
+5. how to classify cumulative-context limitations for R0/R1/R4;
+6. which Phase 6 recommendations, if any, will be accepted after the new R2/R5
+   evidence is reviewed.
+
+Post-rerun Results
+------------------
+
+Both corrected key reruns completed on 2026-07-25 UTC and were recorded in
+the central log as:
+
+- `phase4-r2-key-rerun-20260725T042040Z`
+- `phase4-r5-key-rerun-20260725T042651Z`
+
+Provenance:
+
+- R2 implementation `c73c9c5ab3ab705996c0ff901314a5fe41e1f8a6`
+  and result `e36f1529b838c12a9eb2af7ba4dde91ae9ec124b`.
+- R5 implementation `46d1f85c22a98b7305b4f3ef299da56c65d2a025`
+  and result `abcedd62b5a5d801742734e300a5df21e1436737`.
+- Raw SHA256:
+  - R2: `bd6452f7c1c9e34e79e2d7435dae9c350fb89effdb50edeed2f77dc6f819af3a`
+  - R5: `007099d686cc9a1ff24d63182009be421d1f9a1de770d9a783c935a24e81c262`
+- The committed artifacts are byte-identical to their raw `result.json`.
+- Both runners reject `source_git_sha != HEAD` and refuse to overwrite an
+  existing output file.
+- Both result branches were explicitly pushed as `ccdd2023`; remote SHAs
+  exactly equal `e36f1529b...` and `abcedd62b...`.
+
+Contract compliance:
+
+- 3 independent server restarts per path.
+- Per body/restart/arm: 1 discarded warmup and 2 formal repeats.
+- 6 formal samples per arm per body.
+- Dense and recovery run in the same server restart with alternating arm order.
+- Every chunk is incrementally materialized from
+  `header + body[:chunk_end]` in an isolated `extra_key` namespace, then
+  registered from exact KV at its true absolute position.
+- The real target runs in the default namespace. Dense targets report exactly
+  64 cached tokens, proving that the auxiliary materialization namespace is
+  not visible to the measured target.
+- Head seed and post-pressure reseed are executed and charged in both arms.
+- All 12 formal pairs per path match on the first output token.
+- R2 reports 10/20 selected tokens for body1024/2048, 27 recomputed layers and
+  one precomputed-adapter use per target.
+- R5 reports 85/170 selected tokens, 27 recomputed layers, one
+  precomputed-adapter use and an explicit zero dense-fallback counter.
+- Every round observes real eviction; all 3/3 final pool invariants pass for
+  both paths.
+
+Measured results:
+
+Path  Body  target-only  adapter-combined  request-path  full-lifecycle
+----  ----  -----------  ----------------  ------------  --------------
+R2    1024  1.659x       0.441x            0.526x        0.324x
+R2    2048  2.044x       0.407x            0.434x        0.246x
+R5    1024  1.614x       0.449x            0.527x        0.327x
+R5    2048  1.978x       0.406x            0.433x        0.246x
+
+Between-restart dispersion of target-only speedup is 0.27%–1.23%. The
+ratio-of-medians and median-paired-ratio estimators differ by at most 0.43%.
+
+Review-derived quantities, not yet embedded in the result artifacts:
+
+- Formula break-even reuse count:
+  - body2048: N=4 for fresh-only setup and N=8 including raw setup;
+  - body1024: N=5 and N=9 respectively.
+- Under an idealized one-request materialize/register protocol, the projected
+  break-even falls to approximately N=2 and N=4.
+- The current two-request protocol spends 48.0%–49.3% of registration time in
+  the second register request. That request still performs a real 512-token KV
+  copy, so the entire amount cannot be treated as removable HTTP overhead.
+- Approximate-path cold-start target time in restart 0 is about 2.06–2.07s,
+  roughly 11x the formal steady-state target.
+
+Post-rerun Agent Review
+-----------------------
+
+The same reviewer instances were reused:
+
+- Reviewer A: GPT-5.6 Sol, long context, max reasoning.
+- Reviewer B: Claude Opus 5, long context, max reasoning.
+
+Each independently audited the new code, committed and raw results, then read
+the other review and produced a cross-consolidated draft.
+
+Agreed conclusions:
+
+1. The cumulative causal-prefix correction is real and mechanically
+   verifiable.
+2. The historical target-only gains are confirmed.
+3. The historical single-use combined gains are refuted:
+   - R2 body2048: 1.14x -> 0.407x
+   - R5 body2048: 1.04x -> 0.406x
+4. The dominant change is causally faithful fresh preparation, not merely
+   reseed accounting or dense-denominator choice.
+5. Neither R2 nor R5 becomes a practical candidate. Both remain precomputed
+   target oracles.
+6. A forced rerun of the same matrix is not required.
+7. First-token equality excludes only coarse corruption and supports no
+   semantic-quality claim.
+
+New cross-review interpretation:
+
+- R2 and R5 lie on the same speed-versus-repair-ratio curve. R2 repairs 1%,
+  while R5 repairs about 8.3%.
+- The R5-R2 target difference is 0.128–0.146ms per additional selected token,
+  within the marginal range from R2's own historical ratio sweep.
+- Extrapolating R2 to 85 selected tokens predicts 190.7ms, essentially equal
+  to R5's measured 190.694ms.
+- Therefore, a statement that R2 is intrinsically faster or that R5 is
+  performance-dominated is unsupported unless repair ratio is matched.
+  R5 may still be excluded from the main matrix because it is redundant with
+  the R2 precomputed track and has no practical-ledger advantage.
+
+Remaining asymmetries and evidence limits:
+
+- Recovery setup leaves 2250–4306 additional evictable exact-namespace tokens,
+  while filler budgeting subtracts only non-evictable `kv_used_tokens`.
+  Recovery rounds consequently evict 10.6%–22.4% more tokens.
+- R5 dense and recovery arms generate different filler token content because
+  the salt includes the arm label. R2 uses one filler family for both arms.
+- R2's fallback metric is unavailable, not explicitly zero. Its substantive
+  success evidence is the hard full-prefix cached-token assertion plus
+  mechanism counters.
+- `full_lifecycle` excludes pressure generation, server startup/shutdown and
+  namespace cleanup; it is an N=1 recovery-object boundary, not the wall-clock
+  lifetime of the whole experiment.
+- The new resident-rho value near 0.96–0.99 is not the same quantity as the
+  historical demand/oversubscription rho near 2.1.
+- The old positive-combined artifacts remain historical evidence and require
+  explicit supersession pointers before being safely cited.
+
+Status changes for the original C-01 through C-65 register:
+
+- C-04: superseded by the corrected reruns.
+- C-12: resolved for the new R2/R5 runners.
+- C-14: resolved.
+- C-13: resolved for R2/R5; still open for R0/R1/R4.
+- C-03, C-05, C-08, C-09, C-10, C-11, C-15, C-19, C-43, C-49,
+  C-50, C-56, C-61, C-62, C-63 and C-64: partially resolved.
+- C-06, C-16, C-29, C-47, C-52 and C-55: still open.
+- All other original suggestions retain their previous status.
+
+Post-rerun suggestion register:
+
+PRC-01. Add `superseded_by` pointers to the old R2/R5 key-cell artifacts.
+Comment: prevents the refuted 1.138x/1.041x combined values from being cited
+without context. No rerun.
+
+PRC-02. Record both demand rho and resident rho with explicit definitions.
+Comment: removes a same-name/different-quantity comparison error. No rerun.
+
+PRC-03. Rename `full_lifecycle` or list its excluded components.
+Comment: the current name is broader than the measured cost boundary. No rerun.
+
+PRC-04. Add formula and measured N=1/2/4/8 amortization ledgers.
+Comment: N determines whether a precomputed path is useful after setup. Formula
+projection is zero-GPU; measured N is targeted and only needed for deployment
+or Phase 6 oracle claims.
+
+PRC-05. Label setup cost as the current two-request materialize/register
+protocol and split materialization, KV-copy and protocol overhead.
+Comment: current setup is an implementation cost, not a paper-algorithm lower
+bound. No rerun for the existing split.
+
+PRC-06. Evaluate a one-request `register_and_insert` style protocol.
+Comment: may reduce setup latency, but the register request still copies KV and
+cannot be assumed free. New prototype, not a rerun of current results.
+
+PRC-07. Include both setup-used and setup-evictable tokens in pressure
+alignment.
+Comment: current target conclusions are far from a sign boundary, but
+`matched pressure` should be qualified. Optional targeted control.
+
+PRC-08. Use one paired filler manifest for R5 arms.
+Comment: strengthens within-restart pairing. Optional targeted control.
+
+PRC-09. Mark R2 fallback verification as indirect when the counter is absent,
+or add the missing explicit counter.
+Comment: avoids a success-shaped `None in (None, 0)` assertion. Reporting fix
+is zero-GPU; explicit evidence requires one targeted cell.
+
+PRC-10. Add paired ratios/deltas and per-restart estimates to the manifests.
+Comment: separates within- and between-restart variation. Zero-GPU.
+
+PRC-11. Embed server plugin environment and raw SHA256 in each artifact.
+Comment: improves long-term reproducibility. Zero-GPU.
+
+PRC-12. Record rerun-specific CPU test commands and pass counts in the central
+log.
+Comment: makes test execution provenance persistent. Zero-GPU.
+
+PRC-13. Persist result branches remotely.
+Comment: resolved after agent review; `research/cacheblend` and
+`research/cachetune` now match remote SHAs `e36f1529b...` and `abcedd62b...`.
+
+PRC-14. Keep the first-token guardrail scope explicit and optionally strengthen
+it with multiple tokens or log probabilities.
+Comment: wording is mandatory; a stronger check is conditional.
+
+PRC-15. Test extra-key branch lifecycle without per-round flush.
+Comment: current rounds rely on flush, so production long-run GC remains
+unproven. Zero-GPU lifecycle test first.
+
+PRC-16. Withdraw R2-versus-R5 performance ranking unless repair ratio is
+matched.
+Comment: the observed target difference is a configuration difference, not
+mechanism superiority. No rerun is needed if the ranking claim is removed.
+
+PRC-17. Extend measured N=1/2/4/8 amortization to every P6-3 candidate.
+Comment: prevents N=1 setup cost from automatically eliminating reusable
+precomputed tracks. Phase 6 plan recommendation, not yet accepted.
+
+PRC-18. Treat approximate-source host demotion as a known P6-5 blocker.
+Comment: an early host-tier R5 run added H2D pressure and OOMed; require a
+feasibility canary before the planned matrix.
+
+PRC-19. Report approximate-path cold-start separately.
+Comment: existing raw data is sufficient for zero-GPU extraction.
+
+PRC-20. Add CPU tests for ledger identities and pressure compensation.
+Comment: current tests cover causal geometry but not reporting arithmetic.
+
+PRC-21. Backfill the causal/paired/four-ledger/guardrail contract to R0/R1/R4
+before publishing a cross-path ranking.
+Comment: a plan can be written now; rerun only if those paths remain in the
+same comparison table.
+
+PRC-22. Retain the chunk-boundary factorial experiment.
+Comment: new paired dense data strengthens, rather than removes, the body
+length/chunking confound.
+
+PRC-23. Add rho1.1/rho3 only if a rho-robustness claim is needed.
+Comment: current corrected conclusions are scoped to rho2.
+
+No mandatory repeated R2/R5 matrix is recommended. Conditional minimal
+experiments are:
+
+1. matched repair ratio + matched pressure, only if retaining any R2/R5 speed
+   ranking;
+2. real N=1/2/4/8 sequence, if retaining the precomputed-oracle track for
+   Phase 6;
+3. a one-request registration prototype, if estimating intrinsic preparation
+   cost;
+4. chunk-size factorial, if publishing a body-length causal claim;
+5. rho1.1/rho3, if publishing rho robustness;
+6. one R2 cell after exposing an explicit fallback counter, if direct
+   zero-fallback evidence is required.
+
+Final Updated Assessment
+------------------------
+
+Phase 4 recovery-track status after the corrected key reruns:
+
+- R0 Raw+RoPE: unchanged speed ceiling; not measured under the corrected
+  causal/paired/four-ledger contract.
+- R1 EPIC k32: remains the only genuine in-request practical candidate
+  measured so far, but is not directly comparable to corrected R2/R5 until the
+  new contract is backfilled.
+- R2 CacheBlend 1%: corrected precomputed target oracle. Body2048 target-only
+  is 2.044x; single-use adapter-combined is 0.407x. Formula break-even is
+  approximately 4–8 reuses depending on whether raw setup is included. It is
+  not a practical candidate.
+- R5 CacheTune: corrected precomputed target oracle. Body2048 target-only is
+  1.978x; adapter-combined is 0.406x. Its target difference from R2 is
+  explained by its 8.3% repair ratio versus R2's 1%, so exclusion should be
+  based on redundancy and absent practical-ledger gain, not an intrinsic speed
+  ranking.
+- R3 Cache-Craft: unchanged defer; order-sensitive safety remains uncovered.
+- R4 KVCOMM: unchanged anchor diagnostic; break-even remains formula-based.
+
+Consequences for the latest Phase 6 plan, recorded as recommendations rather
+than accepted changes:
+
+1. P6-3 should use request-path, recovery-object lifecycle and explicit
+   N=1/2/4/8 amortization, not target-only speed, to classify candidates.
+2. P6-4 should use paired-within-restart baselines.
+3. P6-5 approximate-source host demotion needs a feasibility canary before the
+   main matrix.
+4. R0/R1/R4 need the corrected causal/paired/four-ledger/guardrail contract
+   before any new cross-path ranking.
+5. Any R2/R5 mechanism ranking must match repair ratio and pressure
+   composition; otherwise both should be treated as one redundant precomputed
+   oracle family.
+
+No result in this file promotes R2 or R5 to practical winner. No Phase 6 plan
+change is accepted merely because it is recorded in this review.
