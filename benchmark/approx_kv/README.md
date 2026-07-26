@@ -78,6 +78,13 @@ The result reports target-only, fresh-adapter-combined, request-path and
 full-lifecycle ledgers separately, plus first-token equality, mechanism
 counters, eviction, fallback and pool-reset evidence.
 
+The old body1024/body2048 ratio-1% cells in `sm75-unified-pressure.json` are
+superseded by this rerun. Their historical positive body2048 combined result
+must not be cited as the current result. Because this branch does not expose an
+explicit dense-fallback counter, the corrected artifact labels fallback as
+`indirect_full_prefix_and_mechanism_counters` rather than silently treating a
+missing metric as zero.
+
 Committed result:
 
 `benchmark/approx_kv/results/phase4-r2/sm75-causal-key-rerun.json`

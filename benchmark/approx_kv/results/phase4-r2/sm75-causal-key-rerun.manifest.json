@@ -1,0 +1,26 @@
+{
+  "artifact": "benchmark/approx_kv/results/phase4-r2/sm75-causal-key-rerun.json",
+  "artifact_sha256": "84d280441359c0940f48e9f5fff96b2e308c10779f6bcbf116c7530f08cbbbce",
+  "artifact_sha256_before_closeout_annotation": "bd6452f7c1c9e34e79e2d7435dae9c350fb89effdb50edeed2f77dc6f819af3a",
+  "implementation_commit": "c73c9c5ab3ab705996c0ff901314a5fe41e1f8a6",
+  "result_commit": "e36f1529b838c12a9eb2af7ba4dde91ae9ec124b",
+  "raw_result": "/home/chris/Workspaces/kvcache-research/results/phase4-r2-corrected-c73c9c5ab/result.json",
+  "server_logs": [
+    "/home/chris/Workspaces/kvcache-research/results/phase4-r2-corrected-c73c9c5ab/server-restart0.log",
+    "/home/chris/Workspaces/kvcache-research/results/phase4-r2-corrected-c73c9c5ab/server-restart1.log",
+    "/home/chris/Workspaces/kvcache-research/results/phase4-r2-corrected-c73c9c5ab/server-restart2.log"
+  ],
+  "server_plugin_env": {
+    "SGLANG_APPROX_KV_CACHEBLEND": "1",
+    "SGLANG_APPROX_KV_CORE": "1",
+    "SGLANG_CACHEBLEND_FIRST_RECOMPUTE_LAYER": "1",
+    "SGLANG_CACHEBLEND_PROBE_LAYERS": "0",
+    "SGLANG_CACHEBLEND_RATIO": "0.01",
+    "SGLANG_ENABLE_UNIFIED_RADIX_TREE": "1"
+  },
+  "targeted_cpu_test": {
+    "command": "python -m pytest -q test/registered/unit/bench/test_cacheblend_pressure_runner.py test/registered/unit/bench/test_cacheblend_key_rerun.py",
+    "result": "29 passed, 24 subtests passed",
+    "source_commit": "c73c9c5ab3ab705996c0ff901314a5fe41e1f8a6"
+  }
+}

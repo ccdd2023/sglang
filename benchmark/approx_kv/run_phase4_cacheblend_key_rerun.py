@@ -528,6 +528,14 @@ def summarize(results: list[dict[str, Any]], body_tokens: tuple[int, ...]) -> di
         cache_full = [
             row["cacheblend"]["costs"]["full_lifecycle_ms"] for row in paired_rows
         ]
+        fallback_metric_available = all(
+            row["cacheblend"]["target_delta"]["fallback_metric_available"]
+            for row in paired_rows
+        )
+        explicit_no_fallback = fallback_metric_available and all(
+            row["cacheblend"]["target_delta"]["dense_fallbacks"] == 0
+            for row in paired_rows
+        )
         summary[str(body)] = {
             "formal_samples_per_arm": len(paired_rows),
             "dense_target_p50_ms": median(dense_target),
@@ -551,9 +559,14 @@ def summarize(results: list[dict[str, Any]], body_tokens: tuple[int, ...]) -> di
                 for row in paired_rows
                 for arm in ("dense", "cacheblend")
             ),
-            "all_cacheblend_rounds_no_fallback": all(
-                row["cacheblend"]["target_delta"]["dense_fallbacks"] in (None, 0)
-                for row in paired_rows
+            "fallback_verification": (
+                "explicit_zero"
+                if explicit_no_fallback
+                else "indirect_full_prefix_and_mechanism_counters"
+            ),
+            "fallback_metric_available": fallback_metric_available,
+            "all_cacheblend_rounds_no_fallback": (
+                explicit_no_fallback if fallback_metric_available else None
             ),
         }
     return summary
