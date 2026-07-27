@@ -1,0 +1,11 @@
+{
+  "error": "ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))",
+  "execution_status": "failed",
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "phase": "P6-H",
+  "raw_sha256": "9fcdd661a9372a073c76d53d4286ce7d28abaa4231660ed5ff09bcfe3fd54eca",
+  "run_id": "p6-h-20260727T021526Z",
+  "schema_version": 1,
+  "source_git_sha": "c487e36af5f7ce4da556da1b88c85df750a0b14d",
+  "status": "invalid"
+}

@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "artifact": "p6h-pressure-corruption-isolation",
+  "phase": "P6-H",
+  "status": "invalid",
+  "classification": "P0 correctness defect in approximate KV reuse under device pressure",
+  "source_git_sha": "5e47904ecba6b8d7b5d03693277360a1cecfa679",
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "model": "Qwen/Qwen3-0.6B",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "harness": "results/phase6-gpu/tools/diag_p6h_round.py",
+  "server": {
+    "policy": "hierarchical",
+    "chunked_prefill_size": 4096,
+    "mem_fraction_static": 0.35,
+    "plugin_env": {
+      "SGLANG_APPROX_KV_CORE": "1",
+      "SGLANG_APPROX_KV_HOST": "1",
+      "SGLANG_APPROX_KV_CROSS_STORE": "1",
+      "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT": "1",
+      "SGLANG_APPROX_KV_BYTES_PER_TOKEN": "114688",
+      "SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "8589934592"
+    }
+  },
+  "workload": {
+    "header_tokens": 64,
+    "body_tokens": 1024,
+    "segment_tokens": 512,
+    "max_new_tokens": 8,
+    "note": "the source context and the target context are identical, so an exact copy must reproduce the dense output bit for bit"
+  },
+  "reference_dense_output_ids": [13, 220, 17, 15, 17, 18, 13, 15],
+  "isolation_matrix": [
+    {
+      "run": "diag4",
+      "max_total_tokens": 8000,
+      "competing_registration": true,
+      "registered_residency": "device",
+      "demotion_observed": false,
+      "h2d_observed": false,
+      "recover_output_ids": [13, 220, 17, 15, 17, 18, 13, 15],
+      "matches_dense": true
+    },
+    {
+      "run": "diag5",
+      "max_total_tokens": 8000,
+      "competing_registration": false,
+      "registered_residency": "host",
+      "demotion_observed": false,
+      "h2d_observed": true,
+      "recover_output_ids": [13, 220, 17, 15, 17, 18, 13, 15],
+      "matches_dense": true
+    },
+    {
+      "run": "diag7",
+      "max_total_tokens": 3400,
+      "competing_registration": false,
+      "registered_residency": "host",
+      "demotion_observed": false,
+      "h2d_observed": true,
+      "recover_output_ids": [13, 220, 17, 15, 17, 18, 13, 15],
+      "matches_dense": true
+    },
+    {
+      "run": "diag3",
+      "max_total_tokens": 3400,
+      "competing_registration": true,
+      "registered_residency": "device",
+      "demotion_observed": true,
+      "h2d_observed": true,
+      "recover_output_ids": [13, 220, 220, 17, 220, 220, 17, 220],
+      "matches_dense": false
+    },
+    {
+      "run": "diag6",
+      "max_total_tokens": 3400,
+      "competing_registration": true,
+      "registered_residency": "host",
+      "demotion_observed": false,
+      "h2d_observed": true,
+      "recover_output_ids": [13, 220, 220, 17, 220, 220, 17, 220],
+      "matches_dense": false
+    }
+  ],
+  "conclusion": {
+    "trigger": "a competing approximate registration combined with tight device capacity, i.e. real device memory pressure at the moment the reuse request runs",
+    "not_the_trigger": [
+      "residency tier of the reused object (device and host both corrupt under pressure and both are correct without it)",
+      "device to host demotion (diag6 corrupts with no demotion at all)",
+      "tight capacity by itself (diag7 is correct at the same 3400 tokens without the competing registration)",
+      "prefill path numerical nondeterminism (see control-exact-cache-guardrail.json, 16/16 exact matches)"
+    ],
+    "mechanical_evidence_that_still_passes": [
+      "host export tokens and bytes",
+      "cross_store_demoted_bytes_total",
+      "demand H2D tokens and bytes",
+      "store record, device byte, host byte and lease gauges",
+      "zero cross_store_reservation_failures_total",
+      "zero orphans and a clean post-round reset"
+    ],
+    "failing_evidence": "recovered output diverges from the matched dense arm although the source and target contexts are identical",
+    "suspected_area": "the device slots that back a pinned approximate reuse source are not protected from the allocation and eviction performed for the same request in allocate_recovery_slots; this needs a dedicated fix and dual review, and was deliberately not patched speculatively"
+  },
+  "impact": {
+    "p6_h": "the generic host roundtrip canary cannot be marked valid; Phase 6 Exit is blocked on data fidelity, not on accounting",
+    "cl1": "CL1 ran every arm at rho_logical_demand=2.0, so all approximate arms executed under pressure; the CL1 quality_8_token_match and first_token_match failures are confounded with this defect and cannot be attributed to cross-context approximation error",
+    "cl1_verdict": "practical family = NONE remains the procedurally correct result of the frozen promotion rule, but its causal attribution is invalid until this defect is fixed and CL1 is re-run",
+    "phase7": "Phase 7 must not start on this substrate; the recovery correctness contract is unproven under pressure"
+  }
+}

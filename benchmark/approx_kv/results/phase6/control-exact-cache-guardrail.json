@@ -1,0 +1,574 @@
+{
+  "chunked_prefill_size": 1024,
+  "control": "exact_radix_cache_hit_versus_dense_prefill",
+  "header_tokens": 64,
+  "max_new_tokens": 8,
+  "purpose": "isolate prefill-path numerical nondeterminism from approximate KV recovery error in the CL1 and P6-H output-equality guardrail",
+  "rows": [
+    {
+      "body_tokens": 1024,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        82,
+        198,
+        271,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "exact_cached_tokens": 1088,
+      "exact_output_ids": [
+        82,
+        198,
+        271,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "round_index": 0,
+      "warm_cached_tokens": 0
+    },
+    {
+      "body_tokens": 1024,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "exact_cached_tokens": 1088,
+      "exact_output_ids": [
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "round_index": 1,
+      "warm_cached_tokens": 0
+    },
+    {
+      "body_tokens": 1024,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        82,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "exact_cached_tokens": 1088,
+      "exact_output_ids": [
+        82,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "round_index": 2,
+      "warm_cached_tokens": 0
+    },
+    {
+      "body_tokens": 1024,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        3365,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "exact_cached_tokens": 1088,
+      "exact_output_ids": [
+        3365,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "round_index": 3,
+      "warm_cached_tokens": 0
+    },
+    {
+      "body_tokens": 1024,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        82,
+        198,
+        14731,
+        522,
+        1851,
+        397,
+        522,
+        1726
+      ],
+      "exact_cached_tokens": 1088,
+      "exact_output_ids": [
+        82,
+        198,
+        14731,
+        522,
+        1851,
+        397,
+        522,
+        1726
+      ],
+      "round_index": 4,
+      "warm_cached_tokens": 0
+    },
+    {
+      "body_tokens": 1024,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        271,
+        1112,
+        323,
+        773,
+        389,
+        1112,
+        4710,
+        1986
+      ],
+      "exact_cached_tokens": 1088,
+      "exact_output_ids": [
+        271,
+        1112,
+        323,
+        773,
+        389,
+        1112,
+        4710,
+        1986
+      ],
+      "round_index": 5,
+      "warm_cached_tokens": 0
+    },
+    {
+      "body_tokens": 1024,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        82,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "exact_cached_tokens": 1088,
+      "exact_output_ids": [
+        82,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "round_index": 6,
+      "warm_cached_tokens": 0
+    },
+    {
+      "body_tokens": 1024,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        657,
+        17642,
+        197,
+        197,
+        322,
+        197,
+        197,
+        322
+      ],
+      "exact_cached_tokens": 1088,
+      "exact_output_ids": [
+        657,
+        17642,
+        197,
+        197,
+        322,
+        197,
+        197,
+        322
+      ],
+      "round_index": 7,
+      "warm_cached_tokens": 0
+    },
+    {
+      "body_tokens": 2048,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        349,
+        198,
+        14731,
+        322,
+        220,
+        16,
+        13,
+        4230
+      ],
+      "exact_cached_tokens": 2112,
+      "exact_output_ids": [
+        349,
+        198,
+        14731,
+        322,
+        220,
+        16,
+        13,
+        4230
+      ],
+      "round_index": 0,
+      "warm_cached_tokens": 0
+    },
+    {
+      "body_tokens": 2048,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        578,
+        1262,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "exact_cached_tokens": 2112,
+      "exact_output_ids": [
+        578,
+        1262,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "round_index": 1,
+      "warm_cached_tokens": 0
+    },
+    {
+      "body_tokens": 2048,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "exact_cached_tokens": 2112,
+      "exact_output_ids": [
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "round_index": 2,
+      "warm_cached_tokens": 0
+    },
+    {
+      "body_tokens": 2048,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        82,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "exact_cached_tokens": 2112,
+      "exact_output_ids": [
+        82,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "round_index": 3,
+      "warm_cached_tokens": 0
+    },
+    {
+      "body_tokens": 2048,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        82,
+        271,
+        14731,
+        522,
+        611,
+        397,
+        522,
+        611
+      ],
+      "exact_cached_tokens": 2112,
+      "exact_output_ids": [
+        82,
+        271,
+        14731,
+        522,
+        611,
+        397,
+        522,
+        611
+      ],
+      "round_index": 4,
+      "warm_cached_tokens": 0
+    },
+    {
+      "body_tokens": 2048,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "exact_cached_tokens": 2112,
+      "exact_output_ids": [
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "round_index": 5,
+      "warm_cached_tokens": 0
+    },
+    {
+      "body_tokens": 2048,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        198,
+        14731,
+        220,
+        197,
+        322,
+        220,
+        197,
+        322
+      ],
+      "exact_cached_tokens": 2112,
+      "exact_output_ids": [
+        198,
+        14731,
+        220,
+        197,
+        322,
+        220,
+        197,
+        322
+      ],
+      "round_index": 6,
+      "warm_cached_tokens": 0
+    },
+    {
+      "body_tokens": 2048,
+      "comparison": {
+        "compared": 8,
+        "first_token_match": true,
+        "matched": 8,
+        "prefix": 8,
+        "rate": 1.0
+      },
+      "dense_cached_tokens": 0,
+      "dense_output_ids": [
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "exact_cached_tokens": 2112,
+      "exact_output_ids": [
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198,
+        198
+      ],
+      "round_index": 7,
+      "warm_cached_tokens": 0
+    }
+  ],
+  "schema_version": 1,
+  "summary": {
+    "1024": {
+      "exact_cached_tokens": [
+        1088
+      ],
+      "exact_output_match_rate": 1.0,
+      "first_token_match_rate": 1.0,
+      "mean_token_consistency_rate": 1.0,
+      "rounds": 8
+    },
+    "2048": {
+      "exact_cached_tokens": [
+        2112
+      ],
+      "exact_output_match_rate": 1.0,
+      "first_token_match_rate": 1.0,
+      "mean_token_consistency_rate": 1.0,
+      "rounds": 8
+    }
+  }
+}

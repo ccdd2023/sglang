@@ -1,0 +1,11 @@
+{
+  "error": "RuntimeError: sglang:approx_kv_h2d_tokens_total did not cover the body: {'sglang:approx_kv_host_export_tokens_total': 1024.0, 'sglang:approx_kv_host_export_bytes_total': 117440512.0, 'sglang:approx_kv_h2d_tokens_total': None, 'sglang:approx_kv_h2d_bytes_total': None, 'sglang:approx_kv_host_export_duration_seconds_sum': 0.09492643900011899, 'sglang:approx_kv_h2d_duration_seconds_sum': None, 'sglang:approx_kv_copied_tokens_total': None, 'sglang:approx_kv_dense_fallback_total': None, 'sglang:cross_store_demoted_bytes_total': 117440512.0, 'sglang:cross_store_reservation_failures_total': None}",
+  "execution_status": "failed",
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "phase": "P6-H",
+  "raw_sha256": "7fe4a30578b79166ade26f8d3eafe009b5035b2645daa58bf202eac3e625ba9a",
+  "run_id": "p6-h-20260727T022130Z",
+  "schema_version": 1,
+  "source_git_sha": "c487e36af5f7ce4da556da1b88c85df750a0b14d",
+  "status": "invalid"
+}
