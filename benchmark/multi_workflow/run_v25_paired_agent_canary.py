@@ -56,6 +56,9 @@ V23 = "coding_post_mutation_target_prefix_v23"
 ARMS = (V23, GENERAL)
 PORT = 32950
 MEM_FRACTION_STATIC = 0.80
+REQUEST_TIMEOUT_SECONDS = int(
+    os.environ.get("IMPACTKV_REQUEST_TIMEOUT_SECONDS", "900")
+)
 
 
 def _dataset_rows() -> list[dict[str, Any]]:
@@ -90,6 +93,7 @@ def _model(
     value = copy.deepcopy(config["model"])
     value["reuse_arm"] = arm
     value["model_kwargs"]["api_base"] = f"http://127.0.0.1:{PORT}/v1"
+    value["model_kwargs"]["timeout"] = REQUEST_TIMEOUT_SECONDS
     value["reuse_manifest_path"] = manifest
     value["reuse_client_ledger_path"] = ledger
     return get_model(config=value)  # type: ignore[return-value]
@@ -174,6 +178,7 @@ def register(output: Path) -> dict[str, Any]:
             "container_clone": "docker commit after shared tool observation",
             "same_server": True,
             "mem_fraction_static": MEM_FRACTION_STATIC,
+            "request_timeout_seconds": REQUEST_TIMEOUT_SECONDS,
             "prefetch": False,
             "reference_patch_or_future_output_used": False,
         },

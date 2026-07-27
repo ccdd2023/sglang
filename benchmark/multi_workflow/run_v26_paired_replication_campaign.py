@@ -103,6 +103,7 @@ def _environment(instance_id: str) -> dict[str, str]:
             "HF_HUB_OFFLINE": "1",
             "PYTHONPATH": f"{PROJECT / 'python'}:{PROJECT}",
             "IMPACTKV_PAIRED_INSTANCE_ID": instance_id,
+            "IMPACTKV_REQUEST_TIMEOUT_SECONDS": "180",
         }
     )
     return env
