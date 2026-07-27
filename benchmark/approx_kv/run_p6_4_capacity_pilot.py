@@ -411,14 +411,19 @@ def run_round(
                 else:
                     outcome = "unknown"
             else:
+                # No approximate metadata was attached, so this request never
+                # entered the recovery path. A short prefix here is an ordinary
+                # exact-cache miss, NOT an approximate dense fallback. Calling
+                # it dense_fallback previously caused exact-only misses to be
+                # cited as evidence that the fallback path had executed.
                 request_outcomes = {}
                 outcome = (
                     "exact_gpu_hit"
                     if recovered["cached_tokens"] >= expected_cached
-                    else "dense_fallback"
+                    else "exact_cache_miss"
                 )
             telemetry_consistent = (
-                outcome in {"dense_fallback", "unknown"}
+                outcome in {"dense_fallback", "exact_cache_miss", "unknown"}
                 or recovered["cached_tokens"] >= expected_cached
             )
             replay_rows.append(
@@ -525,6 +530,7 @@ def run_round(
             "approximate_gpu_recovery",
             "host_demand_load",
             "dense_fallback",
+            "exact_cache_miss",
             "unknown",
         )
     }
