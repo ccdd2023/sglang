@@ -27,6 +27,7 @@ from minisweagent.models.utils.actions_toolcall import BASH_TOOL
 from pydantic import Field, model_validator
 
 from benchmark.multi_workflow.coding_reuse_policy import (
+    coding_state_transition_target_reasons,
     effective_copy_cap,
     post_mutation_payoff_guard,
     select_failure_memory_groups,
@@ -46,6 +47,7 @@ ROLLING_NOTICE = (
 _MODEL_INSTANCE_COUNTER = itertools.count(1)
 DENSE_REUSE_ARMS = ("dense", "coding_memory_dense_v5")
 MEMORY_ARMS = ("coding_memory_dense_v5", "coding_memory_v5")
+TARGET_VETO_ARMS = ("coding_state_transition_target_v33b",)
 
 
 def token_ids_hash(token_ids: list[int]) -> str:
@@ -82,6 +84,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_post_mutation_payoff_guard_v28",
         "coding_post_mutation_payoff_guard_v29",
         "coding_critical_event_abstain_v31",
+        "coding_state_transition_target_v33b",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
@@ -140,6 +143,32 @@ def close_litellm_sync_stream(stream: Any) -> None:
             close()
     finally:
         stream.completion_stream = None
+
+
+def apply_current_target_veto(
+    *,
+    arm: str,
+    selected_groups: list[list[dict[str, Any]]],
+    target: dict[str, Any] | None,
+    releases: list[str],
+) -> tuple[dict[str, Any] | None, list[str], dict[str, Any]]:
+    """Apply the V33B online target guard without consulting future output."""
+
+    reasons = (
+        coding_state_transition_target_reasons(selected_groups)
+        if arm in TARGET_VETO_ARMS
+        else []
+    )
+    vetoed = bool(reasons and target is not None)
+    if vetoed:
+        releases = list(
+            dict.fromkeys([*releases, str(target["source_id"])])
+        )
+        target = None
+    return target, releases, {
+        "target_vetoed": vetoed,
+        "target_veto_reasons": reasons,
+    }
 
 
 class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
@@ -637,10 +666,25 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         }
         if self.config.reuse_arm not in DENSE_REUSE_ARMS:
             target, releases = self._target_case(prompt_ids)
+            target, releases, target_guard = apply_current_target_veto(
+                arm=self.config.reuse_arm,
+                selected_groups=selected_groups,
+                target=target,
+                releases=releases,
+            )
             source, next_pending, policy_decision = self._future_source(
                 prompt_ids=prompt_ids,
                 selected_groups=selected_groups,
             )
+            if self.config.reuse_arm in TARGET_VETO_ARMS:
+                policy_decision.update(
+                    mode=(
+                        "state_transition_target_dense_veto"
+                        if target_guard["target_vetoed"]
+                        else "state_transition_target_general_reuse"
+                    ),
+                    **target_guard,
+                )
             if write_sidecar:
                 self._atomic_sidecar_update(
                     sources=[source] if source else [],

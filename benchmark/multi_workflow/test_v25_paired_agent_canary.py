@@ -93,3 +93,34 @@ def test_diverged_prompts_do_not_consume_another_arms_cases(
     )
 
     assert cases == [{**target, "ordinary_prefix_reuse": False}]
+
+
+def test_v33b_branches_before_current_target_request(monkeypatch) -> None:
+    candidate = "coding_state_transition_target_v33b"
+    monkeypatch.setattr(canary, "V23", candidate)
+    monkeypatch.setattr(canary, "REUSE_ARMS", (candidate, canary.GENERAL))
+    monkeypatch.setattr(canary, "TARGET_VETO_CANDIDATE", True)
+    monkeypatch.setattr(canary, "ABSTENTION_CANDIDATE", False)
+    general_target = {
+        "case_id": "general-target",
+        "source_id": "source-1",
+        "length": 1024,
+    }
+    prepared = {
+        candidate: {
+            "prompt_ids": [1, 2, 3],
+            "source": {"length": 1024},
+            "target": None,
+            "policy_decision": {
+                "mode": "state_transition_target_dense_veto"
+            },
+        },
+        canary.GENERAL: {
+            "prompt_ids": [1, 2, 3],
+            "source": {"length": 1024},
+            "target": general_target,
+            "policy_decision": {"mode": "general_contiguous"},
+        },
+    }
+
+    assert canary._branch_kind(prepared) == "current_target_veto"

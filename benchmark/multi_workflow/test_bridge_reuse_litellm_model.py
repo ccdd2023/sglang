@@ -32,6 +32,43 @@ def _bare_model() -> bridge.BridgeReuseLitellmModel:
     return model
 
 
+def test_v33b_state_transition_releases_and_vetoes_current_target() -> None:
+    mutation = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {
+                            "command": (
+                                "python -c \"from pathlib import Path; "
+                                "Path('pkg/a.py').write_text('x')\""
+                            )
+                        },
+                    }
+                }
+            ],
+        },
+        {"role": "tool", "content": "<returncode>0</returncode>"},
+    ]
+    target = {"source_id": "source-1"}
+
+    guarded, releases, decision = bridge.apply_current_target_veto(
+        arm="coding_state_transition_target_v33b",
+        selected_groups=[mutation],
+        target=target,
+        releases=[],
+    )
+
+    assert guarded is None
+    assert releases == ["source-1"]
+    assert decision == {
+        "target_vetoed": True,
+        "target_veto_reasons": ["repository_mutation_command"],
+    }
+
+
 def test_query_closes_underlying_sync_stream(monkeypatch) -> None:
     chunk = SimpleNamespace(
         choices=[

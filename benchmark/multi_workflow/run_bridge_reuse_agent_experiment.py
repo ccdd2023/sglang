@@ -75,6 +75,7 @@ ARMS = (
     "coding_post_mutation_payoff_guard_v28",
     "coding_post_mutation_payoff_guard_v29",
     "coding_critical_event_abstain_v31",
+    "coding_state_transition_target_v33b",
 )
 DENSE_ARMS = ("dense", "coding_memory_dense_v5")
 HOST_OVERFLOW_ARMS = (

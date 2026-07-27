@@ -506,12 +506,19 @@ def select_reuse_groups(
             memory_anchor_present=anchor_present,
         )
         return overlap, decision
-    if arm in ("general", "general_8k", "general_dual_4k"):
+    if arm in (
+        "general",
+        "general_8k",
+        "general_dual_4k",
+        "coding_state_transition_target_v33b",
+    ):
         decision["mode"] = (
             "general_contiguous_8k"
             if arm == "general_8k"
             else "general_dual_contiguous_4k"
             if arm == "general_dual_4k"
+            else "state_transition_general_source"
+            if arm == "coding_state_transition_target_v33b"
             else "general_contiguous"
         )
         return retained, decision

@@ -59,6 +59,9 @@ V23 = os.environ.get(
     "coding_post_mutation_target_prefix_v23",
 )
 ABSTENTION_CANDIDATE = V23 == "coding_critical_event_abstain_v31"
+TARGET_VETO_CANDIDATE = (
+    V23 == "coding_state_transition_target_v33b"
+)
 TARGET_PREFIX_CANDIDATES = {
     "coding_post_mutation_target_prefix_v23",
     "coding_post_mutation_payoff_guard_v28",
@@ -117,6 +120,45 @@ def _policy_mode(record: dict[str, Any]) -> str:
         if isinstance(decision, dict):
             return str(decision.get("mode") or "")
     return ""
+
+
+def _branch_kind(
+    prepared: dict[str, dict[str, Any]],
+) -> str | None:
+    """Classify the first same-prompt candidate/General plan difference."""
+
+    hashes = {
+        arm: token_ids_hash(prepared[arm]["prompt_ids"])
+        for arm in REUSE_ARMS
+    }
+    if len(set(hashes.values())) != 1:
+        return None
+    if (
+        TARGET_VETO_CANDIDATE
+        and prepared[V23]["target"] is None
+        and prepared[GENERAL]["target"] is not None
+        and _policy_mode(prepared[V23])
+        == "state_transition_target_dense_veto"
+    ):
+        return "current_target_veto"
+    sources = {arm: prepared[arm]["source"] for arm in REUSE_ARMS}
+    if (
+        ABSTENTION_CANDIDATE
+        and sources[V23] is None
+        and sources[GENERAL] is not None
+        and _policy_mode(prepared[V23])
+        == "critical_event_dense_abstain"
+    ):
+        return "future_source_plan"
+    if (
+        not ABSTENTION_CANDIDATE
+        and not TARGET_VETO_CANDIDATE
+        and all(sources.values())
+        and int(sources[V23]["length"])
+        != int(sources[GENERAL]["length"])
+    ):
+        return "future_source_plan"
+    return None
 
 
 def _dense_control_case(
@@ -289,6 +331,11 @@ def register(output: Path) -> dict[str, Any]:
             "step_limit": 20,
             "branch_rule": (
                 (
+                    "first online request where General registers a target "
+                    "and the candidate emits "
+                    "state_transition_target_dense_veto"
+                    if TARGET_VETO_CANDIDATE
+                    else
                     "first online request where General registers a source "
                     "and the candidate emits critical_event_dense_abstain"
                     if ABSTENTION_CANDIDATE
@@ -313,13 +360,24 @@ def register(output: Path) -> dict[str, Any]:
         "frozen_gates": {
             "branch_or_shared_completion": True,
             "branch_source_prompt_hash_identical": True,
-            "branch_source_plans_different": True,
+            (
+                "branch_target_plans_different"
+                if TARGET_VETO_CANDIDATE
+                else "branch_source_plans_different"
+            ): True,
             "source_materializations_if_branched_min": (
                 1 if ABSTENTION_CANDIDATE else 2
             ),
-            "target_copies_each_arm_if_branched_min": 1,
+            (
+                "general_target_copies_if_branched_min"
+                if TARGET_VETO_CANDIDATE
+                else "target_copies_each_arm_if_branched_min"
+            ): 1,
             "candidate_critical_abstentions_if_enabled_min": (
                 1 if ABSTENTION_CANDIDATE else 0
+            ),
+            "candidate_target_vetoes_if_enabled_min": (
+                1 if TARGET_VETO_CANDIDATE else 0
             ),
             "dense_control_requests_if_enabled_min": (
                 1 if INCLUDE_DENSE_CONTROL else 0
@@ -438,6 +496,22 @@ def _prepare_pair(
             dense_messages,
             write_sidecar=False,
         )
+    _install_prepared_pair(
+        models,
+        prepared,
+        include_dense_control=include_dense_control,
+    )
+    return prepared
+
+
+def _install_prepared_pair(
+    models: dict[str, BridgeReuseLitellmModel],
+    prepared: dict[str, dict[str, Any]],
+    *,
+    include_dense_control: bool,
+) -> None:
+    """Publish already-prepared sources and ordered target cases atomically."""
+
     cases = _paired_cases(
         prepared,
         include_dense_control=include_dense_control,
@@ -455,7 +529,6 @@ def _prepare_pair(
             for source_id in prepared[arm]["releases"]
         ],
     )
-    return prepared
 
 
 def _prepared_step(
@@ -575,6 +648,7 @@ def run(output: Path) -> dict[str, Any]:
     snapshot_image = ""
     agents: dict[str, DefaultAgent] = {}
     branch: dict[str, Any] | None = None
+    initial_branch_prepared: dict[str, dict[str, Any]] | None = None
     branch_agent_elapsed = {arm: 0.0 for arm in ARMS}
     try:
         shared_env = get_sb_environment(copy.deepcopy(config), instance)
@@ -600,25 +674,46 @@ def run(output: Path) -> dict[str, Any]:
             sources = {
                 arm: shadow[arm]["source"] for arm in REUSE_ARMS
             }
-            eligible = (
-                len({hashes[arm] for arm in REUSE_ARMS}) == 1
-                and (
-                    (
-                        ABSTENTION_CANDIDATE
-                        and sources[V23] is None
-                        and sources[GENERAL] is not None
-                        and _policy_mode(shadow[V23])
-                        == "critical_event_dense_abstain"
-                    )
-                    or (
-                        not ABSTENTION_CANDIDATE
-                        and all(sources.values())
-                        and int(sources[V23]["length"])
-                        != int(sources[GENERAL]["length"])
-                    )
-                )
-            )
-            if eligible and shared.n_calls < shared.config.step_limit:
+            branch_kind = _branch_kind(shadow)
+            target_veto_eligible = branch_kind == "current_target_veto"
+            source_plan_eligible = branch_kind == "future_source_plan"
+            if (
+                target_veto_eligible
+                and shared.n_calls < shared.config.step_limit
+            ):
+                branch = {
+                    "kind": "current_target_veto",
+                    "shared_calls": shared.n_calls,
+                    "branch_request_index": call,
+                    "source_prompt_hash": hashes[V23],
+                    "source_lengths": {
+                        arm: (
+                            int(sources[arm]["length"])
+                            if sources[arm] is not None
+                            else None
+                        )
+                        for arm in REUSE_ARMS
+                    },
+                    "source_ids": {
+                        arm: (
+                            str(sources[arm]["source_id"])
+                            if sources[arm] is not None
+                            else None
+                        )
+                        for arm in REUSE_ARMS
+                    },
+                    "source_decision_modes": {
+                        arm: _policy_mode(shadow[arm])
+                        for arm in REUSE_ARMS
+                    },
+                    "target_registered": {
+                        arm: shadow[arm]["target"] is not None
+                        for arm in REUSE_ARMS
+                    },
+                }
+                initial_branch_prepared = shadow
+                break
+            if source_plan_eligible and shared.n_calls < shared.config.step_limit:
                 models[V23]._atomic_sidecar_update(
                     sources=[
                         sources[arm]
@@ -632,9 +727,11 @@ def run(output: Path) -> dict[str, Any]:
             _normal_step(shared)
             if shared.messages[-1].get("role") == "exit":
                 break
-            if eligible:
+            if source_plan_eligible:
                 branch = {
+                    "kind": "future_source_plan",
                     "shared_calls": call,
+                    "branch_request_index": call + 1,
                     "source_prompt_hash": hashes[V23],
                     "source_lengths": {
                         arm: (
@@ -700,6 +797,29 @@ def run(output: Path) -> dict[str, Any]:
             }
             shared_env.cleanup()
             shared_env = None
+
+            if initial_branch_prepared is not None:
+                prepared = dict(initial_branch_prepared)
+                if DENSE in agents:
+                    prepared[DENSE] = agents[DENSE].model.prepare_reuse_query(
+                        agents[DENSE].messages,
+                        write_sidecar=False,
+                    )
+                _install_prepared_pair(
+                    models,
+                    prepared,
+                    include_dense_control=DENSE in agents,
+                )
+                first_branch_hashes = {
+                    arm: token_ids_hash(prepared[arm]["prompt_ids"])
+                    for arm in prepared
+                }
+                for arm in ARMS:
+                    started = time.perf_counter()
+                    _prepared_step(agents[arm], prepared[arm])
+                    branch_agent_elapsed[arm] += (
+                        time.perf_counter() - started
+                    )
 
             while True:
                 active = [
@@ -841,19 +961,39 @@ def run(output: Path) -> dict[str, Any]:
         for row in candidate_client
         )
     )
+    candidate_target_vetoes = sum(
+        _policy_mode(row) == "state_transition_target_dense_veto"
+        and bool(
+            row.get("reuse_policy_decision", {}).get("target_vetoed")
+        )
+        for row in candidate_client
+    )
     gates = {
         "branch_or_shared_completion": True,
         "branch_source_prompt_hash_identical": branch is None
         or branch["source_prompt_hash"] is not None,
-        "branch_source_plans_different": branch is None
-        or len(set(branch["source_lengths"].values())) == 2,
+        (
+            "branch_target_plans_different"
+            if TARGET_VETO_CANDIDATE
+            else "branch_source_plans_different"
+        ): branch is None
+        or (
+            len(set(branch["target_registered"].values())) == 2
+            if TARGET_VETO_CANDIDATE
+            else len(set(branch["source_lengths"].values())) == 2
+        ),
         "source_materializations_if_branched_min": branch is None
         or len(materialized) >= (1 if ABSTENTION_CANDIDATE else 2),
-        "target_copies_each_arm_if_branched_min": branch is None
+        (
+            "general_target_copies_if_branched_min"
+            if TARGET_VETO_CANDIDATE
+            else "target_copies_each_arm_if_branched_min"
+        ): branch is None
         or (
             copy_counts[GENERAL] >= 1
             and (
                 ABSTENTION_CANDIDATE
+                or TARGET_VETO_CANDIDATE
                 or copy_counts[V23] >= 1
             )
         ),
@@ -861,6 +1001,11 @@ def run(output: Path) -> dict[str, Any]:
             not ABSTENTION_CANDIDATE
             or branch is None
             or candidate_critical_abstentions >= 1
+        ),
+        "candidate_target_vetoes_if_enabled_min": (
+            not TARGET_VETO_CANDIDATE
+            or branch is None
+            or candidate_target_vetoes >= 1
         ),
         "dense_control_requests_if_enabled_min": (
             not INCLUDE_DENSE_CONTROL
@@ -910,6 +1055,7 @@ def run(output: Path) -> dict[str, Any]:
             "candidate_critical_abstentions": (
                 candidate_critical_abstentions
             ),
+            "candidate_target_vetoes": candidate_target_vetoes,
         },
         "gates": gates,
         "accuracy": (
