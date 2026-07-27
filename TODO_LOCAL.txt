@@ -1,7 +1,7 @@
 CODE-AGENT KVCACHE LOCAL TODO LIST
 ==================================
 
-Last updated: 2026-07-27T01:50:00-07:00
+Last updated: 2026-07-27T04:20:00-07:00
 Authority: PROJECT.md and IMPLEMENTATION_PLAN_LATEST.md
 Current boundary: do not enter Phase 7 without reporting to the user.
 
@@ -109,64 +109,36 @@ All runners execute inside the immutable SM75 image with:
     PYTHONPATH=<worktree>:<worktree>/python:/opt/sm75-site
 
 
-3.1 P6-4 - THE ONLY REMAINING GATE
+3.1 DENSE FALLBACK REACHABILITY - THE ONLY REMAINING EXIT GAP
 
-[ ] Symptom: the S0/LRU rho2.0 cell hits a deterministic device OOM,
-      Available tokens: 0 (available_size=0 + evictable_size=0)
-    raised as RuntimeError from mem_cache/allocation.py alloc_token_slots,
-    which kills the scheduler process.
+[ ] P6-4 now completes and reports fallback_reachability rounds = 0, so the
+    one Phase 6 Exit requirement still without evidence is that a dense
+    fallback is actually reachable under the pilot workload.
 
-[ ] Reproduced three times: full profiles, --rhos 2.0 alone, and the reduced
-    profile set exact_only,r0_like,r1_like_k32. Not intermittent.
+[ ] Everything else in the Exit gate is satisfied. See PROJECT.md for the
+    per-item table.
 
-[ ] launch_cells always orders lru2.0 before hier2.0 and hier3.0, so this one
-    cell blocks every later cell. Only hier1.1 and hier1.5 are known good.
+[ ] Options, cheapest first:
+    - drive a deliberate store miss or a stale content hash in one P6-4 round
+      so the recovery path must fall back;
+    - or run the pre-registered single R2 explicit-fallback-counter cell that
+      section 6 already lists as a conditional retest.
 
-[ ] Already ruled out:
-    - a lock leak from the P0 fix (inc/dec proven symmetric in-container);
-    - an ordinary prefill path that is not cross-store aware
-      (evict_from_tree_cache does call make_room with requester="exact");
-    - cross-store coordinator reentrancy.
+[ ] Do NOT read rounds = 0 as "fallback is broken". The counter is a labelled
+    Prometheus series that emits nothing when no event occurs, so absence of
+    the series is indirectly_verified, never an explicit zero.
 
-[x] NOT a regression from the P0 fix. Control run: the same reduced profile
-    set on the pre-fix commit c487e36af crashes earlier, at hierarchical
-    rho1.5, with the radix assertion. The fixed tree clears rho1.1 and rho1.5
-    and only then meets this OOM, so the pre-fix tree never reached the cell.
-    Artifact: p6-4-PREFIX-CONTROL-prefix-commit.json.
-
-[ ] LEADING HYPOTHESIS, fix this first (review finding P1-3): recovery
-    allocates and attaches device slots BEFORE scheduler admission. If
-    add_one_req() rejects the request, cleanup releases only Mamba state and
-    the recovered suffix is never freed; the next rematch overwrites
-    prefix_indices and loses the only reference to those slots.
-    Independently confirmed: req.approx_kv_restored_len is written at
-    runtime.py:571 and epic_runtime.py:678 and has NO consumer anywhere in
-    the tree, so no cleanup path exists.
-    This matches the observed log exactly: a 1024-token allocation with
-    available_size=0, evictable_size=0 and only the expected 64-token locked
-    prefix, i.e. a capacity drain rather than a one-shot shortfall.
-    Corroboration: CL1 passes its reset invariant 48/48, so the SUCCESS path
-    does not leak; CL1 requests are small and essentially always admitted,
-    while P6-4 rejects often under pressure plus chunked prefill.
-    Fix: treat recovered indices as provisional; roll them back on admission
-    failure, on abort, and before rematching; commit ownership only after
-    admission and request-pool attachment.
-
-[ ] Also fix review finding P1-2: after the hardened attachment check raises
-    KeyError the detached node stays in evictable_leaves and is advertised
-    again by later snapshots, and CrossStoreAllocator.allocate() gives up on
-    that KeyError instead of refreshing the provider and trying another valid
-    victim. Reviewer reproduced both: the stale node remained advertised
-    (resource count 1, evictable_size 1), and a stale victim ordered before a
-    valid one made allocation return committed=False without ever invoking
-    the valid victim.
-
-[ ] Secondary, still worth doing: alloc_token_slots should degrade rather
-    than kill the scheduler when cross-store cannot free enough.
-
-[ ] exact_only already passed and does not need redoing:
-      p6-4-exact-only.json, requested == observed capacity for all 5 cells,
-      exact_evicted_bytes 18007851008.
+[x] P6-4 itself is DONE and must not be rerun as-is:
+      run_id p6-4-20260727T104820Z, raw_sha256 11e85899774bb66f...
+      S4 rho1.1/1.5/2.0 reachable, requested == observed capacity exactly,
+      40 approximate recoveries per cell, exact_only/r0_like/r1_like_k32/
+      r2_like all reachable and valid.
+      S0 rho2.0 and S4 rho3.0 are genuinely capacity-unreachable: they still
+      OOM deterministically after both the P1-2 and P1-3 fixes, so they are
+      recorded diagnostic-unavailable rather than invalid.
+      r4_like at ~5x is unreachable everywhere, the anticipated R4 exception.
+      Bidirectional pressure PASSES: exact->approx 47.5 GB,
+      approx->exact 58.8 GB.
 
 
 3.2 CL4 + PHASE 6 EXIT DUAL REVIEW
@@ -196,7 +168,12 @@ All runners execute inside the immutable SM75 image with:
     target_rho 0.5 with zero eviction, so the fixed defect cannot explain the
     CL1 divergence. Artifact: context-vs-pressure-2x2.json.
 [x] Dual review of the P0 fix and of the scientific conclusions. No P0 found.
-    Review finding P1-1 (SWA release metadata) fixed in db2d18ff0.
+    All three review P1 findings are now fixed:
+      P1-1 SWA release metadata      db2d18ff0
+      P1-3 provisional slot leak     40f09c1fe
+      P1-2 stale victim retry        3379e6699
+[x] P6-4 full fixed40 matrix, plus per-cell resilience in the runner
+    (0f379eb04, fb284cad4).
 
     Note: test_radix_cache_unit.py::test_memory_allocated fails on this tree
     but also fails with all changes stashed. It is pre-existing, not a

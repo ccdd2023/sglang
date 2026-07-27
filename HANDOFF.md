@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-27T01:50:00-07:00
+最后更新：2026-07-27T04:20:00-07:00
 
 ## 新会话启动顺序
 
@@ -12,6 +12,59 @@
 6. 开始工作后持续维护上述文件，不把重要信息只留在聊天中。
 
 ## 当前快照
+
+### 2026-07-27T04:20:00-07:00 Phase6 Exit仅剩dense fallback一项未满足
+
+- 全部实验在Docker SM75镜像内执行。
+- 实现branch head：`1ffeb0426ec30852682d15c66a4f56b091cbc71b`。
+
+| 门禁 | 状态 |
+| --- | --- |
+| CL1 | 完成，`winner=NONE`，因果归因有效 |
+| CL2 | 完成，waive为provisional chunk `1024` |
+| CL3 | 完成 |
+| P6-H | **通过**，`status=valid`，输出逐token一致 |
+| P6-4 | **完整跑通**，3可达/2明确不可达，双向pressure首次通过 |
+| CL4 | 双模型review完成（fix + 结论） |
+
+#### Phase6 Exit逐条
+
+除**dense fallback可达性**（`fallback_reachability.rounds=0`）外**全部满足**，
+包括：exact/approx/host安全竞争、双向pressure（exact→approx `47.5GB`、
+approx→exact `58.8GB`）、fixed40四rho明确结论、R1-like worst-case（k32）可达、
+generic host canary、无泄漏无orphan、压力下数据保真、完整provenance。
+
+#### 本轮共5处修复（全部已推送）
+
+1. `af81934e4` P0：recovery期间请求自身prefix未加锁 → 自我覆写。
+2. `c405343c8` P6-H reseed断言（满命中报告`N-1`）。
+3. `db2d18ff0` P1-1：回传SWA释放元数据。
+4. `40f09c1fe` P1-3：recovery slot provisional所有权，杜绝admission拒绝时泄漏。
+5. `3379e6699` P1-2：stale victim跳过并重试，detached节点移出`evictable_leaves`。
+   另有`0f379eb04`/`fb284cad4`使P6-4 runner逐cell容错。
+
+#### 重要判定
+
+- S0/rho2与S4/rho3的OOM在P1-2、P1-3修复后**仍确定性复现**，因此是
+  **真实容量不可达**，不是实现缺陷；已按契约记为`diagnostic-unavailable`。
+- `r4_like`（约5x）在所有cell不可达，属计划预先允许的R4例外。
+- 全目录回归`935 failed`是**改动前既有基线**（已用`git stash`对照两次），
+  本次净增3个pass。
+
+### 下一步
+
+1. 取得dense fallback可达性证据（P6-4 `rounds=0`），这是Phase6 Exit最后一项。
+2. 完成正式的Phase6 Exit双模型review与disposition。
+3. 之后再决定是否归档V4、创建V5（用户已明确本轮不升级）。
+4. 严格停在Phase7前，等待用户授权。
+
+### 不要重做
+
+- 不重跑Phase4/5完整矩阵，不重复R2/R5 rho2矩阵。
+- 不重跑CL1/CL2/CL3/P6-H。
+- `test_radix_cache_unit.py::test_memory_allocated`及全目录935 failed均为
+  既有失败，不要当作回归。
+
 
 ### 2026-07-27T01:50:00-07:00 P0已修复，P6-H通过，CL1定稿NONE，仅剩P6-4阻塞
 

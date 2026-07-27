@@ -2175,3 +2175,44 @@ chunked prefill下频繁拒绝。
 
 review亦明确指出：不应把该致命OOM简单归类为“预期内的需求上升”，
 上述allocation-lifecycle缺陷会把**可恢复的压力**变成**scheduler崩溃**。
+
+## 2026-07-27T04:15:00-07:00 — P6-4完整矩阵跑通，双向pressure首次通过
+
+按review的P1-2/P1-3继续修复并重跑，共三处修复：
+
+1. `40f09c1fe`（P1-3）：recovery slot在admission之前挂载、被拒绝时无人释放。
+   改为provisional所有权模型：`prepare_for_extend`前属provisional，
+   在`init_next_round_input`重新match前与请求teardown时回收，
+   `prepare_for_extend`拿到所有权后清除标记，杜绝double free。
+   全目录回归对照：改动前后均为`935 failed`，本次改动净增3个pass，
+   确认该935为**既有基线失败**，与本次无关。
+2. `3379e6699`（P1-2）：stale victim导致整个allocation放弃。改为跳过该
+   candidate、刷新快照并继续选择；同时把detached节点移出`evictable_leaves`，
+   避免后续快照反复广告同一个死victim。
+3. `0f379eb04`+`fb284cad4`：P6-4 runner改为**逐cell容错**——单个起不来的cell
+   记为`diagnostic-unavailable`并继续，而不是让整个矩阵中止。
+
+**重要更正**：P1-3与P1-2**都不是**S0/rho2 OOM的成因——两次修复后该cell仍
+确定性OOM。因此该OOM归类为**真实容量不可达**，而非实现缺陷。
+
+P6-4最终结果（`run_id=p6-4-20260727T104820Z`，
+`raw_sha256=11e85899774bb66f...`）：
+
+| cell | status | requested/observed capacity | 证据 |
+| --- | --- | --- | --- |
+| S4 rho1.1 | diagnostic-unavailable | `20713`/`20713` | 双向pressure，40次recovery |
+| S4 rho1.5 | diagnostic-unavailable | `15190`/`15190` | 双向pressure，40次recovery |
+| S0 rho2.0 | diagnostic-unavailable | `11392`/**不可达** | device耗尽 |
+| S4 rho2.0 | diagnostic-unavailable | `11392`/`11392` | 双向pressure，40次recovery |
+| S4 rho3.0 | diagnostic-unavailable | `7595`/**不可达** | device耗尽 |
+
+- **双向pressure首次`passed=True`**：
+  exact requester→approximate victim `47,475,326,976` bytes；
+  approximate requester→exact victim `58,778,517,504` bytes。
+- 三个可达cell中`exact_only`/`r0_like`/`r1_like_k32`/`r2_like`
+  全部`reachable`且`valid`；**R1-like worst-case（k32）footprint可达**。
+- `r4_like`（约5x multiplicity）在所有cell均`diagnostic-unavailable`，
+  这正是计划预先允许的R4例外。
+- 整体`status=inconclusive`：因为无cell达到全`valid`，且
+  `fallback_reachability.rounds=0`（未观察到dense fallback）。
+- 请求容量与实测容量在全部可达cell上**完全相等**，容差检查通过。

@@ -630,6 +630,10 @@ performance claim = disabled
 - R1-like worst-case footprint可运行或有明确不可达结论；
 - generic host roundtrip canary通过；
 - 无泄漏、无orphan；
+- **近似reuse在压力下与matched dense逐token一致**（2026-07-27新增，
+  由P6-H提供证据；缺这一条正是本轮P0躲过三轮review与全部CPU回归的原因）；
+- **dense fallback可达性有直接证据**；带label的counter无series只能记为
+  `indirectly_verified`，不得写成显式`0`；
 - raw/commit/env/test provenance完整。
 
 Phase6结果经双模型review后才允许Phase7。
@@ -1064,20 +1068,21 @@ Early-stop：
 | 1. P0修复完成并有专门回归 | **已完成**，GPU验证通过 |
 | 2. CL1在修复后底座重跑并重新判定 | **已完成**，`NONE`获得有效因果归因 |
 | 3. P6-H通过（含数据保真） | **已完成**，`status=valid` |
-| 4. P6-4完整四rho矩阵valid或明确不可达 | **未完成**，S0/rho2确定性OOM阻塞 |
-| 5. CL4双模型review与disposition | 进行中 |
+| 4. P6-4完整四rho矩阵valid或明确不可达 | **已完成**，3可达/2明确不可达 |
+| 5. CL4双模型review与disposition | 已完成对fix与结论的双review |
 
-5项中3项已闭合，但第4项仍未取得结论，因此**Phase6 Exit仍不通过**，
-本文件继续保持`Current / Latest`，不提升版本号、不归档。
+**Phase6 Exit现在只剩一项未满足：dense fallback可达性**
+（P6-4 `fallback_reachability.rounds=0`）。其余全部满足，含首次通过的
+双向pressure（exact→approx `47.5GB`、approx→exact `58.8GB`）、
+R1-like worst-case（k32）可达、P6-H压力下逐token保真。
 
-与上一版判断的差别在于：先前担心的“结论建立在有缺陷底座上”已基本消除——
-P0已修复，且CL1重跑证明其结论**不受该缺陷影响**。现在唯一缺口是P6-4的
-容量可达性证据。
+本文件继续保持`Current / Latest`，不提升版本号、不归档
+（用户已明确本轮不升级）。
 
 V5的创建条件收敛为：
 
-1. P6-4的S0/rho2阻塞取得结论（valid或明确`diagnostic-unavailable`）；
-2. CL4双模型review完成并形成主会话disposition。
+1. 取得dense fallback可达性证据；
+2. 完成正式的Phase6 Exit双模型review与disposition。
 
 ### 15.2 已由执行结果确定、必须写入V5的合同修订
 

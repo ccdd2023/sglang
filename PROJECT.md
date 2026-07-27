@@ -446,6 +446,57 @@ prompt族、exact-output不变量、本GPU与chunk配置下**冻结promotion规�
   同一trace内的请求可用于描述性p95，但不能当作独立重复；
 - P6-H只有1 restart/2 round，且只校验output token，不是bitwise KV/logit保真。
 
+### 2026-07-27 P6-4完整矩阵与三处后续修复
+
+按独立review的P1-2/P1-3继续修复（详见`TRACKING.md`）：
+
+1. `40f09c1fe`：recovery slot在admission前挂载、被拒绝时无人释放。改为
+   provisional所有权模型。全目录回归对照确认既有基线为`935 failed`，
+   本次净增3个pass，该935与本次改动无关。
+2. `3379e6699`：stale victim导致整个allocation放弃；改为跳过并刷新重试，
+   同时把detached节点移出`evictable_leaves`。
+3. `0f379eb04`+`fb284cad4`：P6-4 runner逐cell容错，单个不可达cell记为
+   `diagnostic-unavailable`并继续，不再中止整个矩阵。
+
+**重要更正**：P1-3与P1-2**都不是**S0/rho2 OOM的成因；两次修复后仍确定性
+OOM，因此该cell归类为**真实容量不可达**而非实现缺陷。
+
+P6-4最终结果（`run_id=p6-4-20260727T104820Z`）：
+
+| cell | requested/observed | 结论 |
+| --- | --- | --- |
+| S4 rho1.1 | `20713`/`20713` | 可达，双向pressure，40次recovery |
+| S4 rho1.5 | `15190`/`15190` | 可达，双向pressure，40次recovery |
+| S4 rho2.0 | `11392`/`11392` | 可达，双向pressure，40次recovery |
+| S0 rho2.0 | `11392`/不可达 | device耗尽 |
+| S4 rho3.0 | `7595`/不可达 | device耗尽 |
+
+- **双向pressure首次`passed=True`**：exact→approx victim `47.5 GB`；
+  approx→exact victim `58.8 GB`。这是Phase6 Exit的核心要求之一。
+- 可达cell中`exact_only`/`r0_like`/`r1_like_k32`/`r2_like`全部
+  `reachable`且`valid`；**R1-like worst-case（k32）footprint可达**。
+- `r4_like`（约5x）在所有cell均不可达，属计划预先允许的R4例外。
+- 整体`status=inconclusive`：无cell达到全`valid`，且
+  `fallback_reachability.rounds=0`。
+
+### Phase6 Exit当前逐条状态
+
+| Exit要求 | 状态 |
+| --- | --- |
+| exact/approx/host同budget安全竞争 | **满足** |
+| 双向pressure有效 | **满足**（首次） |
+| allocation失败可回滚 | 满足 |
+| fixed40四rho可运行或明确不可达 | **满足**（3可达/2明确不可达） |
+| R1-like worst-case footprint | **满足**（k32可达） |
+| generic host roundtrip canary | **满足**（P6-H valid） |
+| 无泄漏、无orphan | 满足（store gauge全归零） |
+| 近似reuse压力下数据保真 | **满足**（P6-H逐token一致；新增Exit条件） |
+| raw/commit/env/test provenance完整 | 满足 |
+| dense fallback可达性 | **未满足**（`rounds=0`） |
+
+因此Phase6 Exit只剩**dense fallback可达性**一项未取得证据，
+其余全部满足。仍未进入Phase7。
+
 ### 2026-07-26 P6-4结果与CL3 Phase5零GPU重算
 
 - P6-4完整profile矩阵在`hierarchical/rho1.5`的`r0_like` profile崩溃，
