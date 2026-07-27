@@ -200,6 +200,17 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
         max_new_tokens=8,
         extra_key=dense_namespace,
     )
+    recovery_reseed = generate(
+        port=args.port,
+        input_ids=header,
+        max_new_tokens=1,
+        extra_key=recovery_namespace,
+    )
+    if recovery_reseed["cached_tokens"] not in (0, args.header_tokens):
+        raise RuntimeError(
+            "recovery header reseed produced an unexpected cached prefix: "
+            f"{recovery_reseed['cached_tokens']}"
+        )
     recovered = generate(
         port=args.port,
         input_ids=prompt,
@@ -207,6 +218,12 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
         custom_params={"approx_kv": reuse_metadata},
         extra_key=recovery_namespace,
     )
+    if recovered["cached_tokens"] < args.header_tokens + args.body_tokens:
+        raise RuntimeError(
+            "approximate reuse did not attach the registered body: "
+            f"cached_tokens={recovered['cached_tokens']}, expected at least "
+            f"{args.header_tokens + args.body_tokens}"
+        )
     after = metric_snapshot(args.port)
 
     metric_names = (
@@ -267,6 +284,7 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
         "pressure_registered": pressure_registered,
         "dense_seed": dense_seed,
         "recovery_seed": recovery_seed,
+        "recovery_reseed": recovery_reseed,
         "dense": dense,
         "recovered": recovered,
         "metric_deltas": deltas,

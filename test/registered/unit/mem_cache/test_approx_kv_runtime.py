@@ -304,6 +304,85 @@ class TestApproxKVRuntime(unittest.TestCase):
         self.assertEqual(self.allocator.next_index, next_index)
         self.assertEqual(len(reuse.prefix_indices), 0)
 
+    def test_prefix_gap_is_a_counted_dense_fallback_not_an_exact_hit(self):
+        """A gap before the first segment must not be reported as ``exact``.
+
+        When the exact prefix is shorter than the first approximate segment's
+        ``target_start`` the request is fully dense-prefilled. Reporting it as
+        ``exact`` hides a real dense fallback and leaves the explicit fallback
+        counter at zero, which the evidence contract forbids.
+        """
+        gapped_segment = ApproxKVRequestSegment(
+            content_hash="artifact",
+            target_start=1,
+            length=2,
+        )
+        metadata = ApproxKVRequestMetadata(
+            operation=ApproxKVRequestOperation.REUSE,
+            segments=(gapped_segment,),
+            model_fingerprint="model",
+            cache_dtype="fp32",
+        )
+        recorded_requests = []
+        recorded_fallbacks = []
+        self.manager.metrics_collector = SimpleNamespace(
+            increment_approx_kv_request=(
+                lambda operation, outcome: recorded_requests.append(
+                    (operation, outcome)
+                )
+            ),
+            increment_approx_kv_fallback=(
+                lambda reason, num_tokens: recorded_fallbacks.append(
+                    (reason, num_tokens)
+                )
+            ),
+        )
+        reuse = FakeReq(metadata, (10, 11, 12, 99))
+        next_index = self.allocator.next_index
+
+        self.assertFalse(restore_request_prefix(self.tree, reuse))
+
+        self.assertEqual(self.allocator.next_index, next_index)
+        self.assertEqual(len(reuse.prefix_indices), 0)
+        self.assertIn(("reuse", "dense_fallback"), recorded_requests)
+        self.assertNotIn(("reuse", "exact"), recorded_requests)
+        self.assertEqual(recorded_fallbacks, [("prefix_gap", 3)])
+
+    def test_fully_covered_prefix_is_still_reported_as_exact(self):
+        covered_segment = ApproxKVRequestSegment(
+            content_hash="artifact",
+            target_start=0,
+            length=2,
+        )
+        metadata = ApproxKVRequestMetadata(
+            operation=ApproxKVRequestOperation.REUSE,
+            segments=(covered_segment,),
+            model_fingerprint="model",
+            cache_dtype="fp32",
+        )
+        recorded_requests = []
+        recorded_fallbacks = []
+        self.manager.metrics_collector = SimpleNamespace(
+            increment_approx_kv_request=(
+                lambda operation, outcome: recorded_requests.append(
+                    (operation, outcome)
+                )
+            ),
+            increment_approx_kv_fallback=(
+                lambda reason, num_tokens: recorded_fallbacks.append(
+                    (reason, num_tokens)
+                )
+            ),
+        )
+        reuse = FakeReq(metadata, (10, 11, 12, 99))
+        reuse.prefix_indices = torch.tensor([0, 1, 2], dtype=torch.int64)
+
+        self.assertFalse(restore_request_prefix(self.tree, reuse))
+
+        self.assertIn(("reuse", "exact"), recorded_requests)
+        self.assertNotIn(("reuse", "dense_fallback"), recorded_requests)
+        self.assertEqual(recorded_fallbacks, [])
+
 
 if __name__ == "__main__":
     unittest.main()

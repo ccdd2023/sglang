@@ -352,7 +352,23 @@ def resolve_reuse_spans(
     restore_end = min(next_target, reusable_limit)
     restore_length = restore_end - exact_length
     if restore_length <= 0:
-        manager.record_request("reuse", "exact")
+        pending_end = min(
+            max(
+                (
+                    segment.target_end
+                    for segment in ordered_segments
+                    if segment.target_end > exact_length
+                ),
+                default=exact_length,
+            ),
+            reusable_limit,
+        )
+        pending_length = pending_end - exact_length
+        if pending_length > 0:
+            manager.record_fallback("prefix_gap", pending_length)
+            manager.record_request("reuse", "dense_fallback")
+        else:
+            manager.record_request("reuse", "exact")
         return None
 
     handles = []
