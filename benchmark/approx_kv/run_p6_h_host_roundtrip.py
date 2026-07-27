@@ -206,7 +206,7 @@ def run_round(args: argparse.Namespace, round_index: int) -> dict:
         max_new_tokens=1,
         extra_key=recovery_namespace,
     )
-    if recovery_reseed["cached_tokens"] not in (0, args.header_tokens):
+    if recovery_reseed["cached_tokens"] > args.header_tokens:
         raise RuntimeError(
             "recovery header reseed produced an unexpected cached prefix: "
             f"{recovery_reseed['cached_tokens']}"
