@@ -8,7 +8,6 @@ pressure path should have been able to reclaim?
 If it is, make_room failed to release reclaimable memory and the OOM is our
 bug. If the store is already empty, the workload genuinely exceeds capacity.
 """
-
 from __future__ import annotations
 
 import argparse
@@ -43,9 +42,9 @@ def parse_prometheus(text: str) -> dict[str, float]:
         if len(parts) != 2:
             continue
         name = parts[0]
-        if not name.startswith(
-            "sglang:approx_kv_dense_fallback_total"
-        ) and not name.startswith("sglang:approx_kv_requests_total"):
+        if not name.startswith("sglang:approx_kv") and not name.startswith(
+            "sglang:cross_store"
+        ):
             name = name.split("{", 1)[0]
         try:
             value = float(parts[1])
@@ -98,9 +97,9 @@ def main() -> int:
             seen_server = True
             watched = {name: snapshot.get(name) for name in WATCH}
             for key, value in snapshot.items():
-                if key.startswith(
-                    "sglang:approx_kv_dense_fallback_total{"
-                ) or key.startswith("sglang:approx_kv_requests_total{"):
+                if key.startswith("sglang:approx_kv") or key.startswith(
+                    "sglang:cross_store"
+                ):
                     watched[key] = value
             if watched != last_ok:
                 handle.write(
