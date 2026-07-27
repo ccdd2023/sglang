@@ -1,0 +1,11 @@
+{
+  "error": "ConnectionError: HTTPConnectionPool(host='127.0.0.1', port=30011): Max retries exceeded with url: /metrics (Caused by NewConnectionError(\"HTTPConnection(host='127.0.0.1', port=30011): Failed to establish a new connection: [Errno 111] Connection refused\"))",
+  "execution_status": "failed",
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "phase": "P6-4",
+  "raw_sha256": "fbf49ed542b3623e4669b47e4eaf3275264f9c45f5218f4ca3af449263b8b83a",
+  "run_id": "p6-4-20260727T085409Z",
+  "schema_version": 1,
+  "source_git_sha": "c487e36af5f7ce4da556da1b88c85df750a0b14d",
+  "status": "invalid"
+}
