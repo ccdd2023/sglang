@@ -159,6 +159,12 @@
       "containing_commit": "fe50da010f49b9e0c0558cb65fcf45beebb68ce1"
     },
     {
+      "file": "benchmark/approx_kv/results/phase6/p6-4-outcome-correction.json",
+      "sha256": "48dc3671dc0c86643093bd0a06092c682a9bd801a482bb6a1518f749cdad5bae",
+      "bytes": 57681,
+      "containing_commit": "4c75e7f473f1d0a789e59b32f59f4fb785762f4b"
+    },
+    {
       "file": "benchmark/approx_kv/results/phase6/p6-4-reduced-profiles-4x-bytes-per-token-probe.json",
       "sha256": "ce26c5b73e13e1bb1b6c02082248032411115f72ecd721a3d2ea5e59fdf00ce3",
       "bytes": 279822,
