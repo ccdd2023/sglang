@@ -919,7 +919,9 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                     ),
                     "requested_physical_demand_by_cell": [
                         (
-                            sum(
+                            None
+                            if cell["observed_capacity_tokens"] is None
+                            else sum(
                                 64
                                 + int(item["logical_tokens"])
                                 * (
