@@ -68,6 +68,9 @@ REUSE_ARMS = (V23, GENERAL)
 INCLUDE_DENSE_CONTROL = (
     os.environ.get("IMPACTKV_PAIRED_DENSE_CONTROL", "0") == "1"
 )
+ALLOW_EMPTY_SUBMISSION_OUTCOME = (
+    os.environ.get("IMPACTKV_ALLOW_EMPTY_SUBMISSION_OUTCOME", "0") == "1"
+)
 ARMS = REUSE_ARMS + ((DENSE,) if INCLUDE_DENSE_CONTROL else ())
 PORT = 32950
 MEM_FRACTION_STATIC = 0.80
@@ -308,7 +311,16 @@ def register(output: Path) -> dict[str, Any]:
             ),
             "target_fallbacks": 0,
             "first_branched_prompt_hash_identical": True,
-            "both_branches_produce_submission": True,
+            (
+                "all_arms_reach_submitted"
+                if ALLOW_EMPTY_SUBMISSION_OUTCOME
+                else "both_branches_produce_submission"
+            ): True,
+            **(
+                {"empty_patch_is_official_unresolved_outcome": True}
+                if ALLOW_EMPTY_SUBMISSION_OUTCOME
+                else {}
+            ),
             "official_evaluation_required_before_accuracy_claim": True,
         },
         "inputs": {
@@ -785,6 +797,10 @@ def run(output: Path) -> dict[str, Any]:
         else False
     )
     submissions = {arm: _submission(agents[arm]) for arm in ARMS}
+    exit_status = {
+        arm: agents[arm].messages[-1].get("extra", {}).get("exit_status")
+        for arm in ARMS
+    }
     copy_counts = {
         arm: sum(row.get("policy_label") == arm for row in copies)
         for arm in ARMS
@@ -835,7 +851,20 @@ def run(output: Path) -> dict[str, Any]:
         "target_fallbacks": len(fallbacks) == 0,
         "first_branched_prompt_hash_identical": branch is None
         or first_hash_equal,
-        "both_branches_produce_submission": all(submissions.values()),
+        (
+            "all_arms_reach_submitted"
+            if ALLOW_EMPTY_SUBMISSION_OUTCOME
+            else "both_branches_produce_submission"
+        ): (
+            all(status == "Submitted" for status in exit_status.values())
+            if ALLOW_EMPTY_SUBMISSION_OUTCOME
+            else all(submissions.values())
+        ),
+        **(
+            {"empty_patch_is_official_unresolved_outcome": True}
+            if ALLOW_EMPTY_SUBMISSION_OUTCOME
+            else {}
+        ),
         "official_evaluation_required_before_accuracy_claim": True,
     }
     result = {
@@ -845,12 +874,7 @@ def run(output: Path) -> dict[str, Any]:
         "branch": branch,
         "first_branch_prompt_hashes": first_branch_hashes,
         "calls": {arm: agents[arm].n_calls for arm in ARMS},
-        "exit_status": {
-            arm: agents[arm].messages[-1].get("extra", {}).get(
-                "exit_status"
-            )
-            for arm in ARMS
-        },
+        "exit_status": exit_status,
         "submission_bytes": {
             arm: len(submissions[arm].encode()) for arm in ARMS
         },

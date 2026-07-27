@@ -107,6 +107,7 @@ def _environment(instance_id: str) -> dict[str, str]:
             "PYTHONPATH": f"{PROJECT}:{PROJECT / 'python'}",
             "IMPACTKV_PAIRED_CANDIDATE_ARM": V31,
             "IMPACTKV_PAIRED_DENSE_CONTROL": "1",
+            "IMPACTKV_ALLOW_EMPTY_SUBMISSION_OUTCOME": "1",
             "IMPACTKV_PAIRED_INSTANCE_ID": instance_id,
             "IMPACTKV_REQUEST_TIMEOUT_SECONDS": "180",
             "MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1",
@@ -158,6 +159,7 @@ def register(output: Path) -> dict[str, Any]:
             "temperature": 0,
             "same_model_engine_tokenization": True,
             "official_swebench_container_each_arm": True,
+            "empty_patch_scored_as_official_unresolved_outcome": True,
             "all_children_registered_before_first_treatment": True,
             "prefetch": False,
             "reference_patch_or_future_output_used": False,
@@ -435,7 +437,9 @@ def run(output: Path) -> dict[str, Any]:
         if not (child / "V25_RESULT.json").exists():
             stages.append(_run_stage(output, instance_id, "run"))
         if not (child / "V25_RESULT.json").exists():
-            continue
+            break
+        if read_json(child / "V25_RESULT.json")["status"] != "PASS":
+            break
         if not (child / "V25_OFFICIAL_RESULT.json").exists():
             stages.append(_run_stage(output, instance_id, "evaluate"))
     write_json(output / "V31C_STAGE_STATUS.json", stages)
