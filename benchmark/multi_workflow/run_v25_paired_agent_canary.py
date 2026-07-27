@@ -8,6 +8,7 @@ import copy
 import hashlib
 import json
 import os
+import statistics
 import subprocess
 import time
 from pathlib import Path
@@ -607,11 +608,28 @@ def summarize_official(output: Path) -> dict[str, Any]:
     for arm in ARMS:
         result = read_json(output / arm / "OFFICIAL_RESULT.json")
         report = result["report"]
+        client = [
+            row
+            for row in load_jsonl(output / arm / "CLIENT_LEDGER.jsonl")
+            if row.get("event") == "request_complete"
+        ]
+        ttfts = [
+            1000 * float(row["ttft_seconds"])
+            for row in client
+            if row.get("ttft_seconds") is not None
+        ]
         arms[arm] = {
             "resolved": int(report["resolved_instances"]),
             "total": int(report["total_instances"]),
             "empty_patch": int(report["empty_patch_instances"]),
             "report_path": result["report_path"],
+            "branched_model_requests": len(client),
+            "branched_model_elapsed_seconds": sum(
+                float(row["request_elapsed_seconds"]) for row in client
+            ),
+            "median_ttft_ms": (
+                statistics.median(ttfts) if ttfts else None
+            ),
         }
     v23_resolved = arms[V23]["resolved"]
     general_resolved = arms[GENERAL]["resolved"]
@@ -639,6 +657,12 @@ def summarize_official(output: Path) -> dict[str, Any]:
         "instance_id": INSTANCE_ID,
         "arms": arms,
         "paired_accuracy_interpretation": interpretation,
+        "latency_caveat": (
+            "The fixed V23-then-General order makes per-request TTFT an "
+            "order-sensitive diagnostic, not an unbiased speed estimate.  "
+            "Summed model elapsed time includes decode behavior and is useful "
+            "for this paired outcome but still requires order replication."
+        ),
     }
     write_json(output / "V25_OFFICIAL_RESULT.json", value)
     return value
