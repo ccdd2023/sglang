@@ -756,6 +756,43 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                     "log_path": str(log_path),
                 }
             )
+        except (
+            KeyError,
+            MemoryError,
+            OSError,
+            RuntimeError,
+            TypeError,
+            ValueError,
+            requests.RequestException,
+        ) as exc:
+            # A single unreachable cell must not destroy the rest of the
+            # matrix. Record it explicitly and continue; the contract allows
+            # a cell to be reported unreachable, but it requires the other
+            # cells to still produce evidence.
+            cell_results.append(
+                {
+                    "policy": "S4" if policy == "hierarchical" else "S0",
+                    "policy_argument": policy,
+                    "rho_logical_demand_requested": rho,
+                    "requested_capacity_tokens": requested_capacity_tokens,
+                    "observed_capacity_tokens": None,
+                    "profiles": [],
+                    "evidence": {},
+                    "status": "diagnostic-unavailable",
+                    "unreachable_reason": f"{type(exc).__name__}: {exc}",
+                    "server_log": str(log_path),
+                }
+            )
+            server_manifests.append(
+                {
+                    "policy": policy,
+                    "rho": rho,
+                    "server_argv": list(server.command),
+                    "plugin_env": server.plugin_env,
+                    "log_path": str(log_path),
+                    "unreachable": True,
+                }
+            )
         finally:
             stop_server(server)
 
@@ -824,7 +861,10 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
         "observed_capacity": {
             "tokens": observed_capacities,
             "pages": observed_capacities,
-            "bytes": [value * args.kv_bytes_per_token for value in observed_capacities],
+            "bytes": [
+                None if value is None else value * args.kv_bytes_per_token
+                for value in observed_capacities
+            ],
         },
         "crosses_chunk_boundary": any(
             item["crosses_chunk_boundary"] for item in manifest["objects"]
