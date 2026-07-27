@@ -1,8 +1,10 @@
 from benchmark.multi_workflow.coding_reuse_policy import (
+    coding_state_transition_target_reasons,
     critical_coding_event_reasons,
     effective_copy_cap,
     is_concrete_source_read,
     is_high_value_executable_failure,
+    is_successful_executable_evidence,
     is_low_value_search_miss,
     is_successful_readonly_evidence,
     latest_group_risk_reasons,
@@ -689,6 +691,52 @@ def test_v31_reuses_after_search_miss_and_successful_test():
         assert eligible == groups[1:]
         assert decision["mode"] == "critical_event_general_reuse"
         assert decision["critical_event_reasons"] == []
+
+
+def test_state_transition_guard_detects_open_write_mutation():
+    mutation = group(
+        "python - <<'PY'\n"
+        "with open('pkg/module.py', 'w') as stream:\n"
+        "    stream.write('changed')\n"
+        "PY"
+    )
+
+    assert critical_coding_event_reasons(mutation) == [
+        "repository_mutation_command"
+    ]
+    assert coding_state_transition_target_reasons([mutation]) == [
+        "repository_mutation_command"
+    ]
+
+
+def test_state_transition_guard_vetoes_only_entry_to_read_phase():
+    evidence_output = (
+        "<returncode>0</returncode><output>"
+        + "def implementation():\n    return 1\n" * 20
+        + "</output>"
+    )
+    first_read = group("cat pkg/module.py", evidence_output)
+    second_read = group("rg -n implementation pkg/module.py", evidence_output)
+    generic = group("ls pkg")
+
+    assert coding_state_transition_target_reasons(
+        [generic, first_read]
+    ) == ["readonly_evidence_phase_transition"]
+    assert coding_state_transition_target_reasons(
+        [first_read, second_read]
+    ) == []
+
+
+def test_state_transition_guard_detects_successful_execution_phase():
+    successful = group(
+        "python -m pytest tests/test_module.py",
+        "<returncode>0</returncode><output>1 passed</output>",
+    )
+
+    assert is_successful_executable_evidence(successful)
+    assert coding_state_transition_target_reasons(
+        [group("cat README.md", "<returncode>0</returncode>"), successful]
+    ) == ["successful_execution_phase_transition"]
 
 
 def test_memory_v5_reuses_guaranteed_recent_five_not_old_anchor():

@@ -44,6 +44,10 @@ _INPLACE_MUTATION = re.compile(
     r"\bsed\b[^\n;&|]*\s-i(?:\s|$)|\btee\b",
     re.I,
 )
+_OPEN_WRITE_MUTATION = re.compile(
+    r"\bopen\(\s*[\"'][^\"']+[\"']\s*,\s*[\"'][wax+]",
+    re.I,
+)
 _SEARCH_COMMAND = re.compile(
     r"(?:^|&&\s*|;\s*|\|\s*|\|\|\s*)"
     r"(?:grep|rg|find)\b",
@@ -200,7 +204,11 @@ def latest_group_risk_reasons(
     command_lower = commands.lower()
     if any(marker in command_lower for marker in _MUTATION_MARKERS):
         reasons.append("repository_mutation_command")
-    elif _SHELL_MUTATION.search(commands) or _INPLACE_MUTATION.search(commands):
+    elif (
+        _SHELL_MUTATION.search(commands)
+        or _INPLACE_MUTATION.search(commands)
+        or _OPEN_WRITE_MUTATION.search(commands)
+    ):
         reasons.append("repository_mutation_command")
 
     observations = "\n".join(
@@ -361,6 +369,71 @@ def is_successful_readonly_evidence(
         and all(value == 0 for value in return_codes)
         and len(observations) >= 400
     )
+
+
+def is_successful_executable_evidence(
+    group: Sequence[dict[str, Any]],
+) -> bool:
+    """Identify a successful execution or focused validation observation."""
+
+    commands = "\n".join(
+        command
+        for message in group
+        if (command := _tool_command(message))
+    )
+    if not _EXECUTION_OR_STATE_COMMAND.search(commands):
+        return False
+    command_lower = commands.lower()
+    if (
+        any(marker in command_lower for marker in _MUTATION_MARKERS)
+        or _SHELL_MUTATION.search(commands)
+        or _INPLACE_MUTATION.search(commands)
+        or _OPEN_WRITE_MUTATION.search(commands)
+    ):
+        return False
+    observations = "\n".join(
+        str(message.get("content") or "")
+        for message in group
+        if message.get("role") == "tool"
+    )
+    return_codes = [int(value) for value in _RETURN_CODE.findall(observations)]
+    return bool(return_codes) and all(value == 0 for value in return_codes)
+
+
+def coding_state_transition_target_reasons(
+    groups: Sequence[Sequence[dict[str, Any]]],
+) -> list[str]:
+    """Return online-visible reasons to veto reuse on the current request.
+
+    Critical state changes always veto.  Successful code reads and executable
+    results veto only when the immediately preceding completed interaction was
+    not the same evidence phase, avoiding repeated Dense requests during a
+    contiguous inspection or validation run.
+    """
+
+    if not groups:
+        return []
+    latest = groups[-1]
+    critical = critical_coding_event_reasons(latest)
+    if critical:
+        return critical
+
+    def evidence_phase(
+        group: Sequence[dict[str, Any]],
+    ) -> str | None:
+        if is_successful_readonly_evidence(group):
+            return "readonly_evidence"
+        if is_successful_executable_evidence(group):
+            return "successful_execution"
+        return None
+
+    latest_phase = evidence_phase(latest)
+    if latest_phase is None:
+        return []
+    previous_phase = evidence_phase(groups[-2]) if len(groups) >= 2 else None
+    if latest_phase == previous_phase:
+        return []
+    return [f"{latest_phase}_phase_transition"]
 
 
 def select_failure_memory_groups(
