@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-26T18:01:24-07:00
+最后更新：2026-07-26T20:25:00-07:00
 
 ## 新会话启动顺序
 
@@ -12,6 +12,61 @@
 6. 开始工作后持续维护上述文件，不把重要信息只留在聊天中。
 
 ## 当前快照
+
+### 2026-07-26T20:25:00-07:00 Phase6全部门禁已跑完，Exit被单一P0阻塞
+
+- 所有实验均在Docker SM75镜像内执行
+  （`ghcr.io/ccdd2023/sglang@sha256:0be6e16e...`、`--runtime=nvidia --gpus all`、
+  `--user 1000:1000`、worktree只读挂载、`/results`读写挂载、HF离线只读）。
+- 实现branch head：`248e2cb4774dbee8bb123b64d9b63cbd69f4ff5f`，
+  本地与`ccdd2023/sglang:research/cross-store-substrate`远程SHA一致。
+
+| 门禁 | 状态 | 结论 |
+| --- | --- | --- |
+| CL1 | 完成 | `practical family = NONE`（性能条件全过，仅correctness guardrail不过） |
+| CL2 | 完成 | `inconclusive`，显式waive为provisional chunk `1024` |
+| CL3 | 完成 | Phase5零GPU重算，S4优势仅在workflow-only分母成立 |
+| P6-H | **失败** | 机械证据全通过，数据保真失败（P0） |
+| P6-4 | **失败** | 完整矩阵`invalid`；exact-only baseline有效 |
+| CL4 | 未开始 | Phase6 Exit未通过，前提不成立 |
+
+- **唯一根本阻塞项（P0）**：`cross_store/allocator.py`在一次驱逐迭代内按
+  快照顺序执行整个eviction closure，快照只在下一轮循环开头才刷新。同轮内
+  先执行的驱逐会让后续resource的radix节点变成stale，于是
+  - P6-4：对stale节点再次`evict`触发`_delete_leaf`断言，scheduler崩溃；
+  - P6-H：stale节点被重复释放，device slot回到free list后被覆写，
+    压力下近似reuse返回损坏KV。
+- 5次隔离实验证明触发条件是“reuse执行时存在真实device压力”，与residency
+  tier无关、与是否demotion无关、也不是紧容量本身；零近似exact-cache对照
+  16/16完全一致，排除prefill数值不确定性。
+- **CL1的`NONE`因果归因无效**：CL1所有臂都在`rho=2.0`压力下执行，其
+  quality/first-token失败与该P0完全混淆。`NONE`仍是冻结规则下程序正确的
+  结论，但必须在修复后重跑CL1才能重新判定。
+- 本轮已修复并推送两个次要缺陷：
+  - `resolve_reuse_spans`把prefix-gap的整段dense prefill误记为
+    `reuse/exact`且0 fallback（`5e47904ec`）；
+  - P6-H canary的recovery header被paired dense驱逐，导致H2D永不触发。
+- 本轮已补齐从未执行的Closeout CL3（`0b5e4f7b5`）。
+- 相关回归：容器内`164 passed, 5 skipped` + closeout runner `9 passed`；
+  isort/black/ruff(F401,F821,UP037)/`git diff --check`全部通过。
+
+### 下一步（严格顺序）
+
+1. 设计并实施cross-store allocator stale-resource P0修复
+   （两个候选方向见`IMPLEMENTATION_PLAN_LATEST.md`§15.3），补压力态保真回归。
+2. 在修复后的底座上重跑CL1，重新判定practical family。
+3. 重跑P6-H与P6-4完整矩阵。
+4. 执行CL4双模型review并形成Phase6 Exit disposition。
+5. 之后才归档V4、创建result-bound V5，并按§1走完双模型review。
+6. 仍然严格停在Phase7前，等待用户明确授权。
+
+### 不要重做
+
+- 不重跑Phase4/5完整矩阵，也不重复已修正的R2/R5 rho2矩阵。
+- 不重跑CL3（零GPU重算已完成且不依赖被污染的底座）。
+- 不把P6-H/P6-4的失败写成Phase6 negative result：它们是实现缺陷，不是
+  容量不可达，也不是机制结论。
+
 
 ### 2026-07-26T14:00:08-07:00 Phase6零GPU实现完成主体，GPU验证阻塞
 

@@ -987,6 +987,81 @@ Early-stop：
 - V3已归档为`IMPLEMENTATION_PLAN_V3_ARCHIVED.md`。
 - V4已完成GPT-5.6 Sol Max Thinking与Claude Opus 5 Max Thinking独立review、全文互换、交叉consolidate与最终delta verification。
 - 双模型确认V4定稿P0已闭合；generic host canary使用`P6-H`避免复用历史`P6-5`标签。
-- Phase6分支未创建。
-- Closeout CL0尚未完成。
-- 未启动新的GPU实验。
+
+以下状态于2026-07-26T20:20:00-07:00更新（原“Phase6分支未创建、CL0尚未完成、未启动新的GPU实验”已过时）：
+
+- Closeout CL0已完成；R2/R5 final head为`ce55860a9`/`71f15d5d1`。
+- Phase6实现分支`research/cross-store-substrate`已推送，head为
+  `248e2cb4774dbee8bb123b64d9b63cbd69f4ff5f`（本地与远程SHA一致）。
+- 全部门禁均已在Docker SM75镜像内执行。
+
+| 门禁 | 状态 | 结论 |
+| --- | --- | --- |
+| CL0 | 完成 | authority manifest与supersession已冻结 |
+| CL1 | 完成 | `practical family = NONE`，但因果归因被P0污染 |
+| CL2 | 完成 | gate `inconclusive`，按计划显式waive为provisional chunk `1024` |
+| CL3 | 完成 | Phase5零GPU重算完成，S4优势仅在workflow-only分母成立 |
+| P6-H | **失败** | 机械证据全通过，数据保真失败（P0） |
+| P6-4 | **失败** | 完整profile矩阵`invalid`；exact-only baseline有效 |
+| CL4 | 未开始 | Phase6 Exit未通过，双模型review的前提尚不成立 |
+
+- **Phase6 Exit不通过**，因此Phase7 Entry不满足。唯一阻塞项是一个P0缺陷类：
+  cross-store allocator在同一次驱逐迭代内对stale radix资源快照执行action，
+  导致压力下近似KV数据损坏（P6-H）与radix结构断言失败（P6-4）。
+- Phase7 primary manifest仍未预注册，是Phase7 Entry的第二个缺口。
+- 未进入Phase7。
+
+## 15. Phase6 Exit阻塞与V5待冻结修订（草案，尚未生效）
+
+### 15.1 为什么现在不发布V5
+
+V4的phase结构、`practical=NONE`分支、chunk waiver分支和“P6-H不解锁HiCache”
+边界都被实测证实是正确的，不需要重构。真正缺的是**结果**，而现有结果要么被
+P0污染（CL1），要么无法产生（P6-H、P6-4）。此时归档V4并冻结result-bound V5，
+等于把一个有缺陷底座上的结论写成权威结论。
+
+因此本文件保持`Current / Latest`，不提升版本号，不归档。
+V5在以下条件全部满足后才创建，并按§1走完双模型review：
+
+1. P0修复完成并有专门回归；
+2. CL1在修复后的底座上重跑，重新判定practical family；
+3. P6-H通过（含数据保真）；
+4. P6-4完整fixed40四rho矩阵取得valid或明确`diagnostic-unavailable`；
+5. CL4双模型review完成并形成主会话disposition。
+
+### 15.2 已由执行结果确定、必须写入V5的合同修订
+
+以下修订与“最终选出哪个candidate”无关，只与证据合同有关，已可冻结为待纳入项：
+
+1. **guardrail语义歧义必须先消解。** §5.9把8-token canary定义为“记录逐token
+   一致率、不扩展semantic correctness claim”，但冻结的CL1 runner把8-token
+   完全一致当作promotion硬门。两者必须二选一并在重跑前写死，否则同一歧义会
+   在每次重跑重现。
+2. **fallback证据分级。** 带label的Prometheus counter在未发生事件时不会输出
+   任何series，因此“counter缺失”只能记为`indirectly_verified`，不得记为显式
+   `0`。该规则已在代码中强制。
+3. **chunk披露强制化。** 任何recovery speedup claim必须同时声明
+   `chunked_prefill_size`与`max_prefill_tokens`，并附带一个prompt可单chunk
+   容纳的对照点。CL2证明body1024在chunk`1024`下为`1.549x`、在chunk`4096`下
+   仅为`1.025x`。
+4. **Phase6 Exit Gate新增数据保真条目。** §7.9当前只要求安全竞争、双向
+   pressure、可回滚、无泄漏，没有任何一条要求“近似reuse在压力下必须与matched
+   dense逐token一致”。正因为缺这一条，该底座通过了三轮review和全部CPU回归，
+   却在GPU压力下返回损坏KV。V5必须把它列为独立的Exit条件。
+5. **新增压力态保真回归。** 需要一个在真实device压力下比较近似reuse与matched
+   dense的回归，且不得只依赖CPU fake allocator。
+6. **Phase5结论按分母分列。** CL3证明S4只在workflow-only分母保持优势，
+   all-reusable分母下S1/S2/S3/S4彼此不可区分，必须按服务目标分别陈述。
+7. **Phase7 primary manifest预注册模板。** Entry条件要求它存在，但目前既无
+   manifest也无生成它的runner。
+
+### 15.3 P0修复的两个候选方向（供CL4后执行）
+
+1. 在`cross_store/allocator.py`执行每个action前重新校验resource仍然有效
+   （identity加树内可达性），失效则跳过并重新进入选择循环。语义最干净，
+   代价是必须重新定义跳过时的budget记账。
+2. 让`RadixCache`的cross-store `evict` action对stale节点幂等并返回真实释放
+   字节。改动面小，但必须同步修正`release_device`记账，否则会over-credit。
+
+两个方向都触及三轮review才稳定下来的byte-authoritative allocator，因此本轮
+明确不做投机性修补。

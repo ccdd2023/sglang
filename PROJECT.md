@@ -170,6 +170,237 @@
 - 根目录`TODO_LOCAL.txt`保存全部当前、条件性和待授权任务，作为聊天/session
   中断后的固定恢复入口。
 
+### 2026-07-26 CL1 screening结果与Phase7前缺口审计
+
+Docker执行合同（本轮全部实验均遵守）：
+
+- 镜像`ghcr.io/ccdd2023/sglang@sha256:0be6e16e...`；
+- `--runtime=nvidia --gpus all --ipc=host --shm-size=8g --user 1000:1000`；
+- 实现worktree与`sglang-experiments`按host路径只读挂载，保证git worktree
+  gitdir可解析；
+- `results`目录读写挂载为`/results`；HF cache只读挂载并使用离线模式；
+- `PYTHONPATH=<worktree>:<worktree>/python:/opt/sm75-site`。
+
+CL1 screening（6 candidate × body 1024/2048 × restart 1 × formal 4 = 48个
+paired repeat）已完成：
+
+- artifact `/results/phase6-gpu/cl1-screening.json`，
+  `raw_sha256=a122e1981af1d6ee92943b8f937dd91ac4cbd18998032248d5f65b84ba081cf6`；
+- provisional ranking `r0 > r1_k4 > r1_k0 > r1_k8 > r1_k32 > r1_k16`。
+
+| candidate | body | median request-path | paired target p95 ratio | 摊销N=1 | 摊销N=8 | break-even |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| r0 | 1024 | `1.554x` | `0.577` | `0.487` | `1.221x` | `3.95` |
+| r0 | 2048 | `1.984x` | `0.476` | `0.423` | `1.357x` | `3.75` |
+| r1_k0 | 1024 | `1.555x` | `0.575` | `0.488` | `1.221x` | `3.94` |
+| r1_k0 | 2048 | `1.969x` | `0.479` | `0.424` | `1.353x` | `3.76` |
+| r1_k4 | 2048 | `1.974x` | `0.480` | `0.422` | `1.352x` | `3.78` |
+| r1_k8 | 2048 | `1.966x` | `0.480` | `0.421` | `1.348x` | `3.80` |
+| r1_k16 | 2048 | `1.952x` | `0.483` | `0.420` | `1.340x` | `3.84` |
+| r1_k32 | 2048 | `1.962x` | `0.479` | `0.420` | `1.345x` | `3.82` |
+
+固定结论：
+
+- body2048上6个candidate的差异小于`1.6%`，不足以支撑机制排序；
+- body1024上`r0`/`r1_k0`（`1.554x`/`1.555x`）明显优于`k>=4`
+  （`1.451x–1.467x`），说明EPIC leading-k重算在request-path口径下是净成本；
+- paired target p95全部改善（`0.476–0.632`），远优于`<=1.05`门槛；
+- N=1摊销为`0.420–0.488`，break-even需`3.75–4.54`次复用，N=8才达
+  `1.156x–1.357x`；single-use为负的结论与corrected R2/R5一致。
+
+本轮新增finding：
+
+- FINDING-CL1-A：48个paired repeat中`quality_8_token_match`失败17次、
+  `first_token_match`失败6次，`all_guardrails_passed`对全部candidate为
+  `false`。cache path、reset invariant与pool恢复48/48通过，因此这是恢复质量
+  结果而非harness故障。按冻结的promotion规则，practical family方向为`NONE`。
+- 零GPU派生`/results/phase6-gpu/cl1-screening-consistency.json`补齐§5.9要求
+  的逐token一致率：first-token一致率`0.875`、8-token完全一致率`0.646`、
+  逐token一致率中位数`1.000`、均值`0.799`；body1024比body2048更易发散。
+- FINDING-CL1-B（P0证据缺陷）：`approx.fallback_tokens`全部为`null`。
+  `sglang:approx_kv_dense_fallback_total`是带`reason`标签的Counter，
+  未发生fallback时不输出任何series；冻结runner用`(x or 0) == 0`把
+  “counter缺失”静默判为“显式0 fallback”，违反“counter缺失只能记为
+  `indirectly_verified`”的既定规则。派生artifact已按`indirectly_verified`
+  记录，该缺陷不改变本次promotion方向。
+- FINDING-CL1-C：计划§5.9把8-token canary定义为“记录逐token一致率、不扩展
+  semantic correctness claim”，冻结runner却把8-token完全一致作为promotion硬门。
+  因“CL1执行前冻结、看到结果后不得改规则”，本轮严格按冻结实现判定，差异交由
+  CL4与新版plan处置。
+- FINDING-GAP-1：Closeout CL3（Phase5零GPU重算）从未执行，
+  `scheduler-policies` worktree无代码与artifact。计划§8.1要求CL0–CL4全部完成
+  才能进入Phase7，因此这是真实阻塞项。`TODO_LOCAL.txt`原先误标为已完成，且
+  执行顺序漏掉CL3，均已更正。“variable-size offline optimum”属于计划§12的
+  Phase7交付物，不是Closeout阻塞项，原条目把两者混为一谈。
+- FINDING-GAP-2：`IMPLEMENTATION_PLAN_LATEST.md`§14“当前状态”仍写着
+  “Phase6分支未创建、CL0未完成、未启动GPU实验”，已更正为当前事实。
+- FINDING-GAP-3：计划§8.1把“Phase7 primary manifest已预注册”列为Phase7
+  Entry条件，但该manifest不存在，也没有生成它的runner或模板；必须在Phase7
+  授权前补齐。
+
+### 2026-07-26 CL1定稿：practical family = NONE
+
+- 3-restart确认运行（`r0`、`r1_k0`，body 1024/2048，formal=4，48个paired
+  repeat）已完成，artifact `/results/phase6-gpu/cl1-confirm.json`，
+  `raw_sha256=7736f0e7f641ce7d9d628a4ea7bf1b6697ede4019bf6e6214b37efb57fff8945`。
+- `promotion` 结果为 `status=complete`、`passing=[]`、`winner=NONE`。
+- **固定结论：practical family = NONE。**
+- 该NONE完全由correctness guardrail决定，四条性能条件全部满足：
+
+| 条件 | 要求 | r0 | r1_k0 | 结果 |
+| --- | --- | --- | --- | --- |
+| body2048 request-path >1.0x | 至少2/3 restart | `1.972/1.965/1.978` | `1.969/1.972/1.974` | 3/3通过 |
+| paired target p95 ratio | `<=1.05` | `0.480` | `0.479` | 通过 |
+| N=8摊销 | `>1.0x` | `1.353x` | `1.351x` | 通过 |
+| all guardrails | 必须通过 | `false` | `false` | **不通过** |
+
+- guardrail失败明细：48个paired repeat中`quality_8_token_match`失败12次、
+  `first_token_match`失败4次；cache path、fallback、reset invariant与pool
+  恢复48/48通过。
+- 零GPU派生`/results/phase6-gpu/cl1-confirm-consistency.json`：
+  first-token一致率`0.917`、8-token完全一致率`0.750`、逐token一致率中位数
+  `1.000`、均值`0.859`；fallback证据等级`indirectly_verified`。
+- 三次restart的body2048 speedup最大相对偏差`<0.7%`，性能测量稳定，NONE不是
+  噪声导致，也不是环境阻塞。
+- 直接后果（计划§8.4/§8.5/§8.6的`practical=NONE`分支）：
+  - 跳过practical scheduler revalidation，不生成PR-S0/PR-S4；
+  - 跳过practical HiCache与RH4矩阵，不实现P7-3专用cross-store adapter；
+  - 跳过prefetch性能track；
+  - 保留R0 ceiling、R2 oracle与R4 diagnostic；
+  - exact-only prefetch若执行只能标为Phase5回归canary。
+
+### 2026-07-26 CL2 chunk gate与chunk配置伪影
+
+- CL2以`--selected-candidate NONE`执行（冻结逻辑回退到`r1_k0`为gate臂），
+  artifact `/results/phase6-gpu/cl2-chunk-gate.json`，
+  `raw_sha256=ab384e6594d1cf293bb5ad9b8a9dbe5fa68dcd4babfcbe8cbe29b0b1250abfc2`。
+- `status=inconclusive`、`selected_chunked_prefill_size=null`；原因与CL1同源，
+  gate要求`all_guardrails_passed`而correctness guardrail不通过。
+- 按计划§6 CL2显式waive分支处置：P6-4继续使用预注册worst-case provisional
+  chunk `1024`，所有结论限定在该预注册配置。
+- FINDING-CL2-A（重大）：measured recovery speedup几乎完全是
+  `chunked_prefill_size`配置伪影。
+
+| chunk | body | dense target TTFT | approx target TTFT | target-only | request-path |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1024 | 768 | `129.8ms` | `126.4ms` | `1.027x` | `1.018x` |
+| 1024 | 1024 | `297.8ms` | `171.8ms` | `1.733x` | `1.549x` |
+| 4096 | 768 | `129.3ms` | `127.6ms` | `1.013x` | `1.004x` |
+| 4096 | 1024 | `178.4ms` | `172.8ms` | `1.032x` | `1.025x` |
+
+- 机制：`launch_server`把`--max-prefill-tokens`同步设为`chunked_prefill_size`。
+  body1024的target prompt为`64+1024+1=1089`token，chunk`1024`下dense必须分两个
+  prefill chunk（`297.8ms`），chunk`4096`下是单chunk（`178.4ms`）；approximate臂
+  只需prefill最后1个token，两种配置几乎不变。
+- 因此CL1在chunk`1024`下的`1.5x–2.0x`不是恢复机制的固有收益，而是dense
+  baseline被小chunk配置惩罚的结果。CL2冻结合同不含body`2048`，该点仍待补做
+  显式标注的out-of-contract diagnostic。
+
+### 2026-07-26 P6-H暴露压力下近似KV数据损坏（P0，阻塞Phase6 Exit）
+
+- P6-H运行中发现并修复两个缺陷，修复提交
+  `5e47904ecba6b8d7b5d03693277360a1cecfa679`：
+  1. `resolve_reuse_spans`在exact prefix短于首个segment `target_start`时把
+     整段dense prefill误记为`reuse/exact`且不计任何fallback token，
+     违反“counter缺失不得写成显式0”的证据规则；现改为记
+     `prefix_gap` dense fallback，并保留真正“已被exact覆盖”的`exact`语义。
+  2. P6-H canary在tight capacity下让paired dense请求驱逐了recovery namespace
+     的header，使reuse永远无法挂载、demand H2D不可能触发；现于reuse前重新
+     seed header并断言reuse确实挂载registered body。
+- 新增2个回归测试；容器内相关回归`164 passed, 5 skipped`；
+  isort/black/ruff(F401,F821,UP037)/`git diff --check`全部通过。
+- 该修复不影响CL1/CL2已测路径：CL1的`cache_path_matched`为48/48通过，
+  exact_length始终等于header长度，从未进入被修改的分支。
+- **FINDING-P6H-A（P0）**：修复后P6-H全部机械证据通过——host export
+  `1024`token、`cross_store_demoted_bytes_total`=`117440512`、demand H2D
+  `1024`token、host bytes归零、leases`2`、0 reservation failure、0 orphan、
+  reset通过——但recovered输出与matched dense不一致。P6-H的source与target
+  上下文完全相同，正确的copy必须逐token复现dense输出。
+- 5次隔离实验（artifact
+  `/results/phase6-gpu/p6-h-pressure-corruption-isolation.json`）：
+
+| max_total_tokens | 竞争性registration | 注册residency | demotion | 与dense一致 |
+| ---: | :--- | :--- | :--- | :--- |
+| 8000 | 有 | device | 无 | 一致 |
+| 8000 | 无 | host | 无 | 一致 |
+| 3400 | 无 | host | 无 | 一致 |
+| 3400 | 有 | device | 有 | **不一致** |
+| 3400 | 有 | host | 无 | **不一致** |
+
+- 触发条件是“reuse执行时存在真实device内存压力（竞争性近似registration +
+  紧容量）”；与residency tier无关、与是否demotion无关，也不是紧容量本身。
+- **FINDING-P6H-B**：零近似exact-cache对照
+  `/results/phase6-gpu/control-exact-cache-guardrail.json`
+  （body1024/2048各8轮，第二臂由普通exact radix命中服务）first-token、
+  8-token与逐token一致率均为`1.000`，16/16全部一致，排除prefill路径数值
+  不确定性。
+- **FINDING-P6H-C（重大，影响CL1结论）**：CL1所有臂都在
+  `rho_logical_demand=2.0`压力下执行，因此CL1的`quality_8_token_match`与
+  `first_token_match`失败与本缺陷完全混淆，不能归因于跨上下文近似误差。
+  `practical family = NONE`仍是冻结规则下程序正确的结论，但**因果归因无效**，
+  必须在缺陷修复后重跑CL1才能重新判定。
+- 未做投机性修补：该P0涉及pinned近似source的device slot与同一请求
+  `allocate_recovery_slots`之间的保护契约，需要专门设计与双模型review。
+- 结论：**Phase6 Exit当前不可通过；Phase7不得在该底座上启动。**
+
+### 2026-07-26 P6-4结果与CL3 Phase5零GPU重算
+
+- P6-4完整profile矩阵在`hierarchical/rho1.5`的`r0_like` profile崩溃，
+  status为`invalid`（实现缺陷，不是`diagnostic-unavailable`）：
+
+```
+restore_request_prefix -> finalize_copy_reuse -> allocate_recovery_slots
+  -> cross_store/coordinator.allocate_tokens -> cross_store/allocator.allocate
+  -> radix_cache.evict -> radix_cache._delete_leaf
+AssertionError: parent does not have child key
+```
+
+- 根因：`cross_store/allocator.py`驱逐循环在一次迭代内按快照顺序执行整个
+  eviction closure，而快照只在“上一轮驱逐过exact资源”时于下一次循环开头刷新。
+  同轮内先执行的驱逐可能已把后续resource对应的radix节点从父节点摘除，
+  对该stale节点再次`evict`即触发断言。这同时解释了P6-H的压力下KV损坏：
+  stale节点被重复释放会把仍被近似对象引用的device slot放回free list并被覆写。
+  **P6-H数据保真失败与P6-4结构断言是同一缺陷类。**
+- 已单独取得不受该缺陷影响的exact-only capacity baseline
+  （`/results/phase6-gpu/p6-4-exact-only.json`，
+  `run_id=p6-4-20260727T030317Z`）：
+  - 5个cell（S4 rho`1.1/1.5/2.0/3.0` + S0 rho2 paired）全部完成；
+  - requested与observed capacity完全相等：
+    `20713/15190/11392/11392/7595` token，容差检查5/5通过；
+  - `exact_evicted_bytes=18007851008`，四个rho均发生真实exact eviction；
+  - 因只跑exact_only，`bidirectional_pressure`与`fallback_reachability`
+    按定义不成立，整体status为`inconclusive`。
+- CL3 Phase5零GPU重算已完成（本次新增runner
+  `benchmark/approx_kv/run_cl3_phase5_recompute.py`，不重跑任何Phase5 GPU
+  cell）：artifact `/results/phase6-gpu/cl3-phase5-recalculation.json`，
+  `run_id=cl3-20260727T031459Z`，
+  `raw_sha256=17f010b75e5f18dd38c675550ef041a90d12e93211f2384093e759b13bd3af41`，
+  覆盖40个已提交cell、18个scheduler paired行与9个prefetch paired行。
+- **FINDING-CL3-A（重大）**：S4的优势完全依赖分母选择。
+
+| 策略（相对S0 LRU） | 分母 | rho1.1 | rho1.5 | rho2.0 | rho3.0 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| S4 hierarchical | workflow-only | `1.457` | `1.321` | `1.148` | `1.147` |
+| S1 workflow-steps | workflow-only | `1.454` | `1.135` | `0.996` | `1.007` |
+| S2 Belady-style | workflow-only | `1.451` | `1.125` | `1.004` | `1.008` |
+| S3 recovery-value | workflow-only | `1.466` | `1.138` | `1.005` | `1.003` |
+| S4 hierarchical | all-reusable | `1.180` | `1.089` | `1.151` | `1.097` |
+| S1 workflow-steps | all-reusable | `1.177` | `1.096` | `1.149` | `1.107` |
+| S2 Belady-style | all-reusable | `1.178` | `1.088` | `1.155` | `1.109` |
+| S3 recovery-value | all-reusable | `1.187` | `1.100` | `1.158` | `1.102` |
+
+- 即：在workflow-only（SLA视角）下只有S4在`rho>=2.0`保持收益；在all-reusable
+  （primary p95分母）下四种策略相对S0的改善全部落在`1.09x–1.19x`，彼此不可
+  区分。因此“S4唯一有效”只在workflow-only分母成立，必须按服务目标分别陈述，
+  不能写成普遍最优。这正是review C-24预期的结果。
+- all-reusable的p95比值全部在`0.984–1.009`，四种策略均未恶化p95。
+- **FINDING-CL3-B**：prefetch矩阵改为与同策略P0配对（Phase5 prefetch矩阵没有
+  LRU臂，原先与LRU比较不成立）后，P1/P2/P3在两种分母下都是`0.989–1.004`，
+  即无收益。Phase5“默认S4+P0”的结论在正确对照下依然成立。
+- CL3同时落实：per-request clamp的hit fraction、full-trace wall-clock、
+  per-role TTFT与miss、paired/per-restart统计，以及S2只称Belady-style。
+  “variable-size offline optimum”按计划§12归为Phase7交付物，不是Closeout阻塞项。
+
 - 用户已将当前实验明确收窄为：不研究 AST、label、自动分段或 indexing；手工固定一个大代码段，在不同 role/prefix/context 下做有损 KV 恢复与调度实验。
 - “有损 KV”专指避免完整目标-context prefill，通过 raw KV reuse + RoPE、KVCOMM base/offset/anchor 或局部 recompute/repair 近似恢复 KV；不指量化、低比特或普通 KV pruning。
 - 当前唯一性能主目标是客户端观测 TTFT（包含排队），同时记录 server-side 分解；不评估语义正确率、代码正确率或输出一致性，最低门槛只是请求不崩溃并返回首 token。

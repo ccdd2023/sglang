@@ -1,7 +1,7 @@
 CODE-AGENT KVCACHE LOCAL TODO LIST
 ==================================
 
-Last updated: 2026-07-26T18:01:24-07:00
+Last updated: 2026-07-26T20:25:00-07:00
 Authority: PROJECT.md and IMPLEMENTATION_PLAN_LATEST.md
 Current boundary: do not enter Phase 7 without reporting to the user.
 
@@ -55,7 +55,14 @@ Current boundary: do not enter Phase 7 without reporting to the user.
 -----------------------------------
 
 [x] Phase 4/5 CL0 authority manifest and supersession cleanup.
-[x] Phase 5 zero-GPU recalculation and variable-size offline optimum.
+[ ] CL3 Phase 5 zero-GPU recalculation.
+    CORRECTION 2026-07-26T18:43:56-07:00: this was previously recorded here as
+    complete. It is NOT complete. No code and no artifact exist in the
+    scheduler-policies worktree or in PROJECT.md. Plan section 8.1 requires
+    Closeout CL0-CL4 before Phase 7 Entry, so this is a real blocker.
+    "Variable-size offline optimum" is a Phase 7 deliverable (plan section 12),
+    not a Closeout deliverable; the two were conflated in the old entry.
+[x] Phase 5 variable-size offline optimum: NOT required before Phase 7.
 [x] Corrected R2/R5 rho2 causal reruns.
 [x] Phase 6 cross-store core implementation.
 [x] Phase 6 P6-0 contract freeze.
@@ -88,232 +95,128 @@ Persistent commits:
 3. IMMEDIATE EXECUTION ORDER BEFORE PHASE 7
 -------------------------------------------
 
-The order is strict:
+STATUS 2026-07-26T20:25:00-07:00: CL1, CL2 and CL3 are done. P6-H and P6-4
+both failed on one shared P0 defect. CL4 cannot start because Phase 6 Exit
+did not pass. The old CL1 -> CL2 -> P6-H -> P6-4 -> CL4 order is superseded
+by the order below. Nothing here is a mechanism conclusion; the blocker is an
+implementation defect.
 
-    CL1 -> CL2 -> P6-H -> P6-4 -> CL4/Phase6 Exit Review -> STOP
+New strict order:
 
+    P0 fix -> CL1 rerun -> P6-H -> P6-4 -> CL4/Phase6 Exit -> V5 plan -> STOP
 
-3.1 CL1 - R0/R1 CANDIDATE QUALIFICATION
+All runners execute inside the immutable SM75 image with:
 
-[ ] Mark CL1 in progress in the active task tracker.
+    --runtime=nvidia --gpus all --ipc=host --shm-size=8g --user 1000:1000
+    worktree and sglang-experiments mounted read-only at their host paths
+    /home/chris/Workspaces/kvcache-research/results mounted read-write at /results
+    HF cache mounted read-only with HF_HOME and HF_HUB_OFFLINE=1
+    PYTHONPATH=<worktree>:<worktree>/python:/opt/sm75-site
 
-[ ] Run one-restart screening:
-    candidates:
-      r0, r1_k0, r1_k4, r1_k8, r1_k16, r1_k32
-
-    body:
-      1024, 2048
-
-    fixed:
-      header=64
-      rho_logical_demand=2.0
-      GPU-only
-      scheduler=S0
-      prefetch=P0
-      cumulative causal prefix
-      isolated extra_key
-      paired dense/filler
-
-    runner:
-      python3 -m benchmark.approx_kv.run_cl1_qualification
-
-    required provenance:
-      --source-git-sha c487e36af5f7ce4da556da1b88c85df750a0b14d
-      --model Qwen/Qwen3-0.6B
-      --model-revision c1899de289a04d12100db370d81485cdf75e47ca
-      --image-digest sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781
-      --central-log /home/chris/Workspaces/kvcache-research/results/BENCHMARK_RUN_LOG.jsonl
-
-[ ] Check every formal pair:
-    - request completes;
-    - expected cached-token path matches;
-    - explicit fallback is zero for a valid recovery;
-    - first token matches paired dense;
-    - independent 8-token output matches;
-    - pool reset passes;
-    - source tree/model/image/server-log provenance is complete.
-
-[ ] Use request-path, not target-only TTFT, for candidate promotion.
-
-[ ] Report:
-    - target-only speedup;
-    - request-path speedup;
-    - paired request-path and target p95;
-    - N=1/2/4/8 amortized speedup;
-    - break-even reuses;
-    - per-restart samples.
-
-[ ] Promotion requirements:
-    - all guardrails pass;
-    - body2048 request-path >1.0x in at least 2/3 restarts;
-    - paired target p95 ratio <=1.05;
-    - N=8 amortized speedup >1.0x;
-    - select highest median paired request-path;
-    - within 2%, prefer more repair and lower p95;
-    - otherwise practical family=NONE.
-
-[ ] After screening, run k0 and the provisional winner to 3 restarts.
-    If the provisional result is R0, R1-k0 or NONE, preserve that exact value.
-
-[ ] Save raw/compact artifacts, commit them, and push with explicit ccdd2023
-    SSH identity.
+A reusable launcher was used this session and can be recreated from the
+settings above; it is not committed because it contains host paths.
 
 
-3.2 CL2 - CHUNK CONFIGURATION GATE
+3.1 P0 - CROSS-STORE ALLOCATOR STALE RESOURCE DEFECT
 
-[ ] Start only after CL1 candidate status is frozen.
+[ ] Read IMPLEMENTATION_PLAN_LATEST.md section 15 first.
 
-[ ] Run:
-    arms:
-      dense, r1_k0, selected candidate
+[ ] Symptom A, P6-4:
+      radix_cache._delete_leaf
+      AssertionError: parent does not have child key
+    reached through
+      restore_request_prefix -> finalize_copy_reuse
+      -> allocate_recovery_slots -> cross_store coordinator
+      -> cross_store allocator action() -> radix_cache.evict
 
-    selected candidate may be:
-      r0, r1_k0, r1_k4, r1_k8, r1_k16, r1_k32, NONE
+[ ] Symptom B, P6-H:
+    approximate reuse returns corrupted KV under device pressure while every
+    mechanical counter still passes.
 
-    body:
-      768, 1024
+[ ] Root cause:
+    cross_store/allocator.py applies a whole eviction closure from one
+    snapshot inside a single loop iteration, and only refreshes the snapshot
+    at the start of the next iteration. Evictions applied earlier in the same
+    iteration can detach the radix nodes that later resources point at.
 
-    chunked_prefill_size:
-      1024, 4096
+[ ] Two candidate fixes and their costs are recorded in plan section 15.3.
+    Do not patch speculatively; this is the allocator that took three review
+    rounds to stabilise.
 
-    fixed:
-      rho_logical_demand=2.0
-      restart=2
-      formal=2
+[ ] Add a pressure-mode fidelity regression. A CPU fake-allocator test is not
+    sufficient: the existing 164-test CPU suite passes while the GPU path is
+    wrong under pressure.
 
-    runner:
-      python3 -m benchmark.approx_kv.run_cl2_chunk_gate
-
-    use:
-      --selected-candidate <candidate>
-
-[ ] Freeze one Phase 7 chunk size and its sensitivity/disclosure text.
-
-[ ] If selected chunk is 1024:
-    keep the current P6-0 contract.
-
-[ ] If selected chunk is not 1024:
-    - generate a new CL2-bound P6-0 contract with --chunk-source cl2;
-    - do not overwrite the existing provisional artifact;
-    - commit and push the new contract;
-    - run P6-4 only with the selected chunk.
+[ ] Reproduction harnesses are committed:
+      benchmark/approx_kv/diagnostics/diag_p6h_round.py
+      benchmark/approx_kv/diagnostics/control_exact_cache_guardrail.py
+    Isolation evidence:
+      benchmark/approx_kv/results/phase6/p6-h-pressure-corruption-isolation.json
 
 
-3.3 P6-H - GENERIC HOST ROUNDTRIP CANARY
+3.2 CL1 RERUN AFTER THE P0 FIX
 
-[ ] Run after CL2 with the selected chunk:
-      python3 -m benchmark.approx_kv.run_p6_h_host_roundtrip
+[ ] CL1 already produced practical family = NONE, but every arm ran at
+    rho_logical_demand=2.0, so the guardrail failures are confounded with the
+    P0. The verdict is procedurally valid and causally invalid.
 
-[ ] Required settings:
-    restart=1
-    warmup=1
-    formal=2
-    performance claim disabled
+[ ] Before rerunning, resolve the guardrail ambiguity recorded as
+    FINDING-CL1-C: plan section 5.9 says record the per-token consistency
+    rate and do not extend to semantic correctness, while the frozen runner
+    makes exact 8-token equality a hard promotion gate. Pick one and freeze
+    it before any data is produced.
 
-[ ] Required evidence:
-    - device approximate object really demotes to host;
-    - host byte/accounting is correct;
-    - demand H2D load completes;
-    - D2H/H2D measured bytes and duration exist;
-    - recovery outcome is server-confirmed;
-    - transfer lock releases;
-    - temporary peak fits;
-    - records/device bytes/host bytes/leases/orphans all return to zero;
-    - pool reset passes.
-
-[ ] Scope wording:
-    host_backend=allocator_cpu_copy
-    hicache_tier_exercised=false
-
-[ ] Do not claim this qualifies Phase 7 HiCache.
-
-[ ] Commit and push the result artifact.
+[ ] Keep the existing artifacts; do not overwrite them.
+    Current results:
+      cl1-screening.json          raw_sha256 a122e1981af1d6ee...
+      cl1-confirm.json            raw_sha256 7736f0e7f641ce7d...
 
 
-3.4 P6-4 - FIXED40 CAPACITY PILOT
+3.3 P6-H RERUN
 
-[ ] Start after CL2, using the selected chunk.
+[ ] The runner now reseeds the recovery header before the reuse request and
+    asserts that the reuse attached the registered body.
 
-[ ] Fixed workload:
-    exact_only
-    R0-like
-    R1-like k32 worst-case resident/temporary footprint
-    R2-like approximately 2x
-    R4-like approximately 5x
+[ ] The built-in capacity formula ceil((2*body+header)*1.15)=2429 tokens is
+    too small for the temporary peak. Pass --max-total-tokens explicitly;
+    3400 exercises demotion and H2D correctly.
 
-    body=2048
-    rho_logical_demand=1.1,1.5,2.0,3.0
-    S4 at all four rho values
-    S0 paired at rho2
-    restart=1
-    warmup=1
-    formal=2
-    performance ranking disabled
+[ ] Use chunked-prefill-size 4096. At 1024 the server OOMs before the canary
+    can run.
 
-    runner:
-      python3 -m benchmark.approx_kv.run_p6_4_capacity_pilot
 
-[ ] Do not change the 40 logical objects across capacity cells.
+3.4 P6-4 RERUN
 
-[ ] Change capacity only through --max-total-tokens.
+[ ] exact_only already passed as a separate artifact and does not need to be
+    redone unless the fix changes exact behaviour:
+      p6-4-exact-only.json, requested == observed capacity for all 5 cells,
+      exact_evicted_bytes 18007851008.
 
-[ ] Validate:
-    - requested vs observed capacity tolerance;
-    - exact-only baseline;
-    - approximate recovery actually occurs;
-    - exact requester -> approximate victim bytes >0;
-    - approximate requester -> exact victim bytes >0;
-    - server cache outcomes are authoritative;
-    - physical rho includes header plus peak max(resident,temp) multiplicity;
-    - registration outcomes are success/partial/dense_only/error per request;
-    - fallback is associated with the same replay reservation failure;
-    - rollback/fallback reachability;
-    - orphan=0;
-    - complete pool/store reset.
-
-[ ] Status vocabulary:
-    valid
-    diagnostic-unavailable
-    invalid
-
-[ ] R4-like exception:
-    if 5x is unreachable, one and only one re-freeze may reduce representation
-    multiplicity without changing object lengths. If still unreachable, record
-    diagnostic-unavailable.
-
-[ ] Commit and push the result artifact.
+[ ] Rerun the full profile set only after the P0 fix.
 
 
 3.5 CL4 + PHASE 6 EXIT DUAL REVIEW
 
-[ ] Run independent reviews:
-    - GPT-5.6 Sol, Max Thinking, long context;
-    - Claude Opus 5, Max Thinking, long context.
+[ ] Only after P6-H and P6-4 pass.
 
-[ ] Exchange full reports and cross-consolidate.
+[ ] Sol and Opus independent review, exchange, cross-consolidate, main
+    session disposition.
 
-[ ] Main-session disposition must freeze:
-    - practical candidate or NONE;
-    - selected chunk;
-    - P6-H validity and exact scope;
-    - P6-4 reachable/unreachable profiles;
-    - directional pressure evidence;
-    - stop/continue manifest;
-    - all accepted P0 closure.
+[ ] Phase 6 Exit must additionally prove approximate reuse fidelity under
+    pressure. The current gate does not require it, which is why the defect
+    survived three review rounds.
 
-[ ] Phase 6 Exit requires:
-    - exact/approx/host byte accounting;
-    - both directional pressure paths;
-    - allocation rollback or explicit fallback;
-    - fixed40 four-rho result or explicit diagnostic-unavailable;
-    - R1-like worst-case result or explicit diagnostic-unavailable;
-    - generic host canary;
-    - no leak/orphan;
-    - complete source/result/env/raw/test provenance.
 
-[ ] Commit and push the consolidated review and final Phase 6 artifacts.
+3.6 COMPLETED THIS SESSION - DO NOT REDO
 
-[ ] STOP before Phase 7 and report to the user.
+[x] CL1 screening and 3-restart confirmation.
+[x] CL2 chunk gate, waived to provisional chunk 1024.
+[x] CL3 Phase 5 zero-GPU recalculation.
+[x] P6-4 exact-only capacity baseline.
+[x] Zero-GPU per-token consistency derivations for both CL1 runs.
+[x] Exact-cache control that rules out prefill numerical nondeterminism.
+[x] Fix: prefix-gap reuse is now a counted dense fallback, not a fake exact hit.
+[x] Fix: P6-H recovery header reseed.
 
 
 4. RESULT-BOUND PHASE 7 PLAN UPDATE
@@ -328,7 +231,32 @@ The order is strict:
     - exchange reports and consolidate;
     - freeze the actual candidate, chunk, matrix, budget and early-stop paths.
 
+DECISION 2026-07-26T20:25:00-07:00 on how to update the Phase 7 latest plan:
+V4 stays Current / Latest. It is not archived and the version is not bumped.
+V4's phase structure, its practical=NONE branch, its chunk waiver branch and
+its "P6-H does not unlock HiCache" boundary were all confirmed correct by
+execution. What is missing is results, and the results that exist are either
+contaminated by the P0 (CL1) or could not be produced (P6-H, P6-4). Freezing a
+result-bound V5 now would turn conclusions drawn on a defective substrate into
+authority. The pending V5 amendments are recorded as a clearly non-authoritative
+draft in IMPLEMENTATION_PLAN_LATEST.md section 15 and require the section 1
+dual review before they become effective.
+
 Known Phase 7 contract changes that must be included:
+
+[ ] Resolve the section 5.9 guardrail ambiguity before any rerun.
+
+[ ] A missing labelled Prometheus counter is indirectly_verified, never an
+    explicit zero.
+
+[ ] Every recovery speedup claim states chunked_prefill_size and
+    max_prefill_tokens and carries a single-chunk control point.
+
+[ ] Phase 6 Exit gains an explicit approximate-reuse fidelity-under-pressure
+    condition.
+
+[ ] Phase 5 conclusions are stated per denominator, because S4 only keeps its
+    advantage under workflow-only.
 
 [ ] Candidate semantics include R0, R1-k0, selected R1-k or NONE.
 
