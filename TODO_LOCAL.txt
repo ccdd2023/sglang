@@ -128,16 +128,41 @@ All runners execute inside the immutable SM75 image with:
       (evict_from_tree_cache does call make_room with requester="exact");
     - cross-store coordinator reentrancy.
 
-[ ] UNCONFIRMED HYPOTHESIS, resolve this first: the P0 fix correctly removed
-    the request's own prefix from the victim pool, so recovery must now take
-    NEW slots and genuine peak device demand rose. If true this is a capacity
-    result and the cell should be recorded diagnostic-unavailable, not invalid.
-    The decisive control is to rerun the SAME reduced-profile cell on the
-    pre-fix commit c487e36af and compare.
+[x] NOT a regression from the P0 fix. Control run: the same reduced profile
+    set on the pre-fix commit c487e36af crashes earlier, at hierarchical
+    rho1.5, with the radix assertion. The fixed tree clears rho1.1 and rho1.5
+    and only then meets this OOM, so the pre-fix tree never reached the cell.
+    Artifact: p6-4-PREFIX-CONTROL-prefix-commit.json.
 
-[ ] Independently of the above, alloc_token_slots should degrade rather than
-    kill the scheduler when cross-store cannot free enough. That is a
-    robustness gap and should be fixed even if the capacity finding stands.
+[ ] LEADING HYPOTHESIS, fix this first (review finding P1-3): recovery
+    allocates and attaches device slots BEFORE scheduler admission. If
+    add_one_req() rejects the request, cleanup releases only Mamba state and
+    the recovered suffix is never freed; the next rematch overwrites
+    prefix_indices and loses the only reference to those slots.
+    Independently confirmed: req.approx_kv_restored_len is written at
+    runtime.py:571 and epic_runtime.py:678 and has NO consumer anywhere in
+    the tree, so no cleanup path exists.
+    This matches the observed log exactly: a 1024-token allocation with
+    available_size=0, evictable_size=0 and only the expected 64-token locked
+    prefix, i.e. a capacity drain rather than a one-shot shortfall.
+    Corroboration: CL1 passes its reset invariant 48/48, so the SUCCESS path
+    does not leak; CL1 requests are small and essentially always admitted,
+    while P6-4 rejects often under pressure plus chunked prefill.
+    Fix: treat recovered indices as provisional; roll them back on admission
+    failure, on abort, and before rematching; commit ownership only after
+    admission and request-pool attachment.
+
+[ ] Also fix review finding P1-2: after the hardened attachment check raises
+    KeyError the detached node stays in evictable_leaves and is advertised
+    again by later snapshots, and CrossStoreAllocator.allocate() gives up on
+    that KeyError instead of refreshing the provider and trying another valid
+    victim. Reviewer reproduced both: the stale node remained advertised
+    (resource count 1, evictable_size 1), and a stale victim ordered before a
+    valid one made allocation return committed=False without ever invoking
+    the valid victim.
+
+[ ] Secondary, still worth doing: alloc_token_slots should degrade rather
+    than kill the scheduler when cross-store cannot free enough.
 
 [ ] exact_only already passed and does not need redoing:
       p6-4-exact-only.json, requested == observed capacity for all 5 cells,
@@ -167,6 +192,11 @@ All runners execute inside the immutable SM75 image with:
 [x] CL3 Phase 5 zero-GPU recalculation.
 [x] P6-4 exact-only capacity baseline.
 [x] Guardrail ambiguity frozen as plan section 5.9.1 BEFORE the rerun.
+[x] Context-vs-pressure 2x2. Different-header reuse diverges even at
+    target_rho 0.5 with zero eviction, so the fixed defect cannot explain the
+    CL1 divergence. Artifact: context-vs-pressure-2x2.json.
+[x] Dual review of the P0 fix and of the scientific conclusions. No P0 found.
+    Review finding P1-1 (SWA release metadata) fixed in db2d18ff0.
 
     Note: test_radix_cache_unit.py::test_memory_allocated fails on this tree
     but also fails with all changes stashed. It is pre-existing, not a

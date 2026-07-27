@@ -2126,3 +2126,52 @@ review指出的决定性缺失实验（**已立即执行**）：
   - “paired p95”实为pooled比值、N摊销为外推、独立复制单元很少、
     P6-H非bitwise保真；
   - CL3改为“数值上几乎不可区分”，不写“within noise”。
+
+## 2026-07-27T02:25:00-07:00 — 代码review（Sol/code-review）结论：无P0，3项P1
+
+review确认：
+
+- **诊断的self-eviction根因正确**；
+- 标准`RadixCache`的split是对称的：`_split_node`复制lock count并切分key长度，
+  释放被捕获的节点会走新的祖先链，**未发现标准Radix下的lock泄漏**；
+- `register_request_segments`不需要额外guard：它运行在
+  `cache_finished_req`释放既有请求锁之前；
+- residency分配hook与两条EPIC分配路径都已被外层recovery guard覆盖；
+- 该锁不引入mutex死锁；
+- `c405343c8`的`N-1` reseed修正正确（`_compute_max_prefix_len`把满命中
+  上限设为`N-1`）。
+
+三项P1：
+
+- **P1-1（已修复，`db2d18ff0`）**：guard丢弃了`inc_lock_ref`返回的SWA窗口
+  与skipped-node元数据，直接`dec_lock_ref(node)`。在SWA/Unified cache上可能
+  走出已获取窗口、递减其它请求仍持有的祖先锁。已改为回传
+  `result.to_dec_params()`；标准RadixCache忽略该参数，因此只影响需要它的
+  cache类型。新增回归。
+- **P1-2（未修复，已记录）**：新加固的attachment检查抛`KeyError`后，
+  detached节点**仍留在`evictable_leaves`**中，后续快照会再次广告它；
+  且`CrossStoreAllocator.allocate()`遇到该`KeyError`会立即放弃，
+  而不是刷新快照改选另一个有效victim。review实测：失败后stale节点仍被广告
+  （resource count `1`、`evictable_size=1`）；当stale victim排在有效victim
+  之前时，分配直接返回`committed=False`且从未调用那个有效victim。
+  建议：原子化隔离并reconcile detached节点，把stale-candidate错误视为
+  可重试并刷新provider。
+- **P1-3（未修复，已记录；重要）**：recovery在**scheduler admission之前**
+  分配并挂载device slot。若`add_one_req()`拒绝该请求，清理只释放Mamba状态，
+  **recovered suffix不会被释放**；下一次rematch会覆写`prefix_indices`，
+  从而丢失这些slot的唯一引用。已独立核实：`approx_kv_restored_len`
+  在`runtime.py:571`与`epic_runtime.py:678`只被**写入**，全仓库**没有任何
+  消费者**，确实缺少清理路径。
+
+**对P6-4 OOM归因的更正**：先前假设“修复后峰值device需求真实上升”现降级为
+次要解释。更可能的主因是**P1-3的slot泄漏**：每次admission拒绝都漏掉一批
+recovered slot，容量单调枯竭，最终出现
+`available_size=0 + evictable_size=0`且仅有64个locked token的日志特征——
+与实测完全吻合。
+
+支持该更正的旁证：CL1的reset invariant在48/48全部通过，说明**成功路径不泄漏**；
+泄漏只在admission拒绝时发生，而CL1请求小、几乎总被接纳，P6-4则在高压力+
+chunked prefill下频繁拒绝。
+
+review亦明确指出：不应把该致命OOM简单归类为“预期内的需求上升”，
+上述allocation-lifecycle缺陷会把**可恢复的压力**变成**scheduler崩溃**。
