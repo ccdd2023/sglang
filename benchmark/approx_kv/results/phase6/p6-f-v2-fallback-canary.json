@@ -1,0 +1,455 @@
+{
+  "accounting_before_flush": {
+    "sglang:approx_kv_provisional_tokens": 0.0,
+    "sglang:approx_kv_store_leases": 0.0,
+    "sglang:approx_kv_store_orphans": 0.0,
+    "sglang:cross_store_reserved_device_bytes": 0.0
+  },
+  "crosses_chunk_boundary": false,
+  "dense": {
+    "cached_tokens": 64,
+    "elapsed_ms": 345.9225359983975,
+    "finish_reason": {
+      "length": 8,
+      "type": "length"
+    },
+    "output_ids": [
+      13,
+      197,
+      197,
+      322,
+      197,
+      197,
+      322,
+      197
+    ]
+  },
+  "dense_seed": {
+    "cached_tokens": 0,
+    "elapsed_ms": 80.34255799429957,
+    "finish_reason": {
+      "length": 1,
+      "type": "length"
+    },
+    "output_ids": [
+      267
+    ]
+  },
+  "evidence_claim": "fault-injected integrated fallback path only; does not prove natural pressure reachability",
+  "fallback": {
+    "cached_tokens": 64,
+    "elapsed_ms": 345.43195500737056,
+    "finish_reason": {
+      "length": 8,
+      "type": "length"
+    },
+    "output_ids": [
+      13,
+      197,
+      197,
+      322,
+      197,
+      197,
+      322,
+      197
+    ]
+  },
+  "fallback_evidence": {
+    "dense_fallback_requests": 1.0,
+    "device_allocation_fallback_tokens": 0.0,
+    "output_matches_dense": true,
+    "request_completed": true,
+    "reservation_failures": 1.0,
+    "reservation_fallback_tokens": 1024.0
+  },
+  "fallback_seed": {
+    "cached_tokens": 0,
+    "elapsed_ms": 57.38456000108272,
+    "finish_reason": {
+      "length": 1,
+      "type": "length"
+    },
+    "output_ids": [
+      267
+    ]
+  },
+  "fault_injected": true,
+  "formal_repeats": 1,
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "independent_injection_disabled_control": {
+    "accounting_before_flush": {
+      "sglang:approx_kv_provisional_tokens": 0.0,
+      "sglang:approx_kv_store_leases": 0.0,
+      "sglang:approx_kv_store_orphans": 0.0,
+      "sglang:cross_store_reserved_device_bytes": 0.0
+    },
+    "output_matches_dense": true,
+    "plugin_env": {
+      "SGLANG_APPROX_KV_BYTES_PER_TOKEN": "114688",
+      "SGLANG_APPROX_KV_CORE": "1",
+      "SGLANG_APPROX_KV_CROSS_STORE": "1",
+      "SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+      "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT": "0",
+      "SGLANG_APPROX_KV_TEST_ONLY": "1"
+    },
+    "recovery": {
+      "cached_tokens": 1088,
+      "elapsed_ms": 339.5548620028421,
+      "finish_reason": {
+        "length": 8,
+        "type": "length"
+      },
+      "output_ids": [
+        13,
+        197,
+        197,
+        322,
+        197,
+        197,
+        322,
+        197
+      ]
+    },
+    "recovery_success": 1.0,
+    "registered": {
+      "cached_tokens": 1088,
+      "elapsed_ms": 161.27856200910173,
+      "finish_reason": {
+        "length": 1,
+        "type": "length"
+      },
+      "output_ids": [
+        13
+      ]
+    },
+    "reservation_failures": 0.0,
+    "reset_invariant": {
+      "accounted_tokens": 13130.0,
+      "kv_available_tokens": 13128.0,
+      "kv_evictable_tokens": 2.0,
+      "kv_used_tokens": 0.0,
+      "max_total_num_tokens": 13130.0,
+      "metrics_available": true,
+      "passed": true,
+      "tolerance_tokens": 131.3
+    },
+    "seed": {
+      "cached_tokens": 0,
+      "elapsed_ms": 79.48405800561886,
+      "finish_reason": {
+        "length": 1,
+        "type": "length"
+      },
+      "output_ids": [
+        267
+      ]
+    },
+    "server_argv": [
+      "/usr/bin/python3",
+      "-m",
+      "sglang.launch_server",
+      "--model-path",
+      "Qwen/Qwen3-0.6B",
+      "--revision",
+      "c1899de289a04d12100db370d81485cdf75e47ca",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "30011",
+      "--tp-size",
+      "1",
+      "--mem-fraction-static",
+      "0.35",
+      "--chunked-prefill-size",
+      "4096",
+      "--max-prefill-tokens",
+      "4096",
+      "--max-running-requests",
+      "2",
+      "--attention-backend",
+      "torch_native",
+      "--sampling-backend",
+      "pytorch",
+      "--cuda-graph-backend-decode",
+      "disabled",
+      "--cuda-graph-backend-prefill",
+      "disabled",
+      "--radix-eviction-policy",
+      "hierarchical",
+      "--enable-cache-report",
+      "--enable-metrics",
+      "--random-seed",
+      "29",
+      "--log-level",
+      "warning"
+    ],
+    "server_log": "/results/phase6-gpu/logs-p6fv2/injection-server-control.log",
+    "server_log_sha256": "f880ba6f0852d41974d51b3ab44eb2c6d908b38252e52667fe205fd8ba42781f",
+    "source": {
+      "cached_tokens": 0,
+      "elapsed_ms": 192.20199700794183,
+      "finish_reason": {
+        "length": 1,
+        "type": "length"
+      },
+      "output_ids": [
+        13
+      ]
+    },
+    "store_reset_gauges": {
+      "sglang:approx_kv_provisional_tokens": 0.0,
+      "sglang:approx_kv_store_device_bytes": 0.0,
+      "sglang:approx_kv_store_host_bytes": 0.0,
+      "sglang:approx_kv_store_leases": 0.0,
+      "sglang:approx_kv_store_orphans": 0.0,
+      "sglang:approx_kv_store_records": 0.0,
+      "sglang:cross_store_reserved_device_bytes": 0.0
+    }
+  },
+  "injection_point": "after_reserve",
+  "injection_scope": "one-shot approximate requester only",
+  "ledger": {
+    "materialization": {
+      "registered_tokens": 1024
+    },
+    "recovery": {
+      "dense_fallback_tokens": 1024.0,
+      "fault_injected": true
+    },
+    "scheduler": {
+      "dense_fallback_requests": 1.0
+    },
+    "setup": {
+      "registration_ms": 1634.4913549983175,
+      "source_ms": 193.6803019925719
+    },
+    "temporary_peak": {
+      "observed_bytes": 500957184.0
+    },
+    "transfer": {
+      "declared_bytes": 0,
+      "measurement": "not_applicable_no_transfer"
+    }
+  },
+  "machine": {
+    "compute_capability": [
+      7,
+      5
+    ],
+    "cuda": "12.9",
+    "gpu": "NVIDIA GeForce RTX 2080 SUPER",
+    "gpu_memory_bytes": 8163426304,
+    "python": "3.12.3 (main, Mar  3 2026, 12:15:18) [GCC 13.3.0]",
+    "torch": "2.9.1+cu129",
+    "transformers": "5.12.1"
+  },
+  "model": "Qwen/Qwen3-0.6B",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "natural_pressure_reachability": false,
+  "normal_recovery": {
+    "cached_tokens": 1088,
+    "elapsed_ms": 2162.9255379957613,
+    "finish_reason": {
+      "length": 8,
+      "type": "length"
+    },
+    "output_ids": [
+      13,
+      197,
+      197,
+      322,
+      197,
+      197,
+      322,
+      197
+    ]
+  },
+  "normal_seed": {
+    "cached_tokens": 0,
+    "elapsed_ms": 57.614617006038316,
+    "finish_reason": {
+      "length": 1,
+      "type": "length"
+    },
+    "output_ids": [
+      267
+    ]
+  },
+  "observed_capacity": {
+    "bytes": 1505853440,
+    "pages": 13130,
+    "tokens": 13130
+  },
+  "one_shot_control": {
+    "normal_recovery_cached_tokens": 1088,
+    "normal_recovery_success": 1.0,
+    "output_matches_dense": true
+  },
+  "passed": true,
+  "performance_claim": "disabled",
+  "phase": "P6-F",
+  "plugin_env": {
+    "control_server": {
+      "SGLANG_APPROX_KV_BYTES_PER_TOKEN": "114688",
+      "SGLANG_APPROX_KV_CORE": "1",
+      "SGLANG_APPROX_KV_CROSS_STORE": "1",
+      "SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+      "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT": "0",
+      "SGLANG_APPROX_KV_TEST_ONLY": "1"
+    },
+    "injection_server": {
+      "SGLANG_APPROX_KV_BYTES_PER_TOKEN": "114688",
+      "SGLANG_APPROX_KV_CORE": "1",
+      "SGLANG_APPROX_KV_CROSS_STORE": "1",
+      "SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+      "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT": "0",
+      "SGLANG_APPROX_KV_TEST_ONLY": "1",
+      "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE": "1"
+    }
+  },
+  "raw_sha256": "d19df869114e7b1897339823c681c885f2811cf7c93212e09776226ec7f2c093",
+  "registered": {
+    "cached_tokens": 1088,
+    "elapsed_ms": 1634.4913549983175,
+    "finish_reason": {
+      "length": 1,
+      "type": "length"
+    },
+    "output_ids": [
+      13
+    ]
+  },
+  "requested_capacity": {
+    "bytes": null,
+    "pages": null,
+    "tokens": null
+  },
+  "reset_invariant": {
+    "accounted_tokens": 13130.0,
+    "kv_available_tokens": 13128.0,
+    "kv_evictable_tokens": 2.0,
+    "kv_used_tokens": 0.0,
+    "max_total_num_tokens": 13130.0,
+    "metrics_available": true,
+    "passed": true,
+    "tolerance_tokens": 131.3
+  },
+  "restarts": 2,
+  "result_commit_status": "pending_result_commit",
+  "result_git_sha": null,
+  "rho": {
+    "host": "host working set bytes / configured host byte capacity",
+    "logical_demand": "logical reusable working set tokens / configured device token capacity",
+    "observed_logical_demand": 0.07798933739527798,
+    "physical_demand": "requested physical bytes including all representations and scratch / configured device byte capacity",
+    "resident": "sampled device used plus evictable bytes / configured device byte capacity"
+  },
+  "run_id": "p6-f-20260727T223003Z",
+  "schema_version": 1,
+  "segment_count": 2,
+  "server_argv": [
+    [
+      "/usr/bin/python3",
+      "-m",
+      "sglang.launch_server",
+      "--model-path",
+      "Qwen/Qwen3-0.6B",
+      "--revision",
+      "c1899de289a04d12100db370d81485cdf75e47ca",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "30011",
+      "--tp-size",
+      "1",
+      "--mem-fraction-static",
+      "0.35",
+      "--chunked-prefill-size",
+      "4096",
+      "--max-prefill-tokens",
+      "4096",
+      "--max-running-requests",
+      "2",
+      "--attention-backend",
+      "torch_native",
+      "--sampling-backend",
+      "pytorch",
+      "--cuda-graph-backend-decode",
+      "disabled",
+      "--cuda-graph-backend-prefill",
+      "disabled",
+      "--radix-eviction-policy",
+      "hierarchical",
+      "--enable-cache-report",
+      "--enable-metrics",
+      "--random-seed",
+      "17",
+      "--log-level",
+      "warning"
+    ],
+    [
+      "/usr/bin/python3",
+      "-m",
+      "sglang.launch_server",
+      "--model-path",
+      "Qwen/Qwen3-0.6B",
+      "--revision",
+      "c1899de289a04d12100db370d81485cdf75e47ca",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "30011",
+      "--tp-size",
+      "1",
+      "--mem-fraction-static",
+      "0.35",
+      "--chunked-prefill-size",
+      "4096",
+      "--max-prefill-tokens",
+      "4096",
+      "--max-running-requests",
+      "2",
+      "--attention-backend",
+      "torch_native",
+      "--sampling-backend",
+      "pytorch",
+      "--cuda-graph-backend-decode",
+      "disabled",
+      "--cuda-graph-backend-prefill",
+      "disabled",
+      "--radix-eviction-policy",
+      "hierarchical",
+      "--enable-cache-report",
+      "--enable-metrics",
+      "--random-seed",
+      "29",
+      "--log-level",
+      "warning"
+    ]
+  ],
+  "server_log_sha256": "c409fed4a2de6001c0c8c674d8f4e821ce3ab90e8fd9811feabd5179ee10708e",
+  "source": {
+    "cached_tokens": 0,
+    "elapsed_ms": 193.6803019925719,
+    "finish_reason": {
+      "length": 1,
+      "type": "length"
+    },
+    "output_ids": [
+      13
+    ]
+  },
+  "source_git_sha": "3546cb0b37256afbf52a1bd84cde8c93dc2979cc",
+  "source_tree_sha": "40070db71061e4d4f541370a05e767c769792be4",
+  "status": "valid",
+  "store_reset_gauges": {
+    "sglang:approx_kv_provisional_tokens": 0.0,
+    "sglang:approx_kv_store_device_bytes": 0.0,
+    "sglang:approx_kv_store_host_bytes": 0.0,
+    "sglang:approx_kv_store_leases": 0.0,
+    "sglang:approx_kv_store_orphans": 0.0,
+    "sglang:approx_kv_store_records": 0.0,
+    "sglang:cross_store_reserved_device_bytes": 0.0
+  },
+  "warmup_repeats": 0
+}
