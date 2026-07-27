@@ -2436,3 +2436,30 @@ reservation-failure关联的fallback就**不能**靠修bug自然获得，仍然�
 **方法论教训（已写入计划§15.2第15条）**：容量类判断的采样间隔必须短于
 workload的分配动态，否则会得到“自信但错误”的结论。本次`0.4s`太粗，
 `0.05s`才得到正确答案。
+
+## 2026-07-27T12:30:00-07:00 — 用户选定方案C，dense fallback可达性以indirectly_verified结案
+
+- 用户在A/B/C三方案中选定**C**：接受该项以`indirectly_verified`强度结案，
+  **不改**共享上游`alloc_token_slots`，**不使用**fault injection。
+- 完整证据链已写入`phase6-exit-fallback-disposition.json`与计划新增§7.9.1。
+
+已**直接**证明的四项：
+
+| 主张 | 证据 | 层级 |
+| --- | --- | --- |
+| allocator在任意失败点正确回滚 | `test_fault_injection_rolls_back_reversible_actions`遍历全部`AllocationFailurePoint` | CPU |
+| reservation被拒→降级dense→并归因 | `test_reservation_failure_degrades_to_dense_fallback`，mutation验证 | CPU |
+| dense fallback在GPU上真实执行 | P6-4三个可达cell共12次；`r4_like`记`4096` token | GPU |
+| exact压力真实回收approximate内存 | `2,202,009,600` bytes | GPU |
+
+未证明：GPU上`dense_fallback`与`reservation_failures>0`**同时**发生一次。
+
+- 未选A的理由：要动4个调用点、每请求必经的共享上游热路径，风险与收益
+  不成比例；未选B的理由：只证明“路径可用”而非“自然可达”，仍需caveat。
+- **artifact完整性**：`p6-4.json`未被修改，仍如实记录
+  `fallback_reachability.passed=false`、`rounds=0`。disposition单独存放，
+  不篡改任何已测结果。
+- **作用域限制**：该disposition只覆盖Phase6 Exit；Phase7中任何依赖
+  “真实reservation失败下fallback行为”的claim必须重新取证或复述该caveat。
+- 至此**Phase6 Exit十项技术条件全部满足**，仅剩正式双模型Exit review与
+  主会话disposition。已启动两个独立reviewer对完整证据集做Exit review。

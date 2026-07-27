@@ -518,8 +518,21 @@ exact压力已成功从approximate对象回收`2.2GB`；到死亡时approximate 
   store占用的slot，不能与之相加。
 
 **对最后一项Exit证据的影响**：既然无缺陷可修，reservation-failure关联的
-fallback不能靠修bug自然获得，仍只有两条路——让`alloc_token_slots`优雅降级，
-或使用allocator已有的fault injector。决定权在用户。
+fallback不能靠修bug自然获得。用户于2026-07-27选定**方案C**：该项以
+`indirectly_verified`强度结案，不改共享上游路径，也不使用fault injection。
+
+已直接证明：allocator在**任意**失败点正确回滚（遍历全部
+`AllocationFailurePoint`）；reservation被拒→降级dense→并正确归因
+（经mutation验证）；dense fallback在GPU上真实执行12次；exact压力真实回收
+`2.2GB` approximate内存。
+
+未证明：GPU上`dense_fallback`与`reservation_failures>0`同时发生一次。
+
+`p6-4.json`未被修改，仍如实记录`fallback_reachability.passed=false`；
+disposition单独记录在`phase6-exit-fallback-disposition.json`与计划§7.9.1。
+
+**因此Phase6 Exit的十项技术条件全部满足**，仅剩正式双模型Exit review
+与主会话disposition。仍未进入Phase7。
 
 ### Phase6 Exit当前逐条状态
 
@@ -534,7 +547,7 @@ fallback不能靠修bug自然获得，仍只有两条路——让`alloc_token_sl
 | 无泄漏、无orphan | 满足（store gauge全归零） |
 | 近似reuse压力下数据保真 | **满足**（P6-H逐token一致；新增Exit条件） |
 | raw/commit/env/test provenance完整 | 满足 |
-| dense fallback可达性 | **部分满足**（见下） |
+| dense fallback可达性 | **满足**（`indirectly_verified`，用户决定） |
 
 关于最后一项的精确事实：**dense fallback路径可达且已观测**——三个可达cell的
 `exact_only` profile各发生`4`次`dense_fallback`（合计12次）。

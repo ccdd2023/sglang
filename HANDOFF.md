@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-27T12:15:00-07:00
+最后更新：2026-07-27T12:30:00-07:00
 
 ## 新会话启动顺序
 
@@ -29,7 +29,8 @@
 
 #### Phase6 Exit逐条
 
-除**dense fallback可达性**（`fallback_reachability.rounds=0`）外**全部满足**，
+**十项技术条件已全部满足。** dense fallback可达性于2026-07-27由用户决定以
+`indirectly_verified`结案（计划§7.9.1）；其余各项均有直接证据，
 包括：exact/approx/host安全竞争、双向pressure（exact→approx `47.5GB`、
 approx→exact `58.8GB`）、fixed40四rho明确结论、R1-like worst-case（k32）可达、
 generic host canary、无泄漏无orphan、压力下数据保真、完整provenance。
@@ -57,10 +58,9 @@ generic host canary、无泄漏无orphan、压力下数据保真、完整provena
 
 ### 下一步
 
-1. 取得dense fallback可达性证据（P6-4 `rounds=0`），这是Phase6 Exit最后一项。
-2. 完成正式的Phase6 Exit双模型review与disposition。
-3. 之后再决定是否归档V4、创建V5（用户已明确本轮不升级）。
-4. 严格停在Phase7前，等待用户授权。
+1. 完成正式的Phase6 Exit双模型review，并由主会话形成最终disposition。
+2. 之后再决定是否归档V4、创建V5（用户已明确本轮不升级）。
+3. 严格停在Phase7前，等待用户授权。
 
 ### 不要重做
 

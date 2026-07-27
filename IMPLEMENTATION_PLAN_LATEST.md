@@ -632,11 +632,49 @@ performance claim = disabled
 - 无泄漏、无orphan；
 - **近似reuse在压力下与matched dense逐token一致**（2026-07-27新增，
   由P6-H提供证据；缺这一条正是本轮P0躲过三轮review与全部CPU回归的原因）；
-- **dense fallback可达性有直接证据**；带label的counter无series只能记为
+- **dense fallback可达性**：接受`indirectly_verified`强度结案
+  （2026-07-27用户决定，见§7.9.1）；带label的counter无series只能记为
   `indirectly_verified`，不得写成显式`0`；
 - raw/commit/env/test provenance完整。
 
 Phase6结果经双模型review后才允许Phase7。
+
+#### 7.9.1 dense fallback可达性的disposition（2026-07-27，用户决定）
+
+该项**接受以`indirectly_verified`强度结案**，不再追求直接证据。
+完整证据链见`phase6-exit-fallback-disposition.json`。
+
+**已直接证明的部分**：
+
+| 主张 | 证据 | 层级 |
+| --- | --- | --- |
+| allocator在**任意**失败点都正确回滚 | `test_fault_injection_rolls_back_reversible_actions`遍历全部`AllocationFailurePoint`，断言`committed=False`、eviction被撤销、byte ledger复原 | CPU，直接 |
+| reservation被拒→降级dense→并归因 | `test_reservation_failure_degrades_to_dense_fallback`，经mutation验证 | CPU，直接 |
+| dense fallback在GPU上真实执行 | P6-4三个可达cell共12次`dense_fallback`；`r4_like`记录`4096` fallback token | GPU，直接 |
+| exact压力真实回收approximate内存 | `2,202,009,600` bytes approximate victim被exact requester取走 | GPU，直接 |
+
+**未证明的部分**：GPU上`dense_fallback`与`reservation_failures>0`**同时发生**
+一次，即P6-4 `fallback_reachable` flag的字面要求。
+
+**为何不可得（已实测）**：任何会耗尽cross-store预留的配置也会耗尽device，
+请求先在共享上游`alloc_token_slots`中止，来不及记录reservation失败。
+诊断C（`0.05s`采样）确证这是真实容量极限而非回收缺陷。已实测排除调rho
+与放大`kv-bytes-per-token`两条路径。
+
+**未选择的方案及理由**：
+
+- A 改`alloc_token_slots`优雅降级——证据最强，但要动4个调用点、
+  每请求必经的共享上游热路径，与upstream分歧，风险与收益不成比例；
+- B 用已有`fault_injector`——改动小，但只证明“路径可用”而非“自然可达”，
+  仍需caveat，价值不足以抵消额外复杂度。
+
+**artifact完整性**：`p6-4.json`**未被修改**，仍如实记录
+`fallback_reachability.passed=false`、`rounds=0`。本disposition单独记录
+接受的证据层级，不改动任何已测结果。
+
+**作用域限制**：本disposition只覆盖Phase6 Exit。Phase7中任何依赖
+“真实reservation失败下fallback行为”的claim，必须重新取得自然证据，
+或原样复述该`indirectly_verified` caveat。
 
 ## 8. Phase7：Integrated Recovery × Scheduling Evaluation
 
@@ -1097,11 +1135,13 @@ R1-like worst-case（k32）可达、P6-H压力下逐token保真。
 本文件继续保持`Current / Latest`，不提升版本号、不归档
 （用户已明确本轮不升级）。
 
-V5的创建条件收敛为：
+**2026-07-27更新**：用户已选定方案C，dense fallback可达性以
+`indirectly_verified`结案（§7.9.1）。因此Phase6 Exit的十项技术条件
+**全部满足**。
 
-1. 用户在A/B之间选定，并据此取得dense fallback可达性证据（或明确接受
-   该项以`indirectly_verified`结案）；
-2. 完成正式的Phase6 Exit双模型review与disposition。
+V5的创建条件现在只剩一条：
+
+1. 完成正式的Phase6 Exit双模型review，并由主会话形成最终disposition。
 
 ### 15.2 已由执行结果确定、必须写入V5的合同修订
 
