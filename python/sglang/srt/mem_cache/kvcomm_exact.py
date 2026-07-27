@@ -584,6 +584,9 @@ class ExactMiddleCanaryController:
         tokens: tuple[int, ...],
         source: ExactMiddleSource,
     ) -> KVSegmentHandle | None:
+        existing = self._materialized_sources.get(source.source_id)
+        if existing is not None:
+            return existing
         end = source.source_start + source.length
         if end >= len(tokens):
             raise ValueError("source span is not strictly middle")

@@ -528,7 +528,20 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         }
         return response
 
-    def query(self, messages: list[dict[str, Any]], **kwargs: Any) -> dict[str, Any]:
+    def prepare_reuse_query(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        write_sidecar: bool = True,
+    ) -> dict[str, Any]:
+        """Advance reuse planning without issuing the model request.
+
+        Paired experiments use this split phase to register both treatments
+        before either identical target prompt reaches the scheduler.  Ordinary
+        single-arm execution still calls both phases synchronously via
+        :meth:`query`.
+        """
+
         self._new_session_if_needed(messages)
         self._request_index += 1
         rolling_messages, selected_groups, rolling = self._rolling_messages(
@@ -553,13 +566,39 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 prompt_ids=prompt_ids,
                 selected_groups=selected_groups,
             )
-            self._atomic_sidecar_update(
-                sources=[source] if source else [],
-                cases=[target] if target else [],
-                release_source_ids=releases,
-            )
+            if write_sidecar:
+                self._atomic_sidecar_update(
+                    sources=[source] if source else [],
+                    cases=[target] if target else [],
+                    release_source_ids=releases,
+                )
             self._pending_source = next_pending
 
+        return {
+            "compacted_messages": compacted_messages,
+            "compaction": compaction,
+            "policy_decision": policy_decision,
+            "prompt_ids": prompt_ids,
+            "releases": releases,
+            "rolling": rolling,
+            "source": source,
+            "target": target,
+        }
+
+    def execute_prepared_reuse_query(
+        self,
+        prepared: dict[str, Any],
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        """Issue and record one request produced by ``prepare_reuse_query``."""
+
+        compacted_messages = prepared["compacted_messages"]
+        compaction = prepared["compaction"]
+        policy_decision = prepared["policy_decision"]
+        prompt_ids = prepared["prompt_ids"]
+        rolling = prepared["rolling"]
+        source = prepared["source"]
+        target = prepared["target"]
         started = time.perf_counter()
         # Call the mini-SWE-agent base directly: compacting a second time would
         # change the registered prompt identity and double-increment the local
@@ -604,3 +643,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             }
         )
         return result
+
+    def query(self, messages: list[dict[str, Any]], **kwargs: Any) -> dict[str, Any]:
+        prepared = self.prepare_reuse_query(messages)
+        return self.execute_prepared_reuse_query(prepared, **kwargs)

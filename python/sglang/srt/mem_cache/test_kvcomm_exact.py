@@ -377,6 +377,20 @@ def test_one_real_request_materializes_multiple_registered_source_spans():
     assert manager.store.record_count == 2
 
 
+def test_repeated_paired_source_prompt_is_idempotent():
+    controller, source, _, _, _ = _controller()
+    first = controller.maybe_materialize_source(_req(source))
+    assert first is not None
+    records = controller.manager.store.record_count
+    owned = controller.owned_device_tokens
+
+    second = controller.maybe_materialize_source(_req(source))
+
+    assert second is first
+    assert controller.manager.store.record_count == records
+    assert controller.owned_device_tokens == owned
+
+
 def test_target_prefix_bypass_copies_only_uncached_repository_tail():
     source = (1, 2, 3, 4, 5, 8, 9)
     target = (1, 7, 2, 3, 4, 5, 9)

@@ -405,7 +405,12 @@ def init_manifest(run_dir: Path, arm: str) -> Path:
 
 
 def launch_server(
-    *, run_dir: Path, arm: str, manifest: Path, port: int
+    *,
+    run_dir: Path,
+    arm: str,
+    manifest: Path,
+    port: int,
+    mem_fraction_static: float = 0.90,
 ) -> tuple[subprocess.Popen[str], Any]:
     log = (run_dir / "sglang_server.log").open("w", encoding="utf-8")
     env = os.environ.copy()
@@ -435,7 +440,7 @@ def launch_server(
         "--attention-backend",
         "triton",
         "--mem-fraction-static",
-        "0.90",
+        str(mem_fraction_static),
         "--chunked-prefill-size",
         "8192",
         "--max-prefill-tokens",
