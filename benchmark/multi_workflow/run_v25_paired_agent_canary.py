@@ -519,7 +519,11 @@ def run(output: Path) -> dict[str, Any]:
             )
             if eligible and shared.n_calls < shared.config.step_limit:
                 models[V23]._atomic_sidecar_update(
-                    sources=[sources[arm] for arm in REUSE_ARMS],
+                    sources=[
+                        sources[arm]
+                        for arm in REUSE_ARMS
+                        if sources[arm] is not None
+                    ],
                 )
             else:
                 for arm in REUSE_ARMS:
