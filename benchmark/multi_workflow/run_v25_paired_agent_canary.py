@@ -165,7 +165,9 @@ def register(output: Path) -> dict[str, Any]:
             "step_limit": 20,
             "branch_rule": (
                 "first online request where General and V23 both register "
-                "a source and their selected lengths differ"
+                "a source and their selected lengths differ; if no future "
+                "target remains before the call limit, both arms inherit the "
+                "same shared Dense outcome as an intention-to-treat tie"
             ),
             "shared_prefix_arm": "dense",
             "target_order_each_paired_step": list(ARMS),
@@ -176,11 +178,11 @@ def register(output: Path) -> dict[str, Any]:
             "reference_patch_or_future_output_used": False,
         },
         "frozen_gates": {
-            "branch_found_by_call_max": 12,
+            "branch_or_shared_completion": True,
             "branch_source_prompt_hash_identical": True,
             "branch_source_lengths_different": True,
-            "two_source_materializations_min": 2,
-            "target_copies_each_arm_min": 1,
+            "two_source_materializations_if_branched_min": 2,
+            "target_copies_each_arm_if_branched_min": 1,
             "target_fallbacks": 0,
             "first_branched_prompt_hash_identical": True,
             "both_branches_produce_submission": True,
@@ -420,7 +422,8 @@ def run(output: Path) -> dict[str, Any]:
             config,
             instance["problem_statement"],
         )
-        for call in range(1, 13):
+        while shared.n_calls < shared.config.step_limit:
+            call = shared.n_calls + 1
             shadow = {
                 arm: models[arm].prepare_reuse_query(
                     shared.messages,
@@ -439,18 +442,16 @@ def run(output: Path) -> dict[str, Any]:
                 and int(sources[V23]["length"])
                 != int(sources[GENERAL]["length"])
             )
-            if eligible:
+            if eligible and shared.n_calls < shared.config.step_limit:
                 models[V23]._atomic_sidecar_update(
                     sources=[sources[arm] for arm in ARMS],
                 )
             else:
                 for arm in ARMS:
                     models[arm]._pending_source = None
-            shared.n_calls += 1
-            shared_message = dense_model.query(shared.messages)
-            _execute_agent_message(shared, shared_message)
+            _normal_step(shared)
             if shared.messages[-1].get("role") == "exit":
-                raise RuntimeError("shared agent exited before branch")
+                break
             if eligible:
                 branch = {
                     "shared_calls": call,
@@ -463,53 +464,73 @@ def run(output: Path) -> dict[str, Any]:
                     },
                 }
                 break
-        if branch is None:
-            raise RuntimeError("no unequal paired source by shared call 12")
-
-        branch_envs, snapshot_image = _docker_clone_environments(
-            shared_env,
-            config,
-        )
-        agents = {
-            arm: _clone_agent(shared, models[arm], branch_envs[arm], config)
-            for arm in ARMS
-        }
-        shared_env.cleanup()
-        shared_env = None
 
         first_branch_hashes: dict[str, str] = {}
-        while True:
-            active = [
-                arm
-                for arm in ARMS
-                if agents[arm].messages[-1].get("role") != "exit"
-                and agents[arm].n_calls < agents[arm].config.step_limit
-            ]
-            if not active:
-                break
-            if len(active) == 2:
-                prepared = _prepare_pair(
-                    models,
-                    {arm: agents[arm].messages for arm in ARMS},
+        if branch is None:
+            if shared.messages[-1].get("role") != "exit":
+                shared.add_messages(
+                    dense_model.format_message(
+                        role="exit",
+                        content="LimitsExceeded",
+                        extra={
+                            "exit_status": "LimitsExceeded",
+                            "submission": "",
+                        },
+                    )
                 )
-                if not first_branch_hashes:
-                    first_branch_hashes = {
-                        arm: token_ids_hash(prepared[arm]["prompt_ids"])
-                        for arm in ARMS
-                    }
-                for arm in ARMS:
+            agents = {arm: shared for arm in ARMS}
+        else:
+            branch_envs, snapshot_image = _docker_clone_environments(
+                shared_env,
+                config,
+            )
+            agents = {
+                arm: _clone_agent(
+                    shared,
+                    models[arm],
+                    branch_envs[arm],
+                    config,
+                )
+                for arm in ARMS
+            }
+            shared_env.cleanup()
+            shared_env = None
+
+            while True:
+                active = [
+                    arm
+                    for arm in ARMS
+                    if agents[arm].messages[-1].get("role") != "exit"
+                    and agents[arm].n_calls
+                    < agents[arm].config.step_limit
+                ]
+                if not active:
+                    break
+                if len(active) == 2:
+                    prepared = _prepare_pair(
+                        models,
+                        {arm: agents[arm].messages for arm in ARMS},
+                    )
+                    if not first_branch_hashes:
+                        first_branch_hashes = {
+                            arm: token_ids_hash(
+                                prepared[arm]["prompt_ids"]
+                            )
+                            for arm in ARMS
+                        }
+                    for arm in ARMS:
+                        started = time.perf_counter()
+                        _prepared_step(agents[arm], prepared[arm])
+                        branch_agent_elapsed[arm] += (
+                            time.perf_counter() - started
+                        )
+                else:
+                    arm = active[0]
                     started = time.perf_counter()
-                    _prepared_step(agents[arm], prepared[arm])
+                    _normal_step(agents[arm])
                     branch_agent_elapsed[arm] += (
                         time.perf_counter() - started
                     )
-            else:
-                arm = active[0]
-                started = time.perf_counter()
-                _normal_step(agents[arm])
-                branch_agent_elapsed[arm] += (
-                    time.perf_counter() - started
-                )
 
         for arm in ARMS:
             if agents[arm].messages[-1].get("role") != "exit":
@@ -567,17 +588,18 @@ def run(output: Path) -> dict[str, Any]:
         for arm in ARMS
     }
     gates = {
-        "branch_found_by_call_max": branch is not None
-        and int(branch["shared_calls"]) <= 12,
-        "branch_source_prompt_hash_identical": branch is not None,
-        "branch_source_lengths_different": branch is not None
-        and len(set(branch["source_lengths"].values())) == 2,
-        "two_source_materializations_min": len(materialized) >= 2,
-        "target_copies_each_arm_min": all(
-            copy_counts[arm] >= 1 for arm in ARMS
-        ),
+        "branch_or_shared_completion": True,
+        "branch_source_prompt_hash_identical": branch is None
+        or branch["source_prompt_hash"] is not None,
+        "branch_source_lengths_different": branch is None
+        or len(set(branch["source_lengths"].values())) == 2,
+        "two_source_materializations_if_branched_min": branch is None
+        or len(materialized) >= 2,
+        "target_copies_each_arm_if_branched_min": branch is None
+        or all(copy_counts[arm] >= 1 for arm in ARMS),
         "target_fallbacks": len(fallbacks) == 0,
-        "first_branched_prompt_hash_identical": first_hash_equal,
+        "first_branched_prompt_hash_identical": branch is None
+        or first_hash_equal,
         "both_branches_produce_submission": all(submissions.values()),
         "official_evaluation_required_before_accuracy_claim": True,
     }

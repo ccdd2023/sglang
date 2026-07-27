@@ -146,6 +146,7 @@ def register(output: Path) -> dict[str, Any]:
             "runner": str(RUNNER),
             "same_model_engine_tokenization": True,
             "shared_dense_history_until_first_unequal_online_span": True,
+            "no_unequal_span_or_early_exit_is_shared_itt_tie": True,
             "repository_container_snapshot_before_branch": True,
             "target_order": list(ARMS),
             "step_limit": 20,
