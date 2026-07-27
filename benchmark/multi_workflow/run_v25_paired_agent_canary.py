@@ -134,6 +134,15 @@ def _policy_mode(record: dict[str, Any]) -> str:
     return ""
 
 
+def _is_target_veto_record(record: dict[str, Any]) -> bool:
+    return (
+        _policy_mode(record) in TARGET_VETO_DENSE_MODES
+        and bool(
+            record.get("reuse_policy_decision", {}).get("target_vetoed")
+        )
+    )
+
+
 def _branch_kind(
     prepared: dict[str, dict[str, Any]],
 ) -> str | None:
@@ -1036,11 +1045,7 @@ def run(output: Path) -> dict[str, Any]:
         )
     )
     candidate_target_vetoes = sum(
-        _policy_mode(row) == "state_transition_target_dense_veto"
-        and bool(
-            row.get("reuse_policy_decision", {}).get("target_vetoed")
-        )
-        for row in candidate_client
+        _is_target_veto_record(row) for row in candidate_client
     )
     gates = {
         "branch_or_shared_completion": True,

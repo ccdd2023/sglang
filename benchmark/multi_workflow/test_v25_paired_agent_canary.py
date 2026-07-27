@@ -21,6 +21,29 @@ def test_policy_mode_accepts_prepared_and_client_ledger_schema() -> None:
     assert canary._policy_mode({}) == ""
 
 
+def test_target_veto_counter_accepts_v33b_and_v34_modes() -> None:
+    for mode in (
+        "state_transition_target_dense_veto",
+        "critical_current_target_dense_veto",
+    ):
+        assert canary._is_target_veto_record(
+            {
+                "reuse_policy_decision": {
+                    "mode": mode,
+                    "target_vetoed": True,
+                }
+            }
+        )
+    assert not canary._is_target_veto_record(
+        {
+            "reuse_policy_decision": {
+                "mode": "critical_current_target_general_reuse",
+                "target_vetoed": False,
+            }
+        }
+    )
+
+
 def test_abstention_cases_reserve_general_target_for_second_request(
     monkeypatch,
 ) -> None:
