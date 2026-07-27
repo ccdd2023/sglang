@@ -122,6 +122,26 @@ def capped_tail(
     return token_ids[offset:], start + offset
 
 
+def close_litellm_sync_stream(stream: Any) -> None:
+    """Release the HTTP response retained by LiteLLM's sync stream wrapper.
+
+    ``CustomStreamWrapper`` exposes only an async ``aclose`` method even when
+    its ``completion_stream`` is synchronous.  Leaving that underlying stream
+    referenced after normal exhaustion accumulates CLOSE_WAIT sockets and can
+    eventually deadlock the shared httpx connection pool on long agent runs.
+    """
+
+    completion_stream = getattr(stream, "completion_stream", None)
+    if completion_stream is None:
+        return
+    try:
+        close = getattr(completion_stream, "close", None)
+        if callable(close):
+            close()
+    finally:
+        stream.completion_stream = None
+
+
 class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
     """Run an agent with a shared rolling-compaction policy and local KV plans."""
 
@@ -524,18 +544,21 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         )
         chunks = []
         ttft_seconds = None
-        for chunk in stream:
-            chunks.append(chunk)
-            choices = getattr(chunk, "choices", None) or []
-            if ttft_seconds is None and choices:
-                delta = choices[0].delta
-                meaningful = (
-                    getattr(delta, "content", None)
-                    or getattr(delta, "tool_calls", None)
-                    or getattr(delta, "reasoning_content", None)
-                )
-                if meaningful:
-                    ttft_seconds = time.perf_counter() - started
+        try:
+            for chunk in stream:
+                chunks.append(chunk)
+                choices = getattr(chunk, "choices", None) or []
+                if ttft_seconds is None and choices:
+                    delta = choices[0].delta
+                    meaningful = (
+                        getattr(delta, "content", None)
+                        or getattr(delta, "tool_calls", None)
+                        or getattr(delta, "reasoning_content", None)
+                    )
+                    if meaningful:
+                        ttft_seconds = time.perf_counter() - started
+        finally:
+            close_litellm_sync_stream(stream)
         finished = time.perf_counter()
         response = litellm.stream_chunk_builder(
             chunks,
