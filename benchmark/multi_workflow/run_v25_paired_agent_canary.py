@@ -91,6 +91,16 @@ def _instance() -> dict[str, Any]:
     )
 
 
+def _policy_mode(record: dict[str, Any]) -> str:
+    """Read the policy mode from a prepared query or a client-ledger row."""
+
+    for key in ("policy_decision", "reuse_policy_decision"):
+        decision = record.get(key)
+        if isinstance(decision, dict):
+            return str(decision.get("mode") or "")
+    return ""
+
+
 def _base_config() -> dict[str, Any]:
     return recursive_merge(
         get_config_from_spec("swebench.yaml"),
@@ -506,7 +516,7 @@ def run(output: Path) -> dict[str, Any]:
                         ABSTENTION_CANDIDATE
                         and sources[V23] is None
                         and sources[GENERAL] is not None
-                        and shadow[V23]["decision"]["mode"]
+                        and _policy_mode(shadow[V23])
                         == "critical_event_dense_abstain"
                     )
                     or (
@@ -552,7 +562,7 @@ def run(output: Path) -> dict[str, Any]:
                         for arm in REUSE_ARMS
                     },
                     "source_decision_modes": {
-                        arm: shadow[arm]["decision"]["mode"]
+                        arm: _policy_mode(shadow[arm])
                         for arm in REUSE_ARMS
                     },
                 }
@@ -729,8 +739,7 @@ def run(output: Path) -> dict[str, Any]:
             == "critical_event_dense_abstain"
         )
         + sum(
-        row.get("decision", {}).get("mode")
-        == "critical_event_dense_abstain"
+        _policy_mode(row) == "critical_event_dense_abstain"
         for row in candidate_client
         )
     )
