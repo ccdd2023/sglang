@@ -1,7 +1,7 @@
 CODE-AGENT KVCACHE LOCAL TODO LIST
 ==================================
 
-Last updated: 2026-07-27T12:15:00-07:00
+Last updated: 2026-07-27T13:20:00-07:00
 Authority: PROJECT.md and IMPLEMENTATION_PLAN_LATEST.md
 Current boundary: do not enter Phase 7 without reporting to the user.
 
@@ -167,15 +167,39 @@ All runners execute inside the immutable SM75 image with:
     test_reservation_failure_degrades_to_dense_fallback (mutation checked).
 
 
-3.2 CL4 + PHASE 6 EXIT DUAL REVIEW
+3.2 PHASE 6 EXIT - FORMAL REVIEW DONE, VERDICT IS FAIL
 
-[ ] Requires P6-4 to reach a conclusion first.
+[x] Both independent reviewers returned FAIL. Their substance agreed.
+    Do not re-run the review; act on the findings below.
 
-[ ] Sol and Opus independent review, exchange, cross-consolidate, main
-    session disposition.
+[x] P0-2 CLOSED. S4 rho3 was measured directly instead of extrapolated:
+    0.05 s sampling, cap 7595, store_device_bytes 0, records 0, and exact
+    requesters had already reclaimed 1,746,927,616 bytes. Same signature as
+    S0 rho2, so both are genuine capacity limits.
 
-[ ] Phase 6 Exit must additionally prove approximate reuse fidelity under
-    pressure. P6-H now supplies exactly that evidence.
+[x] P0-3 CLOSED. .gitignore line 179 (*.jsonl) had silently excluded the raw
+    telemetry that was being cited as evidence; it is now force-added.
+    RESULT_MANIFEST.json supplies file->commit mapping, hashes, environment,
+    verification commands and the known 935-failure baseline. Server logs are
+    still unversioned and this is stated explicitly in the manifest.
+
+[ ] P0-1 STILL OPEN, and it is the ONLY remaining Exit blocker.
+    Required: an integrated request that completes densely AFTER a
+    cross-store reservation failure, asserting the reservation-failure label,
+    reuse/dense_fallback, output completion and clean accounting.
+    Under the user's option C this is currently carried as an explicitly
+    UNVERIFIED condition with a governance exemption. It must never be
+    described as satisfied.
+
+[ ] Fix the reporting defect that caused a false evidence claim:
+    run_p6_4_capacity_pilot.py lines 413-419 label an ordinary exact-cache
+    miss as dense_fallback whenever a profile carries no approximate
+    metadata. This produced twelve "GPU dense fallbacks" that were not
+    fallbacks at all. Fix before any Phase 7 fallback reporting.
+
+[ ] Correct Exit wording everywhere: nine items have direct evidence, some
+    with narrowed scope, plus one unverified exemption. Never "all ten
+    satisfied".
 
 
 3.3 COMPLETED - DO NOT REDO
