@@ -1,11 +1,433 @@
 {
-  "error": "RuntimeError: sglang:approx_kv_h2d_tokens_total did not cover the body: {'sglang:approx_kv_host_export_tokens_total': 1024.0, 'sglang:approx_kv_host_export_bytes_total': 117440512.0, 'sglang:approx_kv_h2d_tokens_total': None, 'sglang:approx_kv_h2d_bytes_total': None, 'sglang:approx_kv_host_export_duration_seconds_sum': 0.09492643900011899, 'sglang:approx_kv_h2d_duration_seconds_sum': None, 'sglang:approx_kv_copied_tokens_total': None, 'sglang:approx_kv_dense_fallback_total': None, 'sglang:cross_store_demoted_bytes_total': 117440512.0, 'sglang:cross_store_reservation_failures_total': None}",
-  "execution_status": "failed",
+  "body_tokens": 1024,
+  "chunked_prefill_size": 4096,
+  "crosses_chunk_boundary": false,
+  "formal_repeats": 2,
+  "header_tokens": 64,
+  "hicache_tier_exercised": false,
+  "host_backend": "allocator_cpu_copy",
   "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "ledger": {
+    "materialization": {
+      "tokens_per_round": 2048
+    },
+    "recovery": {
+      "tokens_per_round": 1024
+    },
+    "scheduler": {
+      "policy": "hierarchical"
+    },
+    "setup": {
+      "requests_per_round": 6,
+      "seed_head_ms_per_round": [
+        {
+          "dense": 63.42568900072365,
+          "recovery": 57.56596599894692
+        },
+        {
+          "dense": 60.849787998449756,
+          "recovery": 55.59041600281489
+        }
+      ]
+    },
+    "temporary_peak": {
+      "bytes": 117440512
+    },
+    "transfer": {
+      "mean_h2d_bytes": 117440512.0,
+      "mean_h2d_duration_seconds": 0.011061225999583257,
+      "mean_host_export_duration_seconds": 0.01916894450187101
+    }
+  },
+  "machine": {
+    "compute_capability": [
+      7,
+      5
+    ],
+    "cuda": "12.9",
+    "gpu": "NVIDIA GeForce RTX 2080 SUPER",
+    "gpu_memory_bytes": 8163426304,
+    "python": "3.12.3 (main, Mar  3 2026, 12:15:18) [GCC 13.3.0]",
+    "torch": "2.9.1+cu129",
+    "transformers": "5.12.1"
+  },
+  "mean_h2d_bytes": 117440512.0,
+  "model": "Qwen/Qwen3-0.6B",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "observed_capacity": {
+    "bytes": 389939200,
+    "pages": 3400,
+    "tokens": 3400
+  },
+  "passed": true,
+  "performance_claim": "disabled",
   "phase": "P6-H",
-  "raw_sha256": "7fe4a30578b79166ade26f8d3eafe009b5035b2645daa58bf202eac3e625ba9a",
-  "run_id": "p6-h-20260727T022130Z",
+  "plugin_env": {
+    "SGLANG_APPROX_KV_BYTES_PER_TOKEN": "114688",
+    "SGLANG_APPROX_KV_CORE": "1",
+    "SGLANG_APPROX_KV_CROSS_STORE": "1",
+    "SGLANG_APPROX_KV_HOST": "1",
+    "SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "8589934592",
+    "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT": "1"
+  },
+  "raw_sha256": "842c3563ad20caedc55d46f596127cc2fcacf63b56ef927c7b878635ed3a12be",
+  "requested_capacity": {
+    "bytes": 389939200,
+    "pages": 3400,
+    "tokens": 3400
+  },
+  "restarts": 1,
+  "result_commit_status": "pending_result_commit",
+  "result_git_sha": null,
+  "rho": {
+    "host": "host working set bytes / configured host byte capacity",
+    "logical_demand": "logical reusable working set tokens / configured device token capacity",
+    "observed_logical_demand": 0.30117647058823527,
+    "physical_demand": "requested physical bytes including all representations and scratch / configured device byte capacity",
+    "resident": "sampled device used plus evictable bytes / configured device byte capacity"
+  },
+  "rounds": [
+    {
+      "dense": {
+        "cached_tokens": 64,
+        "elapsed_ms": 347.18319199964753,
+        "finish_reason": {
+          "length": 8,
+          "type": "length"
+        },
+        "output_ids": [
+          13,
+          220,
+          17,
+          15,
+          17,
+          18,
+          13,
+          15
+        ]
+      },
+      "dense_seed": {
+        "cached_tokens": 0,
+        "elapsed_ms": 63.42568900072365,
+        "finish_reason": {
+          "length": 1,
+          "type": "length"
+        },
+        "output_ids": [
+          68
+        ]
+      },
+      "metric_deltas": {
+        "sglang:approx_kv_copied_tokens_total": 1024.0,
+        "sglang:approx_kv_dense_fallback_total": null,
+        "sglang:approx_kv_h2d_bytes_total": 117440512.0,
+        "sglang:approx_kv_h2d_duration_seconds_sum": 0.01104529599979287,
+        "sglang:approx_kv_h2d_tokens_total": 1024.0,
+        "sglang:approx_kv_host_export_bytes_total": 117440512.0,
+        "sglang:approx_kv_host_export_duration_seconds_sum": 0.01920340100332396,
+        "sglang:approx_kv_host_export_tokens_total": 1024.0,
+        "sglang:cross_store_demoted_bytes_total": 117440512.0,
+        "sglang:cross_store_reservation_failures_total": null
+      },
+      "output_token_match": true,
+      "pressure_registered": {
+        "cached_tokens": 1088,
+        "elapsed_ms": 176.95609399743262,
+        "finish_reason": {
+          "length": 1,
+          "type": "length"
+        },
+        "output_ids": [
+          198
+        ]
+      },
+      "pressure_source": {
+        "cached_tokens": 0,
+        "elapsed_ms": 190.0833510007942,
+        "finish_reason": {
+          "length": 1,
+          "type": "length"
+        },
+        "output_ids": [
+          198
+        ]
+      },
+      "recovered": {
+        "cached_tokens": 1088,
+        "elapsed_ms": 352.93625299891573,
+        "finish_reason": {
+          "length": 8,
+          "type": "length"
+        },
+        "output_ids": [
+          13,
+          220,
+          17,
+          15,
+          17,
+          18,
+          13,
+          15
+        ]
+      },
+      "recovery_reseed": {
+        "cached_tokens": 63,
+        "elapsed_ms": 57.41985699933139,
+        "finish_reason": {
+          "length": 1,
+          "type": "length"
+        },
+        "output_ids": [
+          68
+        ]
+      },
+      "recovery_seed": {
+        "cached_tokens": 0,
+        "elapsed_ms": 57.56596599894692,
+        "finish_reason": {
+          "length": 1,
+          "type": "length"
+        },
+        "output_ids": [
+          68
+        ]
+      },
+      "registered": {
+        "cached_tokens": 1088,
+        "elapsed_ms": 159.03978400092456,
+        "finish_reason": {
+          "length": 1,
+          "type": "length"
+        },
+        "output_ids": [
+          13
+        ]
+      },
+      "reset_invariant": {
+        "accounted_tokens": 3400.0,
+        "kv_available_tokens": 3398.0,
+        "kv_evictable_tokens": 2.0,
+        "kv_used_tokens": 0.0,
+        "max_total_num_tokens": 3400.0,
+        "metrics_available": true,
+        "passed": true,
+        "tolerance_tokens": 34.0
+      },
+      "round_index": 0,
+      "source": {
+        "cached_tokens": 0,
+        "elapsed_ms": 187.92924500303343,
+        "finish_reason": {
+          "length": 1,
+          "type": "length"
+        },
+        "output_ids": [
+          13
+        ]
+      },
+      "store_reset_gauges": {
+        "sglang:approx_kv_store_device_bytes": 0.0,
+        "sglang:approx_kv_store_host_bytes": 0.0,
+        "sglang:approx_kv_store_leases": 0.0,
+        "sglang:approx_kv_store_orphans": 0.0,
+        "sglang:approx_kv_store_records": 0.0
+      }
+    },
+    {
+      "dense": {
+        "cached_tokens": 64,
+        "elapsed_ms": 342.20703600294655,
+        "finish_reason": {
+          "length": 8,
+          "type": "length"
+        },
+        "output_ids": [
+          198,
+          198,
+          198,
+          198,
+          198,
+          198,
+          198,
+          198
+        ]
+      },
+      "dense_seed": {
+        "cached_tokens": 0,
+        "elapsed_ms": 60.849787998449756,
+        "finish_reason": {
+          "length": 1,
+          "type": "length"
+        },
+        "output_ids": [
+          34
+        ]
+      },
+      "metric_deltas": {
+        "sglang:approx_kv_copied_tokens_total": 1024.0,
+        "sglang:approx_kv_dense_fallback_total": null,
+        "sglang:approx_kv_h2d_bytes_total": 117440512.0,
+        "sglang:approx_kv_h2d_duration_seconds_sum": 0.011077155999373645,
+        "sglang:approx_kv_h2d_tokens_total": 1024.0,
+        "sglang:approx_kv_host_export_bytes_total": 117440512.0,
+        "sglang:approx_kv_host_export_duration_seconds_sum": 0.01913448800041806,
+        "sglang:approx_kv_host_export_tokens_total": 1024.0,
+        "sglang:cross_store_demoted_bytes_total": 117440512.0,
+        "sglang:cross_store_reservation_failures_total": null
+      },
+      "output_token_match": true,
+      "pressure_registered": {
+        "cached_tokens": 1088,
+        "elapsed_ms": 174.02709700036212,
+        "finish_reason": {
+          "length": 1,
+          "type": "length"
+        },
+        "output_ids": [
+          271
+        ]
+      },
+      "pressure_source": {
+        "cached_tokens": 0,
+        "elapsed_ms": 189.69767800081172,
+        "finish_reason": {
+          "length": 1,
+          "type": "length"
+        },
+        "output_ids": [
+          271
+        ]
+      },
+      "recovered": {
+        "cached_tokens": 1088,
+        "elapsed_ms": 348.70295700238785,
+        "finish_reason": {
+          "length": 8,
+          "type": "length"
+        },
+        "output_ids": [
+          198,
+          198,
+          198,
+          198,
+          198,
+          198,
+          198,
+          198
+        ]
+      },
+      "recovery_reseed": {
+        "cached_tokens": 63,
+        "elapsed_ms": 56.05248500069138,
+        "finish_reason": {
+          "length": 1,
+          "type": "length"
+        },
+        "output_ids": [
+          34
+        ]
+      },
+      "recovery_seed": {
+        "cached_tokens": 0,
+        "elapsed_ms": 55.59041600281489,
+        "finish_reason": {
+          "length": 1,
+          "type": "length"
+        },
+        "output_ids": [
+          34
+        ]
+      },
+      "registered": {
+        "cached_tokens": 1088,
+        "elapsed_ms": 154.95828600251116,
+        "finish_reason": {
+          "length": 1,
+          "type": "length"
+        },
+        "output_ids": [
+          198
+        ]
+      },
+      "reset_invariant": {
+        "accounted_tokens": 3400.0,
+        "kv_available_tokens": 3398.0,
+        "kv_evictable_tokens": 2.0,
+        "kv_used_tokens": 0.0,
+        "max_total_num_tokens": 3400.0,
+        "metrics_available": true,
+        "passed": true,
+        "tolerance_tokens": 34.0
+      },
+      "round_index": 1,
+      "source": {
+        "cached_tokens": 0,
+        "elapsed_ms": 184.9314669998421,
+        "finish_reason": {
+          "length": 1,
+          "type": "length"
+        },
+        "output_ids": [
+          198
+        ]
+      },
+      "store_reset_gauges": {
+        "sglang:approx_kv_store_device_bytes": 0.0,
+        "sglang:approx_kv_store_host_bytes": 0.0,
+        "sglang:approx_kv_store_leases": 0.0,
+        "sglang:approx_kv_store_orphans": 0.0,
+        "sglang:approx_kv_store_records": 0.0
+      }
+    }
+  ],
+  "run_id": "p6-h-20260727T071106Z",
   "schema_version": 1,
-  "source_git_sha": "c487e36af5f7ce4da556da1b88c85df750a0b14d",
-  "status": "invalid"
+  "segment_count": 2,
+  "server_argv": [
+    "/usr/bin/python3",
+    "-m",
+    "sglang.launch_server",
+    "--model-path",
+    "Qwen/Qwen3-0.6B",
+    "--revision",
+    "c1899de289a04d12100db370d81485cdf75e47ca",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "30011",
+    "--tp-size",
+    "1",
+    "--mem-fraction-static",
+    "0.35",
+    "--chunked-prefill-size",
+    "4096",
+    "--max-prefill-tokens",
+    "4096",
+    "--max-running-requests",
+    "2",
+    "--attention-backend",
+    "torch_native",
+    "--sampling-backend",
+    "pytorch",
+    "--cuda-graph-backend-decode",
+    "disabled",
+    "--cuda-graph-backend-prefill",
+    "disabled",
+    "--radix-eviction-policy",
+    "hierarchical",
+    "--enable-cache-report",
+    "--enable-metrics",
+    "--random-seed",
+    "17",
+    "--log-level",
+    "warning",
+    "--max-total-tokens",
+    "3400"
+  ],
+  "server_log_sha256": "7d3e09abae4954373272aec6b46d868fe37840a03b529edac4f04545310a218d",
+  "source_git_sha": "c405343c883827cae07144b359a6b4ab3f6d453f",
+  "source_tree_sha": "dd53079eb497a990c21730fdaceef5d3a973e279",
+  "status": "valid",
+  "transfer_measurement": "measured payload bytes and synchronous wall-clock duration",
+  "warmup_repeats": 1
 }
