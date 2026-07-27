@@ -1192,17 +1192,17 @@ def summarize_official(output: Path) -> dict[str, Any]:
                 "branched_agent_elapsed_seconds", {}
             ).get(arm),
         }
-    v23_resolved = arms[V23]["resolved"]
+    candidate_resolved = arms[V23]["resolved"]
     general_resolved = arms[GENERAL]["resolved"]
-    if v23_resolved > general_resolved:
+    if candidate_resolved > general_resolved:
         interpretation = (
-            "Official paired V23-only resolution: V23 resolved 1/1 while "
-            "General produced an empty patch.  Because history, repository "
-            "snapshot, first branched prompt, server, and model are shared, "
-            "this is causal evidence for the post-branch reuse policy on this "
+            f"Official paired candidate-only resolution: {V23} resolved 1/1 "
+            "while General did not.  Because history, repository snapshot, "
+            "first branched prompt, server, and model are shared, this is "
+            "causal evidence for the post-branch reuse policy on this "
             "instance, not a population-level accuracy estimate."
         )
-    elif v23_resolved == general_resolved:
+    elif candidate_resolved == general_resolved:
         interpretation = (
             "The arms have equal official resolution on this instance.  The "
             "result does not rank their accuracy or establish a population "
@@ -1210,8 +1210,8 @@ def summarize_official(output: Path) -> dict[str, Any]:
         )
     else:
         interpretation = (
-            "Official paired General-only resolution on this instance.  V23 "
-            "must be treated as an accuracy damage until replicated."
+            "Official paired General-only resolution on this instance.  "
+            f"{V23} must be treated as an accuracy damage until replicated."
         )
     value = {
         "summarized_at_utc": utc_now(),
@@ -1219,8 +1219,8 @@ def summarize_official(output: Path) -> dict[str, Any]:
         "arms": arms,
         "paired_accuracy_interpretation": interpretation,
         "latency_caveat": (
-            "The fixed V23-then-General order makes per-request TTFT an "
-            "order-sensitive diagnostic, not an unbiased speed estimate.  "
+            f"The fixed {'-then-'.join(ARMS)} order makes per-request TTFT an "
+            "order-sensitive diagnostic, not an unbiased speed estimate. "
             "Summed model elapsed time includes decode behavior and is useful "
             "for this paired outcome but still requires order replication."
         ),
