@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -18,6 +19,7 @@ from sglang.srt.mem_cache.approx_kv.request import (
 )
 from sglang.srt.mem_cache.approx_kv.runtime import (
     ApproxKVRegistrationError,
+    protect_request_prefix,
     register_request_segments,
     restore_request_prefix,
 )
@@ -382,6 +384,60 @@ class TestApproxKVRuntime(unittest.TestCase):
         self.assertIn(("reuse", "exact"), recorded_requests)
         self.assertNotIn(("reuse", "dense_fallback"), recorded_requests)
         self.assertEqual(recorded_fallbacks, [])
+
+
+class TestRecoveryPrefixProtection(unittest.TestCase):
+    """The request's own matched prefix must be locked during recovery.
+
+    Req.init_next_round_input runs recovery before schedule_policy takes the
+    prefix lock, so without an explicit guard the exact nodes backing
+    req.prefix_indices are unlocked, are legal cross-store eviction victims,
+    and can be freed and handed straight back as the recovery destination.
+    """
+
+    def setUp(self):
+        self.locked = []
+        self.unlocked = []
+        self.tree = SimpleNamespace(
+            inc_lock_ref=self.locked.append,
+            dec_lock_ref=self.unlocked.append,
+        )
+        self.node = object()
+        self.req = SimpleNamespace(last_node=self.node)
+
+    def test_prefix_is_locked_for_the_whole_recovery_window(self):
+        with protect_request_prefix(self.tree, self.req):
+            self.assertEqual(self.locked, [self.node])
+            self.assertEqual(self.unlocked, [])
+        self.assertEqual(self.unlocked, [self.node])
+
+    def test_prefix_lock_is_released_even_if_recovery_raises(self):
+        with self.assertRaises(RuntimeError):
+            with protect_request_prefix(self.tree, self.req):
+                raise RuntimeError("recovery blew up")
+        self.assertEqual(self.locked, [self.node])
+        self.assertEqual(self.unlocked, [self.node])
+
+    def test_missing_node_or_lock_api_is_a_no_op(self):
+        with protect_request_prefix(self.tree, SimpleNamespace(last_node=None)):
+            pass
+        self.assertEqual(self.locked, [])
+        with protect_request_prefix(SimpleNamespace(), self.req):
+            pass
+        self.assertEqual(self.locked, [])
+
+    def test_recovery_call_site_is_wrapped_in_the_guard(self):
+        source = (
+            Path(__file__).resolve().parents[4]
+            / "python/sglang/srt/managers/schedule_batch.py"
+        ).read_text()
+        self.assertIn("with protect_request_prefix(tree_cache, self):", source)
+        guard_at = source.index("with protect_request_prefix(tree_cache, self):")
+        for call in (
+            "restore_request_prefix(tree_cache, self)",
+            "restore_request_prefix_epic(tree_cache, self)",
+        ):
+            self.assertGreater(source.index(call), guard_at)
 
 
 if __name__ == "__main__":

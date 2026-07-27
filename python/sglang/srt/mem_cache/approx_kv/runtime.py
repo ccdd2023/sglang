@@ -34,6 +34,34 @@ def _allocator(tree_cache: Any) -> Any:
     return allocator
 
 
+@contextmanager
+def protect_request_prefix(tree_cache: Any, req: Any):
+    """Hold the request's own prefix lock for the whole recovery window.
+
+    ``Req.init_next_round_input`` runs recovery *before* the scheduler takes
+    the request's prefix lock in ``schedule_policy.add_one_req``. In that
+    window ``req.last_node`` still has ``lock_ref == 0``, so the exact nodes
+    backing ``req.prefix_indices`` are legal cross-store eviction victims.
+    Recovering under device pressure could therefore free the request's own
+    prefix and hand the very same slots back as the recovery destination,
+    silently overwriting the KV the request is about to attend over.
+
+    ``inc_lock_ref`` walks to the root, so this protects the whole matched
+    chain and removes it from ``evictable_leaves`` for the duration.
+    """
+    node = getattr(req, "last_node", None)
+    inc_lock_ref = getattr(tree_cache, "inc_lock_ref", None)
+    dec_lock_ref = getattr(tree_cache, "dec_lock_ref", None)
+    if node is None or inc_lock_ref is None or dec_lock_ref is None:
+        yield
+        return
+    inc_lock_ref(node)
+    try:
+        yield
+    finally:
+        dec_lock_ref(node)
+
+
 def allocate_recovery_slots(tree_cache: Any, num_tokens: int):
     """Allocate approximate-recovery slots after evicting exact Radix victims."""
     allocator = _allocator(tree_cache)

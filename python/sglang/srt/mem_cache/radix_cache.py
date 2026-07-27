@@ -691,7 +691,13 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
         )
 
         def evict():
-            if node not in self.evictable_leaves or node.value is None:
+            if (
+                node not in self.evictable_leaves
+                or node.value is None
+                or node.parent is None
+                or node.parent.children.get(node.key.child_key(self.page_size))
+                is not node
+            ):
                 raise KeyError("exact victim changed before eviction")
             started = time.perf_counter()
             token_count = len(node.value)

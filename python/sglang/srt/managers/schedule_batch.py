@@ -85,7 +85,10 @@ from sglang.srt.mem_cache.allocation_sizing import get_alloc_reserve_per_decode
 from sglang.srt.mem_cache.allocator import BaseTokenToKVPoolAllocator
 from sglang.srt.mem_cache.approx_kv.epic_runtime import restore_request_prefix_epic
 from sglang.srt.mem_cache.approx_kv.request import parse_request_metadata
-from sglang.srt.mem_cache.approx_kv.runtime import restore_request_prefix
+from sglang.srt.mem_cache.approx_kv.runtime import (
+    protect_request_prefix,
+    restore_request_prefix,
+)
 from sglang.srt.mem_cache.base_prefix_cache import (
     BasePrefixCache,
     EvictParams,
@@ -840,9 +843,7 @@ class Req(ReqDllmMixin):
             else None
         )
         if self.approx_kv_metadata is not None:
-            self.approx_kv_metadata.validate_prompt_length(
-                len(self.origin_input_ids)
-            )
+            self.approx_kv_metadata.validate_prompt_length(len(self.origin_input_ids))
         self.custom_logit_processor = custom_logit_processor
         self.return_hidden_states = return_hidden_states
 
@@ -1075,8 +1076,7 @@ class Req(ReqDllmMixin):
         # and consumed in the decode transfer commit; never plumbed to prefill.
         self.pd_rebootstrap_forced_output_id: Optional[int] = None
         self.skip_radix_cache_insert = (
-            bootstrap_host == FAKE_BOOTSTRAP_HOST
-            or self.approx_kv_metadata is not None
+            bootstrap_host == FAKE_BOOTSTRAP_HOST or self.approx_kv_metadata is not None
         )
         self.disagg_kv_sender: Optional[BaseKVSender] = None
 
@@ -1306,18 +1306,22 @@ class Req(ReqDllmMixin):
 
             if self.approx_kv_metadata is not None:
                 approx_kv_manager = getattr(tree_cache, "approx_kv", None)
-                if (
-                    approx_kv_manager is not None
-                    and approx_kv_manager.config.epic_enabled
-                ):
-                    # EPIC (Phase 4 R1) leading-k repair hook: exact-cache
-                    # first, dense fallback on any unsupported model/layout/
-                    # capability gap. Config-gated (off by default), so
-                    # this changes nothing unless SGLANG_APPROX_KV_EPIC is
-                    # explicitly enabled and an "epic" plugin is registered.
-                    restore_request_prefix_epic(tree_cache, self)
-                else:
-                    restore_request_prefix(tree_cache, self)
+                # The scheduler does not take this request's prefix lock until
+                # schedule_policy.add_one_req, so protect the matched prefix
+                # here or recovery may evict and overwrite its own KV.
+                with protect_request_prefix(tree_cache, self):
+                    if (
+                        approx_kv_manager is not None
+                        and approx_kv_manager.config.epic_enabled
+                    ):
+                        # EPIC (Phase 4 R1) leading-k repair hook: exact-cache
+                        # first, dense fallback on any unsupported model/layout/
+                        # capability gap. Config-gated (off by default), so
+                        # this changes nothing unless SGLANG_APPROX_KV_EPIC is
+                        # explicitly enabled and an "epic" plugin is registered.
+                        restore_request_prefix_epic(tree_cache, self)
+                    else:
+                        restore_request_prefix(tree_cache, self)
 
             if self.is_dllm():
                 self._update_block_offset_for_dllm()

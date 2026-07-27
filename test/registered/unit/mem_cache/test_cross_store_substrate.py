@@ -831,6 +831,47 @@ class TestRadixCrossStoreAdapter(unittest.TestCase):
         self.assertIsNone(resource.evict())
         self.assertEqual(allocator.freed, [7])
 
+    def _leaf_cache(self):
+        allocator = _FakeTokenAllocator()
+        cache = RadixCache.create_simulated(mock_allocator=allocator)
+        node = TreeNode()
+        node.parent = cache.root_node
+        node.key = RadixKey(array("q", [1]))
+        node.value = torch.tensor([7], dtype=torch.int64)
+        cache.root_node.children[node.key.child_key(1)] = node
+        cache.evictable_leaves.add(node)
+        cache.evictable_size_ = 1
+        return allocator, cache, node
+
+    def test_unlocked_prefix_is_an_eviction_candidate(self):
+        """Baseline for the recovery prefix guard.
+
+        This is why protect_request_prefix exists: an unlocked node that a
+        request is already using as its prefix is a perfectly legal victim.
+        """
+        _, cache, _ = self._leaf_cache()
+        self.assertEqual(len(cache.cross_store_resources(bytes_per_token=16)), 1)
+
+    def test_locked_prefix_is_never_offered_as_a_victim(self):
+        _, cache, node = self._leaf_cache()
+        cache.inc_lock_ref(node)
+        self.assertEqual(cache.cross_store_resources(bytes_per_token=16), ())
+        cache.dec_lock_ref(node)
+        self.assertEqual(len(cache.cross_store_resources(bytes_per_token=16)), 1)
+
+    def test_stale_victim_raises_keyerror_instead_of_asserting(self):
+        """A detached victim must degrade to dense fallback, not crash.
+
+        KeyError is inside the exception tuple the cross-store allocator
+        already rolls back on; an AssertionError from _delete_leaf kills the
+        scheduler process instead.
+        """
+        _, cache, node = self._leaf_cache()
+        resource = cache.cross_store_resources(bytes_per_token=16)[0]
+        cache.root_node.children.clear()
+        with self.assertRaises(KeyError):
+            resource.evict()
+
     def test_resource_provider_exposes_parent_after_leaf_eviction(self):
         allocator = _FakeTokenAllocator()
         cache = RadixCache.create_simulated(mock_allocator=allocator)
