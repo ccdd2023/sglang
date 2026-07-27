@@ -2386,3 +2386,53 @@ reservation失败，这恰好就是当前唯一缺失的Exit证据项。因此�
 
 artifact：`diagnostic-C-store-state-at-oom.json`、`diagC-store-gauges.jsonl`、
 `diagC2-labeled.jsonl`。
+
+## 2026-07-27T12:15:00-07:00 — 更正：诊断C的第一版结论错误，S0/rho2确实是容量不可达
+
+**我上一条记录（12:00左右）的结论是错的，现予以撤回。**
+
+错误原因：第一版诊断以`0.4s`间隔轮询`/metrics`。临近死亡时workload的分配
+速度远快于该间隔（实测最后`1.3s`内`num_used_tokens`从`5376`涨到`10688`），
+因此“失联前最后一个成功样本”其实**早于致命请求**，那时approximate store
+自然还持有对象。我据此断言“有可回收内存却没回收”，属于**采样伪影**。
+
+**以`0.05s`重采样后的死亡瞬间真实状态**（`diagC3-tight.jsonl`）：
+
+```
+approx_kv_store_device_bytes = 0.0     ← 已完全清空
+approx_kv_store_records      = 0
+approx_kv_store_leases       = 0
+num_used_tokens / capacity   = 10688 / 11392
+token_usage                  = 0.94
+可用 = 704 token，而请求需要 1024
+cross_store_reservation_failures_total = 从未出现
+```
+
+**并且回收路径被证明是工作的**——死亡瞬间的累计
+`cross_store_evicted_bytes_total`：
+
+| 方向 | 字节 |
+| --- | ---: |
+| exact requester → approximate victim | `2,202,009,600` |
+| approximate requester → approximate victim | `411,041,792` |
+| exact requester → exact victim | `8,592,424,960` |
+| approximate requester → exact victim | `1,767,800,832` |
+
+即exact压力已成功从approximate对象回收`2.2GB`；到死亡时approximate store
+已被榨干，**没有任何可回收资源残留**。
+
+**结论更正**：
+
+- S0/LRU rho2.0 **确实是真实容量不可达**，`diagnostic-unavailable`是正确标签；
+- **不存在cross-store回收缺陷**，无需修复；
+- 第一版声称的“832个token无法归属”也是伪影：`num_used_tokens`本身已包含
+  approximate store占用的slot，两者不能相加。
+
+**对最后一项Exit证据的影响（回到修正前的判断）**：既然没有缺陷可修，
+reservation-failure关联的fallback就**不能**靠修bug自然获得，仍然只有两条路：
+让`alloc_token_slots`优雅降级，或使用allocator已有的fault injector。
+该决定权仍在用户。
+
+**方法论教训（已写入计划§15.2第15条）**：容量类判断的采样间隔必须短于
+workload的分配动态，否则会得到“自信但错误”的结论。本次`0.4s`太粗，
+`0.05s`才得到正确答案。

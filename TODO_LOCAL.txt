@@ -1,7 +1,7 @@
 CODE-AGENT KVCACHE LOCAL TODO LIST
 ==================================
 
-Last updated: 2026-07-27T11:55:00-07:00
+Last updated: 2026-07-27T12:15:00-07:00
 Authority: PROJECT.md and IMPLEMENTATION_PLAN_LATEST.md
 Current boundary: do not enter Phase 7 without reporting to the user.
 
@@ -125,65 +125,46 @@ All runners execute inside the immutable SM75 image with:
       its usage with the same factor, so the scaling cancels and
       reservation_failures stays 0.
 
-[x] Diagnostic C answered this. Do NOT use fault injection: the item is
-    obtainable naturally once a real defect is fixed.
+[x] Diagnostic C is DONE and settled the question. There is NO reclaim
+    defect. Measured at 0.05 s resolution, at the instant the S0/LRU rho2.0
+    server dies:
+      approx_kv_store_device_bytes  0.0     <- store already empty
+      approx_kv_store_records       0
+      num_used_tokens / capacity    10688 / 11392   (token_usage 0.94)
+      free 704 tokens against a 1024 token request
+    and the reclaim path had already worked, cumulatively:
+      exact requester -> approximate victim   2,202,009,600 bytes
+      approximate requester -> exact victim   1,767,800,832 bytes
 
-[ ] FIX THIS FIRST - cross-store reclaim defect (diagnostic C, 2026-07-27).
-    Measured at the instant the S0/LRU rho2.0 server dies, twice:
-      approx_kv_store_device_bytes  44,040,192   (384 tokens)
-      approx_kv_store_records       1
-      approx_kv_store_leases        0            <- freely evictable
-      num_used_tokens / capacity    10176 / 11392
-      unaccounted tokens            832
-      allocator reported            available_size=0 + evictable_size=0
-                                    while requesting only 1024
-      cross_store_reservation_failures_total   never incremented
-      only dense fallback reason               store_miss
+    So S0/LRU rho2.0 and S4 rho3.0 ARE genuine capacity limits and
+    diagnostic-unavailable is the correct label. Nothing to fix here.
 
-    So reclaimable approximate memory was still resident and was never
-    evicted, and make_room never reported a failure.
+    WARNING for whoever reads the history: diagnostic C v1 used a 0.4 s poll
+    and concluded the opposite, that reclaimable memory was stranded. That was
+    a sampling artifact, because the last successful scrape predated the fatal
+    request. It is retained as
+    diagnostic-C-v1-SUPERSEDED-coarse-sampling.json purely as a caution. Do
+    not act on it.
 
-    Two candidate mechanisms to check, in this order:
-    1. evict_from_tree_cache only calls make_room when
-       allocator.available_size() < num_tokens. If that predicate disagrees
-       with what alloc() can actually satisfy, the whole cross-store reclaim
-       path is skipped silently, which matches the zero reservation-failure
-       count exactly.
-    2. A second slot leak, distinct from the admission-rejection leak already
-       fixed, which would explain the 832 unaccounted tokens.
+[ ] DECISION REQUIRED from the user for the last Exit item. It cannot be
+    obtained by fixing a bug, because there is no bug. Two options:
 
-    The fix belongs in cross_store/ and approx_kv/, code we own. It does NOT
-    require touching the shared upstream alloc_token_slots path, which has
-    four callers on every request's hot path.
+    A. Make alloc_token_slots degrade instead of aborting.
+       Strongest evidence, natural reachability. But it edits the shared
+       upstream hot path with four callers on every request, diverging from
+       upstream. Highest risk.
 
-[ ] After the fix, rerun P6-4. The S0 rho2.0 and S4 rho3.0 cells are
-    currently labelled diagnostic-unavailable on the assumption of a capacity
-    limit; that assumption is now refuted and both labels may change.
+    B. Use the allocator's existing fault_injector, AllocationFailurePoint.
+       AFTER_RESERVE, wired behind an env flag in cross_store/, roughly ten
+       lines, off by default, zero production impact. But it proves only that
+       the fallback path works, which is a weaker claim than natural
+       reachability, and the artifact must say so explicitly.
 
-[ ] Do NOT read rounds = 0 as "fallback is broken". The counter is a labelled
-    Prometheus series that emits nothing when no event occurs, so absence of
-    the series is indirectly_verified, never an explicit zero.
-
-[x] Running only exact_only and r2_like reaches status=valid for S4 rho1.1
-    and rho2.0. So the diagnostic-unavailable verdict across the full matrix
-    is caused solely by the r4_like ~5x profile, which is the exception the
-    contract already allows, not by a substrate problem.
-
-[!] CORRECTION 2026-07-27: the note below calling S0 rho2.0 and S4 rho3.0
-    "genuinely capacity-unreachable" is WRONG. Diagnostic C refuted it. Treat
-    those two cells as blocked by the reclaim defect above.
-
-[x] P6-4 itself is DONE and must not be rerun as-is:
-      run_id p6-4-20260727T104820Z, raw_sha256 11e85899774bb66f...
-      S4 rho1.1/1.5/2.0 reachable, requested == observed capacity exactly,
-      40 approximate recoveries per cell, exact_only/r0_like/r1_like_k32/
-      r2_like all reachable and valid.
-      S0 rho2.0 and S4 rho3.0 are genuinely capacity-unreachable: they still
-      OOM deterministically after both the P1-2 and P1-3 fixes, so they are
-      recorded diagnostic-unavailable rather than invalid.
-      r4_like at ~5x is unreachable everywhere, the anticipated R4 exception.
-      Bidirectional pressure PASSES: exact->approx 47.5 GB,
-      approx->exact 58.8 GB.
+    A third, legitimate option is to accept the item as indirectly_verified:
+    the rollback is already proven for every failure point by
+    test_fault_injection_rolls_back_reversible_actions, and the second half of
+    the chain is now covered by
+    test_reservation_failure_degrades_to_dense_fallback (mutation checked).
 
 
 3.2 CL4 + PHASE 6 EXIT DUAL REVIEW

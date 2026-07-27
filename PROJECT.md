@@ -459,9 +459,9 @@ prompt族、exact-output不变量、本GPU与chunk配置下**冻结promotion规�
    `diagnostic-unavailable`并继续，不再中止整个矩阵。
 
 **重要更正**：P1-3与P1-2**都不是**S0/rho2 OOM的成因；两次修复后仍确定性
-OOM。
-
-**该判断已于2026-07-27被诊断C推翻，见下节。**
+OOM，因此该cell归类为**真实容量不可达**而非实现缺陷。
+诊断C（v2，`0.05s`采样）已独立确证这一点：死亡瞬间approximate store为空，
+且exact压力此前已成功回收`2.2GB` approximate内存。
 
 P6-4最终结果（`run_id=p6-4-20260727T104820Z`）：
 
@@ -481,46 +481,45 @@ P6-4最终结果（`run_id=p6-4-20260727T104820Z`）：
 - 整体`status=inconclusive`：无cell达到全`valid`，且
   `fallback_reachability.rounds=0`。
 
-### 2026-07-27 诊断C：S0/rho2是我方缺陷，不是容量不可达（更正）
+### 2026-07-27 诊断C（v2，已更正v1）：S0/rho2确实是容量不可达
 
-在真实S0/LRU rho2.0 cell运行期间以`0.4s`间隔轮询`/metrics`，两次独立复现，
-取server失联前最后一个样本。第二次的完整token账：
+**v1结论已撤回。** v1以`0.4s`间隔轮询，而临近死亡时workload分配速度远快于
+该间隔（最后`1.3s`内`num_used_tokens`由`5376`涨到`10688`），因此“最后一个
+成功样本”早于致命请求，据此得出的“有可回收内存却未回收”属于采样伪影。
+
+以`0.05s`重采样的死亡瞬间真实状态：
 
 ```
-capacity      = 11392
-num_used      = 10176   (radix + running)
-approx store  =   384   (1条record，leases=0，可自由驱逐)
-accounted     = 10560
-UNACCOUNTED   =   832
-allocator报告：available_size=0 + evictable_size=0，而请求仅需1024
+approx_kv_store_device_bytes = 0.0     ← 已完全清空
+approx_kv_store_records      = 0
+approx_kv_store_leases       = 0
+num_used_tokens / capacity   = 10688 / 11392   (token_usage 0.94)
+可用 704 token，而请求需要 1024
+cross_store_reservation_failures_total = 从未出现
 ```
 
-四项事实：
+回收路径被证明工作正常，死亡瞬间累计`cross_store_evicted_bytes_total`：
 
-1. 死亡瞬间approximate store仍持有`384`个device token且`leases=0`，
-   **完全可驱逐却未被驱逐**；
-2. `cross_store_reservation_failures_total`**从未递增**，说明
-   `make_room(requester="exact")`要么未被调用、要么返回committed，
-   从未报告失败；
-3. `832`个device token两个gauge都无法解释，而allocator却报告零可用零可驱逐；
-4. 唯一的dense fallback原因是`store_miss`，不是reservation失败。
+| 方向 | 字节 |
+| --- | ---: |
+| exact requester → approximate victim | `2,202,009,600` |
+| approximate requester → approximate victim | `411,041,792` |
+| exact requester → exact victim | `8,592,424,960` |
+| approximate requester → exact victim | `1,767,800,832` |
 
-**结论：S0/rho2的OOM是实现缺陷，不是容量不可达。**先前记录已更正。
+exact压力已成功从approximate对象回收`2.2GB`；到死亡时approximate store已被
+榨干，**没有可回收资源残留**。
 
-两个候选机制（待定位）：
+**固定结论**：
 
-- `evict_from_tree_cache`仅在`allocator.available_size() < num_tokens`时调用
-  `make_room`；若`available_size()`与`alloc()`实际可满足量不一致，
-  cross-store回收路径会被整体跳过，请求直接死亡而从未咨询approximate store
-  ——与“reservation失败计数为0”完全吻合；
-- 存在第二处slot泄漏（区别于已修复的admission拒绝泄漏），可解释那`832`个token。
+- S0/LRU rho2.0是**真实容量不可达**，`diagnostic-unavailable`标签正确；
+- **不存在cross-store回收缺陷**；
+- v1所称“832个token无法归属”是伪影：`num_used_tokens`已包含approximate
+  store占用的slot，不能与之相加。
 
-**对Exit的正面影响**：修好后正确的回收路径会自然产生真实reservation失败，
-恰好就是当前唯一缺失的Exit证据项，可用**自然可达**证据关闭，
-无需退而使用fault injection。
-
-**影响面**：修复位于我们自己的`cross_store/`与`approx_kv/`，
-**不需要改动共享的上游`alloc_token_slots`**。
+**对最后一项Exit证据的影响**：既然无缺陷可修，reservation-failure关联的
+fallback不能靠修bug自然获得，仍只有两条路——让`alloc_token_slots`优雅降级，
+或使用allocator已有的fault injector。决定权在用户。
 
 ### Phase6 Exit当前逐条状态
 

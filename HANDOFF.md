@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-27T11:55:00-07:00
+最后更新：2026-07-27T12:15:00-07:00
 
 ## 新会话启动顺序
 
@@ -45,10 +45,12 @@ generic host canary、无泄漏无orphan、压力下数据保真、完整provena
 
 #### 重要判定
 
-- **（2026-07-27更正）** S0/rho2的OOM经诊断C确认为**我方实现缺陷**，
-  不是容量不可达。死亡瞬间approximate store仍持有`384`个device token且
-  `leases=0`（可自由驱逐却未驱逐），`cross_store_reservation_failures_total`
-  从未递增，另有`832`个token无法归属。先前“真实容量不可达”的记录已作废。
+- S0/rho2与S4/rho3的OOM是**真实容量不可达**，不是实现缺陷。
+  诊断C以`0.05s`采样确证：死亡瞬间approximate store为`0`字节`0`记录，
+  可用`704` token而请求需`1024`；且exact压力此前已成功从approximate对象
+  回收`2.2GB`，回收路径工作正常。
+  （注：诊断C v1曾以`0.4s`粗采样得出相反结论，已撤回——采样间隔必须短于
+  workload的分配动态。）
 - `r4_like`（约5x）在所有cell不可达，属计划预先允许的R4例外。
 - 全目录回归`935 failed`是**改动前既有基线**（已用`git stash`对照两次），
   本次净增3个pass。

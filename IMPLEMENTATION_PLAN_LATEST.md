@@ -1078,28 +1078,30 @@ Early-stop：
 双向pressure（exact→approx `47.5GB`、approx→exact `58.8GB`）、
 R1-like worst-case（k32）可达、P6-H压力下逐token保真。
 
-**2026-07-27诊断C的关键更新**：先前认为S0/rho2的OOM是“真实容量不可达”，
-该判断已被推翻。死亡瞬间approximate store仍持有`384`个device token且
-`leases=0`，`cross_store_reservation_failures_total`从未递增，另有`832`个
-token无法归属。**这是我方缺陷。**
+**2026-07-27诊断C（v2）结论**：以`0.05s`采样确证，S0/rho2的OOM是
+**真实容量不可达**——死亡瞬间approximate store为`0`字节`0`记录，
+可用`704` token而请求需`1024`；且exact压力此前已成功从approximate对象
+回收`2.2GB`，**回收路径工作正常，不存在缺陷**。
 
-这把最后一项从“可能拿不到”变成“**修好缺陷即可自然拿到**”：正确的回收路径
-会真实触发reservation失败并走dense fallback，恰好就是缺失的证据项。
-因此**不采用**fault injection这条弱证据路线。
+（诊断C v1曾以`0.4s`粗采样得出“这是我方缺陷”的相反结论，已撤回。
+采样间隔必须短于workload的分配动态，否则会得到自信但错误的判断。）
 
-修复位于我们自己的`cross_store/`与`approx_kv/`，
-**不改动共享上游`alloc_token_slots`**。
+因此最后一项**不能**靠修bug自然获得，仍只有两条路，需用户决定：
+
+- **A. 让`alloc_token_slots`优雅降级**：证据最强（自然可达），但要改共享
+  上游热路径（4个调用点、每个请求都走），与upstream产生分歧，风险最高；
+- **B. 使用allocator已有的`fault_injector`**：改动位于我们自己的
+  `cross_store/`，env门控、默认关闭、约10行；但证明的是“fallback路径可用”
+  而非“压力下自然可达”，是**更弱**的主张，必须在artifact中显式标注。
 
 本文件继续保持`Current / Latest`，不提升版本号、不归档
 （用户已明确本轮不升级）。
 
 V5的创建条件收敛为：
 
-1. 修复cross-store回收缺陷（诊断C），并由此取得**自然的**dense fallback
-   可达性证据；
-2. 用修复后的底座重跑P6-4，重新判定S0/rho2与S4/rho3的可达性
-   （二者当前的`diagnostic-unavailable`标签可能一并改变）；
-3. 完成正式的Phase6 Exit双模型review与disposition。
+1. 用户在A/B之间选定，并据此取得dense fallback可达性证据（或明确接受
+   该项以`indirectly_verified`结案）；
+2. 完成正式的Phase6 Exit双模型review与disposition。
 
 ### 15.2 已由执行结果确定、必须写入V5的合同修订
 
@@ -1142,14 +1144,16 @@ V5的创建条件收敛为：
     不足以归因，必须补上“无eviction条件下仍偏离”这一格。
 12. **allocation失败必须优雅降级。** `alloc_token_slots`在cross-store无法
     腾出空间时抛`RuntimeError`杀死scheduler进程，应改为可记录的失败。
-13. **“容量不可达”必须用store gauge实测证伪后才能下结论。** 本轮把S0/rho2
-    误判为容量极限，直到诊断C测出死亡瞬间approximate store仍持有可驱逐的
-    device token才被推翻。凡是要写`diagnostic-unavailable`且理由为容量的
-    cell，都必须附带死亡瞬间的store gauge快照，证明没有可回收资源残留。
-14. **`evict_from_tree_cache`的触发条件本身可能是缺陷来源。** 它只在
-    `allocator.available_size() < num_tokens`时才调用`make_room`；若该
-    判据与`alloc()`实际可满足量不一致，整条cross-store回收路径会被静默
-    跳过，且不会留下任何reservation失败记录。
+13. **“容量不可达”必须附死亡瞬间的store gauge快照。** 凡是要写
+    `diagnostic-unavailable`且理由为容量的cell，都必须证明当时没有可回收
+    资源残留，而不是仅凭server崩溃就下结论。
+14. **遥测采样间隔必须短于workload的分配动态。** 本轮诊断C v1用`0.4s`轮询，
+    而最后`1.3s`内`num_used_tokens`从`5376`涨到`10688`，导致“最后一个成功
+    样本”早于致命请求，产生了一个**自信但完全错误**的“这是我方缺陷”结论；
+    改用`0.05s`后结论反转。任何“死亡瞬间状态”类证据都必须声明采样间隔，
+    并论证它足够细。
+15. **不要把`num_used_tokens`与store gauge相加。** 前者已包含approximate
+    store占用的slot，相加会凭空造出并不存在的“未归属token”。
 
 ### 15.3 P0修复的两个候选方向（供CL4后执行）
 
