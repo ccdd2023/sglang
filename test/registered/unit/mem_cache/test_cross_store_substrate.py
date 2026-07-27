@@ -46,6 +46,7 @@ from sglang.srt.mem_cache.cross_store import (
     CrossStoreTier,
     ObjectProvenance,
     PolicyKind,
+    ReservationResult,
 )
 from sglang.srt.mem_cache.cross_store.class_order import s4_next_use_key
 from sglang.srt.mem_cache.radix_cache import RadixCache, RadixKey, TreeNode
@@ -199,6 +200,57 @@ class TestCrossStoreAllocator(unittest.TestCase):
                 self.assertFalse(action_state["evicted"])
                 self.assertEqual(budget.snapshot().device_used_bytes, 200)
                 self.assertEqual(budget.snapshot().device_reserved_bytes, 0)
+
+    def test_reservation_failure_degrades_to_dense_fallback(self):
+        """A failed reservation must degrade, and be counted as a fallback.
+
+        The allocator rollback is covered above. This covers the rest of the
+        chain: allocate_recovery_slots must turn a non-committed reservation
+        into None so the caller goes dense, and it must attribute the
+        fallback to that reservation failure rather than leaving the
+        explicit counter silent.
+        """
+        from sglang.srt.mem_cache.approx_kv.config import ApproxKVFeatureConfig
+        from sglang.srt.mem_cache.approx_kv.manager import ApproxKVManager
+        from sglang.srt.mem_cache.approx_kv.runtime import allocate_recovery_slots
+
+        manager = ApproxKVManager(
+            ApproxKVFeatureConfig(
+                core_enabled=True,
+                cross_store_enabled=True,
+                cross_store_bytes_per_token=16,
+            )
+        )
+        fallbacks = []
+        manager.metrics_collector = SimpleNamespace(
+            increment_approx_kv_fallback=lambda reason, num_tokens: (
+                fallbacks.append((reason, num_tokens))
+            ),
+            increment_approx_kv_request=lambda operation, outcome: None,
+        )
+        refused = ReservationResult(
+            allocation=None,
+            victim_ids=(),
+            demoted_ids=(),
+            committed=False,
+            requires_reset=False,
+        )
+        manager.cross_store_coordinator = lambda tree_cache: SimpleNamespace(
+            allocate_tokens=lambda num_tokens: refused
+        )
+        allocator = _FakeTokenAllocator()
+        tree = SimpleNamespace(
+            token_to_kv_pool_allocator=allocator,
+            approx_kv=manager,
+            cross_store_resources=lambda bytes_per_token: (),
+        )
+
+        self.assertIsNone(allocate_recovery_slots(tree, 8))
+
+        self.assertEqual(fallbacks, [("cross_store_reservation_failed", 8)])
+        # Nothing may be handed out when the reservation was refused.
+        self.assertEqual(allocator.next_index, 100)
+        self.assertEqual(allocator.freed, [])
 
     def test_irreversible_victim_remains_accounted_on_failure(self):
         budget = CrossStoreBudget(device_limit_bytes=200, host_limit_bytes=0)
