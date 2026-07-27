@@ -1,7 +1,7 @@
 CODE-AGENT KVCACHE LOCAL TODO LIST
 ==================================
 
-Last updated: 2026-07-26T20:25:00-07:00
+Last updated: 2026-07-27T01:50:00-07:00
 Authority: PROJECT.md and IMPLEMENTATION_PLAN_LATEST.md
 Current boundary: do not enter Phase 7 without reporting to the user.
 
@@ -95,15 +95,10 @@ Persistent commits:
 3. IMMEDIATE EXECUTION ORDER BEFORE PHASE 7
 -------------------------------------------
 
-STATUS 2026-07-26T20:25:00-07:00: CL1, CL2 and CL3 are done. P6-H and P6-4
-both failed on one shared P0 defect. CL4 cannot start because Phase 6 Exit
-did not pass. The old CL1 -> CL2 -> P6-H -> P6-4 -> CL4 order is superseded
-by the order below. Nothing here is a mechanism conclusion; the blocker is an
-implementation defect.
+STATUS 2026-07-27T01:50:00-07:00.
 
-New strict order:
-
-    P0 fix -> CL1 rerun -> P6-H -> P6-4 -> CL4/Phase6 Exit -> V5 plan -> STOP
+Done and NOT to be redone: CL1 (rerun on the fixed substrate), CL2, CL3,
+P6-H, and the P0 fix. Remaining: P6-4, then CL4.
 
 All runners execute inside the immutable SM75 image with:
 
@@ -113,110 +108,69 @@ All runners execute inside the immutable SM75 image with:
     HF cache mounted read-only with HF_HOME and HF_HUB_OFFLINE=1
     PYTHONPATH=<worktree>:<worktree>/python:/opt/sm75-site
 
-A reusable launcher was used this session and can be recreated from the
-settings above; it is not committed because it contains host paths.
 
+3.1 P6-4 - THE ONLY REMAINING GATE
 
-3.1 P0 - CROSS-STORE ALLOCATOR STALE RESOURCE DEFECT
+[ ] Symptom: the S0/LRU rho2.0 cell hits a deterministic device OOM,
+      Available tokens: 0 (available_size=0 + evictable_size=0)
+    raised as RuntimeError from mem_cache/allocation.py alloc_token_slots,
+    which kills the scheduler process.
 
-[ ] Read IMPLEMENTATION_PLAN_LATEST.md section 15 first.
+[ ] Reproduced three times: full profiles, --rhos 2.0 alone, and the reduced
+    profile set exact_only,r0_like,r1_like_k32. Not intermittent.
 
-[ ] Symptom A, P6-4:
-      radix_cache._delete_leaf
-      AssertionError: parent does not have child key
-    reached through
-      restore_request_prefix -> finalize_copy_reuse
-      -> allocate_recovery_slots -> cross_store coordinator
-      -> cross_store allocator action() -> radix_cache.evict
+[ ] launch_cells always orders lru2.0 before hier2.0 and hier3.0, so this one
+    cell blocks every later cell. Only hier1.1 and hier1.5 are known good.
 
-[ ] Symptom B, P6-H:
-    approximate reuse returns corrupted KV under device pressure while every
-    mechanical counter still passes.
+[ ] Already ruled out:
+    - a lock leak from the P0 fix (inc/dec proven symmetric in-container);
+    - an ordinary prefill path that is not cross-store aware
+      (evict_from_tree_cache does call make_room with requester="exact");
+    - cross-store coordinator reentrancy.
 
-[ ] Root cause:
-    cross_store/allocator.py applies a whole eviction closure from one
-    snapshot inside a single loop iteration, and only refreshes the snapshot
-    at the start of the next iteration. Evictions applied earlier in the same
-    iteration can detach the radix nodes that later resources point at.
+[ ] UNCONFIRMED HYPOTHESIS, resolve this first: the P0 fix correctly removed
+    the request's own prefix from the victim pool, so recovery must now take
+    NEW slots and genuine peak device demand rose. If true this is a capacity
+    result and the cell should be recorded diagnostic-unavailable, not invalid.
+    The decisive control is to rerun the SAME reduced-profile cell on the
+    pre-fix commit c487e36af and compare.
 
-[ ] Two candidate fixes and their costs are recorded in plan section 15.3.
-    Do not patch speculatively; this is the allocator that took three review
-    rounds to stabilise.
+[ ] Independently of the above, alloc_token_slots should degrade rather than
+    kill the scheduler when cross-store cannot free enough. That is a
+    robustness gap and should be fixed even if the capacity finding stands.
 
-[ ] Add a pressure-mode fidelity regression. A CPU fake-allocator test is not
-    sufficient: the existing 164-test CPU suite passes while the GPU path is
-    wrong under pressure.
-
-[ ] Reproduction harnesses are committed:
-      benchmark/approx_kv/diagnostics/diag_p6h_round.py
-      benchmark/approx_kv/diagnostics/control_exact_cache_guardrail.py
-    Isolation evidence:
-      benchmark/approx_kv/results/phase6/p6-h-pressure-corruption-isolation.json
-
-
-3.2 CL1 RERUN AFTER THE P0 FIX
-
-[ ] CL1 already produced practical family = NONE, but every arm ran at
-    rho_logical_demand=2.0, so the guardrail failures are confounded with the
-    P0. The verdict is procedurally valid and causally invalid.
-
-[ ] Before rerunning, resolve the guardrail ambiguity recorded as
-    FINDING-CL1-C: plan section 5.9 says record the per-token consistency
-    rate and do not extend to semantic correctness, while the frozen runner
-    makes exact 8-token equality a hard promotion gate. Pick one and freeze
-    it before any data is produced.
-
-[ ] Keep the existing artifacts; do not overwrite them.
-    Current results:
-      cl1-screening.json          raw_sha256 a122e1981af1d6ee...
-      cl1-confirm.json            raw_sha256 7736f0e7f641ce7d...
-
-
-3.3 P6-H RERUN
-
-[ ] The runner now reseeds the recovery header before the reuse request and
-    asserts that the reuse attached the registered body.
-
-[ ] The built-in capacity formula ceil((2*body+header)*1.15)=2429 tokens is
-    too small for the temporary peak. Pass --max-total-tokens explicitly;
-    3400 exercises demotion and H2D correctly.
-
-[ ] Use chunked-prefill-size 4096. At 1024 the server OOMs before the canary
-    can run.
-
-
-3.4 P6-4 RERUN
-
-[ ] exact_only already passed as a separate artifact and does not need to be
-    redone unless the fix changes exact behaviour:
+[ ] exact_only already passed and does not need redoing:
       p6-4-exact-only.json, requested == observed capacity for all 5 cells,
       exact_evicted_bytes 18007851008.
 
-[ ] Rerun the full profile set only after the P0 fix.
 
+3.2 CL4 + PHASE 6 EXIT DUAL REVIEW
 
-3.5 CL4 + PHASE 6 EXIT DUAL REVIEW
-
-[ ] Only after P6-H and P6-4 pass.
+[ ] Requires P6-4 to reach a conclusion first.
 
 [ ] Sol and Opus independent review, exchange, cross-consolidate, main
     session disposition.
 
 [ ] Phase 6 Exit must additionally prove approximate reuse fidelity under
-    pressure. The current gate does not require it, which is why the defect
-    survived three review rounds.
+    pressure. P6-H now supplies exactly that evidence.
 
 
-3.6 COMPLETED THIS SESSION - DO NOT REDO
+3.3 COMPLETED - DO NOT REDO
 
-[x] CL1 screening and 3-restart confirmation.
+[x] P0 fix: protect_request_prefix, plus the hardened exact victim guard.
+    Commits af81934e4 and c405343c8. GPU verified.
+[x] CL1 rerun, screening and 3-restart confirm, on the fixed substrate.
+    winner = NONE, causal attribution now VALID because the guardrail failure
+    counts are identical before and after the fix.
+[x] P6-H, status valid, output identical to matched dense.
 [x] CL2 chunk gate, waived to provisional chunk 1024.
 [x] CL3 Phase 5 zero-GPU recalculation.
 [x] P6-4 exact-only capacity baseline.
-[x] Zero-GPU per-token consistency derivations for both CL1 runs.
-[x] Exact-cache control that rules out prefill numerical nondeterminism.
-[x] Fix: prefix-gap reuse is now a counted dense fallback, not a fake exact hit.
-[x] Fix: P6-H recovery header reseed.
+[x] Guardrail ambiguity frozen as plan section 5.9.1 BEFORE the rerun.
+
+    Note: test_radix_cache_unit.py::test_memory_allocated fails on this tree
+    but also fails with all changes stashed. It is pre-existing, not a
+    regression.
 
 
 4. RESULT-BOUND PHASE 7 PLAN UPDATE

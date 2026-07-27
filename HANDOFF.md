@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-26T20:25:00-07:00
+最后更新：2026-07-27T01:50:00-07:00
 
 ## 新会话启动顺序
 
@@ -12,6 +12,73 @@
 6. 开始工作后持续维护上述文件，不把重要信息只留在聊天中。
 
 ## 当前快照
+
+### 2026-07-27T01:50:00-07:00 P0已修复，P6-H通过，CL1定稿NONE，仅剩P6-4阻塞
+
+- 所有实验均在Docker SM75镜像内执行
+  （`ghcr.io/ccdd2023/sglang@sha256:0be6e16e...`、`--runtime=nvidia --gpus all`、
+  `--user 1000:1000`、worktree只读挂载、`/results`读写挂载、HF离线只读）。
+- 实现branch head：`7bb7365361d0541603c6a7ca1d1199f303310472`。
+
+| 门禁 | 状态 | 结论 |
+| --- | --- | --- |
+| CL1 | **完成** | `winner=NONE`，且**因果归因有效** |
+| CL2 | 完成 | `inconclusive`，waive为provisional chunk `1024` |
+| CL3 | 完成 | S4优势仅在workflow-only分母成立 |
+| P6-H | **通过** | `status=valid`，输出逐token一致 |
+| P6-4 | **阻塞** | S0/LRU rho2.0确定性device OOM |
+| CL4 | 进行中 | 双模型review已启动 |
+
+#### 已修复的P0（根因与先前推断不同）
+
+- 根因：`Req.init_next_round_input`执行recovery时，请求自身的prefix
+  **尚未加锁**（`_req_inc_lock_ref`在`schedule_policy.add_one_req`中才发生），
+  而`cross_store_resources()`恰好以`lock_ref == 0`为victim条件，于是请求
+  自己的prefix被驱逐、slot回到free list、又被当作recovery目的地发回，
+  造成自我覆写。
+- 修复：新增`protect_request_prefix`在整个recovery窗口持有标准prefix锁；
+  加固exact victim guard使stale victim抛`KeyError`而非触发断言。
+- GPU验证：先前必然损坏的配置现在与dense逐token一致。
+- 锁对称性已用容器内对照实验验证，无泄漏。
+
+#### 最重要的科学结论
+
+CL1在修复前后的guardrail失败计数**完全一致**，因此`NONE`不是缺陷造成的。
+CL1用不同header注册/复用（`32_000+` vs `36_000+`），KV本来就是近似的；
+P6-H用同一header，修复后逐token一致。两者共同证明：
+**跨上下文raw KV复制的恢复误差是真实的，practical family = NONE成立。**
+
+#### 唯一剩余阻塞：P6-4 S0/LRU rho2.0
+
+- 3次独立复现（完整profile、仅rho2.0、缩减profile）均为
+  `Available tokens: 0 (available_size=0 + evictable_size=0)`，
+  在`alloc_token_slots`抛`RuntimeError`杀死scheduler。
+- 已排除：本方lock泄漏（对称性实验）、ordinary prefill缺少cross-store感知
+  （`evict_from_tree_cache`确实调用`make_room`）、coordinator重入。
+- `launch_cells`无条件把`lru2.0`排在`hier2.0`/`hier3.0`之前，因此该cell
+  阻塞其后所有cell；目前已知通过的只有`hier1.1`与`hier1.5`。
+- **待确认假设**：P0修复正确地把请求自身prefix移出victim池后，recovery必须
+  占用新slot，峰值device需求真实上升，S0/LRU在rho2.0下确实无解。若成立
+  应记为`diagnostic-unavailable`而非实现缺陷；但当前表现为硬崩溃而非优雅
+  降级，属独立鲁棒性缺口。
+
+### 下一步
+
+1. 判定P6-4 S0/rho2是真容量不可达还是可修复的鲁棒性缺口；
+   最直接的对照是在修复前的commit上用相同缩减profile复跑该cell。
+2. 让`alloc_token_slots`在cross-store场景下优雅降级而不是杀死scheduler。
+3. 完成CL4双模型review与disposition。
+4. 之后才考虑归档V4、创建V5（用户已明确指示本轮不升级）。
+5. 仍然严格停在Phase7前，等待用户授权。
+
+### 不要重做
+
+- 不重跑Phase4/5完整矩阵，也不重复已修正的R2/R5 rho2矩阵。
+- 不重跑CL1（screening与3-restart确认均已在修复后底座完成）。
+- 不重跑CL3、P6-H。
+- `test_radix_cache_unit.py::test_memory_allocated`是**改动前既有失败**，
+  已用`git stash`对照确认，不要当作回归。
+
 
 ### 2026-07-26T20:25:00-07:00 Phase6全部门禁已跑完，Exit被单一P0阻塞
 

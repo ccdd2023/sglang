@@ -343,6 +343,109 @@ paired repeat）已完成：
   `allocate_recovery_slots`之间的保护契约，需要专门设计与双模型review。
 - 结论：**Phase6 Exit当前不可通过；Phase7不得在该底座上启动。**
 
+### 2026-07-27 P0根因更正、修复与验证
+
+**先前推断已更正。** 根因不是cross-store allocator的victim快照刷新时机，
+而是**请求自身的exact prefix在recovery期间完全未受保护**。
+
+证据链：
+
+- `Req.init_next_round_input`在`schedule_batch.py`中调用
+  `restore_request_prefix`；
+- 而请求的prefix锁`_req_inc_lock_ref(req)`是在
+  `schedule_policy.add_one_req`中才获取，发生在**之后**；
+- 因此recovery执行时`req.last_node.lock_ref == 0`；
+- `RadixCache.cross_store_resources()`的过滤条件恰好是`node.lock_ref == 0`，
+  于是请求自己的prefix节点成为**合法victim**；
+- 压力下`allocate_recovery_slots`驱逐它→`allocator.free(node.value)`→
+  slot回到free list→紧接着`allocate_backend()`把**同一批slot**作为recovery
+  目的地返回→请求即将attend的自身prefix KV被静默覆写。
+
+这完整解释了“机械证据全过、只有输出错”：byte/token/lease/reset记账全部正确，
+被破坏的是数据本身。
+
+修复（`af81934e4`，最终head `c405343c8`）：
+
+1. 新增`protect_request_prefix`上下文管理器，在整个recovery窗口持有标准
+   prefix锁；`inc_lock_ref`一路walk到root，因此保护整条matched chain并将其
+   移出`evictable_leaves`，同时覆盖嵌套的`ensure_device` H2D分配路径。
+2. 在`schedule_batch.py`唯一调用点包裹，同时覆盖EPIC与普通两条路径。
+3. 加固exact victim guard：额外校验节点仍挂在父节点上；stale victim现在抛
+   `KeyError`（allocator已有回滚处理），不再触发`_delete_leaf`断言杀死
+   scheduler进程。
+
+验证：
+
+- 容器内对照实验确认`inc_lock_ref`/`dec_lock_ref`完全对称
+  （`(2,0,0,0)`→`(0,2,1,1)`→`(2,0,0,0)`），加锁期间victim数为0，无锁泄漏。
+- 相关回归`204 passed, 5 skipped`；新增5个回归。唯一失败
+  `test_radix_cache_unit.py::test_memory_allocated`经`git stash`对照确认为
+  **改动前既有失败**。
+
+### 2026-07-27 P6-H首次通过
+
+`run_id=p6-h-20260727T071106Z`，`status=valid`：
+
+- 2个formal round输出均与matched dense**逐token一致**；
+- host export与demand H2D均为`1024` token / `117440512` bytes；
+- `cross_store_demoted_bytes_total=117440512`，真实device→host demotion；
+- reset invariant通过，store五项gauge全部归零；
+- 作用域仍为`host_backend=allocator_cpu_copy`、
+  `hicache_tier_exercised=false`，**不解锁**Phase7 HiCache track。
+
+### 2026-07-27 CL1重跑：NONE获得有效因果归因（重大）
+
+在修复后的底座上重跑CL1 screening
+（`raw_sha256=fe05d3dc34594a25ef8a...`）：
+
+- 48个paired repeat的guardrail失败为`quality_8=17`、`first_token=6`，
+  与修复前**完全一致**；
+- 性能数字同样几乎不变（body2048 median request-path `1.947x–1.970x`）。
+
+**这是本轮最重要的科学结论**：P0修复没有改变CL1的guardrail结果，因此
+CL1的输出偏离**不是**由该缺陷造成的，先前记录的“因果归因无效”警告已解除。
+
+机制解释（两个实验的差异是决定性的）：
+
+| 实验 | source header | target header | 上下文 | 正确期望 | 实测 |
+| --- | --- | --- | --- | --- | --- |
+| P6-H | 同一个 | 同一个 | 完全相同 | 必须逐token一致 | 修复后一致 |
+| CL1 | `32_000+` | `36_000+` | **不同** | 天然有损 | 稳定偏离 |
+
+即CL1把在`source_header`下计算的body KV复制到`target_header`之后使用，
+前缀不同导致attention上下文不同，KV**本来就是近似的**。
+
+按独立review要求补做的`header × pressure` 2×2对照
+（artifact `/results/phase6-gpu/context-vs-pressure-2x2.json`）：
+
+| header | 压力 | 是否发生eviction | 输出与dense一致 |
+| --- | --- | --- | --- |
+| 相同 | 低（8000 token） | 否 | **一致** |
+| 相同 | 高（3400 token，真实demotion+H2D） | 是 | **一致** |
+| 不同 | 高（rho2.0） | 是 | 不一致（48中12例） |
+| 不同 | **低（rho0.5，observed 0.519）** | **否** | **不一致（4中1例）** |
+
+决定性一格是最后一行：在**完全没有发生eviction**的条件下，不同header的复用
+**仍然偏离**，且body1024 repeat0的偏离序列与高压力下**完全相同**
+（dense `[82,198,271,...]` vs approx `[82,198,198,...]`）。
+已修复的缺陷必须依赖eviction才能触发，因此**它无法解释该偏离**。
+
+**措辞（按review的阻塞级修正采纳）**：该偏离与预期的跨上下文近似一致，
+且无法由已修复的压力损坏缺陷解释；这**不等于**证明CL1不存在其它残留问题。
+
+**结论：`practical family = NONE`成立。** 其作用域限定为本模型、合成
+prompt族、exact-output不变量、本GPU与chunk配置下**冻结promotion规则**的
+结论，**不是**普遍不可行性claim。
+
+统计口径更正（同样按review采纳）：
+
+- 所报“paired target p95”实际是pooled样本上的`p95(approx)/p95(dense)`，
+  **不是**配对统计量；
+- N=1/2/4/8摊销是**外推值**，不是真实测得的多次复用；
+- 独立复制单元很少：CL1为3个restart级单元、CL2为2、CL3多数为1；
+  同一trace内的请求可用于描述性p95，但不能当作独立重复；
+- P6-H只有1 restart/2 round，且只校验output token，不是bitwise KV/logit保真。
+
 ### 2026-07-26 P6-4结果与CL3 Phase5零GPU重算
 
 - P6-4完整profile矩阵在`hierarchical/rho1.5`的`r0_like` profile崩溃，
@@ -394,6 +497,8 @@ AssertionError: parent does not have child key
   区分。因此“S4唯一有效”只在workflow-only分母成立，必须按服务目标分别陈述，
   不能写成普遍最优。这正是review C-24预期的结果。
 - all-reusable的p95比值全部在`0.984–1.009`，四种策略均未恶化p95。
+- 措辞更正：CL3多数cell只有1个restart，因此只能写“数值上几乎不可区分”，
+  **不得**写成“within noise”这类统计判断。
 - **FINDING-CL3-B**：prefetch矩阵改为与同策略P0配对（Phase5 prefetch矩阵没有
   LRU臂，原先与LRU比较不成立）后，P1/P2/P3在两种分母下都是`0.989–1.004`，
   即无收益。Phase5“默认S4+P0”的结论在正确对照下依然成立。

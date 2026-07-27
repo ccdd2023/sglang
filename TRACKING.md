@@ -1937,3 +1937,192 @@ AssertionError: parent does not have child key,
   `ccdd2023/sglang:research/cross-store-substrate`
   本地与远程均为`248e2cb4774dbee8bb123b64d9b63cbd69f4ff5f`。
 - 严格停在Phase7前，未执行任何Phase7条目。
+
+## 2026-07-27T00:15:00-07:00 — P0根因定位并修复，P6-H首次通过
+
+- **P0根因（与先前推测不同，已更正）**：不是cross-store allocator的快照刷新
+  时机，而是**请求自身的exact prefix在recovery期间未被保护**。
+- 证据链：
+  - `Req.init_next_round_input`在`schedule_batch.py`内调用
+    `restore_request_prefix`；
+  - 而请求的prefix锁`_req_inc_lock_ref(req)`是在
+    `schedule_policy.add_one_req`中才获取的，发生在**之后**；
+  - 因此recovery执行时`req.last_node.lock_ref == 0`；
+  - `RadixCache.cross_store_resources()`的过滤条件正是
+    `node.lock_ref == 0`，所以请求自己的prefix节点是**合法victim**；
+  - 压力下`allocate_recovery_slots`驱逐该节点→`allocator.free(node.value)`
+    →这些slot回到free list→紧接着`allocate_backend()`把**同一批slot**作为
+    recovery目的地返回→请求即将attend的自身prefix KV被覆写。
+- 这完整解释了为何“机械证据全过、只有输出错”：byte/token/lease/reset
+  记账全部正确，被破坏的是数据本身。
+- 也解释了P6-4的`_delete_leaf`断言：in-flight请求引用的节点被驱逐后，
+  树结构与请求状态不一致。
+- **修复**（`af81934e4`）：
+  1. 新增`protect_request_prefix`上下文管理器，在整个recovery窗口持有标准
+     prefix锁。`inc_lock_ref`会一路walk到root，因此保护整条matched chain，
+     并把它们移出`evictable_leaves`；同时覆盖嵌套的`ensure_device` H2D
+     分配路径。
+  2. 在`schedule_batch.py`唯一调用点包裹，同时覆盖EPIC与普通两条路径。
+  3. 加固exact victim guard：额外校验节点仍挂在父节点上，stale victim现在
+     抛`KeyError`（allocator已有回滚处理），不再触发`_delete_leaf`断言杀死
+     scheduler进程。
+- **GPU验证**：先前必然损坏的配置（`max_total_tokens=3400`、竞争性
+  registration、真实demotion+H2D）现在recovered输出与dense**逐token完全一致**。
+- 新增5个回归（3个真实`RadixCache`级、2个契约级），其中
+  `test_locked_prefix_is_never_offered_as_a_victim`与
+  `test_stale_victim_raises_keyerror_instead_of_asserting`直接锁定本次契约。
+- 相关回归：`204 passed, 5 skipped`。唯一失败
+  `test_radix_cache_unit.py::test_memory_allocated`经`git stash`对照确认为
+  **改动前既有失败**，与本次无关。
+- **P6-H首次`valid`**（`run_id=p6-h-20260727T071106Z`，
+  `raw_sha256=842c3563ad20caed...`）：
+  - 2个formal round输出均与matched dense一致；
+  - host export与demand H2D均为`1024` token / `117440512` bytes；
+  - `cross_store_demoted_bytes_total=117440512`，真实device→host demotion；
+  - reset invariant通过，store五项gauge全部归零；
+  - 作用域仍为`host_backend=allocator_cpu_copy`、
+    `hicache_tier_exercised=false`，不解锁Phase7 HiCache track。
+- 附带修正P6-H reseed断言：满命中的N-token prompt报告`N-1` cached
+  （最后一个token必须真实forward），原断言误判`63`为异常。
+
+## 2026-07-27T00:40:00-07:00 — guardrail语义冻结与P6-4 S0/rho2容量阻塞
+
+- 按“CL1执行前冻结规则”的既定纪律，在任何重跑数据产生之前先冻结
+  FINDING-CL1-C的歧义，写入计划新增§5.9.1：
+  - **保留8-token完全一致为promotion硬门**。决定性理由来自P6-H：近似路径
+    真的损坏KV时，byte/token/lease/reset全部通过，唯一暴露问题的信号就是
+    输出偏离matched dense；放弃这道门等于放弃唯一的数据保真探针。
+  - 同时必须记录逐token一致率，不得只记布尔值。
+  - 该门语义写死为“未发生数据损坏”的guardrail，**不是**semantic
+    correctness或生成质量claim。
+  - body1024与body2048分别报告。
+- P6-4在P0修复后不再出现`_delete_leaf`断言，但在**S0/LRU rho2.0** cell
+  遇到确定性device OOM：
+  `Available tokens: 0 (available_size=0 + evictable_size=0)`，
+  抛`RuntimeError`杀死scheduler。
+- `--rhos 2.0`单独隔离复现，确认为确定性、可重复，非偶发。
+- cell顺序为`[hier1.1, hier1.5, lru2.0, hier2.0, hier3.0]`，且
+  `launch_cells`无条件插入`lru2.0`与`hier2.0`，因此该cell阻塞其后全部cell：
+  **已知通过的只有hier1.1与hier1.5**，hier2.0/hier3.0从未执行。
+- 已排除的原因：
+  - 不是我方lock泄漏。容器内对照实验证明`inc_lock_ref`/`dec_lock_ref`完全
+    对称：`(evictable,protected,lock)`由`(2,0,0,0)`→`(0,2,1,1)`→`(2,0,0,0)`，
+    且加锁期间`cross_store_resources`返回0个victim（符合预期）。
+  - 不是ordinary prefill路径缺少cross-store感知：`evict_from_tree_cache`
+    在allocator不足时确实调用`make_room(requester="exact")`。
+  - 不是coordinator重入保护：普通prefill路径不存在嵌套分配。
+- 合理推断（**待确认，未下定论**）：P0修复正确地把“请求自身prefix”移出
+  victim池后，S0/LRU在rho2.0下确实找不到足够victim。修复前该cell很可能是靠
+  蚕食请求自身prefix而“假成功”的。若成立，这属于容量结论而非实现缺陷，
+  但当前表现为硬崩溃而不是优雅降级，属于独立的鲁棒性缺口。
+- 该cell当前记为**blocker**，不写成机制结论，也不写成Phase6 negative result。
+
+## 2026-07-27T01:45:00-07:00 — CL1重跑定稿：NONE获得有效因果归因
+
+- CL1 screening（6 candidate/1 restart/formal 4）与3-restart确认
+  （r0、r1_k0）均已在修复后底座完成：
+  - screening `raw_sha256=fe05d3dc34594a25ef8a...`；
+  - confirm `raw_sha256=e08720c155cb6577583f...`，
+    `promotion={status: complete, passing: [], winner: NONE}`。
+- **关键对照**：guardrail失败计数在P0修复前后**完全一致**
+  （screening `17 quality_8 + 6 first_token`/48；
+  confirm `12 + 4`/48）。性能数字同样几乎不变
+  （confirm body2048 per-restart `1.987/1.977/1.966`）。
+- 因此CL1的输出偏离**不是**由prefix驱逐缺陷造成的，先前记录的
+  “因果归因无效”已解除。
+- 机制解释（两实验的决定性差异）：
+  - CL1的`source_header`起始为`32_000`，`target_header`起始为`36_000`，
+    即在一个前缀下计算的body KV被拿到**另一个前缀**下使用，KV本来就是近似的，
+    输出偏离是真实的跨上下文恢复误差；
+  - P6-H的source与target使用**同一个header**，正确的copy必须逐token复现
+    dense，修复后确实复现。
+- **固定结论：`practical family = NONE`成立且归因有效。**
+  R0/R1在本harness下的跨上下文raw KV复制无法通过数据保真guardrail。
+- 计划已相应调整（不升级版本）：
+  - 新增§8.1.1，把`practical=NONE`从“待定分支”改为**已确定触发**；
+  - 明确跳过practical scheduler revalidation、P7-3 HiCache track/RH4、
+    P7-4 prefetch性能track；保留R0 ceiling、R2 oracle、R4 diagnostic；
+  - Phase7主矩阵因此大幅收窄，不存在practical recovery × scheduler笛卡尔积。
+  - §15.1改为滚动状态表：V5的5项前置条件已闭合3项。
+
+## 2026-07-27T02:05:00-07:00 — P6-4归因对照：OOM不是修复引入的回归
+
+- 在**修复前**commit `c487e36af`上，用与修复后**完全相同**的缩减profile
+  （`exact_only,r0_like,r1_like_k32`）复跑P6-4：
+  - 修复前：在`hier1.5`即崩溃于
+    `AssertionError: parent does not have child key`（P0结构性损坏）；
+  - 修复后：`hier1.1`与`hier1.5`**均通过**，前进到`lru2.0`才遇到OOM。
+- 结论：**S0/rho2的OOM不是修复引入的回归**。修复前根本到不了该cell。
+  修复严格改善了可达性，OOM是被推进到的新边界。
+- 这也支持既有假设：把请求自身prefix移出victim池后，recovery必须占用新slot，
+  峰值device需求真实上升。该假设仍标记为**待确认**，但已排除“回归”解释。
+- 对照artifact：`p6-4-PREFIX-CONTROL-prefix-commit.json`与
+  `logs-p64-prefixcontrol/`。
+- 对照实验期间worktree曾detach到`c487e36af`，实验后已恢复到
+  `research/cross-store-substrate@7bb736536`，工作区clean。
+
+## 2026-07-27T02:05:00-07:00 — 独立review（rubber-duck/Sol）结论与采纳
+
+review确认成立的claim：
+
+- `winner=NONE`在冻结规则下程序正确；
+- CL1/P6-H的header构造差异**已在源码中核实**：CL1为`32_000`/`36_000`两个
+  不相交header，P6-H注册与恢复使用完全相同的`header+body`；segment key不含
+  header上下文，因此跨上下文复用确实是近似的；
+- chunk伪影成立，并给出更精确的口径：dense臂已缓存64个header token，
+  未缓存部分为**1025** token，恰好越过1024边界1个token；
+- CL3的S4在all-reusable分母下确实与其他策略数值上几乎不可区分。
+
+review提出并**已采纳**的修正：
+
+1. **[阻塞级措辞]** 不得写成“已证明是真实近似误差、不是bug”。正确措辞为
+   “该偏离与预期的跨上下文近似一致，且**无法由已修复的压力损坏缺陷解释**”。
+   因为P6-H与CL1在scheduler、chunk、residency路径和harness上均有差异，
+   不能完全排除CL1特有的残留问题。
+2. 补充比我原先更强的证据：修复前后**每一个dense与approximate output ID
+   都逐个相同**，不只是失败计数相同；在temperature=0与相同seed下这属于
+   确定性重放，因此“计数相同”不是巧合。
+3. `practical=NONE`是**规则范围内**的结论，不等于普遍不可行；作用域限定为
+   本模型、合成prompt族、exact-output不变量、本GPU与chunk配置。
+4. 所谓“paired p95”实际是pooled样本上的`p95(approx)/p95(dense)`，
+   **不是**配对统计量；N=8摊销是外推值，不是真实测得的8次复用。
+5. CL3不得写“within noise”（多数cell只有1个restart），改为
+   “数值上几乎不可区分”。
+6. 独立复制单元很少：CL1只有3个restart级单元、CL2为2、CL3多数为1；
+   同一trace内的请求可用于描述性p95，但不能当作独立重复。
+7. P6-H只有1 restart/2 round，且只校验output token，不是bitwise KV/logit
+   保真；并已记录`hicache_tier_exercised=false`。
+8. CL2 chunk gate跑在修复之前，因果模式可信，但post-fix的定量性能理想情况下
+   应重跑。
+
+review指出的决定性缺失实验（**已立即执行**）：
+在同一harness内做`same/different header × low/high pressure`的2×2。
+其中三格已有证据，缺`different-header + 低压力`一格，现以
+`--target-rho 0.5`补齐。
+
+## 2026-07-27T02:10:00-07:00 — 2×2缺失格补齐，review阻塞级finding闭合
+
+- 按review要求补做`different-header + 低压力`一格：
+  `--target-rho 0.5`、observed pre-target rho `0.518–0.519`、
+  decode eviction counter无series（**完全没有eviction**）。
+- 结果：不同header的复用**仍然偏离**（4个repeat中1例q8不一致），
+  且`body1024 repeat0`的偏离序列与高压力下**完全相同**
+  （dense `[82,198,271,...]` vs approx `[82,198,198,...]`）。
+- 完整2×2（artifact `context-vs-pressure-2x2.json`）：
+
+| header | 压力 | 是否eviction | 与dense一致 |
+| --- | --- | --- | --- |
+| 相同 | 低 | 否 | 一致 |
+| 相同 | 高 | 是 | 一致 |
+| 不同 | 高 | 是 | 不一致 |
+| 不同 | 低 | **否** | **不一致** |
+
+- 结论：偏离随**header因子**变化，不随**压力因子**变化。已修复的缺陷必须
+  依赖eviction才能触发，因此无法解释该偏离。review的阻塞级finding就此闭合。
+- 已按review采纳全部措辞与统计口径修正，写入`PROJECT.md`：
+  - 不写“已证明是真实近似误差”，改为“与预期跨上下文近似一致且无法由已修复
+    缺陷解释”；
+  - `practical=NONE`限定为冻结规则在本配置下的结论，非普遍不可行性；
+  - “paired p95”实为pooled比值、N摊销为外推、独立复制单元很少、
+    P6-H非bitwise保真；
+  - CL3改为“数值上几乎不可区分”，不写“within noise”。

@@ -314,6 +314,25 @@ GPU侧统一以tokens/pages记录，跨tier比较必须同时记录bytes。setup
 - 可用时记录top-k/logprob差异；
 - 不扩展semantic correctness claim。
 
+#### 5.9.1 guardrail语义冻结（2026-07-27，CL1重跑前冻结）
+
+原§5.9只说“记录逐token一致率”，而冻结的CL1 runner把8-token完全一致当作
+promotion硬门，两者在CL1首轮产生了歧义（FINDING-CL1-C）。现按如下方式冻结，
+**在任何重跑数据产生之前生效**：
+
+1. **保留8-token完全一致为promotion硬门。** 理由是P6-H已证明：当近似路径
+   真的损坏KV时，机械证据（byte、token、lease、reset）会全部通过，唯一暴露
+   问题的信号就是输出偏离matched dense。放弃这道门等于放弃唯一的数据保真
+   探针。
+2. **同时必须记录逐token一致率**，不得只记布尔值；一致率用于区分“完全损坏”
+   与“单token发散”。
+3. **该门的语义边界写死为**：它是“未发生数据损坏”的guardrail，
+   **不是**semantic correctness或生成质量claim；不得据此声称近似恢复
+   保持模型质量。
+4. body1024与body2048分别报告，不合并。
+
+该冻结适用于CL1、CL2、P6-H及Phase7全部recovery实验。
+
 ### 5.10 统计
 
 - primary estimator预注册；
@@ -624,6 +643,29 @@ Phase6结果经双模型review后才允许Phase7。
 - practical family已冻结或为NONE；
 - chunk配置已执行或waive；
 - Phase7 primary manifest已预注册。
+
+### 8.1.1 practical family冻结结果（2026-07-27）
+
+CL1已在修复后的底座上完成screening与3-restart确认，
+`promotion.status=complete`、`passing=[]`、**`winner=NONE`**。
+
+因此Phase7的`practical=NONE`分支**已确定触发**，不再是待定分支：
+
+- §8.4 practical scheduler revalidation：**跳过**，不生成PR-S0/PR-S4；
+- §8.5 P7-3 practical HiCache track与RH4：**跳过**，不实现专用
+  HiRadix/Unified cross-store adapter；
+- §8.6 P7-4 prefetch性能track：**跳过**；
+- 保留R0 ceiling、R2 oracle、R4 diagnostic；
+- exact-only prefetch若执行，只能标为Phase5回归canary。
+
+这一结论现在具备**有效因果归因**：P0修复前后CL1的guardrail失败计数完全相同
+（screening `17+6`/48，confirm `12+4`/48），因此偏离不是实现缺陷造成的。
+机制上，CL1把在`source_header`（`32_000+`）下计算的body KV复制到
+`target_header`（`36_000+`）之后使用，前缀不同导致attention上下文不同，
+KV本来就是近似的；而P6-H的source与target header相同，修复后输出逐token一致。
+
+Phase7因此**大幅收窄**：主矩阵只保留R0 ceiling与diagnostic轨道，
+不存在practical recovery × scheduler的笛卡尔积。
 
 ### 8.2 P7-0：Candidate Freeze
 
@@ -1013,21 +1055,29 @@ Early-stop：
 
 ## 15. Phase6 Exit阻塞与V5待冻结修订（草案，尚未生效）
 
-### 15.1 为什么现在不发布V5
+### 15.1 为什么现在仍不发布V5
 
-V4的phase结构、`practical=NONE`分支、chunk waiver分支和“P6-H不解锁HiCache”
-边界都被实测证实是正确的，不需要重构。真正缺的是**结果**，而现有结果要么被
-P0污染（CL1），要么无法产生（P6-H、P6-4）。此时归档V4并冻结result-bound V5，
-等于把一个有缺陷底座上的结论写成权威结论。
+状态更新 2026-07-27（本节随执行结果滚动更新，用户已明确指示本轮不升级版本）：
 
-因此本文件保持`Current / Latest`，不提升版本号，不归档。
-V5在以下条件全部满足后才创建，并按§1走完双模型review：
+| V5前置条件 | 状态 |
+| --- | --- |
+| 1. P0修复完成并有专门回归 | **已完成**，GPU验证通过 |
+| 2. CL1在修复后底座重跑并重新判定 | **已完成**，`NONE`获得有效因果归因 |
+| 3. P6-H通过（含数据保真） | **已完成**，`status=valid` |
+| 4. P6-4完整四rho矩阵valid或明确不可达 | **未完成**，S0/rho2确定性OOM阻塞 |
+| 5. CL4双模型review与disposition | 进行中 |
 
-1. P0修复完成并有专门回归；
-2. CL1在修复后的底座上重跑，重新判定practical family；
-3. P6-H通过（含数据保真）；
-4. P6-4完整fixed40四rho矩阵取得valid或明确`diagnostic-unavailable`；
-5. CL4双模型review完成并形成主会话disposition。
+5项中3项已闭合，但第4项仍未取得结论，因此**Phase6 Exit仍不通过**，
+本文件继续保持`Current / Latest`，不提升版本号、不归档。
+
+与上一版判断的差别在于：先前担心的“结论建立在有缺陷底座上”已基本消除——
+P0已修复，且CL1重跑证明其结论**不受该缺陷影响**。现在唯一缺口是P6-4的
+容量可达性证据。
+
+V5的创建条件收敛为：
+
+1. P6-4的S0/rho2阻塞取得结论（valid或明确`diagnostic-unavailable`）；
+2. CL4双模型review完成并形成主会话disposition。
 
 ### 15.2 已由执行结果确定、必须写入V5的合同修订
 
@@ -1054,6 +1104,22 @@ V5在以下条件全部满足后才创建，并按§1走完双模型review：
    all-reusable分母下S1/S2/S3/S4彼此不可区分，必须按服务目标分别陈述。
 7. **Phase7 primary manifest预注册模板。** Entry条件要求它存在，但目前既无
    manifest也无生成它的runner。
+8. **recovery必须在请求自身prefix锁的保护下执行。** 这是本轮P0的直接教训：
+   `init_next_round_input`阶段请求尚未加锁，而victim枚举条件恰为
+   `lock_ref == 0`，两者叠加使请求可以驱逐并覆写自己的KV。任何新增的
+   recovery/分配路径都必须复用`protect_request_prefix`。
+9. **统计口径必须如实标注。** 所报“paired p95”实为pooled
+   `p95(approx)/p95(dense)`，不是配对统计量；N=1/2/4/8摊销是外推值而非实测；
+   CL1只有3个restart级独立单元、CL2为2、CL3多数为1，同一trace内的请求
+   不得当作独立重复。禁止使用“within noise”这类未经检验的统计判断。
+10. **`practical=NONE`必须限定作用域**：它是冻结promotion规则在本模型、
+    合成prompt族、exact-output不变量、本GPU与chunk配置下的结论，
+    不是普遍不可行性claim。
+11. **区分“上下文差异”与“实现缺陷”必须用2×2对照**：
+    `same/different header × low/high pressure`。仅凭“修复前后计数相同”
+    不足以归因，必须补上“无eviction条件下仍偏离”这一格。
+12. **allocation失败必须优雅降级。** `alloc_token_slots`在cross-store无法
+    腾出空间时抛`RuntimeError`杀死scheduler进程，应改为可记录的失败。
 
 ### 15.3 P0修复的两个候选方向（供CL4后执行）
 
