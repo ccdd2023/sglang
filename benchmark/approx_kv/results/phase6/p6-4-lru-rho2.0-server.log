@@ -1,0 +1,72 @@
+/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/python/sglang/launch_server.py:56: UserWarning: 'python -m sglang.launch_server' is still supported, but 'sglang serve' is the recommended entrypoint.
+  Example: sglang serve --model-path <model> [options]
+  warnings.warn(
+[2026-07-27 11:00:48] Cuda graph is disabled because of using torch native attention backend
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[2026-07-27 11:01:00] Ignore import error when loading sglang.srt.models.inkling: No module named 'helion'
+Multi-thread loading shards:   0% Completed | 0/1 [00:00<?, ?it/s][2026-07-27 11:01:01] Parameter lm_head.weight not found in params_dict
+Multi-thread loading shards: 100% Completed | 1/1 [00:00<00:00,  1.69it/s]Multi-thread loading shards: 100% Completed | 1/1 [00:00<00:00,  1.69it/s]
+[2026-07-27 11:01:54] Out of memory. Try to lower your batch size.
+Try to allocate 1024 tokens.
+Available tokens: 0 (available_size=0 + evictable_size=0)
+
+[2026-07-27 11:01:54] Scheduler hit an exception: Traceback (most recent call last):
+  File "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/python/sglang/srt/managers/scheduler.py", line 4672, in run_scheduler_process
+    scheduler.run_event_loop()
+  File "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/python/sglang/srt/managers/scheduler.py", line 1514, in run_event_loop
+    dispatch_event_loop(self)
+  File "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/python/sglang/srt/managers/scheduler.py", line 4523, in dispatch_event_loop
+    scheduler.event_loop_overlap()
+  File "/usr/local/lib/python3.12/dist-packages/torch/utils/_contextlib.py", line 120, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/python/sglang/srt/managers/scheduler.py", line 1590, in event_loop_overlap
+    plan = self.get_next_batch_to_run(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/python/sglang/srt/utils/nvtx_utils.py", line 109, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/python/sglang/srt/managers/scheduler.py", line 2808, in get_next_batch_to_run
+    prefill_plan = self.get_new_batch_prefill(running_batch)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/python/sglang/srt/managers/scheduler.py", line 2869, in get_new_batch_prefill
+    ret, running_batch = self._get_new_batch_prefill_raw(
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/python/sglang/srt/managers/scheduler.py", line 3099, in _get_new_batch_prefill_raw
+    new_batch.prepare_for_extend()
+  File "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/python/sglang/srt/managers/schedule_batch.py", line 2248, in prepare_for_extend
+    out_cache_loc, req_pool_indices_tensor, req_pool_indices_cpu = alloc_for_extend(
+                                                                   ^^^^^^^^^^^^^^^^^
+  File "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/python/sglang/srt/mem_cache/allocation.py", line 351, in alloc_for_extend
+    out_cache_loc = alloc_token_slots(batch.tree_cache, batch.extend_num_tokens)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/python/sglang/srt/mem_cache/allocation.py", line 169, in alloc_token_slots
+    raise RuntimeError(error_msg)
+RuntimeError: Out of memory. Try to lower your batch size.
+Try to allocate 1024 tokens.
+Available tokens: 0 (available_size=0 + evictable_size=0)
+
+
+ 0 array('q') r=1
+   64 array('q', [38807, 38820, 38833, 38846, 38859, 38872, 38885, 38898, 38911, 38924]) r=1
+#tokens: 64
+[2026-07-27 11:01:54] SIGQUIT received. signum=None, frame=None. It usually means one child failed.
+[rank0]:[W727 11:01:54.154729832 ProcessGroupNCCL.cpp:1524] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+nanobind: leaked 1 instances!
+ - leaked instance 0x7c685fe93768 of type "xgrammar.xgrammar_bindings.GrammarCompiler"
+nanobind: leaked 1 types!
+ - leaked type "xgrammar.xgrammar_bindings.GrammarCompiler"
+nanobind: leaked 9 functions!
+ - leaked function "__init__"
+ - leaked function "compile_grammar"
+ - leaked function ""
+ - leaked function "clear_cache"
+ - leaked function "compile_structural_tag"
+ - leaked function "compile_regex"
+ - leaked function "compile_json_schema"
+ - leaked function "get_cache_size_bytes"
+ - leaked function "compile_builtin_json_grammar"
+nanobind: this is likely caused by a reference counting issue in the binding code.
+[2026-07-27 11:01:59] No live scheduler processes found; skipping py-spy and CUDA coredump.

@@ -158,8 +158,10 @@ def main() -> int:
             "rot into pending or stale-blob states."
         ),
         "known_gaps": [
-            "Server logs are referenced by absolute host path and are not "
-            "versioned in this repository."
+            "The primary P6-H, P6-4 and P6-F server logs are versioned and "
+            "content-addressed. Some historical failed attempts and optional "
+            "diagnostic logs still exist only at absolute host paths and are "
+            "not part of the Phase 6 Exit evidence package."
         ],
         "environment": ENVIRONMENT,
         "verification_commands": VERIFICATION,
