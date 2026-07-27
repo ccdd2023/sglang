@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-27T16:10:00-07:00
+最后更新：2026-07-27T16:40:00-07:00
 
 ## 新会话启动顺序
 
@@ -12,6 +12,16 @@
 6. 开始工作后持续维护上述文件，不把重要信息只留在聊天中。
 
 ## 当前快照
+
+### 2026-07-27T16:40:00-07:00 V5 result-bound draft已创建
+
+- V4已归档为`IMPLEMENTATION_PLAN_V4_ARCHIVED.md`。
+- latest为V5 Draft / Under Dual Review，尚未标记Current / Latest。
+- Phase7已收窄为R0 ceiling、R2 oracle、R4 diagnostic与R0×S0/S4；
+  practical/host/prefetch/async轨道默认全部跳过。
+- primary chunk=`4096`；`1024`只作diagnostic sensitivity。
+- 预算：17 logical settings、28 server starts、hard cap 36 starts/6 GPUh。
+- 仍未进入Phase7。
 
 ### 2026-07-27T16:10:00-07:00 Phase6 technical Exit为PASS WITH CAVEATS
 
@@ -83,12 +93,10 @@ host使用独立host limit；exact-host/HiCache unification未实现。
 
 ### 下一步
 
-1. 归档V4并创建result-bound V5（当前判断：**需要**）；
-2. V5写入实际`practical=NONE`分支、chunk waiver、Phase7矩阵裁剪、预算、
-   early-stop与全部scope caveat；
-3. 按计划§1执行Sol/Opus独立review、互换、consolidate和主会话disposition；
-4. 预注册Phase7 primary manifest；
-5. 严格停在Phase7前，等待用户明确授权。
+1. V5 draft已创建；按计划§1执行Sol/Opus独立review、互换、consolidate和
+   主会话disposition；
+2. 按最终V5预注册Phase7 primary manifest；
+3. 严格停在Phase7前，等待用户明确授权。
 
 ### 不要重做
 

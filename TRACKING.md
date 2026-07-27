@@ -2698,3 +2698,21 @@ technical_exit = PASS WITH CAVEATS
 - 当前Phase7 Entry仅被V5、V5双review、primary manifest和用户授权阻塞。
 - 修正V4 §15.1状态表中仍把P6-4写“部分完成”、CL4写“FAIL”的旧内容。
 - `TODO_LOCAL.txt`将winner=NONE语义项标为已完成。
+## 2026-07-27T16:40:00-07:00 — V4归档并创建result-bound V5 draft
+
+- 用户授权按既定流程归档V4、创建V5、双模型review并预注册Phase7 manifest。
+- Phase6当前无技术blocker，`technical_exit=PASS WITH CAVEATS`。
+- V4完整复制为`IMPLEMENTATION_PLAN_V4_ARCHIVED.md`并标为只读。
+- latest提升为V5 Draft / Under Dual Review。
+- Phase7 result-bound矩阵冻结为：
+  - practical=`NONE`；
+  - R0 ceiling、R2 oracle、R4 diagnostic；
+  - primary chunk=`4096`，`1024`仅作sensitivity；
+  - R0 primary：body1024/2048 × rho1.5/2 × 3 restart；
+  - scheduler仅新增R0 ceiling × S4（body2048, rho1.5/2）；
+  - R4 S0-S4仅victim/accounting diagnostic；
+  - HiCache/host/prefetch/async默认全部跳过。
+- 预算冻结为17 logical settings、28 server starts、3–5 GPUh，
+  hard cap 36 starts/6 GPUh。
+- N=1/2/4/8必须由真实连续8 targets计算，不再使用单请求外推。
+- V5 review完成前仍不是Current / Latest；未进入Phase7。

@@ -1,15 +1,14 @@
-# 实施计划 V5（Draft）：Result-Bound Integrated Evaluation
+# 实施计划 V4（Archived）：Cross-Store Substrate -> Integrated Evaluation
 
-> 版本：V5
+> 版本：V4
 >
-> 状态：Draft / Under Dual Review
+> 状态：Archived / Read-only
 >
-> 最后更新：2026-07-27T16:30:00-07:00
+> 最后更新：2026-07-27T16:10:00-07:00
 >
-> 当前阶段：Phase6 technical Exit=`PASS WITH CAVEATS`；正在冻结result-bound
-> Phase7计划与primary manifest；未进入Phase7。
+> 当前版本：[`IMPLEMENTATION_PLAN_LATEST.md`](IMPLEMENTATION_PLAN_LATEST.md)
 >
-> 取代版本：[`IMPLEMENTATION_PLAN_V4_ARCHIVED.md`](IMPLEMENTATION_PLAN_V4_ARCHIVED.md)
+> 本文件由V5归档；不得回写。
 
 ## 1. 文档职责与版本规则
 
@@ -18,7 +17,7 @@
 - `CONSOLIDATED_PHASE4_PHASE6_REVIEW.txt`：Phase4/5审计、corrected rerun与双模型review证据。
 - `HANDOFF.md`：当前快照和下一步。
 - `TRACKING.md`：不可改写时间线。
-- V1/V2/V3/V4 archive只用于历史追溯。
+- V1/V2/V3 archive只用于历史追溯。
 
 若本文件与`PROJECT.md`中更新、明确的事实或决策冲突，以`PROJECT.md`为准并立即同步。
 
@@ -69,31 +68,23 @@
 - 原rho sweep改变对象数及dead/live组成。
 - prefetch host tier饱和且H2D同步，只能作为功能/开销canary。
 
-## 3. V5 Result-Bound架构
+## 3. V4 Phase架构
 
-V5不改Phase编号，只把已经完成的Closeout/Phase6固化为证据输入，并将
-Phase7收窄为实际触发的`practical=NONE`分支。
+V4不为Phase4/5收尾新增phase编号。
 
 ```text
-Closeout + Phase6 evidence
-           |
-           v
-P7-0 result-bound manifest
-           |
-           +--> P7-1 R0 ceiling + R2/R4 diagnostic
-           |
-           +--> P7-2 R0 ceiling × S0/S4
-           |
-           v
-P7-3 final validation/review
+Phase4/5 Closeout Lane ─┐
+       CL1 -> CL2 ------+------> P6-4 Capacity Pilot
+                \ provisional_worst_case chunk ---^
+                       |
+Phase6 Substrate ------+------> Phase7 Integrated Evaluation
 ```
 
 资源约束：
 
-- 本机只有一张SM75，全部Phase7 GPU任务全局串行；
-- hard cap=`36 server starts / 6 GPUh`；
-- host/prefetch/async轨道预算为0；
-- 任何新增轨道必须升级计划版本。
+- 0-GPU closeout与Phase6工程可以并行；
+- 本机只有一张SM75，CL1、CL2和P6-4 GPU任务全局串行；
+- CL2必须在P6-4前完成，或P6-4使用预注册worst-case provisional chunk并在CL2改变配置后重跑受影响pilot。
 
 V3 -> V4编号映射：
 
@@ -108,7 +99,9 @@ V3 -> V4编号映射：
 
 ### Closeout Lane
 
-- **已完成**，作为V5冻结输入，不再执行。
+- 前阶段结果、schema、artifact和候选确认；
+- 可与Phase6工程并行；
+- 必须在Phase7 Entry前完成。
 
 ### Phase6：Cross-Store Substrate & Feasibility
 
@@ -118,16 +111,11 @@ V3 -> V4编号映射：
 
 不选择winner，不发布scheduler或prefetch性能claim。
 
-状态：`PASS WITH CAVEATS`。
-
 ### Phase7：Integrated Recovery × Scheduling Evaluation
 
 只回答：
 
-> R0性能上限、R2 oracle与R4 diagnostic在chunk边界已披露的条件下是什么；
-> S4是否改变R0 ceiling的system behaviour？
-
-V5不回答HiCache/prefetch，因为`practical=NONE`已触发停止分支。
+> 在正确的cross-store底座上，recovery、scheduler、HiCache和prefetch是否产生可证明收益？
 
 ### 可选Phase8
 
@@ -137,18 +125,22 @@ V5不回答HiCache/prefetch，因为`practical=NONE`已触发停止分支。
 
 ### Phase6 Entry
 
-**已完成，历史门禁。**
+允许创建Phase6分支并实现底座。必须完成：
+
+- CL0 0-GPU收尾；
+- V4双模型Plan Review及主会话disposition；
+- 无`accepted-blocking-P0`。
+
+Phase6 Entry前不要求新的Phase4/5 GPU重跑。
 
 ### Phase7 Entry
 
 必须完成：
 
 - 全部Closeout Lane；
-- Phase6 technical Exit=`PASS WITH CAVEATS`；
-- V5双模型review与主会话disposition完成；
-- practical family=`NONE`、chunk primary=`4096`、sensitivity=`1024`；
-- Phase7 primary manifest预注册并hash/commit验证；
-- 用户明确授权Phase7。
+- Phase6 exit gate；
+- Phase6结果双模型review；
+- practical family与chunk配置已冻结或显式NONE/waive。
 
 ### 条件项
 
@@ -682,170 +674,231 @@ delta review现已关闭该blocker。
 Phase7中任何依赖自然reservation失败的claim，仍必须重新取得自然证据，
 并保留`natural_pressure_reachability=false` caveat。
 
-## 8. Phase7：Result-Bound Integrated Evaluation
+## 8. Phase7：Integrated Recovery × Scheduling Evaluation
 
-### 8.1 Entry（全部必须满足）
+### 8.1 Phase7 Entry
 
-- Phase6 technical Exit=`PASS WITH CAVEATS`；
-- V5完成双模型review并成为`Current / Latest`；
-- `phase7-primary-manifest.json`已预注册、提交并hash验证；
-- 用户明确授权Phase7。
+- Closeout CL0–CL4完成；
+- Phase6 Exit通过；
+- practical family已冻结或为NONE；
+- chunk配置已执行或waive；
+- Phase7 primary manifest已预注册。
 
-Phase6通过本身**不授权**Phase7。
+### 8.1.1 practical family冻结结果（2026-07-27）
 
-### 8.2 P7-0：Result-Bound Freeze
+CL1已在修复后的底座上完成screening与3-restart确认，
+`promotion.status=complete`、`passing=[]`、**`winner=NONE`**。
 
-| Track | V5冻结值 | 允许的claim |
-| --- | --- | --- |
-| Ceiling | R0 | 仅性能上限；不通过exact-output gate，不是practical |
-| Practical | **NONE** | 不生成任何practical cell |
-| Oracle | R2 | precomputed oracle diagnostic；不称部署路径 |
-| Diagnostic | R4 | object/victim/footprint diagnostic；不排序practical |
-| R5 | 默认排除 | 与R2功能重叠；不得写“被性能支配” |
+因此Phase7的`practical=NONE`分支**已确定触发**，不再是待定分支：
 
-`NONE`的准确含义：
+- §8.4 practical scheduler revalidation：**跳过**，不生成PR-S0/PR-S4；
+- §8.5 P7-3 practical HiCache track与RH4：**跳过**，不实现专用
+  HiRadix/Unified cross-store adapter；
+- §8.6 P7-4 prefetch性能track：**跳过**；
+- 保留R0 ceiling、R2 oracle、R4 diagnostic；
+- exact-only prefetch若执行，只能标为Phase5回归canary。
 
-> 在本模型、合成prompt族、SM75、冻结chunk与exact-output promotion规则下，
-> 没有candidate通过。已排除已修复的eviction-dependent prefix-overwrite
-> 缺陷，但未证明context差异是唯一原因，也未排除header-dependent实现缺陷。
+该结论的**准确强度**（第三轮审计要求）：
 
-### 8.3 Chunk与共同运行合同
+> 在被测实现与配置下，没有candidate通过冻结的exact-output promotion规则。
+> 已知的eviction-dependent prefix-overwrite缺陷**被排除**为该偏离的解释，
+> 但**未证明context差异是因果原因**，**也未排除header-dependent实现缺陷**。
 
-- **Phase7 primary chunk：`4096`**。
-  原因：CL2 body1024显示`1024`会使dense未缓存部分为1025 token，额外跨越
-  chunk边界；`4096`用作避免该特定边界惩罚的primary配置。
-- `1024`仅作预注册sensitivity，不得进入headline：
-  `body=1024/2048, rho=2.0, S0, restart=1, formal=2`。
-- chunk与`max_prefill_tokens`必须同时记录；不得把coupled配置变化归因于单一参数。
-- tier=`GPU-only`，prefetch=`P0`。
-- warmup=`1`，formal=`2`。
-- primary使用`3`个独立server restart；diagnostic使用`1`个。
-- primary estimator为**per-restart paired trace median**；pooled p95仅作描述。
-- 同一trace内请求不是独立样本。
-- N=`1/2/4/8`必须由一次setup后的**真实连续8 targets**取前缀计算，
-  不再使用单请求外推。
-- 每run必须持久化raw JSON、server log、环境、model revision、source/result
-  commit与`RESULT_MANIFEST`映射。
+依据是P0修复前后CL1的guardrail失败计数与输出序列完全相同
+（screening `17+6`/48，confirm `12+4`/48）。注意所谓2×2**并非真正的
+factorial**（拼接了两套runner/policy/chunk/env/SHA不同的实验），
+低压cell的eviction telemetry也未覆盖完整target allocation窗口。
+机制上，CL1把在`source_header`（`32_000+`）下计算的body KV复制到
+`target_header`（`36_000+`）之后使用，前缀不同导致attention上下文不同，
+KV本来就是近似的；而P6-H的source与target header相同，修复后输出逐token一致。
 
-### 8.4 P7-1：Recovery Ceiling与Oracle
+Phase7因此**大幅收窄**：主矩阵只保留R0 ceiling与diagnostic轨道，
+不存在practical recovery × scheduler的笛卡尔积。
 
-#### R0 ceiling primary
+### 8.2 P7-0：Candidate Freeze
+
+| Track | 候选 |
+| --- | --- |
+| Ceiling | R0 |
+| Practical | selected R1-k或NONE |
+| Oracle | R2 |
+| Diagnostic | R4 |
+
+R5因与R2冗余不进默认矩阵，不使用“被R2性能支配”理由。
+
+### 8.3 P7-1：Recovery Evaluation
 
 ```text
 body = 1024, 2048
 rho_logical_demand = 1.5, 2.0
-chunked_prefill_size = 4096
 scheduler = S0
-restart = 3
-warmup = 1
+tier = GPU-only
+prefetch = P0
+restart = 1 screening
 formal = 2
-targets_per_setup = 8
 ```
 
-共`4 settings × 3 restart = 12 server starts`。
+primary补至3 restart。
 
-必须报告：
+每路径：
 
-- target-only、request-path、full lifecycle；
-- 实测N=1/2/4/8与break-even；
-- cold start；
-- recovered/cached token；
-- first-token、8-token逐位置一致率；
-- exact/approx byte footprint与peak；
-- fallback按**exclusive terminal reason**分组；
-- `fault_injected`与natural failure严格分列。
+- paired D0；
+- 全ledger；
+- 一次setup后连续8 targets，N=1/2/4/8取前缀；
+- cold-start；
+- explicit fallback；
+- recovered tokens；
+- materialize/register/transfer；
+- quality guardrail；
+- physical footprint。
 
-R0的输出不一致只能说明它未通过本项目的保守promotion gate；不得扩展为
-semantic质量或一般不可用性claim。
+R4按相同合同重测，但不参与practical排序。
 
-#### Oracle/diagnostic
+### 8.4 P7-2：Scheduler Evaluation
+
+#### Revalidation
+
+若`practical family=NONE`，跳过practical revalidation，仅保留exact/ceiling/oracle diagnostic。
 
 ```text
-R2: body=2048, rho=1.5/2.0, chunk=4096, S0, restart=1
-R4: body=2048, rho=2.0, chunk=4096, S0, restart=1
+practical recovery
+body = 2048
+rho_logical_demand = 1.5, 3.0
+scheduler = S0-S4
+restart = 1
+formal = 2
 ```
 
-- R2只报告oracle ceiling与setup/full-lifecycle成本；
-- R4只报告canonical/anchor/delta footprint与victim sequence；
-- 两者不进入practical winner。
+primary：
 
-### 8.5 P7-2：Narrow Scheduler Matrix
+- all-reusable request TTFT；
+- full-trace wall-clock；
+- workflow-only SLA；
+- miss count。
 
-`practical=NONE`，因此：
+S1/S2/S3晋级：
 
-- **跳过**practical S0–S4 revalidation；
-- **跳过**S1/S2/S3 promotion；
-- 主矩阵只有`R0 ceiling × S0/S4`。
+- mean改善`>=5%`；
+- p95恶化`<=5%`；
+- 或fallback降低`>=50%`且S0每trace至少1次；
+- 或physical peak降低`>=10%`；
+- 或victim correctness=100%且S4<100%。
+
+通过后补至3 restart。
+
+S2只能称Belady-style。若S1/S2在冻结trace上产生同一victim顺序，必须标记为退化同序；真正upper bound使用GPU-free variable-size offline optimum。
+
+R4独立diagnostic：
+
+```text
+R4
+body = 2048
+rho_logical_demand = 2.0
+scheduler = S0-S4
+restart = 1
+formal = 2
+output = canonical/anchor/delta victim sequence
+```
+
+#### Main Matrix
+
+```text
+R0 ceiling × S0/S4
+selected R1 practical × S0/S4（若非NONE）
+GPU-only
+P0
+```
+
+diagnostic：
+
+- R2 body2048 rho1.5/2；
+- R4 `body2048 / rho2 / S0-S4` canonical/anchor/delta victim-sequence diagnostic；
+- S2 eviction-onset/rho3。
+
+body1024：rho1.5/2。
+body2048：rho1.1/1.5/2/3。
+
+每个paired launch block测D0/E0/E4和当前recovery arm。
+
+practical=NONE时：
+
+- 跳过practical revalidation；
+- 不生成PR-S0/PR-S4；
+- 跳过RH4和practical host矩阵；
+- 跳过prefetch性能track；
+- 保留R0 ceiling、R2 oracle、R4 diagnostic；
+- exact-only prefetch若执行，只能标Phase5回归canary。
+
+### 8.5 P7-3：HiCache Demand Load
+
+practical=NONE时整个practical HiCache track跳过。
+
+#### Feasibility
+
+```text
+practical recovery
+body = 2048
+rho_logical_demand = 1.5
+S4 + HiCache + P0
+write policy = write-through
+```
+
+证明：
+
+- source demote；
+- host ref/accounting；
+- demand load或explicit fallback；
+- H2D peak；
+- reset。
+
+失败则HiCache track blocked。
+
+#### Matrix
 
 ```text
 body = 2048
-rho_logical_demand = 1.5, 2.0
-chunk = 4096
-policies = S0, S4
-restart = 3
-warmup = 1
-formal = 2
+rho_logical_demand = 1.5, 2.0, 3.0
+rho_host显式记录
 ```
 
-P7-1的S0结果复用；仅新增`2 settings × 3 S4 restart = 6 server starts`。
-每个launch block必须包含exact-only paired baseline。
+H4/RH4同block。
 
-primary视图：
+basic demand-load不强制`rho_host>=1`；host eviction/admission claim必须至少一个`rho_host>=1`且出现非零host miss/demotion。
 
-- all-reusable mean/median与miss count；
-- full-trace wall-clock；
-- workflow-only SLA；
-- per-role TTFT；
-- per-restart paired delta。
+### 8.6 P7-4：Prefetch
 
-解释规则：
-
-- S4相对S1–S3的独特性只在workflow-only历史结果中出现；
-- all-reusable下S1–S4相对S0均有相近描述性改善，现有历史数据不足以排序；
-- P7只回答S4是否改变**R0 ceiling**下的system behaviour，不宣称practical收益。
-
-#### R4 victim diagnostic
+#### 功能/安全
 
 ```text
-body=2048, rho=2.0, chunk=4096, policies=S0-S4, restart=1
+body = 2048
+rho_logical_demand = 2.0, 3.0
+P0-P3
+warmup = 1
+formal = 2
+restart = 1
 ```
 
-仅输出victim sequence/class/accounting；不做性能排名。
+只验证hint/load/admission/churn/lock/no leak。
 
-### 8.6 明确跳过的轨道
+practical=NONE或host feasibility失败时：
 
-因`practical=NONE`，V5默认**不创建**以下cell：
+- practical prefetch功能/性能track停止；
+- 可预注册选择执行E4+HiCache exact-only回归canary，或整体跳过；
+- 不得把exact-only canary写成Phase7 practical结论。
 
-- practical scheduler revalidation；
-- HiRadix/Unified cross-store adapter；
-- practical HiCache demand-load矩阵；
-- practical prefetch功能或性能矩阵；
-- async H2D性能claim；
-- exact-only prefetch回归canary。
+#### Async性能
 
-若未来用户单独授权这些轨道，必须先提升计划版本并重新预注册manifest；
-不能在本V5 Phase7运行中临时添加。
+只有真实async H2D存在时执行，并预注册serial within-request或concurrent cross-request模式。
 
-### 8.7 Early-stop
+晋级：
 
-立即停止当前track并记录`NEGATIVE`/`INCONCLUSIVE`，若：
+- mean改善`>=3%`；
+- p95恶化`<=5%`；
+- wasted bytes`<=10%`loaded；
+- churn bytes`<=20%`useful loaded；
+- 不驱逐更早next-use对象。
 
-1. 任一工程guardrail失败：请求未完成、OOM、stale handle、double free、
-   accounting/reset/orphan失败；
-2. primary `chunk=4096`下R0 target-only与request-path在两个body均`<=1.0x`；
-3. `chunk=1024`与`4096`的request-path差异`>5%`：停止任何“机制固有speedup”
-   headline，只保留chunk-coupled sensitivity；
-4. S4在rho1.5与rho2.0均：
-   - all-reusable mean改善`<5%`，且
-   - p95 ratio`>1.05`或无miss/peak改善；
-   则停止scheduler收益claim；
-5. 观察到natural reservation failure时，若未完成dense fallback，则整个
-   Phase7工程状态`INVALID`。
-
-P6-F只证明fault-injected fallback功能。任何natural-pressure claim必须由
-Phase7自然事件重新取证。
-
-### 8.8 P7-3：Final Validation
+### 8.7 P7-5：Final Validation
 
 工程状态：
 
@@ -858,19 +911,25 @@ Phase7自然事件重新取证。
 - `NEGATIVE`
 - `INCONCLUSIVE`
 
-必须汇总：
+primary cells预注册并做3 restart。同trace请求不作独立样本。
 
-- R0 speed ceiling与chunk sensitivity；
-- `practical=NONE`；
-- R2 oracle；
-- R4 diagnostic；
-- S0/S4 ceiling差异；
-- 明确跳过的host/prefetch轨道；
-- fault-injected fallback与natural-pressure scope分界；
-- per-restart、raw/log/hash/commit/test provenance。
+工程有效性必须包含：
 
-最终结果必须经Sol/Opus独立review、报告互换、targeted delta closure与主会话
-disposition后才可发布。
+- 100% completion；
+- no OOM/allocator corruption/stale handle/double free；
+- exact/approx/host accounting；
+- explicit success/load/fallback；
+- rollback/reset；
+- orphan=0；
+- raw/commit/env/test provenance。
+
+最终双模型review冻结：
+
+- speed ceiling；
+- practical或NONE；
+- precomputed oracle；
+- diagnostic；
+- host/prefetch结论。
 
 ## 9. Phase8（Potential Scope — Not Yet Created）
 
@@ -890,7 +949,7 @@ Phase8候选范围：
 - source/dependency invalidation；
 - end-to-end coding correctness。
 
-Phase8必须另行版本化规划，不在V5中预先承诺矩阵。
+Phase8必须另行版本化规划，不在V4中预先承诺矩阵。
 
 Phase7 schema必须提前采集足以判断Phase8触发条件的forward-compatible字段：
 
@@ -908,13 +967,16 @@ Reviewer：
 
 里程碑：
 
-1. V5 plan定稿；
-2. Phase7 primary manifest定稿；
-3. P7-1 recovery ceiling/oracle；
-4. P7-2 narrow scheduler matrix/R4 diagnostic；
-5. P7-3 final validation与最终结论。
+1. V4定稿；
+2. Closeout完成；
+3. Phase6 allocator完成；
+4. Phase6 capacity pilot完成；
+5. Phase6 exit；
+6. Phase7 recovery/scheduler；
+7. Phase7 host/prefetch；
+8. 最终结论。
 
-host/prefetch不在V5默认轨道中，不创建对应review里程碑。
+CL4与Phase6里程碑review可并行进行；Phase7 Entry前必须将两条lane的finding合并为一份统一disposition。
 
 流程：
 
@@ -926,24 +988,37 @@ host/prefetch不在V5默认轨道中，不创建对应review里程碑。
 
 只有主会话接受为`accepted-blocking-P0`的finding阻塞。override必须记录理由和风险。模型不可用时不得静默替换。
 
-## 11. Result-Bound预算
+## 11. 预算与Early-stop
 
-| Phase7 item | logical settings | server starts | 说明 |
-| --- | ---: | ---: | --- |
-| P7-0 manifest/contract | `1` | `0` | 0-GPU |
-| R0 primary | `4` | `12` | 2 body × 2 rho × 3 restart |
-| chunk sensitivity | `2` | `2` | chunk1024，diagnostic-only |
-| R2/R4 recovery diagnostic | `3` | `3` | 1 restart |
-| S4 additions | `2` | `6` | P7-1 S0结果复用 |
-| R4 S0-S4 victim diagnostic | `5` | `5` | 1 restart |
-| **总计** | **`17`** | **`28`** | 不含重试 |
+执行前同时报告：
 
-- 预计GPU时间：`3–5h`；
-- hard cap：`36 server starts / 6 GPUh`；
-- 超出hard cap必须停止并升级计划版本，不能临时扩表；
-- host/prefetch/async预算为`0`。
+- logical cells；
+- server startups；
+- arm rounds；
+- estimated GPU hours。
 
-Early-stop以§8.7为唯一权威定义，不在本节重复或添加结果后规则。
+预估：
+
+| Lane/Phase | logical cells | server starts | GPU时间 |
+| --- | ---: | ---: | ---: |
+| Closeout | `24–30` | `14–16` | 约`1.5–2.5h` |
+| Phase6 | `21–24` | `6–8` | 约`1.0–1.5h` |
+| Phase7 practical=NONE | `55–70` | `25–35` | 约`3–5h` |
+| Phase7 practical存在 | `70–92` | `35–50` | 约`5–8h` |
+| primary补restart/async/重试上界 | — | 总计最高约`90` | `10–14h` |
+
+关键路径是`max(Closeout, Phase6工程+pilot) + Phase7`，不是把Closeout与Phase6简单相加。
+
+Early-stop：
+
+1. Closeout screening后只给k0/winner补restart；
+2. Phase6只做validity；
+3. Phase7先1 restart screening；
+4. 只补预声明primary；
+5. 工程INVALID立即停止路径；
+6. practical=NONE时跳过practical scheduler/HiCache；
+7. host feasibility失败则停止host/prefetch；
+8. async不存在则不做prefetch性能。
 
 ## 12. 交付物
 
@@ -970,21 +1045,19 @@ Early-stop以§8.7为唯一权威定义，不在本节重复或添加结果后�
 
 ### Phase7
 
-- result-bound primary manifest；
-- R0 ceiling与真实N=1/2/4/8 amortization；
-- chunk4096 primary与chunk1024 sensitivity；
-- R2 oracle report；
-- R4 footprint/victim diagnostic；
-- R0 ceiling × S0/S4 narrow matrix；
-- exact-cache-miss与approximate fallback分离后的taxonomy；
-- per-restart compact/raw/log SHA与result manifest；
-- logical settings/server starts/GPU-hour budget；
-- 明确的host/prefetch skipped manifest；
-- final dual review与main-session disposition。
+- candidate manifest；
+- recovery N-amortization；
+- scheduler revalidation/main matrix；
+- host feasibility/demand-load；
+- prefetch functionality/async；
+- variable-size offline optimum；
+- per-restart compact/raw SHA；
+- logical cells/server starts/rounds/GPU-hour budget；
+- final dual review。
 
 ## 13. Review Disposition Mapping
 
-| Review范围 | V5锚点 | 状态 |
+| Review范围 | V4锚点 | 状态 |
 | --- | --- | --- |
 | C-01–C-16 Phase4 provenance/fairness | CL0、§5、CL1/CL2 | accepted |
 | C-17–C-23 R1/R3/R4 | CL1、P7-1/P7-2、defer | accepted/conditional |
@@ -1001,53 +1074,95 @@ Early-stop以§8.7为唯一权威定义，不在本节重复或添加结果后�
 
 ## 14. 当前状态
 
-V4已归档为`IMPLEMENTATION_PLAN_V4_ARCHIVED.md`。
+- V3已归档为`IMPLEMENTATION_PLAN_V3_ARCHIVED.md`。
+- V4已完成GPT-5.6 Sol Max Thinking与Claude Opus 5 Max Thinking独立review、全文互换、交叉consolidate与最终delta verification。
+- 双模型确认V4定稿P0已闭合；generic host canary使用`P6-H`避免复用历史`P6-5`标签。
 
-Phase6最终状态：
+以下状态于2026-07-27T11:55:00-07:00更新（此前的2026-07-26版本已过时）：
+
+- Closeout CL0已完成；R2/R5 final head为`ce55860a9`/`71f15d5d1`。
+- Phase6实现分支`research/cross-store-substrate`已推送；head随本轮修订滚动，
+  以远程分支为准（本地与远程SHA每次push后核对一致）。
+- 全部门禁均已在Docker SM75镜像内执行。
+
+| 门禁 | 状态 | 结论 |
+| --- | --- | --- |
+| CL0 | 完成 | authority manifest与supersession已冻结 |
+| CL1 | 完成 | `practical family = NONE`（冻结规则下成立；因果归因见§14.1） |
+| CL2 | 完成 | gate `inconclusive`，显式waive为provisional chunk `1024` |
+| CL3 | 完成 | S4优势仅在workflow-only分母成立 |
+| P6-H | **通过** | `status=valid`；1 restart/2 round的8-token输出canary与dense一致 |
+| P6-4 | **完整跑通** | 三个S4 cell中的四个non-R4 profile可达；两个capacity-limit cell有独立死亡态证据；双向pressure通过 |
+| P6-F | **通过** | fault-injected integrated fallback canary；自然压力可达性未证明 |
+| CL4 | **完成** | formal Exit与targeted delta reviews全部完成，无开放P0/P1 |
+
+- 本轮共修复6个缺陷：P0 prefix自我覆写、P6-H reseed断言、
+  P1-1 SWA释放元数据、P1-3 provisional slot泄漏、P1-2 stale victim重试，
+  以及P6-4 runner逐cell容错。
+- `technical_exit = PASS WITH CAVEATS`（§7.9.1与
+  `PHASE6_EXIT_DISPOSITION.json`）。诊断C v1曾声称该项受阻于我方回收缺陷，
+  该结论**已撤回**；v2/v3以`0.05s`采样证明S0/rho2与S4/rho3为真实容量耗尽。
+- Phase7 primary manifest仍未预注册，是Phase7 Entry的第二个缺口。
+- 未进入Phase7。
+
+## 15. Phase6 Exit剩余阻塞与V5待冻结修订（草案，尚未生效）
+
+### 15.1 为什么现在仍不发布V5
+
+状态更新 2026-07-27（本节随执行结果滚动更新，用户已明确指示本轮不升级版本）：
+
+| V5前置条件 | 状态 |
+| --- | --- |
+| 1. P0修复完成并有专门回归 | **已完成**，GPU验证通过 |
+| 2. CL1在修复后底座重跑并重新判定 | **已完成**；`NONE`仅是被测实现与冻结规则下的promotion结果，未排除header-dependent缺陷 |
+| 3. P6-H通过 | **已完成**；`status=valid`仅代表1 restart/2 round的8-token输出canary通过，不是bitwise KV或logit保真证明 |
+| 4. P6-4完整四rho矩阵valid或明确不可达 | **已完成**；三个S4 cell中的四个non-R4 profile可达，R4与两个capacity-limit cell均有明确结论；所有顶层full-matrix cell仍为`diagnostic-unavailable` |
+| 5. CL4双模型review与disposition | **已完成**；formal Exit与targeted delta reviews最终均关闭P0-1/P0-3，无开放P0/P1，结论`PASS WITH CAVEATS` |
+
+最终状态：
 
 ```text
 technical_exit = PASS WITH CAVEATS
 ```
 
-- 主会话disposition：`PHASE6_EXIT_DISPOSITION.json`；
-- formal Exit与P6-F targeted delta reviews全部完成，无开放P0/P1；
-- evidence manifest：`48/48`（V5 draft创建时）；
-- fallback仅在`fault_injected=true`的集成canary强度验证，
-  `natural_pressure_reachability=false`；
-- practical promotion结果为`NONE`，严格限定于被测实现与冻结规则；
-- 未进入Phase7。
+直接证据包括：双向pressure（exact→approx `47.5GB`、
+approx→exact `58.8GB`）、R1-like worst-case（k32）profile可达、
+P6-H有限范围的输出canary、两个容量不可达cell的独立死亡态遥测，以及
+P6-F集成fault-injected fallback canary。
 
-V5当前状态：
+**2026-07-27诊断C（v2）结论**：以`0.05s`采样确证，S0/rho2的OOM是
+**真实容量不可达**——死亡瞬间approximate store为`0`字节`0`记录，
+可用`704` token而请求需`1024`；且exact压力此前已成功从approximate对象
+回收`2.2GB`，**回收路径工作正常，不存在缺陷**。
 
-- 已创建result-bound draft；
-- Phase7矩阵已收窄为R0 ceiling、R2 oracle、R4 diagnostic与R0×S0/S4；
-- host、HiCache、prefetch、async轨道默认全部跳过；
-- V5尚需Sol/Opus独立review、报告互换与主会话disposition；
-- Phase7 primary manifest尚未预注册；
-- 用户尚未授权Phase7。
+（诊断C v1曾以`0.4s`粗采样得出“这是我方缺陷”的相反结论，已撤回。
+采样间隔必须短于workload的分配动态，否则会得到自信但错误的判断。）
 
-## 15. V5冻结约束与已吸收教训
+§15.1冻结的test-only验收合同已全部满足，两位targeted reviewer均关闭全部
+P0/P1，最终判定为PASS（blocker强度）/PASS WITH CAVEATS（全Exit强度）。
 
-### 15.1 V5生效条件
+本文件继续保持`Current / Latest`，不提升版本号、不归档
+（用户已明确本轮不升级）。
 
-V5只有在以下条件全部满足后才可改为`Current / Latest`：
+上述步骤现已全部完成。`PHASE6_EXIT_DISPOSITION.json`记录最终主会话结论。
 
-1. Sol/Opus独立review完成；
-2. 两份报告全文互换并cross-consolidate；
-3. 主会话逐项disposition；
-4. 无`accepted-blocking-P0`；
-5. Phase7 primary manifest按最终V5生成并通过hash/commit验证。
+**版本决策**：Phase6结果已稳定、Phase7分支已由`practical=NONE`显著收窄，
+现在**有必要创建result-bound V5**。但本轮不自动进入Phase7：
 
-V5生效仍**不等于Phase7获授权**。Phase7执行必须另有用户明确授权。
+1. 归档V4；
+2. 创建V5并写入实际candidate、chunk waiver、矩阵裁剪、预算与early-stop；
+3. 按§1执行Sol/Opus独立review、互换、consolidate与主会话disposition；
+4. 预注册Phase7 primary manifest；
+5. 等待用户明确授权后才运行Phase7。
 
-### 15.2 已由执行结果确定并吸收的合同修订
+### 15.2 已由执行结果确定、必须写入V5的合同修订
 
-以下修订已进入V5正文或Phase7运行合同；review时必须检查是否完整且无冲突：
+以下修订与“最终选出哪个candidate”无关，只与证据合同有关，已可冻结为待纳入项：
 
-1. **guardrail语义歧义已消解。** §5.9把8-token canary定义为“记录逐token
+1. **guardrail语义歧义必须先消解。** §5.9把8-token canary定义为“记录逐token
    一致率、不扩展semantic correctness claim”，但冻结的CL1 runner把8-token
-   完全一致当作promotion硬门。V5区分same-context corruption canary与
-   cross-context conservative promotion gate。
+   完全一致当作promotion硬门。两者必须二选一并在重跑前写死，否则同一歧义会
+   在每次重跑重现。
 2. **fallback证据分级。** 带label的Prometheus counter在未发生事件时不会输出
    任何series，因此“counter缺失”只能记为`indirectly_verified`，不得记为显式
    `0`。该规则已在代码中强制。
@@ -1055,15 +1170,14 @@ V5生效仍**不等于Phase7获授权**。Phase7执行必须另有用户明确�
    `chunked_prefill_size`与`max_prefill_tokens`，并附带一个prompt可单chunk
    容纳的对照点。CL2证明body1024在chunk`1024`下为`1.549x`、在chunk`4096`下
    仅为`1.025x`。
-4. **Phase6 Exit Gate已新增数据保真条目。** §7.9原先只要求安全竞争、双向
+4. **Phase6 Exit Gate新增数据保真条目。** §7.9当前只要求安全竞争、双向
    pressure、可回滚、无泄漏，没有任何一条要求“近似reuse在压力下必须与matched
    dense逐token一致”。正因为缺这一条，该底座通过了三轮review和全部CPU回归，
    却在GPU压力下返回损坏KV。V5必须把它列为独立的Exit条件。
-5. **压力态保真回归已新增。** P6-H与P6-F均经过真实GPU server路径；
-   后续不得退回只依赖CPU fake allocator。
-6. **Phase5结论按分母分列。** S4相对S1–S3的独特高rho优势只在
-   workflow-only出现；all-reusable下S1–S4相对S0均有相近描述性改善，
-   现有restart数不足以排序。
+5. **新增压力态保真回归。** 需要一个在真实device压力下比较近似reuse与matched
+   dense的回归，且不得只依赖CPU fake allocator。
+6. **Phase5结论按分母分列。** CL3证明S4只在workflow-only分母保持优势，
+   all-reusable分母下S1/S2/S3/S4彼此不可区分，必须按服务目标分别陈述。
 7. **Phase7 primary manifest预注册模板。** Entry条件要求它存在，但目前既无
    manifest也无生成它的runner。
 8. **recovery必须在请求自身prefix锁的保护下执行。** 这是本轮P0的直接教训：

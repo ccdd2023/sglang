@@ -187,7 +187,10 @@ The caveat is permanent:
        conservative exact-output promotion. Only in the same-context canary
        does a mismatch directly indicate corruption.
 
-[ ] 8. Create the result-bound V5 plan, only after the Phase 6 disposition.
+[ ] 8. Finalize the result-bound V5 plan.
+       Draft created and V4 archived. Remaining: Sol/Opus independent review,
+       report exchange, cross-consolidation, main-session disposition and
+       accepted-P0 closure before marking Current / Latest.
        Must carry: profile-level vs cell-level status; CL3 denominator
        wording; P6-H canary scope; reversible vs irreversible rollback;
        separate device and host budgets; the corrected fallback taxonomy; and

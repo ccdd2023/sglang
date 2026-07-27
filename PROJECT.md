@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-27T16:10:00-07:00
+最后更新：2026-07-27T16:40:00-07:00
 
 ## 项目概况
 
@@ -27,17 +27,33 @@
 
 ## 当前状态
 
+### 2026-07-27 V4已归档，result-bound V5 draft已创建
+
+- `IMPLEMENTATION_PLAN_V4_ARCHIVED.md`为V4只读归档。
+- `IMPLEMENTATION_PLAN_LATEST.md`已提升为V5 Draft / Under Dual Review。
+- V5实际冻结：
+  - practical=`NONE`；
+  - R0 ceiling、R2 oracle、R4 diagnostic；
+  - primary chunk=`4096`，chunk=`1024`仅作sensitivity；
+  - Phase7主矩阵为R0 ceiling × S0/S4；
+  - HiCache/host/prefetch/async默认全部跳过；
+  - 17 logical settings、28 server starts、hard cap 36 starts/6 GPUh；
+  - N=1/2/4/8改为一次setup后的真实连续8 targets，不再外推；
+  - fallback仅有fault-injected canary证据，natural pressure claim必须重新取证。
+- 下一步：V5双模型review与consolidation；随后生成并review Phase7 primary manifest。
+- 仍未进入Phase7。
+
 ### 2026-07-27 当前无Phase6 blocker；剩余项均为Phase7 Entry
 
 - Phase6 technical Exit已是`PASS WITH CAVEATS`，无开放P0/P1。
 - 永久scope caveat：reservation-failure-associated fallback仅在test-only
   fault-injected canary强度验证，`natural_pressure_reachability=false`。
 - 该caveat不再阻塞Phase6，但Phase7若依赖自然压力fallback，必须重新取证。
+- V4已归档，result-bound V5 draft已创建。
 - 当前真正阻塞Phase7 Entry的事项只有：
-  1. 归档V4并创建result-bound V5；
-  2. V5完成Sol/Opus独立review、互换、consolidate与主会话disposition；
-  3. 预注册Phase7 primary manifest；
-  4. 用户明确授权Phase7。
+  1. V5完成Sol/Opus独立review、互换、consolidate与主会话disposition；
+  2. 预注册Phase7 primary manifest；
+  3. 用户明确授权Phase7。
 - `winner=NONE`含义已冻结为被测实现、模型、prompt族、GPU、chunk配置和
   exact-output promotion规则下的结果；未证明context差异是唯一原因，
   未排除header-dependent实现缺陷。
@@ -791,7 +807,7 @@ AssertionError: parent does not have child key
 - 只读核对确认 `ccdd2023/sglang:main` 为 `3343a79466aa714d34a14d08d3929f7953a47212`，upstream `sgl-project/sglang:main` 为 `c0ed009f5b566be023661bd4e93065b8b4b8b31f`；前者是后者祖先，落后 4,654 commits，可 fast-forward-only。
 - 远程当前不存在 `latest-main`；实施时将在 Docker 内 fast-forward fork main 后创建并推送该分支。
 - Git fetch、checkout、编辑、依赖下载、构建、测试、server 和 benchmark 全部必须在 Docker 内执行；宿主机只负责启动容器、挂载目录和收集结果。
-- 当前最新实施计划为`IMPLEMENTATION_PLAN_LATEST.md`（**V4**；此行原记为V2，已过时）；V1/V2/V3均已归档。
+- 当前实施计划为`IMPLEMENTATION_PLAN_LATEST.md`（**V5 Draft / Under Dual Review**）；V1/V2/V3/V4均已归档。
 - 已在空目录中初始化 Git 仓库，默认分支为 `main`。
 - 已建立项目主文档、讨论追踪文件和会话交接文件。
 - 已建立 Copilot 仓库指令，确保后续会话先读取交接信息并持续维护文档。
@@ -2200,7 +2216,7 @@ vs S4 + HiCache demand load
 - 三restart compact manifests；
 - 明确区分speed ceiling、precomputed oracle和practical winner的结论。
 
-（历史记录，已过时：当时Phase6仅完成计划修订。当前latest为V4，Phase6全部门禁已执行。）
+（历史记录，已过时：当时Phase6仅完成计划修订。当前为V5 Draft，Phase6 technical Exit已通过。）
 
 ## 2026-07-24T15:43:46-07:00 S1-S3与P1-P3不彻底取消，增加revalidation gate
 
