@@ -32,6 +32,7 @@ from benchmark.multi_workflow.run_bridge_reuse_agent_experiment import (
     MODEL,
     launch_server,
     load_jsonl,
+    run_official_evaluation,
     stop_server,
 )
 from benchmark.multi_workflow.run_frozen_trajectory_replay_v18 import (
@@ -410,6 +411,7 @@ def run(output: Path) -> dict[str, Any]:
     snapshot_image = ""
     agents: dict[str, DefaultAgent] = {}
     branch: dict[str, Any] | None = None
+    branch_agent_elapsed = {arm: 0.0 for arm in ARMS}
     try:
         shared_env = get_sb_environment(copy.deepcopy(config), instance)
         shared = _initialize_agent(
@@ -496,10 +498,18 @@ def run(output: Path) -> dict[str, Any]:
                         for arm in ARMS
                     }
                 for arm in ARMS:
+                    started = time.perf_counter()
                     _prepared_step(agents[arm], prepared[arm])
+                    branch_agent_elapsed[arm] += (
+                        time.perf_counter() - started
+                    )
             else:
                 arm = active[0]
+                started = time.perf_counter()
                 _normal_step(agents[arm])
+                branch_agent_elapsed[arm] += (
+                    time.perf_counter() - started
+                )
 
         for arm in ARMS:
             if agents[arm].messages[-1].get("role") != "exit":
@@ -587,6 +597,7 @@ def run(output: Path) -> dict[str, Any]:
         "submission_bytes": {
             arm: len(submissions[arm].encode()) for arm in ARMS
         },
+        "branched_agent_elapsed_seconds": branch_agent_elapsed,
         "server": {
             "source_materializations": len(materialized),
             "target_copies": len(copies),
@@ -603,7 +614,29 @@ def run(output: Path) -> dict[str, Any]:
     return result
 
 
+def evaluate(output: Path) -> dict[str, Any]:
+    runtime = read_json(output / "V25_RESULT.json")
+    official: dict[str, Any] = {}
+    for arm in ARMS:
+        path = output / arm / "OFFICIAL_RESULT.json"
+        if path.exists():
+            official[arm] = read_json(path)
+        else:
+            official[arm] = run_official_evaluation(
+                output=output,
+                run_dir=output / arm,
+                arm=f"v25-paired-{arm}",
+                instance_ids=[INSTANCE_ID],
+            )
+    return {
+        "runtime_status": runtime["status"],
+        "official": official,
+        "summary": summarize_official(output),
+    }
+
+
 def summarize_official(output: Path) -> dict[str, Any]:
+    runtime = read_json(output / "V25_RESULT.json")
     arms: dict[str, Any] = {}
     for arm in ARMS:
         result = read_json(output / arm / "OFFICIAL_RESULT.json")
@@ -630,6 +663,9 @@ def summarize_official(output: Path) -> dict[str, Any]:
             "median_ttft_ms": (
                 statistics.median(ttfts) if ttfts else None
             ),
+            "branched_agent_elapsed_seconds": runtime.get(
+                "branched_agent_elapsed_seconds", {}
+            ).get(arm),
         }
     v23_resolved = arms[V23]["resolved"]
     general_resolved = arms[GENERAL]["resolved"]
@@ -672,7 +708,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "command",
-        choices=("register", "run", "summarize"),
+        choices=("register", "run", "evaluate", "summarize"),
         nargs="?",
         default="run",
     )
@@ -682,6 +718,8 @@ def main() -> None:
         value = register(args.output)
     elif args.command == "run":
         value = run(args.output)
+    elif args.command == "evaluate":
+        value = evaluate(args.output)
     else:
         value = summarize_official(args.output)
     print(
