@@ -225,6 +225,24 @@
       "containing_commit": "89e9eb61ff9ded3db5e8f160fe200f001a295f2b"
     },
     {
+      "file": "benchmark/approx_kv/results/phase6/p6-f-v3-control-server.log",
+      "sha256": "13c0f59b515357d86ac76cf14cb3357489d101111977befac9a2dc4a725b73ec",
+      "bytes": 1470,
+      "containing_commit": "27fda51994687059a6ee84dbf232a62e32bb2a86"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase6/p6-f-v3-fallback-canary.json",
+      "sha256": "0f7c49b26f318850daa07dd04a7adb270d9434488ff245190ecad0923a49884c",
+      "bytes": 11356,
+      "containing_commit": "27fda51994687059a6ee84dbf232a62e32bb2a86"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase6/p6-f-v3-injection-server.log",
+      "sha256": "c108ad17bdf88ef8b8036cd9bfa61ef3876d22395ebd4f01368a3ab027f9b9ac",
+      "bytes": 1470,
+      "containing_commit": "27fda51994687059a6ee84dbf232a62e32bb2a86"
+    },
+    {
       "file": "benchmark/approx_kv/results/phase6/p6-h-attempt1-chunk1024-failed.json",
       "sha256": "4f0e5470b2b190745ea330e8e77b0b9148ea05e8a32cc0602d060fa7d9ee9f19",
       "bytes": 502,
