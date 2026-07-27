@@ -312,7 +312,7 @@ def register(output: Path) -> dict[str, Any]:
             "target_fallbacks": 0,
             "first_branched_prompt_hash_identical": True,
             (
-                "all_arms_reach_submitted"
+                "all_arms_reach_scored_terminal_outcome"
                 if ALLOW_EMPTY_SUBMISSION_OUTCOME
                 else "both_branches_produce_submission"
             ): True,
@@ -852,11 +852,14 @@ def run(output: Path) -> dict[str, Any]:
         "first_branched_prompt_hash_identical": branch is None
         or first_hash_equal,
         (
-            "all_arms_reach_submitted"
+            "all_arms_reach_scored_terminal_outcome"
             if ALLOW_EMPTY_SUBMISSION_OUTCOME
             else "both_branches_produce_submission"
         ): (
-            all(status == "Submitted" for status in exit_status.values())
+            all(
+                status in {"Submitted", "LimitsExceeded"}
+                for status in exit_status.values()
+            )
             if ALLOW_EMPTY_SUBMISSION_OUTCOME
             else all(submissions.values())
         ),

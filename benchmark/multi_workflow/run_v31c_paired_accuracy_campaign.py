@@ -160,6 +160,7 @@ def register(output: Path) -> dict[str, Any]:
             "same_model_engine_tokenization": True,
             "official_swebench_container_each_arm": True,
             "empty_patch_scored_as_official_unresolved_outcome": True,
+            "limits_exceeded_scored_as_official_unresolved_outcome": True,
             "all_children_registered_before_first_treatment": True,
             "prefetch": False,
             "reference_patch_or_future_output_used": False,
@@ -279,6 +280,11 @@ def _bootstrap(values: list[int]) -> list[float] | None:
         samples[int(0.025 * BOOTSTRAPS)],
         samples[min(BOOTSTRAPS - 1, int(0.975 * BOOTSTRAPS))],
     ]
+
+
+def _median_non_null(values: list[float | None]) -> float | None:
+    present = [float(value) for value in values if value is not None]
+    return statistics.median(present) if present else None
 
 
 def summarize(output: Path) -> dict[str, Any]:
@@ -404,12 +410,8 @@ def summarize(output: Path) -> dict[str, Any]:
                 for arm in ARMS
             },
             "task_median_ttft_ms": {
-                arm: (
-                    statistics.median(
-                        row["median_ttft_ms"][arm] for row in complete
-                    )
-                    if complete
-                    else None
+                arm: _median_non_null(
+                    [row["median_ttft_ms"][arm] for row in complete]
                 )
                 for arm in ARMS
             },
