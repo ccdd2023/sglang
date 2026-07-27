@@ -80,6 +80,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_post_mutation_seam32_v22",
         "coding_post_mutation_target_prefix_v23",
         "coding_post_mutation_payoff_guard_v28",
+        "coding_post_mutation_payoff_guard_v29",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
@@ -394,8 +395,9 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             return ids, find_sublist(prompt_ids, ids)
 
         segment_ids, positions = encoded_groups(eligible)
-        if self.config.reuse_arm == (
-            "coding_post_mutation_payoff_guard_v28"
+        if self.config.reuse_arm in (
+            "coding_post_mutation_payoff_guard_v28",
+            "coding_post_mutation_payoff_guard_v29",
         ):
             general_groups = [list(group) for group in selected_groups[1:]]
             general_ids, general_positions = encoded_groups(general_groups)
@@ -404,6 +406,12 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 coding_candidate_tokens=len(segment_ids),
                 general_candidate_tokens=len(general_ids),
                 copy_cap=self.config.reuse_copy_cap,
+                payoff_ratio_threshold=(
+                    1.20
+                    if self.config.reuse_arm
+                    == "coding_post_mutation_payoff_guard_v29"
+                    else 0.60
+                ),
             )
             decision.update(guard)
             if guard["mode"] == "payoff_guard_dense_abstain_late_branch":

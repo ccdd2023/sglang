@@ -434,6 +434,7 @@ def select_reuse_groups(
         "coding_post_mutation_seam32_v22",
         "coding_post_mutation_target_prefix_v23",
         "coding_post_mutation_payoff_guard_v28",
+        "coding_post_mutation_payoff_guard_v29",
     ):
         eligible, graph = select_version_graph_groups(
             selected_groups,
@@ -447,6 +448,7 @@ def select_reuse_groups(
                 "coding_post_mutation_seam32_v22",
                 "coding_post_mutation_target_prefix_v23",
                 "coding_post_mutation_payoff_guard_v28",
+                "coding_post_mutation_payoff_guard_v29",
             )
             else "post_mutation_contiguous_island"
         )
@@ -509,6 +511,7 @@ def select_reuse_groups(
         "coding_post_mutation_seam32_v22",
         "coding_post_mutation_target_prefix_v23",
         "coding_post_mutation_payoff_guard_v28",
+        "coding_post_mutation_payoff_guard_v29",
     ):
         raise ValueError(f"unsupported reuse policy arm: {arm}")
 
@@ -616,8 +619,8 @@ def post_mutation_payoff_guard(
         exact_prefix_credit_tokens,
     ) < 0:
         raise ValueError("payoff guard token/count values must be non-negative")
-    if not 0 < payoff_ratio_threshold <= 1:
-        raise ValueError("payoff_ratio_threshold must be in (0, 1]")
+    if payoff_ratio_threshold <= 0:
+        raise ValueError("payoff_ratio_threshold must be positive")
     coding_capped = min(coding_candidate_tokens, copy_cap)
     general_capped = min(general_candidate_tokens, copy_cap)
     payoff_ratio = (

@@ -148,6 +148,14 @@ def test_post_mutation_v19_drops_stale_but_keeps_latest_risky_group() -> None:
     assert v28 == v19
     assert v28_decision["mode"] == "post_mutation_dual_island"
 
+    v29, v29_decision = select_reuse_groups(
+        "coding_post_mutation_payoff_guard_v29",
+        groups,
+        latest_group_messages=groups[-1],
+    )
+    assert v29 == v19
+    assert v29_decision["mode"] == "post_mutation_dual_island"
+
 
 def group(command: str, output: str = "<returncode>0</returncode>"):
     return [
@@ -689,3 +697,23 @@ def test_v28_payoff_guard_abstains_when_branch_is_too_late():
 
     assert decision["mode"] == "payoff_guard_dense_abstain_late_branch"
     assert decision["future_target_upper_bound"] == 3
+
+
+def test_v29_stronger_threshold_falls_back_at_v28_protection_ratio():
+    v28 = post_mutation_payoff_guard(
+        request_index=7,
+        coding_candidate_tokens=1052,
+        general_candidate_tokens=2795,
+        copy_cap=4096,
+        payoff_ratio_threshold=0.60,
+    )
+    v29 = post_mutation_payoff_guard(
+        request_index=7,
+        coding_candidate_tokens=1052,
+        general_candidate_tokens=2795,
+        copy_cap=4096,
+        payoff_ratio_threshold=1.20,
+    )
+
+    assert v28["mode"] == "payoff_guard_post_mutation_protected"
+    assert v29["mode"] == "payoff_guard_general_middle_exact_prefix"
