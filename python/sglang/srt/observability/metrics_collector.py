@@ -2077,6 +2077,11 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
             ),
             labelnames=labels.keys(),
         )
+        self.cross_store_reserved_device_bytes = Gauge(
+            name="sglang:cross_store_reserved_device_bytes",
+            documentation="Current device bytes reserved by cross-store allocation.",
+            labelnames=labels.keys(),
+        )
         self.approx_kv_store_records = Gauge(
             name="sglang:approx_kv_store_records",
             documentation="Current approximate KV store record count.",
@@ -2100,6 +2105,14 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
         self.approx_kv_store_orphans = Gauge(
             name="sglang:approx_kv_store_orphans",
             documentation="Current approximate KV orphan dependency count.",
+            labelnames=labels.keys(),
+        )
+        self.approx_kv_provisional_tokens = Gauge(
+            name="sglang:approx_kv_provisional_tokens",
+            documentation=(
+                "Approximate recovery tokens allocated before scheduler "
+                "admission transfers ownership to the request."
+            ),
             labelnames=labels.keys(),
         )
 
@@ -2201,8 +2214,12 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
         committed: bool,
         destroyed_bytes: int,
         peak_device_bytes: int,
+        reserved_device_bytes: int,
     ) -> None:
         self.cross_store_peak_device_bytes.labels(**self.labels).set(peak_device_bytes)
+        self.cross_store_reserved_device_bytes.labels(**self.labels).set(
+            reserved_device_bytes
+        )
         if not committed and destroyed_bytes:
             self.cross_store_wasted_bytes_total.labels(**self.labels).inc(
                 destroyed_bytes
@@ -2216,12 +2233,14 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
         host_bytes: int,
         leases: int,
         orphans: int,
+        provisional_tokens: int,
     ) -> None:
         self.approx_kv_store_records.labels(**self.labels).set(records)
         self.approx_kv_store_device_bytes.labels(**self.labels).set(device_bytes)
         self.approx_kv_store_host_bytes.labels(**self.labels).set(host_bytes)
         self.approx_kv_store_leases.labels(**self.labels).set(leases)
         self.approx_kv_store_orphans.labels(**self.labels).set(orphans)
+        self.approx_kv_provisional_tokens.labels(**self.labels).set(provisional_tokens)
 
     def record_approx_kv_transfer(self, stats) -> None:
         self.approx_kv_copied_tokens_total.labels(**self.labels).inc(

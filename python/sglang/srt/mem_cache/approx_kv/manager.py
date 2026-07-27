@@ -72,6 +72,8 @@ class ApproxKVManager:
         self._async_loader: AsyncResidencyLoader | None = None
         self._tickets: dict[str, ApproxKVPrefetchTicket] = {}
         self._ticket_lock = threading.Lock()
+        self._provisional_lock = threading.Lock()
+        self._provisional_tokens = 0
         self._cross_store_coordinator = None
         if self.config.epic_enabled:
             from .epic_plugin import EPICLeadingKPlugin
@@ -485,8 +487,30 @@ class ApproxKVManager:
                 committed=result.committed,
                 destroyed_bytes=result.destroyed_bytes,
                 peak_device_bytes=result.peak_device_bytes,
+                reserved_device_bytes=result.reserved_device_bytes,
             )
         self._record_store_state()
+
+    def add_provisional_tokens(self, num_tokens: int) -> None:
+        if num_tokens <= 0:
+            raise ValueError("provisional token count must be positive")
+        with self._provisional_lock:
+            self._provisional_tokens += num_tokens
+        self._record_store_state()
+
+    def remove_provisional_tokens(self, num_tokens: int) -> None:
+        if num_tokens <= 0:
+            raise ValueError("provisional token count must be positive")
+        with self._provisional_lock:
+            if num_tokens > self._provisional_tokens:
+                raise ValueError("provisional token count underflow")
+            self._provisional_tokens -= num_tokens
+        self._record_store_state()
+
+    @property
+    def provisional_tokens(self) -> int:
+        with self._provisional_lock:
+            return self._provisional_tokens
 
     def _record_store_state(self) -> None:
         collector = self.metrics_collector
@@ -500,6 +524,7 @@ class ApproxKVManager:
                 host_bytes=self.store.host_owned_bytes,
                 leases=self.store.lease_count,
                 orphans=self.store.orphan_count,
+                provisional_tokens=self.provisional_tokens,
             )
 
     @property
@@ -513,6 +538,8 @@ class ApproxKVManager:
         for ticket in tickets:
             ticket.cancel()
         self.store.reset()
+        with self._provisional_lock:
+            self._provisional_tokens = 0
         self._record_store_state()
 
     def _forget_ticket(self, ticket_id: str) -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+from dataclasses import replace
 from typing import Any
 
 from .allocator import (
@@ -162,6 +163,10 @@ class CrossStoreCoordinator:
             resource_provider=resources,
             allocate_backend=allocate_backend,
             release_allocation=release_allocation,
+        )
+        result = replace(
+            result,
+            reserved_device_bytes=self._budget.snapshot().device_reserved_bytes,
         )
         for item in result.victim_items:
             manager.record_cross_store_eviction(

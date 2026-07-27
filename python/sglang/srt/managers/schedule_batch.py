@@ -86,6 +86,7 @@ from sglang.srt.mem_cache.allocator import BaseTokenToKVPoolAllocator
 from sglang.srt.mem_cache.approx_kv.epic_runtime import restore_request_prefix_epic
 from sglang.srt.mem_cache.approx_kv.request import parse_request_metadata
 from sglang.srt.mem_cache.approx_kv.runtime import (
+    commit_provisional_recovery_slots,
     protect_request_prefix,
     release_provisional_recovery_slots,
     restore_request_prefix,
@@ -2253,7 +2254,7 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
         # request through req_to_token, so it must not be reclaimed as
         # provisional any more.
         for req in reqs:
-            req.approx_kv_provisional_indices = None
+            commit_provisional_recovery_slots(self.tree_cache, req)
 
         # Set fields
         input_embeds = []

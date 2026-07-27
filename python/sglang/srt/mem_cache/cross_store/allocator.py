@@ -49,6 +49,7 @@ class ReservationResult:
     destroyed_bytes: int = 0
     demoted_bytes: int = 0
     peak_device_bytes: int = 0
+    reserved_device_bytes: int = 0
     rolled_back_ids: tuple[str, ...] = ()
     failure: str | None = None
 

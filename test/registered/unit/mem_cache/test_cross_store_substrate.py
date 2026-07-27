@@ -434,6 +434,37 @@ class TestCrossStoreAllocator(unittest.TestCase):
 
 
 class TestApproxStoreByteBudget(unittest.TestCase):
+    def test_orphan_count_detects_missing_dependency(self):
+        store = ApproxKVSegmentStore(bytes_per_token=1)
+        base_key = self._key("base")
+        dependent_key = self._key("dependent")
+        store.register(
+            key=base_key,
+            token_ids=(1,),
+            source_start=0,
+            residency=ResidencyTier.DEVICE,
+            backend_ref=object(),
+            resident_bytes=1,
+            object_id="base",
+        )
+        store.register(
+            key=dependent_key,
+            token_ids=(1,),
+            source_start=0,
+            residency=ResidencyTier.DEVICE,
+            backend_ref=object(),
+            resident_bytes=1,
+            object_id="dependent",
+            dependencies=frozenset({"base"}),
+        )
+        self.assertEqual(store.orphan_count, 0)
+
+        # Corrupt only the object index to prove the gauge is computed rather
+        # than a hard-coded zero. Normal store operations prevent this state.
+        with store._lock:
+            store._object_keys.pop("base")
+        self.assertEqual(store.orphan_count, 1)
+
     def _key(self, name: str) -> KVSegmentKey:
         tokens = (1,)
         return KVSegmentKey(

@@ -19,6 +19,7 @@ from sglang.srt.mem_cache.approx_kv.request import (
 )
 from sglang.srt.mem_cache.approx_kv.runtime import (
     ApproxKVRegistrationError,
+    commit_provisional_recovery_slots,
     protect_request_prefix,
     register_request_segments,
     release_provisional_recovery_slots,
@@ -501,6 +502,31 @@ class TestProvisionalRecoverySlots(unittest.TestCase):
         self.assertEqual(release_provisional_recovery_slots(self.tree, req), 0)
         self.assertEqual(self.freed, [])
 
+    def test_manager_tracks_release_and_ownership_transfer(self):
+        indices = torch.tensor([4, 5, 6], dtype=torch.int64)
+        manager = ApproxKVManager(ApproxKVFeatureConfig(core_enabled=True))
+        tree = SimpleNamespace(
+            token_to_kv_pool_allocator=SimpleNamespace(free=self.freed.append),
+            approx_kv=manager,
+        )
+
+        manager.add_provisional_tokens(3)
+        rejected = SimpleNamespace(
+            approx_kv_provisional_indices=indices,
+            approx_kv_restored_len=3,
+        )
+        self.assertEqual(release_provisional_recovery_slots(tree, rejected), 3)
+        self.assertEqual(manager.provisional_tokens, 0)
+
+        manager.add_provisional_tokens(3)
+        admitted = SimpleNamespace(
+            approx_kv_provisional_indices=indices,
+            approx_kv_restored_len=3,
+        )
+        self.assertEqual(commit_provisional_recovery_slots(tree, admitted), 3)
+        self.assertEqual(manager.provisional_tokens, 0)
+        self.assertEqual(len(self.freed), 1)
+
     def test_ownership_transfer_and_release_points_are_wired(self):
         root = Path(__file__).resolve().parents[4]
         batch = (root / "python/sglang/srt/managers/schedule_batch.py").read_text()
@@ -514,7 +540,7 @@ class TestProvisionalRecoverySlots(unittest.TestCase):
         # ownership transfers once the batch allocation happened
         self.assertLess(
             batch.index("out_cache_loc, req_pool_indices_tensor"),
-            batch.index("req.approx_kv_provisional_indices = None"),
+            batch.index("commit_provisional_recovery_slots(self.tree_cache, req)"),
         )
         # and teardown reclaims anything still provisional
         self.assertIn("release_provisional_recovery_slots(tree_cache, req)", common)

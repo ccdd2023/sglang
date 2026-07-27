@@ -60,6 +60,22 @@ def release_provisional_recovery_slots(tree_cache: Any, req: Any) -> int:
     # Clear only after the free succeeded, for the same reason.
     req.approx_kv_provisional_indices = None
     req.approx_kv_restored_len = 0
+    manager = getattr(tree_cache, "approx_kv", None)
+    if manager is not None:
+        manager.remove_provisional_tokens(len(indices))
+    return len(indices)
+
+
+def commit_provisional_recovery_slots(tree_cache: Any, req: Any) -> int:
+    """Transfer provisional recovery slots to req_to_token ownership."""
+
+    indices = getattr(req, "approx_kv_provisional_indices", None)
+    if indices is None:
+        return 0
+    req.approx_kv_provisional_indices = None
+    manager = getattr(tree_cache, "approx_kv", None)
+    if manager is not None:
+        manager.remove_provisional_tokens(len(indices))
     return len(indices)
 
 
@@ -555,10 +571,15 @@ def finalize_copy_reuse(
         if restored_indices is None or len(restored_indices) != resolved.restore_length:
             if restored_indices is not None:
                 allocator.free(restored_indices)
-            manager.record_fallback(
-                "device_allocation_failed",
-                resolved.restore_length,
-            )
+            # The cross-store allocator already records the specific terminal
+            # reason (cross_store_error or cross_store_reservation_failed).
+            # Recording device_allocation_failed as well double-counts the
+            # same tokens in one metric family.
+            if not manager.config.cross_store_enabled:
+                manager.record_fallback(
+                    "device_allocation_failed",
+                    resolved.restore_length,
+                )
             manager.record_request("reuse", "dense_fallback")
             return False
 
@@ -607,6 +628,7 @@ def finalize_copy_reuse(
         req.approx_kv_restored_len = resolved.restore_length
         # Provisional until prepare_for_extend copies them into req_to_token.
         req.approx_kv_provisional_indices = restored_indices
+        manager.add_provisional_tokens(len(restored_indices))
         req.approx_kv_stats = stats
         manager.record_request("reuse", "success")
         return True

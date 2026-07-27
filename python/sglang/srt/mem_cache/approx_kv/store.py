@@ -451,7 +451,12 @@ class ApproxKVSegmentStore:
 
     @property
     def orphan_count(self) -> int:
-        return 0
+        with self._lock:
+            available = set(self._object_keys)
+            return sum(
+                bool(record.dependencies.difference(available))
+                for record in self._records.values()
+            )
 
     def cross_store_resources(self) -> tuple[CrossStoreResource, ...]:
         with self._lock:

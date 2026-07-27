@@ -133,6 +133,151 @@ def seed_header(
     )
 
 
+def run_independent_control(
+    args: argparse.Namespace,
+    *,
+    header: list[int],
+    prompt: list[int],
+    register_metadata: dict[str, Any],
+    reuse_metadata: dict[str, Any],
+    dense_output_ids: list[int],
+) -> dict[str, Any]:
+    control_log = args.log.with_name(f"{args.log.stem}-control{args.log.suffix}")
+    plugin_env = {
+        "SGLANG_APPROX_KV_CORE": "1",
+        "SGLANG_APPROX_KV_CROSS_STORE": "1",
+        "SGLANG_APPROX_KV_BYTES_PER_TOKEN": str(args.kv_bytes_per_token),
+        "SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+        "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT": "0",
+        "SGLANG_APPROX_KV_TEST_ONLY": "1",
+        # Deliberately omit SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE.
+    }
+    server = launch_server(
+        model=args.model,
+        model_revision=args.model_revision,
+        port=args.port,
+        mem_fraction_static=args.mem_fraction_static,
+        chunked_prefill_size=args.chunked_prefill_size,
+        policy="hierarchical",
+        log_path=control_log,
+        plugin_env=plugin_env,
+        server_seed=29,
+    )
+    try:
+        wait_ready(
+            server,
+            port=args.port,
+            timeout_s=args.server_start_timeout_s,
+        )
+        flush_cache(args.port)
+        source_namespace = "p6-f-control-source"
+        source = generate(
+            port=args.port,
+            input_ids=prompt,
+            max_new_tokens=1,
+            extra_key=source_namespace,
+        )
+        registered = generate(
+            port=args.port,
+            input_ids=prompt,
+            max_new_tokens=1,
+            custom_params={"approx_kv": register_metadata},
+            extra_key=source_namespace,
+        )
+        recovery_namespace = "p6-f-control-recovery"
+        seed = seed_header(
+            port=args.port,
+            header=header,
+            namespace=recovery_namespace,
+        )
+        before = metric_text(args.port)
+        recovery = generate(
+            port=args.port,
+            input_ids=prompt,
+            max_new_tokens=args.max_new_tokens,
+            custom_params={"approx_kv": reuse_metadata},
+            extra_key=recovery_namespace,
+        )
+        after = metric_text(args.port)
+        success = labeled_metric_delta(
+            before,
+            after,
+            "sglang:approx_kv_requests_total",
+            {"operation": "reuse", "outcome": "success"},
+        )
+        reservation_failures = labeled_metric_delta(
+            before,
+            after,
+            "sglang:cross_store_reservation_failures_total",
+            {"requires_reset": "false"},
+        )
+        if success != 1 or reservation_failures != 0:
+            raise RuntimeError(
+                "the independent injection-disabled control did not recover "
+                f"normally: success={success}, failures={reservation_failures}"
+            )
+        if recovery["cached_tokens"] < args.header_tokens + args.body_tokens:
+            raise RuntimeError("the independent control did not attach the body")
+        if recovery["output_ids"] != dense_output_ids:
+            raise RuntimeError("the independent control output diverged from dense")
+
+        pre_flush = metric_snapshot(args.port)
+        accounting_before_flush = {
+            name: pre_flush.get(name)
+            for name in (
+                "sglang:cross_store_reserved_device_bytes",
+                "sglang:approx_kv_provisional_tokens",
+                "sglang:approx_kv_store_leases",
+                "sglang:approx_kv_store_orphans",
+            )
+        }
+        if any(value not in (0, 0.0) for value in accounting_before_flush.values()):
+            raise RuntimeError(
+                "independent control pre-flush accounting is not clean: "
+                f"{accounting_before_flush}"
+            )
+
+        flush_cache(args.port)
+        reset_metrics = metric_snapshot(args.port)
+        reset = clean_cache_invariant(reset_metrics)
+        store_reset = {
+            name: reset_metrics.get(name)
+            for name in (
+                "sglang:approx_kv_store_records",
+                "sglang:approx_kv_store_device_bytes",
+                "sglang:approx_kv_store_host_bytes",
+                "sglang:approx_kv_store_leases",
+                "sglang:approx_kv_store_orphans",
+                "sglang:approx_kv_provisional_tokens",
+                "sglang:cross_store_reserved_device_bytes",
+            )
+        }
+        if not reset["passed"] or any(
+            value not in (0, 0.0) for value in store_reset.values()
+        ):
+            raise RuntimeError(
+                f"independent control reset failed: {reset}, {store_reset}"
+            )
+        return {
+            "server_argv": list(server.command),
+            "plugin_env": server.plugin_env,
+            "server_log": str(control_log),
+            "server_log_sha256": file_sha256(control_log),
+            "source": source,
+            "registered": registered,
+            "seed": seed,
+            "recovery": recovery,
+            "recovery_success": success,
+            "reservation_failures": reservation_failures,
+            "output_matches_dense": recovery["output_ids"] == dense_output_ids,
+            "accounting_before_flush": accounting_before_flush,
+            "reset_invariant": reset,
+            "store_reset_gauges": store_reset,
+        }
+    finally:
+        stop_server(server)
+
+
 def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
     if args.header_tokens <= 0 or args.body_tokens <= 0:
         raise ValueError("prompt lengths must be positive")
@@ -147,6 +292,7 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
         "SGLANG_APPROX_KV_CROSS_STORE": "1",
         "SGLANG_APPROX_KV_BYTES_PER_TOKEN": str(args.kv_bytes_per_token),
         "SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+        "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT": "0",
         "SGLANG_APPROX_KV_TEST_ONLY": "1",
         "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE": "1",
     }
@@ -265,9 +411,10 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                 "reservation-failure fallback did not cover the body: "
                 f"{reservation_fallback_tokens}"
             )
-        if device_allocation_fallback_tokens < args.body_tokens:
+        if device_allocation_fallback_tokens != 0:
             raise RuntimeError(
-                "device-allocation fallback did not cover the body: "
+                "the reservation fallback was double-attributed as a generic "
+                "device allocation failure: "
                 f"{device_allocation_fallback_tokens}"
             )
         if dense_fallback_requests != 1:
@@ -311,6 +458,24 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
         if normal_recovery["output_ids"] != dense["output_ids"]:
             raise RuntimeError("normal same-context recovery diverged from dense")
 
+        pre_flush_metrics = metric_snapshot(args.port)
+        accounting_before_flush = {
+            name: pre_flush_metrics.get(name)
+            for name in (
+                "sglang:cross_store_reserved_device_bytes",
+                "sglang:approx_kv_provisional_tokens",
+                "sglang:approx_kv_store_leases",
+                "sglang:approx_kv_store_orphans",
+            )
+        }
+        if any(value not in (0, 0.0) for value in accounting_before_flush.values()):
+            raise RuntimeError(
+                "pre-flush accounting is not clean: " f"{accounting_before_flush}"
+            )
+        observed_peak_device_bytes = pre_flush_metrics.get(
+            "sglang:cross_store_peak_device_bytes"
+        )
+
         flush_cache(args.port)
         reset_metrics = metric_snapshot(args.port)
         reset = clean_cache_invariant(reset_metrics)
@@ -322,6 +487,8 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                 "sglang:approx_kv_store_host_bytes",
                 "sglang:approx_kv_store_leases",
                 "sglang:approx_kv_store_orphans",
+                "sglang:approx_kv_provisional_tokens",
+                "sglang:cross_store_reserved_device_bytes",
             )
         }
         if not reset["passed"] or any(
@@ -330,6 +497,19 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
             raise RuntimeError(
                 f"post-canary reset invariant failed: {reset}, {store_reset}"
             )
+
+        injection_server_argv = list(server.command)
+        injection_plugin_env = server.plugin_env
+        stop_server(server)
+        server = None
+        independent_control = run_independent_control(
+            args,
+            header=header,
+            prompt=prompt,
+            register_metadata=register_metadata,
+            reuse_metadata=reuse_metadata,
+            dense_output_ids=dense["output_ids"],
+        )
 
         payload = {
             "schema_version": 1,
@@ -343,8 +523,14 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
             "model_revision": args.model_revision,
             "image_digest": args.image_digest,
             "machine": machine_manifest(),
-            "server_argv": list(server.command),
-            "plugin_env": server.plugin_env,
+            "server_argv": [
+                injection_server_argv,
+                independent_control["server_argv"],
+            ],
+            "plugin_env": {
+                "injection_server": injection_plugin_env,
+                "control_server": independent_control["plugin_env"],
+            },
             "requested_capacity": {
                 "tokens": None,
                 "pages": None,
@@ -361,7 +547,7 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
             "segment_count": len(register_metadata["segments"]),
             "warmup_repeats": 0,
             "formal_repeats": 1,
-            "restarts": 1,
+            "restarts": 2,
             "fault_injected": True,
             "natural_pressure_reachability": False,
             "injection_point": "after_reserve",
@@ -390,6 +576,8 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                 "output_matches_dense": normal_recovery["output_ids"]
                 == dense["output_ids"],
             },
+            "independent_injection_disabled_control": independent_control,
+            "accounting_before_flush": accounting_before_flush,
             "reset_invariant": reset,
             "store_reset_gauges": store_reset,
             "ledger": {
@@ -408,10 +596,11 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                     "dense_fallback_requests": dense_fallback_requests,
                 },
                 "transfer": {
-                    "bytes": 0,
+                    "declared_bytes": 0,
+                    "measurement": "not_applicable_no_transfer",
                 },
                 "temporary_peak": {
-                    "bytes": args.body_tokens * args.kv_bytes_per_token,
+                    "observed_bytes": observed_peak_device_bytes,
                 },
             },
             "rho": {
@@ -430,7 +619,8 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
         validate_phase6_artifact(payload)
         return payload
     finally:
-        stop_server(server)
+        if server is not None:
+            stop_server(server)
 
 
 def main() -> int:

@@ -45,11 +45,13 @@ GAUGE_METRICS = (
     "sglang:kv_evictable_tokens",
     "sglang:kv_used_tokens",
     "sglang:cross_store_peak_device_bytes",
+    "sglang:cross_store_reserved_device_bytes",
     "sglang:approx_kv_store_records",
     "sglang:approx_kv_store_device_bytes",
     "sglang:approx_kv_store_host_bytes",
     "sglang:approx_kv_store_leases",
     "sglang:approx_kv_store_orphans",
+    "sglang:approx_kv_provisional_tokens",
 )
 
 FALLBACK_METRICS = (
