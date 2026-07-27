@@ -258,11 +258,10 @@ def run_independent_control(
             raise RuntimeError(
                 f"independent control reset failed: {reset}, {store_reset}"
             )
-        return {
+        result = {
             "server_argv": list(server.command),
             "plugin_env": server.plugin_env,
             "server_log": str(control_log),
-            "server_log_sha256": file_sha256(control_log),
             "source": source,
             "registered": registered,
             "seed": seed,
@@ -274,8 +273,13 @@ def run_independent_control(
             "reset_invariant": reset,
             "store_reset_gauges": store_reset,
         }
-    finally:
         stop_server(server)
+        server = None
+        result["server_log_sha256"] = file_sha256(control_log)
+        return result
+    finally:
+        if server is not None:
+            stop_server(server)
 
 
 def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
@@ -422,8 +426,15 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                 "the integrated reuse request was not labelled dense_fallback: "
                 f"{dense_fallback_requests}"
             )
-        if fallback["cached_tokens"] >= args.header_tokens + args.body_tokens:
-            raise RuntimeError("the injected request unexpectedly used recovered KV")
+        if (
+            dense["cached_tokens"] != args.header_tokens
+            or fallback["cached_tokens"] != args.header_tokens
+        ):
+            raise RuntimeError(
+                "the dense/fallback cache paths were not isolated at the "
+                f"header boundary: dense={dense['cached_tokens']}, "
+                f"fallback={fallback['cached_tokens']}"
+            )
         if fallback["output_ids"] != dense["output_ids"]:
             raise RuntimeError("the dense fallback output diverged from matched dense")
 
