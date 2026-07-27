@@ -199,7 +199,9 @@ def _run_stage(
     stage: str,
 ) -> dict[str, Any]:
     command = _command(output, instance_id, stage)
-    log_path = task_dir(output, instance_id) / f"V26_{stage}.log"
+    log_path = (
+        output / "orchestration_logs" / instance_id / f"V26_{stage}.log"
+    )
     log_path.parent.mkdir(parents=True, exist_ok=True)
     started = time.perf_counter()
     with log_path.open("a", encoding="utf-8") as log:
@@ -220,7 +222,10 @@ def _run_stage(
         "log_path": str(log_path),
     }
     write_json(
-        task_dir(output, instance_id) / f"V26_{stage}_STATUS.json",
+        output
+        / "orchestration_status"
+        / instance_id
+        / f"V26_{stage}_STATUS.json",
         value,
     )
     return value
