@@ -173,14 +173,14 @@ The caveat is permanent:
 
 3.2 P1 - BLOCKS PHASE 7 ENTRY OR CLAIM STRENGTH
 
-[ ] 6. Freeze the meaning of winner = NONE.
-       Accept it only as a promotion result for the tested implementation and
-       configuration, OR run a true same-runner factorial before making any
-       causal claim. The existing 2x2 is NOT a factorial: it splices P6-H and
-       CL1, which differ in runner, policy, chunk, plugin env, code SHA and
-       repeat count, and the low-pressure eviction telemetry does not cover
-       the whole target-allocation window. A header-dependent implementation
-       defect is not excluded.
+[x] 6. Freeze the meaning of winner = NONE.
+       DONE by accepting it only as a promotion result for the tested
+       implementation/configuration. No causal family claim is made.
+       The existing 2x2 is NOT a factorial: it splices P6-H and CL1, which
+       differ in runner, policy, chunk, plugin env, code SHA and repeat count,
+       and the low-pressure eviction telemetry does not cover the whole
+       target-allocation window. A header-dependent implementation defect
+       remains possible and must stay in the wording.
 
 [ ] 7. Correct guardrail semantics in V5.
        Separate same-context corruption detection from cross-context

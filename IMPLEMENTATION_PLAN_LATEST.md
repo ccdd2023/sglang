@@ -1117,8 +1117,8 @@ Early-stop：
 | 1. P0修复完成并有专门回归 | **已完成**，GPU验证通过 |
 | 2. CL1在修复后底座重跑并重新判定 | **已完成**；`NONE`仅是被测实现与冻结规则下的promotion结果，未排除header-dependent缺陷 |
 | 3. P6-H通过 | **已完成**；`status=valid`仅代表1 restart/2 round的8-token输出canary通过，不是bitwise KV或logit保真证明 |
-| 4. P6-4完整四rho矩阵valid或明确不可达 | **部分完成**；三个S4 cell中的四个non-R4 profile可达，所有顶层cell仍为`diagnostic-unavailable` |
-| 5. CL4双模型review与disposition | **已执行，正式结论为FAIL**；三个P0中provenance与S4/rho3已闭合，fallback集成证据仍未闭合 |
+| 4. P6-4完整四rho矩阵valid或明确不可达 | **已完成**；三个S4 cell中的四个non-R4 profile可达，R4与两个capacity-limit cell均有明确结论；所有顶层full-matrix cell仍为`diagnostic-unavailable` |
+| 5. CL4双模型review与disposition | **已完成**；formal Exit与targeted delta reviews最终均关闭P0-1/P0-3，无开放P0/P1，结论`PASS WITH CAVEATS` |
 
 最终状态：
 

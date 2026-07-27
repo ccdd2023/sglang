@@ -27,6 +27,22 @@
 
 ## 当前状态
 
+### 2026-07-27 当前无Phase6 blocker；剩余项均为Phase7 Entry
+
+- Phase6 technical Exit已是`PASS WITH CAVEATS`，无开放P0/P1。
+- 永久scope caveat：reservation-failure-associated fallback仅在test-only
+  fault-injected canary强度验证，`natural_pressure_reachability=false`。
+- 该caveat不再阻塞Phase6，但Phase7若依赖自然压力fallback，必须重新取证。
+- 当前真正阻塞Phase7 Entry的事项只有：
+  1. 归档V4并创建result-bound V5；
+  2. V5完成Sol/Opus独立review、互换、consolidate与主会话disposition；
+  3. 预注册Phase7 primary manifest；
+  4. 用户明确授权Phase7。
+- `winner=NONE`含义已冻结为被测实现、模型、prompt族、GPU、chunk配置和
+  exact-output promotion规则下的结果；未证明context差异是唯一原因，
+  未排除header-dependent实现缺陷。
+- 当前没有触发任何条件性重跑。
+
 ### 2026-07-27 Phase6 technical Exit最终为PASS WITH CAVEATS
 
 - 用户明确用V4 §15.1冻结的test-only路线取代此前方案C豁免。

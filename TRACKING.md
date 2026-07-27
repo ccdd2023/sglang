@@ -2687,3 +2687,14 @@ technical_exit = PASS WITH CAVEATS
   或原样携带该限制。
 - Phase6通过**不授权Phase7**。下一步判断为：需要创建result-bound V5，
   完成V5双模型review并预注册Phase7 primary manifest后，仍需用户明确授权。
+## 2026-07-27T16:30:00-07:00 — 核对剩余blocker：Phase6无开放项，只剩Phase7 Entry
+
+- 用户询问是否仍有未解决问题或blocker。
+- 核对SQL todo、`TODO_LOCAL.txt`与V4 §15.1后结论：
+  - Phase6 technical Exit=`PASS WITH CAVEATS`，无开放P0/P1；
+  - 自然压力fallback未证明是永久scope caveat，不是当前Phase6 blocker；
+  - `winner=NONE`有限含义已冻结，不需要再跑factorial即可进入下一计划阶段；
+  - 条件性P6-4/R2/R5重跑均未触发。
+- 当前Phase7 Entry仅被V5、V5双review、primary manifest和用户授权阻塞。
+- 修正V4 §15.1状态表中仍把P6-4写“部分完成”、CL4写“FAIL”的旧内容。
+- `TODO_LOCAL.txt`将winner=NONE语义项标为已完成。
