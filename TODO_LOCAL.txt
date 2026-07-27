@@ -118,15 +118,32 @@ All runners execute inside the immutable SM75 image with:
 [ ] Everything else in the Exit gate is satisfied. See PROJECT.md for the
     per-item table.
 
-[ ] Options, cheapest first:
-    - drive a deliberate store miss or a stale content hash in one P6-4 round
-      so the recovery path must fall back;
-    - or run the pre-registered single R2 explicit-fallback-counter cell that
-      section 6 already lists as a conditional retest.
+[x] RULED OUT by measurement, do not retry these:
+    - tuning rho. rho 2.5 also exhausts the device, so there is no band where
+      a reservation fails but the server survives;
+    - inflating --kv-bytes-per-token. CrossStoreBudget converts its limit and
+      its usage with the same factor, so the scaling cancels and
+      reservation_failures stays 0.
+
+[ ] The only remaining mechanism is the allocator's built-in fault_injector,
+    AllocationFailurePoint.AFTER_RESERVE, which the CPU tests already use. It
+    is not exposed by the runner CLI. NOT done deliberately: an injected
+    failure proves the fallback path works, which is a weaker and different
+    claim than "a reservation failure is naturally reachable under pressure".
+    Decide with the user which claim the Exit gate actually wants.
+
+[ ] The honest alternative is to fix the robustness gap first: make
+    alloc_token_slots degrade instead of killing the scheduler, then the
+    natural reservation failure becomes observable.
 
 [ ] Do NOT read rounds = 0 as "fallback is broken". The counter is a labelled
     Prometheus series that emits nothing when no event occurs, so absence of
     the series is indirectly_verified, never an explicit zero.
+
+[x] Running only exact_only and r2_like reaches status=valid for S4 rho1.1
+    and rho2.0. So the diagnostic-unavailable verdict across the full matrix
+    is caused solely by the r4_like ~5x profile, which is the exception the
+    contract already allows, not by a substrate problem.
 
 [x] P6-4 itself is DONE and must not be rerun as-is:
       run_id p6-4-20260727T104820Z, raw_sha256 11e85899774bb66f...

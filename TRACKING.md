@@ -2248,3 +2248,37 @@ P6-4最终结果（`run_id=p6-4-20260727T104820Z`，
    CLI暴露。
 
 本轮不做投机性改动，按事实记录。
+
+## 2026-07-27T04:55:00-07:00 — 首次取得valid cell；fallback可达性确认无法用配置获得
+
+两次补充实验：
+
+1. `--rhos 2.5`（`p6-4-fallback-probe-rho2p5.json`）：rho2.5同样不可达，
+   说明“可运行”与“device耗尽”之间的窗口很窄，无法靠调rho落进
+   “reservation失败但server存活”的区间。
+2. `--kv-bytes-per-token 458752`（4倍膨胀，
+   `p6-4-fallback-injection.json`）：仍`resv_fail=0`。原因已明确——
+   `CrossStoreBudget`的`reconcile_usage`用**同一个**`bytes_per_token`
+   同时换算limit与已用量，缩放在等式两边**互相抵消**，因此该参数无法制造
+   reservation失败。
+
+**重要新结果**：在只跑`exact_only`+`r2_like`时，
+**S4 rho1.1与S4 rho2.0首次达到`status=valid`**（`obs_cap`分别为
+`20713`、`11392`）。
+
+这确定了完整矩阵中所有cell为`diagnostic-unavailable`的**唯一原因**是
+`r4_like`（约5x multiplicity）不可达——即计划预先允许的R4例外，
+而不是底座本身存在问题。按契约的R4例外条款，这属于可接受结论。
+
+**fallback可达性的最终定性**：
+
+- `fallback_reachable`要求`dense_fallback`**且**`reservation_failures>0`；
+- dense fallback本身已可达并观测到（每个`exact_only` profile 4次）；
+- 但reservation失败在所有可配置的组合下都拿不到：能触发它的容量点，
+  server会先在`alloc_token_slots`抛`RuntimeError`死掉；
+- 该项**不能**通过调整rho、profile或bytes-per-token获得。
+
+唯一剩余可行手段是allocator已内建的
+`fault_injector`/`AllocationFailurePoint.AFTER_RESERVE`（CPU测试已在用），
+但需要在runner暴露该开关。**本轮不做**：注入式失败改变了证据的含义
+（证明的是“fallback路径可用”而非“压力下自然可达”），是否接受应由用户决定。

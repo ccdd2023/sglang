@@ -505,6 +505,22 @@ cell（S0/rho2、S4/rho3）在此之前就因`alloc_token_slots`抛`RuntimeError
 杀死server。修复方向是让allocation失败可记录地降级，或使用allocator已有的
 `fault_injector`注入一次受控reservation失败。
 
+补充结果（2026-07-27）：只跑`exact_only`+`r2_like`时，
+**S4 rho1.1与S4 rho2.0首次达到`status=valid`**。这确定完整矩阵中所有cell被
+判为`diagnostic-unavailable`的唯一原因是`r4_like`（约5x）不可达，
+即计划预先允许的R4例外，而非底座缺陷。
+
+reservation失败无法用配置获得，已实测排除两条路径：
+
+- rho2.5同样device耗尽，“可运行/耗尽”之间窗口过窄；
+- `--kv-bytes-per-token`放大4倍仍`resv_fail=0`，因为`CrossStoreBudget`
+  用同一单位换算limit与已用量，缩放在等式两边互相抵消。
+
+唯一剩余手段是allocator已内建的`fault_injector`
+（`AllocationFailurePoint.AFTER_RESERVE`，CPU测试已在用），需在runner暴露。
+**本轮未做**：注入式失败证明的是“fallback路径可用”而非“压力下自然可达”，
+含义不同，是否接受应由用户决定。
+
 因此Phase6 Exit只剩这一项未完全取得证据，其余全部满足。仍未进入Phase7。
 
 ### 2026-07-26 P6-4结果与CL3 Phase5零GPU重算
