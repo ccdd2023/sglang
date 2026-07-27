@@ -1,14 +1,15 @@
 # 会话交接
 
-最后更新：2026-07-26T17:52:35-07:00
+最后更新：2026-07-26T18:01:24-07:00
 
 ## 新会话启动顺序
 
 1. 阅读本文件，获取当前状态和下一步。
 2. 阅读 `PROJECT.md`，确认项目事实、决策和约束。
 3. 阅读 `IMPLEMENTATION_PLAN_LATEST.md`，获取当前可执行计划。
-4. 阅读 `TRACKING.md` 的最新记录，了解最近讨论过程。
-5. 开始工作后持续维护上述文件，不把重要信息只留在聊天中。
+4. 阅读 `TODO_LOCAL.txt`，获取可跨session接续的完整待办。
+5. 阅读 `TRACKING.md` 的最新记录，了解最近讨论过程。
+6. 开始工作后持续维护上述文件，不把重要信息只留在聊天中。
 
 ## 当前快照
 
@@ -67,6 +68,17 @@
   P6-4及明确claim触发的条件性补点。
 - 驱动恢复只需安全重启以加载已安装的`580.173.02`，不是升级驱动，也不需要
   重做Phase6 patch。
+- host已重启并验证恢复：
+  - loaded/installed/NVML均为`580.173.02`；
+  - SM75镜像内PyTorch CUDA smoke通过；
+  - 当前运行Docker容器数为0；
+  - CL1/CL2/P6-H/P6-4不再受驱动阻塞。
+- 下一执行项为CL1 R0/R1 candidate qualification。
+- 完整跨session待办固定在根目录`TODO_LOCAL.txt`。
+- Phase7不立即整体改版：先执行CL1/CL2/P6-H/P6-4；结果review后再创建
+  result-bound新latest版本。
+- 已知的Phase7合同修正先作为冻结边界保留：request-path/N摊销、完整candidate
+  enum、方向性pressure、clean-tree provenance，以及P7-3专用HiCache adapter gate。
 
 ### 2026-07-25T23:47:04-07:00 V4 latest plan完成双模型review并定稿
 

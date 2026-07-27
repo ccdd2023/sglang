@@ -1654,3 +1654,31 @@
 - Phase6代码与P6-0已提交推送，不依赖旧module版本，不需要重新实现patch。
 - 重启后先核对`/proc/driver/nvidia/version`、`modinfo`、`nvidia-smi`和CUDA
   smoke，再继续CL1/CL2/P6-H/P6-4。
+
+## 2026-07-26T17:58:06-07:00 — host重启后GPU门禁解除
+
+- host启动时间为`2026-07-26 17:55`，`reboot-required`已清除。
+- loaded NVIDIA module、installed module与NVML均为`580.173.02`；
+  `nvidia-smi`正常识别RTX 2080 SUPER 8 GiB。
+- 正式SM75镜像内PyTorch `2.9.1+cu129`、CUDA 12.9、compute capability 7.5
+  和CUDA tensor smoke全部通过。
+- 当前无运行中的Docker容器。
+- CL1、CL2、P6-H、P6-4和CL4从driver-blocked恢复为pending；Phase6 patch
+  无需重新实现。
+
+## 2026-07-26T18:01:24-07:00 — 决定Phase7采用两阶段更新
+
+- 重新核对V4 Phase7后，决定不在门禁结果前整体重写，也不把已知合同问题推迟。
+- 现在冻结与结果无关的修正：request-path/N摊销、完整candidate enum、
+  requester→victim方向、clean source tree/model revision/result commit provenance。
+- 明确P6-H只验证generic allocator-CPU host roundtrip；若CL1存在practical，
+  P7-3仍需专用HiRadix/Unified cross-store adapter gate；practical=NONE则跳过。
+- CL1/CL2/P6-H/P6-4及双模型review完成后，再归档V4并生成result-bound新latest
+  plan，冻结candidate、chunk、实际矩阵和early-stop分支。
+
+## 2026-07-26T18:01:24-07:00 — 建立跨session本地待办清单
+
+- 按用户要求创建根目录`TODO_LOCAL.txt`。
+- 清单覆盖新session恢复步骤、已完成基线、CL1/CL2/P6-H/P6-4/CL4严格顺序、
+  每项验收条件、Phase7待授权任务、条件性重测和持久化规则。
+- `HANDOFF.md`启动顺序已加入该文件，后续session不需要依赖旧聊天或session数据库。

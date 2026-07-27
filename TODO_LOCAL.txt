@@ -1,0 +1,414 @@
+CODE-AGENT KVCACHE LOCAL TODO LIST
+==================================
+
+Last updated: 2026-07-26T18:01:24-07:00
+Authority: PROJECT.md and IMPLEMENTATION_PLAN_LATEST.md
+Current boundary: do not enter Phase 7 without reporting to the user.
+
+
+1. PICK-UP CHECKLIST FOR A NEW SESSION
+--------------------------------------
+
+[ ] Read, in order:
+    1. HANDOFF.md
+    2. PROJECT.md
+    3. IMPLEMENTATION_PLAN_LATEST.md
+    4. TODO_LOCAL.txt
+    5. latest TRACKING.md entries
+
+[ ] Confirm repositories:
+    authority:
+      /home/chris/Workspaces/code-agent-kvcache
+      branch project/code-agent-kvcache-docs
+
+    implementation:
+      /home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate
+      branch research/cross-store-substrate
+      expected HEAD c487e36af5f7ce4da556da1b88c85df750a0b14d
+
+[ ] Confirm local and remote implementation SHA are identical.
+
+[ ] Confirm the implementation worktree is clean. All GPU runners reject a
+    dirty source tree.
+
+[ ] Confirm no unrelated Docker containers are running:
+      docker ps
+
+[ ] Confirm GPU health:
+      modinfo -F version nvidia
+      sed -n '1p' /proc/driver/nvidia/version
+      nvidia-smi
+
+    Expected driver: 580.173.02
+    Expected GPU: NVIDIA GeForce RTX 2080 SUPER, 8192 MiB, SM75
+
+[ ] Use the immutable SM75 image:
+      ghcr.io/ccdd2023/sglang@sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781
+
+[ ] Run containers with the host UID/GID to avoid root-owned artifacts.
+
+[ ] Preserve the central log:
+      /home/chris/Workspaces/kvcache-research/results/BENCHMARK_RUN_LOG.jsonl
+
+
+2. COMPLETED BASELINE - DO NOT REDO
+-----------------------------------
+
+[x] Phase 4/5 CL0 authority manifest and supersession cleanup.
+[x] Phase 5 zero-GPU recalculation and variable-size offline optimum.
+[x] Corrected R2/R5 rho2 causal reruns.
+[x] Phase 6 cross-store core implementation.
+[x] Phase 6 P6-0 contract freeze.
+[x] Opus and GPT-5.6 Sol implementation reviews; final result:
+    no remaining P0/P1.
+[x] Related CPU regression:
+    169 passed, 1 skipped.
+[x] Formatting/static checks:
+    isort, Black, ruff F401/F821/UP037, git diff --check.
+[x] GPU reboot recovery:
+    loaded/installed/NVML all 580.173.02.
+[x] Container CUDA smoke:
+    PyTorch 2.9.1+cu129, CUDA 12.9, SM75, tensor result 28.0.
+
+Persistent commits:
+
+    Phase 6 core:
+      391bb89901cebebd50ffc9f27a648b09a99abf7e
+
+    Phase 6 branch head / P6-0 artifact:
+      c487e36af5f7ce4da556da1b88c85df750a0b14d
+
+    P6-0 contract SHA256:
+      a498daa36449993ff166dd70870005be22a1da0a7d09e97e8f779d72cbf3fb30
+
+    fixed40 workload SHA256:
+      30c9ae8de429a6389e58bbdcdf096101cf6296ff14d4e6fcf5c2b87c6b1f0749
+
+
+3. IMMEDIATE EXECUTION ORDER BEFORE PHASE 7
+-------------------------------------------
+
+The order is strict:
+
+    CL1 -> CL2 -> P6-H -> P6-4 -> CL4/Phase6 Exit Review -> STOP
+
+
+3.1 CL1 - R0/R1 CANDIDATE QUALIFICATION
+
+[ ] Mark CL1 in progress in the active task tracker.
+
+[ ] Run one-restart screening:
+    candidates:
+      r0, r1_k0, r1_k4, r1_k8, r1_k16, r1_k32
+
+    body:
+      1024, 2048
+
+    fixed:
+      header=64
+      rho_logical_demand=2.0
+      GPU-only
+      scheduler=S0
+      prefetch=P0
+      cumulative causal prefix
+      isolated extra_key
+      paired dense/filler
+
+    runner:
+      python3 -m benchmark.approx_kv.run_cl1_qualification
+
+    required provenance:
+      --source-git-sha c487e36af5f7ce4da556da1b88c85df750a0b14d
+      --model Qwen/Qwen3-0.6B
+      --model-revision c1899de289a04d12100db370d81485cdf75e47ca
+      --image-digest sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781
+      --central-log /home/chris/Workspaces/kvcache-research/results/BENCHMARK_RUN_LOG.jsonl
+
+[ ] Check every formal pair:
+    - request completes;
+    - expected cached-token path matches;
+    - explicit fallback is zero for a valid recovery;
+    - first token matches paired dense;
+    - independent 8-token output matches;
+    - pool reset passes;
+    - source tree/model/image/server-log provenance is complete.
+
+[ ] Use request-path, not target-only TTFT, for candidate promotion.
+
+[ ] Report:
+    - target-only speedup;
+    - request-path speedup;
+    - paired request-path and target p95;
+    - N=1/2/4/8 amortized speedup;
+    - break-even reuses;
+    - per-restart samples.
+
+[ ] Promotion requirements:
+    - all guardrails pass;
+    - body2048 request-path >1.0x in at least 2/3 restarts;
+    - paired target p95 ratio <=1.05;
+    - N=8 amortized speedup >1.0x;
+    - select highest median paired request-path;
+    - within 2%, prefer more repair and lower p95;
+    - otherwise practical family=NONE.
+
+[ ] After screening, run k0 and the provisional winner to 3 restarts.
+    If the provisional result is R0, R1-k0 or NONE, preserve that exact value.
+
+[ ] Save raw/compact artifacts, commit them, and push with explicit ccdd2023
+    SSH identity.
+
+
+3.2 CL2 - CHUNK CONFIGURATION GATE
+
+[ ] Start only after CL1 candidate status is frozen.
+
+[ ] Run:
+    arms:
+      dense, r1_k0, selected candidate
+
+    selected candidate may be:
+      r0, r1_k0, r1_k4, r1_k8, r1_k16, r1_k32, NONE
+
+    body:
+      768, 1024
+
+    chunked_prefill_size:
+      1024, 4096
+
+    fixed:
+      rho_logical_demand=2.0
+      restart=2
+      formal=2
+
+    runner:
+      python3 -m benchmark.approx_kv.run_cl2_chunk_gate
+
+    use:
+      --selected-candidate <candidate>
+
+[ ] Freeze one Phase 7 chunk size and its sensitivity/disclosure text.
+
+[ ] If selected chunk is 1024:
+    keep the current P6-0 contract.
+
+[ ] If selected chunk is not 1024:
+    - generate a new CL2-bound P6-0 contract with --chunk-source cl2;
+    - do not overwrite the existing provisional artifact;
+    - commit and push the new contract;
+    - run P6-4 only with the selected chunk.
+
+
+3.3 P6-H - GENERIC HOST ROUNDTRIP CANARY
+
+[ ] Run after CL2 with the selected chunk:
+      python3 -m benchmark.approx_kv.run_p6_h_host_roundtrip
+
+[ ] Required settings:
+    restart=1
+    warmup=1
+    formal=2
+    performance claim disabled
+
+[ ] Required evidence:
+    - device approximate object really demotes to host;
+    - host byte/accounting is correct;
+    - demand H2D load completes;
+    - D2H/H2D measured bytes and duration exist;
+    - recovery outcome is server-confirmed;
+    - transfer lock releases;
+    - temporary peak fits;
+    - records/device bytes/host bytes/leases/orphans all return to zero;
+    - pool reset passes.
+
+[ ] Scope wording:
+    host_backend=allocator_cpu_copy
+    hicache_tier_exercised=false
+
+[ ] Do not claim this qualifies Phase 7 HiCache.
+
+[ ] Commit and push the result artifact.
+
+
+3.4 P6-4 - FIXED40 CAPACITY PILOT
+
+[ ] Start after CL2, using the selected chunk.
+
+[ ] Fixed workload:
+    exact_only
+    R0-like
+    R1-like k32 worst-case resident/temporary footprint
+    R2-like approximately 2x
+    R4-like approximately 5x
+
+    body=2048
+    rho_logical_demand=1.1,1.5,2.0,3.0
+    S4 at all four rho values
+    S0 paired at rho2
+    restart=1
+    warmup=1
+    formal=2
+    performance ranking disabled
+
+    runner:
+      python3 -m benchmark.approx_kv.run_p6_4_capacity_pilot
+
+[ ] Do not change the 40 logical objects across capacity cells.
+
+[ ] Change capacity only through --max-total-tokens.
+
+[ ] Validate:
+    - requested vs observed capacity tolerance;
+    - exact-only baseline;
+    - approximate recovery actually occurs;
+    - exact requester -> approximate victim bytes >0;
+    - approximate requester -> exact victim bytes >0;
+    - server cache outcomes are authoritative;
+    - physical rho includes header plus peak max(resident,temp) multiplicity;
+    - registration outcomes are success/partial/dense_only/error per request;
+    - fallback is associated with the same replay reservation failure;
+    - rollback/fallback reachability;
+    - orphan=0;
+    - complete pool/store reset.
+
+[ ] Status vocabulary:
+    valid
+    diagnostic-unavailable
+    invalid
+
+[ ] R4-like exception:
+    if 5x is unreachable, one and only one re-freeze may reduce representation
+    multiplicity without changing object lengths. If still unreachable, record
+    diagnostic-unavailable.
+
+[ ] Commit and push the result artifact.
+
+
+3.5 CL4 + PHASE 6 EXIT DUAL REVIEW
+
+[ ] Run independent reviews:
+    - GPT-5.6 Sol, Max Thinking, long context;
+    - Claude Opus 5, Max Thinking, long context.
+
+[ ] Exchange full reports and cross-consolidate.
+
+[ ] Main-session disposition must freeze:
+    - practical candidate or NONE;
+    - selected chunk;
+    - P6-H validity and exact scope;
+    - P6-4 reachable/unreachable profiles;
+    - directional pressure evidence;
+    - stop/continue manifest;
+    - all accepted P0 closure.
+
+[ ] Phase 6 Exit requires:
+    - exact/approx/host byte accounting;
+    - both directional pressure paths;
+    - allocation rollback or explicit fallback;
+    - fixed40 four-rho result or explicit diagnostic-unavailable;
+    - R1-like worst-case result or explicit diagnostic-unavailable;
+    - generic host canary;
+    - no leak/orphan;
+    - complete source/result/env/raw/test provenance.
+
+[ ] Commit and push the consolidated review and final Phase 6 artifacts.
+
+[ ] STOP before Phase 7 and report to the user.
+
+
+4. RESULT-BOUND PHASE 7 PLAN UPDATE
+-----------------------------------
+
+[ ] Do not rewrite the complete Phase 7 matrix before Section 3 is complete.
+
+[ ] After CL4/Phase6 Exit:
+    - archive IMPLEMENTATION_PLAN_LATEST.md V4;
+    - create a new result-bound latest version;
+    - review it independently with Sol and Opus;
+    - exchange reports and consolidate;
+    - freeze the actual candidate, chunk, matrix, budget and early-stop paths.
+
+Known Phase 7 contract changes that must be included:
+
+[ ] Candidate semantics include R0, R1-k0, selected R1-k or NONE.
+
+[ ] Recovery promotion and reporting use complete request-path plus
+    N=1/2/4/8 amortization and break-even.
+
+[ ] Directional pressure telemetry is preserved:
+    exact requester -> approximate victim
+    approximate requester -> exact victim
+
+[ ] Every run records:
+    model revision
+    clean source commit
+    source tree SHA
+    image digest
+    server argv/plugin env
+    raw/server-log SHA256
+    independent result commit
+
+[ ] P6-H does not unlock the HiCache track.
+
+[ ] If practical=NONE:
+    - skip practical scheduler revalidation;
+    - skip practical HiCache and prefetch tracks;
+    - retain R0 ceiling, R2 oracle and R4 diagnostic;
+    - exact-only prefetch, if run, is only a Phase5 regression canary.
+
+[ ] If practical exists and the user authorizes the host track:
+    - implement a dedicated HiRadix/Unified cross-store adapter gate first;
+    - do not remove the current startup rejection until its lifecycle,
+      host-reference and allocator semantics are tested;
+    - then run P7-3 feasibility before any host matrix or prefetch claim.
+
+
+5. PHASE 7 TODO - NOT AUTHORIZED YET
+-----------------------------------
+
+[ ] P7-0 freeze candidate manifest.
+[ ] P7-1 recovery evaluation.
+[ ] P7-2 scheduler revalidation and main matrix.
+[ ] P7-3 dedicated HiCache adapter gate and host demand-load, if applicable.
+[ ] P7-4 prefetch functionality and async performance, if applicable.
+[ ] P7-5 final validation and dual review.
+
+Do not start any item in this section before the user explicitly authorizes
+Phase 7 after reviewing the Phase 6 report.
+
+
+6. CONDITIONAL RETESTS - DO NOT RUN BY DEFAULT
+----------------------------------------------
+
+[ ] Rerun affected P6-4 cells only if CL2 changes the chunk configuration after
+    a provisional cell was already run.
+
+[ ] Run R2/R5 matched repair ratio and matched pressure only if retaining a
+    mechanism-ranking claim.
+
+[ ] Run R2/R5 rho1.1/rho3 only if publishing a rho-robustness claim.
+
+[ ] Run one R2 explicit-fallback-counter cell only if direct zero-fallback
+    evidence is required.
+
+[ ] Run a one-request registration prototype only if intrinsic preparation
+    cost is required.
+
+[ ] Do not rerun the complete Phase 4 or Phase 5 matrices.
+
+[ ] Do not repeat the corrected R2/R5 rho2 matrix.
+
+
+7. PERSISTENCE RULES AFTER EVERY MILESTONE
+------------------------------------------
+
+[ ] Update PROJECT.md.
+[ ] Update HANDOFF.md for phase/blocker/next-step changes.
+[ ] Append a timestamped TRACKING.md entry; never rewrite old entries.
+[ ] Update this TODO_LOCAL.txt.
+[ ] Update the session plan.md if the active session has one.
+[ ] Run the targeted tests/static checks required by the changed artifact.
+[ ] Commit results with the Copilot co-author trailer.
+[ ] Before GitHub writes, verify explicit ccdd2023 identity.
+[ ] Push the implementation/result branch and compare local/remote SHA.
+[ ] Push the authority docs branch and compare local/remote SHA.

@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-26T17:52:35-07:00
+最后更新：2026-07-26T18:01:24-07:00
 
 ## 项目概况
 
@@ -128,6 +128,47 @@
   `580.173.02`。不建议在图形会话和活动SSH/tmux存在时强制卸载NVIDIA模块。
 - 重启后只需验证module/NVML/CUDA smoke；仅当真实GPU测试暴露API兼容问题时
   才需要新的代码修复，不预先重做patch。
+
+### NVIDIA重启后验证结果
+
+- host已于`2026-07-26 17:55`重启，`reboot-required`标记已清除。
+- loaded module、installed module与NVML现均为`580.173.02`。
+- `nvidia-smi`正常识别`NVIDIA GeForce RTX 2080 SUPER`、8192 MiB。
+- 正式SM75镜像
+  `ghcr.io/ccdd2023/sglang@sha256:0be6e16e...`内验证：
+  - PyTorch `2.9.1+cu129`；
+  - CUDA build `12.9`；
+  - `torch.cuda.is_available() == True`；
+  - compute capability `(7, 5)`；
+  - CUDA tensor smoke结果`28.0`。
+- 当前无运行中的Docker容器；GPU实验门禁已解除。
+- Phase6 patch无需重做；下一步按既定顺序执行CL1。
+
+### Phase7计划更新时机
+
+- 当前建议不立即重写整个Phase7，也不等待所有门禁结束后才处理任何计划问题，
+  而是分两步：
+  1. 现在记录已知、与实验结果无关的合同修正；
+  2. CL1/CL2/P6-H/P6-4完成并双模型review后，再创建新的latest plan版本，
+     冻结真实candidate、chunk、矩阵和停止分支。
+- 当前已知合同修正：
+  - CL1 promotion以完整request-path和N=1/2/4/8摊销为依据；
+  - CL2必须支持R0、R1-k0、selected R1-k和NONE；
+  - Phase7记录exact→approx与approx→exact requester/victim方向；
+  - Phase7 provenance必须含model revision、clean source tree SHA与独立result commit；
+  - P6-H只证明generic allocator-CPU host roundtrip，不能解锁HiCache track；
+  - P7-3若practical存在，仍需专用HiRadix/Unified cross-store adapter gate；
+    practical=NONE时不实现该adapter并直接跳过practical host/prefetch track。
+- 必须等待门禁结果才能决定：
+  - practical candidate或NONE；
+  - 最终chunk为1024或4096；
+  - P6-4哪些footprint可达；
+  - P7-1/P7-2实际矩阵裁剪；
+  - 是否值得实现P7-3 host adapter及执行P7-4。
+- 因此当前V4阶段结构保持有效；门禁完成后再归档V4并用Sol/Opus review新的
+  result-bound latest版本。
+- 根目录`TODO_LOCAL.txt`保存全部当前、条件性和待授权任务，作为聊天/session
+  中断后的固定恢复入口。
 
 - 用户已将当前实验明确收窄为：不研究 AST、label、自动分段或 indexing；手工固定一个大代码段，在不同 role/prefix/context 下做有损 KV 恢复与调度实验。
 - “有损 KV”专指避免完整目标-context prefill，通过 raw KV reuse + RoPE、KVCOMM base/offset/anchor 或局部 recompute/repair 近似恢复 KV；不指量化、低比特或普通 KV pruning。

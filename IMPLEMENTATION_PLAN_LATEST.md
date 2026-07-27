@@ -4,9 +4,9 @@
 >
 > 状态：Current / Latest
 >
-> 最后更新：2026-07-26T14:41:07-07:00
+> 最后更新：2026-07-26T17:58:06-07:00
 >
-> 当前阶段：CL0、Phase6 P6-0/P6-1/P6-2/P6-3实现及P6-0合同已提交推送；CL1/CL2/P6-H/P6-4因GPU驱动版本不匹配阻塞；未进入Phase7。
+> 当前阶段：CL0、Phase6 P6-0/P6-1/P6-2/P6-3实现及P6-0合同已提交推送；GPU重启验证通过，下一项为CL1；未进入Phase7。
 >
 > 取代版本：[`IMPLEMENTATION_PLAN_V3_ARCHIVED.md`](IMPLEMENTATION_PLAN_V3_ARCHIVED.md)
 
