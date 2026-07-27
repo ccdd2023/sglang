@@ -29,6 +29,8 @@ from benchmark.multi_workflow.bridge_reuse_litellm_model import (
 from benchmark.multi_workflow.run_bridge_reuse_agent_experiment import (
     CONFIG,
     DATASET,
+    REGISTRATION as DEFAULT_EVAL_REGISTRATION,
+    SNAPSHOT as DEFAULT_EVAL_SNAPSHOT,
     MODEL,
     launch_server,
     load_jsonl,
@@ -77,10 +79,23 @@ MEM_FRACTION_STATIC = 0.80
 REQUEST_TIMEOUT_SECONDS = int(
     os.environ.get("IMPACTKV_REQUEST_TIMEOUT_SECONDS", "900")
 )
+DATASET_ROOT = Path(os.environ.get("IMPACTKV_DATASET_ROOT", str(DATASET)))
+EVAL_REGISTRATION = Path(
+    os.environ.get(
+        "IMPACTKV_EVAL_REGISTRATION",
+        str(DEFAULT_EVAL_REGISTRATION),
+    )
+)
+EVAL_SNAPSHOT = Path(
+    os.environ.get(
+        "IMPACTKV_EVAL_SNAPSHOT",
+        str(DEFAULT_EVAL_SNAPSHOT),
+    )
+)
 
 
 def _dataset_rows() -> list[dict[str, Any]]:
-    path = DATASET / "test.jsonl"
+    path = DATASET_ROOT / "test.jsonl"
     return [
         json.loads(line)
         for line in path.read_text(encoding="utf-8").splitlines()
@@ -324,8 +339,12 @@ def register(output: Path) -> dict[str, Any]:
             "official_evaluation_required_before_accuracy_claim": True,
         },
         "inputs": {
-            "dataset": str(DATASET / "test.jsonl"),
-            "dataset_sha256": sha256(DATASET / "test.jsonl"),
+            "dataset": str(DATASET_ROOT / "test.jsonl"),
+            "dataset_sha256": sha256(DATASET_ROOT / "test.jsonl"),
+            "evaluation_registration": str(EVAL_REGISTRATION),
+            "evaluation_registration_sha256": sha256(EVAL_REGISTRATION),
+            "evaluation_snapshot": str(EVAL_SNAPSHOT),
+            "evaluation_snapshot_sha256": sha256(EVAL_SNAPSHOT),
             "config": str(CONFIG),
             "config_sha256": sha256(CONFIG),
             "source_sha256": {
@@ -915,6 +934,8 @@ def evaluate(output: Path) -> dict[str, Any]:
                 run_dir=output / arm,
                 arm=f"v25-paired-{arm}",
                 instance_ids=[INSTANCE_ID],
+                registration=EVAL_REGISTRATION,
+                snapshot=EVAL_SNAPSHOT,
             )
     return {
         "runtime_status": runtime["status"],

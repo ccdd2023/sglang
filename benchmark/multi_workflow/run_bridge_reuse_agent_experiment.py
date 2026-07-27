@@ -685,18 +685,20 @@ def run_official_evaluation(
     run_dir: Path,
     arm: str,
     instance_ids: list[str] | None = None,
+    registration: Path = REGISTRATION,
+    snapshot: Path = SNAPSHOT,
 ) -> dict[str, Any]:
     predictions = run_dir / "predictions.jsonl"
     telemetry = run_dir / "TELEMETRY.json"
     normalize_predictions(
         run_dir,
-        REGISTRATION,
+        registration,
         predictions,
         telemetry,
         f"impactkv__bridge-agent-{arm}-rolling6",
         allow_partial=instance_ids is not None,
     )
-    frozen = read_json(REGISTRATION)
+    frozen = read_json(registration)
     ids = instance_ids or [
         row["instance_id"] for row in frozen["instances"]
     ]
@@ -711,7 +713,7 @@ def run_official_evaluation(
         "-m",
         "swebench.harness.run_evaluation",
         "--dataset_name",
-        str(SNAPSHOT),
+        str(snapshot),
         "--split",
         frozen["dataset"]["split"],
         "--predictions_path",
