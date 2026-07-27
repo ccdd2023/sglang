@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "artifact": "phase6-exit-disposition",
+  "timestamp": "2026-07-27T15:55:00-07:00",
+  "implementation_head_before_disposition": "fd63aa7f67032e1649e15443a144436f809af0da",
+  "technical_exit": "pass_with_caveats",
+  "phase7_authorized": false,
+  "scope": "Phase 6 cross-store substrate and feasibility only; no scheduler, prefetch, practical winner, or natural-pressure fallback performance claim.",
+  "gate_items": [
+    {
+      "id": 1,
+      "item": "exact, approximate and host objects safely compete",
+      "verdict": "satisfied_with_scope",
+      "evidence": ["p6-h.json", "p6-4.json"],
+      "caveat": "Exact and device-approximate objects share the device budget. Host uses a separate host limit. Exact-host / HiCache unification is not implemented."
+    },
+    {
+      "id": 2,
+      "item": "bidirectional pressure",
+      "verdict": "satisfied",
+      "evidence": {
+        "exact_requester_to_approximate_victim_bytes": 47475326976,
+        "approximate_requester_to_exact_victim_bytes": 58778517504
+      }
+    },
+    {
+      "id": 3,
+      "item": "allocation failure rollback",
+      "verdict": "satisfied_with_scope",
+      "evidence": ["test_fault_injection_rolls_back_reversible_actions", "P6-F v3"],
+      "caveat": "Reversible actions are rolled back. Irreversible victims are not restored; they are correctly accounted and may require reset."
+    },
+    {
+      "id": 4,
+      "item": "fixed40 four-rho result or explicit unreachable conclusion",
+      "verdict": "satisfied",
+      "evidence": ["p6-4.json", "diagnostic-C-store-state-at-oom.json"],
+      "caveat": "Every top-level full-matrix cell is diagnostic-unavailable because R4-like is unreachable. Four non-R4 profiles are reachable in three S4 cells. S0/rho2 and S4/rho3 have independently measured capacity-limit death states."
+    },
+    {
+      "id": 5,
+      "item": "R1-like worst-case footprint",
+      "verdict": "satisfied",
+      "evidence": "r1_like_k32 is reachable and valid in both formal rounds at S4 rho1.1, rho1.5 and rho2.0"
+    },
+    {
+      "id": 6,
+      "item": "generic host roundtrip canary",
+      "verdict": "satisfied_with_scope",
+      "evidence": "p6-h.json",
+      "caveat": "One restart, two formal rounds, eight-token output canary. Does not establish bitwise KV/logit fidelity or HiCache qualification."
+    },
+    {
+      "id": 7,
+      "item": "no leak, no orphan",
+      "verdict": "satisfied_for_completed_runs",
+      "evidence": ["P6-H clean reset", "P6-4 completed rounds", "P6-F v3 pre-flush and post-reset reserved/provisional/lease/orphan gauges"]
+    },
+    {
+      "id": 8,
+      "item": "same-context pressure reuse output canary",
+      "verdict": "satisfied_with_scope",
+      "evidence": "P6-H two eight-token rounds match dense",
+      "caveat": "Output-token canary only; not a general KV-fidelity claim."
+    },
+    {
+      "id": 9,
+      "item": "reservation-failure-associated dense fallback",
+      "verdict": "verified_at_fault_injected_canary_strength",
+      "evidence": "p6-f-v3-fallback-canary.json",
+      "details": {
+        "reservation_failures": 1,
+        "reuse_dense_fallback_requests": 1,
+        "cross_store_reservation_failed_tokens": 1024,
+        "device_allocation_failed_tokens": 0,
+        "dense_and_fallback_cached_tokens": 64,
+        "output_completed_and_matches_dense": true,
+        "independent_injection_disabled_control": true,
+        "pre_flush_accounting_clean": true,
+        "post_reset_accounting_clean": true
+      },
+      "caveat": "fault_injected=true; natural_pressure_reachability=false. Natural reservation-failure reachability under pressure remains unproven and must not be claimed."
+    },
+    {
+      "id": 10,
+      "item": "raw, commit, environment, log and test provenance",
+      "verdict": "satisfied_for_formal_exit_package",
+      "evidence": "RESULT_MANIFEST.json --check verifies 47/47 artifacts against containing commits; raw JSONL and primary P6-H/P6-4/P6-F logs are versioned",
+      "caveat": "Historical failed-attempt and optional diagnostic logs outside the formal Exit package may remain unversioned."
+    }
+  ],
+  "review_disposition": {
+    "initial_full_exit_review": "fail",
+    "initial_blockers": ["integrated fallback unproven", "S4/rho3 capacity extrapolated", "provenance incomplete"],
+    "closed": {
+      "integrated_fallback": "P6-F v3; both targeted reviewers PASS at fault-injected-canary strength",
+      "s4_rho3": "direct 0.05-second death-state telemetry",
+      "provenance": "versioned raw telemetry and primary logs plus automated result-manifest validation"
+    },
+    "final_reviewer_a": "PASS WITH CAVEATS; P0-1 and P0-3 CLOSED; no new P0/P1",
+    "final_reviewer_b": "PASS WITH CAVEATS; P0-1 and P0-3 CLOSED; no new P0/P1",
+    "main_session": "PASS WITH CAVEATS"
+  },
+  "closeout_inputs_not_phase6_claims": {
+    "cl1": "No candidate passed the frozen exact-output promotion rule in the tested implementation/configuration. The eviction-dependent prefix-overwrite defect is excluded, but context difference is not proven causal and header-dependent defects remain possible.",
+    "cl2": "At body1024, coupled chunk/max-prefill configuration creates a dense chunk-boundary penalty. Body2048 was not measured; do not generalize.",
+    "cl3": "S4's unique advantage over S1-S3 appears only in workflow-only; all-reusable has similar descriptive gains versus S0 and insufficient independent restarts for policy ranking."
+  },
+  "next_boundary": [
+    "Do not enter Phase 7 without explicit user authorization.",
+    "Create and independently review a result-bound V5 plan.",
+    "Pre-register the Phase 7 primary manifest.",
+    "Carry fault-injected-only and natural-pressure-not-proven fallback caveats into any Phase 7 claim that depends on reservation failure."
+  ]
+}
