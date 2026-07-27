@@ -7,7 +7,75 @@ from benchmark.multi_workflow.coding_reuse_policy import (
     latest_group_risk_reasons,
     select_failure_memory_groups,
     select_reuse_groups,
+    select_version_graph_groups,
 )
+
+
+def _command_group(command: str, output: str = "") -> list[dict]:
+    return [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {"command": command},
+                    }
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": f"<returncode>0</returncode><output>{output}</output>",
+        },
+    ]
+
+
+def test_version_graph_removes_stale_file_observation() -> None:
+    groups = [
+        _command_group("cat /testbed/pkg/drop.py", "old source"),
+        _command_group("cat /testbed/pkg/keep.py", "stable source"),
+        _command_group(
+            "apply_patch <<'PATCH'\n"
+            "*** Update File: pkg/drop.py\n"
+            "@@\n-old\n+new\n"
+            "PATCH"
+        ),
+        _command_group("cat /testbed/pkg/other.py", "other source"),
+        _command_group("rg symbol /testbed/pkg/keep.py", "match"),
+        _command_group("cat /testbed/pkg/final.py", "final source"),
+    ]
+
+    selected, decision = select_version_graph_groups(groups)
+
+    # groups[0] rolls out; retained group 0 (keep.py) remains valid even though
+    # a later mutation touches only drop.py.
+    assert decision["stale_groups"] == 0
+    assert selected
+    assert decision["selected_groups"] == 5
+
+
+def test_version_graph_breaks_at_mutated_retained_read() -> None:
+    groups = [
+        _command_group("cat /testbed/pkg/oldest.py", "oldest"),
+        _command_group("cat /testbed/pkg/drop.py", "old source"),
+        _command_group("cat /testbed/pkg/keep.py", "stable source"),
+        _command_group(
+            "apply_patch <<'PATCH'\n"
+            "*** Update File: pkg/drop.py\n"
+            "@@\n-old\n+new\n"
+            "PATCH"
+        ),
+        _command_group("cat /testbed/pkg/other.py", "other"),
+        _command_group("cat /testbed/pkg/final.py", "final"),
+    ]
+
+    selected, decision = select_version_graph_groups(groups)
+
+    assert decision["stale_group_indices"] == [0]
+    assert decision["eligible_islands"] == 1
+    assert decision["selected_group_indices"] == [1, 2, 3, 4]
+    assert len(selected) == 4
 
 
 def group(command: str, output: str = "<returncode>0</returncode>"):

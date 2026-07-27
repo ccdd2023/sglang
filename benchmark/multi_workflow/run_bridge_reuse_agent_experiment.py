@@ -66,6 +66,7 @@ ARMS = (
     "coding_evidence_payoff_v7",
     "general_dual_4k",
     "coding_dual_v8",
+    "coding_version_graph_v17",
 )
 DENSE_ARMS = ("dense", "coding_memory_dense_v5")
 HOST_OVERFLOW_ARMS = (
@@ -75,6 +76,7 @@ HOST_OVERFLOW_ARMS = (
     "coding_memory_v5",
     "coding_evidence_payoff_v7",
     "coding_dual_v8",
+    "coding_version_graph_v17",
 )
 DUAL_ISLAND_ARMS = ("general_dual_4k", "coding_dual_v8")
 
@@ -178,6 +180,12 @@ def prepare(output: Path) -> dict[str, Any]:
                 "successful substantial read-only coding observation and at "
                 "least 1024 useful marginal tokens"
             ),
+            "coding_version_graph_v17": (
+                "bind completed file observations to online repository "
+                "versions; exclude observations invalidated by later edits, "
+                "keep the latest risky event dense, and copy the largest "
+                "remaining contiguous valid island with a 4096-token cap"
+            ),
         },
         "dataset": {
             "registration_id": frozen["registration_id"],
@@ -219,6 +227,8 @@ def prepare(output: Path) -> dict[str, Any]:
             "coding_dual_v8_wide_copy_cap_tokens": 6_144,
             "coding_dual_v8_min_marginal_tokens": 1_024,
             "coding_dual_v8_host_overflow": True,
+            "coding_version_graph_v17_copy_cap_tokens": 4_096,
+            "coding_version_graph_v17_host_overflow": True,
             "min_copy_tokens": 128,
             "temperature": 0,
             "workers": 1,

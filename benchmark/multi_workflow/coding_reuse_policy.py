@@ -66,6 +66,15 @@ _READONLY_EVIDENCE_COMMAND = re.compile(
     r"(?:rg|grep|find|sed|cat|head|tail)\b",
     re.I,
 )
+_REPOSITORY_PATH = re.compile(
+    r"(?:/testbed/|\./)?"
+    r"([A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+"
+    r"\.(?:py|pyi|toml|yaml|yml|json|rst|md|cfg|ini))"
+)
+_PATCH_PATH = re.compile(
+    r"(?m)^\*\*\* (?:Update|Add|Delete) File:\s*(\S+)"
+    r"|^diff --git a/(\S+) b/(\S+)"
+)
 
 
 def _tool_command(message: dict[str, Any]) -> str:
@@ -80,6 +89,98 @@ def _tool_command(message: dict[str, Any]) -> str:
         if isinstance(arguments, dict) and arguments.get("command") is not None:
             return str(arguments["command"])
     return ""
+
+
+def repository_paths(group: Sequence[dict[str, Any]]) -> set[str]:
+    """Extract online-visible repository paths from a completed tool group."""
+
+    command = "\n".join(
+        value for message in group if (value := _tool_command(message))
+    )
+    paths = {
+        match.group(1).lstrip("./")
+        for match in _REPOSITORY_PATH.finditer(command)
+    }
+    for match in _PATCH_PATH.finditer(command):
+        value = next((part for part in match.groups() if part), None)
+        if value:
+            paths.add(value.lstrip("./"))
+    return paths
+
+
+def _group_weight(group: Sequence[dict[str, Any]]) -> int:
+    return sum(
+        len(str(message.get("content") or ""))
+        + len(json.dumps(message.get("tool_calls") or (), sort_keys=True))
+        for message in group
+    )
+
+
+def select_version_graph_groups(
+    selected_groups: Sequence[T],
+) -> tuple[list[T], dict[str, Any]]:
+    """Select the largest contiguous file-version-valid reuse island.
+
+    The first group will roll out of the next request.  Within the retained
+    five, a later mutation invalidates earlier observations of the same file.
+    An unlocalized mutation conservatively invalidates every earlier pathful
+    group.  The newest risky event remains Dense.  No future event, oracle
+    patch, or evaluator result is consulted.
+    """
+
+    retained = list(selected_groups[1:])
+    paths = [repository_paths(group) for group in retained]
+    risks = [latest_group_risk_reasons(group) for group in retained]
+    mutations = [
+        "repository_mutation_command" in reasons for reasons in risks
+    ]
+    stale: set[int] = set()
+    for mutation_index, mutation in enumerate(mutations):
+        if not mutation:
+            continue
+        changed = paths[mutation_index]
+        for earlier in range(mutation_index):
+            if paths[earlier] and (
+                not changed or not paths[earlier].isdisjoint(changed)
+            ):
+                stale.add(earlier)
+    protected_latest = bool(retained and risks[-1])
+    eligible = [
+        index
+        for index in range(len(retained))
+        if index not in stale
+        and not (protected_latest and index == len(retained) - 1)
+    ]
+    runs: list[list[int]] = []
+    for index in eligible:
+        if not runs or runs[-1][-1] + 1 != index:
+            runs.append([index])
+        else:
+            runs[-1].append(index)
+    selected = (
+        max(
+            runs,
+            key=lambda run: (
+                sum(_group_weight(retained[index]) for index in run),
+                run[-1],
+            ),
+        )
+        if runs
+        else []
+    )
+    return [retained[index] for index in selected], {
+        "mode": "repository_version_graph_longest_island",
+        "retained_groups_after_roll": len(retained),
+        "repository_pathful_groups": sum(bool(value) for value in paths),
+        "repository_mutation_groups": sum(mutations),
+        "stale_group_indices": sorted(stale),
+        "stale_groups": len(stale),
+        "latest_group_protected": protected_latest,
+        "risk_reasons": risks[-1] if protected_latest else [],
+        "eligible_islands": len(runs),
+        "selected_group_indices": selected,
+        "selected_groups": len(selected),
+    }
 
 
 def latest_group_risk_reasons(
@@ -320,6 +421,10 @@ def select_reuse_groups(
             widened_copy_cap_tokens=6144,
         )
         return retained, decision
+    if arm == "coding_version_graph_v17":
+        eligible, graph = select_version_graph_groups(selected_groups)
+        decision.update(graph)
+        return eligible, decision
     if arm == "coding_source_guard_v6":
         read_index = next(
             (
@@ -371,6 +476,7 @@ def select_reuse_groups(
         "coding_source_guard_v6",
         "coding_evidence_payoff_v7",
         "coding_dual_v8",
+        "coding_version_graph_v17",
     ):
         raise ValueError(f"unsupported reuse policy arm: {arm}")
 

@@ -73,6 +73,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_evidence_payoff_v7",
         "general_dual_4k",
         "coding_dual_v8",
+        "coding_version_graph_v17",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
