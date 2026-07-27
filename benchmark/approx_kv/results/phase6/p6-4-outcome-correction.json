@@ -1,0 +1,1912 @@
+{
+  "schema_version": 1,
+  "artifact": "p6-4-outcome-correction",
+  "source_artifact": "benchmark/approx_kv/results/phase6/p6-4.json",
+  "source_run_id": "p6-4-20260727T104820Z",
+  "source_payload_raw_sha256": "11e85899774bb66fc01b0ced5290f26c6e85271d2038d2c21ac5330afc665886",
+  "source_file_sha256": "c3f925c7cc0a7c1809737b701891335eabc465478a3ec85226ad8cc2bfb35230",
+  "runner_fix_commit": "84c4e5202da4df04b2d37afd54bf128f5f9d6bbe",
+  "raw_artifact_mutated": false,
+  "corrections": {
+    "exact_only_misses_mislabelled_dense_fallback": 12,
+    "corrected_exact_only_approximate_dense_fallbacks": 0,
+    "explanation": "exact_only carries no approximate metadata; cached_tokens below expected is an ordinary exact_cache_miss, not an approximate recovery fallback.",
+    "r4_like_dense_fallback_token_counter_total": 19456.0,
+    "r4_like_replay_outcomes": {
+      "approximate_gpu_recovery": 30
+    },
+    "r4_explanation": "The token counter came from registration-capacity failures. The replay requests recovered approximately; this is not replay dense-fallback evidence."
+  },
+  "rows": [
+    {
+      "policy": "S4",
+      "rho": 1.1,
+      "profile": "exact_only",
+      "round_index": 0,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "dense_fallback",
+          "corrected_outcome": "exact_cache_miss",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "dense_fallback",
+          "corrected_outcome": "exact_cache_miss",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.1,
+      "profile": "exact_only",
+      "round_index": 1,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "dense_fallback",
+          "corrected_outcome": "exact_cache_miss",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "dense_fallback",
+          "corrected_outcome": "exact_cache_miss",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.1,
+      "profile": "r0_like",
+      "round_index": 0,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.1,
+      "profile": "r0_like",
+      "round_index": 1,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.1,
+      "profile": "r1_like_k32",
+      "round_index": 0,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.1,
+      "profile": "r1_like_k32",
+      "round_index": 1,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.1,
+      "profile": "r2_like",
+      "round_index": 0,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.1,
+      "profile": "r2_like",
+      "round_index": 1,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.1,
+      "profile": "r4_like",
+      "round_index": 0,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.1,
+      "profile": "r4_like",
+      "round_index": 1,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.5,
+      "profile": "exact_only",
+      "round_index": 0,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "dense_fallback",
+          "corrected_outcome": "exact_cache_miss",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "dense_fallback",
+          "corrected_outcome": "exact_cache_miss",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.5,
+      "profile": "exact_only",
+      "round_index": 1,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "dense_fallback",
+          "corrected_outcome": "exact_cache_miss",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "dense_fallback",
+          "corrected_outcome": "exact_cache_miss",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.5,
+      "profile": "r0_like",
+      "round_index": 0,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.5,
+      "profile": "r0_like",
+      "round_index": 1,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.5,
+      "profile": "r1_like_k32",
+      "round_index": 0,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.5,
+      "profile": "r1_like_k32",
+      "round_index": 1,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.5,
+      "profile": "r2_like",
+      "round_index": 0,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.5,
+      "profile": "r2_like",
+      "round_index": 1,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.5,
+      "profile": "r4_like",
+      "round_index": 0,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 1.5,
+      "profile": "r4_like",
+      "round_index": 1,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 2.0,
+      "profile": "exact_only",
+      "round_index": 0,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "dense_fallback",
+          "corrected_outcome": "exact_cache_miss",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "dense_fallback",
+          "corrected_outcome": "exact_cache_miss",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 2.0,
+      "profile": "exact_only",
+      "round_index": 1,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "dense_fallback",
+          "corrected_outcome": "exact_cache_miss",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "exact_gpu_hit",
+          "corrected_outcome": "exact_gpu_hit",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "dense_fallback",
+          "corrected_outcome": "exact_cache_miss",
+          "request_outcomes": {},
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 2.0,
+      "profile": "r0_like",
+      "round_index": 0,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 2.0,
+      "profile": "r0_like",
+      "round_index": 1,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 2.0,
+      "profile": "r1_like_k32",
+      "round_index": 0,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 2.0,
+      "profile": "r1_like_k32",
+      "round_index": 1,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 2.0,
+      "profile": "r2_like",
+      "round_index": 0,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 2.0,
+      "profile": "r2_like",
+      "round_index": 1,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 2.0,
+      "profile": "r4_like",
+      "round_index": 0,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    },
+    {
+      "policy": "S4",
+      "rho": 2.0,
+      "profile": "r4_like",
+      "round_index": 1,
+      "corrected_replay": [
+        {
+          "object_id": "workflow-00",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-01",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-02",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-03",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        },
+        {
+          "object_id": "workflow-04",
+          "raw_outcome": "approximate_gpu_recovery",
+          "corrected_outcome": "approximate_gpu_recovery",
+          "request_outcomes": {
+            "dense_fallback": 0.0,
+            "exact": 0.0,
+            "exact_host_preferred": 0.0,
+            "success": 1.0
+          },
+          "reservation_failures": 0
+        }
+      ]
+    }
+  ]
+}
