@@ -396,7 +396,78 @@ def test_duplicate_target_prompt_can_end_with_explicit_dense_control():
     assert controller.maybe_attach_target(dense) is None
     assert dense.kvcomm_exact_dense_control is True
     assert controller.ordinary_prefix_match_limit(dense) == 0
+    assert controller.maybe_attach_target(dense) is None
+    assert controller.is_target_request(dense) is False
     assert allocator.next_slot == allocated_before_dense
+
+
+def test_dense_control_request_cannot_consume_following_reuse_case():
+    source = (1, 2, 3, 4, 5, 8, 9)
+    target = (1, 7, 2, 3, 4, 5, 9)
+    shared = _case(source, target, target_uses=1)
+    cases = (
+        replace(
+            shared,
+            case_id="candidate-dense",
+            policy_label="candidate",
+            reuse_enabled=False,
+        ),
+        replace(
+            shared,
+            case_id="general-reuse",
+            policy_label="general",
+        ),
+    )
+    manager = KVCommManager(KVCommFeatureConfig(core_enabled=True))
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source)] = torch.arange(len(source))
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=cases,
+    )
+    assert controller.maybe_materialize_source(_req(source)) is not None
+
+    candidate = _req(target, pool_index=1)
+    assert controller.maybe_attach_target(candidate) is None
+    assert controller.maybe_attach_target(candidate) is None
+
+    general = _req(target, pool_index=2)
+    state = controller.maybe_attach_target(general)
+    assert state is not None
+    assert state.case.case_id == "general-reuse"
+
+
+def test_completed_single_use_target_is_not_reattached():
+    source = (1, 2, 3, 4, 5, 8, 9)
+    target = (1, 7, 2, 3, 4, 5, 9)
+    case = _case(source, target, target_uses=1)
+    manager = KVCommManager(KVCommFeatureConfig(core_enabled=True))
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source)] = torch.arange(len(source))
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=(case,),
+    )
+    assert controller.maybe_materialize_source(_req(source)) is not None
+    first = _req(target, pool_index=1)
+    assert controller.maybe_attach_target(first) is not None
+    controller.finish_request(first)
+
+    repeated = _req(target, pool_index=2)
+    assert controller.maybe_attach_target(repeated) is None
+    assert controller.is_target_request(repeated) is False
 
 
 def test_one_real_request_materializes_multiple_registered_source_spans():

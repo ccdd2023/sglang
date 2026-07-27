@@ -726,18 +726,52 @@ class ExactMiddleCanaryController:
             ),
         }
 
+    def _next_target_case(
+        self,
+        prompt_hash: str,
+    ) -> tuple[int, ExactMiddleCase] | None:
+        cases = self._targets.get(prompt_hash)
+        if not cases:
+            return None
+        cursor = self._target_case_cursor.get(prompt_hash, 0)
+        while cursor < len(cases):
+            case = cases[cursor]
+            remaining = self._remaining_target_uses.get(case.case_id)
+            if remaining is None or remaining > 0:
+                self._target_case_cursor[prompt_hash] = cursor
+                return cursor, case
+            cursor += 1
+        self._target_case_cursor[prompt_hash] = cursor
+        return None
+
+    def _consume_target_without_state(
+        self,
+        *,
+        prompt_hash: str,
+        cursor: int,
+        case: ExactMiddleCase,
+    ) -> None:
+        remaining = self._remaining_target_uses.get(case.case_id)
+        if remaining is not None:
+            self._remaining_target_uses[case.case_id] = max(
+                0,
+                remaining - 1,
+            )
+        self._target_case_cursor[prompt_hash] = cursor + 1
+
     def maybe_attach_target(self, req: Any) -> ExactMiddleRequestState | None:
         self._refresh_manifest()
+        if getattr(req, "kvcomm_exact_dispatch_complete", False):
+            return None
         existing = getattr(req, "kvcomm_exact_state", None)
         if existing is not None:
             return existing
         tokens = self._prompt_tokens(req)
         prompt_hash = token_ids_hash(tokens)
-        cases = self._targets.get(prompt_hash)
-        if not cases:
+        selected = self._next_target_case(prompt_hash)
+        if selected is None:
             return None
-        cursor = min(self._target_case_cursor.get(prompt_hash, 0), len(cases) - 1)
-        case = cases[cursor]
+        cursor, case = selected
         end = case.target_start + case.length
         if end >= len(tokens):
             raise ValueError("target span is not strictly middle")
@@ -749,8 +783,12 @@ class ExactMiddleCanaryController:
             raise ValueError("target segment differs from manifest")
         if not case.reuse_enabled:
             req.kvcomm_exact_dense_control = True
-            if cursor < len(cases) - 1:
-                self._target_case_cursor[prompt_hash] = cursor + 1
+            req.kvcomm_exact_dispatch_complete = True
+            self._consume_target_without_state(
+                prompt_hash=prompt_hash,
+                cursor=cursor,
+                case=case,
+            )
             self._record(
                 {
                     "case_id": case.case_id,
@@ -764,6 +802,12 @@ class ExactMiddleCanaryController:
             case.key(model_id=self.model_id, cache_dtype=self.cache_dtype)
         )
         if handle is None:
+            req.kvcomm_exact_dispatch_complete = True
+            self._consume_target_without_state(
+                prompt_hash=prompt_hash,
+                cursor=cursor,
+                case=case,
+            )
             self._record(
                 {
                     "case_id": case.case_id,
@@ -777,13 +821,21 @@ class ExactMiddleCanaryController:
         lease = self.manager.store.pin(handle, ttl_s=self.lease_ttl_s)
         state = ExactMiddleRequestState(case=case, source=handle, lease=lease)
         req.kvcomm_exact_state = state
+        cases = self._targets[prompt_hash]
         if cursor < len(cases) - 1:
             self._target_case_cursor[prompt_hash] = cursor + 1
         return state
 
     def is_target_request(self, req: Any) -> bool:
         self._refresh_manifest()
-        return token_ids_hash(self._prompt_tokens(req)) in self._targets
+        if getattr(req, "kvcomm_exact_dispatch_complete", False):
+            return False
+        return (
+            self._next_target_case(
+                token_ids_hash(self._prompt_tokens(req))
+            )
+            is not None
+        )
 
     def ordinary_prefix_match_limit(self, req: Any) -> int | None:
         """Return the safe Radix prefix boundary for a registered target.
@@ -797,6 +849,8 @@ class ExactMiddleCanaryController:
         if not self.ordinary_prefix_reuse_enabled:
             return 0
         self._refresh_manifest()
+        if getattr(req, "kvcomm_exact_dispatch_complete", False):
+            return 0 if self.ordinary_prefix_target_only else None
         state = getattr(req, "kvcomm_exact_state", None)
         prompt_hash = token_ids_hash(self._prompt_tokens(req))
         cases = self._targets.get(prompt_hash)
@@ -805,11 +859,10 @@ class ExactMiddleCanaryController:
         if state is not None:
             case = state.case
         else:
-            cursor = min(
-                self._target_case_cursor.get(prompt_hash, 0),
-                len(cases) - 1,
-            )
-            case = cases[cursor]
+            selected = self._next_target_case(prompt_hash)
+            if selected is None:
+                return 0 if self.ordinary_prefix_target_only else None
+            _, case = selected
         if case.ordinary_prefix_reuse is False:
             return 0
         if case.allow_target_prefix_bypass:
