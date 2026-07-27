@@ -4,9 +4,10 @@
 >
 > 状态：Current / Latest
 >
-> 最后更新：2026-07-26T17:58:06-07:00
+> 最后更新：2026-07-27T12:45:00-07:00
 >
-> 当前阶段：CL0、Phase6 P6-0/P6-1/P6-2/P6-3实现及P6-0合同已提交推送；GPU重启验证通过，下一项为CL1；未进入Phase7。
+> 当前阶段：CL0–CL3、P6-H、P6-4全部执行完毕；Phase6 Exit九项直接满足、
+> fallback可达性为治理性豁免；正式Exit双模型review进行中；未进入Phase7。
 >
 > 取代版本：[`IMPLEMENTATION_PLAN_V3_ARCHIVED.md`](IMPLEMENTATION_PLAN_V3_ARCHIVED.md)
 
@@ -639,9 +640,36 @@ performance claim = disabled
 
 Phase6结果经双模型review后才允许Phase7。
 
-#### 7.9.1 dense fallback可达性的disposition（2026-07-27，用户决定）
+#### 7.9.1 dense fallback可达性：**治理性豁免**（2026-07-27，用户决定）
 
-该项**接受以`indirectly_verified`强度结案**，不再追求直接证据。
+**这不是一项已验证的条件，而是一项被明确豁免的未验证条件。**
+
+必须使用的表述：
+
+> Phase 6获得治理性豁免：**GPU上自然发生的
+> reservation-failure-associated dense fallback未被观测**。
+> CPU层分别验证了回滚与fallback归因，GPU层分别验证了普通dense fallback
+> 及双向回收；**这些证据不证明端到端自然可达性**。
+
+不得写成“十项技术条件全部满足”。§7.9原文要求的是“fallback/rollback可达”，
+本项在看到结果之后才降低标准；披露本身是诚实的，把它写成“条件满足”不是。
+
+**Exit review修正后的证据边界**：
+
+已直接证明：allocator在任意失败点回滚（CPU）；`allocate_recovery_slots`
+把被拒reservation转为None并归因（CPU，mutation验证，**但只到该函数边界，
+未经过`finalize_copy_reuse`/scheduler/真实推理**）；exact压力真实回收
+`2.2GB` approximate内存（GPU）。
+
+**已撤回**两条错误证据：所谓“12次GPU dense fallback”全部来自`exact_only`
+profile，runner把**普通exact-cache miss**误标为`dense_fallback`
+（`run_p6_4_capacity_pilot.py:413-419`）；`r4_like`的fallback token是
+registration容量失败而非replay fallback。
+
+要把本项转为**已验证**，必须取得：一个集成请求在（注入或自然的）
+cross-store reservation失败后真正走完dense路径，并断言reservation失败标签、
+`reuse/dense_fallback`、输出完成与账目干净。
+
 完整证据链见`phase6-exit-fallback-disposition.json`。
 
 **已直接证明的部分**：
@@ -1075,25 +1103,26 @@ Early-stop：
 以下状态于2026-07-27T11:55:00-07:00更新（此前的2026-07-26版本已过时）：
 
 - Closeout CL0已完成；R2/R5 final head为`ce55860a9`/`71f15d5d1`。
-- Phase6实现分支`research/cross-store-substrate`已推送，head为
-  `11bc9b3e49a48c8545146d78e0a0e6a86d4fbb8b`（本地与远程SHA一致）。
+- Phase6实现分支`research/cross-store-substrate`已推送；head随本轮修订滚动，
+  以远程分支为准（本地与远程SHA每次push后核对一致）。
 - 全部门禁均已在Docker SM75镜像内执行。
 
 | 门禁 | 状态 | 结论 |
 | --- | --- | --- |
 | CL0 | 完成 | authority manifest与supersession已冻结 |
-| CL1 | 完成 | `practical family = NONE`，**因果归因有效** |
+| CL1 | 完成 | `practical family = NONE`（冻结规则下成立；因果归因见§14.1） |
 | CL2 | 完成 | gate `inconclusive`，显式waive为provisional chunk `1024` |
 | CL3 | 完成 | S4优势仅在workflow-only分母成立 |
-| P6-H | **通过** | `status=valid`，压力下与matched dense逐token一致 |
+| P6-H | **通过** | `status=valid`；1 restart/2 round的8-token输出canary与dense一致 |
 | P6-4 | **完整跑通** | 3个S4 cell可达，2个cell未达；双向pressure首次通过 |
 | CL4 | 部分完成 | 已完成对修复与结论的双review；正式Exit review待P6-4定稿 |
 
 - 本轮共修复6个缺陷：P0 prefix自我覆写、P6-H reseed断言、
   P1-1 SWA释放元数据、P1-3 provisional slot泄漏、P1-2 stale victim重试，
   以及P6-4 runner逐cell容错。
-- **Phase6 Exit只剩dense fallback可达性一项**；诊断C已证明该项受阻于
-  我方cross-store回收缺陷，修好后即可自然取得证据（见§15.1）。
+- **Phase6 Exit九项有直接证据；第十项dense fallback可达性为治理性豁免**
+  （§7.9.1）。诊断C v1曾声称该项受阻于我方回收缺陷，该结论**已撤回**：
+  v2以`0.05s`采样证明S0/rho2是真实容量耗尽，回收路径工作正常。
 - Phase7 primary manifest仍未预注册，是Phase7 Entry的第二个缺口。
 - 未进入Phase7。
 
@@ -1135,9 +1164,9 @@ R1-like worst-case（k32）可达、P6-H压力下逐token保真。
 本文件继续保持`Current / Latest`，不提升版本号、不归档
 （用户已明确本轮不升级）。
 
-**2026-07-27更新**：用户已选定方案C，dense fallback可达性以
-`indirectly_verified`结案（§7.9.1）。因此Phase6 Exit的十项技术条件
-**全部满足**。
+**2026-07-27更新**：用户已选定方案C。dense fallback可达性作为
+**治理性豁免**记录（§7.9.1），**不计入“已满足”**。
+因此Phase6 Exit为**九项有直接证据 + 一项明确豁免**。
 
 V5的创建条件现在只剩一条：
 
@@ -1194,6 +1223,17 @@ V5的创建条件现在只剩一条：
     并论证它足够细。
 15. **不要把`num_used_tokens`与store gauge相加。** 前者已包含approximate
     store占用的slot，相加会凭空造出并不存在的“未归属token”。
+16. **`dense_fallback`的标签必须区分“近似恢复失败”与“普通exact-cache
+    miss”。** `run_p6_4_capacity_pilot.py:413-419`在profile无approximate
+    metadata时，仅凭`cached_tokens < expected`就标为`dense_fallback`，
+    这直接导致本轮一条Exit证据被错误采信。Phase7任何fallback报告前必须修复。
+17. **cell级状态与profile级状态必须分别陈述。** P6-4完整矩阵每个cell顶层
+    都是`diagnostic-unavailable`；可达的是其中的非R4 profile。
+    写成“三个cell可达”是过声明。
+18. **artifact的`result_git_sha`天然为null**（runner无法知道将来容纳自己
+    输出的commit）。因此必须另行维护`RESULT_MANIFEST.json`提供
+    file→commit映射、内容哈希与验证命令，并且不得据artifact字段声称
+    “provenance完整”。
 
 ### 15.3 P0修复的两个候选方向（供CL4后执行）
 

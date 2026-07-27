@@ -2463,3 +2463,76 @@ workload的分配动态，否则会得到“自信但错误”的结论。本次
   “真实reservation失败下fallback行为”的claim必须重新取证或复述该caveat。
 - 至此**Phase6 Exit十项技术条件全部满足**，仅剩正式双模型Exit review与
   主会话disposition。已启动两个独立reviewer对完整证据集做Exit review。
+
+## 2026-07-27T13:20:00-07:00 — 正式Phase6 Exit双模型review：两方均判FAIL
+
+两个独立reviewer对完整证据集做Exit review，**结论一致为FAIL**，且在关键点
+上互相印证。这否决了我此前“十项技术条件全部满足”的表述。
+
+### Review A（code-review）逐项判定
+
+| 项 | 判定 |
+| --- | --- |
+| 1 安全竞争 | 满足 |
+| 2 双向pressure | 满足 |
+| 3 allocation回滚 | 满足（范围窄） |
+| 4 fixed40四rho | 部分满足 |
+| 5 R1-like worst-case | 满足 |
+| 6 host canary | 满足 |
+| 7 无泄漏无orphan | 对已完成run满足 |
+| 8 压力下逐token一致 | 仅在字面canary强度满足 |
+| 9 dense fallback可达 | **不满足** |
+| 10 provenance完整 | **不满足** |
+
+### 三个P0及处置
+
+- **P0-1 fallback仍未证明**。review A指出我的证据链有两条是错的：
+  所谓“12次GPU dense fallback”**全部来自`exact_only` profile**——该profile
+  无approximate metadata，runner在`run_p6_4_capacity_pilot.py:413-419`
+  仅凭`cached_tokens < expected`就把**普通exact-cache miss**标为
+  `dense_fallback`；`r4_like`的4096 fallback token是**registration容量失败**，
+  其replay outcome实为`approximate_gpu_recovery`。
+  **两条已撤回**，disposition改为`governance_exemption_unverified`。
+  转为“已验证”所需条件已写明：需要一个**集成请求**在reservation失败后
+  真正走完dense路径。
+  **附带发现的报告缺陷**已记入计划教训第16条。
+- **P0-2 S4/rho3未证明容量不可达**。此前由S0/rho2外推，不成立。
+  **已补测**：`0.05s`采样、`cap=7595`，死亡瞬间
+  `approx_kv_store_device_bytes=0`、`records=0`，
+  exact压力已回收`1,746,927,616` bytes。与S0/rho2签名一致，
+  **P0-2以直接证据关闭**。
+  （首次补测因poller在第一个死亡后退出而抓错cell，poller已改为跨重启续采。）
+- **P0-3 provenance不完整**。已处置：
+  - 发现`.gitignore:179 *.jsonl`**静默排除**了被引用为证据的原始遥测，
+    已`git add -f`纳入版本；
+  - 新增`RESULT_MANIFEST.json`，提供file→commit映射、内容SHA256、环境、
+    验证命令与已知935失败基线，并**明示server log仍未纳入版本管理**；
+  - 明确artifact的`result_git_sha`天然为null（runner无法知道未来容纳自己
+    输出的commit），今后以manifest为权威映射，不得据artifact字段声称
+    “provenance完整”。
+
+### Review B额外要求的措辞弱化（已全部采纳）
+
+- `practical=NONE`：2×2**并非真正factorial**（拼接P6-H与CL1，runner/policy/
+  chunk/env/SHA/重复数均不同）；最强剩余替代解释是**header-dependent
+  实现缺陷**，不依赖eviction。已改为“排除了已修复的eviction-dependent P0，
+  但未证明context差异是唯一原因”。
+- chunk主张：只测了body768/1024且**同时改动两个配置项**，不得泛化。
+- S4分母主张**字面不正确**：all-reusable下S4相对S0仍有`1.09–1.18x`；
+  消失的是它相对S1–S3的**独特性**。已更正。
+- P6-H不是“KV数据保真证明”：1 restart/2 round的8-token输出canary，
+  未验证bitwise KV/logit。
+- P6-4应按**profile级**而非cell级陈述可达性（每个cell顶层均为
+  `diagnostic-unavailable`）。
+- 保留错误v1是好实践，但需机器可读标记：已加
+  `status=superseded`/`valid=false`/`do_not_use`/`superseded_by`。
+- `p6-4-fallback-injection.json`命名严重误导（**没有任何fault injection**），
+  已改名为`p6-4-reduced-profiles-4x-bytes-per-token-probe.json`。
+
+### 当前Exit状态
+
+- P0-2、P0-3**已关闭**；
+- P0-1**未关闭**，且按用户选择的方案C，它是**被明确豁免的未验证条件**，
+  不是已满足条件；
+- 因此正式表述为：**Phase6 Exit九项有直接证据（部分范围受限）+ 一项
+  未验证豁免**，不得写成“全部满足”。

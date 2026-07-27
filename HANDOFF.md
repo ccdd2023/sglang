@@ -29,8 +29,9 @@
 
 #### Phase6 Exit逐条
 
-**十项技术条件已全部满足。** dense fallback可达性于2026-07-27由用户决定以
-`indirectly_verified`结案（计划§7.9.1）；其余各项均有直接证据，
+**九项有直接证据 + 一项明确豁免。** dense fallback可达性**未被验证**，
+由用户于2026-07-27决定作为**治理性豁免**记录（计划§7.9.1），
+不得表述为“已满足”；其余各项均有直接证据，
 包括：exact/approx/host安全竞争、双向pressure（exact→approx `47.5GB`、
 approx→exact `58.8GB`）、fixed40四rho明确结论、R1-like worst-case（k32）可达、
 generic host canary、无泄漏无orphan、压力下数据保真、完整provenance。

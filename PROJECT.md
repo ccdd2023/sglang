@@ -2,14 +2,14 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-26T18:01:24-07:00
+最后更新：2026-07-27T12:45:00-07:00
 
 ## 项目概况
 
 | 项目 | 当前值 |
 | --- | --- |
 | 名称 | `code-agent-kvcache` |
-| 阶段 | Phase4/5 Closeout与Phase6零GPU实现进行中；GPU验证阻塞；未进入Phase7 |
+| 阶段 | Phase6全部门禁执行完毕；Exit为九项直接满足+一项豁免；正式Exit review进行中；未进入Phase7 |
 | 业务目标 | 在 SGLang 上比较多种跨 context 近似 KV 恢复与 workflow-aware cache scheduling，降低 Coding Agent TTFT |
 | 技术栈 | SGLang、HiCache、Docker、KVFlow、KVCOMM、CacheBlend、Cache-Craft、EPIC、CacheTune |
 | 默认分支 | `main` |
@@ -292,9 +292,10 @@ paired repeat）已完成：
   body1024的target prompt为`64+1024+1=1089`token，chunk`1024`下dense必须分两个
   prefill chunk（`297.8ms`），chunk`4096`下是单chunk（`178.4ms`）；approximate臂
   只需prefill最后1个token，两种配置几乎不变。
-- 因此CL1在chunk`1024`下的`1.5x–2.0x`不是恢复机制的固有收益，而是dense
-  baseline被小chunk配置惩罚的结果。CL2冻结合同不含body`2048`，该点仍待补做
-  显式标注的out-of-contract diagnostic。
+- 措辞限定（按review修正）：**在CL2的body1024这一个点上**，表观speedup主要
+  来自coupled `chunked_prefill_size`/`max_prefill_tokens`配置造成的dense
+  chunk-boundary penalty。注意该实验**同时改变了两个配置项**，且
+  **body2048未被测量**，因此**不能泛化到全部CL1结果**。
 
 ### 2026-07-26 P6-H暴露压力下近似KV数据损坏（P0，阻塞Phase6 Exit）
 
@@ -430,8 +431,15 @@ CL1的输出偏离**不是**由该缺陷造成的，先前记录的“因果归�
 （dense `[82,198,271,...]` vs approx `[82,198,198,...]`）。
 已修复的缺陷必须依赖eviction才能触发，因此**它无法解释该偏离**。
 
-**措辞（按review的阻塞级修正采纳）**：该偏离与预期的跨上下文近似一致，
-且无法由已修复的压力损坏缺陷解释；这**不等于**证明CL1不存在其它残留问题。
+**措辞（按两轮review修正后采纳）**：`NONE`在冻结exact-output promotion规则
+下成立。数据**排除了已修复的eviction-dependent P0**是这些偏离的原因，
+但**没有证明context差异是唯一原因**，也**未排除header-dependent实现缺陷**。
+
+需明确的方法学限制：所谓2×2**并非真正的factorial设计**——它拼接了P6-H与
+CL1两套实验，二者的runner、policy、chunk配置、plugin env、代码SHA与重复数
+均不同；低压CL1的eviction counter也未覆盖关键target allocation窗口。
+最强剩余替代解释是**不同header路径特有的position/index/cache-metadata
+对齐缺陷**，且该解释不依赖eviction。
 
 **结论：`practical family = NONE`成立。** 其作用域限定为本模型、合成
 prompt族、exact-output不变量、本GPU与chunk配置下**冻结promotion规则**的
@@ -467,16 +475,18 @@ P6-4最终结果（`run_id=p6-4-20260727T104820Z`）：
 
 | cell | requested/observed | 结论 |
 | --- | --- | --- |
-| S4 rho1.1 | `20713`/`20713` | 可达，双向pressure，40次recovery |
-| S4 rho1.5 | `15190`/`15190` | 可达，双向pressure，40次recovery |
-| S4 rho2.0 | `11392`/`11392` | 可达，双向pressure，40次recovery |
+| S4 rho1.1 | `20713`/`20713` | 非R4 profile可达；cell级仍为`diagnostic-unavailable` |
+| S4 rho1.5 | `15190`/`15190` | 非R4 profile可达；cell级仍为`diagnostic-unavailable` |
+| S4 rho2.0 | `11392`/`11392` | 非R4 profile可达；cell级仍为`diagnostic-unavailable` |
 | S0 rho2.0 | `11392`/不可达 | device耗尽 |
 | S4 rho3.0 | `7595`/不可达 | device耗尽 |
 
 - **双向pressure首次`passed=True`**：exact→approx victim `47.5 GB`；
   approx→exact victim `58.8 GB`。这是Phase6 Exit的核心要求之一。
-- 可达cell中`exact_only`/`r0_like`/`r1_like_k32`/`r2_like`全部
-  `reachable`且`valid`；**R1-like worst-case（k32）footprint可达**。
+- 措辞限定（按Exit review修正）：完整矩阵中**每个cell的顶层状态都是
+  `diagnostic-unavailable`**；成立的是“三个S4 cell中的四个非R4 profile
+  （`exact_only`/`r0_like`/`r1_like_k32`/`r2_like`）reachable且valid”，
+  **应按profile级而非cell级陈述**。**R1-like worst-case（k32）footprint可达**。
 - `r4_like`（约5x）在所有cell均不可达，属计划预先允许的R4例外。
 - 整体`status=inconclusive`：无cell达到全`valid`，且
   `fallback_reachability.rounds=0`。
@@ -512,7 +522,11 @@ exact压力已成功从approximate对象回收`2.2GB`；到死亡时approximate 
 
 **固定结论**：
 
-- S0/LRU rho2.0是**真实容量不可达**，`diagnostic-unavailable`标签正确；
+- S0/LRU rho2.0**强烈支持容量耗尽**，`diagnostic-unavailable`标签正确；
+- **S4 rho3.0已于2026-07-27单独实测**（`0.05s`采样，`cap=7595`）：
+  死亡瞬间`approx_kv_store_device_bytes=0`、`records=0`，
+  且exact压力已从approximate对象回收`1,746,927,616` bytes。
+  与S0/rho2**签名一致**，同为真实容量不可达。该判定不再依赖外推；
 - **不存在cross-store回收缺陷**；
 - v1所称“832个token无法归属”是伪影：`num_used_tokens`已包含approximate
   store占用的slot，不能与之相加。
@@ -521,18 +535,42 @@ exact压力已成功从approximate对象回收`2.2GB`；到死亡时approximate 
 fallback不能靠修bug自然获得。用户于2026-07-27选定**方案C**：该项以
 `indirectly_verified`强度结案，不改共享上游路径，也不使用fault injection。
 
-已直接证明：allocator在**任意**失败点正确回滚（遍历全部
-`AllocationFailurePoint`）；reservation被拒→降级dense→并正确归因
-（经mutation验证）；dense fallback在GPU上真实执行12次；exact压力真实回收
-`2.2GB` approximate内存。
+已直接证明（经两轮Exit review修正后）：
 
-未证明：GPU上`dense_fallback`与`reservation_failures>0`同时发生一次。
+- allocator在**任意**失败点正确回滚（遍历全部`AllocationFailurePoint`，CPU）；
+- `allocate_recovery_slots`把被拒reservation转为None并归因为
+  `cross_store_reservation_failed`（CPU，mutation验证）——
+  **但该测试只调用`allocate_recovery_slots`，未经过`finalize_copy_reuse`、
+  scheduler或真实dense推理**；
+- exact压力真实回收`2.2GB` approximate内存（GPU）。
+
+**已撤回的两条错误证据**（由Exit review A发现）：
+
+1. “GPU上真实执行12次dense fallback”——这12次全部来自`exact_only` profile；
+   该profile没有approximate metadata，runner在
+   `run_p6_4_capacity_pilot.py:413-419`仅凭`cached_tokens < expected`就把
+   **普通exact-cache miss**标为`dense_fallback`，其`request_outcomes`为空、
+   reservation失败为0。**它们不是approximate dense fallback。**
+2. “`r4_like`的4096 fallback token”——那是registration容量失败，
+   其replay outcome是`approximate_gpu_recovery`，不是dense fallback。
+
+未证明：任何**集成请求**在cross-store reservation失败后真正走完dense路径
+并完成输出。
+
+**附带发现的报告缺陷**：runner把无approximate metadata时的exact-cache miss
+标为`dense_fallback`，该混淆必须在Phase7 fallback报告前修复。
 
 `p6-4.json`未被修改，仍如实记录`fallback_reachability.passed=false`；
 disposition单独记录在`phase6-exit-fallback-disposition.json`与计划§7.9.1。
 
-**因此Phase6 Exit的十项技术条件全部满足**，仅剩正式双模型Exit review
-与主会话disposition。仍未进入Phase7。
+**因此Phase6 Exit为九项有直接证据 + 一项明确豁免**（不得表述为“十项全部
+满足”）。必须使用的表述为：
+
+> Phase 6获得治理性豁免：GPU上自然发生的reservation-failure-associated
+> dense fallback未被观测。CPU层分别验证了回滚与fallback归因，GPU层分别
+> 验证了普通dense fallback及双向回收；这些证据不证明端到端自然可达性。
+
+仅剩正式双模型Exit review与主会话disposition。仍未进入Phase7。
 
 ### Phase6 Exit当前逐条状态
 
@@ -545,9 +583,9 @@ disposition单独记录在`phase6-exit-fallback-disposition.json`与计划§7.9.
 | R1-like worst-case footprint | **满足**（k32可达） |
 | generic host roundtrip canary | **满足**（P6-H valid） |
 | 无泄漏、无orphan | 满足（store gauge全归零） |
-| 近似reuse压力下数据保真 | **满足**（P6-H逐token一致；新增Exit条件） |
-| raw/commit/env/test provenance完整 | 满足 |
-| dense fallback可达性 | **满足**（`indirectly_verified`，用户决定） |
+| 近似reuse压力下数据保真 | **满足（范围受限）**：1 restart/2 round的8-token输出canary与dense一致；未验证bitwise KV、logit等价或低概率损坏 |
+| raw/commit/env/test provenance | **部分满足**：artifact仍为`result_commit_status="pending_result_commit"`、`result_git_sha=null`，缺file→commit映射与内含的test command/result，不得称“完整” |
+| dense fallback可达性 | **未验证，治理性豁免**（用户决定，见计划§7.9.1） |
 
 关于最后一项的精确事实：**dense fallback路径可达且已观测**——三个可达cell的
 `exact_only` profile各发生`4`次`dense_fallback`（合计12次）。
@@ -639,10 +677,11 @@ AssertionError: parent does not have child key
 | S2 Belady-style | all-reusable | `1.178` | `1.088` | `1.155` | `1.109` |
 | S3 recovery-value | all-reusable | `1.187` | `1.100` | `1.158` | `1.102` |
 
-- 即：在workflow-only（SLA视角）下只有S4在`rho>=2.0`保持收益；在all-reusable
-  （primary p95分母）下四种策略相对S0的改善全部落在`1.09x–1.19x`，彼此不可
-  区分。因此“S4唯一有效”只在workflow-only分母成立，必须按服务目标分别陈述，
-  不能写成普遍最优。这正是review C-24预期的结果。
+- 精确表述（按review修正）：**S4相对其他非LRU策略（S1–S3）的独特高rho优势
+  只出现在workflow-only口径**；在all-reusable口径下S1–S4相对S0**均有相近的
+  描述性改善**（`1.09x–1.19x`），现有restart数**不足以支持策略排序**。
+  注意“S4的优势消失”是不准确的——消失的是它相对S1–S3的**独特性**，
+  它相对S0仍有数值改善。
 - all-reusable的p95比值全部在`0.984–1.009`，四种策略均未恶化p95。
 - 措辞更正：CL3多数cell只有1个restart，因此只能写“数值上几乎不可区分”，
   **不得**写成“within noise”这类统计判断。
