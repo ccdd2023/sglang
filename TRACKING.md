@@ -2324,3 +2324,65 @@ P6-4最终结果（`run_id=p6-4-20260727T104820Z`，
 **前瞻风险（保留记录）**：`alloc_token_slots`在cross-store无法腾出空间时抛
 `RuntimeError`杀死scheduler，这条鲁棒性缺口会影响**任何**在容量极限附近运行
 的后续实验（含Phase7高rho cell），不限于本项。应在Phase7高压力矩阵前修复。
+
+## 2026-07-27T11:55:00-07:00 — 诊断C结论：S0/rho2不是容量不可达，是我方缺陷（更正先前记录）
+
+用户要求先跑诊断C再决定计划是否更新。诊断C已完成，结论明确。
+
+**方法**：在真实P6-4 S0/LRU rho2.0 cell运行期间以`0.4s`间隔轮询`/metrics`，
+保留server失联前的最后一个样本（容器内执行）。
+
+**两次独立复现的死亡瞬间状态**：
+
+| 指标 | 第一次 | 第二次 |
+| --- | ---: | ---: |
+| `approx_kv_store_device_bytes` | `102,760,448` | `44,040,192` |
+| `approx_kv_store_records` | `2` | `1` |
+| `approx_kv_store_leases` | `0` | `0` |
+| `num_used_tokens` / `max_total` | `9536`/`11392` | `10176`/`11392` |
+| `token_usage` | `0.84` | `0.89` |
+
+第二次的完整token账：
+
+```
+capacity      = 11392
+num_used      = 10176   (radix + running)
+approx store  =   384   (1条record，leases=0，可自由驱逐)
+accounted     = 10560
+UNACCOUNTED   =   832
+allocator实际报告：available_size=0 + evictable_size=0，而请求仅需1024
+```
+
+**四项事实**：
+
+1. 死亡瞬间approximate store仍持有`384`个device token，且`leases=0`
+   ——**完全可驱逐却没有被驱逐**。
+2. `cross_store_reservation_failures_total`**从未被递增**，说明
+   `make_room(requester="exact")`要么根本没被调用，要么返回了committed；
+   它从未报告过失败。
+3. 有`832`个device token在两个gauge中都无法解释，而allocator却报告
+   零可用、零可驱逐。
+4. 唯一记录到的dense fallback原因是`store_miss`，**不是**reservation失败。
+
+**因此先前把S0/rho2记为“真实容量不可达”的判断被本诊断推翻，现更正为
+“被我方缺陷阻塞”。** 相应地，该cell不应算作capacity意义上的
+`diagnostic-unavailable`。
+
+**两个候选机制（待下一步定位）**：
+
+- `evict_from_tree_cache`只在`allocator.available_size() < num_tokens`时才
+  调用`make_room`。若`available_size()`与`alloc()`实际可满足量不一致，
+  cross-store回收路径会被**整体跳过**，请求直接死亡而从未咨询approximate store。
+  这与“reservation失败计数为0”完全吻合。
+- 存在**第二处slot泄漏**（区别于已修复的admission拒绝泄漏），可解释那
+  `832`个无法归属的token。
+
+**对Phase6 Exit的正面影响**：修好该缺陷后，正确的回收路径会自然产生真实的
+reservation失败，这恰好就是当前唯一缺失的Exit证据项。因此该修复可以用
+**自然可达**的强证据关闭它，而不必退而求其次使用fault injection。
+
+**影响面**：修复位于我们自己的`cross_store/`与`approx_kv/`，
+**不需要改动共享的上游`alloc_token_slots`路径**。
+
+artifact：`diagnostic-C-store-state-at-oom.json`、`diagC-store-gauges.jsonl`、
+`diagC2-labeled.jsonl`。

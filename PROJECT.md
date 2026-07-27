@@ -459,7 +459,9 @@ prompt族、exact-output不变量、本GPU与chunk配置下**冻结promotion规�
    `diagnostic-unavailable`并继续，不再中止整个矩阵。
 
 **重要更正**：P1-3与P1-2**都不是**S0/rho2 OOM的成因；两次修复后仍确定性
-OOM，因此该cell归类为**真实容量不可达**而非实现缺陷。
+OOM。
+
+**该判断已于2026-07-27被诊断C推翻，见下节。**
 
 P6-4最终结果（`run_id=p6-4-20260727T104820Z`）：
 
@@ -478,6 +480,47 @@ P6-4最终结果（`run_id=p6-4-20260727T104820Z`）：
 - `r4_like`（约5x）在所有cell均不可达，属计划预先允许的R4例外。
 - 整体`status=inconclusive`：无cell达到全`valid`，且
   `fallback_reachability.rounds=0`。
+
+### 2026-07-27 诊断C：S0/rho2是我方缺陷，不是容量不可达（更正）
+
+在真实S0/LRU rho2.0 cell运行期间以`0.4s`间隔轮询`/metrics`，两次独立复现，
+取server失联前最后一个样本。第二次的完整token账：
+
+```
+capacity      = 11392
+num_used      = 10176   (radix + running)
+approx store  =   384   (1条record，leases=0，可自由驱逐)
+accounted     = 10560
+UNACCOUNTED   =   832
+allocator报告：available_size=0 + evictable_size=0，而请求仅需1024
+```
+
+四项事实：
+
+1. 死亡瞬间approximate store仍持有`384`个device token且`leases=0`，
+   **完全可驱逐却未被驱逐**；
+2. `cross_store_reservation_failures_total`**从未递增**，说明
+   `make_room(requester="exact")`要么未被调用、要么返回committed，
+   从未报告失败；
+3. `832`个device token两个gauge都无法解释，而allocator却报告零可用零可驱逐；
+4. 唯一的dense fallback原因是`store_miss`，不是reservation失败。
+
+**结论：S0/rho2的OOM是实现缺陷，不是容量不可达。**先前记录已更正。
+
+两个候选机制（待定位）：
+
+- `evict_from_tree_cache`仅在`allocator.available_size() < num_tokens`时调用
+  `make_room`；若`available_size()`与`alloc()`实际可满足量不一致，
+  cross-store回收路径会被整体跳过，请求直接死亡而从未咨询approximate store
+  ——与“reservation失败计数为0”完全吻合；
+- 存在第二处slot泄漏（区别于已修复的admission拒绝泄漏），可解释那`832`个token。
+
+**对Exit的正面影响**：修好后正确的回收路径会自然产生真实reservation失败，
+恰好就是当前唯一缺失的Exit证据项，可用**自然可达**证据关闭，
+无需退而使用fault injection。
+
+**影响面**：修复位于我们自己的`cross_store/`与`approx_kv/`，
+**不需要改动共享的上游`alloc_token_slots`**。
 
 ### Phase6 Exit当前逐条状态
 

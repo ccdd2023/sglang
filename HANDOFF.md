@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-27T04:20:00-07:00
+最后更新：2026-07-27T11:55:00-07:00
 
 ## 新会话启动顺序
 
@@ -45,8 +45,10 @@ generic host canary、无泄漏无orphan、压力下数据保真、完整provena
 
 #### 重要判定
 
-- S0/rho2与S4/rho3的OOM在P1-2、P1-3修复后**仍确定性复现**，因此是
-  **真实容量不可达**，不是实现缺陷；已按契约记为`diagnostic-unavailable`。
+- **（2026-07-27更正）** S0/rho2的OOM经诊断C确认为**我方实现缺陷**，
+  不是容量不可达。死亡瞬间approximate store仍持有`384`个device token且
+  `leases=0`（可自由驱逐却未驱逐），`cross_store_reservation_failures_total`
+  从未递增，另有`832`个token无法归属。先前“真实容量不可达”的记录已作废。
 - `r4_like`（约5x）在所有cell不可达，属计划预先允许的R4例外。
 - 全目录回归`935 failed`是**改动前既有基线**（已用`git stash`对照两次），
   本次净增3个pass。

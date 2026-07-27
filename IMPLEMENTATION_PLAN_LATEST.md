@@ -1034,30 +1034,32 @@ Early-stop：
 - V4已完成GPT-5.6 Sol Max Thinking与Claude Opus 5 Max Thinking独立review、全文互换、交叉consolidate与最终delta verification。
 - 双模型确认V4定稿P0已闭合；generic host canary使用`P6-H`避免复用历史`P6-5`标签。
 
-以下状态于2026-07-26T20:20:00-07:00更新（原“Phase6分支未创建、CL0尚未完成、未启动新的GPU实验”已过时）：
+以下状态于2026-07-27T11:55:00-07:00更新（此前的2026-07-26版本已过时）：
 
 - Closeout CL0已完成；R2/R5 final head为`ce55860a9`/`71f15d5d1`。
 - Phase6实现分支`research/cross-store-substrate`已推送，head为
-  `248e2cb4774dbee8bb123b64d9b63cbd69f4ff5f`（本地与远程SHA一致）。
+  `11bc9b3e49a48c8545146d78e0a0e6a86d4fbb8b`（本地与远程SHA一致）。
 - 全部门禁均已在Docker SM75镜像内执行。
 
 | 门禁 | 状态 | 结论 |
 | --- | --- | --- |
 | CL0 | 完成 | authority manifest与supersession已冻结 |
-| CL1 | 完成 | `practical family = NONE`，但因果归因被P0污染 |
-| CL2 | 完成 | gate `inconclusive`，按计划显式waive为provisional chunk `1024` |
-| CL3 | 完成 | Phase5零GPU重算完成，S4优势仅在workflow-only分母成立 |
-| P6-H | **失败** | 机械证据全通过，数据保真失败（P0） |
-| P6-4 | **失败** | 完整profile矩阵`invalid`；exact-only baseline有效 |
-| CL4 | 未开始 | Phase6 Exit未通过，双模型review的前提尚不成立 |
+| CL1 | 完成 | `practical family = NONE`，**因果归因有效** |
+| CL2 | 完成 | gate `inconclusive`，显式waive为provisional chunk `1024` |
+| CL3 | 完成 | S4优势仅在workflow-only分母成立 |
+| P6-H | **通过** | `status=valid`，压力下与matched dense逐token一致 |
+| P6-4 | **完整跑通** | 3个S4 cell可达，2个cell未达；双向pressure首次通过 |
+| CL4 | 部分完成 | 已完成对修复与结论的双review；正式Exit review待P6-4定稿 |
 
-- **Phase6 Exit不通过**，因此Phase7 Entry不满足。唯一阻塞项是一个P0缺陷类：
-  cross-store allocator在同一次驱逐迭代内对stale radix资源快照执行action，
-  导致压力下近似KV数据损坏（P6-H）与radix结构断言失败（P6-4）。
+- 本轮共修复6个缺陷：P0 prefix自我覆写、P6-H reseed断言、
+  P1-1 SWA释放元数据、P1-3 provisional slot泄漏、P1-2 stale victim重试，
+  以及P6-4 runner逐cell容错。
+- **Phase6 Exit只剩dense fallback可达性一项**；诊断C已证明该项受阻于
+  我方cross-store回收缺陷，修好后即可自然取得证据（见§15.1）。
 - Phase7 primary manifest仍未预注册，是Phase7 Entry的第二个缺口。
 - 未进入Phase7。
 
-## 15. Phase6 Exit阻塞与V5待冻结修订（草案，尚未生效）
+## 15. Phase6 Exit剩余阻塞与V5待冻结修订（草案，尚未生效）
 
 ### 15.1 为什么现在仍不发布V5
 
@@ -1076,13 +1078,28 @@ Early-stop：
 双向pressure（exact→approx `47.5GB`、approx→exact `58.8GB`）、
 R1-like worst-case（k32）可达、P6-H压力下逐token保真。
 
+**2026-07-27诊断C的关键更新**：先前认为S0/rho2的OOM是“真实容量不可达”，
+该判断已被推翻。死亡瞬间approximate store仍持有`384`个device token且
+`leases=0`，`cross_store_reservation_failures_total`从未递增，另有`832`个
+token无法归属。**这是我方缺陷。**
+
+这把最后一项从“可能拿不到”变成“**修好缺陷即可自然拿到**”：正确的回收路径
+会真实触发reservation失败并走dense fallback，恰好就是缺失的证据项。
+因此**不采用**fault injection这条弱证据路线。
+
+修复位于我们自己的`cross_store/`与`approx_kv/`，
+**不改动共享上游`alloc_token_slots`**。
+
 本文件继续保持`Current / Latest`，不提升版本号、不归档
 （用户已明确本轮不升级）。
 
 V5的创建条件收敛为：
 
-1. 取得dense fallback可达性证据；
-2. 完成正式的Phase6 Exit双模型review与disposition。
+1. 修复cross-store回收缺陷（诊断C），并由此取得**自然的**dense fallback
+   可达性证据；
+2. 用修复后的底座重跑P6-4，重新判定S0/rho2与S4/rho3的可达性
+   （二者当前的`diagnostic-unavailable`标签可能一并改变）；
+3. 完成正式的Phase6 Exit双模型review与disposition。
 
 ### 15.2 已由执行结果确定、必须写入V5的合同修订
 
@@ -1125,6 +1142,14 @@ V5的创建条件收敛为：
     不足以归因，必须补上“无eviction条件下仍偏离”这一格。
 12. **allocation失败必须优雅降级。** `alloc_token_slots`在cross-store无法
     腾出空间时抛`RuntimeError`杀死scheduler进程，应改为可记录的失败。
+13. **“容量不可达”必须用store gauge实测证伪后才能下结论。** 本轮把S0/rho2
+    误判为容量极限，直到诊断C测出死亡瞬间approximate store仍持有可驱逐的
+    device token才被推翻。凡是要写`diagnostic-unavailable`且理由为容量的
+    cell，都必须附带死亡瞬间的store gauge快照，证明没有可回收资源残留。
+14. **`evict_from_tree_cache`的触发条件本身可能是缺陷来源。** 它只在
+    `allocator.available_size() < num_tokens`时才调用`make_room`；若该
+    判据与`alloc()`实际可满足量不一致，整条cross-store回收路径会被静默
+    跳过，且不会留下任何reservation失败记录。
 
 ### 15.3 P0修复的两个候选方向（供CL4后执行）
 
