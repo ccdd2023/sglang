@@ -646,13 +646,17 @@ Phase6结果经双模型review后才允许Phase7。
 
 必须使用的表述：
 
-> Phase 6获得治理性豁免：**GPU上自然发生的
-> reservation-failure-associated dense fallback未被观测**。
-> CPU层分别验证了回滚与fallback归因，GPU层分别验证了普通dense fallback
-> 及双向回收；**这些证据不证明端到端自然可达性**。
+> CPU tests cover reversible rollback and reservation-failure attribution
+> at the `allocate_recovery_slots` boundary. GPU runs cover bidirectional
+> reclamation. **No integrated approximate request has completed dense
+> execution after a reservation failure.**
 
 不得写成“十项技术条件全部满足”。§7.9原文要求的是“fallback/rollback可达”，
 本项在看到结果之后才降低标准；披露本身是诚实的，把它写成“条件满足”不是。
+
+Exit状态必须拆成两项分别陈述：`technical_exit = FAIL`；
+`governance_disposition = 已对一项未验证条件接受豁免`。
+治理豁免不会把technical FAIL变成evidence PASS。
 
 **Exit review修正后的证据边界**：
 
@@ -672,17 +676,8 @@ cross-store reservation失败后真正走完dense路径，并断言reservation�
 
 完整证据链见`phase6-exit-fallback-disposition.json`。
 
-**已直接证明的部分**：
-
-| 主张 | 证据 | 层级 |
-| --- | --- | --- |
-| allocator在**任意**失败点都正确回滚 | `test_fault_injection_rolls_back_reversible_actions`遍历全部`AllocationFailurePoint`，断言`committed=False`、eviction被撤销、byte ledger复原 | CPU，直接 |
-| reservation被拒→降级dense→并归因 | `test_reservation_failure_degrades_to_dense_fallback`，经mutation验证 | CPU，直接 |
-| dense fallback在GPU上真实执行 | P6-4三个可达cell共12次`dense_fallback`；`r4_like`记录`4096` fallback token | GPU，直接 |
-| exact压力真实回收approximate内存 | `2,202,009,600` bytes approximate victim被exact requester取走 | GPU，直接 |
-
-**未证明的部分**：GPU上`dense_fallback`与`reservation_failures>0`**同时发生**
-一次，即P6-4 `fallback_reachable` flag的字面要求。
+**未证明的部分**：没有任何**集成的approximate请求**在reservation失败后
+走完dense执行；现有CPU证据只到`allocate_recovery_slots`函数边界。
 
 **为何不可得（已实测）**：任何会耗尽cross-store预留的配置也会耗尽device，
 请求先在共享上游`alloc_token_slots`中止，来不及记录reservation失败。
@@ -728,8 +723,16 @@ CL1已在修复后的底座上完成screening与3-restart确认，
 - 保留R0 ceiling、R2 oracle、R4 diagnostic；
 - exact-only prefetch若执行，只能标为Phase5回归canary。
 
-这一结论现在具备**有效因果归因**：P0修复前后CL1的guardrail失败计数完全相同
-（screening `17+6`/48，confirm `12+4`/48），因此偏离不是实现缺陷造成的。
+该结论的**准确强度**（第三轮审计要求）：
+
+> 在被测实现与配置下，没有candidate通过冻结的exact-output promotion规则。
+> 已知的eviction-dependent prefix-overwrite缺陷**被排除**为该偏离的解释，
+> 但**未证明context差异是因果原因**，**也未排除header-dependent实现缺陷**。
+
+依据是P0修复前后CL1的guardrail失败计数与输出序列完全相同
+（screening `17+6`/48，confirm `12+4`/48）。注意所谓2×2**并非真正的
+factorial**（拼接了两套runner/policy/chunk/env/SHA不同的实验），
+低压cell的eviction telemetry也未覆盖完整target allocation窗口。
 机制上，CL1把在`source_header`（`32_000+`）下计算的body KV复制到
 `target_header`（`36_000+`）之后使用，前缀不同导致attention上下文不同，
 KV本来就是近似的；而P6-H的source与target header相同，修复后输出逐token一致。

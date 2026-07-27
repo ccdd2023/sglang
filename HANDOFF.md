@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-27T12:30:00-07:00
+最后更新：2026-07-27T14:00:00-07:00
 
 ## 新会话启动顺序
 
@@ -16,7 +16,7 @@
 ### 2026-07-27T04:20:00-07:00 Phase6 Exit仅剩dense fallback一项未满足
 
 - 全部实验在Docker SM75镜像内执行。
-- 实现branch head：`1ffeb0426ec30852682d15c66a4f56b091cbc71b`。
+- 实现branch head：`7dd07a6b4d98f76329108e0db6f7a0bdcf896309`（以远程分支为准，每次push后核对）。
 
 | 门禁 | 状态 |
 | --- | --- |
@@ -29,7 +29,9 @@
 
 #### Phase6 Exit逐条
 
-**九项有直接证据 + 一项明确豁免。** dense fallback可达性**未被验证**，
+**状态必须拆两项陈述**（第三轮Sol Max审计要求）：
+`technical_exit = FAIL`；`governance_disposition = 已对一项未验证条件接受豁免`。
+治理豁免**不会**把technical FAIL变成evidence PASS。 dense fallback可达性**未被验证**，
 由用户于2026-07-27决定作为**治理性豁免**记录（计划§7.9.1），
 不得表述为“已满足”；其余各项均有直接证据，
 包括：exact/approx/host安全竞争、双向pressure（exact→approx `47.5GB`、
@@ -416,7 +418,7 @@ P6-H用同一header，修复后逐token一致。两者共同证明：
 - Scheduler gate：final practical recovery在body2048、rho1.5/3重跑S0-S4；满足mean>=5%且p95不恶化才晋级。
 - Prefetch gate：S4+HiCache winner在body2048、rho2/3重跑P0-P3；没有真实async overlap时只作安全canary，不作性能claim。
 - `PROJECT.md`中的Phase6主计划现已直接包含P6-3.5与P6-5.5，不再只存在于后续补充说明。
-- 当前计划文件：`IMPLEMENTATION_PLAN_LATEST.md`（V2 / Latest）。
+- 当前计划文件：`IMPLEMENTATION_PLAN_LATEST.md`（**V4** / Latest）。（历史快照中的“V2”已过时。）
 - 旧版计划文件：`IMPLEMENTATION_PLAN_V1_ARCHIVED.md`（V1 / Archived）。
 - 原时间戳文件名保留为兼容指针，不是执行依据。
 

@@ -92,250 +92,142 @@ Persistent commits:
       30c9ae8de429a6389e58bbdcdf096101cf6296ff14d4e6fcf5c2b87c6b1f0749
 
 
-3. IMMEDIATE EXECUTION ORDER BEFORE PHASE 7
--------------------------------------------
+3. CONSOLIDATED TODO
+-------------------
 
-STATUS 2026-07-27T01:50:00-07:00.
+Consolidated 2026-07-27 from a GPT-5.6 Sol max-reasoning audit, replacing the
+accumulated per-round sections. Implementation HEAD at consolidation:
+7dd07a6b4. Phase 7 is NOT authorized.
 
-Done and NOT to be redone: CL1 (rerun on the fixed substrate), CL2, CL3,
-P6-H, and the P0 fix. Remaining: P6-4, then CL4.
-
-All runners execute inside the immutable SM75 image with:
-
-    --runtime=nvidia --gpus all --ipc=host --shm-size=8g --user 1000:1000
-    worktree and sglang-experiments mounted read-only at their host paths
-    /home/chris/Workspaces/kvcache-research/results mounted read-write at /results
-    HF cache mounted read-only with HF_HOME and HF_HUB_OFFLINE=1
-    PYTHONPATH=<worktree>:<worktree>/python:/opt/sm75-site
+Status to quote verbatim:
+    technical_exit         = FAIL
+    governance_disposition = exemption accepted for one unverified condition
+A governance exemption is not evidence that a condition passed.
 
 
-3.1 DENSE FALLBACK REACHABILITY - THE ONLY REMAINING EXIT GAP
+3.1 P0 - BLOCKS PHASE 6 TECHNICAL EXIT
 
-[ ] P6-4 now completes and reports fallback_reachability rounds = 0, so the
-    one Phase 6 Exit requirement still without evidence is that a dense
-    fallback is actually reachable under the pilot workload.
+[x] 1. Complete provisional recovery-slot cleanup.  DONE this session.
+       Releasing only on the next round and at teardown left two holes: a
+       request rejected by add_one_req kept the slots until a round that might
+       never arrive, and a waiting request aborted before that round leaked
+       them permanently. Now released at both points, and the marker is
+       cleared only after allocator.free succeeds so a failing allocator
+       cannot drop the last reference.
+       Remaining: the tests are contract/source-level. An integration test
+       over the real scheduler lifecycle would be stronger.
+       Pitfall: never free session-owned or already committed req_to_token
+       slots.
 
-[ ] Everything else in the Exit gate is satisfied. See PROJECT.md for the
-    per-item table.
+[x] 2. Provenance.  DONE this session.
+       .gitignore line 179 (*.jsonl) had silently excluded raw telemetry that
+       was being cited as evidence. Force-added. benchmark/approx_kv/
+       build_result_manifest.py now generates AND verifies the manifest;
+       --check re-derives every entry and fails on missing, pending or
+       hash-mismatched artifacts. Currently 32/32 verified.
+       Rule: regenerate and re-check in the SAME commit that adds or changes
+       an artifact, or entries rot into pending/stale-blob states.
+       Known gap, stated in the manifest: server logs are still referenced by
+       absolute host path and are not versioned.
 
-[x] RULED OUT by measurement, do not retry these:
-    - tuning rho. rho 2.5 also exhausts the device, so there is no band where
-      a reservation fails but the server survives;
-    - inflating --kv-bytes-per-token. CrossStoreBudget converts its limit and
-      its usage with the same factor, so the scaling cancels and
-      reservation_failures stays 0.
+[ ] 3. Persist the fallback-label correction across existing evidence.
+       The runner was fixed in 84c4e5202 so an exact-only miss now reports
+       exact_cache_miss, but artifacts produced earlier still carry the old
+       dense_fallback label.
+       Do: leave the measured artifacts immutable; add a derived corrected
+       report plus a machine-readable note, and link both from the manifest.
+       Acceptance: the corrected view shows zero exact-only approximate
+       fallbacks; the runner regression passes.
+       Never: rewrite p6-4.json, or count a registration failure as a replay
+       fallback.
 
-[x] Diagnostic C is DONE and settled the question. There is NO reclaim
-    defect. Measured at 0.05 s resolution, at the instant the S0/LRU rho2.0
-    server dies:
-      approx_kv_store_device_bytes  0.0     <- store already empty
-      approx_kv_store_records       0
-      num_used_tokens / capacity    10688 / 11392   (token_usage 0.94)
-      free 704 tokens against a 1024 token request
-    and the reclaim path had already worked, cumulatively:
-      exact requester -> approximate victim   2,202,009,600 bytes
-      approximate requester -> exact victim   1,767,800,832 bytes
+[ ] 4. Close P0-1, or keep it explicitly unverified.
+       Required to verify: an INTEGRATED request that completes densely after
+       a cross-store reservation failure, asserting the reservation-failure
+       label, reuse/dense_fallback, output completion and clean accounting.
+       Current CPU evidence stops at the allocate_recovery_slots boundary and
+       does not traverse finalize_copy_reuse, the scheduler or real inference.
+       Ruled out by measurement, do not retry: rho tuning (rho 2.5 also
+       exhausts the device) and inflating kv-bytes-per-token (the budget
+       scales limit and usage by the same factor, so it cancels).
 
-    So S0/LRU rho2.0 and S4 rho3.0 ARE genuine capacity limits and
-    diagnostic-unavailable is the correct label. Nothing to fix here.
-
-    WARNING for whoever reads the history: diagnostic C v1 used a 0.4 s poll
-    and concluded the opposite, that reclaimable memory was stranded. That was
-    a sampling artifact, because the last successful scrape predated the fatal
-    request. It is retained as
-    diagnostic-C-v1-SUPERSEDED-coarse-sampling.json purely as a caution. Do
-    not act on it.
-
-[ ] DECISION REQUIRED from the user for the last Exit item. It cannot be
-    obtained by fixing a bug, because there is no bug. Two options:
-
-    A. Make alloc_token_slots degrade instead of aborting.
-       Strongest evidence, natural reachability. But it edits the shared
-       upstream hot path with four callers on every request, diverging from
-       upstream. Highest risk.
-
-    B. Use the allocator's existing fault_injector, AllocationFailurePoint.
-       AFTER_RESERVE, wired behind an env flag in cross_store/, roughly ten
-       lines, off by default, zero production impact. But it proves only that
-       the fallback path works, which is a weaker claim than natural
-       reachability, and the artifact must say so explicitly.
-
-    A third, legitimate option is to accept the item as indirectly_verified:
-    the rollback is already proven for every failure point by
-    test_fault_injection_rolls_back_reversible_actions, and the second half of
-    the chain is now covered by
-    test_reservation_failure_degrades_to_dense_fallback (mutation checked).
+[ ] 5. Targeted dual-review delta verification of items 1-4 only.
+       Do not repeat the full Exit review.
+       Acceptance: both reviewers explicitly close or retain each finding,
+       then one main-session disposition.
 
 
-3.2 PHASE 6 EXIT - FORMAL REVIEW DONE, VERDICT IS FAIL
+3.2 P1 - BLOCKS PHASE 7 ENTRY OR CLAIM STRENGTH
 
-[x] Both independent reviewers returned FAIL. Their substance agreed.
-    Do not re-run the review; act on the findings below.
+[ ] 6. Freeze the meaning of winner = NONE.
+       Accept it only as a promotion result for the tested implementation and
+       configuration, OR run a true same-runner factorial before making any
+       causal claim. The existing 2x2 is NOT a factorial: it splices P6-H and
+       CL1, which differ in runner, policy, chunk, plugin env, code SHA and
+       repeat count, and the low-pressure eviction telemetry does not cover
+       the whole target-allocation window. A header-dependent implementation
+       defect is not excluded.
 
-[x] P0-2 CLOSED. S4 rho3 was measured directly instead of extrapolated:
-    0.05 s sampling, cap 7595, store_device_bytes 0, records 0, and exact
-    requesters had already reclaimed 1,746,927,616 bytes. Same signature as
-    S0 rho2, so both are genuine capacity limits.
+[ ] 7. Correct guardrail semantics in V5.
+       Separate same-context corruption detection from cross-context
+       conservative exact-output promotion. Only in the same-context canary
+       does a mismatch directly indicate corruption.
 
-[x] P0-3 CLOSED. .gitignore line 179 (*.jsonl) had silently excluded the raw
-    telemetry that was being cited as evidence; it is now force-added.
-    RESULT_MANIFEST.json supplies file->commit mapping, hashes, environment,
-    verification commands and the known 935-failure baseline. Server logs are
-    still unversioned and this is stated explicitly in the manifest.
+[ ] 8. Create the result-bound V5 plan, only after the Phase 6 disposition.
+       Must carry: profile-level vs cell-level status; CL3 denominator
+       wording; P6-H canary scope; reversible vs irreversible rollback;
+       separate device and host budgets; the corrected fallback taxonomy; and
+       the statistical replicate limits.
 
-[ ] P0-1 STILL OPEN, and it is the ONLY remaining Exit blocker.
-    Required: an integrated request that completes densely AFTER a
-    cross-store reservation failure, asserting the reservation-failure label,
-    reuse/dense_fallback, output completion and clean accounting.
-    Under the user's option C this is currently carried as an explicitly
-    UNVERIFIED condition with a governance exemption. It must never be
-    described as satisfied.
+[ ] 9. Pre-register the Phase 7 primary manifest before any Phase 7 run.
 
-[ ] Fix the reporting defect that caused a false evidence claim:
-    run_p6_4_capacity_pilot.py lines 413-419 label an ordinary exact-cache
-    miss as dense_fallback whenever a profile carries no approximate
-    metadata. This produced twelve "GPU dense fallbacks" that were not
-    fallbacks at all. Fix before any Phase 7 fallback reporting.
-
-[ ] Correct Exit wording everywhere: nine items have direct evidence, some
-    with narrowed scope, plus one unverified exemption. Never "all ten
-    satisfied".
+[ ] 10. Obtain explicit user authorization for Phase 7.
 
 
-3.3 COMPLETED - DO NOT REDO
+3.3 CONDITIONAL - ONLY IF TRIGGERED
 
-[x] P0 fix: protect_request_prefix, plus the hardened exact victim guard.
-    Commits af81934e4 and c405343c8. GPU verified.
-[x] CL1 rerun, screening and 3-restart confirm, on the fixed substrate.
-    winner = NONE, causal attribution now VALID because the guardrail failure
-    counts are identical before and after the fix.
-[x] P6-H, status valid, output identical to matched dense.
-[x] CL2 chunk gate, waived to provisional chunk 1024.
-[x] CL3 Phase 5 zero-GPU recalculation.
-[x] P6-4 exact-only capacity baseline.
-[x] Guardrail ambiguity frozen as plan section 5.9.1 BEFORE the rerun.
-[x] Context-vs-pressure 2x2. Different-header reuse diverges even at
-    target_rho 0.5 with zero eviction, so the fixed defect cannot explain the
-    CL1 divergence. Artifact: context-vs-pressure-2x2.json.
-[x] Dual review of the P0 fix and of the scientific conclusions. No P0 found.
-    All three review P1 findings are now fixed:
-      P1-1 SWA release metadata      db2d18ff0
-      P1-3 provisional slot leak     40f09c1fe
-      P1-2 stale victim retry        3379e6699
-[x] P6-4 full fixed40 matrix, plus per-cell resilience in the runner
-    (0f379eb04, fb284cad4).
-
-    Note: test_radix_cache_unit.py::test_memory_allocated fails on this tree
-    but also fails with all changes stashed. It is pre-existing, not a
-    regression.
+[ ] Targeted P6-4 rerun if the immediate-cleanup change alters the
+    admission/capacity path; start with S0/rho2 and S4/rho3.
+[ ] Rerun affected P6-4 cells if the final chunk differs from provisional 1024.
+[ ] R2/R5 matched ratio/pressure only for a mechanism-ranking claim.
+[ ] R2/R5 rho1.1/rho3 only for a rho-robustness claim.
+[ ] One R2 explicit-counter cell only if direct zero-fallback evidence is needed.
+[ ] Reopen alloc_token_slots graceful degradation or fault injection only if
+    the user reverses option C, or Phase 7 needs natural failure evidence.
 
 
-4. RESULT-BOUND PHASE 7 PLAN UPDATE
------------------------------------
+3.4 DO NOT REDO
 
-[ ] Do not rewrite the complete Phase 7 matrix before Section 3 is complete.
-
-[ ] After CL4/Phase6 Exit:
-    - archive IMPLEMENTATION_PLAN_LATEST.md V4;
-    - create a new result-bound latest version;
-    - review it independently with Sol and Opus;
-    - exchange reports and consolidate;
-    - freeze the actual candidate, chunk, matrix, budget and early-stop paths.
-
-DECISION 2026-07-26T20:25:00-07:00 on how to update the Phase 7 latest plan:
-V4 stays Current / Latest. It is not archived and the version is not bumped.
-V4's phase structure, its practical=NONE branch, its chunk waiver branch and
-its "P6-H does not unlock HiCache" boundary were all confirmed correct by
-execution. What is missing is results, and the results that exist are either
-contaminated by the P0 (CL1) or could not be produced (P6-H, P6-4). Freezing a
-result-bound V5 now would turn conclusions drawn on a defective substrate into
-authority. The pending V5 amendments are recorded as a clearly non-authoritative
-draft in IMPLEMENTATION_PLAN_LATEST.md section 15 and require the section 1
-dual review before they become effective.
-
-Known Phase 7 contract changes that must be included:
-
-[ ] Resolve the section 5.9 guardrail ambiguity before any rerun.
-
-[ ] A missing labelled Prometheus counter is indirectly_verified, never an
-    explicit zero.
-
-[ ] Every recovery speedup claim states chunked_prefill_size and
-    max_prefill_tokens and carries a single-chunk control point.
-
-[ ] Phase 6 Exit gains an explicit approximate-reuse fidelity-under-pressure
-    condition.
-
-[ ] Phase 5 conclusions are stated per denominator, because S4 only keeps its
-    advantage under workflow-only.
-
-[ ] Candidate semantics include R0, R1-k0, selected R1-k or NONE.
-
-[ ] Recovery promotion and reporting use complete request-path plus
-    N=1/2/4/8 amortization and break-even.
-
-[ ] Directional pressure telemetry is preserved:
-    exact requester -> approximate victim
-    approximate requester -> exact victim
-
-[ ] Every run records:
-    model revision
-    clean source commit
-    source tree SHA
-    image digest
-    server argv/plugin env
-    raw/server-log SHA256
-    independent result commit
-
-[ ] P6-H does not unlock the HiCache track.
-
-[ ] If practical=NONE:
-    - skip practical scheduler revalidation;
-    - skip practical HiCache and prefetch tracks;
-    - retain R0 ceiling, R2 oracle and R4 diagnostic;
-    - exact-only prefetch, if run, is only a Phase5 regression canary.
-
-[ ] If practical exists and the user authorizes the host track:
-    - implement a dedicated HiRadix/Unified cross-store adapter gate first;
-    - do not remove the current startup rejection until its lifecycle,
-      host-reference and allocator semantics are tested;
-    - then run P7-3 feasibility before any host matrix or prefetch claim.
+[x] Complete Phase 4 or Phase 5 matrices.
+[x] The corrected R2/R5 rho2 runs.
+[x] CL1, CL2, CL3, P6-H, absent an invalidating code change.
+[x] The complete P6-4 matrix by default.
+[x] rho 2.5 or kv-bytes-per-token scaling for fallback reachability.
+[x] diagnostic C v1: superseded by the 0.05 s measurement, marked
+    valid=false / do_not_use. Do not act on it.
+[x] Citing exact-only misses or R4 registration failures as dense fallback.
+[x] Claiming HiCache / exact-host unification, or scheduler / prefetch
+    performance.
+[x] Entering Phase 7 without explicit authorization.
 
 
-5. PHASE 7 TODO - NOT AUTHORIZED YET
------------------------------------
+4. WORDING THAT MUST BE USED
+---------------------------
 
-[ ] P7-0 freeze candidate manifest.
-[ ] P7-1 recovery evaluation.
-[ ] P7-2 scheduler revalidation and main matrix.
-[ ] P7-3 dedicated HiCache adapter gate and host demand-load, if applicable.
-[ ] P7-4 prefetch functionality and async performance, if applicable.
-[ ] P7-5 final validation and dual review.
-
-Do not start any item in this section before the user explicitly authorizes
-Phase 7 after reviewing the Phase 6 report.
-
-
-6. CONDITIONAL RETESTS - DO NOT RUN BY DEFAULT
-----------------------------------------------
-
-[ ] Rerun affected P6-4 cells only if CL2 changes the chunk configuration after
-    a provisional cell was already run.
-
-[ ] Run R2/R5 matched repair ratio and matched pressure only if retaining a
-    mechanism-ranking claim.
-
-[ ] Run R2/R5 rho1.1/rho3 only if publishing a rho-robustness claim.
-
-[ ] Run one R2 explicit-fallback-counter cell only if direct zero-fallback
-    evidence is required.
-
-[ ] Run a one-request registration prototype only if intrinsic preparation
-    cost is required.
-
-[ ] Do not rerun the complete Phase 4 or Phase 5 matrices.
-
-[ ] Do not repeat the corrected R2/R5 rho2 matrix.
+- Exit: technical_exit = FAIL, plus a governance exemption for one unverified
+  condition. Never "all ten conditions satisfied".
+- P6-4: every top-level cell is diagnostic-unavailable; what is reachable is
+  four non-R4 profiles inside three S4 cells. Never "three cells reachable".
+- P6-H: a 1-restart, 2-round, 8-token output canary. Not KV or logit fidelity.
+- CL3: S4 loses its UNIQUENESS versus S1-S3 under all-reusable; it still shows
+  1.09-1.18x versus S0. Never "S4's advantage disappears".
+- CL2 chunk: measured at body 768/1024 only, with two knobs changed together.
+  Do not generalise to all of CL1.
+- Rollback: truly rolled back only for reversible actions; irreversible
+  victims are only correctly accounted.
+- Budgets: exact and device-approximate share the device budget; host uses a
+  separate limit. Exact-host / HiCache unification is NOT implemented.
+- "No reclaim defect" is scoped to the two measured death points.
 
 
 7. PERSISTENCE RULES AFTER EVERY MILESTONE

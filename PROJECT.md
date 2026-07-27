@@ -563,14 +563,21 @@ fallback不能靠修bug自然获得。用户于2026-07-27选定**方案C**：该
 `p6-4.json`未被修改，仍如实记录`fallback_reachability.passed=false`；
 disposition单独记录在`phase6-exit-fallback-disposition.json`与计划§7.9.1。
 
-**因此Phase6 Exit为九项有直接证据 + 一项明确豁免**（不得表述为“十项全部
-满足”）。必须使用的表述为：
+**Phase6 Exit状态必须拆成两项分别陈述**（第三轮Sol Max审计要求）：
 
-> Phase 6获得治理性豁免：GPU上自然发生的reservation-failure-associated
-> dense fallback未被观测。CPU层分别验证了回滚与fallback归因，GPU层分别
-> 验证了普通dense fallback及双向回收；这些证据不证明端到端自然可达性。
+```
+technical_exit        = FAIL
+governance_disposition = 已对一项未验证条件接受豁免
+```
 
-仅剩正式双模型Exit review与主会话disposition。仍未进入Phase7。
+必须使用的表述为：
+
+> Phase 6 technical Exit remains FAIL: provenance完整性与
+> reservation-failure-associated dense fallback两项曾未闭合；后者仍为
+> governance exemption下的**未验证**条件。
+
+治理豁免**不会**把technical FAIL变成evidence PASS，也不否定其余证据。
+仍未进入Phase7。
 
 ### Phase6 Exit当前逐条状态
 
@@ -587,16 +594,20 @@ disposition单独记录在`phase6-exit-fallback-disposition.json`与计划§7.9.
 | raw/commit/env/test provenance | **部分满足**：artifact仍为`result_commit_status="pending_result_commit"`、`result_git_sha=null`，缺file→commit映射与内含的test command/result，不得称“完整” |
 | dense fallback可达性 | **未验证，治理性豁免**（用户决定，见计划§7.9.1） |
 
-关于最后一项的精确事实：**dense fallback路径可达且已观测**——三个可达cell的
-`exact_only` profile各发生`4`次`dense_fallback`（合计12次）。
-但`fallback_reachable`要求的是`dense_fallback`**且**`reservation_failures>0`，
-而全部round的`reservation_failures`为`0`，故flag为`False`。
-即尚缺的是**reservation-failure关联的**fallback证据，不是“fallback不可用”。
+关于最后一项的精确事实（**此处原有的“12次dense fallback”表述已撤回**）：
 
-拿不到该证据的原因与既有鲁棒性缺口同源：唯一会真正触发reservation失败的
-cell（S0/rho2、S4/rho3）在此之前就因`alloc_token_slots`抛`RuntimeError`
-杀死server。修复方向是让allocation失败可记录地降级，或使用allocator已有的
-`fault_injector`注入一次受控reservation失败。
+- CPU测试覆盖了**可逆动作的回滚**，以及在`allocate_recovery_slots`边界上的
+  **reservation失败归因**；
+- GPU运行覆盖了**双向回收**；
+- **没有任何集成的approximate请求在reservation失败后走完dense执行**。
+
+原先据以声称“已观测12次dense fallback”的记录，实为`exact_only` profile的
+**普通exact-cache miss被runner误标**；该标签缺陷已在`84c4e5202`修复为
+`exact_cache_miss`，但**既有artifact仍保留旧标签**，读取时必须注意。
+
+拿不到自然证据的原因：唯一会真正触发reservation失败的cell（S0/rho2、
+S4/rho3）在此之前就因`alloc_token_slots`抛`RuntimeError`杀死server；
+且诊断C已证明这两个cell是真实容量耗尽，无缺陷可修。
 
 补充结果（2026-07-27）：只跑`exact_only`+`r2_like`时，
 **S4 rho1.1与S4 rho2.0首次达到`status=valid`**。这确定完整矩阵中所有cell被
@@ -701,7 +712,7 @@ AssertionError: parent does not have child key
 - 只读核对确认 `ccdd2023/sglang:main` 为 `3343a79466aa714d34a14d08d3929f7953a47212`，upstream `sgl-project/sglang:main` 为 `c0ed009f5b566be023661bd4e93065b8b4b8b31f`；前者是后者祖先，落后 4,654 commits，可 fast-forward-only。
 - 远程当前不存在 `latest-main`；实施时将在 Docker 内 fast-forward fork main 后创建并推送该分支。
 - Git fetch、checkout、编辑、依赖下载、构建、测试、server 和 benchmark 全部必须在 Docker 内执行；宿主机只负责启动容器、挂载目录和收集结果。
-- 当前最新实施计划为`IMPLEMENTATION_PLAN_LATEST.md`（V2）；原始完整计划归档为`IMPLEMENTATION_PLAN_V1_ARCHIVED.md`（V1）。
+- 当前最新实施计划为`IMPLEMENTATION_PLAN_LATEST.md`（**V4**；此行原记为V2，已过时）；V1/V2/V3均已归档。
 - 已在空目录中初始化 Git 仓库，默认分支为 `main`。
 - 已建立项目主文档、讨论追踪文件和会话交接文件。
 - 已建立 Copilot 仓库指令，确保后续会话先读取交接信息并持续维护文档。
@@ -2110,7 +2121,7 @@ vs S4 + HiCache demand load
 - 三restart compact manifests；
 - 明确区分speed ceiling、precomputed oracle和practical winner的结论。
 
-Phase6当前仅完成计划修订，尚未开始实现或实验。完整可执行版本已同步到根目录`IMPLEMENTATION_PLAN_LATEST.md`（V2）。
+（历史记录，已过时：当时Phase6仅完成计划修订。当前latest为V4，Phase6全部门禁已执行。）
 
 ## 2026-07-24T15:43:46-07:00 S1-S3与P1-P3不彻底取消，增加revalidation gate
 

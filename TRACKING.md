@@ -2536,3 +2536,69 @@ workload的分配动态，否则会得到“自信但错误”的结论。本次
   不是已满足条件；
 - 因此正式表述为：**Phase6 Exit九项有直接证据（部分范围受限）+ 一项
   未验证豁免**，不得写成“全部满足”。
+
+## 2026-07-27T14:00:00-07:00 — GPT-5.6 Sol Max审计：3个P0，其中1个是真实代码缺陷
+
+用户要求用GPT-5.6 Sol max reasoning复核结论并合并todo。审计发现我先前
+"P0-2/P0-3已关闭、九项直接满足"的表述**不成立**。
+
+### Sol P0-1（真实代码缺陷，已修复）
+
+provisional slot清理**不完整**：
+- `runtime.py`只在下一轮或teardown释放；
+- `scheduler.py:3024-3050` admission拒绝后**不立即释放**；
+- `scheduler.py:4069-4108` waiting-request abort路径**也不释放**。
+
+后果：被拒请求若在重试前abort，slot**永久泄漏**；即使不abort也会在当前
+batch期间错误占用容量。已在两处补上释放，并把marker清除**移到
+`allocator.free`成功之后**——否则free失败会丢掉唯一引用。新增3个回归。
+
+### Sol P0-2（provenance实际未关闭，已真正关闭）
+
+`RESULT_MANIFEST.json` 32项中只有29项可验证：2项为`pending_this_commit`、
+1项指向旧commit且blob hash不匹配。根因是我在**提交之前**生成manifest。
+
+已新增`benchmark/approx_kv/build_result_manifest.py`：既生成也**验证**，
+`--check`重新推导每一项并在缺失/pending/hash不符时失败。
+当前**32/32全部通过**。并写明规则：必须在**同一个commit**内重新生成并复查。
+（注：该脚本需在host运行，容器未挂载gitdir时`git log`返回空。）
+
+### Sol P0-3（已撤回的证据仍作为当前事实存在，已清除）
+
+`PROJECT.md`与计划中仍有"12次dense fallback""R4 fallback token"的旧表格，
+与同文件内的撤回声明直接矛盾。已删除并替换为Sol给出的措辞：
+
+> CPU tests cover reversible rollback and reservation-failure attribution at
+> the `allocate_recovery_slots` boundary. GPU runs cover bidirectional
+> reclamation. No integrated approximate request has completed dense
+> execution after a reservation failure.
+
+### Exit状态的正确表述（已采纳）
+
+```
+technical_exit         = FAIL
+governance_disposition = 已对一项未验证条件接受豁免
+```
+
+Sol明确指出："九项直接证据+一项豁免"当时**不可辩护**，因为provenance未闭合
+且存在lifecycle泄漏。治理豁免不否定其余证据，但**不能把technical FAIL变成
+evidence PASS**。
+
+### 其他已修正的stale内容
+
+- `HANDOFF.md`的实现head仍写`1ffeb...`；
+- `HANDOFF.md`与`PROJECT.md`两处仍称latest plan为**V2**（实际V4）；
+- `PROJECT.md`旧段落仍称"Phase6尚未开始实现或实验"。
+
+### winner=NONE的措辞再次弱化
+
+计划与HANDOFF中"有效因果归因"已改为Sol给出的表述：已排除
+eviction-dependent缺陷，但**未证明context差异是因果原因**，
+**未排除header-dependent实现缺陷**；并注明2×2**并非真正factorial**。
+
+### todo已按Sol输出整体合并
+
+`TODO_LOCAL.txt`第3节替换为单一合并清单（P0阻塞Exit → P1阻塞Phase7 →
+条件项 → 不要重做），并新增第4节"必须使用的措辞"，固定P6-4 profile级
+表述、P6-H canary范围、CL3独特性表述、CL2 chunk范围、rollback可逆性区分、
+device/host预算分离等六项易过声明点。
