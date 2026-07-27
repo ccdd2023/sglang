@@ -101,6 +101,74 @@ def _policy_mode(record: dict[str, Any]) -> str:
     return ""
 
 
+def _dense_control_case(
+    template: dict[str, Any],
+    *,
+    policy_label: str,
+    suffix: str,
+) -> dict[str, Any]:
+    return {
+        **template,
+        "case_id": f"{template['case_id']}-{suffix}",
+        "policy_label": policy_label,
+        "ordinary_prefix_reuse": False,
+        "reuse_enabled": False,
+    }
+
+
+def _paired_cases(
+    prepared: dict[str, dict[str, Any]],
+    *,
+    include_dense_control: bool,
+) -> list[dict[str, Any]]:
+    """Order identical-prompt cases to match the sequential arm requests."""
+
+    target_template = next(
+        (
+            prepared[arm]["target"]
+            for arm in REUSE_ARMS
+            if prepared[arm]["target"] is not None
+        ),
+        None,
+    )
+    cases: list[dict[str, Any]] = []
+    for arm in REUSE_ARMS:
+        target = prepared[arm]["target"]
+        if target is not None:
+            cases.append(
+                {
+                    **target,
+                    "ordinary_prefix_reuse": (
+                        arm == V23 and TARGET_PREFIX_CANDIDATE
+                    ),
+                }
+            )
+        elif ABSTENTION_CANDIDATE and arm == V23 and target_template:
+            # The server dispatches identical prompts by manifest case order,
+            # not by client identity.  Reserve the candidate's first slot as
+            # an explicit Dense control so it cannot consume General's case.
+            cases.append(
+                _dense_control_case(
+                    target_template,
+                    policy_label=V23,
+                    suffix="candidate-dense-abstain",
+                )
+            )
+    if include_dense_control and (
+        len(cases) == len(REUSE_ARMS) or ABSTENTION_CANDIDATE
+    ):
+        if target_template is None:
+            raise ValueError("Dense control requires a target template")
+        cases.append(
+            _dense_control_case(
+                target_template,
+                policy_label=DENSE,
+                suffix="dense-control",
+            )
+        )
+    return cases
+
+
 def _base_config() -> dict[str, Any]:
     return recursive_merge(
         get_config_from_spec("swebench.yaml"),
@@ -331,26 +399,10 @@ def _prepare_pair(
         )
         for arm in REUSE_ARMS
     }
-    cases = [
-        {
-            **prepared[arm]["target"],
-            "ordinary_prefix_reuse": (
-                arm == V23 and TARGET_PREFIX_CANDIDATE
-            ),
-        }
-        for arm in REUSE_ARMS
-        if prepared[arm]["target"] is not None
-    ]
-    if include_dense_control and len(cases) == len(REUSE_ARMS):
-        cases.append(
-            {
-                **cases[-1],
-                "case_id": f"{cases[-1]['case_id']}-dense-control",
-                "policy_label": DENSE,
-                "ordinary_prefix_reuse": False,
-                "reuse_enabled": False,
-            }
-        )
+    cases = _paired_cases(
+        prepared,
+        include_dense_control=include_dense_control,
+    )
     models[V23]._atomic_sidecar_update(
         sources=[
             prepared[arm]["source"]
