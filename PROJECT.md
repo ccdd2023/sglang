@@ -2,14 +2,14 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-27T14:55:00-07:00
+最后更新：2026-07-27T16:10:00-07:00
 
 ## 项目概况
 
 | 项目 | 当前值 |
 | --- | --- |
 | 名称 | `code-agent-kvcache` |
-| 阶段 | Phase6全部门禁执行完毕；formal Exit review结论为FAIL；一项未验证条件获治理性豁免；未进入Phase7 |
+| 阶段 | Phase6 technical Exit为`PASS WITH CAVEATS`；V5与Phase7 primary manifest尚未冻结；未进入Phase7 |
 | 业务目标 | 在 SGLang 上比较多种跨 context 近似 KV 恢复与 workflow-aware cache scheduling，降低 Coding Agent TTFT |
 | 技术栈 | SGLang、HiCache、Docker、KVFlow、KVCOMM、CacheBlend、Cache-Craft、EPIC、CacheTune |
 | 默认分支 | `main` |
@@ -27,12 +27,59 @@
 
 ## 当前状态
 
+### 2026-07-27 Phase6 technical Exit最终为PASS WITH CAVEATS
+
+- 用户明确用V4 §15.1冻结的test-only路线取代此前方案C豁免。
+- 最终实现：
+  - 双test gate，默认关闭；
+  - one-shot，仅`requester=approximate`；
+  - 在`AllocationFailurePoint.AFTER_RESERVE`注入；
+  - 不修改共享上游`alloc_token_slots`。
+- 最终GPU artifact：`p6-f-v3-fallback-canary.json`，`status=valid`：
+
+| 验收项 | 结果 |
+| --- | --- |
+| reservation failure | `1` |
+| `cross_store_reservation_failed` token | `1024` |
+| `device_allocation_failed` token | `0`（exclusive terminal reason） |
+| `reuse/dense_fallback` request | `1` |
+| 请求完成 | 是，8 token |
+| dense/fallback exact prefix | 均严格为`64` token |
+| fallback输出与dense一致 | 是 |
+| 注入后的下一请求正常recovery | 成功，`cached_tokens=1088` |
+| 独立无注入server | recovery成功、failures=0、输出一致 |
+| pre-flush accounting | reserved/provisional/leases/orphans均为0 |
+| reset/store gauge | 全部归零 |
+
+- artifact明确写入`fault_injected=true`、
+  `natural_pressure_reachability=false`，不把注入证据写成自然可达。
+- JSON与两个最终server log均已版本化；primary P6-H/P6-4 logs也已版本化；
+  `RESULT_MANIFEST.json`现`48/48`通过自动file→commit/hash验证。
+- P6-4旧artifact未改写；新增
+  `p6-4-outcome-correction.json`：
+  - 12个`exact_only`旧`dense_fallback`全部更正为`exact_cache_miss`；
+  - corrected approximate fallback数为`0`；
+  - R4 replay共30次均为`approximate_gpu_recovery`，registration容量失败
+    不再作为replay fallback证据。
+- P6-F两位targeted reviewer最终均判**PASS**，无新P0/P1。
+- Formal Exit两位reviewer均关闭P0-1/P0-3，最终判：
+
+```text
+technical_exit = PASS WITH CAVEATS
+```
+
+- caveat：fallback仅在**fault-injected canary强度**验证；
+  `natural_pressure_reachability=false`，不得声称自然压力可达。
+- 主会话最终disposition已写入`PHASE6_EXIT_DISPOSITION.json`。
+- Phase6通过不等于Phase7获授权；仍需result-bound V5、Phase7 primary
+  manifest与用户明确授权。
+
 ### 2026-07-27 V4先更新、再执行blocker的顺序已冻结
 
 - 不升级版本；`IMPLEMENTATION_PLAN_LATEST.md`继续为V4 Current / Latest。
 - 在任何blocker代码或实验之前，先原地冻结§15.1的验收合同，避免再次出现
   “看到结果后改变证据标准”。
-- 当前正确状态：
+- **以下是P6-F执行前的历史状态，现已被上节最终disposition取代：**
 
 ```text
 technical_exit         = FAIL
@@ -587,20 +634,13 @@ fallback不能靠修bug自然获得。用户于2026-07-27选定**方案C**：该
 `p6-4.json`未被修改，仍如实记录`fallback_reachability.passed=false`；
 disposition单独记录在`phase6-exit-fallback-disposition.json`与计划§7.9.1。
 
-**Phase6 Exit状态必须拆成两项分别陈述**（第三轮Sol Max审计要求）：
+**以下为P6-F执行前的历史状态，现已被最终disposition取代**：
 
 ```
-technical_exit        = FAIL
-governance_disposition = 已对一项未验证条件接受豁免
+technical_exit = PASS WITH CAVEATS
 ```
 
-必须使用的表述为：
-
-> Phase 6 technical Exit remains FAIL: provenance完整性与
-> reservation-failure-associated dense fallback两项曾未闭合；后者仍为
-> governance exemption下的**未验证**条件。
-
-治理豁免**不会**把technical FAIL变成evidence PASS，也不否定其余证据。
+治理性豁免已被用户明确撤销并由P6-F test-only集成证据取代。
 仍未进入Phase7。
 
 ### Phase6 Exit当前逐条状态
@@ -610,20 +650,21 @@ governance_disposition = 已对一项未验证条件接受豁免
 | exact/approx/host同budget安全竞争 | **满足** |
 | 双向pressure有效 | **满足**（首次） |
 | allocation失败可回滚 | 满足 |
-| fixed40四rho可运行或明确不可达 | **满足**（3可达/2明确不可达） |
+| fixed40四rho可运行或明确不可达 | **满足**：三个S4 cell中的四个non-R4 profile可达；S0/rho2与S4/rho3有独立capacity-limit证据；所有顶层full-matrix cell仍为`diagnostic-unavailable` |
 | R1-like worst-case footprint | **满足**（k32可达） |
 | generic host roundtrip canary | **满足**（P6-H valid） |
 | 无泄漏、无orphan | 满足（store gauge全归零） |
 | 近似reuse压力下数据保真 | **满足（范围受限）**：1 restart/2 round的8-token输出canary与dense一致；未验证bitwise KV、logit等价或低概率损坏 |
-| raw/commit/env/test provenance | **部分满足**：artifact仍为`result_commit_status="pending_result_commit"`、`result_git_sha=null`，缺file→commit映射与内含的test command/result，不得称“完整” |
-| dense fallback可达性 | **未验证，治理性豁免**（用户决定，见计划§7.9.1） |
+| raw/commit/env/test provenance | **满足formal Exit package**：manifest 48/48；raw JSONL与primary P6-H/P6-4/P6-F logs已版本化 |
+| dense fallback可达性 | **满足（fault-injected canary强度）**；自然压力可达性未证明 |
 
 关于最后一项的精确事实（**此处原有的“12次dense fallback”表述已撤回**）：
 
 - CPU测试覆盖了**可逆动作的回滚**，以及在`allocate_recovery_slots`边界上的
   **reservation失败归因**；
 - GPU运行覆盖了**双向回收**；
-- **没有任何集成的approximate请求在reservation失败后走完dense执行**。
+- P6-F v3已提供一个集成approximate请求在reservation失败后走完dense执行的
+  test-only canary；自然压力可达性仍未证明。
 
 原先据以声称“已观测12次dense fallback”的记录，实为`exact_only` profile的
 **普通exact-cache miss被runner误标**；该标签缺陷已在`84c4e5202`修复为
@@ -644,21 +685,19 @@ reservation失败无法用配置获得，已实测排除两条路径：
 - `--kv-bytes-per-token`放大4倍仍`resv_fail=0`，因为`CrossStoreBudget`
   用同一单位换算limit与已用量，缩放在等式两边互相抵消。
 
-唯一剩余手段是allocator已内建的`fault_injector`
-（`AllocationFailurePoint.AFTER_RESERVE`，CPU测试已在用），需在runner暴露。
-**本轮未做**：注入式失败证明的是“fallback路径可用”而非“压力下自然可达”，
-含义不同，是否接受应由用户决定。
+该手段随后已由用户明确采用，并实现为P6-F test-only集成canary。
+其证据强度固定为“fallback路径在注入失败下可用”，不升级为自然可达。
 
 **影响范围判定（2026-07-27）：该项不波及全部research。**
 CL1/CL2实测未启用`SGLANG_APPROX_KV_CROSS_STORE`，CL3为零GPU重算，
 P6-H与P6-4可达cell的`reservation_failures`均为0，因此
 `practical=NONE`、chunk伪影、双向pressure、压力下保真等结论均不依赖该项。
 
-**证据覆盖度收窄**：已有CPU回归遍历全部`AllocationFailurePoint`证明
-allocator回滚正确；本轮补齐了此前完全未测的链路后半段
-（reservation失败→dense fallback→`cross_store_reservation_failed`归因），
-并经mutation验证。故机制正确性已完整证明，仅缺**GPU上自然发生**一次
-reservation失败的观测。
+**证据覆盖度**：CPU回归遍历全部`AllocationFailurePoint`证明可逆回滚；
+P6-F v3补齐集成链路后半段
+（reservation失败→`reuse/dense_fallback`→真实dense模型执行→输出完成），
+并有独立无注入server作为control。仅缺**自然压力**下发生一次reservation失败，
+该缺口被明确保留为scope caveat，而不是技术Exit blocker。
 
 **前瞻风险**：`alloc_token_slots`在cross-store腾不出空间时抛`RuntimeError`
 杀死scheduler，会影响任何在容量极限附近运行的后续实验（含Phase7高rho），

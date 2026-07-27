@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-27T14:55:00-07:00
+最后更新：2026-07-27T16:10:00-07:00
 
 ## 新会话启动顺序
 
@@ -13,7 +13,24 @@
 
 ## 当前快照
 
-### 2026-07-27T14:55:00-07:00 V4已先冻结blocker合同，technical Exit仍为FAIL
+### 2026-07-27T16:10:00-07:00 Phase6 technical Exit为PASS WITH CAVEATS
+
+- 用户以test-only集成路线取代此前方案C治理性豁免。
+- 最终P6-F v3：
+  - reservation failure=1、`reuse/dense_fallback`=1；
+  - `cross_store_reservation_failed=1024`、`device_allocation_failed=0`；
+  - dense/fallback namespace均严格为64-token exact header；
+  - 8-token输出完成且与dense一致；
+  - same-process下一请求正常recovery；
+  - 独立无注入server重新注册并正常recovery；
+  - pre-flush与post-reset reserved/provisional/leases/orphans均为0。
+- artifact明确`fault_injected=true`、
+  `natural_pressure_reachability=false`。
+- P6-F v3及两个最终log、primary P6-H/P6-4 logs、raw JSONL均已版本化；
+  manifest现`48/48`通过。
+- P6-4旧误标签已用独立correction artifact更正，raw不改写。
+- 两个P6-F targeted reviewer最终均判PASS；两个formal Exit reviewer均关闭
+  P0-1/P0-3，最终判`PASS WITH CAVEATS`，无新P0/P1。
 
 - 全部实验在Docker SM75镜像内执行。
 - 实现branch head：`7dd07a6b4d98f76329108e0db6f7a0bdcf896309`（以远程分支为准，每次push后核对）。
@@ -29,15 +46,19 @@
 
 #### Phase6 Exit逐条
 
-**状态必须拆两项陈述**（第三轮Sol Max审计要求）：
-`technical_exit = FAIL`；`governance_disposition = 已对一项未验证条件接受豁免`。
-治理豁免**不会**把technical FAIL变成evidence PASS。 dense fallback可达性**未被验证**，
-由用户于2026-07-27决定作为**治理性豁免**记录（计划§7.9.1），
-不得表述为“已满足”。现有直接证据包括：exact/device-approximate共享device
-budget、双向pressure（exact→approx `47.5GB`、approx→exact `58.8GB`）、
-R1-like worst-case（k32）profile可达、generic host canary以及已完成run的
-clean reset。host使用独立host limit；exact-host/HiCache unification未实现。
-provenance由`RESULT_MANIFEST.json`提供32/32 file→commit验证，但server logs仍未版本化。
+最终状态：
+
+```text
+technical_exit = PASS WITH CAVEATS
+```
+
+caveat：reservation-failure-associated fallback仅在test-only fault-injected
+canary强度验证；`natural_pressure_reachability=false`。
+
+直接证据还包括：exact/device-approximate共享device budget、双向pressure
+（exact→approx `47.5GB`、approx→exact `58.8GB`）、R1-like worst-case
+（k32）profile可达、generic host canary以及已完成run的clean reset。
+host使用独立host limit；exact-host/HiCache unification未实现。
 
 #### 本轮共5处修复（全部已推送）
 
@@ -62,17 +83,12 @@ provenance由`RESULT_MANIFEST.json`提供32/32 file→commit验证，但server l
 
 ### 下一步
 
-1. 用户确认是否以**test-only fault injection集成canary**取代先前的方案C豁免；
-2. 若确认，必须严格按`IMPLEMENTATION_PLAN_LATEST.md` §15.1冻结合同实现：
-   - 不修改共享上游`alloc_token_slots`；
-   - 真实经过`finalize_copy_reuse`、scheduler与dense模型执行；
-   - 断言reservation失败标签、`reuse/dense_fallback`、请求完成、全账目归零；
-   - artifact明确标注`fault_injected=true`、
-     `natural_pressure_reachability=false`；
-3. 更新`RESULT_MANIFEST.json`并通过自动`--check`；
-4. 只做blocker/provenance的targeted dual-review delta verification；
-5. technical Exit通过后，才决定是否创建V5；
-6. 严格停在Phase7前，等待用户明确授权。
+1. 归档V4并创建result-bound V5（当前判断：**需要**）；
+2. V5写入实际`practical=NONE`分支、chunk waiver、Phase7矩阵裁剪、预算、
+   early-stop与全部scope caveat；
+3. 按计划§1执行Sol/Opus独立review、互换、consolidate和主会话disposition；
+4. 预注册Phase7 primary manifest；
+5. 严格停在Phase7前，等待用户明确授权。
 
 ### 不要重做
 
@@ -91,7 +107,7 @@ provenance由`RESULT_MANIFEST.json`提供32/32 file→commit验证，但server l
 
 | 门禁 | 状态 | 结论 |
 | --- | --- | --- |
-| CL1 | **完成** | `winner=NONE`，且**因果归因有效** |
+| CL1 | **完成** | `winner=NONE`（冻结规则下的机械结果；未排除header-dependent缺陷） |
 | CL2 | 完成 | `inconclusive`，waive为provisional chunk `1024` |
 | CL3 | 完成 | S4优势仅在workflow-only分母成立 |
 | P6-H | **通过** | `status=valid`，输出逐token一致 |

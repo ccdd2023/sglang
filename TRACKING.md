@@ -2625,3 +2625,65 @@ governance_disposition = 已对一项未验证条件接受豁免
 - 旧§15.3 stale-victim两个候选方向已标为完成/作废，禁止重复设计。
 - `HANDOFF.md`和`TODO_LOCAL.txt`同步了相同顺序。
 - 下一步需要用户明确：是否以该test-only路线**取代此前方案C豁免**并实际执行。
+## 2026-07-27T15:20:00-07:00 — P6-F test-only集成canary一次通过，进入targeted review
+
+- V4先冻结合同后，用户明确用test-only路线取代此前方案C豁免。
+- 实现提交`e59bb7a9c`：双test gate、默认关闭、one-shot、仅approximate requester、
+  `AFTER_RESERVE`注入；共享上游`alloc_token_slots`未修改。
+- CPU相关回归`124 passed`，格式/静态检查通过。
+- P6-F GPU artifact一次`valid`：
+  - `reservation_failures=1`；
+  - `cross_store_reservation_failed=1024` token；
+  - `device_allocation_failed=1024` token；
+  - `reuse/dense_fallback=1`；
+  - 请求完成8 token，输出与matched dense一致；
+  - 下一请求正常approximate recovery（`cached_tokens=1088`），证明one-shot；
+  - reset与records/device/host/leases/orphans全部归零。
+- artifact明确`fault_injected=true`、
+  `natural_pressure_reachability=false`，不冒充自然可达。
+- JSON与server log已版本化；manifest自动检查`34/34`，随后加入correction
+  artifact后为`35/35`。
+- P6-4 raw保持不变；新增`p6-4-outcome-correction.json`，机器可读地更正
+  12个exact-only miss与R4 registration failure的错误fallback语义。
+- 已启动两个targeted reviewer，只审该blocker与provenance delta。
+- review完成前`technical_exit`保持`FAIL`。
+
+## 2026-07-27T16:10:00-07:00 — P6-F v3关闭最后blocker，Phase6 Exit为PASS WITH CAVEATS
+
+- P6-F v1首次证明集成fallback功能；targeted review指出两个P1：
+  fallback token双重归因、clean accounting只在flush后测；另一个control不独立。
+- P6-F v2关闭两项P1：
+  - cross-store路径只保留`cross_store_reservation_failed`一个terminal reason，
+    `device_allocation_failed=0`；
+  - 新增`cross_store_reserved_device_bytes`与`approx_kv_provisional_tokens` gauge，
+    pre-flush与post-reset均断言0；`orphan_count`由硬编码0改为真实依赖检查；
+  - 新增独立无注入server control；
+  - 临时峰值改为实测，transfer明确为declared/not-applicable。
+- v2 review发现唯一新provenance P1：control log在server stop前hash。
+- P6-F v3修复该问题，并把dense/fallback cache path都严格锁定为64-token header。
+- 最终artifact：
+  - `p6-f-v3-fallback-canary.json`，`status=valid`；
+  - reservation failure=1；
+  - `reuse/dense_fallback`=1；
+  - `cross_store_reservation_failed=1024`；
+  - `device_allocation_failed=0`；
+  - 请求完成8 token且与dense一致；
+  - same-process下一请求正常recovery；
+  - 独立无注入server正常recovery；
+  - 两个server的pre-flush/post-reset accounting均干净；
+  - `fault_injected=true`、`natural_pressure_reachability=false`。
+- 两个P6-F targeted reviewer最终均判PASS，无新P0/P1。
+- Formal Exit两位reviewer最终均关闭P0-1与P0-3，判`PASS WITH CAVEATS`。
+- primary P6-H/P6-4/P6-F logs、raw JSONL均已版本化；
+  `RESULT_MANIFEST.json --check`为`48/48`。
+- `PHASE6_EXIT_DISPOSITION.json`记录主会话最终结论：
+
+```text
+technical_exit = PASS WITH CAVEATS
+```
+
+- 永久caveat：fallback只在test-only fault-injected canary强度验证；
+  自然压力下reservation-failure可达性未证明，Phase7相关claim必须重新取证
+  或原样携带该限制。
+- Phase6通过**不授权Phase7**。下一步判断为：需要创建result-bound V5，
+  完成V5双模型review并预注册Phase7 primary manifest后，仍需用户明确授权。

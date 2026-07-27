@@ -100,9 +100,10 @@ accumulated per-round sections. Implementation HEAD at consolidation:
 7dd07a6b4. Phase 7 is NOT authorized.
 
 Status to quote verbatim:
-    technical_exit         = FAIL
-    governance_disposition = exemption accepted for one unverified condition
-A governance exemption is not evidence that a condition passed.
+    technical_exit = PASS WITH CAVEATS
+The caveat is permanent:
+    fallback verified at fault-injected-canary strength only;
+    natural_pressure_reachability = false.
 
 
 3.1 P0 - BLOCKS PHASE 6 TECHNICAL EXIT
@@ -130,18 +131,19 @@ A governance exemption is not evidence that a condition passed.
        Known gap, stated in the manifest: server logs are still referenced by
        absolute host path and are not versioned.
 
-[ ] 3. Persist the fallback-label correction across existing evidence.
+[x] 3. Persist the fallback-label correction across existing evidence.
        The runner was fixed in 84c4e5202 so an exact-only miss now reports
        exact_cache_miss, but artifacts produced earlier still carry the old
        dense_fallback label.
        Do: leave the measured artifacts immutable; add a derived corrected
        report plus a machine-readable note, and link both from the manifest.
-       Acceptance: the corrected view shows zero exact-only approximate
-       fallbacks; the runner regression passes.
+       Done: p6-4-outcome-correction.json shows zero exact-only approximate
+       fallbacks; the runner regression passes; RESULT_MANIFEST links the raw
+       and corrected views. Raw p6-4.json remains immutable.
        Never: rewrite p6-4.json, or count a registration failure as a replay
        fallback.
 
-[ ] 4. Close P0-1, or keep it explicitly unverified.
+[x] 4. Close P0-1 at fault-injected-canary strength.
        Required to verify: an INTEGRATED request that completes densely after
        a cross-store reservation failure, asserting the reservation-failure
        label, reuse/dense_fallback, output completion and clean accounting.
@@ -158,11 +160,15 @@ A governance exemption is not evidence that a condition passed.
        natural_pressure_reachability=false.
        IMPORTANT: this executes only if the user explicitly supersedes the
        earlier option C governance exemption.
+       DONE: P6-F v3 met every frozen acceptance check. Two final targeted
+       reviewers returned PASS; formal Exit reviewers closed P0-1/P0-3 with
+       no new P0/P1. Artifact and two final logs are versioned.
+       Scope: fault_injected=true; natural_pressure_reachability=false.
 
-[ ] 5. Targeted dual-review delta verification of items 1-4 only.
+[x] 5. Targeted dual-review delta verification of items 1-4 only.
        Do not repeat the full Exit review.
-       Acceptance: both reviewers explicitly close or retain each finding,
-       then one main-session disposition.
+       DONE: both reviewers closed the blocker/provenance findings; main
+       disposition is PHASE6_EXIT_DISPOSITION.json, PASS WITH CAVEATS.
 
 
 3.2 P1 - BLOCKS PHASE 7 ENTRY OR CLAIM STRENGTH
@@ -222,8 +228,8 @@ A governance exemption is not evidence that a condition passed.
 4. WORDING THAT MUST BE USED
 ---------------------------
 
-- Exit: technical_exit = FAIL, plus a governance exemption for one unverified
-  condition. Never "all ten conditions satisfied".
+- Exit: technical_exit = PASS WITH CAVEATS. Fallback is verified only under
+  a test-only injected failure; natural-pressure reachability is not proven.
 - P6-4: every top-level cell is diagnostic-unavailable; what is reachable is
   four non-R4 profiles inside three S4 cells. Never "three cells reachable".
 - P6-H: a 1-restart, 2-round, 8-token output canary. Not KV or logit fidelity.

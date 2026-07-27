@@ -4,10 +4,10 @@
 >
 > 状态：Current / Latest
 >
-> 最后更新：2026-07-27T12:45:00-07:00
+> 最后更新：2026-07-27T16:10:00-07:00
 >
-> 当前阶段：CL0–CL3、P6-H、P6-4全部执行完毕；Phase6 Exit九项直接满足、
-> fallback可达性为治理性豁免；正式Exit双模型review进行中；未进入Phase7。
+> 当前阶段：CL0–CL3、P6-H、P6-4与P6-F全部执行完毕；Phase6 technical
+> Exit为`PASS WITH CAVEATS`；未进入Phase7。
 >
 > 取代版本：[`IMPLEMENTATION_PLAN_V3_ARCHIVED.md`](IMPLEMENTATION_PLAN_V3_ARCHIVED.md)
 
@@ -640,64 +640,40 @@ performance claim = disabled
 
 Phase6结果经双模型review后才允许Phase7。
 
-#### 7.9.1 dense fallback可达性：**治理性豁免**（2026-07-27，用户决定）
+#### 7.9.1 dense fallback可达性：**fault-injected canary验证通过**
 
-**这不是一项已验证的条件，而是一项被明确豁免的未验证条件。**
+历史说明：用户最初选择方案C治理性豁免；正式Exit review据此判FAIL。
+随后用户明确以§15.1冻结的test-only路线取代该豁免。P6-F v3与两轮targeted
+delta review现已关闭该blocker。
 
 必须使用的表述：
 
-> CPU tests cover reversible rollback and reservation-failure attribution
-> at the `allocate_recovery_slots` boundary. GPU runs cover bidirectional
-> reclamation. **No integrated approximate request has completed dense
-> execution after a reservation failure.**
+> At source commit `9e6c2026e0fd68ed691bac072d05d6711d4c2b7c`,
+> a test-only, one-shot `AFTER_RESERVE` fault caused one real approximate
+> reuse request to record one non-reset reservation failure, one
+> `reuse/dense_fallback` outcome and 1024 exclusively attributed
+> `cross_store_reservation_failed` tokens. Dense and fallback namespaces
+> each exposed exactly the isolated 64-token header; the remaining
+> 1024-token suffix traversed ordinary dense prefill/decode, completed eight
+> tokens and matched the dense control. Pre-flush and post-reset reserved,
+> provisional, lease and orphan accounting was clean. A separate server
+> launched without the injection flag independently re-registered and
+> recovered normally.
 
-不得写成“十项技术条件全部满足”。§7.9原文要求的是“fallback/rollback可达”，
-本项在看到结果之后才降低标准；披露本身是诚实的，把它写成“条件满足”不是。
+证据：`p6-f-v3-fallback-canary.json`，两个versioned server log，
+`RESULT_MANIFEST.json`（48/48）。
 
-Exit状态必须拆成两项分别陈述：`technical_exit = FAIL`；
-`governance_disposition = 已对一项未验证条件接受豁免`。
-治理豁免不会把technical FAIL变成evidence PASS。
+验证范围：
 
-**Exit review修正后的证据边界**：
+- `fault_injected=true`；
+- `natural_pressure_reachability=false`；
+- 验证的是integrated fallback功能，不是自然压力下的可达性或性能。
 
-已直接证明：allocator在任意失败点回滚（CPU）；`allocate_recovery_slots`
-把被拒reservation转为None并归因（CPU，mutation验证，**但只到该函数边界，
-未经过`finalize_copy_reuse`/scheduler/真实推理**）；exact压力真实回收
-`2.2GB` approximate内存（GPU）。
+旧P6-4 raw仍不改写；其`fallback_reachability.passed=false`是自然压力实验的
+真实记录。P6-F是独立的test-only canary，不覆盖或重写该字段。
 
-**已撤回**两条错误证据：所谓“12次GPU dense fallback”全部来自`exact_only`
-profile，runner把**普通exact-cache miss**误标为`dense_fallback`
-（`run_p6_4_capacity_pilot.py:413-419`）；`r4_like`的fallback token是
-registration容量失败而非replay fallback。
-
-要把本项转为**已验证**，必须取得：一个集成请求在（注入或自然的）
-cross-store reservation失败后真正走完dense路径，并断言reservation失败标签、
-`reuse/dense_fallback`、输出完成与账目干净。
-
-完整证据链见`phase6-exit-fallback-disposition.json`。
-
-**未证明的部分**：没有任何**集成的approximate请求**在reservation失败后
-走完dense执行；现有CPU证据只到`allocate_recovery_slots`函数边界。
-
-**为何不可得（已实测）**：任何会耗尽cross-store预留的配置也会耗尽device，
-请求先在共享上游`alloc_token_slots`中止，来不及记录reservation失败。
-诊断C（`0.05s`采样）确证这是真实容量极限而非回收缺陷。已实测排除调rho
-与放大`kv-bytes-per-token`两条路径。
-
-**未选择的方案及理由**：
-
-- A 改`alloc_token_slots`优雅降级——证据最强，但要动4个调用点、
-  每请求必经的共享上游热路径，与upstream分歧，风险与收益不成比例；
-- B 用已有`fault_injector`——改动小，但只证明“路径可用”而非“自然可达”，
-  仍需caveat，价值不足以抵消额外复杂度。
-
-**artifact完整性**：`p6-4.json`**未被修改**，仍如实记录
-`fallback_reachability.passed=false`、`rounds=0`。本disposition单独记录
-接受的证据层级，不改动任何已测结果。
-
-**作用域限制**：本disposition只覆盖Phase6 Exit。Phase7中任何依赖
-“真实reservation失败下fallback行为”的claim，必须重新取得自然证据，
-或原样复述该`indirectly_verified` caveat。
+Phase7中任何依赖自然reservation失败的claim，仍必须重新取得自然证据，
+并保留`natural_pressure_reachability=false` caveat。
 
 ## 8. Phase7：Integrated Recovery × Scheduling Evaluation
 
@@ -1117,15 +1093,16 @@ Early-stop：
 | CL2 | 完成 | gate `inconclusive`，显式waive为provisional chunk `1024` |
 | CL3 | 完成 | S4优势仅在workflow-only分母成立 |
 | P6-H | **通过** | `status=valid`；1 restart/2 round的8-token输出canary与dense一致 |
-| P6-4 | **完整跑通** | 3个S4 cell可达，2个cell未达；双向pressure首次通过 |
-| CL4 | 部分完成 | 已完成对修复与结论的双review；正式Exit review待P6-4定稿 |
+| P6-4 | **完整跑通** | 三个S4 cell中的四个non-R4 profile可达；两个capacity-limit cell有独立死亡态证据；双向pressure通过 |
+| P6-F | **通过** | fault-injected integrated fallback canary；自然压力可达性未证明 |
+| CL4 | **完成** | formal Exit与targeted delta reviews全部完成，无开放P0/P1 |
 
 - 本轮共修复6个缺陷：P0 prefix自我覆写、P6-H reseed断言、
   P1-1 SWA释放元数据、P1-3 provisional slot泄漏、P1-2 stale victim重试，
   以及P6-4 runner逐cell容错。
-- **Phase6 Exit九项有直接证据；第十项dense fallback可达性为治理性豁免**
-  （§7.9.1）。诊断C v1曾声称该项受阻于我方回收缺陷，该结论**已撤回**：
-  v2以`0.05s`采样证明S0/rho2是真实容量耗尽，回收路径工作正常。
+- `technical_exit = PASS WITH CAVEATS`（§7.9.1与
+  `PHASE6_EXIT_DISPOSITION.json`）。诊断C v1曾声称该项受阻于我方回收缺陷，
+  该结论**已撤回**；v2/v3以`0.05s`采样证明S0/rho2与S4/rho3为真实容量耗尽。
 - Phase7 primary manifest仍未预注册，是Phase7 Entry的第二个缺口。
 - 未进入Phase7。
 
@@ -1143,20 +1120,16 @@ Early-stop：
 | 4. P6-4完整四rho矩阵valid或明确不可达 | **部分完成**；三个S4 cell中的四个non-R4 profile可达，所有顶层cell仍为`diagnostic-unavailable` |
 | 5. CL4双模型review与disposition | **已执行，正式结论为FAIL**；三个P0中provenance与S4/rho3已闭合，fallback集成证据仍未闭合 |
 
-当前状态必须拆开表述：
+最终状态：
 
 ```text
-technical_exit         = FAIL
-governance_disposition = 已对一项未验证条件接受豁免
+technical_exit = PASS WITH CAVEATS
 ```
 
-治理豁免不会把technical FAIL变成evidence PASS。当前唯一未闭合的技术条件是：
-**没有任何集成approximate请求在cross-store reservation失败后真正走完dense
-执行并完成输出**。现有CPU证据只到`allocate_recovery_slots`函数边界。
-
-其余直接证据包括：双向pressure（exact→approx `47.5GB`、
+直接证据包括：双向pressure（exact→approx `47.5GB`、
 approx→exact `58.8GB`）、R1-like worst-case（k32）profile可达、
-P6-H有限范围的输出canary，以及两个容量不可达cell的独立死亡态遥测。
+P6-H有限范围的输出canary、两个容量不可达cell的独立死亡态遥测，以及
+P6-F集成fault-injected fallback canary。
 
 **2026-07-27诊断C（v2）结论**：以`0.05s`采样确证，S0/rho2的OOM是
 **真实容量不可达**——死亡瞬间approximate store为`0`字节`0`记录，
@@ -1166,38 +1139,22 @@ P6-H有限范围的输出canary，以及两个容量不可达cell的独立死亡
 （诊断C v1曾以`0.4s`粗采样得出“这是我方缺陷”的相反结论，已撤回。
 采样间隔必须短于workload的分配动态，否则会得到自信但错误的判断。）
 
-因此最后一项**不能**靠修bug自然获得。用户曾选择方案C作为治理性豁免；
-若现在要把technical Exit从FAIL改为PASS，必须在写代码前显式改变执行合同，
-采用下面的**test-only集成验证路线**：
-
-1. 不修改共享上游`alloc_token_slots`热路径；
-2. 在benchmark/test专用路径中使用allocator已有的`fault_injector`触发一次
-   reservation失败，默认关闭且不得影响普通server；
-3. 必须通过真实request链路，经过`finalize_copy_reuse`、scheduler与模型dense
-   执行，而不是只测试`allocate_recovery_slots`；
-4. 必须同时断言：
-   - `cross_store_reservation_failed`归因；
-   - `reuse/dense_fallback`请求outcome；
-   - 请求成功完成并产出token；
-   - provisional/device/store/lease/orphan账目全部归零；
-   - 同一配置在不开启注入时仍走正常恢复路径；
-5. artifact必须明确标注`fault_injected=true`与
-   `natural_pressure_reachability=false`，不得把注入证据写成自然可达。
+§15.1冻结的test-only验收合同已全部满足，两位targeted reviewer均关闭全部
+P0/P1，最终判定为PASS（blocker强度）/PASS WITH CAVEATS（全Exit强度）。
 
 本文件继续保持`Current / Latest`，不提升版本号、不归档
 （用户已明确本轮不升级）。
 
-**2026-07-27执行顺序冻结**：
+上述步骤现已全部完成。`PHASE6_EXIT_DISPOSITION.json`记录最终主会话结论。
 
-1. 先更新并冻结本节（本次更新）；
-2. 再实现上述test-only集成验证；
-3. 运行最小GPU canary与相关CPU回归；
-4. 生成独立artifact并更新`RESULT_MANIFEST.json`，`--check`必须32/32或更高全部通过；
-5. 只对该blocker及provenance做targeted dual-review delta verification；
-6. 主会话形成新的technical Exit disposition；
-7. technical Exit通过后，才允许创建result-bound V5。
+**版本决策**：Phase6结果已稳定、Phase7分支已由`practical=NONE`显著收窄，
+现在**有必要创建result-bound V5**。但本轮不自动进入Phase7：
 
-在上述步骤完成前，不创建V5，不进入Phase7。
+1. 归档V4；
+2. 创建V5并写入实际candidate、chunk waiver、矩阵裁剪、预算与early-stop；
+3. 按§1执行Sol/Opus独立review、互换、consolidate与主会话disposition；
+4. 预注册Phase7 primary manifest；
+5. 等待用户明确授权后才运行Phase7。
 
 ### 15.2 已由执行结果确定、必须写入V5的合同修订
 
