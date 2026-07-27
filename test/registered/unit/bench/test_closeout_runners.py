@@ -9,6 +9,7 @@ from sglang.test.ci.ci_register import register_cpu_ci
 
 register_cpu_ci(est_time=2, suite="base-c-test-cpu")
 
+from benchmark.approx_kv import run_cl3_phase5_recompute as cl3
 from benchmark.approx_kv.phase6.runner import append_jsonl, execution_status
 from benchmark.approx_kv.run_cl1_qualification import (
     candidate_k,
@@ -129,3 +130,43 @@ class TestCloseoutRunners(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCL3Recalculation(unittest.TestCase):
+    def _record(self, **overrides):
+        record = {
+            "sample_kind": "measured",
+            "phase": "workflow",
+            "role": "coder",
+            "repeat": 0,
+            "ttft_ms": 100.0,
+            "elapsed_ms": 110.0,
+            "cached_tokens": 512,
+            "expected_reusable_prefix_tokens": 1024,
+        }
+        record.update(overrides)
+        return record
+
+    def test_hit_fraction_is_clamped_per_request(self):
+        over = self._record(cached_tokens=2048)
+        self.assertEqual(cl3.clamped_hit_fraction(over), 1.0)
+        self.assertEqual(cl3.clamped_hit_fraction(self._record()), 0.5)
+        self.assertIsNone(
+            cl3.clamped_hit_fraction(self._record(expected_reusable_prefix_tokens=0))
+        )
+        stats = cl3.ttft_stats([over, self._record()])
+        self.assertAlmostEqual(stats["clamped_hit_fraction_mean"], 0.75)
+        self.assertEqual(stats["partial_or_full_miss_requests"], 1)
+
+    def test_denominators_select_different_request_sets(self):
+        records = [
+            self._record(phase="workflow"),
+            self._record(phase="pressure_replay"),
+            self._record(phase="fill", expected_reusable_prefix_tokens=0),
+        ]
+        self.assertEqual(len(cl3.select(records, "workflow_only")), 1)
+        self.assertEqual(len(cl3.select(records, "all_reusable")), 2)
+
+    def test_s2_is_labelled_belady_style(self):
+        self.assertIn("Belady-style", cl3.POLICY_LABELS["belady"])
+        self.assertNotIn("optimum", cl3.POLICY_LABELS["belady"])
