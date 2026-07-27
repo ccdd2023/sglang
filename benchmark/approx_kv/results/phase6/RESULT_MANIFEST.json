@@ -189,6 +189,18 @@
       "containing_commit": "1ffeb0426ec30852682d15c66a4f56b091cbc71b"
     },
     {
+      "file": "benchmark/approx_kv/results/phase6/p6-f-fallback-canary.json",
+      "sha256": "895e0bb66afc07ee3104480fbfd728076e1199e6a3457a3882b91fa658371a2b",
+      "bytes": 6278,
+      "containing_commit": "8a6b9148d7fbbad2a22f2253c7c19db854dcb24a"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase6/p6-f-server.log",
+      "sha256": "d7300704c67a102b9bbfaca6e6335406c97e600f40a2cc8a0dc113945856beaa",
+      "bytes": 1470,
+      "containing_commit": "8a6b9148d7fbbad2a22f2253c7c19db854dcb24a"
+    },
+    {
       "file": "benchmark/approx_kv/results/phase6/p6-h-attempt1-chunk1024-failed.json",
       "sha256": "4f0e5470b2b190745ea330e8e77b0b9148ea05e8a32cc0602d060fa7d9ee9f19",
       "bytes": 502,
