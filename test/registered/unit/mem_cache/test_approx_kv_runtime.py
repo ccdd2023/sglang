@@ -398,12 +398,33 @@ class TestRecoveryPrefixProtection(unittest.TestCase):
     def setUp(self):
         self.locked = []
         self.unlocked = []
-        self.tree = SimpleNamespace(
-            inc_lock_ref=self.locked.append,
-            dec_lock_ref=self.unlocked.append,
-        )
+
+        def inc(node):
+            self.locked.append(node)
+            return None
+
+        def dec(node, params=None):
+            self.unlocked.append(node)
+
+        self.tree = SimpleNamespace(inc_lock_ref=inc, dec_lock_ref=dec)
         self.node = object()
         self.req = SimpleNamespace(last_node=self.node)
+
+    def test_swa_release_metadata_is_passed_back_to_dec_lock_ref(self):
+        """SWA and Unified caches need the acquired-window metadata back.
+
+        Releasing without it can walk past the window that was actually
+        acquired and decrement an ancestor another request still holds.
+        """
+        released = []
+        params = object()
+        tree = SimpleNamespace(
+            inc_lock_ref=lambda node: SimpleNamespace(to_dec_params=lambda: params),
+            dec_lock_ref=lambda node, got=None: released.append((node, got)),
+        )
+        with protect_request_prefix(tree, self.req):
+            pass
+        self.assertEqual(released, [(self.node, params)])
 
     def test_prefix_is_locked_for_the_whole_recovery_window(self):
         with protect_request_prefix(self.tree, self.req):

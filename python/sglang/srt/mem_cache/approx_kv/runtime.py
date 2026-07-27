@@ -55,11 +55,18 @@ def protect_request_prefix(tree_cache: Any, req: Any):
     if node is None or inc_lock_ref is None or dec_lock_ref is None:
         yield
         return
-    inc_lock_ref(node)
+    result = inc_lock_ref(node)
+    # SWA and Unified caches return the acquired window plus the nodes they
+    # skipped; releasing without it can walk past that window and decrement an
+    # ancestor another request still holds.
+    params = getattr(result, "to_dec_params", None)
     try:
         yield
     finally:
-        dec_lock_ref(node)
+        if params is None:
+            dec_lock_ref(node)
+        else:
+            dec_lock_ref(node, params())
 
 
 def allocate_recovery_slots(tree_cache: Any, num_tokens: int):
