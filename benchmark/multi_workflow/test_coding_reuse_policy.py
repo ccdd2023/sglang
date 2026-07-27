@@ -739,6 +739,25 @@ def test_state_transition_guard_detects_successful_execution_phase():
     ) == ["successful_execution_phase_transition"]
 
 
+def test_state_transition_guard_enforces_two_interaction_cooldown():
+    mutation = group(
+        "python -c \"from pathlib import Path; "
+        "Path('pkg/module.py').write_text('changed')\""
+    )
+    successful = group(
+        "python -m pytest tests/test_module.py",
+        "<returncode>0</returncode><output>1 passed</output>",
+    )
+    generic = group("ls pkg")
+
+    assert coding_state_transition_target_reasons(
+        [mutation, generic, successful]
+    ) == []
+    assert coding_state_transition_target_reasons(
+        [mutation, generic, generic, successful]
+    ) == ["successful_execution_phase_transition"]
+
+
 def test_memory_v5_reuses_guaranteed_recent_five_not_old_anchor():
     anchor = group(
         "python -m pytest test_file.py",

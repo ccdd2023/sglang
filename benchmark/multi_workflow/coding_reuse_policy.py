@@ -405,19 +405,13 @@ def coding_state_transition_target_reasons(
 ) -> list[str]:
     """Return online-visible reasons to veto reuse on the current request.
 
-    Critical state changes always veto.  Successful code reads and executable
-    results veto only when the immediately preceding completed interaction was
-    not the same evidence phase, avoiding repeated Dense requests during a
-    contiguous inspection or validation run.
+    Raw transitions include critical state changes plus entry into successful
+    read or execution phases.  A two-interaction cooldown then admits at most
+    one target veto in any three consecutive completed interactions.
     """
 
     if not groups:
         return []
-    latest = groups[-1]
-    critical = critical_coding_event_reasons(latest)
-    if critical:
-        return critical
-
     def evidence_phase(
         group: Sequence[dict[str, Any]],
     ) -> str | None:
@@ -427,13 +421,30 @@ def coding_state_transition_target_reasons(
             return "successful_execution"
         return None
 
-    latest_phase = evidence_phase(latest)
-    if latest_phase is None:
+    def raw_reasons(index: int) -> list[str]:
+        critical = critical_coding_event_reasons(groups[index])
+        if critical:
+            return critical
+        latest_phase = evidence_phase(groups[index])
+        if latest_phase is None:
+            return []
+        previous_phase = (
+            evidence_phase(groups[index - 1]) if index > 0 else None
+        )
+        if latest_phase == previous_phase:
+            return []
+        return [f"{latest_phase}_phase_transition"]
+
+    latest = raw_reasons(len(groups) - 1)
+    if not latest:
         return []
-    previous_phase = evidence_phase(groups[-2]) if len(groups) >= 2 else None
-    if latest_phase == previous_phase:
+    cooldown_start = max(0, len(groups) - 3)
+    if any(
+        raw_reasons(index)
+        for index in range(cooldown_start, len(groups) - 1)
+    ):
         return []
-    return [f"{latest_phase}_phase_transition"]
+    return latest
 
 
 def select_failure_memory_groups(
