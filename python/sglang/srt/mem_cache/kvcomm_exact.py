@@ -156,6 +156,7 @@ class ExactMiddleRequestState:
     fallback_reason: str | None = None
     transfer_stats: KVTransferStats | None = None
     copied_indices: torch.Tensor | None = None
+    ordinary_prefix_tokens: int | None = None
 
 
 class ExactMiddleCanaryController:
@@ -178,6 +179,8 @@ class ExactMiddleCanaryController:
         reclaim_device_tokens: Callable[[int], None] | None = None,
         host_overflow_enabled: bool = False,
         ordinary_prefix_reuse_enabled: bool = False,
+        ordinary_prefix_repair_tokens: int = 0,
+        ordinary_prefix_target_only: bool = False,
     ) -> None:
         if not manager.config.core_enabled:
             raise ValueError("KVCOMM core must be enabled")
@@ -198,6 +201,20 @@ class ExactMiddleCanaryController:
         self.reclaim_device_tokens = reclaim_device_tokens
         self.host_overflow_enabled = host_overflow_enabled
         self.ordinary_prefix_reuse_enabled = ordinary_prefix_reuse_enabled
+        if ordinary_prefix_repair_tokens < 0:
+            raise ValueError(
+                "ordinary_prefix_repair_tokens must be non-negative"
+            )
+        if ordinary_prefix_repair_tokens and not ordinary_prefix_reuse_enabled:
+            raise ValueError(
+                "ordinary prefix repair requires ordinary prefix reuse"
+            )
+        if ordinary_prefix_target_only and not ordinary_prefix_reuse_enabled:
+            raise ValueError(
+                "target-only ordinary prefix requires ordinary prefix reuse"
+            )
+        self.ordinary_prefix_repair_tokens = ordinary_prefix_repair_tokens
+        self.ordinary_prefix_target_only = ordinary_prefix_target_only
         self.materializer = DeviceSegmentMaterializer(
             manager=manager,
             allocator=allocator,
@@ -327,6 +344,12 @@ class ExactMiddleCanaryController:
             ordinary_prefix_reuse_enabled=bool(
                 value.get("ordinary_prefix_reuse_enabled", False)
             ),
+            ordinary_prefix_repair_tokens=int(
+                value.get("ordinary_prefix_repair_tokens", 0)
+            ),
+            ordinary_prefix_target_only=bool(
+                value.get("ordinary_prefix_target_only", False)
+            ),
         )
         if version == 3:
             stat = path.stat()
@@ -454,6 +477,20 @@ class ExactMiddleCanaryController:
                 raise ValueError(
                     "dynamic reuse manifest "
                     "ordinary_prefix_reuse_enabled changed"
+                )
+            if int(value.get("ordinary_prefix_repair_tokens", 0)) != (
+                self.ordinary_prefix_repair_tokens
+            ):
+                raise ValueError(
+                    "dynamic reuse manifest "
+                    "ordinary_prefix_repair_tokens changed"
+                )
+            if bool(value.get("ordinary_prefix_target_only", False)) != (
+                self.ordinary_prefix_target_only
+            ):
+                raise ValueError(
+                    "dynamic reuse manifest "
+                    "ordinary_prefix_target_only changed"
                 )
 
             added_sources = 0
@@ -708,10 +745,12 @@ class ExactMiddleCanaryController:
         self._refresh_manifest()
         case = self._targets.get(token_ids_hash(self._prompt_tokens(req)))
         if case is None:
-            return None
+            return 0 if self.ordinary_prefix_target_only else None
         if case.allow_target_prefix_bypass:
-            return case.target_start + case.length
-        return case.target_start
+            boundary = case.target_start + case.length
+        else:
+            boundary = case.target_start
+        return max(0, boundary - self.ordinary_prefix_repair_tokens)
 
     def is_source_request(self, req: Any) -> bool:
         self._refresh_manifest()
@@ -722,6 +761,20 @@ class ExactMiddleCanaryController:
         if state is None or state.phase != ExactMiddlePhase.DENSE_PREFIX:
             return None
         prefix_len = len(req.prefix_indices)
+        if state.ordinary_prefix_tokens is None:
+            # This is the prefix present on the first scheduler staging pass,
+            # before exact-middle dense chunks are advanced.  It is the
+            # auditable ordinary Radix hit, not the eventual dense-prefix
+            # length at COPY_READY.
+            state.ordinary_prefix_tokens = prefix_len
+            self._record(
+                {
+                    "case_id": state.case.case_id,
+                    "event": "target_ordinary_prefix_matched",
+                    "ordinary_prefix_tokens": prefix_len,
+                    "policy_label": state.case.policy_label,
+                }
+            )
         case = state.case
         copy_end = case.target_start + case.length
         if case.allow_target_prefix_bypass and prefix_len >= copy_end:
@@ -872,6 +925,12 @@ class ExactMiddleCanaryController:
                 "fallback_reasons": stats.fallback_reasons,
                 "policy_label": case.policy_label,
                 "recomputed_tokens": stats.recomputed_tokens,
+                "ordinary_prefix_tokens": state.ordinary_prefix_tokens or 0,
+                "effective_dense_tokens": max(
+                    0,
+                    stats.recomputed_tokens
+                    - (state.ordinary_prefix_tokens or 0),
+                ),
                 "rope_delta": case.target_start - case.source_start,
                 "rotated_k_tokens": stats.rotated_k_tokens,
                 "source_offset": source_offset,

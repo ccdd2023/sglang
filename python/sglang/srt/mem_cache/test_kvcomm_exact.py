@@ -107,6 +107,8 @@ def _controller(
     *,
     host_overflow_enabled=False,
     ordinary_prefix_reuse_enabled=False,
+    ordinary_prefix_repair_tokens=0,
+    ordinary_prefix_target_only=False,
 ):
     source = (1, 2, 3, 4, 5, 8, 9)
     target = (1, 7, 2, 3, 4, 5, 9)
@@ -124,6 +126,8 @@ def _controller(
         cases=(_case(source, target),),
         host_overflow_enabled=host_overflow_enabled,
         ordinary_prefix_reuse_enabled=ordinary_prefix_reuse_enabled,
+        ordinary_prefix_repair_tokens=ordinary_prefix_repair_tokens,
+        ordinary_prefix_target_only=ordinary_prefix_target_only,
     )
     return controller, source, target, allocator, pool
 
@@ -160,6 +164,7 @@ def test_shifted_controller_materializes_and_commits_middle_span():
     state = controller.maybe_attach_target(target_req)
     assert state is not None
     assert controller.stage_prefix_length(target_req) == 0
+    assert state.ordinary_prefix_tokens == 3
     stats = controller.copy_into_request(target_req)
     assert stats is not None and stats.mechanically_valid
     assert stats.copied_k_tokens == 3
@@ -248,6 +253,46 @@ def test_ordinary_prefix_reuse_is_opt_in_and_stops_before_middle():
     )
     assert dual.ordinary_prefix_match_limit(_req(source)) is None
     assert dual.ordinary_prefix_match_limit(_req(target)) == 3
+    assert dual.maybe_materialize_source(_req(source)) is not None
+
+    target_req = _req(target, pool_index=1, prefix=(11, 12))
+    state = dual.maybe_attach_target(target_req)
+    assert state is not None
+    assert dual.stage_prefix_length(target_req) == 1
+    assert state.ordinary_prefix_tokens == 2
+
+    # Later staging calls must not relabel newly computed dense-prefix tokens
+    # as an ordinary Radix hit.
+    target_req.prefix_indices = torch.tensor((11, 12, 13))
+    assert dual.stage_prefix_length(target_req) == 0
+    assert state.ordinary_prefix_tokens == 2
+
+    repaired, source, target, _, _ = _controller(
+        ordinary_prefix_reuse_enabled=True,
+        ordinary_prefix_repair_tokens=2,
+    )
+    assert repaired.ordinary_prefix_match_limit(_req(source)) is None
+    assert repaired.ordinary_prefix_match_limit(_req(target)) == 1
+
+
+def test_prefix_repair_requires_ordinary_prefix_reuse():
+    with pytest.raises(ValueError, match="requires ordinary prefix reuse"):
+        _controller(ordinary_prefix_repair_tokens=1)
+
+
+def test_target_only_prefix_reuse_keeps_source_and_unregistered_dense():
+    controller, source, target, _, _ = _controller(
+        ordinary_prefix_reuse_enabled=True,
+        ordinary_prefix_target_only=True,
+    )
+    assert controller.ordinary_prefix_match_limit(_req(source)) == 0
+    assert controller.ordinary_prefix_match_limit(_req((9, 8, 7))) == 0
+    assert controller.ordinary_prefix_match_limit(_req(target)) == 3
+
+
+def test_target_only_prefix_requires_ordinary_prefix_reuse():
+    with pytest.raises(ValueError, match="target-only ordinary prefix"):
+        _controller(ordinary_prefix_target_only=True)
 
 
 def test_target_prefix_bypass_copies_only_uncached_repository_tail():

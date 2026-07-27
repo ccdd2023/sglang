@@ -67,6 +67,10 @@ ARMS = (
     "general_dual_4k",
     "coding_dual_v8",
     "coding_version_graph_v17",
+    "coding_post_mutation_v19",
+    "coding_post_mutation_dual_v20",
+    "coding_post_mutation_seam32_v22",
+    "coding_post_mutation_target_prefix_v23",
 )
 DENSE_ARMS = ("dense", "coding_memory_dense_v5")
 HOST_OVERFLOW_ARMS = (
@@ -77,8 +81,18 @@ HOST_OVERFLOW_ARMS = (
     "coding_evidence_payoff_v7",
     "coding_dual_v8",
     "coding_version_graph_v17",
+    "coding_post_mutation_v19",
+    "coding_post_mutation_dual_v20",
+    "coding_post_mutation_seam32_v22",
+    "coding_post_mutation_target_prefix_v23",
 )
-DUAL_ISLAND_ARMS = ("general_dual_4k", "coding_dual_v8")
+DUAL_ISLAND_ARMS = (
+    "general_dual_4k",
+    "coding_dual_v8",
+    "coding_post_mutation_dual_v20",
+    "coding_post_mutation_seam32_v22",
+    "coding_post_mutation_target_prefix_v23",
+)
 
 
 def utc_now() -> str:
@@ -186,6 +200,27 @@ def prepare(output: Path) -> dict[str, Any]:
                 "keep the latest risky event dense, and copy the largest "
                 "remaining contiguous valid island with a 4096-token cap"
             ),
+            "coding_post_mutation_v19": (
+                "use General-4K when there is no online file-version boundary; "
+                "after a retained file observation is followed by a mutation "
+                "of that file, copy the largest contiguous post-boundary "
+                "island; never apply V17's blanket latest-risk guard"
+            ),
+            "coding_post_mutation_dual_v20": (
+                "V19 post-mutation shifted island plus the exact ordinary "
+                "Radix prefix populated by the preceding real request; no "
+                "synthetic request or prefetch"
+            ),
+            "coding_post_mutation_seam32_v22": (
+                "V20 dual reuse with the final 32 tokens before the shifted "
+                "middle island recomputed densely to stabilize the numerical "
+                "prefix-to-middle seam"
+            ),
+            "coding_post_mutation_target_prefix_v23": (
+                "reuse the ordinary Radix prefix only on a registered target; "
+                "keep unregistered requests and source-building requests "
+                "dense, then copy the V19 post-mutation shifted island"
+            ),
         },
         "dataset": {
             "registration_id": frozen["registration_id"],
@@ -229,6 +264,18 @@ def prepare(output: Path) -> dict[str, Any]:
             "coding_dual_v8_host_overflow": True,
             "coding_version_graph_v17_copy_cap_tokens": 4_096,
             "coding_version_graph_v17_host_overflow": True,
+            "coding_post_mutation_v19_copy_cap_tokens": 4_096,
+            "coding_post_mutation_v19_host_overflow": True,
+            "coding_post_mutation_dual_v20_copy_cap_tokens": 4_096,
+            "coding_post_mutation_dual_v20_host_overflow": True,
+            "coding_post_mutation_dual_v20_ordinary_radix_prefix_reuse": True,
+            "coding_post_mutation_seam32_v22_copy_cap_tokens": 4_096,
+            "coding_post_mutation_seam32_v22_host_overflow": True,
+            "coding_post_mutation_seam32_v22_ordinary_radix_prefix_reuse": True,
+            "coding_post_mutation_seam32_v22_prefix_repair_tokens": 32,
+            "coding_post_mutation_target_prefix_v23_copy_cap_tokens": 4_096,
+            "coding_post_mutation_target_prefix_v23_host_overflow": True,
+            "coding_post_mutation_target_prefix_v23_target_only_prefix": True,
             "min_copy_tokens": 128,
             "temperature": 0,
             "workers": 1,
@@ -346,6 +393,12 @@ def init_manifest(run_dir: Path, arm: str) -> Path:
             "arm": arm,
             "host_overflow_enabled": arm in HOST_OVERFLOW_ARMS,
             "ordinary_prefix_reuse_enabled": arm in DUAL_ISLAND_ARMS,
+            "ordinary_prefix_repair_tokens": (
+                32 if arm == "coding_post_mutation_seam32_v22" else 0
+            ),
+            "ordinary_prefix_target_only": (
+                arm == "coding_post_mutation_target_prefix_v23"
+            ),
         },
     )
     return path

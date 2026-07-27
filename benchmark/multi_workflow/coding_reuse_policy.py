@@ -118,6 +118,8 @@ def _group_weight(group: Sequence[dict[str, Any]]) -> int:
 
 def select_version_graph_groups(
     selected_groups: Sequence[T],
+    *,
+    protect_latest: bool = True,
 ) -> tuple[list[T], dict[str, Any]]:
     """Select the largest contiguous file-version-valid reuse island.
 
@@ -144,7 +146,7 @@ def select_version_graph_groups(
                 not changed or not paths[earlier].isdisjoint(changed)
             ):
                 stale.add(earlier)
-    protected_latest = bool(retained and risks[-1])
+    protected_latest = bool(protect_latest and retained and risks[-1])
     eligible = [
         index
         for index in range(len(retained))
@@ -176,6 +178,7 @@ def select_version_graph_groups(
         "stale_group_indices": sorted(stale),
         "stale_groups": len(stale),
         "latest_group_protected": protected_latest,
+        "latest_guard_enabled": protect_latest,
         "risk_reasons": risks[-1] if protected_latest else [],
         "eligible_islands": len(runs),
         "selected_group_indices": selected,
@@ -425,6 +428,28 @@ def select_reuse_groups(
         eligible, graph = select_version_graph_groups(selected_groups)
         decision.update(graph)
         return eligible, decision
+    if arm in (
+        "coding_post_mutation_v19",
+        "coding_post_mutation_dual_v20",
+        "coding_post_mutation_seam32_v22",
+        "coding_post_mutation_target_prefix_v23",
+    ):
+        eligible, graph = select_version_graph_groups(
+            selected_groups,
+            protect_latest=False,
+        )
+        graph["mode"] = (
+            "post_mutation_dual_island"
+            if arm
+            in (
+                "coding_post_mutation_dual_v20",
+                "coding_post_mutation_seam32_v22",
+                "coding_post_mutation_target_prefix_v23",
+            )
+            else "post_mutation_contiguous_island"
+        )
+        decision.update(graph)
+        return eligible, decision
     if arm == "coding_source_guard_v6":
         read_index = next(
             (
@@ -477,6 +502,10 @@ def select_reuse_groups(
         "coding_evidence_payoff_v7",
         "coding_dual_v8",
         "coding_version_graph_v17",
+        "coding_post_mutation_v19",
+        "coding_post_mutation_dual_v20",
+        "coding_post_mutation_seam32_v22",
+        "coding_post_mutation_target_prefix_v23",
     ):
         raise ValueError(f"unsupported reuse policy arm: {arm}")
 

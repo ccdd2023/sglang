@@ -74,6 +74,10 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "general_dual_4k",
         "coding_dual_v8",
         "coding_version_graph_v17",
+        "coding_post_mutation_v19",
+        "coding_post_mutation_dual_v20",
+        "coding_post_mutation_seam32_v22",
+        "coding_post_mutation_target_prefix_v23",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)

@@ -78,6 +78,68 @@ def test_version_graph_breaks_at_mutated_retained_read() -> None:
     assert len(selected) == 4
 
 
+def test_post_mutation_v19_drops_stale_but_keeps_latest_risky_group() -> None:
+    groups = [
+        _command_group("cat /testbed/pkg/oldest.py", "oldest"),
+        _command_group("cat /testbed/pkg/drop.py", "old source"),
+        _command_group("cat /testbed/pkg/keep.py", "stable source"),
+        _command_group(
+            "apply_patch <<'PATCH'\n"
+            "*** Update File: pkg/drop.py\n"
+            "@@\n-old\n+new\n"
+            "PATCH"
+        ),
+        _command_group("cat /testbed/pkg/other.py", "other"),
+        _command_group("pytest -q", "1 failed"),
+    ]
+    groups[-1][1]["content"] = (
+        "<returncode>1</returncode><output>1 failed</output>"
+    )
+
+    v17, v17_decision = select_reuse_groups(
+        "coding_version_graph_v17",
+        groups,
+        latest_group_messages=groups[-1],
+    )
+    v19, v19_decision = select_reuse_groups(
+        "coding_post_mutation_v19",
+        groups,
+        latest_group_messages=groups[-1],
+    )
+
+    assert v17_decision["stale_group_indices"] == [0]
+    assert v17_decision["latest_group_protected"] is True
+    assert v19_decision["stale_group_indices"] == [0]
+    assert v19_decision["latest_group_protected"] is False
+    assert v19_decision["latest_guard_enabled"] is False
+    assert v19_decision["mode"] == "post_mutation_contiguous_island"
+    assert v19 == [*v17, groups[-1]]
+
+    v20, v20_decision = select_reuse_groups(
+        "coding_post_mutation_dual_v20",
+        groups,
+        latest_group_messages=groups[-1],
+    )
+    assert v20 == v19
+    assert v20_decision["mode"] == "post_mutation_dual_island"
+
+    v22, v22_decision = select_reuse_groups(
+        "coding_post_mutation_seam32_v22",
+        groups,
+        latest_group_messages=groups[-1],
+    )
+    assert v22 == v19
+    assert v22_decision["mode"] == "post_mutation_dual_island"
+
+    v23, v23_decision = select_reuse_groups(
+        "coding_post_mutation_target_prefix_v23",
+        groups,
+        latest_group_messages=groups[-1],
+    )
+    assert v23 == v19
+    assert v23_decision["mode"] == "post_mutation_dual_island"
+
+
 def group(command: str, output: str = "<returncode>0</returncode>"):
     return [
         {
