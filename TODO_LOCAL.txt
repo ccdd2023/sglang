@@ -150,6 +150,14 @@ A governance exemption is not evidence that a condition passed.
        Ruled out by measurement, do not retry: rho tuning (rho 2.5 also
        exhausts the device) and inflating kv-bytes-per-token (the budget
        scales limit and usage by the same factor, so it cancels).
+       PRE-IMPLEMENTATION CONTRACT IS NOW FROZEN in plan section 15.1:
+       use a benchmark/test-only fault injection path, default off; do not
+       modify shared upstream alloc_token_slots; run through the real request
+       path and dense model execution; assert labels, output completion and
+       clean accounting; label the artifact fault_injected=true and
+       natural_pressure_reachability=false.
+       IMPORTANT: this executes only if the user explicitly supersedes the
+       earlier option C governance exemption.
 
 [ ] 5. Targeted dual-review delta verification of items 1-4 only.
        Do not repeat the full Exit review.

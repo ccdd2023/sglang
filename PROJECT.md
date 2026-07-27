@@ -2,14 +2,14 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-27T12:45:00-07:00
+最后更新：2026-07-27T14:55:00-07:00
 
 ## 项目概况
 
 | 项目 | 当前值 |
 | --- | --- |
 | 名称 | `code-agent-kvcache` |
-| 阶段 | Phase6全部门禁执行完毕；Exit为九项直接满足+一项豁免；正式Exit review进行中；未进入Phase7 |
+| 阶段 | Phase6全部门禁执行完毕；formal Exit review结论为FAIL；一项未验证条件获治理性豁免；未进入Phase7 |
 | 业务目标 | 在 SGLang 上比较多种跨 context 近似 KV 恢复与 workflow-aware cache scheduling，降低 Coding Agent TTFT |
 | 技术栈 | SGLang、HiCache、Docker、KVFlow、KVCOMM、CacheBlend、Cache-Craft、EPIC、CacheTune |
 | 默认分支 | `main` |
@@ -26,6 +26,30 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-27 V4先更新、再执行blocker的顺序已冻结
+
+- 不升级版本；`IMPLEMENTATION_PLAN_LATEST.md`继续为V4 Current / Latest。
+- 在任何blocker代码或实验之前，先原地冻结§15.1的验收合同，避免再次出现
+  “看到结果后改变证据标准”。
+- 当前正确状态：
+
+```text
+technical_exit         = FAIL
+governance_disposition = 已对一项未验证条件接受豁免
+```
+
+- 若用户决定把technical Exit真正转为PASS，执行路线固定为：
+  1. benchmark/test-only fault injection，默认关闭；
+  2. 不改共享上游`alloc_token_slots`；
+  3. 必须经过`finalize_copy_reuse`、scheduler与真实dense执行；
+  4. 必须断言reservation失败标签、`reuse/dense_fallback`、输出完成、
+     provisional/device/store/lease/orphan全部归零；
+  5. artifact标注`fault_injected=true`、
+     `natural_pressure_reachability=false`；
+  6. 更新并验证`RESULT_MANIFEST.json`；
+  7. 只做该blocker/provenance的targeted dual-review delta verification。
+- technical Exit通过前不创建V5、不进入Phase7。
 
 ### 2026-07-26 Phase4/5 Closeout与Phase6实现进展
 

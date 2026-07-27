@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-27T14:00:00-07:00
+最后更新：2026-07-27T14:55:00-07:00
 
 ## 新会话启动顺序
 
@@ -13,19 +13,19 @@
 
 ## 当前快照
 
-### 2026-07-27T04:20:00-07:00 Phase6 Exit仅剩dense fallback一项未满足
+### 2026-07-27T14:55:00-07:00 V4已先冻结blocker合同，technical Exit仍为FAIL
 
 - 全部实验在Docker SM75镜像内执行。
 - 实现branch head：`7dd07a6b4d98f76329108e0db6f7a0bdcf896309`（以远程分支为准，每次push后核对）。
 
 | 门禁 | 状态 |
 | --- | --- |
-| CL1 | 完成，`winner=NONE`，因果归因有效 |
+| CL1 | 完成，`winner=NONE`（仅为被测实现与冻结规则下的promotion结果；未排除header-dependent缺陷） |
 | CL2 | 完成，waive为provisional chunk `1024` |
 | CL3 | 完成 |
-| P6-H | **通过**，`status=valid`，输出逐token一致 |
-| P6-4 | **完整跑通**，3可达/2明确不可达，双向pressure首次通过 |
-| CL4 | 双模型review完成（fix + 结论） |
+| P6-H | **通过**，`status=valid`（1 restart/2 round的8-token输出canary；不是KV或logit保真证明） |
+| P6-4 | **完整跑通**；三个S4 cell中的四个non-R4 profile可达，所有顶层cell仍为`diagnostic-unavailable` |
+| CL4 | 正式双模型Exit review完成，结论为**FAIL** |
 
 #### Phase6 Exit逐条
 
@@ -33,10 +33,11 @@
 `technical_exit = FAIL`；`governance_disposition = 已对一项未验证条件接受豁免`。
 治理豁免**不会**把technical FAIL变成evidence PASS。 dense fallback可达性**未被验证**，
 由用户于2026-07-27决定作为**治理性豁免**记录（计划§7.9.1），
-不得表述为“已满足”；其余各项均有直接证据，
-包括：exact/approx/host安全竞争、双向pressure（exact→approx `47.5GB`、
-approx→exact `58.8GB`）、fixed40四rho明确结论、R1-like worst-case（k32）可达、
-generic host canary、无泄漏无orphan、压力下数据保真、完整provenance。
+不得表述为“已满足”。现有直接证据包括：exact/device-approximate共享device
+budget、双向pressure（exact→approx `47.5GB`、approx→exact `58.8GB`）、
+R1-like worst-case（k32）profile可达、generic host canary以及已完成run的
+clean reset。host使用独立host limit；exact-host/HiCache unification未实现。
+provenance由`RESULT_MANIFEST.json`提供32/32 file→commit验证，但server logs仍未版本化。
 
 #### 本轮共5处修复（全部已推送）
 
@@ -61,9 +62,17 @@ generic host canary、无泄漏无orphan、压力下数据保真、完整provena
 
 ### 下一步
 
-1. 完成正式的Phase6 Exit双模型review，并由主会话形成最终disposition。
-2. 之后再决定是否归档V4、创建V5（用户已明确本轮不升级）。
-3. 严格停在Phase7前，等待用户授权。
+1. 用户确认是否以**test-only fault injection集成canary**取代先前的方案C豁免；
+2. 若确认，必须严格按`IMPLEMENTATION_PLAN_LATEST.md` §15.1冻结合同实现：
+   - 不修改共享上游`alloc_token_slots`；
+   - 真实经过`finalize_copy_reuse`、scheduler与dense模型执行；
+   - 断言reservation失败标签、`reuse/dense_fallback`、请求完成、全账目归零；
+   - artifact明确标注`fault_injected=true`、
+     `natural_pressure_reachability=false`；
+3. 更新`RESULT_MANIFEST.json`并通过自动`--check`；
+4. 只做blocker/provenance的targeted dual-review delta verification；
+5. technical Exit通过后，才决定是否创建V5；
+6. 严格停在Phase7前，等待用户明确授权。
 
 ### 不要重做
 

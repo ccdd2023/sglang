@@ -2602,3 +2602,26 @@ eviction-dependent缺陷，但**未证明context差异是因果原因**，
 条件项 → 不要重做），并新增第4节"必须使用的措辞"，固定P6-4 profile级
 表述、P6-H canary范围、CL3独特性表述、CL2 chunk范围、rollback可逆性区分、
 device/host预算分离等六项易过声明点。
+## 2026-07-27T14:55:00-07:00 — 决定先冻结V4 blocker合同，再实施和测试
+
+- 用户询问是否应先更新latest plan，再运行blocker fix/test。
+- 结论：**是**。`IMPLEMENTATION_PLAN_LATEST.md`继续为V4，不升版本；先原地冻结
+  blocker、证据强度、验收条件和执行顺序，再允许任何实现或GPU实验。
+- 正式Exit review与Sol Max审计确认当前状态必须拆开：
+
+```text
+technical_exit         = FAIL
+governance_disposition = 已对一项未验证条件接受豁免
+```
+
+- V4 §15.1现冻结test-only集成验证路线：
+  - 不修改共享上游`alloc_token_slots`热路径；
+  - 通过benchmark/test专用fault injection触发reservation失败，默认关闭；
+  - 必须经过`finalize_copy_reuse`、scheduler与真实dense模型执行；
+  - 必须断言`cross_store_reservation_failed`、`reuse/dense_fallback`、请求成功
+    完成、所有账目与gauge归零；
+  - artifact必须标`fault_injected=true`和
+    `natural_pressure_reachability=false`，不得写成自然可达。
+- 旧§15.3 stale-victim两个候选方向已标为完成/作废，禁止重复设计。
+- `HANDOFF.md`和`TODO_LOCAL.txt`同步了相同顺序。
+- 下一步需要用户明确：是否以该test-only路线**取代此前方案C豁免**并实际执行。

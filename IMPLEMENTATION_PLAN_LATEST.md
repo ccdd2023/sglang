@@ -1138,15 +1138,25 @@ Early-stop：
 | V5前置条件 | 状态 |
 | --- | --- |
 | 1. P0修复完成并有专门回归 | **已完成**，GPU验证通过 |
-| 2. CL1在修复后底座重跑并重新判定 | **已完成**，`NONE`获得有效因果归因 |
-| 3. P6-H通过（含数据保真） | **已完成**，`status=valid` |
-| 4. P6-4完整四rho矩阵valid或明确不可达 | **已完成**，3可达/2明确不可达 |
-| 5. CL4双模型review与disposition | 已完成对fix与结论的双review |
+| 2. CL1在修复后底座重跑并重新判定 | **已完成**；`NONE`仅是被测实现与冻结规则下的promotion结果，未排除header-dependent缺陷 |
+| 3. P6-H通过 | **已完成**；`status=valid`仅代表1 restart/2 round的8-token输出canary通过，不是bitwise KV或logit保真证明 |
+| 4. P6-4完整四rho矩阵valid或明确不可达 | **部分完成**；三个S4 cell中的四个non-R4 profile可达，所有顶层cell仍为`diagnostic-unavailable` |
+| 5. CL4双模型review与disposition | **已执行，正式结论为FAIL**；三个P0中provenance与S4/rho3已闭合，fallback集成证据仍未闭合 |
 
-**Phase6 Exit现在只剩一项未满足：dense fallback可达性**
-（P6-4 `fallback_reachability.rounds=0`）。其余全部满足，含首次通过的
-双向pressure（exact→approx `47.5GB`、approx→exact `58.8GB`）、
-R1-like worst-case（k32）可达、P6-H压力下逐token保真。
+当前状态必须拆开表述：
+
+```text
+technical_exit         = FAIL
+governance_disposition = 已对一项未验证条件接受豁免
+```
+
+治理豁免不会把technical FAIL变成evidence PASS。当前唯一未闭合的技术条件是：
+**没有任何集成approximate请求在cross-store reservation失败后真正走完dense
+执行并完成输出**。现有CPU证据只到`allocate_recovery_slots`函数边界。
+
+其余直接证据包括：双向pressure（exact→approx `47.5GB`、
+approx→exact `58.8GB`）、R1-like worst-case（k32）profile可达、
+P6-H有限范围的输出canary，以及两个容量不可达cell的独立死亡态遥测。
 
 **2026-07-27诊断C（v2）结论**：以`0.05s`采样确证，S0/rho2的OOM是
 **真实容量不可达**——死亡瞬间approximate store为`0`字节`0`记录，
@@ -1156,24 +1166,38 @@ R1-like worst-case（k32）可达、P6-H压力下逐token保真。
 （诊断C v1曾以`0.4s`粗采样得出“这是我方缺陷”的相反结论，已撤回。
 采样间隔必须短于workload的分配动态，否则会得到自信但错误的判断。）
 
-因此最后一项**不能**靠修bug自然获得，仍只有两条路，需用户决定：
+因此最后一项**不能**靠修bug自然获得。用户曾选择方案C作为治理性豁免；
+若现在要把technical Exit从FAIL改为PASS，必须在写代码前显式改变执行合同，
+采用下面的**test-only集成验证路线**：
 
-- **A. 让`alloc_token_slots`优雅降级**：证据最强（自然可达），但要改共享
-  上游热路径（4个调用点、每个请求都走），与upstream产生分歧，风险最高；
-- **B. 使用allocator已有的`fault_injector`**：改动位于我们自己的
-  `cross_store/`，env门控、默认关闭、约10行；但证明的是“fallback路径可用”
-  而非“压力下自然可达”，是**更弱**的主张，必须在artifact中显式标注。
+1. 不修改共享上游`alloc_token_slots`热路径；
+2. 在benchmark/test专用路径中使用allocator已有的`fault_injector`触发一次
+   reservation失败，默认关闭且不得影响普通server；
+3. 必须通过真实request链路，经过`finalize_copy_reuse`、scheduler与模型dense
+   执行，而不是只测试`allocate_recovery_slots`；
+4. 必须同时断言：
+   - `cross_store_reservation_failed`归因；
+   - `reuse/dense_fallback`请求outcome；
+   - 请求成功完成并产出token；
+   - provisional/device/store/lease/orphan账目全部归零；
+   - 同一配置在不开启注入时仍走正常恢复路径；
+5. artifact必须明确标注`fault_injected=true`与
+   `natural_pressure_reachability=false`，不得把注入证据写成自然可达。
 
 本文件继续保持`Current / Latest`，不提升版本号、不归档
 （用户已明确本轮不升级）。
 
-**2026-07-27更新**：用户已选定方案C。dense fallback可达性作为
-**治理性豁免**记录（§7.9.1），**不计入“已满足”**。
-因此Phase6 Exit为**九项有直接证据 + 一项明确豁免**。
+**2026-07-27执行顺序冻结**：
 
-V5的创建条件现在只剩一条：
+1. 先更新并冻结本节（本次更新）；
+2. 再实现上述test-only集成验证；
+3. 运行最小GPU canary与相关CPU回归；
+4. 生成独立artifact并更新`RESULT_MANIFEST.json`，`--check`必须32/32或更高全部通过；
+5. 只对该blocker及provenance做targeted dual-review delta verification；
+6. 主会话形成新的technical Exit disposition；
+7. technical Exit通过后，才允许创建result-bound V5。
 
-1. 完成正式的Phase6 Exit双模型review，并由主会话形成最终disposition。
+在上述步骤完成前，不创建V5，不进入Phase7。
 
 ### 15.2 已由执行结果确定、必须写入V5的合同修订
 
@@ -1238,13 +1262,15 @@ V5的创建条件现在只剩一条：
     file→commit映射、内容哈希与验证命令，并且不得据artifact字段声称
     “provenance完整”。
 
-### 15.3 P0修复的两个候选方向（供CL4后执行）
+### 15.3 已完成或作废的旧P0方向
 
-1. 在`cross_store/allocator.py`执行每个action前重新校验resource仍然有效
-   （identity加树内可达性），失效则跳过并重新进入选择循环。语义最干净，
-   代价是必须重新定义跳过时的budget记账。
-2. 让`RadixCache`的cross-store `evict` action对stale节点幂等并返回真实释放
-   字节。改动面小，但必须同步修正`release_device`记账，否则会over-credit。
+本节原列出的stale-victim两个候选方向已经过时，不再是待办：
 
-两个方向都触及三轮review才稳定下来的byte-authoritative allocator，因此本轮
-明确不做投机性修补。
+- prefix自我驱逐根因已由`protect_request_prefix`修复；
+- stale victim已改为隔离、刷新并重试；
+- provisional recovery slot已在admission拒绝、waiting abort、下一轮rematch与
+  teardown路径回收，且仅在`allocator.free`成功后清除引用；
+- SWA/Unified释放元数据已回传。
+
+后续不得再按旧§15.3重复设计或重做这些修复。当前唯一Exit blocker以§15.1
+冻结的test-only集成验证合同为准。
