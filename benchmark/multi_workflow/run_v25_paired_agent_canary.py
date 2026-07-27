@@ -68,6 +68,11 @@ TARGET_VETO_DENSE_MODES = {
     "critical_current_target_dense_veto",
 }
 TARGET_VETO_CANDIDATE = V23 in TARGET_VETO_CANDIDATES
+TARGET_VETO_DENSE_MODE = (
+    "critical_current_target_dense_veto"
+    if V23 == "coding_critical_current_target_v34"
+    else "state_transition_target_dense_veto"
+)
 TARGET_PREFIX_CANDIDATES = {
     "coding_post_mutation_target_prefix_v23",
     "coding_post_mutation_payoff_guard_v28",
@@ -299,10 +304,10 @@ def register(output: Path) -> dict[str, Any]:
         "experiment": "V25 shared-prefix, cloned-repository paired agent canary",
         "motivation": (
             (
-                "V33B must veto the current General target at an online "
-                "coding-state transition. Maintain candidate and General "
-                "sources from real shared requests, then clone the repository "
-                "before that target request."
+                f"{V23} must veto the current General target at an online "
+                "coding event selected by its frozen policy. Maintain "
+                "candidate and General sources from real shared requests, "
+                "then clone the repository before that target request."
             )
             if TARGET_VETO_CANDIDATE
             else (
@@ -349,8 +354,7 @@ def register(output: Path) -> dict[str, Any]:
             "branch_rule": (
                 (
                     "first online request where General registers a target "
-                    "and the candidate emits "
-                    "state_transition_target_dense_veto"
+                    f"and the candidate emits {TARGET_VETO_DENSE_MODE}"
                     if TARGET_VETO_CANDIDATE
                     else
                     "first online request where General registers a source "
