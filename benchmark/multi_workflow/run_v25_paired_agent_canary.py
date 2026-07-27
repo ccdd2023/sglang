@@ -121,18 +121,28 @@ def _paired_cases(
     *,
     include_dense_control: bool,
 ) -> list[dict[str, Any]]:
-    """Order identical-prompt cases to match the sequential arm requests."""
+    """Order cases within each prompt hash, not across diverged trajectories."""
 
-    target_template = next(
-        (
-            prepared[arm]["target"]
-            for arm in REUSE_ARMS
-            if prepared[arm]["target"] is not None
-        ),
-        None,
-    )
+    if include_dense_control and DENSE not in prepared:
+        raise ValueError("Dense control must be prepared before case dispatch")
+    order = [arm for arm in ARMS if arm in prepared]
+    prompt_hashes = {
+        arm: token_ids_hash(prepared[arm]["prompt_ids"]) for arm in order
+    }
+    templates = {
+        prompt_hash: next(
+            (
+                prepared[arm]["target"]
+                for arm in order
+                if prompt_hashes[arm] == prompt_hash
+                and prepared[arm]["target"] is not None
+            ),
+            None,
+        )
+        for prompt_hash in set(prompt_hashes.values())
+    }
     cases: list[dict[str, Any]] = []
-    for arm in REUSE_ARMS:
+    for arm in order:
         target = prepared[arm]["target"]
         if target is not None:
             cases.append(
@@ -143,29 +153,18 @@ def _paired_cases(
                     ),
                 }
             )
-        elif ABSTENTION_CANDIDATE and arm == V23 and target_template:
-            # The server dispatches identical prompts by manifest case order,
-            # not by client identity.  Reserve the candidate's first slot as
-            # an explicit Dense control so it cannot consume General's case.
+        elif templates[prompt_hashes[arm]] is not None:
+            # The server dispatches repeated identical prompts by case order.
+            # Reserve a Dense slot only within this prompt-hash group.  Once
+            # agent trajectories diverge, unrelated prompt hashes must not
+            # consume one another's cases.
             cases.append(
                 _dense_control_case(
-                    target_template,
-                    policy_label=V23,
-                    suffix="candidate-dense-abstain",
+                    templates[prompt_hashes[arm]],
+                    policy_label=arm,
+                    suffix=f"{arm}-dense-control",
                 )
             )
-    if include_dense_control and (
-        len(cases) == len(REUSE_ARMS) or ABSTENTION_CANDIDATE
-    ):
-        if target_template is None:
-            raise ValueError("Dense control requires a target template")
-        cases.append(
-            _dense_control_case(
-                target_template,
-                policy_label=DENSE,
-                suffix="dense-control",
-            )
-        )
     return cases
 
 
@@ -391,6 +390,8 @@ def _prepare_pair(
     messages: dict[str, list[dict[str, Any]]],
     *,
     include_dense_control: bool = False,
+    dense_model: BridgeReuseLitellmModel | None = None,
+    dense_messages: list[dict[str, Any]] | None = None,
 ) -> dict[str, dict[str, Any]]:
     prepared = {
         arm: models[arm].prepare_reuse_query(
@@ -399,6 +400,13 @@ def _prepare_pair(
         )
         for arm in REUSE_ARMS
     }
+    if include_dense_control:
+        if dense_model is None or dense_messages is None:
+            raise ValueError("Dense model and messages are required")
+        prepared[DENSE] = dense_model.prepare_reuse_query(
+            dense_messages,
+            write_sidecar=False,
+        )
     cases = _paired_cases(
         prepared,
         include_dense_control=include_dense_control,
@@ -683,14 +691,17 @@ def run(output: Path) -> dict[str, Any]:
                             for arm in REUSE_ARMS
                         },
                         include_dense_control=DENSE in active,
+                        dense_model=(
+                            agents[DENSE].model
+                            if DENSE in active
+                            else None
+                        ),
+                        dense_messages=(
+                            agents[DENSE].messages
+                            if DENSE in active
+                            else None
+                        ),
                     )
-                    if DENSE in active:
-                        prepared[DENSE] = agents[
-                            DENSE
-                        ].model.prepare_reuse_query(
-                            agents[DENSE].messages,
-                            write_sidecar=False,
-                        )
                     if not first_branch_hashes:
                         first_branch_hashes = {
                             arm: token_ids_hash(
