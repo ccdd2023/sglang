@@ -604,6 +604,23 @@ class PrefillAdder:
             if _rem_tokens <= 0:
                 _rem_tokens = self.rem_chunk_tokens
 
+        exact_controller = getattr(
+            self.tree_cache, "kvcomm_exact_controller", None
+        )
+        if exact_controller is not None:
+            if exact_controller.copy_ready(req):
+                exact_controller.copy_into_request(req)
+            exact_stage_len = exact_controller.stage_prefix_length(req)
+            if exact_stage_len is not None and exact_stage_len > 0:
+                trunc_len = min(exact_stage_len, _rem_tokens)
+                req.set_extend_input_len(trunc_len)
+                req.fill_ids = req.fill_ids[
+                    : len(req.prefix_indices) + trunc_len
+                ]
+                self.can_run_list.append(req)
+                self._update_prefill_budget(0, trunc_len, 0)
+                return req
+
         truncated = req.extend_input_len > _rem_tokens
         req.set_extend_input_len(min(req.extend_input_len, _rem_tokens))
         req.fill_ids = req.fill_ids[: len(req.prefix_indices) + req.extend_input_len]
@@ -779,6 +796,33 @@ class PrefillAdder:
                 req.set_extend_input_len(len(req.fill_ids) - len(req.prefix_indices))
                 prefix_len = len(req.prefix_indices)
                 req.cache_protected_len = prefix_len
+
+            exact_controller = getattr(
+                self.tree_cache, "kvcomm_exact_controller", None
+            )
+            if exact_controller is not None:
+                exact_stage_len = exact_controller.stage_prefix_length(req)
+                if exact_stage_len is not None and exact_stage_len > 0:
+                    stage_len = (
+                        exact_stage_len
+                        if self.rem_chunk_tokens is None
+                        else min(exact_stage_len, self.rem_chunk_tokens)
+                    )
+                    stage_tokens = self.ceil_paged_tokens(stage_len)
+                    if (
+                        stage_tokens >= self.rem_input_tokens
+                        and len(self.can_run_list) != 0
+                    ):
+                        return AddReqResult.OTHER
+                    if stage_tokens >= self.rem_total_tokens:
+                        return AddReqResult.NO_TOKEN
+                    req.set_extend_input_len(stage_len)
+                    req.fill_ids = req.fill_ids[: prefix_len + stage_len]
+                    self.can_run_list.append(req)
+                    self.new_chunked_req = req
+                    self._req_inc_lock_ref(req)
+                    self._update_prefill_budget(prefix_len, stage_tokens, 0)
+                    return self.budget_state()
 
             input_tokens = self.ceil_paged_tokens(req.extend_input_len)
 

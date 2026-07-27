@@ -432,6 +432,21 @@ class RadixCache(BasePrefixCache):
                 last_host_node=self.root_node,
             )
 
+        controller = getattr(self, "kvcomm_exact_controller", None)
+        if controller is not None and params.req is not None:
+            if controller.is_target_request(params.req):
+                # Attach before prefix matching so the scheduler can stage the
+                # dense-or-lossless prefix and then execute the shifted middle.
+                controller.maybe_attach_target(params.req)
+            prefix_limit = controller.ordinary_prefix_match_limit(params.req)
+            if prefix_limit == 0:
+                # Backward-compatible frozen protocol: exact manifests bypass
+                # all ordinary cross-request Radix reuse unless they explicitly
+                # opt into dual-island prefix+middle reuse.
+                return empty_match_result()
+            if prefix_limit is not None:
+                key = key[:prefix_limit]
+
         if self.disable or len(key) == 0:
             return empty_match_result()
 
@@ -472,8 +487,25 @@ class RadixCache(BasePrefixCache):
 
     def cache_finished_req(self, req: Req, is_insert: bool = True):
         """Cache request when it finishes."""
+        controller = getattr(self, "kvcomm_exact_controller", None)
+        if controller is not None:
+            # A rolling request is commonly both the consumer of the previous
+            # owned source and the producer of the next one. Release the
+            # consumed source before allocating its replacement so a 4096-token
+            # handoff never requires two owned segments at once.
+            controller.finish_request(req)
+            controller.maybe_materialize_source(req)
+            # The legacy exact-only protocol never inserts completed requests.
+            # Dual-island manifests explicitly retain the lossless prompt
+            # prefix in Radix; registered targets are still match-capped at
+            # target_start so Radix cannot swallow the shifted middle span.
+            is_insert = controller.ordinary_prefix_reuse_enabled
+
         # In deterministic mode, disable finished request insertion to radix cache
-        if self.disable_finished_insert:
+        if self.disable_finished_insert and not (
+            controller is not None
+            and controller.ordinary_prefix_reuse_enabled
+        ):
             is_insert = False
 
         kv_committed_len = req.pop_committed_kv_cache()
@@ -659,7 +691,11 @@ class RadixCache(BasePrefixCache):
 
     def protected_size(self):
         # protected size refers to the size of the cache that is locked
-        return self.protected_size_
+        controller = getattr(self, "kvcomm_exact_controller", None)
+        exact_owned = (
+            controller.owned_device_tokens if controller is not None else 0
+        )
+        return self.protected_size_ + exact_owned
 
     def all_values_flatten(self):
         values = []

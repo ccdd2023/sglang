@@ -9,10 +9,12 @@ from sglang.srt.mem_cache.kvcomm.config import KVCommFeatureConfig
 from sglang.srt.mem_cache.kvcomm.manager import KVCommManager
 from sglang.srt.mem_cache.kvcomm.radix_backend import (
     AllocatorResidencyLoader,
+    DeviceSegmentMaterializer,
     DeviceKVRef,
     HostKVRef,
     RadixKVTransferBackend,
     RoPEConfig,
+    TargetSlotTransaction,
 )
 from sglang.srt.mem_cache.kvcomm.store import KVSegmentStore
 from sglang.srt.mem_cache.kvcomm.types import (
@@ -31,6 +33,7 @@ from sglang.srt.mem_cache.kvcomm.types import (
 __all__ = [
     "DenseRange",
     "AllocatorResidencyLoader",
+    "DeviceSegmentMaterializer",
     "DeviceKVRef",
     "HostKVRef",
     "KVCommFeatureConfig",
@@ -45,6 +48,7 @@ __all__ = [
     "ResidencyTier",
     "RoPEConfig",
     "SegmentKind",
+    "TargetSlotTransaction",
     "TransferSpan",
     "token_ids_hash",
 ]

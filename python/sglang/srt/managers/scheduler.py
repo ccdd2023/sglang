@@ -23,6 +23,7 @@ from collections import deque
 from contextlib import nullcontext
 from dataclasses import dataclass
 from http import HTTPStatus
+from pathlib import Path
 from typing import Any, Deque, Dict, List, Optional, Tuple, Union
 
 from sglang.srt.utils.common import suppress_noisy_warnings
@@ -176,7 +177,7 @@ from sglang.srt.managers.scheduler_update_weights_mixin import (
 from sglang.srt.managers.session_controller import SessionController
 from sglang.srt.managers.utils import GenerationBatchResult, validate_input_length
 from sglang.srt.mem_cache.cache_init_params import CacheInitParams
-from sglang.srt.mem_cache.common import release_kv_cache
+from sglang.srt.mem_cache.common import evict_from_tree_cache, release_kv_cache
 from sglang.srt.mem_cache.radix_cache import RadixCache
 from sglang.srt.mem_cache.session_aware_cache import SessionAwareCache
 from sglang.srt.model_executor.forward_batch_info import ForwardMode, PPProxyTensors
@@ -380,6 +381,7 @@ class Scheduler(
 
         # Init cache and memory pool
         self.init_cache_with_memory_pool()
+        self.init_kvcomm_exact_canary()
 
         # Init running status
         self.init_running_status()
@@ -786,6 +788,56 @@ class Scheduler(
 
         embedding_cache_size = envs.SGLANG_VLM_CACHE_SIZE_MB.get()
         init_mm_embedding_cache(embedding_cache_size * 1024 * 1024)
+
+    def init_kvcomm_exact_canary(self):
+        """Attach the opt-in local-manifest reuse controller."""
+
+        manifest = os.environ.get("SGLANG_KVCOMM_EXACT_CANARY_MANIFEST")
+        self.kvcomm_exact_controller = None
+        if not manifest:
+            return
+        if self.tp_size != 1 or self.pp_size != 1:
+            raise ValueError("KVCOMM exact pilot currently requires TP=PP=1")
+        if self.page_size != 1:
+            raise ValueError("KVCOMM exact pilot currently requires page_size=1")
+        if not self.spec_algorithm.is_none():
+            raise ValueError("KVCOMM exact pilot does not support speculative decode")
+        if (
+            self.model_config.is_multimodal
+            or self.is_hybrid_swa
+            or self.is_hybrid_ssm
+        ):
+            raise ValueError(
+                "KVCOMM exact pilot supports dense text MHA/GQA only"
+            )
+        if type(self.tree_cache) is not RadixCache:
+            raise ValueError("KVCOMM exact pilot requires the Python RadixCache")
+        if not self.tree_cache.kvcomm.config.core_enabled:
+            raise ValueError(
+                "SGLANG_KVCOMM_CORE=1 is required by the exact pilot"
+            )
+
+        from sglang.srt.mem_cache.kvcomm_exact import (
+            ExactMiddleCanaryController,
+        )
+
+        cache_dtype = str(self.model_config.dtype).removeprefix("torch.")
+        self.kvcomm_exact_controller = ExactMiddleCanaryController.from_manifest(
+            Path(manifest),
+            manager=self.tree_cache.kvcomm,
+            allocator=self.token_to_kv_pool_allocator,
+            req_to_token_pool=self.req_to_token_pool,
+            model_id=self.model_config.model_path,
+            cache_dtype=cache_dtype,
+            reclaim_device_tokens=lambda num_tokens: evict_from_tree_cache(
+                self.tree_cache, num_tokens
+            ),
+        )
+        self.tree_cache.kvcomm_exact_controller = self.kvcomm_exact_controller
+        logger.warning(
+            "Enabled integration-only KVCOMM middle-span pilot from %s",
+            manifest,
+        )
 
     def init_running_status(self):
         self.waiting_queue: List[Req] = []

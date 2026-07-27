@@ -90,7 +90,10 @@ def execute_reuse_plan(
             stats.stale_handle += 1
             fallback_chunks[(span.chunk_start, span.chunk_length)] = "stale_handle"
             continue
-        if span.source.residency != ResidencyTier.DEVICE:
+        if span.source.residency not in (
+            ResidencyTier.DEVICE,
+            ResidencyTier.HOST,
+        ):
             stats.residency_miss += 1
             fallback_chunks[(span.chunk_start, span.chunk_length)] = "residency_miss"
             continue

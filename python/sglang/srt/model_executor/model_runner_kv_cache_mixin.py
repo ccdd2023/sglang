@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, Tuple
 
@@ -62,6 +63,14 @@ MAMBA_CACHE_V2_ADDITIONAL_RATIO_NO_OVERLAP = 1
 logger = logging.getLogger(__name__)
 
 _is_npu = is_npu()
+
+
+def kv_cache_copy_required(server_args) -> bool:
+    """Enable the all-layer copy primitive for registered runtime consumers."""
+    return (
+        server_args.speculative_algorithm is not None
+        or bool(os.environ.get("SGLANG_KVCOMM_EXACT_CANARY_MANIFEST"))
+    )
 
 
 class ModelRunnerKVCacheMixin:
@@ -614,9 +623,7 @@ class ModelRunnerKVCacheMixin:
                         start_layer=self.start_layer,
                         end_layer=self.end_layer,
                         enable_alt_stream=not self.server_args.enable_pdmux,
-                        enable_kv_cache_copy=(
-                            self.server_args.speculative_algorithm is not None
-                        ),
+                        enable_kv_cache_copy=kv_cache_copy_required(self.server_args),
                     )
                 else:
                     self.token_to_kv_pool = MHATokenToKVPool(
@@ -633,9 +640,7 @@ class ModelRunnerKVCacheMixin:
                         start_layer=self.start_layer,
                         end_layer=self.end_layer,
                         enable_alt_stream=not self.server_args.enable_pdmux,
-                        enable_kv_cache_copy=(
-                            self.server_args.speculative_algorithm is not None
-                        ),
+                        enable_kv_cache_copy=kv_cache_copy_required(self.server_args),
                     )
 
         # Initialize token_to_kv_pool_allocator

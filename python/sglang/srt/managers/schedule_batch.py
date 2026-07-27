@@ -64,6 +64,7 @@ from sglang.srt.mem_cache.base_prefix_cache import BasePrefixCache, MatchPrefixP
 from sglang.srt.mem_cache.common import (
     alloc_for_decode,
     alloc_for_extend,
+    alloc_req_slots,
     evict_from_tree_cache,
     release_kv_cache,
 )
@@ -634,6 +635,8 @@ class Req(ReqDllmMixin):
         # Prefix info
         # The indices to kv cache for the shared prefix.
         self.prefix_indices: torch.Tensor = torch.empty((0,), dtype=torch.int64)
+        # Opt-in local-manifest reuse state. It is never populated from HTTP.
+        self.kvcomm_exact_state = None
         # Number of tokens to run prefill.
         self.extend_input_len = 0
         # The relative logprob_start_len in an extend batch
@@ -1475,6 +1478,31 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
 
         # Init tensors
         reqs = self.reqs
+        preallocated_req_pool_indices = None
+        exact_controller = getattr(
+            self.tree_cache, "kvcomm_exact_controller", None
+        )
+        if exact_controller is not None and any(
+            exact_controller.copy_ready(req) for req in reqs
+        ):
+            # When lossless Radix reuse lands exactly at target_start there is
+            # no dense-prefix staging batch. Allocate request slots first, copy
+            # the registered middle into those slots, and only then construct
+            # the suffix-only extend batch. ``alloc_for_extend`` reuses these
+            # slots and allocates KV only for the remaining suffix.
+            preallocated_req_pool_indices = alloc_req_slots(
+                self.req_to_token_pool,
+                reqs,
+                self.tree_cache,
+            )
+            for req, req_pool_idx in zip(
+                reqs, preallocated_req_pool_indices
+            ):
+                req.req_pool_idx = req_pool_idx
+            for req in reqs:
+                if exact_controller.copy_ready(req):
+                    exact_controller.copy_into_request(req)
+
         input_ids = [r.fill_ids[len(r.prefix_indices) :] for r in reqs]
         extend_num_tokens = sum(len(ids) for ids in input_ids)
         seq_lens = [len(r.fill_ids) for r in reqs]
@@ -1522,7 +1550,8 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
 
         # Allocate memory
         out_cache_loc, req_pool_indices_tensor, req_pool_indices = alloc_for_extend(
-            self
+            self,
+            req_pool_indices=preallocated_req_pool_indices,
         )
 
         # Set fields

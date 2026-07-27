@@ -327,6 +327,7 @@ def alloc_req_slots(
 
 def alloc_for_extend(
     batch: ScheduleBatch,
+    req_pool_indices: list[int] | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, list[int]]:
     """
     Allocate KV cache for extend batch and write to req_to_token_pool.
@@ -348,9 +349,12 @@ def alloc_for_extend(
     extend_lens_device = extend_lens_cpu.to(batch.device, non_blocking=True)
 
     # Allocate req slots
-    req_pool_indices = alloc_req_slots(
-        batch.req_to_token_pool, batch.reqs, batch.tree_cache
-    )
+    if req_pool_indices is None:
+        req_pool_indices = alloc_req_slots(
+            batch.req_to_token_pool, batch.reqs, batch.tree_cache
+        )
+    elif len(req_pool_indices) != len(batch.reqs):
+        raise ValueError("preallocated request slots do not match batch size")
     req_pool_indices_cpu = torch.tensor(req_pool_indices, dtype=torch.int64)
     req_pool_indices_device = req_pool_indices_cpu.to(batch.device, non_blocking=True)
 

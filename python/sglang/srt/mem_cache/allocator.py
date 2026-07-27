@@ -77,7 +77,22 @@ class BaseTokenToKVPoolAllocator(abc.ABC):
     def free_group_end(self):
         self.is_not_in_free_group = True
         if self.free_group:
-            self.free(torch.cat(self.free_group))
+            grouped = torch.cat(self.free_group)
+            self.free_group = []
+            self.free(grouped)
+
+    def flush_free_group(self):
+        """Publish deferred frees without ending the surrounding free group."""
+        if not self.free_group:
+            return
+        grouped = torch.cat(self.free_group)
+        self.free_group = []
+        was_not_in_free_group = self.is_not_in_free_group
+        self.is_not_in_free_group = True
+        try:
+            self.free(grouped)
+        finally:
+            self.is_not_in_free_group = was_not_in_free_group
 
     def merge_and_sort_free(self):
         if len(self.release_pages) > 0:

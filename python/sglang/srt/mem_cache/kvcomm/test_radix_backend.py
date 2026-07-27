@@ -3,6 +3,7 @@ from __future__ import annotations
 import torch
 
 from sglang.srt.layers.rotary_embedding.utils import apply_rotary_emb
+from sglang.srt.mem_cache.allocator import TokenToKVPoolAllocator
 from sglang.srt.mem_cache.kvcomm.radix_backend import (
     AllocatorResidencyLoader,
     DeviceKVRef,
@@ -61,6 +62,10 @@ class Allocator:
 
     def load_cpu_copy(self, payload, indices):
         self.loaded.append((payload, tuple(indices.tolist())))
+        if isinstance(payload, list):
+            for layer, (keys, values) in enumerate(payload):
+                self.cache.keys[layer][indices] = keys
+                self.cache.values[layer][indices] = values
 
 
 def _handle(tokens, backend_ref, residency):
@@ -170,6 +175,50 @@ def test_positive_negative_and_zero_rope_delta_match_reference():
         assert torch.allclose(cache.keys[0][target], expected, atol=2e-6)
 
 
+@torch.no_grad()
+def test_host_copy_loads_on_demand_and_rotates_all_k():
+    cache = Cache()
+    allocator = Allocator(cache)
+    source = torch.arange(1, 5)
+    target = torch.arange(8, 12)
+    original_keys = [layer.clone() for layer in cache.keys]
+    original_values = [layer.clone() for layer in cache.values]
+    payload = [
+        (
+            original_keys[layer][source].clone(),
+            original_values[layer][source].clone(),
+        )
+        for layer in range(cache.layer_num)
+    ]
+    config = RoPEConfig(rotary_dim=4, base=10_000, is_neox_style=True)
+    backend = RadixKVTransferBackend(
+        allocator=allocator,
+        target_indices=lambda start, length: target,
+        dense_prefill=lambda *_: None,
+        rope=config,
+    )
+
+    counts = backend.copy_and_rotate(
+        source_ref=HostKVRef(payload),
+        source_offset=0,
+        target_start=0,
+        length=4,
+        rope_delta=-7,
+    )
+
+    assert counts == (4, 4, 4)
+    assert allocator.loaded[-1][1] == (8, 9, 10, 11)
+    for layer in range(cache.layer_num):
+        expected_k = _reference_rotation(
+            original_keys[layer], source, -7, config
+        )
+        assert torch.allclose(cache.keys[layer][target], expected_k, atol=2e-6)
+        assert torch.equal(
+            cache.values[layer][target],
+            original_values[layer][source],
+        )
+
+
 def test_host_residency_loader_allocates_and_loads_payload():
     cache = Cache()
     allocator = Allocator(cache)
@@ -185,3 +234,23 @@ def test_host_residency_loader_allocates_and_loads_payload():
     assert result.release_backend is not None
     result.release_backend(loaded, ResidencyTier.DEVICE)
     assert allocator.freed == [8, 9, 10]
+
+
+def test_allocator_can_publish_deferred_frees_without_ending_group():
+    allocator = TokenToKVPoolAllocator(
+        size=8,
+        dtype=torch.float32,
+        device="cpu",
+        kvcache=None,
+        need_sort=False,
+    )
+    owned = allocator.alloc(4)
+    assert allocator.available_size() == 4
+    allocator.free_group_begin()
+    allocator.free(owned)
+    assert allocator.available_size() == 4
+    allocator.flush_free_group()
+    assert allocator.available_size() == 8
+    assert not allocator.is_not_in_free_group
+    assert allocator.alloc(8) is not None
+    allocator.free_group_end()
