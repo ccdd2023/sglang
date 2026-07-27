@@ -492,10 +492,20 @@ P6-4最终结果（`run_id=p6-4-20260727T104820Z`）：
 | 无泄漏、无orphan | 满足（store gauge全归零） |
 | 近似reuse压力下数据保真 | **满足**（P6-H逐token一致；新增Exit条件） |
 | raw/commit/env/test provenance完整 | 满足 |
-| dense fallback可达性 | **未满足**（`rounds=0`） |
+| dense fallback可达性 | **部分满足**（见下） |
 
-因此Phase6 Exit只剩**dense fallback可达性**一项未取得证据，
-其余全部满足。仍未进入Phase7。
+关于最后一项的精确事实：**dense fallback路径可达且已观测**——三个可达cell的
+`exact_only` profile各发生`4`次`dense_fallback`（合计12次）。
+但`fallback_reachable`要求的是`dense_fallback`**且**`reservation_failures>0`，
+而全部round的`reservation_failures`为`0`，故flag为`False`。
+即尚缺的是**reservation-failure关联的**fallback证据，不是“fallback不可用”。
+
+拿不到该证据的原因与既有鲁棒性缺口同源：唯一会真正触发reservation失败的
+cell（S0/rho2、S4/rho3）在此之前就因`alloc_token_slots`抛`RuntimeError`
+杀死server。修复方向是让allocation失败可记录地降级，或使用allocator已有的
+`fault_injector`注入一次受控reservation失败。
+
+因此Phase6 Exit只剩这一项未完全取得证据，其余全部满足。仍未进入Phase7。
 
 ### 2026-07-26 P6-4结果与CL3 Phase5零GPU重算
 

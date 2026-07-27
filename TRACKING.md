@@ -2216,3 +2216,35 @@ P6-4最终结果（`run_id=p6-4-20260727T104820Z`，
 - 整体`status=inconclusive`：因为无cell达到全`valid`，且
   `fallback_reachability.rounds=0`（未观察到dense fallback）。
 - 请求容量与实测容量在全部可达cell上**完全相等**，容差检查通过。
+
+## 2026-07-27T04:25:00-07:00 — dense fallback可达性的精确定性
+
+对P6-4逐profile展开cache outcome后，得到比“rounds=0”更精确的事实：
+
+- **dense fallback确实发生并被观测到**：三个可达cell的`exact_only` profile
+  各有`4`次`dense_fallback`（合计12次），`exact_gpu_hit`各`6`次；
+- 但`fallback_reachable`的判定条件是
+  `outcome == "dense_fallback"` **且** `reservation_failures > 0`；
+- 全部round的`reservation_failures`均为`0`，因此该flag为`False`。
+
+即该指标要求的不是“存在dense fallback”，而是
+**“当cross-store reservation失败时，请求正确回退到dense而不是报错”**，
+对应计划中“fallback必须与同一次replay reservation失败相关联”。
+
+因此正确表述是：
+
+- dense fallback路径**可达且已观测**；
+- 尚缺的是**reservation-failure关联的**fallback证据。
+
+之所以拿不到该证据：唯一会真正触发reservation失败的cell（S0/rho2、S4/rho3）
+在此之前就因`alloc_token_slots`抛`RuntimeError`杀死server。这与先前记录的
+鲁棒性缺口是同一条：**allocation失败应可记录地降级，而不是终止scheduler**。
+
+两条可行路径（留给下一会话）：
+
+1. 让`alloc_token_slots`在cross-store无法腾出空间时优雅降级；
+2. 使用allocator已有的`fault_injector`/`AllocationFailurePoint.AFTER_RESERVE`
+   注入一次受控reservation失败——该机制本就是为此设计的，但目前未通过runner
+   CLI暴露。
+
+本轮不做投机性改动，按事实记录。
