@@ -1,0 +1,329 @@
+{
+  "schema_version": 1,
+  "registration_id": "swebench_verified_medium_v1_20260724",
+  "registered_at_utc": "2026-07-24",
+  "dataset": {
+    "name": "princeton-nlp/SWE-bench_Verified",
+    "split": "test",
+    "revision_observed": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+    "population_size": 500,
+    "local_snapshot": "/home/gfy/CodeMAS_Project/kvflow-artifacts/swebench_verified_medium_v1_20260724/frozen_subset.json",
+    "local_snapshot_sha256": "a5ca5eb137904b2fbd8c6e493bc59464cfe58bd14aca5073a9d55d8ab532aa12"
+  },
+  "scope": {
+    "phase": "moderate-difficulty official functional benchmark qualification",
+    "primary_metric": "official SWE-bench resolved",
+    "secondary_metrics": [
+      "format/apply failure",
+      "test failure",
+      "infrastructure failure",
+      "TTFT",
+      "end-to-end generation latency",
+      "KV reuse ratio"
+    ],
+    "prefetch_allowed": false,
+    "old_dirty_checkout_modified": false,
+    "paper_modified": false,
+    "preregistration_thresholds_modified": false
+  },
+  "selection": {
+    "frozen_before_container_outcomes": true,
+    "frozen_before_model_outcomes": true,
+    "instance_count": 20,
+    "repository_count": 10,
+    "difficulty": "15 min - 1 hour",
+    "production_patch_changed_lines": {
+      "minimum": 3,
+      "maximum": 40,
+      "selected_median": 11.0
+    },
+    "production_patch_files": {
+      "minimum": 1,
+      "maximum": 2
+    },
+    "production_patch_hunks": {
+      "minimum": 1,
+      "maximum": 6,
+      "selected_median": 3.0
+    },
+    "fail_to_pass_tests": {
+      "minimum": 1,
+      "maximum": 8
+    },
+    "problem_statement_characters": {
+      "minimum": 200,
+      "maximum": 5000
+    },
+    "exclusions": [
+      "all complex-v1 instance IDs, to keep the two evaluation strata disjoint",
+      "matplotlib/matplotlib, due the previously observed rootless subordinate-UID incompatibility"
+    ],
+    "sampling": {
+      "eligible_pool_size": 172,
+      "rule": "group by repository, sort by SHA-256, take two per repository",
+      "hash_input": "impactkv-medium-v1-20260724:<instance_id>",
+      "model_outcomes_observed": false,
+      "container_outcomes_observed": false
+    },
+    "rationale": [
+      "retains real repository issues and official executable tests",
+      "is materially harder than isolated HumanEval/MBPP functions",
+      "avoids the large multi-file patches that collapsed complex-v1 Dense accuracy",
+      "balances repositories instead of inheriting SWE-bench's Django-heavy distribution"
+    ]
+  },
+  "qualification": {
+    "gold_requirement": "all infrastructure-valid instances resolve",
+    "base_requirement": "no infrastructure-valid instance resolves",
+    "dense_suitability_target": {
+      "minimum_resolved": 5,
+      "preferred_resolved_fraction": [
+        0.25,
+        0.75
+      ]
+    },
+    "note": "The Dense target is a benchmark-suitability rule, not a change to any prior method gate."
+  },
+  "instances": [
+    {
+      "instance_id": "astropy__astropy-13033",
+      "repository": "astropy/astropy",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 14,
+      "hunks": 2,
+      "files": 1,
+      "fail_to_pass": 1,
+      "pass_to_pass": 20,
+      "problem_chars": 2790,
+      "image": "swebench/sweb.eval.x86_64.astropy_1776_astropy-13033:latest"
+    },
+    {
+      "instance_id": "astropy__astropy-7671",
+      "repository": "astropy/astropy",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 9,
+      "hunks": 2,
+      "files": 1,
+      "fail_to_pass": 1,
+      "pass_to_pass": 3,
+      "problem_chars": 1916,
+      "image": "swebench/sweb.eval.x86_64.astropy_1776_astropy-7671:latest"
+    },
+    {
+      "instance_id": "django__django-15561",
+      "repository": "django/django",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 35,
+      "hunks": 2,
+      "files": 2,
+      "fail_to_pass": 1,
+      "pass_to_pass": 141,
+      "problem_chars": 359,
+      "image": "swebench/sweb.eval.x86_64.django_1776_django-15561:latest"
+    },
+    {
+      "instance_id": "django__django-12406",
+      "repository": "django/django",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 17,
+      "hunks": 3,
+      "files": 2,
+      "fail_to_pass": 3,
+      "pass_to_pass": 165,
+      "problem_chars": 1066,
+      "image": "swebench/sweb.eval.x86_64.django_1776_django-12406:latest"
+    },
+    {
+      "instance_id": "mwaskom__seaborn-3069",
+      "repository": "mwaskom/seaborn",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 15,
+      "hunks": 4,
+      "files": 1,
+      "fail_to_pass": 2,
+      "pass_to_pass": 94,
+      "problem_chars": 1188,
+      "image": "swebench/sweb.eval.x86_64.mwaskom_1776_seaborn-3069:latest"
+    },
+    {
+      "instance_id": "mwaskom__seaborn-3187",
+      "repository": "mwaskom/seaborn",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 12,
+      "hunks": 2,
+      "files": 2,
+      "fail_to_pass": 2,
+      "pass_to_pass": 248,
+      "problem_chars": 1438,
+      "image": "swebench/sweb.eval.x86_64.mwaskom_1776_seaborn-3187:latest"
+    },
+    {
+      "instance_id": "psf__requests-6028",
+      "repository": "psf/requests",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 4,
+      "hunks": 1,
+      "files": 1,
+      "fail_to_pass": 2,
+      "pass_to_pass": 185,
+      "problem_chars": 1268,
+      "image": "swebench/sweb.eval.x86_64.psf_1776_requests-6028:latest"
+    },
+    {
+      "instance_id": "psf__requests-2931",
+      "repository": "psf/requests",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 5,
+      "hunks": 2,
+      "files": 1,
+      "fail_to_pass": 1,
+      "pass_to_pass": 84,
+      "problem_chars": 271,
+      "image": "swebench/sweb.eval.x86_64.psf_1776_requests-2931:latest"
+    },
+    {
+      "instance_id": "pydata__xarray-3305",
+      "repository": "pydata/xarray",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 22,
+      "hunks": 5,
+      "files": 2,
+      "fail_to_pass": 1,
+      "pass_to_pass": 653,
+      "problem_chars": 2188,
+      "image": "swebench/sweb.eval.x86_64.pydata_1776_xarray-3305:latest"
+    },
+    {
+      "instance_id": "pydata__xarray-2905",
+      "repository": "pydata/xarray",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 3,
+      "hunks": 1,
+      "files": 1,
+      "fail_to_pass": 1,
+      "pass_to_pass": 364,
+      "problem_chars": 2135,
+      "image": "swebench/sweb.eval.x86_64.pydata_1776_xarray-2905:latest"
+    },
+    {
+      "instance_id": "pylint-dev__pylint-6528",
+      "repository": "pylint-dev/pylint",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 35,
+      "hunks": 5,
+      "files": 2,
+      "fail_to_pass": 4,
+      "pass_to_pass": 171,
+      "problem_chars": 2359,
+      "image": "swebench/sweb.eval.x86_64.pylint-dev_1776_pylint-6528:latest"
+    },
+    {
+      "instance_id": "pylint-dev__pylint-4661",
+      "repository": "pylint-dev/pylint",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 18,
+      "hunks": 5,
+      "files": 2,
+      "fail_to_pass": 1,
+      "pass_to_pass": 0,
+      "problem_chars": 995,
+      "image": "swebench/sweb.eval.x86_64.pylint-dev_1776_pylint-4661:latest"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10051",
+      "repository": "pytest-dev/pytest",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 7,
+      "hunks": 3,
+      "files": 1,
+      "fail_to_pass": 1,
+      "pass_to_pass": 15,
+      "problem_chars": 1371,
+      "image": "swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-10051:latest"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-7324",
+      "repository": "pytest-dev/pytest",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 10,
+      "hunks": 3,
+      "files": 1,
+      "fail_to_pass": 3,
+      "pass_to_pass": 58,
+      "problem_chars": 469,
+      "image": "swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-7324:latest"
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-14087",
+      "repository": "scikit-learn/scikit-learn",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 9,
+      "hunks": 2,
+      "files": 1,
+      "fail_to_pass": 3,
+      "pass_to_pass": 172,
+      "problem_chars": 2320,
+      "image": "swebench/sweb.eval.x86_64.scikit-learn_1776_scikit-learn-14087:latest"
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-10297",
+      "repository": "scikit-learn/scikit-learn",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 34,
+      "hunks": 3,
+      "files": 1,
+      "fail_to_pass": 1,
+      "pass_to_pass": 28,
+      "problem_chars": 1519,
+      "image": "swebench/sweb.eval.x86_64.scikit-learn_1776_scikit-learn-10297:latest"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-11445",
+      "repository": "sphinx-doc/sphinx",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 14,
+      "hunks": 3,
+      "files": 1,
+      "fail_to_pass": 2,
+      "pass_to_pass": 8,
+      "problem_chars": 1791,
+      "image": "swebench/sweb.eval.x86_64.sphinx-doc_1776_sphinx-11445:latest"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-8120",
+      "repository": "sphinx-doc/sphinx",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 9,
+      "hunks": 3,
+      "files": 2,
+      "fail_to_pass": 1,
+      "pass_to_pass": 44,
+      "problem_chars": 1855,
+      "image": "swebench/sweb.eval.x86_64.sphinx-doc_1776_sphinx-8120:latest"
+    },
+    {
+      "instance_id": "sympy__sympy-13551",
+      "repository": "sympy/sympy",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 4,
+      "hunks": 1,
+      "files": 1,
+      "fail_to_pass": 1,
+      "pass_to_pass": 17,
+      "problem_chars": 499,
+      "image": "swebench/sweb.eval.x86_64.sympy_1776_sympy-13551:latest"
+    },
+    {
+      "instance_id": "sympy__sympy-21930",
+      "repository": "sympy/sympy",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 6,
+      "hunks": 3,
+      "files": 1,
+      "fail_to_pass": 6,
+      "pass_to_pass": 45,
+      "problem_chars": 707,
+      "image": "swebench/sweb.eval.x86_64.sympy_1776_sympy-21930:latest"
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+# Merge after mini-SWE-agent 2.3.0's built-in swebench.yaml.
+# Dense/general/coding arms share this exact rolling-history policy.
+agent:
+  step_limit: 20
+  cost_limit: 0
+  wall_time_limit_seconds: 1200
+  system_template: |
+    You are a software-engineering agent with access to one bash tool. Work
+    carefully and finish the requested repository change within the fixed call
+    budget.
+  instance_template: |
+    <pr_description>
+    {{task}}
+    </pr_description>
+
+    Work in /testbed and modify only regular non-test source files required by
+    the PR description. Do not modify tests, packaging, or configuration.
+
+    Use the bash tool in every response. Inspect narrowly and finish the source
+    edit by model call 5. Do not create backup files or reproduction scripts,
+    and do not spend calls probing general language semantics. Run a focused
+    check only after editing.
+
+    Never use sed, awk, or line-number-based source editing. Use this generic
+    exact-replacement pattern, filling in the path and complete old/new blocks:
+
+    `python - <<'PY'
+    from pathlib import Path
+    path = Path("SOURCE_FILE")
+    text = path.read_text()
+    old = """COMPLETE_OLD_BLOCK"""
+    new = """COMPLETE_NEW_BLOCK"""
+    assert text.count(old) == 1
+    path.write_text(text.replace(old, new))
+    PY`
+
+    Do not build replacement lines programmatically. After the edit, inspect
+    `git diff`, run one focused check, and reserve calls for submission.
+    Submission requires these separate bash actions:
+
+    1. Create patch.txt with `git diff -- <only modified source files> > patch.txt`.
+    2. Inspect patch.txt and confirm it contains only the intended source edit.
+    3. Submit with exactly:
+       `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT && cat patch.txt`
+
+    Do not issue any command after submission.
+
+environment:
+  timeout: 120
+  container_timeout: "30m"
+  interpreter: ["bash", "-lc"]
+  env:
+    BASH_ENV: "/root/.bashrc"
+
+model:
+  model_name: "hosted_vllm//home/gfy/models/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit"
+  model_class: "benchmark.multi_workflow.bridge_reuse_litellm_model.BridgeReuseLitellmModel"
+  cost_tracking: "ignore_errors"
+  tokenizer_json_path: "/home/gfy/models/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit/tokenizer.json"
+  chat_template_path: "benchmark/multi_workflow/qwen3_coder_tool_chat_template.jinja"
+  prompt_token_limit: 28000
+  max_tool_observation_chars: 6000
+  max_assistant_reasoning_chars: 3000
+  emergency_message_chars: 1500
+  max_tool_calls_per_response: 1
+  rolling_history_groups: 6
+  reuse_copy_cap: 4096
+  reuse_min_tokens: 128
+  reuse_arm: "dense"
+  model_kwargs:
+    api_base: "http://127.0.0.1:30000/v1"
+    api_key: "EMPTY"
+    max_tokens: 2048
+    temperature: 0.0
+    drop_params: true
+    parallel_tool_calls: false
+    timeout: 900

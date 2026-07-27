@@ -1,0 +1,53 @@
+{%- set ns = namespace(system_message='') -%}
+{%- if messages and messages[0]['role'] == 'system' -%}
+  {%- set ns.system_message = messages[0]['content'] -%}
+  {%- set loop_messages = messages[1:] -%}
+{%- else -%}
+  {%- set loop_messages = messages -%}
+{%- endif -%}
+{{- '<|im_start|>system\n' + ns.system_message -}}
+{%- if tools %}
+{{- '\n\n# Tools\n\nYou have access to the following functions:\n' -}}
+{%- for wrapped_tool in tools %}
+  {%- set tool = wrapped_tool['function'] if 'function' in wrapped_tool else wrapped_tool %}
+{{- '\n' + tool['name'] + '\n' -}}
+{{- tool.get('description', '') | trim + '\n' -}}
+{%- for parameter_name, parameter in tool.get('parameters', {}).get('properties', {}).items() %}
+{{- parameter_name + '\n' -}}
+{{- parameter.get('type', 'string') + '\n' -}}
+{{- parameter.get('description', '') | trim + '\n' -}}
+{%- endfor %}
+{%- endfor %}
+{{- '\nIf you choose to call a function, use exactly this format with no text after it:\n'
+    + '<tool_call>\n<function=bash>\n<parameter=command>YOUR_COMMAND</parameter>\n'
+    + '</function>\n</tool_call>\n'
+    + 'Required parameters must be specified. You may reason before the tool call, but not after it.' -}}
+{%- endif %}
+{{- '<|im_end|>\n' -}}
+{%- for message in loop_messages %}
+  {%- if message['role'] == 'assistant' and message.get('tool_calls') %}
+{{- '<|im_start|>assistant\n' -}}
+    {%- if message.get('content') %}
+{{- message['content'] | trim + '\n' -}}
+    {%- endif %}
+    {%- for wrapped_call in message['tool_calls'] %}
+      {%- set call = wrapped_call['function'] if 'function' in wrapped_call else wrapped_call %}
+{{- '<tool_call>\n<function=' + call['name'] + '>\n' -}}
+      {%- for argument_name, argument_value in call.get('arguments', {}).items() %}
+{{- '<parameter=' + argument_name + '>' + argument_value | string
+    + '</parameter>\n' -}}
+      {%- endfor %}
+{{- '</function>\n</tool_call>\n' -}}
+    {%- endfor %}
+{{- '<|im_end|>\n' -}}
+  {%- elif message['role'] == 'tool' %}
+{{- '<|im_start|>user\n<tool_response>\n' + message['content']
+    + '\n</tool_response><|im_end|>\n' -}}
+  {%- else %}
+{{- '<|im_start|>' + message['role'] + '\n' + message['content']
+    + '<|im_end|>\n' -}}
+  {%- endif %}
+{%- endfor %}
+{%- if add_generation_prompt %}
+{{- '<|im_start|>assistant\n' -}}
+{%- endif %}

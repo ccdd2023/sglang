@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "registration_id": "swebench_verified_complex_v1_20260724",
+  "registered_at_utc": "2026-07-24",
+  "dataset": {
+    "name": "princeton-nlp/SWE-bench_Verified",
+    "split": "test",
+    "revision_observed": "c104f840cc67f8b6eec6f759ebc8b2693d585d4a",
+    "population_size": 500,
+    "local_snapshot": "/home/gfy/CodeMAS_Project/kvflow-artifacts/swebench_verified_complex_v1_20260724/frozen_subset.json",
+    "local_snapshot_sha256": "fc8e236af6a5b1398ee8fb148dc050affe333e8552bdb84378728be0cf2c6a17"
+  },
+  "scope": {
+    "phase": "official-container qualification and functional-accuracy benchmark",
+    "primary_metric": "official SWE-bench resolved",
+    "secondary_metrics": [
+      "format/apply failure",
+      "test failure",
+      "infrastructure failure",
+      "TTFT",
+      "end-to-end generation latency",
+      "KV reuse ratio"
+    ],
+    "prefetch_allowed": false,
+    "old_dirty_checkout_modified": false,
+    "paper_modified": false,
+    "preregistration_thresholds_modified": false
+  },
+  "selection": {
+    "frozen_before_container_outcomes": true,
+    "instance_count": 12,
+    "repository_count": 8,
+    "difficulty_counts": {
+      "15 min - 1 hour": 4,
+      "1-4 hours": 6,
+      ">4 hours": 2
+    },
+    "criteria": [
+      "human-verified SWE-bench instance",
+      "official x86_64 instance image is present in the swebench registry",
+      "gold patch spans multiple hunks or files, or has substantial semantic change",
+      "repository and difficulty diversity",
+      "strictly more complex than the earlier single-function canary set"
+    ]
+  },
+  "instances": [
+    {
+      "instance_id": "scikit-learn__scikit-learn-12682",
+      "repository": "scikit-learn/scikit-learn",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 90,
+      "hunks": 24,
+      "files": 2,
+      "fail_to_pass": 1,
+      "pass_to_pass": 66,
+      "image": "swebench/sweb.eval.x86_64.scikit-learn_1776_scikit-learn-12682:latest"
+    },
+    {
+      "instance_id": "astropy__astropy-13398",
+      "repository": "astropy/astropy",
+      "difficulty": "1-4 hours",
+      "changed_lines": 215,
+      "hunks": 8,
+      "files": 4,
+      "fail_to_pass": 4,
+      "pass_to_pass": 68,
+      "image": "swebench/sweb.eval.x86_64.astropy_1776_astropy-13398:latest"
+    },
+    {
+      "instance_id": "django__django-16560",
+      "repository": "django/django",
+      "difficulty": "1-4 hours",
+      "changed_lines": 85,
+      "hunks": 18,
+      "files": 2,
+      "fail_to_pass": 8,
+      "pass_to_pass": 66,
+      "image": "swebench/sweb.eval.x86_64.django_1776_django-16560:latest"
+    },
+    {
+      "instance_id": "django__django-16263",
+      "repository": "django/django",
+      "difficulty": "1-4 hours",
+      "changed_lines": 93,
+      "hunks": 14,
+      "files": 4,
+      "fail_to_pass": 3,
+      "pass_to_pass": 100,
+      "image": "swebench/sweb.eval.x86_64.django_1776_django-16263:latest"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-7590",
+      "repository": "sphinx-doc/sphinx",
+      "difficulty": ">4 hours",
+      "changed_lines": 107,
+      "hunks": 14,
+      "files": 3,
+      "fail_to_pass": 1,
+      "pass_to_pass": 24,
+      "image": "swebench/sweb.eval.x86_64.sphinx-doc_1776_sphinx-7590:latest"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5787",
+      "repository": "pytest-dev/pytest",
+      "difficulty": "1-4 hours",
+      "changed_lines": 232,
+      "hunks": 4,
+      "files": 1,
+      "fail_to_pass": 2,
+      "pass_to_pass": 123,
+      "image": "swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-5787:latest"
+    },
+    {
+      "instance_id": "pylint-dev__pylint-4551",
+      "repository": "pylint-dev/pylint",
+      "difficulty": "1-4 hours",
+      "changed_lines": 126,
+      "hunks": 7,
+      "files": 4,
+      "fail_to_pass": 10,
+      "pass_to_pass": 0,
+      "image": "swebench/sweb.eval.x86_64.pylint-dev_1776_pylint-4551:latest"
+    },
+    {
+      "instance_id": "pydata__xarray-6992",
+      "repository": "pydata/xarray",
+      "difficulty": ">4 hours",
+      "changed_lines": 123,
+      "hunks": 8,
+      "files": 2,
+      "fail_to_pass": 12,
+      "pass_to_pass": 945,
+      "image": "swebench/sweb.eval.x86_64.pydata_1776_xarray-6992:latest"
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-25775",
+      "repository": "matplotlib/matplotlib",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 39,
+      "hunks": 12,
+      "files": 3,
+      "fail_to_pass": 7,
+      "pass_to_pass": 89,
+      "image": "swebench/sweb.eval.x86_64.matplotlib_1776_matplotlib-25775:latest"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-9461",
+      "repository": "sphinx-doc/sphinx",
+      "difficulty": "1-4 hours",
+      "changed_lines": 52,
+      "hunks": 7,
+      "files": 3,
+      "fail_to_pass": 3,
+      "pass_to_pass": 59,
+      "image": "swebench/sweb.eval.x86_64.sphinx-doc_1776_sphinx-9461:latest"
+    },
+    {
+      "instance_id": "pydata__xarray-3095",
+      "repository": "pydata/xarray",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 49,
+      "hunks": 6,
+      "files": 2,
+      "fail_to_pass": 1,
+      "pass_to_pass": 253,
+      "image": "swebench/sweb.eval.x86_64.pydata_1776_xarray-3095:latest"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5840",
+      "repository": "pytest-dev/pytest",
+      "difficulty": "15 min - 1 hour",
+      "changed_lines": 27,
+      "hunks": 7,
+      "files": 2,
+      "fail_to_pass": 2,
+      "pass_to_pass": 51,
+      "image": "swebench/sweb.eval.x86_64.pytest-dev_1776_pytest-5840:latest"
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+/logs/
+/impactkv__*.json
 *.py[cod]
 *$py.class
 
