@@ -228,6 +228,9 @@ from sglang.srt.managers.utils import (
     validate_input_length,
 )
 from sglang.srt.mem_cache import kv_cache_builder
+from sglang.srt.mem_cache.approx_kv.runtime import (
+    release_provisional_recovery_slots,
+)
 from sglang.srt.mem_cache.common import maybe_cache_unfinished_req, release_kv_cache
 from sglang.srt.model_executor.forward_batch_info import PPProxyTensors
 from sglang.srt.model_loader.utils import get_resolved_model_impl
@@ -3036,6 +3039,10 @@ class Scheduler(
                 # lifecycle and freeing them here causes double-free.
                 added = len(adder.can_run_list) > 0 and req is adder.can_run_list[-1]
                 if not added:
+                    # Recovery attached device slots in init_next_round_input,
+                    # before this rejection. Give them back now instead of
+                    # waiting for a next round that may never come.
+                    release_provisional_recovery_slots(self.tree_cache, req)
                     # init_next_round_input() may stage deferred Mamba COW/clear
                     # metadata before add_one_req() rejects the request.
                     req.mamba_cow_src_index = None
@@ -4078,6 +4085,9 @@ class Scheduler(
             # This only works for requests that have not started anything.
             # We still need to send something back to TokenizerManager to clean up the state.
             req = self.waiting_queue.pop(i)
+            # An aborted waiting request may still hold recovery slots that
+            # were attached before admission and are owned by nobody else.
+            release_provisional_recovery_slots(self.tree_cache, req)
             if self.enable_hicache_storage:
                 # to release prefetch events associated with the request
                 self.tree_cache.release_aborted_request(req.rid)

@@ -51,12 +51,15 @@ def release_provisional_recovery_slots(tree_cache: Any, req: Any) -> int:
     indices = getattr(req, "approx_kv_provisional_indices", None)
     if indices is None:
         return 0
-    req.approx_kv_provisional_indices = None
-    req.approx_kv_restored_len = 0
     allocator = getattr(tree_cache, "token_to_kv_pool_allocator", None)
     if allocator is None:
+        # Keep the reference: dropping it here would lose the only handle on
+        # these slots and leak them permanently.
         return 0
     allocator.free(indices)
+    # Clear only after the free succeeded, for the same reason.
+    req.approx_kv_provisional_indices = None
+    req.approx_kv_restored_len = 0
     return len(indices)
 
 

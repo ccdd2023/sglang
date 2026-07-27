@@ -519,6 +519,49 @@ class TestProvisionalRecoverySlots(unittest.TestCase):
         # and teardown reclaims anything still provisional
         self.assertIn("release_provisional_recovery_slots(tree_cache, req)", common)
 
+    def test_reference_is_kept_if_the_free_fails(self):
+        """A failed free must not drop the only handle on the slots."""
+
+        class Boom(SimpleNamespace):
+            def free(self, indices):
+                raise RuntimeError("allocator refused")
+
+        indices = torch.tensor([1, 2], dtype=torch.int64)
+        req = SimpleNamespace(
+            approx_kv_provisional_indices=indices, approx_kv_restored_len=2
+        )
+        tree = SimpleNamespace(token_to_kv_pool_allocator=Boom())
+        with self.assertRaises(RuntimeError):
+            release_provisional_recovery_slots(tree, req)
+        self.assertIsNotNone(req.approx_kv_provisional_indices)
+
+    def test_missing_allocator_keeps_the_reference(self):
+        indices = torch.tensor([1, 2], dtype=torch.int64)
+        req = SimpleNamespace(
+            approx_kv_provisional_indices=indices, approx_kv_restored_len=2
+        )
+        self.assertEqual(release_provisional_recovery_slots(SimpleNamespace(), req), 0)
+        self.assertIsNotNone(req.approx_kv_provisional_indices)
+
+    def test_scheduler_releases_on_rejection_and_on_abort(self):
+        """The two paths that previously leaked must both release.
+
+        Waiting for the next scheduling round is not enough: a request that is
+        rejected and then aborted never gets that round.
+        """
+        source = (
+            Path(__file__).resolve().parents[4]
+            / "python/sglang/srt/managers/scheduler.py"
+        ).read_text()
+        self.assertEqual(
+            source.count("release_provisional_recovery_slots(self.tree_cache, req)"),
+            2,
+        )
+        rejection = source.split("added = len(adder.can_run_list) > 0", 1)[1][:600]
+        self.assertIn("release_provisional_recovery_slots", rejection)
+        abort = source.split("req = self.waiting_queue.pop(i)", 1)[1][:400]
+        self.assertIn("release_provisional_recovery_slots", abort)
+
 
 if __name__ == "__main__":
     unittest.main()
