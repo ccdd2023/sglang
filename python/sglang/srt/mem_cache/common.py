@@ -17,6 +17,7 @@ from sglang.srt.mem_cache.allocator.swa import SWATokenToKVPoolAllocator
 from sglang.srt.mem_cache.approx_kv.runtime import (
     ApproxKVRegistrationError,
     register_request_segments,
+    release_provisional_recovery_slots,
 )
 from sglang.srt.mem_cache.base_prefix_cache import BasePrefixCache, EvictParams
 from sglang.srt.mem_cache.memory_pool import HybridReqToTokenPool, ReqToTokenPool
@@ -164,6 +165,10 @@ def evict_from_tree_cache(tree_cache: BasePrefixCache | None, num_tokens: int):
 
 
 def release_kv_cache(req: Req, tree_cache: BasePrefixCache, is_insert: bool = True):
+    # Recovery slots from a round that never reached prepare_for_extend are
+    # owned by nobody, so reclaim them before any other teardown.
+    release_provisional_recovery_slots(tree_cache, req)
+
     # the two resources currently have the same lifecycle, thus simplify logic below
     assert (req.req_pool_idx is None) == (req.kv is None)
     # MambaRadixCache may alloc mamba state before alloc KV cache

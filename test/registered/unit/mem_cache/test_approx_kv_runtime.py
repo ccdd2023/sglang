@@ -21,6 +21,7 @@ from sglang.srt.mem_cache.approx_kv.runtime import (
     ApproxKVRegistrationError,
     protect_request_prefix,
     register_request_segments,
+    release_provisional_recovery_slots,
     restore_request_prefix,
 )
 from sglang.srt.mem_cache.approx_kv.types import ResidencyTier
@@ -459,6 +460,64 @@ class TestRecoveryPrefixProtection(unittest.TestCase):
             "restore_request_prefix_epic(tree_cache, self)",
         ):
             self.assertGreater(source.index(call), guard_at)
+
+
+class TestProvisionalRecoverySlots(unittest.TestCase):
+    """Recovery slots must not leak when the scheduler rejects the request.
+
+    Recovery attaches device slots inside init_next_round_input, which runs
+    before add_one_req decides whether to admit the request. Ownership only
+    transfers in prepare_for_extend, so an unadmitted request must give the
+    slots back or they are lost when the next match_prefix rebuilds
+    prefix_indices.
+    """
+
+    def setUp(self):
+        self.freed = []
+        self.tree = SimpleNamespace(
+            token_to_kv_pool_allocator=SimpleNamespace(free=self.freed.append)
+        )
+
+    def test_uncommitted_slots_are_reclaimed_once(self):
+        indices = torch.tensor([4, 5, 6], dtype=torch.int64)
+        req = SimpleNamespace(
+            approx_kv_provisional_indices=indices,
+            approx_kv_restored_len=3,
+        )
+
+        self.assertEqual(release_provisional_recovery_slots(self.tree, req), 3)
+
+        self.assertEqual(len(self.freed), 1)
+        torch.testing.assert_close(self.freed[0], indices)
+        self.assertIsNone(req.approx_kv_provisional_indices)
+        self.assertEqual(req.approx_kv_restored_len, 0)
+
+        # A second release must be a no-op, never a double free.
+        self.assertEqual(release_provisional_recovery_slots(self.tree, req), 0)
+        self.assertEqual(len(self.freed), 1)
+
+    def test_request_without_recovery_is_untouched(self):
+        req = SimpleNamespace()
+        self.assertEqual(release_provisional_recovery_slots(self.tree, req), 0)
+        self.assertEqual(self.freed, [])
+
+    def test_ownership_transfer_and_release_points_are_wired(self):
+        root = Path(__file__).resolve().parents[4]
+        batch = (root / "python/sglang/srt/managers/schedule_batch.py").read_text()
+        common = (root / "python/sglang/srt/mem_cache/common.py").read_text()
+
+        # released before match_prefix rebuilds the prefix
+        self.assertLess(
+            batch.index("release_provisional_recovery_slots(tree_cache, self)"),
+            batch.index("match_result = tree_cache.match_prefix("),
+        )
+        # ownership transfers once the batch allocation happened
+        self.assertLess(
+            batch.index("out_cache_loc, req_pool_indices_tensor"),
+            batch.index("req.approx_kv_provisional_indices = None"),
+        )
+        # and teardown reclaims anything still provisional
+        self.assertIn("release_provisional_recovery_slots(tree_cache, req)", common)
 
 
 if __name__ == "__main__":

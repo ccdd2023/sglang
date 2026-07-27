@@ -676,6 +676,8 @@ def _restore_with_leading_k_repair(
         )
     )
     req.approx_kv_restored_len = resolved.restore_length
+    # Provisional until prepare_for_extend copies them into req_to_token.
+    req.approx_kv_provisional_indices = restored_indices
     req.approx_kv_epic_stats = exec_stats
     manager.record_epic_layer_recompute(
         layers_recomputed=exec_stats.layers_invoked,

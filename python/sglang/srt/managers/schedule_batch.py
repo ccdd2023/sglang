@@ -87,6 +87,7 @@ from sglang.srt.mem_cache.approx_kv.epic_runtime import restore_request_prefix_e
 from sglang.srt.mem_cache.approx_kv.request import parse_request_metadata
 from sglang.srt.mem_cache.approx_kv.runtime import (
     protect_request_prefix,
+    release_provisional_recovery_slots,
     restore_request_prefix,
 )
 from sglang.srt.mem_cache.base_prefix_cache import (
@@ -1211,6 +1212,12 @@ class Req(ReqDllmMixin):
         tree_cache: Optional[BasePrefixCache] = None,
         cow_mamba: Optional[bool] = None,
     ):
+        if tree_cache is not None:
+            # match_prefix below rebuilds prefix_indices from scratch. Any
+            # recovery slots from a round that never reached prepare_for_extend
+            # would otherwise lose their only reference here.
+            release_provisional_recovery_slots(tree_cache, self)
+
         if self.is_dllm():
             self._init_fill_ids_for_dllm()
             self.determine_dllm_phase()
@@ -2241,6 +2248,12 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
         out_cache_loc, req_pool_indices_tensor, req_pool_indices_cpu = alloc_for_extend(
             self
         )
+
+        # The prefix, including any recovered slots, is now owned by the
+        # request through req_to_token, so it must not be reclaimed as
+        # provisional any more.
+        for req in reqs:
+            req.approx_kv_provisional_indices = None
 
         # Set fields
         input_embeds = []

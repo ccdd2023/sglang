@@ -34,6 +34,32 @@ def _allocator(tree_cache: Any) -> Any:
     return allocator
 
 
+def release_provisional_recovery_slots(tree_cache: Any, req: Any) -> int:
+    """Free recovery slots that were never committed to a batch.
+
+    Recovery attaches device slots from inside ``init_next_round_input``,
+    which runs before ``schedule_policy.add_one_req`` decides whether to
+    admit the request. If the request is not admitted, ``prepare_for_extend``
+    never copies those slots into ``req_to_token``, so the normal
+    end-of-request release cannot see them, and the next ``match_prefix``
+    overwrites ``req.prefix_indices`` and drops the only reference to them.
+
+    Ownership transfers to the request in ``prepare_for_extend``; until then
+    the slots are provisional and this is the only thing that can reclaim
+    them.
+    """
+    indices = getattr(req, "approx_kv_provisional_indices", None)
+    if indices is None:
+        return 0
+    req.approx_kv_provisional_indices = None
+    req.approx_kv_restored_len = 0
+    allocator = getattr(tree_cache, "token_to_kv_pool_allocator", None)
+    if allocator is None:
+        return 0
+    allocator.free(indices)
+    return len(indices)
+
+
 @contextmanager
 def protect_request_prefix(tree_cache: Any, req: Any):
     """Hold the request's own prefix lock for the whole recovery window.
@@ -576,6 +602,8 @@ def finalize_copy_reuse(
             )
         )
         req.approx_kv_restored_len = resolved.restore_length
+        # Provisional until prepare_for_extend copies them into req_to_token.
+        req.approx_kv_provisional_indices = restored_indices
         req.approx_kv_stats = stats
         manager.record_request("reuse", "success")
         return True
