@@ -2282,3 +2282,45 @@ P6-4最终结果（`run_id=p6-4-20260727T104820Z`，
 `fault_injector`/`AllocationFailurePoint.AFTER_RESERVE`（CPU测试已在用），
 但需要在runner暴露该开关。**本轮不做**：注入式失败改变了证据的含义
 （证明的是“fallback路径可用”而非“压力下自然可达”），是否接受应由用户决定。
+
+## 2026-07-27T09:05:00-07:00 — fallback缺口的影响范围判定与收窄
+
+用户询问该failure影响单个research还是全部。已逐项查证：
+
+**影响范围：不波及全部research，只影响Phase6 Exit的一个证据项。**
+
+查证依据：
+
+- CL1与CL2的`plugin_env`实测为
+  `{SGLANG_APPROX_KV_CORE}`与`{SGLANG_APPROX_KV_CORE, EPIC, EPIC_K}`，
+  **均未启用**`SGLANG_APPROX_KV_CROSS_STORE`。cross-store reservation路径
+  在CL1/CL2中根本不存在，因此`practical family = NONE`及chunk伪影结论
+  完全不受影响。
+- CL3是Phase5 exact-cache数据的零GPU重算，不涉及该路径。
+- P6-H虽启用cross-store，但其`reservation_failures`为0，
+  结论（host roundtrip + 压力下逐token保真）不依赖该项。
+- P6-4三个可达cell的`reservation_failures`同样为0，其容量与双向pressure
+  证据本身成立。
+- Phase7因`practical=NONE`已跳过practical轨道，进一步降低相关性。
+
+**证据覆盖度已重新评估，比先前记录的更好**：
+
+- 已有CPU回归`test_fault_injection_rolls_back_reversible_actions`
+  **遍历全部`AllocationFailurePoint`**，断言`committed=False`、
+  eviction被回滚、`device_used_bytes`复原、`device_reserved_bytes`归零。
+  即**allocator在任意失败点的回滚正确性已被证明**。
+- 但链路后半段此前**无任何测试**：reservation失败→
+  `allocate_recovery_slots`返回None→调用方走dense fallback→
+  并记为`cross_store_reservation_failed`。
+- 本轮补齐该回归
+  （`test_reservation_failure_degrades_to_dense_fallback`，提交`11bc9b3e4`），
+  并做**mutation验证**：删除`record_fallback`调用后该测试确实失败，
+  证明它不是空断言。
+
+**因此该缺口现已收窄为**：机制正确性（回滚+降级+归因）在CPU层**已完整证明**；
+唯一仍缺的是**GPU上自然发生**一次reservation失败的观测。这是证据强度问题，
+不是机制未验证。
+
+**前瞻风险（保留记录）**：`alloc_token_slots`在cross-store无法腾出空间时抛
+`RuntimeError`杀死scheduler，这条鲁棒性缺口会影响**任何**在容量极限附近运行
+的后续实验（含Phase7高rho cell），不限于本项。应在Phase7高压力矩阵前修复。

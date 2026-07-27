@@ -521,6 +521,21 @@ reservation失败无法用配置获得，已实测排除两条路径：
 **本轮未做**：注入式失败证明的是“fallback路径可用”而非“压力下自然可达”，
 含义不同，是否接受应由用户决定。
 
+**影响范围判定（2026-07-27）：该项不波及全部research。**
+CL1/CL2实测未启用`SGLANG_APPROX_KV_CROSS_STORE`，CL3为零GPU重算，
+P6-H与P6-4可达cell的`reservation_failures`均为0，因此
+`practical=NONE`、chunk伪影、双向pressure、压力下保真等结论均不依赖该项。
+
+**证据覆盖度收窄**：已有CPU回归遍历全部`AllocationFailurePoint`证明
+allocator回滚正确；本轮补齐了此前完全未测的链路后半段
+（reservation失败→dense fallback→`cross_store_reservation_failed`归因），
+并经mutation验证。故机制正确性已完整证明，仅缺**GPU上自然发生**一次
+reservation失败的观测。
+
+**前瞻风险**：`alloc_token_slots`在cross-store腾不出空间时抛`RuntimeError`
+杀死scheduler，会影响任何在容量极限附近运行的后续实验（含Phase7高rho），
+不限于本项，应在Phase7高压力矩阵前修复。
+
 因此Phase6 Exit只剩这一项未完全取得证据，其余全部满足。仍未进入Phase7。
 
 ### 2026-07-26 P6-4结果与CL3 Phase5零GPU重算
