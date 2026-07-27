@@ -88,9 +88,12 @@ def main() -> int:
                         + "\n"
                     )
                     handle.flush()
-                    print("=== SERVER DIED. LAST GOOD SAMPLE ===")
+                    print("=== A SERVER DIED. LAST GOOD SAMPLE ===")
                     print(json.dumps(last_ok, indent=1, sort_keys=True))
-                    return 0
+                    # Keep polling: the pilot launches one server per cell, so
+                    # later cells would otherwise never be observed.
+                    seen_server = False
+                    last_ok = None
                 time.sleep(args.interval)
                 continue
 

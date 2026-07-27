@@ -2,7 +2,7 @@
   "schema_version": 1,
   "artifact": "phase6-exit-fallback-reachability-disposition",
   "item": "Phase 6 Exit: dense fallback reachability",
-  "disposition": "accepted_as_indirectly_verified",
+  "disposition": "governance_exemption_unverified",
   "decided_by": "user, 2026-07-27",
   "decision_options_considered": {
     "A": "Make alloc_token_slots degrade instead of aborting. Strongest evidence because the reservation failure would occur naturally, but it edits a shared upstream hot path with four callers on every request and diverges from upstream. Rejected as disproportionate risk.",
@@ -13,17 +13,13 @@
     {
       "claim": "The cross-store allocator rolls back correctly at every possible allocation failure point.",
       "evidence": "test_fault_injection_rolls_back_reversible_actions iterates over all AllocationFailurePoint values and asserts committed is False, the eviction is undone, device_used_bytes is restored and device_reserved_bytes returns to zero.",
-      "level": "direct, CPU"
+      "level": "direct, CPU, unit scope only"
     },
     {
-      "claim": "A refused reservation degrades to dense fallback and is attributed to that reservation failure rather than left silent.",
-      "evidence": "test_reservation_failure_degrades_to_dense_fallback asserts allocate_recovery_slots returns None, records cross_store_reservation_failed, and hands out no slots. Mutation checked: deleting the record_fallback call makes the test fail.",
-      "level": "direct, CPU"
-    },
-    {
-      "claim": "The dense fallback path really executes on GPU under the pilot workload with cross-store enabled.",
-      "evidence": "P6-4 observed 12 dense_fallback outcomes across the three reachable S4 cells, and the r4_like profile recorded 4096 dense fallback tokens.",
-      "level": "direct, GPU"
+      "claim": "allocate_recovery_slots turns a refused reservation into None and attributes it as cross_store_reservation_failed.",
+      "evidence": "test_reservation_failure_degrades_to_dense_fallback, mutation checked.",
+      "level": "direct, CPU",
+      "scope_limit": "This test injects a synthetic ReservationResult and calls allocate_recovery_slots ONLY. It does not invoke finalize_copy_reuse, the scheduler, or dense model execution."
     },
     {
       "claim": "The exact pressure path really reclaims approximate memory on GPU.",
@@ -32,7 +28,8 @@
     }
   ],
   "what_is_not_proven": [
-    "A GPU run in which a dense fallback co-occurs with reservation_failures > 0, which is what the P6-4 fallback_reachable flag literally requires."
+    "Any integrated request that completes densely AFTER a cross-store reservation failure, asserting the reservation-failure label, reuse/dense_fallback, output completion and clean accounting.",
+    "That the reservation-failure to dense-fallback chain works end to end through finalize_copy_reuse, the scheduler and real model execution, rather than only at the allocate_recovery_slots unit boundary."
   ],
   "why_it_was_not_obtainable": {
     "measurement": "diagnostic-C-store-state-at-oom.json, sampled at 0.05 s",
@@ -45,5 +42,20 @@
   "artifact_integrity": {
     "note": "The P6-4 artifact is NOT edited. p6-4.json still reports fallback_reachability.passed = false and rounds = 0, which is the honest measurement. This disposition records the accepted evidence level separately and does not alter any recorded result."
   },
-  "scope_limit": "This disposition covers the Phase 6 Exit gate only. Any Phase 7 claim that depends on fallback behaviour under a real reservation failure must either obtain the natural evidence or restate this same indirectly_verified caveat."
+  "scope_limit": "This disposition covers the Phase 6 Exit gate only. Any Phase 7 claim that depends on fallback behaviour under a real reservation failure must either obtain the natural evidence or restate this same indirectly_verified caveat.",
+  "correction_2026_07_27_after_dual_exit_review": "Two independent Exit reviewers returned FAIL. Two of the four claims originally listed under what_is_proven were wrong and have been removed. The item is recorded as an UNVERIFIED condition granted a governance exemption, not as a satisfied condition.",
+  "withdrawn_claims": [
+    {
+      "claim": "Dense fallback really executes on GPU 12 times under cross-store.",
+      "why_withdrawn": "All 12 came from the exact_only profile. In that profile there is no approximate metadata, so run_p6_4_capacity_pilot.py lines 413-419 derive the outcome purely from cached_tokens < expected and label an ORDINARY EXACT-CACHE MISS as dense_fallback. Their request_outcomes are empty and reservation failures are zero. These are not approximate dense fallbacks.",
+      "found_by": "independent Exit review A"
+    },
+    {
+      "claim": "r4_like recorded 4096 dense fallback tokens, showing the fallback path executes.",
+      "why_withdrawn": "Those increments are registration-capacity failures. The r4_like replay outcomes are approximate_gpu_recovery, not dense_fallback.",
+      "found_by": "independent Exit review A"
+    }
+  ],
+  "required_to_convert_into_a_verified_condition": "Obtain an integrated request that completes densely after an injected or natural cross-store reservation failure, asserting the reservation-failure label, reuse/dense_fallback, output completion and clean accounting.",
+  "related_reporting_defect": "run_p6_4_capacity_pilot.py labels an ordinary exact-cache miss as dense_fallback when a profile carries no approximate metadata. That conflation is what produced the withdrawn claim and should be fixed before any Phase 7 fallback reporting."
 }

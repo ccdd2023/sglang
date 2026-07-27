@@ -1,9 +1,13 @@
 {
+  "status": "superseded",
+  "valid": false,
+  "superseded_by": "diagnostic-C-store-state-at-oom.json",
+  "do_not_use": true,
   "SUPERSEDED": "This conclusion is WRONG. It relied on a 0.4 s poll whose last sample predated the fatal request. See diagnostic-C-store-state-at-oom.json (v2), measured at 0.05 s, which shows the approximate store fully drained at death.",
   "schema_version": 1,
   "artifact": "diagnostic-C-store-state-at-oom",
   "question": "At the moment an ordinary prefill runs out of device slots, is the approximate store still holding device bytes that the exact pressure path should have been able to reclaim?",
-  "answer": "Yes. This is a defect in our cross-store path, not a capacity limit.",
+  "answer": "WITHDRAWN - this answer is wrong, see superseded_by",
   "supersedes": "The earlier classification of the P6-4 S0/LRU rho2.0 cell as a genuine capacity limit is REFUTED by this measurement.",
   "source_git_sha": "11bc9b3e49a48c8545146d78e0a0e6a86d4fbb8b",
   "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
@@ -55,8 +59,6 @@
     "A second slot leak distinct from the admission-rejection leak already fixed, which would explain the 832 unaccounted tokens."
   ],
   "consequences": {
-    "classification": "The S0/LRU rho2.0 cell must be recorded as blocked by a defect, not as diagnostic-unavailable for capacity reasons.",
-    "fallback_evidence": "A correct reclaim path would surface a real reservation failure, which is exactly the missing Phase 6 Exit evidence item, so fixing this can close that item with natural rather than injected evidence.",
-    "blast_radius": "The fix belongs in code we own, cross_store/ and approx_kv/, and does not require changing the shared upstream alloc_token_slots path."
+    "WITHDRAWN": "All consequences in this artifact are void. See diagnostic-C-store-state-at-oom.json."
   }
 }

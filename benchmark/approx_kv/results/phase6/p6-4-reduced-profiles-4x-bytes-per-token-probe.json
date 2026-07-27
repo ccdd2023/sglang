@@ -1,4 +1,5 @@
 {
+  "naming_note": "Renamed from p6-4-fallback-injection.json, which was misleading: NO fault injection is performed. This is a reduced-profile probe with kv-bytes-per-token inflated 4x, and it still reports fallback_reachability.passed=false.",
   "bidirectional_pressure": {
     "approx_evicted_bytes": 60599304192.0,
     "approx_requester_exact_victim_bytes": 42254729216.0,
