@@ -3,7 +3,11 @@ from __future__ import annotations
 import threading
 from typing import Any
 
-from .allocator import CrossStoreAllocator, ReservationResult
+from .allocator import (
+    AllocationFailurePoint,
+    CrossStoreAllocator,
+    ReservationResult,
+)
 from .budget import CrossStoreBudget
 from .policy import CrossStorePolicy, PolicyKind
 
@@ -24,6 +28,7 @@ class CrossStoreCoordinator:
         self._budget: CrossStoreBudget | None = None
         self._allocation_lock = threading.RLock()
         self._allocating = False
+        self._test_reservation_failure_consumed = False
 
     def allocate_tokens(
         self,
@@ -133,7 +138,24 @@ class CrossStoreCoordinator:
             )
 
         initial_resources = resources()
-        allocator = CrossStoreAllocator(budget=self._budget, policy=policy)
+        fault_injector = None
+        if (
+            manager.config.cross_store_test_reservation_failure
+            and requester == "approximate"
+            and not self._test_reservation_failure_consumed
+        ):
+
+            def fault_injector(point: AllocationFailurePoint) -> None:
+                if point != AllocationFailurePoint.AFTER_RESERVE:
+                    return
+                self._test_reservation_failure_consumed = True
+                raise RuntimeError("test-only injected cross-store reservation failure")
+
+        allocator = CrossStoreAllocator(
+            budget=self._budget,
+            policy=policy,
+            fault_injector=fault_injector,
+        )
         result = allocator.allocate(
             required_device_bytes=num_tokens * self.bytes_per_token,
             resources=initial_resources,

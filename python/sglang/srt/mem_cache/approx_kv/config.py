@@ -55,6 +55,8 @@ class ApproxKVFeatureConfig:
     cross_store_bytes_per_token: int = 1
     cross_store_host_budget_bytes: int = 0
     cross_store_registration_evicts_exact: bool = False
+    test_mode_enabled: bool = False
+    cross_store_test_reservation_failure: bool = False
 
     def __post_init__(self) -> None:
         if self.epic_k not in SUPPORTED_EPIC_K_VALUES:
@@ -77,6 +79,17 @@ class ApproxKVFeatureConfig:
                 "cross_store_enabled=True is required when registration "
                 "may evict exact cache"
             )
+        if self.cross_store_test_reservation_failure:
+            if not self.test_mode_enabled:
+                raise ValueError(
+                    "test_mode_enabled=True is required for cross-store "
+                    "reservation failure injection"
+                )
+            if not self.cross_store_enabled:
+                raise ValueError(
+                    "cross_store_enabled=True is required for cross-store "
+                    "reservation failure injection"
+                )
 
     @classmethod
     def from_env(
@@ -102,6 +115,16 @@ class ApproxKVFeatureConfig:
         cross_store_registration_evicts_exact = _read_bool(
             env,
             "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT",
+            False,
+        )
+        test_mode_enabled = _read_bool(
+            env,
+            "SGLANG_APPROX_KV_TEST_ONLY",
+            False,
+        )
+        cross_store_test_reservation_failure = _read_bool(
+            env,
+            "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE",
             False,
         )
         if (host or prefetch) and not core:
@@ -132,4 +155,6 @@ class ApproxKVFeatureConfig:
             cross_store_registration_evicts_exact=(
                 cross_store_registration_evicts_exact
             ),
+            test_mode_enabled=test_mode_enabled,
+            cross_store_test_reservation_failure=(cross_store_test_reservation_failure),
         )

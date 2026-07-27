@@ -364,6 +364,74 @@ class TestCrossStoreAllocator(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "nested"):
             coordinator.allocate_tokens(1)
 
+    def test_test_only_reservation_failure_is_one_shot_and_requester_scoped(self):
+        class Allocator:
+            size_full = 8
+
+            def __init__(self):
+                self.available = self.size_full
+
+            def available_size(self):
+                return self.available
+
+            def alloc(self, num_tokens):
+                if self.available < num_tokens:
+                    return None
+                start = self.size_full - self.available
+                self.available -= num_tokens
+                return torch.arange(start, start + num_tokens, dtype=torch.int64)
+
+            def free(self, indices):
+                self.available += len(indices)
+
+        allocator = Allocator()
+        failures = []
+        config = ApproxKVFeatureConfig(
+            core_enabled=True,
+            cross_store_enabled=True,
+            cross_store_bytes_per_token=1,
+            test_mode_enabled=True,
+            cross_store_test_reservation_failure=True,
+        )
+        store = SimpleNamespace(
+            device_owned_tokens=0,
+            host_owned_bytes=0,
+        )
+        manager = SimpleNamespace(
+            config=config,
+            store=store,
+            cross_store_resources=lambda: (),
+            record_cross_store_eviction=lambda *args, **kwargs: None,
+            record_cross_store_result=lambda result: None,
+            record_cross_store_reservation_failure=failures.append,
+        )
+        tree = SimpleNamespace(
+            token_to_kv_pool_allocator=allocator,
+            approx_kv=manager,
+            eviction_policy="lru",
+            total_size=lambda: 0,
+            cross_store_resources=lambda bytes_per_token: (),
+        )
+        coordinator = CrossStoreCoordinator(
+            tree,
+            bytes_per_token=1,
+            host_budget_bytes=0,
+        )
+
+        # The injection is scoped to approximate recovery, not exact pressure.
+        exact = coordinator.allocate_tokens(1, requester="exact")
+        self.assertTrue(exact.committed)
+
+        injected = coordinator.allocate_tokens(1, requester="approximate")
+        self.assertFalse(injected.committed)
+        self.assertIn("test-only injected", injected.failure)
+        self.assertEqual(failures, [False])
+
+        # It is one-shot: the next approximate allocation behaves normally.
+        recovered = coordinator.allocate_tokens(1, requester="approximate")
+        self.assertTrue(recovered.committed)
+        self.assertEqual(failures, [False])
+
 
 class TestApproxStoreByteBudget(unittest.TestCase):
     def _key(self, name: str) -> KVSegmentKey:
@@ -1023,6 +1091,34 @@ class TestCrossStoreConfig(unittest.TestCase):
         self.assertTrue(config.cross_store_enabled)
         self.assertEqual(config.cross_store_bytes_per_token, 16)
         self.assertEqual(config.cross_store_host_budget_bytes, 64)
+
+    def test_reservation_failure_injection_requires_both_test_gates(self):
+        base = {
+            "SGLANG_APPROX_KV_CORE": "1",
+            "SGLANG_APPROX_KV_CROSS_STORE": "1",
+            "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE": "1",
+        }
+        with self.assertRaisesRegex(ValueError, "test_mode_enabled"):
+            ApproxKVFeatureConfig.from_env(base)
+
+        config = ApproxKVFeatureConfig.from_env(
+            {
+                **base,
+                "SGLANG_APPROX_KV_TEST_ONLY": "1",
+            }
+        )
+        self.assertTrue(config.test_mode_enabled)
+        self.assertTrue(config.cross_store_test_reservation_failure)
+
+    def test_reservation_failure_injection_requires_cross_store(self):
+        with self.assertRaisesRegex(ValueError, "cross_store_enabled"):
+            ApproxKVFeatureConfig.from_env(
+                {
+                    "SGLANG_APPROX_KV_CORE": "1",
+                    "SGLANG_APPROX_KV_TEST_ONLY": "1",
+                    "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE": "1",
+                }
+            )
 
     def test_segment_cross_store_metadata_parses(self):
         metadata = parse_request_metadata(
