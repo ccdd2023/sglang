@@ -21,6 +21,12 @@
   },
   "files": [
     {
+      "file": "benchmark/approx_kv/results/phase6/PHASE6_EXIT_DISPOSITION.json",
+      "sha256": "c1e2581abed2dedc370c0a7f6885e6ff0ca9081a414f8bafab9b24b509bc399e",
+      "bytes": 5826,
+      "containing_commit": "98fd76af88a9b8fb05dfab9d2a62e5e910af9f6b"
+    },
+    {
       "file": "benchmark/approx_kv/results/phase6/cl1-confirm-consistency.json",
       "sha256": "dba6bb6c0da029eea9cb8b54fc5608431bbb31e0d898858f94a5638f38d2a470",
       "bytes": 32785,
