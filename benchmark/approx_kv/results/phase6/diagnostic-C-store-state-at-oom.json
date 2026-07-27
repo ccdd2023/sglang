@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "artifact": "diagnostic-C-store-state-at-oom",
   "supersedes": "diagnostic-C-v1-SUPERSEDED-coarse-sampling.json",
   "question": "At the moment an ordinary prefill runs out of device slots, is the approximate store still holding device bytes that the exact pressure path should have been able to reclaim?",
@@ -36,9 +36,26 @@
     "The 832 unaccounted tokens reported in version 1 were an artifact of the stale sample, not a leak: num_used_tokens already includes the approximate store's slots."
   ],
   "consequences": {
-    "classification": "S0/LRU rho2.0 is a genuine capacity limit, and diagnostic-unavailable is the correct label.",
+    "classification": "Both S0/LRU rho2.0 and S4 rho3.0 are genuine capacity limits, each now supported by its own death-state measurement rather than by extrapolation. diagnostic-unavailable is the correct label for both.",
     "no_defect_to_fix": "There is no cross-store reclaim defect. The reclaim path works as designed.",
     "fallback_evidence": "Because no reclaim defect exists, the missing reservation-failure-associated fallback CANNOT be obtained by fixing a bug. It requires either making alloc_token_slots degrade instead of aborting, or using the allocator's existing fault injector.",
     "method_lesson": "A capacity verdict must be sampled faster than the workload's allocation dynamics. A 0.4 s poll was too coarse and produced a confident but wrong conclusion."
-  }
+  },
+  "scope_extension_2026_07_27": "Independent Exit review flagged that v2 measured only S0/LRU rho2.0 and that extrapolating the same root cause to S4 rho3.0 from an identical error message was unjustified. S4 rho3.0 has now been measured directly.",
+  "state_at_death_s4_rho3": {
+    "poll_interval_s": 0.05,
+    "artifact": "diagD-rho3-tight.jsonl",
+    "cell": "S4 hierarchical, rho 3.0",
+    "max_total_num_tokens": 7595,
+    "approx_kv_store_device_bytes": 0.0,
+    "approx_kv_store_records": 0.0,
+    "approx_kv_store_leases": 0.0,
+    "approx_kv_store_orphans": 0.0,
+    "num_used_tokens": 6208,
+    "token_usage": 0.82,
+    "approximate_victims_taken_by_exact_requesters": 1746927616,
+    "approximate_victims_taken_by_approximate_requesters": 866123776,
+    "verdict": "Same signature as S0/rho2: the approximate store is empty at death and the reclaim path demonstrably ran, so no reclaimable approximate memory remained. Genuine capacity limit."
+  },
+  "measurement_caveat": "num_used_tokens and token_usage are from the last successful scrape, at most one poll interval (50 ms) before death, so they slightly understate final occupancy. The store-empty finding does not depend on that timing: the store gauge is zero and cannot decrease further."
 }

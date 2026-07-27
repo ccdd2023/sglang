@@ -104,31 +104,37 @@
       "file": "benchmark/approx_kv/results/phase6/diagC-store-gauges.jsonl",
       "sha256": "8434bba7b9c76b3a099422e07d5f6de3a6b905e82ee4c809bae5f4e7e94a8f2d",
       "bytes": 27532,
-      "containing_commit": "pending_this_commit"
+      "containing_commit": "11ded38970df756bd396d50a6272d289a9af10b5"
     },
     {
       "file": "benchmark/approx_kv/results/phase6/diagC2-labeled.jsonl",
       "sha256": "fed451114e370b67d2c1b941e7c94b3d8c9fc8c2f3e271d6ad0f8e56998d56ac",
       "bytes": 33890,
-      "containing_commit": "pending_this_commit"
+      "containing_commit": "11ded38970df756bd396d50a6272d289a9af10b5"
     },
     {
       "file": "benchmark/approx_kv/results/phase6/diagC3-tight.jsonl",
       "sha256": "471d7c302b5b0245398b5b30a2e69a88f456ca8719d8ff46977f09a9a2699a32",
       "bytes": 391130,
+      "containing_commit": "11ded38970df756bd396d50a6272d289a9af10b5"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase6/diagD-rho3-tight.jsonl",
+      "sha256": "0afa20b4efc4c6fc17415d6a58498335d0b3d80b57e6cae5f1e7e9d9a4ae3318",
+      "bytes": 3487857,
       "containing_commit": "pending_this_commit"
     },
     {
       "file": "benchmark/approx_kv/results/phase6/diagnostic-C-store-state-at-oom.json",
-      "sha256": "9d754604894ee2dd69b546bdcd9c9d19e6b8f2224a6fa86eac628c78467a807d",
-      "bytes": 3431,
+      "sha256": "bb7588453bd0aaca810132c9fadafe10f92ed79c39c385de28360e57c7158ac1",
+      "bytes": 4798,
       "containing_commit": "2141f468646a6805ff42662beb6d149d093d595c"
     },
     {
       "file": "benchmark/approx_kv/results/phase6/diagnostic-C-v1-SUPERSEDED-coarse-sampling.json",
       "sha256": "cfeed5a84278d11013ba13732abbef8457a84f44da540ccb678dd6853d86b4ad",
       "bytes": 3349,
-      "containing_commit": "2141f468646a6805ff42662beb6d149d093d595c"
+      "containing_commit": "11ded38970df756bd396d50a6272d289a9af10b5"
     },
     {
       "file": "benchmark/approx_kv/results/phase6/p6-0-contract.json",
@@ -158,7 +164,7 @@
       "file": "benchmark/approx_kv/results/phase6/p6-4-reduced-profiles-4x-bytes-per-token-probe.json",
       "sha256": "ce26c5b73e13e1bb1b6c02082248032411115f72ecd721a3d2ea5e59fdf00ce3",
       "bytes": 279822,
-      "containing_commit": "pending_this_commit"
+      "containing_commit": "11ded38970df756bd396d50a6272d289a9af10b5"
     },
     {
       "file": "benchmark/approx_kv/results/phase6/p6-4-reduced-profiles.json",
@@ -171,6 +177,12 @@
       "sha256": "13908dd2fdd6923935884108c4a5af54fccc06bda95987dd7b0b2075e98cc444",
       "bytes": 650,
       "containing_commit": "7bb7365361d0541603c6a7ca1d1199f303310472"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase6/p6-4-rho3-diagnostic.json",
+      "sha256": "c1f2c8391362d92024d8cb90813a0c325b5a359cf7678a843af59d0844e11c96",
+      "bytes": 331541,
+      "containing_commit": "pending_this_commit"
     },
     {
       "file": "benchmark/approx_kv/results/phase6/p6-4.json",
@@ -200,7 +212,7 @@
       "file": "benchmark/approx_kv/results/phase6/phase6-exit-fallback-disposition.json",
       "sha256": "a3d2479987579339c78f6697651a78475161db8836bf18790aa318f220f63c00",
       "bytes": 5706,
-      "containing_commit": "e828860f6723326ad36d0c4701f3241a9d3cfccb"
+      "containing_commit": "11ded38970df756bd396d50a6272d289a9af10b5"
     }
   ]
 }
