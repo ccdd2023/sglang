@@ -4,7 +4,7 @@
   "purpose": "Supply the file-to-commit mapping that the individual result artifacts cannot: a runner never knows the commit that will contain its own output, so every artifact carries result_git_sha=null and result_commit_status=pending_result_commit.",
   "authority": "This manifest, not the result_git_sha field inside an artifact, is the authoritative mapping. Regenerate and re-check it in the same commit that adds or changes an artifact, otherwise entries rot into pending or stale-blob states.",
   "known_gaps": [
-    "Server logs are referenced by absolute host path and are not versioned in this repository."
+    "The primary P6-H, P6-4 and P6-F server logs are versioned and content-addressed. Some historical failed attempts and optional diagnostic logs still exist only at absolute host paths and are not part of the Phase 6 Exit evidence package."
   ],
   "environment": {
     "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
@@ -159,6 +159,36 @@
       "containing_commit": "fe50da010f49b9e0c0558cb65fcf45beebb68ce1"
     },
     {
+      "file": "benchmark/approx_kv/results/phase6/p6-4-hierarchical-rho1.1-server.log",
+      "sha256": "64dca184ddd1514f8381a085a5f3c1bd136c30826c3ad588b6b89327fc7b2347",
+      "bytes": 1470,
+      "containing_commit": "51fefb93814632f1237e1613cc3534a44ff72ef9"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase6/p6-4-hierarchical-rho1.5-server.log",
+      "sha256": "8498baeef6a175547821d27bc3ee0acc3930772ee4adbb5188ccb49db1146fed",
+      "bytes": 1470,
+      "containing_commit": "51fefb93814632f1237e1613cc3534a44ff72ef9"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase6/p6-4-hierarchical-rho2.0-server.log",
+      "sha256": "a2a097962ebcd0c9c49f8bb24fa6810da9abe715e5ffcca7fbd16c04c4eb8087",
+      "bytes": 1470,
+      "containing_commit": "51fefb93814632f1237e1613cc3534a44ff72ef9"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase6/p6-4-hierarchical-rho3.0-server.log",
+      "sha256": "0e84129e0887bc85be6ac638b45b30be5fe3b9bec75cc545d12b38a4b60b6313",
+      "bytes": 5442,
+      "containing_commit": "51fefb93814632f1237e1613cc3534a44ff72ef9"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase6/p6-4-lru-rho2.0-server.log",
+      "sha256": "d2166c95ac94ddc154f36d168cb25f8cd3e9d9c80133c3ddecbd9778bf342b52",
+      "bytes": 5442,
+      "containing_commit": "51fefb93814632f1237e1613cc3534a44ff72ef9"
+    },
+    {
       "file": "benchmark/approx_kv/results/phase6/p6-4-outcome-correction.json",
       "sha256": "48dc3671dc0c86643093bd0a06092c682a9bd801a482bb6a1518f749cdad5bae",
       "bytes": 57681,
@@ -247,6 +277,12 @@
       "sha256": "4f0e5470b2b190745ea330e8e77b0b9148ea05e8a32cc0602d060fa7d9ee9f19",
       "bytes": 502,
       "containing_commit": "248e2cb4774dbee8bb123b64d9b63cbd69f4ff5f"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase6/p6-h-final-server.log",
+      "sha256": "7d3e09abae4954373272aec6b46d868fe37840a03b529edac4f04545310a218d",
+      "bytes": 1470,
+      "containing_commit": "51fefb93814632f1237e1613cc3534a44ff72ef9"
     },
     {
       "file": "benchmark/approx_kv/results/phase6/p6-h-pressure-corruption-isolation.json",
