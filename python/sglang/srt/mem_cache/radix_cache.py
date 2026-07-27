@@ -698,6 +698,9 @@ class RadixCache(SessionRadixCacheMixin, KVCacheEventMixin, BasePrefixCache):
                 or node.parent.children.get(node.key.child_key(self.page_size))
                 is not node
             ):
+                # Stop advertising a detached node, otherwise every later
+                # snapshot offers the same dead victim again.
+                self.evictable_leaves.discard(node)
                 raise KeyError("exact victim changed before eviction")
             started = time.perf_counter()
             token_count = len(node.value)

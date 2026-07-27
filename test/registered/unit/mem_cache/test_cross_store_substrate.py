@@ -859,6 +859,50 @@ class TestRadixCrossStoreAdapter(unittest.TestCase):
         cache.dec_lock_ref(node)
         self.assertEqual(len(cache.cross_store_resources(bytes_per_token=16)), 1)
 
+    def test_stale_victim_is_skipped_so_a_valid_victim_still_runs(self):
+        """A dead victim must not fail an allocation others could satisfy.
+
+        The snapshot can name a node that was detached after it was taken.
+        Aborting on it strands real capacity: the exact-pressure path then
+        reports nothing evictable and an ordinary prefill dies with OOM.
+        """
+        allocator = _FakeTokenAllocator()
+        cache = RadixCache.create_simulated(mock_allocator=allocator)
+        stale = TreeNode()
+        stale.parent = cache.root_node
+        stale.key = RadixKey(array("q", [1]))
+        stale.value = torch.tensor([7], dtype=torch.int64)
+        cache.root_node.children[stale.key.child_key(1)] = stale
+        good = TreeNode()
+        good.parent = cache.root_node
+        good.key = RadixKey(array("q", [2]))
+        good.value = torch.tensor([8], dtype=torch.int64)
+        cache.root_node.children[good.key.child_key(1)] = good
+        cache.evictable_leaves.update({stale, good})
+        cache.evictable_size_ = 2
+
+        snapshot = cache.cross_store_resources(bytes_per_token=1)
+        # Detach one victim after the snapshot was taken.
+        cache.root_node.children.pop(stale.key.child_key(1))
+
+        budget = CrossStoreBudget(device_limit_bytes=2, host_limit_bytes=0)
+        budget.seed_usage(device_bytes=2)
+        result = CrossStoreAllocator(
+            budget=budget,
+            policy=CrossStorePolicy(PolicyKind.S0_LRU),
+        ).allocate(
+            required_device_bytes=1,
+            resources=snapshot,
+            resource_provider=lambda: cache.cross_store_resources(bytes_per_token=1),
+            allocate_backend=lambda: allocator.alloc(1),
+            release_allocation=lambda allocation: None,
+        )
+
+        self.assertTrue(result.committed)
+        self.assertEqual(allocator.freed, [8])
+        # The detached node must stop being advertised.
+        self.assertNotIn(stale, cache.evictable_leaves)
+
     def test_stale_victim_raises_keyerror_instead_of_asserting(self):
         """A detached victim must degrade to dense fallback, not crash.
 

@@ -77,6 +77,7 @@ class CrossStoreAllocator:
     ) -> ReservationResult:
         with self._lock:
             applied: list[tuple[CrossStoreResource, str, AppliedAction | None]] = []
+            stale_victims = 0
             allocation = None
             reserved = False
             requires_reset = False
@@ -178,7 +179,17 @@ class CrossStoreAllocator:
                         inactive_resources.add(self._resource_identity(resource))
                         action = resource.demote if mode == "demote" else resource.evict
                         assert action is not None
-                        action_result = action()
+                        try:
+                            action_result = action()
+                        except KeyError:
+                            # The victim was detached or replaced after this
+                            # snapshot was taken. It is already marked inactive,
+                            # so refresh and choose another one instead of
+                            # failing an allocation that other valid victims
+                            # could still satisfy.
+                            stale_victims += 1
+                            refresh_resources = True
+                            break
                         applied.append((resource, mode, action_result))
                         if mode == "demote":
                             self.budget.demote(resource.item.resident_bytes)
@@ -186,11 +197,12 @@ class CrossStoreAllocator:
                             self.budget.release_device(resource.item.resident_bytes)
                         else:
                             self.budget.release_host(resource.item.resident_bytes)
-                    if any(
-                        resource.item.provenance.value == "exact"
-                        for resource, _ in selected_actions
-                    ):
-                        refresh_resources = True
+                    else:
+                        if any(
+                            resource.item.provenance.value == "exact"
+                            for resource, _ in selected_actions
+                        ):
+                            refresh_resources = True
 
                 if not selection_faulted:
                     self._fault(AllocationFailurePoint.AFTER_VICTIM_SELECTION)
