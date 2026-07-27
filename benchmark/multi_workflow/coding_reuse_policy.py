@@ -433,6 +433,7 @@ def select_reuse_groups(
         "coding_post_mutation_dual_v20",
         "coding_post_mutation_seam32_v22",
         "coding_post_mutation_target_prefix_v23",
+        "coding_post_mutation_payoff_guard_v28",
     ):
         eligible, graph = select_version_graph_groups(
             selected_groups,
@@ -445,6 +446,7 @@ def select_reuse_groups(
                 "coding_post_mutation_dual_v20",
                 "coding_post_mutation_seam32_v22",
                 "coding_post_mutation_target_prefix_v23",
+                "coding_post_mutation_payoff_guard_v28",
             )
             else "post_mutation_contiguous_island"
         )
@@ -506,6 +508,7 @@ def select_reuse_groups(
         "coding_post_mutation_dual_v20",
         "coding_post_mutation_seam32_v22",
         "coding_post_mutation_target_prefix_v23",
+        "coding_post_mutation_payoff_guard_v28",
     ):
         raise ValueError(f"unsupported reuse policy arm: {arm}")
 
@@ -588,3 +591,57 @@ def effective_copy_cap(
     ):
         return 2 * base_cap
     return base_cap
+
+
+def post_mutation_payoff_guard(
+    *,
+    request_index: int,
+    coding_candidate_tokens: int,
+    general_candidate_tokens: int,
+    copy_cap: int,
+    step_limit: int = 20,
+    minimum_future_targets: int = 4,
+    payoff_ratio_threshold: float = 0.60,
+    exact_prefix_credit_tokens: int = 640,
+) -> dict[str, Any]:
+    """Choose coding protection only when it can repay its lost middle span."""
+
+    if request_index <= 0 or step_limit <= 0:
+        raise ValueError("request_index and step_limit must be positive")
+    if min(
+        coding_candidate_tokens,
+        general_candidate_tokens,
+        copy_cap,
+        minimum_future_targets,
+        exact_prefix_credit_tokens,
+    ) < 0:
+        raise ValueError("payoff guard token/count values must be non-negative")
+    if not 0 < payoff_ratio_threshold <= 1:
+        raise ValueError("payoff_ratio_threshold must be in (0, 1]")
+    coding_capped = min(coding_candidate_tokens, copy_cap)
+    general_capped = min(general_candidate_tokens, copy_cap)
+    payoff_ratio = (
+        (coding_capped + exact_prefix_credit_tokens) / general_capped
+        if general_capped
+        else 0.0
+    )
+    future_target_upper_bound = step_limit - request_index
+    if future_target_upper_bound < minimum_future_targets:
+        mode = "payoff_guard_dense_abstain_late_branch"
+    elif payoff_ratio < payoff_ratio_threshold:
+        mode = "payoff_guard_general_middle_exact_prefix"
+    else:
+        mode = "payoff_guard_post_mutation_protected"
+    return {
+        "mode": mode,
+        "step_limit": step_limit,
+        "minimum_future_target_upper_bound": minimum_future_targets,
+        "future_target_upper_bound": future_target_upper_bound,
+        "payoff_ratio_threshold": payoff_ratio_threshold,
+        "exact_prefix_credit_tokens": exact_prefix_credit_tokens,
+        "coding_candidate_tokens": coding_candidate_tokens,
+        "general_candidate_tokens": general_candidate_tokens,
+        "coding_candidate_capped_tokens": coding_capped,
+        "general_candidate_capped_tokens": general_capped,
+        "payoff_ratio": payoff_ratio,
+    }

@@ -5,6 +5,7 @@ from benchmark.multi_workflow.coding_reuse_policy import (
     is_low_value_search_miss,
     is_successful_readonly_evidence,
     latest_group_risk_reasons,
+    post_mutation_payoff_guard,
     select_failure_memory_groups,
     select_reuse_groups,
     select_version_graph_groups,
@@ -138,6 +139,14 @@ def test_post_mutation_v19_drops_stale_but_keeps_latest_risky_group() -> None:
     )
     assert v23 == v19
     assert v23_decision["mode"] == "post_mutation_dual_island"
+
+    v28, v28_decision = select_reuse_groups(
+        "coding_post_mutation_payoff_guard_v28",
+        groups,
+        latest_group_messages=groups[-1],
+    )
+    assert v28 == v19
+    assert v28_decision["mode"] == "post_mutation_dual_island"
 
 
 def group(command: str, output: str = "<returncode>0</returncode>"):
@@ -642,3 +651,41 @@ def test_memory_v5_reuses_guaranteed_recent_five_not_old_anchor():
     assert decision["memory_anchor_present"] is True
     assert decision["mode"] == "failure_memory_plus_general_8k"
     assert effective_copy_cap("coding_memory_v5", 4096, decision) == 8192
+
+
+def test_v28_payoff_guard_keeps_coding_protection_at_boundary():
+    decision = post_mutation_payoff_guard(
+        request_index=7,
+        coding_candidate_tokens=1052,
+        general_candidate_tokens=2795,
+        copy_cap=4096,
+    )
+
+    assert decision["mode"] == "payoff_guard_post_mutation_protected"
+    assert decision["future_target_upper_bound"] == 13
+    assert decision["payoff_ratio"] > 0.60
+
+
+def test_v28_payoff_guard_uses_general_when_protection_is_too_costly():
+    decision = post_mutation_payoff_guard(
+        request_index=8,
+        coding_candidate_tokens=264,
+        general_candidate_tokens=3378,
+        copy_cap=4096,
+    )
+
+    assert decision["mode"] == "payoff_guard_general_middle_exact_prefix"
+    assert decision["future_target_upper_bound"] == 12
+    assert decision["payoff_ratio"] < 0.60
+
+
+def test_v28_payoff_guard_abstains_when_branch_is_too_late():
+    decision = post_mutation_payoff_guard(
+        request_index=17,
+        coding_candidate_tokens=4096,
+        general_candidate_tokens=4096,
+        copy_cap=4096,
+    )
+
+    assert decision["mode"] == "payoff_guard_dense_abstain_late_branch"
+    assert decision["future_target_upper_bound"] == 3

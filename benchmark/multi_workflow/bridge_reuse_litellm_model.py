@@ -28,6 +28,7 @@ from pydantic import Field, model_validator
 
 from benchmark.multi_workflow.coding_reuse_policy import (
     effective_copy_cap,
+    post_mutation_payoff_guard,
     select_failure_memory_groups,
     select_reuse_groups,
 )
@@ -78,6 +79,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_post_mutation_dual_v20",
         "coding_post_mutation_seam32_v22",
         "coding_post_mutation_target_prefix_v23",
+        "coding_post_mutation_payoff_guard_v28",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
@@ -377,16 +379,51 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             selected_groups,
             latest_group_messages=selected_groups[-1],
         )
-        literal = "".join(
-            self._render_message_literal(message)
-            for group in eligible
-            for message in group
-        )
-        segment_ids = self._tokenizer.encode(
-            literal, add_special_tokens=False
-        ).ids
+
+        def encoded_groups(
+            groups: list[list[dict[str, Any]]],
+        ) -> tuple[list[int], list[int]]:
+            literal = "".join(
+                self._render_message_literal(message)
+                for group in groups
+                for message in group
+            )
+            ids = self._tokenizer.encode(
+                literal, add_special_tokens=False
+            ).ids
+            return ids, find_sublist(prompt_ids, ids)
+
+        segment_ids, positions = encoded_groups(eligible)
+        if self.config.reuse_arm == (
+            "coding_post_mutation_payoff_guard_v28"
+        ):
+            general_groups = [list(group) for group in selected_groups[1:]]
+            general_ids, general_positions = encoded_groups(general_groups)
+            guard = post_mutation_payoff_guard(
+                request_index=self._request_index,
+                coding_candidate_tokens=len(segment_ids),
+                general_candidate_tokens=len(general_ids),
+                copy_cap=self.config.reuse_copy_cap,
+            )
+            decision.update(guard)
+            if guard["mode"] == "payoff_guard_dense_abstain_late_branch":
+                return None, None, {
+                    **decision,
+                    "source_registered": False,
+                    "skip_reason": "insufficient_future_target_payoff",
+                }
+            if guard["mode"] == "payoff_guard_general_middle_exact_prefix":
+                eligible = general_groups
+                segment_ids = general_ids
+                positions = general_positions
+                decision.update(
+                    coding_protection_active=False,
+                )
+            else:
+                decision.update(
+                    coding_protection_active=True,
+                )
         decision["candidate_tokens"] = len(segment_ids)
-        positions = find_sublist(prompt_ids, segment_ids)
         if len(segment_ids) < self.config.reuse_min_tokens or len(positions) != 1:
             return (
                 None,

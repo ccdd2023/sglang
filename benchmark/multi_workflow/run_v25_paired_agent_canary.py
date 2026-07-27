@@ -52,7 +52,10 @@ INSTANCE_ID = os.environ.get(
     "scikit-learn__scikit-learn-13779",
 )
 GENERAL = "general"
-V23 = "coding_post_mutation_target_prefix_v23"
+V23 = os.environ.get(
+    "IMPACTKV_PAIRED_CANDIDATE_ARM",
+    "coding_post_mutation_target_prefix_v23",
+)
 DENSE = "dense"
 REUSE_ARMS = (V23, GENERAL)
 INCLUDE_DENSE_CONTROL = (

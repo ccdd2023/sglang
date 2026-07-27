@@ -72,6 +72,7 @@ ARMS = (
     "coding_post_mutation_dual_v20",
     "coding_post_mutation_seam32_v22",
     "coding_post_mutation_target_prefix_v23",
+    "coding_post_mutation_payoff_guard_v28",
 )
 DENSE_ARMS = ("dense", "coding_memory_dense_v5")
 HOST_OVERFLOW_ARMS = (
@@ -86,6 +87,7 @@ HOST_OVERFLOW_ARMS = (
     "coding_post_mutation_dual_v20",
     "coding_post_mutation_seam32_v22",
     "coding_post_mutation_target_prefix_v23",
+    "coding_post_mutation_payoff_guard_v28",
 )
 DUAL_ISLAND_ARMS = (
     "general_dual_4k",
@@ -93,6 +95,7 @@ DUAL_ISLAND_ARMS = (
     "coding_post_mutation_dual_v20",
     "coding_post_mutation_seam32_v22",
     "coding_post_mutation_target_prefix_v23",
+    "coding_post_mutation_payoff_guard_v28",
 )
 
 
@@ -398,7 +401,11 @@ def init_manifest(run_dir: Path, arm: str) -> Path:
                 32 if arm == "coding_post_mutation_seam32_v22" else 0
             ),
             "ordinary_prefix_target_only": (
-                arm == "coding_post_mutation_target_prefix_v23"
+                arm
+                in (
+                    "coding_post_mutation_target_prefix_v23",
+                    "coding_post_mutation_payoff_guard_v28",
+                )
             ),
         },
     )
