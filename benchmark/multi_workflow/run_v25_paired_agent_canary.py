@@ -76,6 +76,7 @@ INCLUDE_DENSE_CONTROL = (
 ALLOW_EMPTY_SUBMISSION_OUTCOME = (
     os.environ.get("IMPACTKV_ALLOW_EMPTY_SUBMISSION_OUTCOME", "0") == "1"
 )
+REQUIRE_BRANCH = os.environ.get("IMPACTKV_REQUIRE_BRANCH", "0") == "1"
 ARMS = REUSE_ARMS + ((DENSE,) if INCLUDE_DENSE_CONTROL else ())
 PORT = 32950
 MEM_FRACTION_STATIC = 0.80
@@ -292,15 +293,26 @@ def register(output: Path) -> dict[str, Any]:
         "status": "REGISTERED_BEFORE_TREATMENT_GPU_RUN",
         "experiment": "V25 shared-prefix, cloned-repository paired agent canary",
         "motivation": (
-            "Free-running General and the candidate agents diverged before "
-            "treatment. "
-            "Run one Dense shared agent until the first online point where "
+            (
+                "V33B must veto the current General target at an online "
+                "coding-state transition. Maintain candidate and General "
+                "sources from real shared requests, then clone the repository "
+                "before that target request."
+            )
+            if TARGET_VETO_CANDIDATE
+            else (
+                "Free-running General and the candidate agents diverged "
+                "before treatment. Run one Dense shared agent until the first "
+                "online point where "
+            )
             + (
                 "the candidate makes a critical-event Dense abstention while "
                 "General registers a source, materialize the General source "
                 "from that same request, snapshot the container, and only "
                 "then branch."
                 if ABSTENTION_CANDIDATE
+                else ""
+                if TARGET_VETO_CANDIDATE
                 else (
                     "both policies select unequal reusable spans, materialize "
                     "both from that same request, snapshot the container, and "
@@ -395,6 +407,7 @@ def register(output: Path) -> dict[str, Any]:
                 else {}
             ),
             "official_evaluation_required_before_accuracy_claim": True,
+            **({"candidate_branch_required": True} if REQUIRE_BRANCH else {}),
         },
         "inputs": {
             "dataset": str(DATASET_ROOT / "test.jsonl"),
@@ -650,6 +663,7 @@ def run(output: Path) -> dict[str, Any]:
     branch: dict[str, Any] | None = None
     initial_branch_prepared: dict[str, dict[str, Any]] | None = None
     branch_agent_elapsed = {arm: 0.0 for arm in ARMS}
+    shadow_ledger = run_dir / "SHADOW_LEDGER.jsonl"
     try:
         shared_env = get_sb_environment(copy.deepcopy(config), instance)
         shared = _initialize_agent(
@@ -675,6 +689,30 @@ def run(output: Path) -> dict[str, Any]:
                 arm: shadow[arm]["source"] for arm in REUSE_ARMS
             }
             branch_kind = _branch_kind(shadow)
+            with shadow_ledger.open("a", encoding="utf-8") as stream:
+                stream.write(
+                    json.dumps(
+                        {
+                            "call": call,
+                            "branch_kind": branch_kind,
+                            "policy_modes": {
+                                arm: _policy_mode(shadow[arm])
+                                for arm in REUSE_ARMS
+                            },
+                            "prompt_hashes": hashes,
+                            "source_registered": {
+                                arm: shadow[arm]["source"] is not None
+                                for arm in REUSE_ARMS
+                            },
+                            "target_registered": {
+                                arm: shadow[arm]["target"] is not None
+                                for arm in REUSE_ARMS
+                            },
+                        },
+                        sort_keys=True,
+                    )
+                    + "\n"
+                )
             target_veto_eligible = branch_kind == "current_target_veto"
             source_plan_eligible = branch_kind == "future_source_plan"
             if (
@@ -719,6 +757,33 @@ def run(output: Path) -> dict[str, Any]:
                         sources[arm]
                         for arm in REUSE_ARMS
                         if sources[arm] is not None
+                    ],
+                )
+            elif (
+                TARGET_VETO_CANDIDATE
+                and shared.n_calls < shared.config.step_limit
+            ):
+                # Capture sources from this real shared Dense request.  No
+                # replay/prefetch request is added.  Planned targets skipped
+                # by the shared prefix are retired rather than leaked.
+                skipped_targets = [
+                    str(shadow[arm]["target"]["source_id"])
+                    for arm in REUSE_ARMS
+                    if shadow[arm]["target"] is not None
+                ]
+                models[V23]._atomic_sidecar_update(
+                    sources=[
+                        sources[arm]
+                        for arm in REUSE_ARMS
+                        if sources[arm] is not None
+                    ],
+                    release_source_ids=[
+                        *skipped_targets,
+                        *[
+                            source_id
+                            for arm in REUSE_ARMS
+                            for source_id in shadow[arm]["releases"]
+                        ],
                     ],
                 )
             else:
@@ -970,6 +1035,11 @@ def run(output: Path) -> dict[str, Any]:
     )
     gates = {
         "branch_or_shared_completion": True,
+        **(
+            {"candidate_branch_required": branch is not None}
+            if REQUIRE_BRANCH
+            else {}
+        ),
         "branch_source_prompt_hash_identical": branch is None
         or branch["source_prompt_hash"] is not None,
         (
