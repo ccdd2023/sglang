@@ -53,7 +53,12 @@ INSTANCE_ID = os.environ.get(
 )
 GENERAL = "general"
 V23 = "coding_post_mutation_target_prefix_v23"
-ARMS = (V23, GENERAL)
+DENSE = "dense"
+REUSE_ARMS = (V23, GENERAL)
+INCLUDE_DENSE_CONTROL = (
+    os.environ.get("IMPACTKV_PAIRED_DENSE_CONTROL", "0") == "1"
+)
+ARMS = REUSE_ARMS + ((DENSE,) if INCLUDE_DENSE_CONTROL else ())
 PORT = 32950
 MEM_FRACTION_STATIC = 0.80
 REQUEST_TIMEOUT_SECONDS = int(
@@ -188,6 +193,9 @@ def register(output: Path) -> dict[str, Any]:
             "branch_source_lengths_different": True,
             "two_source_materializations_if_branched_min": 2,
             "target_copies_each_arm_if_branched_min": 1,
+            "dense_control_requests_if_enabled_min": (
+                1 if INCLUDE_DENSE_CONTROL else 0
+            ),
             "target_fallbacks": 0,
             "first_branched_prompt_hash_identical": True,
             "both_branches_produce_submission": True,
@@ -270,31 +278,44 @@ def _execute_agent_message(agent: DefaultAgent, message: dict[str, Any]) -> None
 def _prepare_pair(
     models: dict[str, BridgeReuseLitellmModel],
     messages: dict[str, list[dict[str, Any]]],
+    *,
+    include_dense_control: bool = False,
 ) -> dict[str, dict[str, Any]]:
     prepared = {
         arm: models[arm].prepare_reuse_query(
             messages[arm],
             write_sidecar=False,
         )
-        for arm in ARMS
+        for arm in REUSE_ARMS
     }
+    cases = [
+        {
+            **prepared[arm]["target"],
+            "ordinary_prefix_reuse": arm == V23,
+        }
+        for arm in REUSE_ARMS
+        if prepared[arm]["target"] is not None
+    ]
+    if include_dense_control and len(cases) == len(REUSE_ARMS):
+        cases.append(
+            {
+                **cases[-1],
+                "case_id": f"{cases[-1]['case_id']}-dense-control",
+                "policy_label": DENSE,
+                "ordinary_prefix_reuse": False,
+                "reuse_enabled": False,
+            }
+        )
     models[V23]._atomic_sidecar_update(
         sources=[
             prepared[arm]["source"]
-            for arm in ARMS
+            for arm in REUSE_ARMS
             if prepared[arm]["source"] is not None
         ],
-        cases=[
-            {
-                **prepared[arm]["target"],
-                "ordinary_prefix_reuse": arm == V23,
-            }
-            for arm in ARMS
-            if prepared[arm]["target"] is not None
-        ],
+        cases=cases,
         release_source_ids=[
             source_id
-            for arm in ARMS
+            for arm in REUSE_ARMS
             for source_id in prepared[arm]["releases"]
         ],
     )
@@ -398,7 +419,7 @@ def run(output: Path) -> dict[str, Any]:
             manifest=manifest,
             ledger=output / arm / "CLIENT_LEDGER.jsonl",
         )
-        for arm in ARMS
+        for arm in REUSE_ARMS
     }
     dense_model = _model(
         config,
@@ -434,25 +455,27 @@ def run(output: Path) -> dict[str, Any]:
                     shared.messages,
                     write_sidecar=False,
                 )
-                for arm in ARMS
+                for arm in REUSE_ARMS
             }
             hashes = {
                 arm: token_ids_hash(shadow[arm]["prompt_ids"])
-                for arm in ARMS
+                for arm in REUSE_ARMS
             }
-            sources = {arm: shadow[arm]["source"] for arm in ARMS}
+            sources = {
+                arm: shadow[arm]["source"] for arm in REUSE_ARMS
+            }
             eligible = (
                 all(sources.values())
-                and len({hashes[arm] for arm in ARMS}) == 1
+                and len({hashes[arm] for arm in REUSE_ARMS}) == 1
                 and int(sources[V23]["length"])
                 != int(sources[GENERAL]["length"])
             )
             if eligible and shared.n_calls < shared.config.step_limit:
                 models[V23]._atomic_sidecar_update(
-                    sources=[sources[arm] for arm in ARMS],
+                    sources=[sources[arm] for arm in REUSE_ARMS],
                 )
             else:
-                for arm in ARMS:
+                for arm in REUSE_ARMS:
                     models[arm]._pending_source = None
             _normal_step(shared)
             if shared.messages[-1].get("role") == "exit":
@@ -462,10 +485,12 @@ def run(output: Path) -> dict[str, Any]:
                     "shared_calls": call,
                     "source_prompt_hash": hashes[V23],
                     "source_lengths": {
-                        arm: int(sources[arm]["length"]) for arm in ARMS
+                        arm: int(sources[arm]["length"])
+                        for arm in REUSE_ARMS
                     },
                     "source_ids": {
-                        arm: str(sources[arm]["source_id"]) for arm in ARMS
+                        arm: str(sources[arm]["source_id"])
+                        for arm in REUSE_ARMS
                     },
                 }
                 break
@@ -492,7 +517,18 @@ def run(output: Path) -> dict[str, Any]:
             agents = {
                 arm: _clone_agent(
                     shared,
-                    models[arm],
+                    (
+                        models[arm]
+                        if arm in REUSE_ARMS
+                        else _model(
+                            config,
+                            arm=DENSE,
+                            manifest=None,
+                            ledger=output
+                            / DENSE
+                            / "CLIENT_LEDGER.jsonl",
+                        )
+                    ),
                     branch_envs[arm],
                     config,
                 )
@@ -511,36 +547,56 @@ def run(output: Path) -> dict[str, Any]:
                 ]
                 if not active:
                     break
-                if len(active) == 2:
+                active_reuse = [
+                    arm for arm in REUSE_ARMS if arm in active
+                ]
+                if len(active_reuse) == 2:
                     prepared = _prepare_pair(
                         models,
-                        {arm: agents[arm].messages for arm in ARMS},
+                        {
+                            arm: agents[arm].messages
+                            for arm in REUSE_ARMS
+                        },
+                        include_dense_control=DENSE in active,
                     )
+                    if DENSE in active:
+                        prepared[DENSE] = agents[
+                            DENSE
+                        ].model.prepare_reuse_query(
+                            agents[DENSE].messages,
+                            write_sidecar=False,
+                        )
                     if not first_branch_hashes:
                         first_branch_hashes = {
                             arm: token_ids_hash(
                                 prepared[arm]["prompt_ids"]
                             )
-                            for arm in ARMS
+                            for arm in prepared
                         }
-                    for arm in ARMS:
+                    for arm in REUSE_ARMS:
                         started = time.perf_counter()
                         _prepared_step(agents[arm], prepared[arm])
                         branch_agent_elapsed[arm] += (
                             time.perf_counter() - started
                         )
+                    if DENSE in active:
+                        started = time.perf_counter()
+                        _prepared_step(agents[DENSE], prepared[DENSE])
+                        branch_agent_elapsed[DENSE] += (
+                            time.perf_counter() - started
+                        )
                 else:
-                    arm = active[0]
-                    started = time.perf_counter()
-                    _normal_step(agents[arm])
-                    branch_agent_elapsed[arm] += (
-                        time.perf_counter() - started
-                    )
+                    for arm in active:
+                        started = time.perf_counter()
+                        _normal_step(agents[arm])
+                        branch_agent_elapsed[arm] += (
+                            time.perf_counter() - started
+                        )
 
         for arm in ARMS:
             if agents[arm].messages[-1].get("role") != "exit":
                 agents[arm].add_messages(
-                    models[arm].format_message(
+                    agents[arm].model.format_message(
                         role="exit",
                         content="LimitsExceeded",
                         extra={
@@ -582,6 +638,11 @@ def run(output: Path) -> dict[str, Any]:
         if row.get("event")
         in {"source_materialized", "source_materialized_host"}
     ]
+    dense_controls = [
+        row
+        for row in server
+        if row.get("event") == "target_dense_control"
+    ]
     first_hash_equal = (
         len(set(first_branch_hashes.values())) == 1
         if first_branch_hashes
@@ -601,7 +662,12 @@ def run(output: Path) -> dict[str, Any]:
         "two_source_materializations_if_branched_min": branch is None
         or len(materialized) >= 2,
         "target_copies_each_arm_if_branched_min": branch is None
-        or all(copy_counts[arm] >= 1 for arm in ARMS),
+        or all(copy_counts[arm] >= 1 for arm in REUSE_ARMS),
+        "dense_control_requests_if_enabled_min": (
+            not INCLUDE_DENSE_CONTROL
+            or branch is None
+            or len(dense_controls) >= 1
+        ),
         "target_fallbacks": len(fallbacks) == 0,
         "first_branched_prompt_hash_identical": branch is None
         or first_hash_equal,
@@ -629,6 +695,7 @@ def run(output: Path) -> dict[str, Any]:
             "source_materializations": len(materialized),
             "target_copies": len(copies),
             "copy_counts": copy_counts,
+            "dense_control_requests": len(dense_controls),
             "target_fallbacks": len(fallbacks),
         },
         "gates": gates,

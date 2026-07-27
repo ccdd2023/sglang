@@ -15,6 +15,7 @@ import json
 import os
 import re
 import signal
+import socket
 import statistics
 import subprocess
 import time
@@ -412,6 +413,16 @@ def launch_server(
     port: int,
     mem_fraction_static: float = 0.90,
 ) -> tuple[subprocess.Popen[str], Any]:
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    probe.settimeout(0.5)
+    try:
+        occupied = probe.connect_ex(("127.0.0.1", port)) == 0
+    finally:
+        probe.close()
+    if occupied:
+        raise RuntimeError(
+            f"refusing to launch on occupied port 127.0.0.1:{port}"
+        )
     log = (run_dir / "sglang_server.log").open("w", encoding="utf-8")
     env = os.environ.copy()
     env.update(
@@ -478,6 +489,11 @@ def launch_server(
                     f"http://127.0.0.1:{port}/model_info", timeout=2
                 )
                 if response.ok:
+                    time.sleep(1)
+                    if process.poll() is not None:
+                        raise RuntimeError(
+                            f"server exited {process.returncode} after readiness"
+                        )
                     return process, log
             except requests.RequestException:
                 pass

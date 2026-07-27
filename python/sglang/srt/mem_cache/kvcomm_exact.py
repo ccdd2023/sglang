@@ -72,6 +72,7 @@ class ExactMiddleCase:
     target_uses: int | None = None
     source_id: str | None = None
     ordinary_prefix_reuse: bool | None = None
+    reuse_enabled: bool = True
 
     def __post_init__(self) -> None:
         hashes = (
@@ -234,6 +235,7 @@ class ExactMiddleCanaryController:
                 policy_label=case.policy_label,
             )
             for case in cases
+            if case.reuse_enabled
         ]
         self._sources = self._group_sources([*derived_sources, *sources])
         self._targets = self._group_targets(cases)
@@ -311,6 +313,7 @@ class ExactMiddleCanaryController:
                         if row.get("ordinary_prefix_reuse") is not None
                         else None
                     ),
+                    reuse_enabled=bool(row.get("reuse_enabled", True)),
                 )
             )
         sources = [
@@ -449,6 +452,7 @@ class ExactMiddleCanaryController:
                 if row.get("ordinary_prefix_reuse") is not None
                 else None
             ),
+            reuse_enabled=bool(row.get("reuse_enabled", True)),
         )
 
     def _refresh_manifest(self) -> None:
@@ -743,6 +747,19 @@ class ExactMiddleCanaryController:
             raise ValueError("target prefix differs from manifest")
         if token_ids_hash(tokens[case.target_start:end]) != case.segment_token_hash:
             raise ValueError("target segment differs from manifest")
+        if not case.reuse_enabled:
+            req.kvcomm_exact_dense_control = True
+            if cursor < len(cases) - 1:
+                self._target_case_cursor[prompt_hash] = cursor + 1
+            self._record(
+                {
+                    "case_id": case.case_id,
+                    "event": "target_dense_control",
+                    "policy_label": case.policy_label,
+                    **self._lifecycle_counts(),
+                }
+            )
+            return None
         handle = self.manager.store.lookup(
             case.key(model_id=self.model_id, cache_dtype=self.cache_dtype)
         )

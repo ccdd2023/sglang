@@ -342,6 +342,63 @@ def test_duplicate_target_prompt_consumes_case_specific_prefix_policy():
     assert controller.ordinary_prefix_match_limit(candidate) == 3
 
 
+def test_duplicate_target_prompt_can_end_with_explicit_dense_control():
+    source = (1, 2, 3, 4, 5, 8, 9)
+    target = (1, 7, 2, 3, 4, 5, 9)
+    shared = _case(source, target)
+    cases = (
+        replace(
+            shared,
+            case_id="paired-v23",
+            source_id="paired-source",
+            ordinary_prefix_reuse=True,
+        ),
+        replace(
+            shared,
+            case_id="paired-general",
+            source_id="paired-source",
+            ordinary_prefix_reuse=False,
+        ),
+        replace(
+            shared,
+            case_id="paired-dense",
+            source_id="paired-source",
+            policy_label="dense",
+            ordinary_prefix_reuse=False,
+            reuse_enabled=False,
+        ),
+    )
+    manager = KVCommManager(KVCommFeatureConfig(core_enabled=True))
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source)] = torch.arange(len(source))
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=cases,
+        ordinary_prefix_reuse_enabled=True,
+        ordinary_prefix_target_only=True,
+    )
+    assert controller.maybe_materialize_source(_req(source)) is not None
+
+    for pool_index, case_id in ((1, "paired-v23"), (2, "paired-general")):
+        request = _req(target, pool_index=pool_index)
+        state = controller.maybe_attach_target(request)
+        assert state is not None and state.case.case_id == case_id
+        controller.finish_request(request)
+
+    allocated_before_dense = allocator.next_slot
+    dense = _req(target, pool_index=3)
+    assert controller.maybe_attach_target(dense) is None
+    assert dense.kvcomm_exact_dense_control is True
+    assert controller.ordinary_prefix_match_limit(dense) == 0
+    assert allocator.next_slot == allocated_before_dense
+
+
 def test_one_real_request_materializes_multiple_registered_source_spans():
     source = (1, 2, 3, 4, 5, 8, 9)
     target = (1, 7, 2, 3, 4, 5, 9)
