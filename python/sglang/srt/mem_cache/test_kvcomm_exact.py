@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -293,6 +294,87 @@ def test_target_only_prefix_reuse_keeps_source_and_unregistered_dense():
 def test_target_only_prefix_requires_ordinary_prefix_reuse():
     with pytest.raises(ValueError, match="target-only ordinary prefix"):
         _controller(ordinary_prefix_target_only=True)
+
+
+def test_duplicate_target_prompt_consumes_case_specific_prefix_policy():
+    source = (1, 2, 3, 4, 5, 8, 9)
+    target = (1, 7, 2, 3, 4, 5, 9)
+    shared = _case(source, target)
+    cases = (
+        replace(
+            shared,
+            case_id="paired-general",
+            source_id="paired-source",
+            ordinary_prefix_reuse=False,
+        ),
+        replace(
+            shared,
+            case_id="paired-v23",
+            source_id="paired-source",
+            ordinary_prefix_reuse=True,
+        ),
+    )
+    manager = KVCommManager(KVCommFeatureConfig(core_enabled=True))
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source)] = torch.arange(len(source))
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=cases,
+        ordinary_prefix_reuse_enabled=True,
+        ordinary_prefix_target_only=True,
+    )
+    assert controller.maybe_materialize_source(_req(source)) is not None
+
+    general = _req(target, pool_index=1)
+    first = controller.maybe_attach_target(general)
+    assert first is not None and first.case.case_id == "paired-general"
+    assert controller.ordinary_prefix_match_limit(general) == 0
+
+    candidate = _req(target, pool_index=2)
+    second = controller.maybe_attach_target(candidate)
+    assert second is not None and second.case.case_id == "paired-v23"
+    assert controller.ordinary_prefix_match_limit(candidate) == 3
+
+
+def test_one_real_request_materializes_multiple_registered_source_spans():
+    source = (1, 2, 3, 4, 5, 8, 9)
+    target = (1, 7, 2, 3, 4, 5, 9)
+    first = replace(
+        _case(source, target, source_start=2, target_start=3, length=2),
+        case_id="paired-short",
+        source_id="paired-short-source",
+    )
+    second = replace(
+        _case(source, target, source_start=3, target_start=4, length=2),
+        case_id="paired-late",
+        source_id="paired-late-source",
+    )
+    manager = KVCommManager(KVCommFeatureConfig(core_enabled=True))
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source)] = torch.arange(len(source))
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=(first, second),
+    )
+
+    assert controller.maybe_materialize_source(_req(source)) is not None
+    assert set(controller._materialized_sources) == {
+        "paired-short-source",
+        "paired-late-source",
+    }
+    assert manager.store.record_count == 2
 
 
 def test_target_prefix_bypass_copies_only_uncached_repository_tail():

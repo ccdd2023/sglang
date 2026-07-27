@@ -71,6 +71,7 @@ class ExactMiddleCase:
     policy_label: str = "general"
     target_uses: int | None = None
     source_id: str | None = None
+    ordinary_prefix_reuse: bool | None = None
 
     def __post_init__(self) -> None:
         hashes = (
@@ -234,8 +235,9 @@ class ExactMiddleCanaryController:
             )
             for case in cases
         ]
-        self._sources = self._unique_sources([*derived_sources, *sources])
-        self._targets = self._unique(cases, "target_prompt_hash")
+        self._sources = self._group_sources([*derived_sources, *sources])
+        self._targets = self._group_targets(cases)
+        self._target_case_cursor: dict[str, int] = {}
         self._remaining_target_uses = {
             case.case_id: case.target_uses
             for case in cases
@@ -304,6 +306,11 @@ class ExactMiddleCanaryController:
                         if row.get("source_id") is not None
                         else None
                     ),
+                    ordinary_prefix_reuse=(
+                        bool(row["ordinary_prefix_reuse"])
+                        if row.get("ordinary_prefix_reuse") is not None
+                        else None
+                    ),
                 )
             )
         sources = [
@@ -361,34 +368,31 @@ class ExactMiddleCanaryController:
         return controller
 
     @staticmethod
-    def _unique(
-        cases: Sequence[ExactMiddleCase], field: str
-    ) -> dict[str, ExactMiddleCase]:
-        output: dict[str, ExactMiddleCase] = {}
+    def _group_targets(
+        cases: Sequence[ExactMiddleCase],
+    ) -> dict[str, list[ExactMiddleCase]]:
+        output: dict[str, list[ExactMiddleCase]] = {}
+        case_ids: set[str] = set()
         for case in cases:
-            key = str(getattr(case, field))
-            if key in output:
-                raise ValueError(f"duplicate reuse {field}: {key}")
-            output[key] = case
+            if case.case_id in case_ids:
+                raise ValueError(f"duplicate reuse case_id: {case.case_id}")
+            case_ids.add(case.case_id)
+            output.setdefault(case.target_prompt_hash, []).append(case)
         return output
 
     @staticmethod
-    def _unique_sources(
+    def _group_sources(
         sources: Sequence[ExactMiddleSource],
-    ) -> dict[str, ExactMiddleSource]:
-        output: dict[str, ExactMiddleSource] = {}
+    ) -> dict[str, list[ExactMiddleSource]]:
+        output: dict[str, list[ExactMiddleSource]] = {}
         source_ids: set[str] = set()
         for source in sources:
-            if source.source_prompt_hash in output:
-                previous = output[source.source_prompt_hash]
-                if previous != source:
-                    raise ValueError(
-                        "duplicate reuse source_prompt_hash with different spans"
-                    )
+            previous = output.get(source.source_prompt_hash, [])
+            if source in previous:
                 continue
             if source.source_id in source_ids:
                 raise ValueError(f"duplicate reuse source_id: {source.source_id}")
-            output[source.source_prompt_hash] = source
+            output.setdefault(source.source_prompt_hash, []).append(source)
             source_ids.add(source.source_id)
         return output
 
@@ -438,6 +442,11 @@ class ExactMiddleCanaryController:
             source_id=(
                 str(row["source_id"])
                 if row.get("source_id") is not None
+                else None
+            ),
+            ordinary_prefix_reuse=(
+                bool(row["ordinary_prefix_reuse"])
+                if row.get("ordinary_prefix_reuse") is not None
                 else None
             ),
         )
@@ -496,31 +505,36 @@ class ExactMiddleCanaryController:
             added_sources = 0
             for row in value.get("sources", ()):
                 source = self._source_from_row(row)
-                previous = self._sources.get(source.source_prompt_hash)
-                if previous is not None:
-                    if previous != source:
-                        raise ValueError("dynamic source identity was rewritten")
+                previous = self._sources.get(source.source_prompt_hash, [])
+                if source in previous:
                     continue
                 if any(
                     old.source_id == source.source_id
-                    for old in self._sources.values()
+                    for sources in self._sources.values()
+                    for old in sources
                 ):
                     raise ValueError("dynamic source_id was reused")
-                self._sources[source.source_prompt_hash] = source
+                self._sources.setdefault(
+                    source.source_prompt_hash, []
+                ).append(source)
                 added_sources += 1
 
             added_targets = 0
-            existing_case_ids = {case.case_id for case in self._targets.values()}
+            existing_case_ids = {
+                case.case_id
+                for cases in self._targets.values()
+                for case in cases
+            }
             for row in value.get("cases", ()):
                 case = self._case_from_row(row, allow_shifted_copy=True)
-                previous = self._targets.get(case.target_prompt_hash)
-                if previous is not None:
-                    if previous != case:
-                        raise ValueError("dynamic target identity was rewritten")
+                previous = self._targets.get(case.target_prompt_hash, [])
+                if case in previous:
                     continue
                 if case.case_id in existing_case_ids:
                     raise ValueError("dynamic case_id was reused")
-                self._targets[case.target_prompt_hash] = case
+                self._targets.setdefault(
+                    case.target_prompt_hash, []
+                ).append(case)
                 existing_case_ids.add(case.case_id)
                 if case.target_uses is not None:
                     self._remaining_target_uses[case.case_id] = case.target_uses
@@ -553,9 +567,23 @@ class ExactMiddleCanaryController:
     def maybe_materialize_source(self, req: Any) -> KVSegmentHandle | None:
         self._refresh_manifest()
         tokens = self._prompt_tokens(req)
-        source = self._sources.get(token_ids_hash(tokens))
-        if source is None:
+        sources = self._sources.get(token_ids_hash(tokens))
+        if not sources:
             return None
+        handles = [
+            handle
+            for source in sources
+            if (handle := self._materialize_source(req, tokens, source))
+            is not None
+        ]
+        return handles[0] if handles else None
+
+    def _materialize_source(
+        self,
+        req: Any,
+        tokens: tuple[int, ...],
+        source: ExactMiddleSource,
+    ) -> KVSegmentHandle | None:
         end = source.source_start + source.length
         if end >= len(tokens):
             raise ValueError("source span is not strictly middle")
@@ -673,7 +701,8 @@ class ExactMiddleCanaryController:
         repeated = any(
             (case.source_id or case.case_id) == source.source_id
             and (case.target_uses or 0) > 1
-            for case in self._targets.values()
+            for cases in self._targets.values()
+            for case in cases
         )
         if repeated and source.source_id not in self._persistent_source_leases:
             self._persistent_source_leases[source.source_id] = (
@@ -696,9 +725,12 @@ class ExactMiddleCanaryController:
         if existing is not None:
             return existing
         tokens = self._prompt_tokens(req)
-        case = self._targets.get(token_ids_hash(tokens))
-        if case is None:
+        prompt_hash = token_ids_hash(tokens)
+        cases = self._targets.get(prompt_hash)
+        if not cases:
             return None
+        cursor = min(self._target_case_cursor.get(prompt_hash, 0), len(cases) - 1)
+        case = cases[cursor]
         end = case.target_start + case.length
         if end >= len(tokens):
             raise ValueError("target span is not strictly middle")
@@ -725,6 +757,8 @@ class ExactMiddleCanaryController:
         lease = self.manager.store.pin(handle, ttl_s=self.lease_ttl_s)
         state = ExactMiddleRequestState(case=case, source=handle, lease=lease)
         req.kvcomm_exact_state = state
+        if cursor < len(cases) - 1:
+            self._target_case_cursor[prompt_hash] = cursor + 1
         return state
 
     def is_target_request(self, req: Any) -> bool:
@@ -743,9 +777,21 @@ class ExactMiddleCanaryController:
         if not self.ordinary_prefix_reuse_enabled:
             return 0
         self._refresh_manifest()
-        case = self._targets.get(token_ids_hash(self._prompt_tokens(req)))
-        if case is None:
+        state = getattr(req, "kvcomm_exact_state", None)
+        prompt_hash = token_ids_hash(self._prompt_tokens(req))
+        cases = self._targets.get(prompt_hash)
+        if not cases:
             return 0 if self.ordinary_prefix_target_only else None
+        if state is not None:
+            case = state.case
+        else:
+            cursor = min(
+                self._target_case_cursor.get(prompt_hash, 0),
+                len(cases) - 1,
+            )
+            case = cases[cursor]
+        if case.ordinary_prefix_reuse is False:
+            return 0
         if case.allow_target_prefix_bypass:
             boundary = case.target_start + case.length
         else:
