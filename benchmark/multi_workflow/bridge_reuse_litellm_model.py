@@ -81,6 +81,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_post_mutation_target_prefix_v23",
         "coding_post_mutation_payoff_guard_v28",
         "coding_post_mutation_payoff_guard_v29",
+        "coding_critical_event_abstain_v31",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
@@ -380,6 +381,12 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             selected_groups,
             latest_group_messages=selected_groups[-1],
         )
+        if decision["mode"] == "critical_event_dense_abstain":
+            return None, None, {
+                **decision,
+                "source_registered": False,
+                "skip_reason": "critical_coding_event",
+            }
 
         def encoded_groups(
             groups: list[list[dict[str, Any]]],

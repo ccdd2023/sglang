@@ -274,6 +274,28 @@ def is_high_value_executable_failure(
     )
 
 
+def critical_coding_event_reasons(
+    group: Sequence[dict[str, Any]],
+) -> list[str]:
+    """Return narrow online events that justify one Dense target.
+
+    Broad nonzero-return and failure markers previously over-triggered on
+    harmless search misses.  V31 abstains only after a repository mutation or
+    observed diff, or after a real executable/test failure.
+    """
+
+    broad = latest_group_risk_reasons(group)
+    reasons = [
+        reason
+        for reason in broad
+        if reason
+        in ("repository_mutation_command", "repository_diff_observed")
+    ]
+    if is_high_value_executable_failure(group):
+        reasons.append("executable_failure")
+    return list(dict.fromkeys(reasons))
+
+
 def is_concrete_source_read(
     group: Sequence[dict[str, Any]],
 ) -> bool:
@@ -409,6 +431,20 @@ def select_reuse_groups(
             else "general_contiguous"
         )
         return retained, decision
+    if arm == "coding_critical_event_abstain_v31":
+        reasons = critical_coding_event_reasons(
+            latest_group_messages or ()
+        )
+        decision.update(
+            mode=(
+                "critical_event_dense_abstain"
+                if reasons
+                else "critical_event_general_reuse"
+            ),
+            critical_event=bool(reasons),
+            critical_event_reasons=reasons,
+        )
+        return retained, decision
     if arm in ("coding_evidence_payoff_v7", "coding_dual_v8"):
         evidence = is_successful_readonly_evidence(
             latest_group_messages or ()
@@ -435,6 +471,7 @@ def select_reuse_groups(
         "coding_post_mutation_target_prefix_v23",
         "coding_post_mutation_payoff_guard_v28",
         "coding_post_mutation_payoff_guard_v29",
+        "coding_critical_event_abstain_v31",
     ):
         eligible, graph = select_version_graph_groups(
             selected_groups,

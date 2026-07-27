@@ -56,6 +56,13 @@ V23 = os.environ.get(
     "IMPACTKV_PAIRED_CANDIDATE_ARM",
     "coding_post_mutation_target_prefix_v23",
 )
+ABSTENTION_CANDIDATE = V23 == "coding_critical_event_abstain_v31"
+TARGET_PREFIX_CANDIDATES = {
+    "coding_post_mutation_target_prefix_v23",
+    "coding_post_mutation_payoff_guard_v28",
+    "coding_post_mutation_payoff_guard_v29",
+}
+TARGET_PREFIX_CANDIDATE = V23 in TARGET_PREFIX_CANDIDATES
 DENSE = "dense"
 REUSE_ARMS = (V23, GENERAL)
 INCLUDE_DENSE_CONTROL = (
@@ -127,9 +134,9 @@ def _init_manifest(output: Path) -> Path:
             "release_source_ids": [],
             "arm": "v25_paired_agent",
             "host_overflow_enabled": True,
-            "ordinary_prefix_reuse_enabled": True,
+            "ordinary_prefix_reuse_enabled": TARGET_PREFIX_CANDIDATE,
             "ordinary_prefix_repair_tokens": 0,
-            "ordinary_prefix_target_only": True,
+            "ordinary_prefix_target_only": TARGET_PREFIX_CANDIDATE,
         },
     )
     return path
@@ -148,11 +155,21 @@ def register(output: Path) -> dict[str, Any]:
         "status": "REGISTERED_BEFORE_TREATMENT_GPU_RUN",
         "experiment": "V25 shared-prefix, cloned-repository paired agent canary",
         "motivation": (
-            "Free-running General and V23 agents diverged before treatment. "
+            "Free-running General and the candidate agents diverged before "
+            "treatment. "
             "Run one Dense shared agent until the first online point where "
-            "both policies select unequal reusable spans, materialize both "
-            "from that same request, snapshot the container, and only then "
-            "branch."
+            + (
+                "the candidate makes a critical-event Dense abstention while "
+                "General registers a source, materialize the General source "
+                "from that same request, snapshot the container, and only "
+                "then branch."
+                if ABSTENTION_CANDIDATE
+                else (
+                    "both policies select unequal reusable spans, materialize "
+                    "both from that same request, snapshot the container, and "
+                    "only then branch."
+                )
+            )
         ),
         "instance_id": INSTANCE_ID,
         "problem_statement_sha256": hashlib.sha256(
@@ -176,10 +193,18 @@ def register(output: Path) -> dict[str, Any]:
             "temperature": 0,
             "step_limit": 20,
             "branch_rule": (
-                "first online request where General and V23 both register "
-                "a source and their selected lengths differ; if no future "
-                "target remains before the call limit, both arms inherit the "
-                "same shared Dense outcome as an intention-to-treat tie"
+                (
+                    "first online request where General registers a source "
+                    "and the candidate emits critical_event_dense_abstain"
+                    if ABSTENTION_CANDIDATE
+                    else (
+                        "first online request where General and candidate "
+                        "both register a source and selected lengths differ"
+                    )
+                )
+                + "; if no future target remains before the call limit, all "
+                "arms inherit the same shared Dense outcome as an "
+                "intention-to-treat tie"
             ),
             "shared_prefix_arm": "dense",
             "target_order_each_paired_step": list(ARMS),
@@ -193,9 +218,14 @@ def register(output: Path) -> dict[str, Any]:
         "frozen_gates": {
             "branch_or_shared_completion": True,
             "branch_source_prompt_hash_identical": True,
-            "branch_source_lengths_different": True,
-            "two_source_materializations_if_branched_min": 2,
+            "branch_source_plans_different": True,
+            "source_materializations_if_branched_min": (
+                1 if ABSTENTION_CANDIDATE else 2
+            ),
             "target_copies_each_arm_if_branched_min": 1,
+            "candidate_critical_abstentions_if_enabled_min": (
+                1 if ABSTENTION_CANDIDATE else 0
+            ),
             "dense_control_requests_if_enabled_min": (
                 1 if INCLUDE_DENSE_CONTROL else 0
             ),
@@ -294,7 +324,9 @@ def _prepare_pair(
     cases = [
         {
             **prepared[arm]["target"],
-            "ordinary_prefix_reuse": arm == V23,
+            "ordinary_prefix_reuse": (
+                arm == V23 and TARGET_PREFIX_CANDIDATE
+            ),
         }
         for arm in REUSE_ARMS
         if prepared[arm]["target"] is not None
@@ -468,10 +500,22 @@ def run(output: Path) -> dict[str, Any]:
                 arm: shadow[arm]["source"] for arm in REUSE_ARMS
             }
             eligible = (
-                all(sources.values())
-                and len({hashes[arm] for arm in REUSE_ARMS}) == 1
-                and int(sources[V23]["length"])
-                != int(sources[GENERAL]["length"])
+                len({hashes[arm] for arm in REUSE_ARMS}) == 1
+                and (
+                    (
+                        ABSTENTION_CANDIDATE
+                        and sources[V23] is None
+                        and sources[GENERAL] is not None
+                        and shadow[V23]["decision"]["mode"]
+                        == "critical_event_dense_abstain"
+                    )
+                    or (
+                        not ABSTENTION_CANDIDATE
+                        and all(sources.values())
+                        and int(sources[V23]["length"])
+                        != int(sources[GENERAL]["length"])
+                    )
+                )
             )
             if eligible and shared.n_calls < shared.config.step_limit:
                 models[V23]._atomic_sidecar_update(
@@ -488,11 +532,23 @@ def run(output: Path) -> dict[str, Any]:
                     "shared_calls": call,
                     "source_prompt_hash": hashes[V23],
                     "source_lengths": {
-                        arm: int(sources[arm]["length"])
+                        arm: (
+                            int(sources[arm]["length"])
+                            if sources[arm] is not None
+                            else None
+                        )
                         for arm in REUSE_ARMS
                     },
                     "source_ids": {
-                        arm: str(sources[arm]["source_id"])
+                        arm: (
+                            str(sources[arm]["source_id"])
+                            if sources[arm] is not None
+                            else None
+                        )
+                        for arm in REUSE_ARMS
+                    },
+                    "source_decision_modes": {
+                        arm: shadow[arm]["decision"]["mode"]
                         for arm in REUSE_ARMS
                     },
                 }
@@ -656,16 +712,45 @@ def run(output: Path) -> dict[str, Any]:
         arm: sum(row.get("policy_label") == arm for row in copies)
         for arm in ARMS
     }
+    candidate_client_path = output / V23 / "CLIENT_LEDGER.jsonl"
+    candidate_client = (
+        load_jsonl(candidate_client_path)
+        if candidate_client_path.exists()
+        else []
+    )
+    candidate_critical_abstentions = (
+        int(
+            branch is not None
+            and branch.get("source_decision_modes", {}).get(V23)
+            == "critical_event_dense_abstain"
+        )
+        + sum(
+        row.get("decision", {}).get("mode")
+        == "critical_event_dense_abstain"
+        for row in candidate_client
+        )
+    )
     gates = {
         "branch_or_shared_completion": True,
         "branch_source_prompt_hash_identical": branch is None
         or branch["source_prompt_hash"] is not None,
-        "branch_source_lengths_different": branch is None
+        "branch_source_plans_different": branch is None
         or len(set(branch["source_lengths"].values())) == 2,
-        "two_source_materializations_if_branched_min": branch is None
-        or len(materialized) >= 2,
+        "source_materializations_if_branched_min": branch is None
+        or len(materialized) >= (1 if ABSTENTION_CANDIDATE else 2),
         "target_copies_each_arm_if_branched_min": branch is None
-        or all(copy_counts[arm] >= 1 for arm in REUSE_ARMS),
+        or (
+            copy_counts[GENERAL] >= 1
+            and (
+                ABSTENTION_CANDIDATE
+                or copy_counts[V23] >= 1
+            )
+        ),
+        "candidate_critical_abstentions_if_enabled_min": (
+            not ABSTENTION_CANDIDATE
+            or branch is None
+            or candidate_critical_abstentions >= 1
+        ),
         "dense_control_requests_if_enabled_min": (
             not INCLUDE_DENSE_CONTROL
             or branch is None
@@ -700,6 +785,9 @@ def run(output: Path) -> dict[str, Any]:
             "copy_counts": copy_counts,
             "dense_control_requests": len(dense_controls),
             "target_fallbacks": len(fallbacks),
+            "candidate_critical_abstentions": (
+                candidate_critical_abstentions
+            ),
         },
         "gates": gates,
         "accuracy": (

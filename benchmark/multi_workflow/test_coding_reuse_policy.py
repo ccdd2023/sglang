@@ -1,4 +1,5 @@
 from benchmark.multi_workflow.coding_reuse_policy import (
+    critical_coding_event_reasons,
     effective_copy_cap,
     is_concrete_source_read,
     is_high_value_executable_failure,
@@ -640,6 +641,54 @@ def test_failure_memory_ignores_read_only_search_miss():
     assert not is_high_value_executable_failure(search_miss)
     assert selected == recent
     assert decision["memory_anchor_present"] is False
+
+
+def test_v31_abstains_after_mutation_and_executable_failure():
+    mutation = group(
+        "apply_patch <<'PATCH'\n"
+        "*** Update File: pkg/module.py\n"
+        "@@\n-old\n+new\n"
+        "PATCH"
+    )
+    failure = group(
+        "python -m pytest test_module.py",
+        "<returncode>1</returncode><output>1 failed</output>",
+    )
+    for latest, expected in (
+        (mutation, ["repository_mutation_command"]),
+        (failure, ["executable_failure"]),
+    ):
+        groups = [group(f"echo {index}") for index in range(5)] + [latest]
+        eligible, decision = select_reuse_groups(
+            "coding_critical_event_abstain_v31",
+            groups,
+            latest_group_messages=latest,
+        )
+        assert eligible == groups[1:]
+        assert decision["mode"] == "critical_event_dense_abstain"
+        assert decision["critical_event_reasons"] == expected
+        assert critical_coding_event_reasons(latest) == expected
+
+
+def test_v31_reuses_after_search_miss_and_successful_test():
+    search_miss = group(
+        'rg "missing_symbol" module.py',
+        "<returncode>1</returncode><output></output>",
+    )
+    successful_test = group(
+        "python -m pytest test_module.py",
+        "<returncode>0</returncode><output>1 passed</output>",
+    )
+    for latest in (search_miss, successful_test):
+        groups = [group(f"echo {index}") for index in range(5)] + [latest]
+        eligible, decision = select_reuse_groups(
+            "coding_critical_event_abstain_v31",
+            groups,
+            latest_group_messages=latest,
+        )
+        assert eligible == groups[1:]
+        assert decision["mode"] == "critical_event_general_reuse"
+        assert decision["critical_event_reasons"] == []
 
 
 def test_memory_v5_reuses_guaranteed_recent_five_not_old_anchor():
