@@ -28,6 +28,7 @@ from pydantic import Field, model_validator
 
 from benchmark.multi_workflow.coding_reuse_policy import (
     coding_state_transition_target_reasons,
+    critical_coding_event_reasons,
     effective_copy_cap,
     post_mutation_payoff_guard,
     select_failure_memory_groups,
@@ -47,7 +48,10 @@ ROLLING_NOTICE = (
 _MODEL_INSTANCE_COUNTER = itertools.count(1)
 DENSE_REUSE_ARMS = ("dense", "coding_memory_dense_v5")
 MEMORY_ARMS = ("coding_memory_dense_v5", "coding_memory_v5")
-TARGET_VETO_ARMS = ("coding_state_transition_target_v33b",)
+TARGET_VETO_ARMS = (
+    "coding_state_transition_target_v33b",
+    "coding_critical_current_target_v34",
+)
 
 
 def token_ids_hash(token_ids: list[int]) -> str:
@@ -85,6 +89,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_post_mutation_payoff_guard_v29",
         "coding_critical_event_abstain_v31",
         "coding_state_transition_target_v33b",
+        "coding_critical_current_target_v34",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
@@ -154,11 +159,14 @@ def apply_current_target_veto(
 ) -> tuple[dict[str, Any] | None, list[str], dict[str, Any]]:
     """Apply the V33B online target guard without consulting future output."""
 
-    reasons = (
-        coding_state_transition_target_reasons(selected_groups)
-        if arm in TARGET_VETO_ARMS
-        else []
-    )
+    if arm == "coding_state_transition_target_v33b":
+        reasons = coding_state_transition_target_reasons(selected_groups)
+    elif arm == "coding_critical_current_target_v34":
+        reasons = critical_coding_event_reasons(
+            selected_groups[-1] if selected_groups else ()
+        )
+    else:
+        reasons = []
     vetoed = bool(reasons and target is not None)
     if vetoed:
         releases = list(
@@ -677,11 +685,23 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 selected_groups=selected_groups,
             )
             if self.config.reuse_arm in TARGET_VETO_ARMS:
+                dense_veto_mode = (
+                    "critical_current_target_dense_veto"
+                    if self.config.reuse_arm
+                    == "coding_critical_current_target_v34"
+                    else "state_transition_target_dense_veto"
+                )
+                general_reuse_mode = (
+                    "critical_current_target_general_reuse"
+                    if self.config.reuse_arm
+                    == "coding_critical_current_target_v34"
+                    else "state_transition_target_general_reuse"
+                )
                 policy_decision.update(
                     mode=(
-                        "state_transition_target_dense_veto"
+                        dense_veto_mode
                         if target_guard["target_vetoed"]
-                        else "state_transition_target_general_reuse"
+                        else general_reuse_mode
                     ),
                     **target_guard,
                 )

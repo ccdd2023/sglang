@@ -124,3 +124,33 @@ def test_v33b_branches_before_current_target_request(monkeypatch) -> None:
     }
 
     assert canary._branch_kind(prepared) == "current_target_veto"
+
+
+def test_v34_branches_on_critical_current_target_veto(monkeypatch) -> None:
+    candidate = "coding_critical_current_target_v34"
+    monkeypatch.setattr(canary, "V23", candidate)
+    monkeypatch.setattr(canary, "REUSE_ARMS", (candidate, canary.GENERAL))
+    monkeypatch.setattr(canary, "TARGET_VETO_CANDIDATE", True)
+    monkeypatch.setattr(canary, "ABSTENTION_CANDIDATE", False)
+    prepared = {
+        candidate: {
+            "prompt_ids": [4, 5, 6],
+            "source": {"length": 2048},
+            "target": None,
+            "policy_decision": {
+                "mode": "critical_current_target_dense_veto"
+            },
+        },
+        canary.GENERAL: {
+            "prompt_ids": [4, 5, 6],
+            "source": {"length": 2048},
+            "target": {
+                "case_id": "general-target",
+                "source_id": "source-2",
+                "length": 2048,
+            },
+            "policy_decision": {"mode": "general_contiguous"},
+        },
+    }
+
+    assert canary._branch_kind(prepared) == "current_target_veto"

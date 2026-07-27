@@ -59,9 +59,15 @@ V23 = os.environ.get(
     "coding_post_mutation_target_prefix_v23",
 )
 ABSTENTION_CANDIDATE = V23 == "coding_critical_event_abstain_v31"
-TARGET_VETO_CANDIDATE = (
-    V23 == "coding_state_transition_target_v33b"
-)
+TARGET_VETO_CANDIDATES = {
+    "coding_state_transition_target_v33b",
+    "coding_critical_current_target_v34",
+}
+TARGET_VETO_DENSE_MODES = {
+    "state_transition_target_dense_veto",
+    "critical_current_target_dense_veto",
+}
+TARGET_VETO_CANDIDATE = V23 in TARGET_VETO_CANDIDATES
 TARGET_PREFIX_CANDIDATES = {
     "coding_post_mutation_target_prefix_v23",
     "coding_post_mutation_payoff_guard_v28",
@@ -138,8 +144,7 @@ def _branch_kind(
         TARGET_VETO_CANDIDATE
         and prepared[V23]["target"] is None
         and prepared[GENERAL]["target"] is not None
-        and _policy_mode(prepared[V23])
-        == "state_transition_target_dense_veto"
+        and _policy_mode(prepared[V23]) in TARGET_VETO_DENSE_MODES
     ):
         return "current_target_veto"
     sources = {arm: prepared[arm]["source"] for arm in REUSE_ARMS}

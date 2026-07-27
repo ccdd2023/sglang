@@ -69,6 +69,42 @@ def test_v33b_state_transition_releases_and_vetoes_current_target() -> None:
     }
 
 
+def test_v34_critical_event_vetoes_without_phase_cooldown() -> None:
+    mutation = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {
+                            "command": (
+                                "python -c \"open('pkg/a.py', 'w').write('x')\""
+                            )
+                        },
+                    }
+                }
+            ],
+        },
+        {"role": "tool", "content": "<returncode>0</returncode>"},
+    ]
+    prior_mutation = list(mutation)
+
+    guarded, releases, decision = bridge.apply_current_target_veto(
+        arm="coding_critical_current_target_v34",
+        selected_groups=[prior_mutation, mutation],
+        target={"source_id": "source-2"},
+        releases=[],
+    )
+
+    assert guarded is None
+    assert releases == ["source-2"]
+    assert decision == {
+        "target_vetoed": True,
+        "target_veto_reasons": ["repository_mutation_command"],
+    }
+
+
 def test_query_closes_underlying_sync_stream(monkeypatch) -> None:
     chunk = SimpleNamespace(
         choices=[

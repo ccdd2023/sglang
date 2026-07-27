@@ -511,6 +511,7 @@ def select_reuse_groups(
         "general_8k",
         "general_dual_4k",
         "coding_state_transition_target_v33b",
+        "coding_critical_current_target_v34",
     ):
         decision["mode"] = (
             "general_contiguous_8k"
@@ -519,6 +520,8 @@ def select_reuse_groups(
             if arm == "general_dual_4k"
             else "state_transition_general_source"
             if arm == "coding_state_transition_target_v33b"
+            else "critical_current_target_general_source"
+            if arm == "coding_critical_current_target_v34"
             else "general_contiguous"
         )
         return retained, decision
