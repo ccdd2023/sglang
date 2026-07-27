@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "artifact": "diagnostic-C-store-state-at-oom",
+  "question": "At the moment an ordinary prefill runs out of device slots, is the approximate store still holding device bytes that the exact pressure path should have been able to reclaim?",
+  "answer": "Yes. This is a defect in our cross-store path, not a capacity limit.",
+  "supersedes": "The earlier classification of the P6-4 S0/LRU rho2.0 cell as a genuine capacity limit is REFUTED by this measurement.",
+  "source_git_sha": "11bc9b3e49a48c8545146d78e0a0e6a86d4fbb8b",
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "method": "Poll /metrics every 0.4 s during the real P6-4 S0/LRU rho2.0 cell and keep the last sample before the server becomes unreachable.",
+  "runs": [
+    {
+      "artifact": "diagC-store-gauges.jsonl",
+      "approx_kv_store_device_bytes": 102760448,
+      "approx_kv_store_records": 2,
+      "approx_kv_store_leases": 0,
+      "num_used_tokens": 9536,
+      "max_total_num_tokens": 11392,
+      "token_usage": 0.84
+    },
+    {
+      "artifact": "diagC2-labeled.jsonl",
+      "approx_kv_store_device_bytes": 44040192,
+      "approx_kv_store_records": 1,
+      "approx_kv_store_leases": 0,
+      "num_used_tokens": 10176,
+      "max_total_num_tokens": 11392,
+      "token_usage": 0.89,
+      "dense_fallback_by_reason": {
+        "store_miss": 1024
+      },
+      "requests_by_outcome": {
+        "register/success": 40,
+        "reuse/dense_fallback": 1
+      },
+      "cross_store_reservation_failures_total": null
+    }
+  ],
+  "token_accounting_at_death": {
+    "capacity_tokens": 11392,
+    "num_used_tokens": 10176,
+    "approximate_store_tokens": 384,
+    "accounted_tokens": 10560,
+    "unaccounted_tokens": 832,
+    "allocator_reported": "available_size=0 + evictable_size=0 while requesting 1024"
+  },
+  "findings": [
+    "An approximate record holding 384 device tokens was still resident with leases=0, so it was freely evictable and was not evicted.",
+    "cross_store_reservation_failures_total was never incremented, so make_room(requester=exact) either was not invoked or returned committed. It never reported a failure.",
+    "832 device tokens are unaccounted for by either gauge while the allocator reports zero available and zero evictable.",
+    "The only dense fallback recorded came from reason=store_miss, not from a reservation failure."
+  ],
+  "candidate_mechanisms": [
+    "evict_from_tree_cache only calls make_room when allocator.available_size() < num_tokens, so if available_size() disagrees with what alloc() can actually satisfy, the cross-store reclaim path is skipped entirely and the request dies without ever consulting the approximate store.",
+    "A second slot leak distinct from the admission-rejection leak already fixed, which would explain the 832 unaccounted tokens."
+  ],
+  "consequences": {
+    "classification": "The S0/LRU rho2.0 cell must be recorded as blocked by a defect, not as diagnostic-unavailable for capacity reasons.",
+    "fallback_evidence": "A correct reclaim path would surface a real reservation failure, which is exactly the missing Phase 6 Exit evidence item, so fixing this can close that item with natural rather than injected evidence.",
+    "blast_radius": "The fix belongs in code we own, cross_store/ and approx_kv/, and does not require changing the shared upstream alloc_token_slots path."
+  }
+}
