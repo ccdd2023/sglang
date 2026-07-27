@@ -1633,3 +1633,15 @@
 - GPU仍为loaded `580.159.03`、userspace `580.173.02`；
   `/var/run/reboot-required`存在。因活动SSH/tmux会话，未擅自重启。
 - 当前严格停在Phase7前；下一步必须先由用户安排安全重启。
+
+## 2026-07-26T17:45:31-07:00 — 澄清实现问题、Phase7影响与重测边界
+
+- 向用户明确：实现阶段遇到大量事务、accounting、dependency、host、
+  runner证据和provenance问题，但均已由Opus/Sol多轮review关闭；剩余问题是
+  GPU driver/library mismatch，需要安全重启。
+- 当前实现没有产生新GPU数据，因此不改变Phase7的性能结论、winner或
+  scheduler收益；改变的是Phase7的证据合同和entry gate。
+- Phase7前固定执行CL1、CL2、P6-H、P6-4及结果双模型review。
+- 不重跑完整Phase4/5，也不重复R2/R5 corrected rho2矩阵。
+- 条件项仅在对应claim保留时触发：chunk变化后的P6-4 cell、R2/R5 matched
+  ratio/pressure、rho1.1/3、显式fallback counter及Phase7独立HiCache feasibility。

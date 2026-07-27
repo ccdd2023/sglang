@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-26T14:41:07-07:00
+最后更新：2026-07-26T17:45:31-07:00
 
 ## 项目概况
 
@@ -90,6 +90,32 @@
   - `/var/run/reboot-required`明确存在，当前还有活动SSH/tmux会话，因此未擅自重启。
 - 因此CL1、CL2、P6-H和P6-4尚未运行；这不是实验负结果，而是环境阻塞。
 - 当前严格停在Phase7 Entry之前，不执行Phase7 integrated evaluation。
+
+### 2026-07-26 Phase7影响与剩余重测边界
+
+- Phase6实现没有产生新的GPU结果，因此没有改变任何Phase7性能、winner或
+  scheduler收益结论。
+- 实现改变的是Phase7的证据合同和进入条件：
+  - exact→approx与approx→exact必须按requester→victim方向分别证明；
+  - P6-4必须含exact-only baseline、服务端cache outcome、physical rho、
+    fallback关联和clean-tree/model-revision provenance；
+  - CL1 promotion使用包含seed head的request-path，并报告N=1/2/4/8与break-even；
+  - P6-H只证明generic `AllocatorCPUResidencyBackend` roundtrip，不证明HiCache；
+  - HiRadix/UnifiedRadix cross-store在专用语义完成前启动期拒绝。
+- Phase7前必须执行：
+  1. 安全重启并验证GPU；
+  2. CL1 candidate qualification；
+  3. CL2 chunk gate；
+  4. P6-H generic host canary；
+  5. P6-4 fixed40 capacity pilot；
+  6. GPU结果Sol/Opus双模型review与CL4 disposition。
+- 不需要再次完整重跑Phase4或Phase5，也不需要重复已修正的R2/R5 rho2矩阵。
+- 条件性重跑：
+  - CL2最终chunk不是provisional `1024`时，重新冻结合同并重跑受影响P6-4 cell；
+  - 保留R2/R5机制排名时才做matched repair ratio/pressure；
+  - 发布rho鲁棒性时才补R2/R5 rho1.1/3；
+  - 需要R2直接zero-fallback证据时才补显式counter单cell；
+  - Phase7 HiCache track仍需独立H4/RH4 feasibility，不能由P6-H替代。
 
 - 用户已将当前实验明确收窄为：不研究 AST、label、自动分段或 indexing；手工固定一个大代码段，在不同 role/prefix/context 下做有损 KV 恢复与调度实验。
 - “有损 KV”专指避免完整目标-context prefill，通过 raw KV reuse + RoPE、KVCOMM base/offset/anchor 或局部 recompute/repair 近似恢复 KV；不指量化、低比特或普通 KV pruning。
