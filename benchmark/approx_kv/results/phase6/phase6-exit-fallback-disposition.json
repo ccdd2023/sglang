@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "artifact": "phase6-exit-fallback-reachability-disposition",
+  "item": "Phase 6 Exit: dense fallback reachability",
+  "disposition": "accepted_as_indirectly_verified",
+  "decided_by": "user, 2026-07-27",
+  "decision_options_considered": {
+    "A": "Make alloc_token_slots degrade instead of aborting. Strongest evidence because the reservation failure would occur naturally, but it edits a shared upstream hot path with four callers on every request and diverges from upstream. Rejected as disproportionate risk.",
+    "B": "Wire the allocator's existing fault_injector behind an env flag. Small and contained, but proves only that the fallback path works, which is weaker than natural reachability and would still need an explicit caveat. Not chosen.",
+    "C": "Accept the item at indirectly_verified strength on the existing evidence chain. Chosen."
+  },
+  "what_is_proven": [
+    {
+      "claim": "The cross-store allocator rolls back correctly at every possible allocation failure point.",
+      "evidence": "test_fault_injection_rolls_back_reversible_actions iterates over all AllocationFailurePoint values and asserts committed is False, the eviction is undone, device_used_bytes is restored and device_reserved_bytes returns to zero.",
+      "level": "direct, CPU"
+    },
+    {
+      "claim": "A refused reservation degrades to dense fallback and is attributed to that reservation failure rather than left silent.",
+      "evidence": "test_reservation_failure_degrades_to_dense_fallback asserts allocate_recovery_slots returns None, records cross_store_reservation_failed, and hands out no slots. Mutation checked: deleting the record_fallback call makes the test fail.",
+      "level": "direct, CPU"
+    },
+    {
+      "claim": "The dense fallback path really executes on GPU under the pilot workload with cross-store enabled.",
+      "evidence": "P6-4 observed 12 dense_fallback outcomes across the three reachable S4 cells, and the r4_like profile recorded 4096 dense fallback tokens.",
+      "level": "direct, GPU"
+    },
+    {
+      "claim": "The exact pressure path really reclaims approximate memory on GPU.",
+      "evidence": "cross_store_evicted_bytes_total shows 2,202,009,600 bytes of approximate victims taken by exact requesters, and 1,767,800,832 bytes of exact victims taken by approximate requesters.",
+      "level": "direct, GPU"
+    }
+  ],
+  "what_is_not_proven": [
+    "A GPU run in which a dense fallback co-occurs with reservation_failures > 0, which is what the P6-4 fallback_reachable flag literally requires."
+  ],
+  "why_it_was_not_obtainable": {
+    "measurement": "diagnostic-C-store-state-at-oom.json, sampled at 0.05 s",
+    "reason": "Every configuration that would exhaust the cross-store reservation also exhausts the device, and the request then aborts in the shared upstream alloc_token_slots before a reservation failure can be recorded. Diagnostic C confirms this is a genuine capacity limit and not a reclaim defect: at the instant of death the approximate store holds zero bytes and zero records, with 704 free tokens against a 1024 token request.",
+    "ruled_out_by_measurement": [
+      "Tuning rho. rho 2.5 also exhausts the device, so there is no band where a reservation fails but the server survives.",
+      "Inflating kv-bytes-per-token. CrossStoreBudget converts its limit and its usage with the same factor, so the scaling cancels and reservation_failures stays zero."
+    ]
+  },
+  "artifact_integrity": {
+    "note": "The P6-4 artifact is NOT edited. p6-4.json still reports fallback_reachability.passed = false and rounds = 0, which is the honest measurement. This disposition records the accepted evidence level separately and does not alter any recorded result."
+  },
+  "scope_limit": "This disposition covers the Phase 6 Exit gate only. Any Phase 7 claim that depends on fallback behaviour under a real reservation failure must either obtain the natural evidence or restate this same indirectly_verified caveat."
+}
