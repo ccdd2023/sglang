@@ -1645,3 +1645,12 @@
 - 不重跑完整Phase4/5，也不重复R2/R5 corrected rho2矩阵。
 - 条件项仅在对应claim保留时触发：chunk变化后的P6-4 cell、R2/R5 matched
   ratio/pressure、rho1.1/3、显式fallback counter及Phase7独立HiCache feasibility。
+
+## 2026-07-26T17:52:35-07:00 — 澄清驱动恢复不需要重做patch
+
+- 向用户说明当前不是要升级到另一版驱动：磁盘上的module/userspace已是
+  `580.173.02`，运行内核仍加载旧`580.159.03`。
+- 正确动作是保存活动SSH/tmux后安全重启，让内核加载已安装module。
+- Phase6代码与P6-0已提交推送，不依赖旧module版本，不需要重新实现patch。
+- 重启后先核对`/proc/driver/nvidia/version`、`modinfo`、`nvidia-smi`和CUDA
+  smoke，再继续CL1/CL2/P6-H/P6-4。

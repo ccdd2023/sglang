@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-26T17:45:31-07:00
+最后更新：2026-07-26T17:52:35-07:00
 
 ## 项目概况
 
@@ -116,6 +116,18 @@
   - 发布rho鲁棒性时才补R2/R5 rho1.1/3；
   - 需要R2直接zero-fallback证据时才补显式counter单cell；
   - Phase7 HiCache track仍需独立H4/RH4 feasibility，不能由P6-H替代。
+
+### NVIDIA驱动恢复说明
+
+- 不需要安装“更新的最新驱动”，也不需要重新实现或重新移植Phase6 patch。
+- 当前磁盘上的NVIDIA kernel module与userspace均已是`580.173.02`；
+  `modinfo -F version nvidia`返回`580.173.02`。
+- 当前运行内核仍持有启动时加载的旧module `580.159.03`，因此NVML
+  `580.173.02`无法连接，`nvidia-smi`报告driver/library mismatch。
+- 正确恢复方式是保存活动会话后安全重启本地主机，使内核加载已安装的
+  `580.173.02`。不建议在图形会话和活动SSH/tmux存在时强制卸载NVIDIA模块。
+- 重启后只需验证module/NVML/CUDA smoke；仅当真实GPU测试暴露API兼容问题时
+  才需要新的代码修复，不预先重做patch。
 
 - 用户已将当前实验明确收窄为：不研究 AST、label、自动分段或 indexing；手工固定一个大代码段，在不同 role/prefix/context 下做有损 KV 恢复与调度实验。
 - “有损 KV”专指避免完整目标-context prefill，通过 raw KV reuse + RoPE、KVCOMM base/offset/anchor 或局部 recompute/repair 近似恢复 KV；不指量化、低比特或普通 KV pruning。
