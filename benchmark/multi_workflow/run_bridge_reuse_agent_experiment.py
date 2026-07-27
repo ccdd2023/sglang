@@ -77,6 +77,7 @@ ARMS = (
     "coding_critical_event_abstain_v31",
     "coding_state_transition_target_v33b",
     "coding_critical_current_target_v34",
+    "coding_version_validation_target_v35b",
 )
 DENSE_ARMS = ("dense", "coding_memory_dense_v5")
 HOST_OVERFLOW_ARMS = (

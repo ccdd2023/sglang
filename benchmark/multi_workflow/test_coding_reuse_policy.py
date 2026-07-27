@@ -1,10 +1,12 @@
 from benchmark.multi_workflow.coding_reuse_policy import (
     coding_state_transition_target_reasons,
+    coding_version_validation_target_reasons,
     critical_coding_event_reasons,
     effective_copy_cap,
     is_concrete_source_read,
     is_high_value_executable_failure,
     is_successful_executable_evidence,
+    is_successful_focused_validation,
     is_low_value_search_miss,
     is_successful_readonly_evidence,
     latest_group_risk_reasons,
@@ -756,6 +758,36 @@ def test_state_transition_guard_enforces_two_interaction_cooldown():
     assert coding_state_transition_target_reasons(
         [mutation, generic, generic, successful]
     ) == ["successful_execution_phase_transition"]
+
+
+def test_version_validation_guard_is_one_shot_per_repository_version():
+    mutation = group(
+        "python -c \"from pathlib import Path; "
+        "Path('pkg/module.py').write_text('changed')\""
+    )
+    successful = group(
+        "python -m pytest tests/test_module.py",
+        "<returncode>0</returncode><output>1 passed</output>",
+    )
+
+    assert is_successful_focused_validation(successful)
+    assert coding_version_validation_target_reasons(
+        [mutation, successful]
+    ) == ["first_validation_of_version_before_submit"]
+    assert coding_version_validation_target_reasons(
+        [mutation, successful, successful]
+    ) == []
+
+
+def test_version_validation_guard_protects_failed_repair_decision():
+    failure = group(
+        "python -m pytest tests/test_module.py",
+        "<returncode>1</returncode><output>1 failed</output>",
+    )
+
+    assert coding_version_validation_target_reasons([failure]) == [
+        "executable_failure_before_repair"
+    ]
 
 
 def test_memory_v5_reuses_guaranteed_recent_five_not_old_anchor():

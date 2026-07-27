@@ -105,6 +105,67 @@ def test_v34_critical_event_vetoes_without_phase_cooldown() -> None:
     }
 
 
+def test_v35b_vetoes_first_validation_target_only() -> None:
+    mutation = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {
+                            "command": (
+                                "python -c \"open('pkg/a.py', 'w').write('x')\""
+                            )
+                        },
+                    }
+                }
+            ],
+        },
+        {"role": "tool", "content": "<returncode>0</returncode>"},
+    ]
+    validation = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {
+                            "command": "python -m pytest tests/test_a.py"
+                        },
+                    }
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": "<returncode>0</returncode><output>1 passed</output>",
+        },
+    ]
+
+    guarded, releases, decision = bridge.apply_current_target_veto(
+        arm="coding_version_validation_target_v35b",
+        selected_groups=[mutation, validation],
+        target={"source_id": "source-3"},
+        releases=[],
+    )
+    assert guarded is None
+    assert releases == ["source-3"]
+    assert decision["target_veto_reasons"] == [
+        "first_validation_of_version_before_submit"
+    ]
+
+    retained, _, second = bridge.apply_current_target_veto(
+        arm="coding_version_validation_target_v35b",
+        selected_groups=[mutation, validation, validation],
+        target={"source_id": "source-4"},
+        releases=[],
+    )
+    assert retained == {"source_id": "source-4"}
+    assert second["target_vetoed"] is False
+
+
 def test_query_closes_underlying_sync_stream(monkeypatch) -> None:
     chunk = SimpleNamespace(
         choices=[

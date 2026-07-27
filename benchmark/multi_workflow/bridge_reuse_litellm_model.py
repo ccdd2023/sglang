@@ -28,6 +28,7 @@ from pydantic import Field, model_validator
 
 from benchmark.multi_workflow.coding_reuse_policy import (
     coding_state_transition_target_reasons,
+    coding_version_validation_target_reasons,
     critical_coding_event_reasons,
     effective_copy_cap,
     post_mutation_payoff_guard,
@@ -51,6 +52,7 @@ MEMORY_ARMS = ("coding_memory_dense_v5", "coding_memory_v5")
 TARGET_VETO_ARMS = (
     "coding_state_transition_target_v33b",
     "coding_critical_current_target_v34",
+    "coding_version_validation_target_v35b",
 )
 
 
@@ -90,6 +92,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_critical_event_abstain_v31",
         "coding_state_transition_target_v33b",
         "coding_critical_current_target_v34",
+        "coding_version_validation_target_v35b",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
@@ -165,6 +168,8 @@ def apply_current_target_veto(
         reasons = critical_coding_event_reasons(
             selected_groups[-1] if selected_groups else ()
         )
+    elif arm == "coding_version_validation_target_v35b":
+        reasons = coding_version_validation_target_reasons(selected_groups)
     else:
         reasons = []
     vetoed = bool(reasons and target is not None)
@@ -686,12 +691,20 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             )
             if self.config.reuse_arm in TARGET_VETO_ARMS:
                 dense_veto_mode = (
+                    "version_validation_target_dense_veto"
+                    if self.config.reuse_arm
+                    == "coding_version_validation_target_v35b"
+                    else
                     "critical_current_target_dense_veto"
                     if self.config.reuse_arm
                     == "coding_critical_current_target_v34"
                     else "state_transition_target_dense_veto"
                 )
                 general_reuse_mode = (
+                    "version_validation_target_general_reuse"
+                    if self.config.reuse_arm
+                    == "coding_version_validation_target_v35b"
+                    else
                     "critical_current_target_general_reuse"
                     if self.config.reuse_arm
                     == "coding_critical_current_target_v34"

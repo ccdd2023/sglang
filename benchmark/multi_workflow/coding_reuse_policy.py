@@ -59,6 +59,12 @@ _EXECUTION_OR_STATE_COMMAND = re.compile(
     r"|\bmake\s+(?:test|check)\b",
     re.I,
 )
+_FOCUSED_VALIDATION_COMMAND = re.compile(
+    r"\b(?:pytest|tox|unittest)\b"
+    r"|\bmake\s+(?:test|check)\b"
+    r"|\bpython\d*\b",
+    re.I,
+)
 _CONCRETE_PYTHON_READ = re.compile(
     r"(?:^|&&\s*|;\s*|\|\|\s*)"
     r"(?:cat|head|tail)\s+(?:-[^\s]+\s+)*[^\s|;]+\.py\b"
@@ -400,6 +406,55 @@ def is_successful_executable_evidence(
     return bool(return_codes) and all(value == 0 for value in return_codes)
 
 
+def is_successful_focused_validation(
+    group: Sequence[dict[str, Any]],
+) -> bool:
+    """Identify a successful focused execution, excluding state-only tools."""
+
+    commands = "\n".join(
+        command
+        for message in group
+        if (command := _tool_command(message))
+    )
+    return bool(
+        _FOCUSED_VALIDATION_COMMAND.search(commands)
+        and is_successful_executable_evidence(group)
+        and not critical_coding_event_reasons(group)
+    )
+
+
+def coding_version_validation_target_reasons(
+    groups: Sequence[Sequence[dict[str, Any]]],
+) -> list[str]:
+    """Protect repair and first-validation decisions for a code version."""
+
+    if not groups:
+        return []
+    latest = groups[-1]
+    if is_high_value_executable_failure(latest):
+        return ["executable_failure_before_repair"]
+    if not is_successful_focused_validation(latest):
+        return []
+    state_changes = [
+        index
+        for index, group in enumerate(groups[:-1])
+        if any(
+            reason
+            in {"repository_mutation_command", "repository_diff_observed"}
+            for reason in critical_coding_event_reasons(group)
+        )
+    ]
+    if not state_changes:
+        return []
+    latest_change = state_changes[-1]
+    if any(
+        is_successful_focused_validation(group)
+        for group in groups[latest_change + 1 : -1]
+    ):
+        return []
+    return ["first_validation_of_version_before_submit"]
+
+
 def coding_state_transition_target_reasons(
     groups: Sequence[Sequence[dict[str, Any]]],
 ) -> list[str]:
@@ -512,6 +567,7 @@ def select_reuse_groups(
         "general_dual_4k",
         "coding_state_transition_target_v33b",
         "coding_critical_current_target_v34",
+        "coding_version_validation_target_v35b",
     ):
         decision["mode"] = (
             "general_contiguous_8k"
@@ -522,6 +578,8 @@ def select_reuse_groups(
             if arm == "coding_state_transition_target_v33b"
             else "critical_current_target_general_source"
             if arm == "coding_critical_current_target_v34"
+            else "version_validation_target_general_source"
+            if arm == "coding_version_validation_target_v35b"
             else "general_contiguous"
         )
         return retained, decision
