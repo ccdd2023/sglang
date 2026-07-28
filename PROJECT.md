@@ -33,6 +33,10 @@
 - `IMPLEMENTATION_PLAN_LATEST.md`为V5 Draft / Revised，尚未标Current / Latest。
 - V5 full review发现的8个P0已全部关闭；targeted delta review新增MDE定义P0，
   已用CL2 body768/chunk4096 noise model冻结为`MDE=5%`。
+- 最终minimal delta：
+  - Sol：`PASS WITH CAVEATS`，唯一retained rho3 scope已修；
+  - Opus：`PASS WITH CAVEATS`，确认计划足以生成primary manifest；
+  - 无开放P0，budget算术无误。
 - V5实际范围：
   - practical=`NONE`；
   - R0 ceiling、条件R2、R4-like synthetic footprint proxy；
@@ -43,7 +47,7 @@
   - committed 13 GPU settings/30 starts；含条件项16/33；hard cap36/6 GPUh；
   - N=1/2/4/8改为一次setup后的真实连续8 targets，不再外推；
   - fallback仅有fault-injected canary证据，natural pressure claim必须重新取证。
-- 下一步：一次minimal delta确认；随后生成并review Phase7 primary manifest。
+- 下一步：生成、提交并review Phase7 primary manifest。
 - 仍未进入Phase7。
 
 ### 2026-07-27 V5双模型full review与交叉consolidation完成，revision待delta review

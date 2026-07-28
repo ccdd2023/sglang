@@ -17,13 +17,14 @@
 
 - V4已归档为`IMPLEMENTATION_PLAN_V4_ARCHIVED.md`。
 - latest为V5 Draft / Revised，尚未标记Current / Latest。
-- 8个accepted P0已关闭；targeted review新增MDE定义P0，现冻结`MDE=5%`。
+- 8个accepted P0已关闭；targeted review新增MDE定义P0，现冻结`MDE=5%`；
+  final minimal delta无开放P0，计划已足以生成primary manifest。
 - Phase7已收窄为R0 ceiling、条件R2、R4-like proxy与R0 W×S0/S4；
   practical/host/prefetch/async轨道默认全部跳过。
 - primary chunk=`4096`；`1024`只作diagnostic sensitivity。
 - 预算：committed 13 GPU settings/30 starts；含条件项16/33；
   hard cap36 starts/6 GPUh。
-- 仍未进入Phase7。
+- 下一步生成并review Phase7 primary manifest；仍未进入Phase7。
 
 ### 2026-07-27T17:15:00-07:00 V5 full review FAIL已修订，等待targeted delta
 

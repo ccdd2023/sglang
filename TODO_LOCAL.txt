@@ -193,7 +193,7 @@ The caveat is permanent:
        Both independent reviews and report exchange are complete; current
        cross-consolidated verdict was FAIL. Accepted P0 work is revised in
        V5; targeted delta review closed all 8 and added one MDE-definition P0,
-       now fixed at MDE=5%. One minimal confirmation remains before manifest:
+       now fixed at MDE=5%. Final minimal confirmation has no open P0:
        A8/W workload split, D0/E0/R0 baseline, P6-4Delta-4096, runner/manifest
        engineering gate, R4 S0/S4-only, expanded outcome taxonomy and
        chunk-confounded Phase4 wording.

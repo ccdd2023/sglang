@@ -2763,3 +2763,15 @@ technical_exit = PASS WITH CAVEATS
   - budget wave-0、条件项余量与预期22 starts；
   - §12/§14/HANDOFF/TODO同步。
 - V5仍为Draft / Revised；下一步做一次minimal delta确认，然后生成primary manifest。
+## 2026-07-27T18:05:00-07:00 — V5 final minimal delta：计划可生成primary manifest
+
+- Sol targeted delta：原8个P0全部CLOSED；新增rho3 scope P1。
+- Opus targeted delta：原8个P0与全部P1/P2 CLOSED；新增MDE定义P0。
+- MDE按CL2 body768/chunk4096实测冻结为5%；相关W指标、setup双口径、
+  A8压力组成、W完整列表、budget同步全部修复。
+- Sol retained P1已修：P6-4Δ A/B只关闭rho2兼容性；S4/rho3仅在需要
+  chunk4096/rho3 claim时运行，否则rho3永久限定chunk1024。
+- dense-A8 source materialization口径已补齐；incremental不可分时写
+  `not_separable`。
+- 最终review结论均为`PASS WITH CAVEATS`，无开放P0，V5计划已足以生成
+  Phase7 primary manifest。
