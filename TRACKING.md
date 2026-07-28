@@ -2915,3 +2915,17 @@ technical_exit = PASS WITH CAVEATS
 - 不建议在Entry前扩大到R1/R5/真实R4/host/prefetch；如扩大，必须新版计划、
   新design hash和完整review。
 - P7-0b chunk4096 feasibility属于授权后的wave-0，不是Entry前Gate。
+
+## 2026-07-28T00:07:40-07:00 — 用户选择方案B并增加最终Opus复核门
+
+- 用户选择方案B：实现两个runner，对R2执行有界feasibility并在非侵入时
+  实现adapter。
+- 用户条件性授权：完成Step 1–5、必要plan更新与归档后，按Latest Plan执行
+  Phase7。
+- 新增强制最终门：rev6 pin后、任何GPU执行前，使用
+  Claude Opus 5 / Max Thinking审阅final plan与execution package。
+- Opus输入必须覆盖plan、manifest revision/design chain、runner/tests、
+  R2 disposition、pinned SHA/tree/blob hashes、budget与early-stop。
+- accepted feedback必须闭合；若design改变，必须旧版归档、新版latest、
+  新design hash并再次review。
+- 只有最终无开放P0/P1，条件性授权才生效，manifest才可转`authorized`。

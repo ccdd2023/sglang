@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-27T23:50:58-07:00
+最后更新：2026-07-28T00:07:40-07:00
 
 ## 项目概况
 
@@ -26,6 +26,25 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-28 最终Phase7计划增加Opus 5 Max Thinking强制复核门
+
+- 用户已明确选择方案B，并授权在前置Gate完成后执行Phase7。
+- 该授权是条件性授权：在GPU执行前的最后定稿阶段，必须让
+  **Claude Opus 5 / Max Thinking**独立审阅最终Phase7 plan与执行包。
+- 最终审阅输入至少包括：
+  - final `IMPLEMENTATION_PLAN_LATEST.md`；
+  - rev6 pinned manifest及revision/design chain；
+  - 两个runner及CPU test结果；
+  - R2 adapter feasibility、实现与review disposition；
+  - final implementation SHA/tree/runner blob hashes；
+  - Entry blocker、预算、early-stop和Docker执行合同。
+- 主会话必须逐条处理Opus feedback：
+  - accepted finding必须修改并重新验证；
+  - rejected finding必须给出证据化理由；
+  - 如修改plan design，必须归档旧版、创建新版、更新design hash并再次复核。
+- 只有最终Opus verdict无开放P0/P1，且反馈闭合后，条件性用户授权才生效，
+  manifest才能转为`authorized`并开始Phase7。
 
 ### 2026-07-27 Phase7正式Entry前剩余Gate与推荐路径
 

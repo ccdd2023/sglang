@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-27T23:50:58-07:00
+最后更新：2026-07-28T00:07:40-07:00
 
 ## 新会话启动顺序
 
@@ -13,6 +13,16 @@
 
 ## 当前快照
 
+### 2026-07-28T00:07:40-07:00 新增最终Opus审阅门
+
+- 用户已选择方案B，并条件性授权完成前置工作后执行Phase7。
+- rev6 pin后、任何Phase7 GPU执行前，必须使用
+  **Claude Opus 5 / Max Thinking**审阅最终plan、manifest、runner、
+  R2 disposition与implementation binding。
+- 必须闭合全部accepted feedback；若plan design改变，归档旧版、创建新版、
+  更新design hash并重新review。
+- 只有最终无开放P0/P1，条件性授权才生效并转`authorized`。
+
 ### 2026-07-27T23:50:58-07:00 Phase7 Entry前推荐顺序
 
 1. 实现`run_p7_ceiling.py`和`run_p7_scheduler.py`；
@@ -22,7 +32,8 @@
    - 侵入性过高则冻结`disabled_not_comparable`；
 4. 生成manifest rev6并pin final SHA/tree/runner hashes，转
    `pinned_blocked`；
-5. 等待用户明确授权后才转`authorized`。
+5. Opus 5 Max Thinking审阅最终定稿并闭合feedback；
+6. 应用用户已给出的条件性授权，转`authorized`。
 
 当前推荐证据增强路线：只在R2 adapter不改变core recovery语义时实现它；
 不建议在Entry前扩大到R1/R5/真实R4/host/prefetch。P7-0b chunk4096

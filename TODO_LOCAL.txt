@@ -205,7 +205,9 @@ The caveat is permanent:
        Revision 4 accepted by Sol/Opus; no open P0/P1.
        Status remains preregistered_blocked and execution_authorized=false.
 
-[ ] 10. Obtain explicit user authorization for Phase 7.
+[x] 10. Record explicit conditional user authorization for Phase 7.
+       Received 2026-07-28: execute Phase7 only after runners, R2 strategy,
+       final pin, plan disposition and final Opus review are complete.
 
 [ ] 11. Implement and review run_p7_ceiling.py and run_p7_scheduler.py.
        Both must pass CPU tests and targeted review before the manifest may
@@ -222,6 +224,13 @@ The caveat is permanent:
        98cff1d8c1c8586335f33463bf98b2b494df78ebcbe8baceb47c32dc89e9ab78
        and preserve design hash
        24f149f140cf593c68d90ad7d6959b1b008f804f71766bff35ddae2b4c95732d.
+
+[ ] 14. Final Opus 5 Max Thinking review before Phase7 execution.
+       Review the final plan, rev6 manifest, runner/test/review evidence, R2
+       disposition and pinned implementation. Close all accepted feedback.
+       If the plan design changes, archive the old version, create a new
+       latest version, update the design hash and repeat review. Only after
+       no open P0/P1 may the conditional user authorization become active.
 
 
 3.3 CONDITIONAL - ONLY IF TRIGGERED
