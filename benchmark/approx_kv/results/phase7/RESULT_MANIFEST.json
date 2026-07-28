@@ -22,9 +22,9 @@
   "files": [
     {
       "file": "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
-      "sha256": "ae33cda35580377102a54910b4585162f98bed7071fcb5914d0385022ff79c5c",
-      "bytes": 89437,
-      "containing_commit": "755645427a4371d061f56345e08694383d668da8"
+      "sha256": "995a308c939ca597ec385190281d6972b3933d3e3157d78cee126801100ace9a",
+      "bytes": 98202,
+      "containing_commit": "cba6c3b05822d4af4f170a503e43fc7766d09805"
     }
   ]
 }
