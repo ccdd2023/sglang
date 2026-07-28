@@ -4,7 +4,7 @@
   "purpose": "Supply the file-to-commit mapping that the individual result artifacts cannot: a runner never knows the commit that will contain its own output, so every artifact carries result_git_sha=null and result_commit_status=pending_result_commit.",
   "authority": "This manifest, not the result_git_sha field inside an artifact, is the authoritative mapping. Regenerate and re-check it in the same commit that adds or changes an artifact, otherwise entries rot into pending or stale-blob states.",
   "known_gaps": [
-    "The Phase7 manifest is pre-implementation and blocked. Runner outputs and logs do not exist yet."
+    "The Phase7 plan, runners and implementation are pinned. Execution remains blocked on the mandatory final Opus review, so GPU result artifacts and logs do not exist yet."
   ],
   "environment": {
     "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
@@ -22,9 +22,9 @@
   "files": [
     {
       "file": "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
-      "sha256": "5a41ffb238b10a38dbd0d20cceb160f780bfdb4815cdc4f4cebce6a0357f20e5",
-      "bytes": 91124,
-      "containing_commit": "04d92b8453f91eca89dbf36c7586cf909c6a2713"
+      "sha256": "45d5a69702a9f892043e0cb31c24497d22887675f062e19ded7a7cb03329c60f",
+      "bytes": 89454,
+      "containing_commit": "8ac01ca91431dcacd9c05ce4c79acd1358d4e827"
     }
   ]
 }
