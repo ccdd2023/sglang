@@ -1,0 +1,383 @@
+{
+  "artifact": "phase7-compact-result",
+  "compact_sha256": "0b705933877ec3cf3f14cc06eca1d2e974a635d00444fbc264ab936837d3df16",
+  "engineering_valid": true,
+  "inactive_counter_assertion": {
+    "assertions": {
+      "async_load": {
+        "manifest_pinned_disabled": true,
+        "manifest_pins": {
+          "plugin_env.SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+          "skipped_track": "async_h2d_performance"
+        },
+        "metric": "sglang:approx_kv_h2d_duration_seconds_count",
+        "source_observation_count": 1,
+        "value": null,
+        "verification": "indirectly_verified"
+      },
+      "host_load": {
+        "manifest_pinned_disabled": true,
+        "manifest_pins": {
+          "plugin_env.SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+          "skipped_track": "host_matrix"
+        },
+        "metric": "sglang:approx_kv_h2d_tokens_total",
+        "source_observation_count": 1,
+        "value": null,
+        "verification": "indirectly_verified"
+      },
+      "prefetch_loaded_tokens": {
+        "manifest_pinned_disabled": true,
+        "manifest_pins": {
+          "skipped_tracks": [
+            "prefetch_functionality",
+            "prefetch_performance"
+          ]
+        },
+        "metric": "sglang:workflow_prefetch_loaded_tokens_total",
+        "source_observation_count": 1,
+        "value": null,
+        "verification": "indirectly_verified"
+      },
+      "prefetch_request": {
+        "manifest_pinned_disabled": true,
+        "manifest_pins": {
+          "skipped_tracks": [
+            "prefetch_functionality",
+            "prefetch_performance"
+          ]
+        },
+        "metric": "sglang:workflow_prefetch_requests_total",
+        "source_observation_count": 1,
+        "value": null,
+        "verification": "indirectly_verified"
+      }
+    },
+    "passed": true,
+    "required_counters": [
+      "host_load",
+      "prefetch_request",
+      "prefetch_loaded_tokens",
+      "async_load"
+    ]
+  },
+  "key_metrics": {
+    "bidirectional_pressure": {
+      "approx_evicted_bytes": 47299166208.0,
+      "approx_requester_exact_victim_bytes": 17929404416.0,
+      "exact_evicted_bytes": 25212092416.0,
+      "exact_requester_approx_victim_bytes": 33676066816.0,
+      "passed": true
+    },
+    "cells": [
+      {
+        "capacity_relative_error": 0.0,
+        "policy": "S0",
+        "profiles": [
+          {
+            "formal_cache_outcomes": [
+              {
+                "approximate_gpu_recovery": 0,
+                "dense_fallback": 0,
+                "exact_cache_miss": 5,
+                "exact_gpu_hit": 0,
+                "host_demand_load": 0,
+                "unknown": 0
+              },
+              {
+                "approximate_gpu_recovery": 0,
+                "dense_fallback": 0,
+                "exact_cache_miss": 5,
+                "exact_gpu_hit": 0,
+                "host_demand_load": 0,
+                "unknown": 0
+              }
+            ],
+            "profile": "exact_only",
+            "reachability": "reachable",
+            "representation_kinds": [],
+            "valid": true
+          },
+          {
+            "formal_cache_outcomes": [
+              {
+                "approximate_gpu_recovery": 0,
+                "dense_fallback": 5,
+                "exact_cache_miss": 0,
+                "exact_gpu_hit": 0,
+                "host_demand_load": 0,
+                "unknown": 0
+              },
+              {
+                "approximate_gpu_recovery": 0,
+                "dense_fallback": 5,
+                "exact_cache_miss": 0,
+                "exact_gpu_hit": 0,
+                "host_demand_load": 0,
+                "unknown": 0
+              }
+            ],
+            "profile": "r0_like",
+            "reachability": "reachable",
+            "representation_kinds": [
+              "canonical_base"
+            ],
+            "valid": true
+          },
+          {
+            "formal_cache_outcomes": [
+              {
+                "approximate_gpu_recovery": 0,
+                "dense_fallback": 5,
+                "exact_cache_miss": 0,
+                "exact_gpu_hit": 0,
+                "host_demand_load": 0,
+                "unknown": 0
+              },
+              {
+                "approximate_gpu_recovery": 0,
+                "dense_fallback": 5,
+                "exact_cache_miss": 0,
+                "exact_gpu_hit": 0,
+                "host_demand_load": 0,
+                "unknown": 0
+              }
+            ],
+            "profile": "r1_like_k32",
+            "reachability": "reachable",
+            "representation_kinds": [
+              "canonical_base",
+              "repair_state"
+            ],
+            "valid": true
+          },
+          {
+            "formal_cache_outcomes": [
+              {
+                "approximate_gpu_recovery": 0,
+                "dense_fallback": 5,
+                "exact_cache_miss": 0,
+                "exact_gpu_hit": 0,
+                "host_demand_load": 0,
+                "unknown": 0
+              },
+              {
+                "approximate_gpu_recovery": 0,
+                "dense_fallback": 5,
+                "exact_cache_miss": 0,
+                "exact_gpu_hit": 0,
+                "host_demand_load": 0,
+                "unknown": 0
+              }
+            ],
+            "profile": "r2_like",
+            "reachability": "reachable",
+            "representation_kinds": [
+              "canonical_base",
+              "precomputed_adapter"
+            ],
+            "valid": true
+          },
+          {
+            "formal_cache_outcomes": [
+              {
+                "approximate_gpu_recovery": 0,
+                "dense_fallback": 5,
+                "exact_cache_miss": 0,
+                "exact_gpu_hit": 0,
+                "host_demand_load": 0,
+                "unknown": 0
+              },
+              {
+                "approximate_gpu_recovery": 0,
+                "dense_fallback": 5,
+                "exact_cache_miss": 0,
+                "exact_gpu_hit": 0,
+                "host_demand_load": 0,
+                "unknown": 0
+              }
+            ],
+            "profile": "r4_like",
+            "reachability": "reachable",
+            "representation_kinds": [
+              "canonical_base",
+              "anchor",
+              "delta",
+              "anchor",
+              "delta"
+            ],
+            "valid": true
+          }
+        ],
+        "status": "diagnostic-unavailable"
+      }
+    ],
+    "fallback_reachability": {
+      "passed": false,
+      "rounds": 0
+    },
+    "observed_capacity": {
+      "bytes": [
+        1306525696
+      ],
+      "pages": [
+        11392
+      ],
+      "tokens": [
+        11392
+      ]
+    },
+    "requested_capacity": {
+      "bytes": [
+        1306525696
+      ],
+      "pages": [
+        11392
+      ],
+      "tokens": [
+        11392
+      ]
+    }
+  },
+  "outcome": {
+    "counts": {
+      "approximate_gpu_recovery": 0,
+      "approximate_recovery_failed_dense": 40,
+      "dense_no_reuse_baseline": 0,
+      "exact_gpu_hit": 0,
+      "host_demand_load": 0,
+      "ordinary_exact_cache_miss": 10
+    },
+    "exclusive_terminal_reasons": [
+      "cross_store_reservation_failed",
+      "device_allocation_failed",
+      "unsupported",
+      "registration_failed",
+      "prefix_gap"
+    ],
+    "taxonomy": [
+      "dense_no_reuse_baseline",
+      "exact_gpu_hit",
+      "ordinary_exact_cache_miss",
+      "approximate_gpu_recovery",
+      "host_demand_load",
+      "approximate_recovery_failed_dense"
+    ],
+    "terminal_reason_counts": {}
+  },
+  "phase": "Phase7-capacity",
+  "provenance": {
+    "implementation": {
+      "atomic_update_required": [
+        "phase7-primary-manifest.json",
+        "RESULT_MANIFEST.json"
+      ],
+      "external_authority_update_required": [
+        "HANDOFF.md",
+        "PROJECT.md",
+        "TODO_LOCAL.txt"
+      ],
+      "manifest_generation_sha": "b0837505abc4efe7df914c3b504693956fe71df9",
+      "manifest_generation_tree_sha": "3f0ac373cd5dc21218679ed26c406182fa82b11c",
+      "phase6_evidence_sha": "924c9d1d6c074f304189248f0fc5b15aa6d25adb",
+      "phase7_pinned_implementation_sha": "81405f4278b034911bc613c4ee17c79d15ee8f35",
+      "phase7_pinned_tree_sha": "4a8bf0f6cd72ec09859f8301dc92b6aabb25d2bf",
+      "post_pin_envelope_allowlist": [
+        "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json",
+        "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
+        "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
+        "benchmark/approx_kv/results/phase7/evidence/ceiling-cpu.json",
+        "benchmark/approx_kv/results/phase7/evidence/scheduler-cpu.json",
+        "benchmark/approx_kv/results/phase7/evidence/capacity-pilot-cpu.json"
+      ],
+      "post_pin_envelope_rule": "the pinned code SHA must be an ancestor of the execution HEAD and every path changed between them must appear in post_pin_envelope_allowlist"
+    },
+    "manifest_file_sha256": "c0a14e3a8127db4ad7fba20920a156b9b731e7ea36711c8c104a49bca3a8667d",
+    "manifest_path": "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
+    "runner_sha256": "ff21855bbf1d98f8615d19cdf884bbf301694fb815b4b08e3a14cbc5207c84a2",
+    "source": {
+      "execution_head_git_sha": "d42a5d1546680de458122f605f8a486b8faf5564",
+      "execution_head_tree_sha": "395b7584407d1cef759abcd21674fb239ff3e967",
+      "source_binding": "pinned_code_sha_with_post_pin_result_envelope",
+      "source_git_sha": "81405f4278b034911bc613c4ee17c79d15ee8f35",
+      "source_tree_sha": "4a8bf0f6cd72ec09859f8301dc92b6aabb25d2bf"
+    }
+  },
+  "reset_validation": {
+    "passed": true
+  },
+  "restart_index": 0,
+  "run_id": "p7-capacity-p6delta-s0-rho2-chunk4096-r0-20260728T163728907312Z",
+  "runner": {
+    "module": "benchmark.approx_kv.run_p6_4_capacity_pilot",
+    "path": "benchmark/approx_kv/run_p6_4_capacity_pilot.py",
+    "sha256": "ff21855bbf1d98f8615d19cdf884bbf301694fb815b4b08e3a14cbc5207c84a2"
+  },
+  "schema_version": 1,
+  "setting": {
+    "activation_rule_id": null,
+    "arm_order_by_repeat": {
+      "0": [
+        "exact_only",
+        "r0_like",
+        "r1_like_k32",
+        "r2_like",
+        "r4_like"
+      ],
+      "1": [
+        "r4_like",
+        "r2_like",
+        "r1_like_k32",
+        "r0_like",
+        "exact_only"
+      ]
+    },
+    "arms": [
+      "exact_only",
+      "r0_like",
+      "r1_like_k32",
+      "r2_like",
+      "r4_like"
+    ],
+    "body_tokens": 2048,
+    "capacity_mode": "explicit_max_total_tokens",
+    "capacity_relative_error_tolerance": 0.05,
+    "chunked_prefill_size": 4096,
+    "conditional": false,
+    "formal_repeats": 2,
+    "known_capacity_ceiling_tokens": 20713,
+    "max_prefill_tokens": 4096,
+    "max_total_tokens": 11392,
+    "mem_fraction_static": 0.65,
+    "policy": "lru",
+    "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8",
+    "restart_indices": [
+      0
+    ],
+    "rho_logical_demand": 2.0,
+    "rho_realization": "capacity_pinning",
+    "runner": "benchmark.approx_kv.run_p6_4_capacity_pilot",
+    "screening_restarts": [
+      0
+    ],
+    "setting_id": "p6delta-s0-rho2-chunk4096",
+    "supplement_gate": null,
+    "supplement_restarts": [],
+    "warmup_repeats": 1,
+    "wave": "wave-0",
+    "workload": "W-fixed40-v1"
+  },
+  "setting_id": "p6delta-s0-rho2-chunk4096",
+  "source_hashes": {
+    "raw": {
+      "file_sha256": "1e5c0da07b32beb5a063a5d4f6810139e50f6eb22c0698fee1616176c9da4432",
+      "internal_raw_sha256": "80e8e83d7b587b1ed566889e1603eead82eb2618b58a2f9a1816fb8eae741ff3",
+      "path": "raw/p6delta-s0-rho2-chunk4096-r0.json"
+    },
+    "server_log": {
+      "path": "logs/p6delta-s0-rho2-chunk4096-r0.log",
+      "sha256": "215db919318ec96e3f4c87b8e6e46fafdd3865c4a839f95eb8a5bf4fe4e4e910"
+    }
+  },
+  "status": "inconclusive"
+}

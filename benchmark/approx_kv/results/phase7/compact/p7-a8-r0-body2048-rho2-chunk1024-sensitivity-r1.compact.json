@@ -1,0 +1,1746 @@
+{
+  "artifact": "phase7-compact-result",
+  "compact_sha256": "d2d002502b2b4cc4a20ccb3218cb1a3b4d7518b39017d6ddeb67c2d90dd261ec",
+  "engineering_valid": true,
+  "inactive_counter_assertion": {
+    "assertions": {
+      "async_load": {
+        "manifest_pinned_disabled": true,
+        "manifest_pins": {
+          "plugin_env.SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+          "skipped_track": "async_h2d_performance"
+        },
+        "metric": "sglang:approx_kv_h2d_duration_seconds_count",
+        "source_observation_count": 9,
+        "value": null,
+        "verification": "indirectly_verified"
+      },
+      "host_load": {
+        "manifest_pinned_disabled": true,
+        "manifest_pins": {
+          "plugin_env.SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+          "skipped_track": "host_matrix"
+        },
+        "metric": "sglang:approx_kv_h2d_tokens_total",
+        "source_observation_count": 9,
+        "value": null,
+        "verification": "indirectly_verified"
+      },
+      "prefetch_loaded_tokens": {
+        "manifest_pinned_disabled": true,
+        "manifest_pins": {
+          "skipped_tracks": [
+            "prefetch_functionality",
+            "prefetch_performance"
+          ]
+        },
+        "metric": "sglang:workflow_prefetch_loaded_tokens_total",
+        "source_observation_count": 9,
+        "value": null,
+        "verification": "indirectly_verified"
+      },
+      "prefetch_request": {
+        "manifest_pinned_disabled": true,
+        "manifest_pins": {
+          "skipped_tracks": [
+            "prefetch_functionality",
+            "prefetch_performance"
+          ]
+        },
+        "metric": "sglang:workflow_prefetch_requests_total",
+        "source_observation_count": 9,
+        "value": null,
+        "verification": "indirectly_verified"
+      }
+    },
+    "passed": true,
+    "required_counters": [
+      "host_load",
+      "prefetch_request",
+      "prefetch_loaded_tokens",
+      "async_load"
+    ]
+  },
+  "key_metrics": {
+    "canary": [
+      {
+        "complete_8_tokens": true,
+        "dense_cached_tokens": 64,
+        "dense_elapsed_ms": 1166.167243005475,
+        "dense_output_ids": [
+          198,
+          197,
+          197,
+          322,
+          220,
+          16,
+          13,
+          2126
+        ],
+        "dense_seed_ms": 59.22253101016395,
+        "engineering_status": "valid",
+        "execution_order": [
+          "recovery",
+          "dense_reference"
+        ],
+        "included_in_amortization": false,
+        "matched": true,
+        "placement": "after_target_8_before_reset",
+        "positions": [
+          {
+            "dense": 198,
+            "match": true,
+            "position": 0,
+            "recovery": 198
+          },
+          {
+            "dense": 197,
+            "match": true,
+            "position": 1,
+            "recovery": 197
+          },
+          {
+            "dense": 197,
+            "match": true,
+            "position": 2,
+            "recovery": 197
+          },
+          {
+            "dense": 322,
+            "match": true,
+            "position": 3,
+            "recovery": 322
+          },
+          {
+            "dense": 220,
+            "match": true,
+            "position": 4,
+            "recovery": 220
+          },
+          {
+            "dense": 16,
+            "match": true,
+            "position": 5,
+            "recovery": 16
+          },
+          {
+            "dense": 13,
+            "match": true,
+            "position": 6,
+            "recovery": 13
+          },
+          {
+            "dense": 2126,
+            "match": true,
+            "position": 7,
+            "recovery": 2126
+          }
+        ],
+        "recovery_cached_tokens": 2112,
+        "recovery_elapsed_ms": 649.0760820161086,
+        "recovery_outcome": {
+          "ambiguity": null,
+          "expected_outcome": true,
+          "outcome": "approximate_gpu_recovery",
+          "outcome_verification": "direct",
+          "taxonomy_valid": true,
+          "terminal_reason": null,
+          "terminal_reason_verification": "not_applicable"
+        },
+        "recovery_output_ids": [
+          198,
+          197,
+          197,
+          322,
+          220,
+          16,
+          13,
+          2126
+        ],
+        "recovery_seed_ms": 60.7716380036436,
+        "total_ms": 1935.2374940353911
+      },
+      {
+        "complete_8_tokens": true,
+        "dense_cached_tokens": 64,
+        "dense_elapsed_ms": 1165.9006200206932,
+        "dense_output_ids": [
+          198,
+          197,
+          197,
+          322,
+          220,
+          16,
+          13,
+          2126
+        ],
+        "dense_seed_ms": 60.98947100690566,
+        "engineering_status": "valid",
+        "execution_order": [
+          "recovery",
+          "dense_reference"
+        ],
+        "included_in_amortization": false,
+        "matched": true,
+        "placement": "after_target_8_before_reset",
+        "positions": [
+          {
+            "dense": 198,
+            "match": true,
+            "position": 0,
+            "recovery": 198
+          },
+          {
+            "dense": 197,
+            "match": true,
+            "position": 1,
+            "recovery": 197
+          },
+          {
+            "dense": 197,
+            "match": true,
+            "position": 2,
+            "recovery": 197
+          },
+          {
+            "dense": 322,
+            "match": true,
+            "position": 3,
+            "recovery": 322
+          },
+          {
+            "dense": 220,
+            "match": true,
+            "position": 4,
+            "recovery": 220
+          },
+          {
+            "dense": 16,
+            "match": true,
+            "position": 5,
+            "recovery": 16
+          },
+          {
+            "dense": 13,
+            "match": true,
+            "position": 6,
+            "recovery": 13
+          },
+          {
+            "dense": 2126,
+            "match": true,
+            "position": 7,
+            "recovery": 2126
+          }
+        ],
+        "recovery_cached_tokens": 2112,
+        "recovery_elapsed_ms": 645.8523560140748,
+        "recovery_outcome": {
+          "ambiguity": null,
+          "expected_outcome": true,
+          "outcome": "approximate_gpu_recovery",
+          "outcome_verification": "direct",
+          "taxonomy_valid": true,
+          "terminal_reason": null,
+          "terminal_reason_verification": "not_applicable"
+        },
+        "recovery_output_ids": [
+          198,
+          197,
+          197,
+          322,
+          220,
+          16,
+          13,
+          2126
+        ],
+        "recovery_seed_ms": 59.876690997043625,
+        "total_ms": 1932.6191380387172
+      }
+    ],
+    "early_stop": {
+      "engineering_stop_always_applies": true,
+      "mde_gate_passed": null,
+      "mde_gate_required": false,
+      "r0_mde_applies": false,
+      "supplement": true,
+      "supplement_gate": "ES-W-UNCONDITIONAL"
+    },
+    "per_repeat": [
+      {
+        "amortization": {
+          "dense_source_materialization_ms": 977.6739979570266,
+          "full_setup_break_even_observed_N": 8,
+          "incremental_setup_break_even_observed_N": 4,
+          "incremental_setup_ms": 956.4717470493633,
+          "n": {
+            "1": {
+              "dense_total_ms": 910.6483719951939,
+              "reason": null,
+              "recovery_full_setup_total_ms": 2467.1203370089643,
+              "recovery_incremental_setup_total_ms": 1489.4463390519377,
+              "recovery_request_total_ms": 532.9745920025744,
+              "speedup_full_setup": 0.36911388485379953,
+              "speedup_incremental_setup": 0.6114005910242055,
+              "valid": true
+            },
+            "2": {
+              "dense_total_ms": 1821.1935370054562,
+              "reason": null,
+              "recovery_full_setup_total_ms": 2992.5473520415835,
+              "recovery_incremental_setup_total_ms": 2014.873354084557,
+              "recovery_request_total_ms": 1058.4016070351936,
+              "speedup_full_setup": 0.6085763474262142,
+              "speedup_incremental_setup": 0.9038749424689783,
+              "valid": true
+            },
+            "4": {
+              "dense_total_ms": 3640.4207970190328,
+              "reason": null,
+              "recovery_full_setup_total_ms": 4046.72610401758,
+              "recovery_incremental_setup_total_ms": 3069.0521060605533,
+              "recovery_request_total_ms": 2112.58035901119,
+              "speedup_full_setup": 0.8995965388922249,
+              "speedup_incremental_setup": 1.1861710623388177,
+              "valid": true
+            },
+            "8": {
+              "dense_total_ms": 7279.179054981796,
+              "reason": null,
+              "recovery_full_setup_total_ms": 6145.623563003028,
+              "recovery_incremental_setup_total_ms": 5167.949565046001,
+              "recovery_request_total_ms": 4211.477817996638,
+              "speedup_full_setup": 1.1844492231517125,
+              "speedup_incremental_setup": 1.4085236249624666,
+              "valid": true
+            }
+          },
+          "recovery_source_preparation_ms": 1934.14574500639
+        },
+        "arms": {
+          "D0": {
+            "ledger": {
+              "adapter_ms": 0.0,
+              "adapter_ms_note": "no adapter arm executes: R2 is disabled_not_comparable",
+              "cold_start_ms": "reported_at_server_level",
+              "full_lifecycle_ms": 12179.81520286412,
+              "materialize_ms": 977.6739979570266,
+              "non_overlapping_components": [
+                "source_preparation_ms",
+                "pressure_fill_ms",
+                "request_path_ms",
+                "same_context_canary_ms"
+              ],
+              "post_pressure_reseed_ms": 0.0,
+              "post_pressure_reseed_note": "the persistent registration lease replaces post-pressure re-registration; no reseed work is performed",
+              "pressure_fill_ms": 3922.962149925297,
+              "protocol_overhead_ms": "not_measured",
+              "register_copy_ms": 0.0,
+              "request_path_definition": "seed_head_ms + target_only_ms",
+              "request_path_ms": 7279.179054981796,
+              "same_context_canary_ms": 0.0,
+              "seed_head_ms": 0.0,
+              "source_preparation_ms": 977.6739979570266,
+              "source_preparation_scope": "initial_setup_only",
+              "target_only_ms": 7279.179054981796,
+              "transfer_ms": "not_measured"
+            },
+            "metrics": {
+              "arm_interval_peak_device_bytes": 1617788928.0,
+              "churn_bytes": {
+                "definition": "evicted_bytes + demoted_bytes (wasted is excluded)",
+                "unobserved_components": [
+                  "demote_bytes"
+                ],
+                "value": 3557851136.0,
+                "verification": "partially_direct"
+              },
+              "demote_bytes": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "inactive_tracks": {
+                "async_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_count",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_loaded_tokens": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_loaded_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_request": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_requests_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "peak_semantics": "arm_high_water_since_last_full_reset",
+              "reservation_failures": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "store_gauges_after": {
+                "sglang:approx_kv_provisional_tokens": 0.0,
+                "sglang:approx_kv_store_device_bytes": 0.0,
+                "sglang:approx_kv_store_host_bytes": 0.0,
+                "sglang:approx_kv_store_leases": 0.0,
+                "sglang:approx_kv_store_orphans": 0.0,
+                "sglang:approx_kv_store_records": 0.0,
+                "sglang:cross_store_reserved_device_bytes": 0.0
+              },
+              "transfer": {
+                "copied_tokens": {
+                  "indirect_evidence": null,
+                  "metric": "sglang:approx_kv_copied_tokens_total",
+                  "value": 0.0,
+                  "verification": "direct"
+                },
+                "h2d_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_tokens": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "victim_evict_bytes": {
+                "rows": [
+                  {
+                    "bytes_or_count": 58720256.0,
+                    "object_kind": "canonical_base",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  },
+                  {
+                    "bytes_or_count": 3499130880.0,
+                    "object_kind": "exact_variant",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  }
+                ],
+                "verification": "direct"
+              },
+              "wasted_bytes": {
+                "definition": "irreversibly destroyed bytes from failed allocations; already counted inside cross_store_evicted_bytes_total",
+                "indirect_evidence": null,
+                "metric": "sglang:cross_store_wasted_bytes_total",
+                "value": null,
+                "verification": "unknown",
+                "wasted_is_subset_of_evicted": true
+              }
+            },
+            "target_outcomes": [
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 910.6483719951939,
+                "target_id": "a8-b2048-target-0"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 910.5451650102623,
+                "target_id": "a8-b2048-target-1"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 910.0038300093729,
+                "target_id": "a8-b2048-target-2"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 909.2234300042037,
+                "target_id": "a8-b2048-target-3"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 909.7639039973728,
+                "target_id": "a8-b2048-target-4"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 910.0608359731268,
+                "target_id": "a8-b2048-target-5"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 909.9931870005094,
+                "target_id": "a8-b2048-target-6"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 908.9403309917543,
+                "target_id": "a8-b2048-target-7"
+              }
+            ]
+          },
+          "E0": {
+            "ledger": {
+              "adapter_ms": 0.0,
+              "adapter_ms_note": "no adapter arm executes: R2 is disabled_not_comparable",
+              "cold_start_ms": "reported_at_server_level",
+              "full_lifecycle_ms": 12654.814254987286,
+              "materialize_ms": 0.0,
+              "non_overlapping_components": [
+                "source_preparation_ms",
+                "pressure_fill_ms",
+                "request_path_ms",
+                "same_context_canary_ms"
+              ],
+              "post_pressure_reseed_ms": 0.0,
+              "post_pressure_reseed_note": "the persistent registration lease replaces post-pressure re-registration; no reseed work is performed",
+              "pressure_fill_ms": 4287.415510945721,
+              "protocol_overhead_ms": "not_measured",
+              "register_copy_ms": 0.0,
+              "request_path_definition": "seed_head_ms + target_only_ms",
+              "request_path_ms": 8367.398744041566,
+              "same_context_canary_ms": 0.0,
+              "seed_head_ms": 479.13710202556103,
+              "source_preparation_ms": 0.0,
+              "source_preparation_scope": "initial_setup_only",
+              "target_only_ms": 7888.261642016005,
+              "transfer_ms": "not_measured"
+            },
+            "metrics": {
+              "arm_interval_peak_device_bytes": 1618935808.0,
+              "churn_bytes": {
+                "definition": "evicted_bytes + demoted_bytes (wasted is excluded)",
+                "unobserved_components": [
+                  "demote_bytes"
+                ],
+                "value": 3543400448.0,
+                "verification": "partially_direct"
+              },
+              "demote_bytes": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "inactive_tracks": {
+                "async_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_count",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_loaded_tokens": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_loaded_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_request": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_requests_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "peak_semantics": "arm_high_water_since_last_full_reset",
+              "reservation_failures": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "store_gauges_after": {
+                "sglang:approx_kv_provisional_tokens": 0.0,
+                "sglang:approx_kv_store_device_bytes": 0.0,
+                "sglang:approx_kv_store_host_bytes": 0.0,
+                "sglang:approx_kv_store_leases": 0.0,
+                "sglang:approx_kv_store_orphans": 0.0,
+                "sglang:approx_kv_store_records": 0.0,
+                "sglang:cross_store_reserved_device_bytes": 0.0
+              },
+              "transfer": {
+                "copied_tokens": {
+                  "indirect_evidence": null,
+                  "metric": "sglang:approx_kv_copied_tokens_total",
+                  "value": 0.0,
+                  "verification": "direct"
+                },
+                "h2d_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_tokens": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "victim_evict_bytes": {
+                "rows": [
+                  {
+                    "bytes_or_count": 3543400448.0,
+                    "object_kind": "exact_variant",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  }
+                ],
+                "verification": "direct"
+              },
+              "wasted_bytes": {
+                "definition": "irreversibly destroyed bytes from failed allocations; already counted inside cross_store_evicted_bytes_total",
+                "indirect_evidence": null,
+                "metric": "sglang:cross_store_wasted_bytes_total",
+                "value": null,
+                "verification": "unknown",
+                "wasted_is_subset_of_evicted": true
+              }
+            },
+            "target_outcomes": [
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1043.1667270022444,
+                "target_id": "a8-b2048-target-0"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1052.7101370098535,
+                "target_id": "a8-b2048-target-1"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1049.7064820083324,
+                "target_id": "a8-b2048-target-2"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1044.5965259859804,
+                "target_id": "a8-b2048-target-3"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1043.7878820230253,
+                "target_id": "a8-b2048-target-4"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1046.3920070033055,
+                "target_id": "a8-b2048-target-5"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1043.317739997292,
+                "target_id": "a8-b2048-target-6"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1043.7212430115324,
+                "target_id": "a8-b2048-target-7"
+              }
+            ]
+          },
+          "R0": {
+            "ledger": {
+              "adapter_ms": 0.0,
+              "adapter_ms_note": "no adapter arm executes: R2 is disabled_not_comparable",
+              "cold_start_ms": "reported_at_server_level",
+              "full_lifecycle_ms": 11806.166000082158,
+              "materialize_ms": 980.8062799856998,
+              "non_overlapping_components": [
+                "source_preparation_ms",
+                "pressure_fill_ms",
+                "request_path_ms",
+                "same_context_canary_ms"
+              ],
+              "post_pressure_reseed_ms": 0.0,
+              "post_pressure_reseed_note": "the persistent registration lease replaces post-pressure re-registration; no reseed work is performed",
+              "pressure_fill_ms": 3725.3049430437386,
+              "protocol_overhead_ms": "not_measured",
+              "register_copy_ms": 953.3394650206901,
+              "request_path_definition": "seed_head_ms + target_only_ms",
+              "request_path_ms": 4211.477817996638,
+              "same_context_canary_ms": 1935.2374940353911,
+              "seed_head_ms": 481.34339100215584,
+              "source_preparation_ms": 1934.14574500639,
+              "source_preparation_scope": "initial_setup_only",
+              "target_only_ms": 3730.134426994482,
+              "transfer_ms": "not_measured"
+            },
+            "metrics": {
+              "arm_interval_peak_device_bytes": 1715159040.0,
+              "churn_bytes": {
+                "definition": "evicted_bytes + demoted_bytes (wasted is excluded)",
+                "unobserved_components": [
+                  "demote_bytes"
+                ],
+                "value": 1893957632.0,
+                "verification": "partially_direct"
+              },
+              "demote_bytes": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "inactive_tracks": {
+                "async_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_count",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_loaded_tokens": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_loaded_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_request": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_requests_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "peak_semantics": "arm_high_water_since_last_full_reset",
+              "reservation_failures": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "store_gauges_after": {
+                "sglang:approx_kv_provisional_tokens": 0.0,
+                "sglang:approx_kv_store_device_bytes": 234881024.0,
+                "sglang:approx_kv_store_host_bytes": 0.0,
+                "sglang:approx_kv_store_leases": 4.0,
+                "sglang:approx_kv_store_orphans": 0.0,
+                "sglang:approx_kv_store_records": 4.0,
+                "sglang:cross_store_reserved_device_bytes": 0.0
+              },
+              "transfer": {
+                "copied_tokens": {
+                  "indirect_evidence": null,
+                  "metric": "sglang:approx_kv_copied_tokens_total",
+                  "value": 18432.0,
+                  "verification": "direct"
+                },
+                "h2d_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_tokens": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "victim_evict_bytes": {
+                "rows": [
+                  {
+                    "bytes_or_count": 294748160.0,
+                    "object_kind": "exact_variant",
+                    "provenance": "exact",
+                    "requester": "approximate"
+                  },
+                  {
+                    "bytes_or_count": 58720256.0,
+                    "object_kind": "canonical_base",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  },
+                  {
+                    "bytes_or_count": 1540489216.0,
+                    "object_kind": "exact_variant",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  }
+                ],
+                "verification": "direct"
+              },
+              "wasted_bytes": {
+                "definition": "irreversibly destroyed bytes from failed allocations; already counted inside cross_store_evicted_bytes_total",
+                "indirect_evidence": null,
+                "metric": "sglang:cross_store_wasted_bytes_total",
+                "value": null,
+                "verification": "unknown",
+                "wasted_is_subset_of_evicted": true
+              }
+            },
+            "target_outcomes": [
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 532.9745920025744,
+                "target_id": "a8-b2048-target-0"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 525.4270150326192,
+                "target_id": "a8-b2048-target-1"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 525.9518800012302,
+                "target_id": "a8-b2048-target-2"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 528.2268719747663,
+                "target_id": "a8-b2048-target-3"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 528.3505360130221,
+                "target_id": "a8-b2048-target-4"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 526.0966730129439,
+                "target_id": "a8-b2048-target-5"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 522.5795369769912,
+                "target_id": "a8-b2048-target-6"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 521.8707129824907,
+                "target_id": "a8-b2048-target-7"
+              }
+            ]
+          }
+        },
+        "repeat_index": 0
+      },
+      {
+        "amortization": {
+          "dense_source_materialization_ms": 986.3937210175209,
+          "full_setup_break_even_observed_N": 8,
+          "incremental_setup_break_even_observed_N": 4,
+          "incremental_setup_ms": 972.435299976496,
+          "n": {
+            "1": {
+              "dense_total_ms": 919.8979409993626,
+              "reason": null,
+              "recovery_full_setup_total_ms": 2492.4041779886466,
+              "recovery_incremental_setup_total_ms": 1506.0104569711257,
+              "recovery_request_total_ms": 533.5751569946297,
+              "speedup_full_setup": 0.36908056451009247,
+              "speedup_incremental_setup": 0.6108177647381365,
+              "valid": true
+            },
+            "2": {
+              "dense_total_ms": 1841.781675000675,
+              "reason": null,
+              "recovery_full_setup_total_ms": 3022.795087978011,
+              "recovery_incremental_setup_total_ms": 2036.4013669604901,
+              "recovery_request_total_ms": 1063.966066983994,
+              "speedup_full_setup": 0.6092975611630586,
+              "speedup_incremental_setup": 0.90442960060948,
+              "valid": true
+            },
+            "4": {
+              "dense_total_ms": 3685.5351340200286,
+              "reason": null,
+              "recovery_full_setup_total_ms": 4081.8201069778297,
+              "recovery_incremental_setup_total_ms": 3095.426385960309,
+              "recovery_request_total_ms": 2122.991085983813,
+              "speedup_full_setup": 0.9029146403879103,
+              "speedup_incremental_setup": 1.1906389215832207,
+              "valid": true
+            },
+            "8": {
+              "dense_total_ms": 7368.067392031662,
+              "reason": null,
+              "recovery_full_setup_total_ms": 6199.506025004666,
+              "recovery_incremental_setup_total_ms": 5213.112303987145,
+              "recovery_request_total_ms": 4240.677004010649,
+              "speedup_full_setup": 1.1884926576914032,
+              "speedup_incremental_setup": 1.4133720822389233,
+              "valid": true
+            }
+          },
+          "recovery_source_preparation_ms": 1958.829020994017
+        },
+        "arms": {
+          "D0": {
+            "ledger": {
+              "adapter_ms": 0.0,
+              "adapter_ms_note": "no adapter arm executes: R2 is disabled_not_comparable",
+              "cold_start_ms": "reported_at_server_level",
+              "full_lifecycle_ms": 12391.796035022708,
+              "materialize_ms": 986.3937210175209,
+              "non_overlapping_components": [
+                "source_preparation_ms",
+                "pressure_fill_ms",
+                "request_path_ms",
+                "same_context_canary_ms"
+              ],
+              "post_pressure_reseed_ms": 0.0,
+              "post_pressure_reseed_note": "the persistent registration lease replaces post-pressure re-registration; no reseed work is performed",
+              "pressure_fill_ms": 4037.3349219735246,
+              "protocol_overhead_ms": "not_measured",
+              "register_copy_ms": 0.0,
+              "request_path_definition": "seed_head_ms + target_only_ms",
+              "request_path_ms": 7368.067392031662,
+              "same_context_canary_ms": 0.0,
+              "seed_head_ms": 0.0,
+              "source_preparation_ms": 986.3937210175209,
+              "source_preparation_scope": "initial_setup_only",
+              "target_only_ms": 7368.067392031662,
+              "transfer_ms": "not_measured"
+            },
+            "metrics": {
+              "arm_interval_peak_device_bytes": 1617788928.0,
+              "churn_bytes": {
+                "definition": "evicted_bytes + demoted_bytes (wasted is excluded)",
+                "unobserved_components": [
+                  "demote_bytes"
+                ],
+                "value": 3557851136.0,
+                "verification": "partially_direct"
+              },
+              "demote_bytes": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "inactive_tracks": {
+                "async_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_count",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_loaded_tokens": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_loaded_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_request": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_requests_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "peak_semantics": "arm_high_water_since_last_full_reset",
+              "reservation_failures": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "store_gauges_after": {
+                "sglang:approx_kv_provisional_tokens": 0.0,
+                "sglang:approx_kv_store_device_bytes": 0.0,
+                "sglang:approx_kv_store_host_bytes": 0.0,
+                "sglang:approx_kv_store_leases": 0.0,
+                "sglang:approx_kv_store_orphans": 0.0,
+                "sglang:approx_kv_store_records": 0.0,
+                "sglang:cross_store_reserved_device_bytes": 0.0
+              },
+              "transfer": {
+                "copied_tokens": {
+                  "indirect_evidence": null,
+                  "metric": "sglang:approx_kv_copied_tokens_total",
+                  "value": 0.0,
+                  "verification": "direct"
+                },
+                "h2d_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_tokens": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "victim_evict_bytes": {
+                "rows": [
+                  {
+                    "bytes_or_count": 58720256.0,
+                    "object_kind": "canonical_base",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  },
+                  {
+                    "bytes_or_count": 3499130880.0,
+                    "object_kind": "exact_variant",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  }
+                ],
+                "verification": "direct"
+              },
+              "wasted_bytes": {
+                "definition": "irreversibly destroyed bytes from failed allocations; already counted inside cross_store_evicted_bytes_total",
+                "indirect_evidence": null,
+                "metric": "sglang:cross_store_wasted_bytes_total",
+                "value": null,
+                "verification": "unknown",
+                "wasted_is_subset_of_evicted": true
+              }
+            },
+            "target_outcomes": [
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 919.8979409993626,
+                "target_id": "a8-b2048-target-0"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 921.8837340013124,
+                "target_id": "a8-b2048-target-1"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 922.0894330064766,
+                "target_id": "a8-b2048-target-2"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 921.664026012877,
+                "target_id": "a8-b2048-target-3"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 920.2157420222647,
+                "target_id": "a8-b2048-target-4"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 921.9387870107312,
+                "target_id": "a8-b2048-target-5"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 920.1126449916046,
+                "target_id": "a8-b2048-target-6"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "dense_no_reuse_baseline",
+                "request_path_ms": 920.265083987033,
+                "target_id": "a8-b2048-target-7"
+              }
+            ]
+          },
+          "E0": {
+            "ledger": {
+              "adapter_ms": 0.0,
+              "adapter_ms_note": "no adapter arm executes: R2 is disabled_not_comparable",
+              "cold_start_ms": "reported_at_server_level",
+              "full_lifecycle_ms": 12804.615220986307,
+              "materialize_ms": 0.0,
+              "non_overlapping_components": [
+                "source_preparation_ms",
+                "pressure_fill_ms",
+                "request_path_ms",
+                "same_context_canary_ms"
+              ],
+              "post_pressure_reseed_ms": 0.0,
+              "post_pressure_reseed_note": "the persistent registration lease replaces post-pressure re-registration; no reseed work is performed",
+              "pressure_fill_ms": 4371.39391200617,
+              "protocol_overhead_ms": "not_measured",
+              "register_copy_ms": 0.0,
+              "request_path_definition": "seed_head_ms + target_only_ms",
+              "request_path_ms": 8433.221308980137,
+              "same_context_canary_ms": 0.0,
+              "seed_head_ms": 487.04382000141777,
+              "source_preparation_ms": 0.0,
+              "source_preparation_scope": "initial_setup_only",
+              "target_only_ms": 7946.177488978719,
+              "transfer_ms": "not_measured"
+            },
+            "metrics": {
+              "arm_interval_peak_device_bytes": 1618935808.0,
+              "churn_bytes": {
+                "definition": "evicted_bytes + demoted_bytes (wasted is excluded)",
+                "unobserved_components": [
+                  "demote_bytes"
+                ],
+                "value": 3543400448.0,
+                "verification": "partially_direct"
+              },
+              "demote_bytes": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "inactive_tracks": {
+                "async_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_count",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_loaded_tokens": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_loaded_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_request": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_requests_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "peak_semantics": "arm_high_water_since_last_full_reset",
+              "reservation_failures": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "store_gauges_after": {
+                "sglang:approx_kv_provisional_tokens": 0.0,
+                "sglang:approx_kv_store_device_bytes": 0.0,
+                "sglang:approx_kv_store_host_bytes": 0.0,
+                "sglang:approx_kv_store_leases": 0.0,
+                "sglang:approx_kv_store_orphans": 0.0,
+                "sglang:approx_kv_store_records": 0.0,
+                "sglang:cross_store_reserved_device_bytes": 0.0
+              },
+              "transfer": {
+                "copied_tokens": {
+                  "indirect_evidence": null,
+                  "metric": "sglang:approx_kv_copied_tokens_total",
+                  "value": 0.0,
+                  "verification": "direct"
+                },
+                "h2d_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_tokens": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "victim_evict_bytes": {
+                "rows": [
+                  {
+                    "bytes_or_count": 3543400448.0,
+                    "object_kind": "exact_variant",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  }
+                ],
+                "verification": "direct"
+              },
+              "wasted_bytes": {
+                "definition": "irreversibly destroyed bytes from failed allocations; already counted inside cross_store_evicted_bytes_total",
+                "indirect_evidence": null,
+                "metric": "sglang:cross_store_wasted_bytes_total",
+                "value": null,
+                "verification": "unknown",
+                "wasted_is_subset_of_evicted": true
+              }
+            },
+            "target_outcomes": [
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1055.6714260019362,
+                "target_id": "a8-b2048-target-0"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1054.1041659889743,
+                "target_id": "a8-b2048-target-1"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1054.6540770155843,
+                "target_id": "a8-b2048-target-2"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1053.9905089826789,
+                "target_id": "a8-b2048-target-3"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1055.488949001301,
+                "target_id": "a8-b2048-target-4"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1053.5917119996157,
+                "target_id": "a8-b2048-target-5"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1054.0820409951266,
+                "target_id": "a8-b2048-target-6"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "exact_gpu_hit",
+                "request_path_ms": 1051.63842899492,
+                "target_id": "a8-b2048-target-7"
+              }
+            ]
+          },
+          "R0": {
+            "ledger": {
+              "adapter_ms": 0.0,
+              "adapter_ms_note": "no adapter arm executes: R2 is disabled_not_comparable",
+              "cold_start_ms": "reported_at_server_level",
+              "full_lifecycle_ms": 11805.183492018841,
+              "materialize_ms": 992.0723090181127,
+              "non_overlapping_components": [
+                "source_preparation_ms",
+                "pressure_fill_ms",
+                "request_path_ms",
+                "same_context_canary_ms"
+              ],
+              "post_pressure_reseed_ms": 0.0,
+              "post_pressure_reseed_note": "the persistent registration lease replaces post-pressure re-registration; no reseed work is performed",
+              "pressure_fill_ms": 3673.0583289754577,
+              "protocol_overhead_ms": "not_measured",
+              "register_copy_ms": 966.7567119759042,
+              "request_path_definition": "seed_head_ms + target_only_ms",
+              "request_path_ms": 4240.677004010649,
+              "same_context_canary_ms": 1932.6191380387172,
+              "seed_head_ms": 481.2144729949068,
+              "source_preparation_ms": 1958.829020994017,
+              "source_preparation_scope": "initial_setup_only",
+              "target_only_ms": 3759.4625310157426,
+              "transfer_ms": "not_measured"
+            },
+            "metrics": {
+              "arm_interval_peak_device_bytes": 1715159040.0,
+              "churn_bytes": {
+                "definition": "evicted_bytes + demoted_bytes (wasted is excluded)",
+                "unobserved_components": [
+                  "demote_bytes"
+                ],
+                "value": 1893957632.0,
+                "verification": "partially_direct"
+              },
+              "demote_bytes": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "inactive_tracks": {
+                "async_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_count",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_loaded_tokens": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_loaded_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_request": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_requests_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "peak_semantics": "arm_high_water_since_last_full_reset",
+              "reservation_failures": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "store_gauges_after": {
+                "sglang:approx_kv_provisional_tokens": 0.0,
+                "sglang:approx_kv_store_device_bytes": 234881024.0,
+                "sglang:approx_kv_store_host_bytes": 0.0,
+                "sglang:approx_kv_store_leases": 4.0,
+                "sglang:approx_kv_store_orphans": 0.0,
+                "sglang:approx_kv_store_records": 4.0,
+                "sglang:cross_store_reserved_device_bytes": 0.0
+              },
+              "transfer": {
+                "copied_tokens": {
+                  "indirect_evidence": null,
+                  "metric": "sglang:approx_kv_copied_tokens_total",
+                  "value": 18432.0,
+                  "verification": "direct"
+                },
+                "h2d_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_tokens": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "victim_evict_bytes": {
+                "rows": [
+                  {
+                    "bytes_or_count": 294748160.0,
+                    "object_kind": "exact_variant",
+                    "provenance": "exact",
+                    "requester": "approximate"
+                  },
+                  {
+                    "bytes_or_count": 58720256.0,
+                    "object_kind": "canonical_base",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  },
+                  {
+                    "bytes_or_count": 1540489216.0,
+                    "object_kind": "exact_variant",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  }
+                ],
+                "verification": "direct"
+              },
+              "wasted_bytes": {
+                "definition": "irreversibly destroyed bytes from failed allocations; already counted inside cross_store_evicted_bytes_total",
+                "indirect_evidence": null,
+                "metric": "sglang:cross_store_wasted_bytes_total",
+                "value": null,
+                "verification": "unknown",
+                "wasted_is_subset_of_evicted": true
+              }
+            },
+            "target_outcomes": [
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 533.5751569946297,
+                "target_id": "a8-b2048-target-0"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 530.3909099893644,
+                "target_id": "a8-b2048-target-1"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 529.490362998331,
+                "target_id": "a8-b2048-target-2"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 529.5346560014877,
+                "target_id": "a8-b2048-target-3"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 529.6641719760373,
+                "target_id": "a8-b2048-target-4"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 528.4274780133273,
+                "target_id": "a8-b2048-target-5"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 530.9528850193601,
+                "target_id": "a8-b2048-target-6"
+              },
+              {
+                "expected_outcome": true,
+                "outcome": "approximate_gpu_recovery",
+                "request_path_ms": 528.6413830181118,
+                "target_id": "a8-b2048-target-7"
+              }
+            ]
+          }
+        },
+        "repeat_index": 1
+      }
+    ],
+    "summary": {
+      "amortization_median_speedup": {
+        "1": {
+          "full_setup": 0.369097224681946,
+          "incremental_setup": 0.611109177881171
+        },
+        "2": {
+          "full_setup": 0.6089369542946363,
+          "incremental_setup": 0.9041522715392292
+        },
+        "4": {
+          "full_setup": 0.9012555896400676,
+          "incremental_setup": 1.1884049919610193
+        },
+        "8": {
+          "full_setup": 1.1864709404215579,
+          "incremental_setup": 1.410947853600695
+        }
+      },
+      "paired_target_request_path_median_speedup": 1.7351595946794376,
+      "per_repeat_paired_target_speedups": [
+        1.7086149802630652,
+        1.7329622173190589,
+        1.7302035882203606,
+        1.7212744717153237,
+        1.7218945415718292,
+        1.7298357557770299,
+        1.7413486801733984,
+        1.7416963787777267,
+        1.724026932177094,
+        1.7381212925006544,
+        1.741465940541364,
+        1.7405169153089153,
+        1.7373569720398163,
+        1.7446836611844003,
+        1.7329459372992286,
+        1.740811660890165
+      ]
+    },
+    "workload": {
+      "body_tokens": 2048,
+      "filler_manifest_sha256": "faa29c4ffcba2d094eda7a9e6282b9a81bab3f77d8df9992de91fd9bc92c93fa",
+      "targets_per_setup": 8,
+      "workload_id": "A8-body2048",
+      "workload_manifest_sha256": "600b507f5443a529a12193395700928d115be6a3155cc7f85e5b46d7416796b5"
+    }
+  },
+  "outcome": {
+    "counts": {
+      "approximate_gpu_recovery": 16,
+      "approximate_recovery_failed_dense": 0,
+      "dense_no_reuse_baseline": 16,
+      "exact_gpu_hit": 16,
+      "host_demand_load": 0,
+      "ordinary_exact_cache_miss": 0
+    },
+    "exclusive_terminal_reasons": [
+      "cross_store_reservation_failed",
+      "device_allocation_failed",
+      "unsupported",
+      "registration_failed",
+      "prefix_gap"
+    ],
+    "taxonomy": [
+      "dense_no_reuse_baseline",
+      "exact_gpu_hit",
+      "ordinary_exact_cache_miss",
+      "approximate_gpu_recovery",
+      "host_demand_load",
+      "approximate_recovery_failed_dense"
+    ],
+    "terminal_reason_counts": {
+      "cross_store_reservation_failed": 0,
+      "device_allocation_failed": 0,
+      "prefix_gap": 0,
+      "registration_failed": 0,
+      "unsupported": 0
+    }
+  },
+  "phase": "Phase7-ceiling",
+  "provenance": {
+    "implementation": {
+      "atomic_update_required": [
+        "phase7-primary-manifest.json",
+        "RESULT_MANIFEST.json"
+      ],
+      "external_authority_update_required": [
+        "HANDOFF.md",
+        "PROJECT.md",
+        "TODO_LOCAL.txt"
+      ],
+      "manifest_generation_sha": "b0837505abc4efe7df914c3b504693956fe71df9",
+      "manifest_generation_tree_sha": "3f0ac373cd5dc21218679ed26c406182fa82b11c",
+      "phase6_evidence_sha": "924c9d1d6c074f304189248f0fc5b15aa6d25adb",
+      "phase7_pinned_implementation_sha": "81405f4278b034911bc613c4ee17c79d15ee8f35",
+      "phase7_pinned_tree_sha": "4a8bf0f6cd72ec09859f8301dc92b6aabb25d2bf",
+      "post_pin_envelope_allowlist": [
+        "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json",
+        "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
+        "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
+        "benchmark/approx_kv/results/phase7/evidence/ceiling-cpu.json",
+        "benchmark/approx_kv/results/phase7/evidence/scheduler-cpu.json",
+        "benchmark/approx_kv/results/phase7/evidence/capacity-pilot-cpu.json"
+      ],
+      "post_pin_envelope_rule": "the pinned code SHA must be an ancestor of the execution HEAD and every path changed between them must appear in post_pin_envelope_allowlist"
+    },
+    "manifest_file_sha256": "c0a14e3a8127db4ad7fba20920a156b9b731e7ea36711c8c104a49bca3a8667d",
+    "manifest_path": "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
+    "runner_sha256": "1db0c0f37260e8ca4ff1050491721a58fa9e70e321818552b5a732dfd2bc5016",
+    "source": {
+      "execution_head_git_sha": "d42a5d1546680de458122f605f8a486b8faf5564",
+      "execution_head_tree_sha": "395b7584407d1cef759abcd21674fb239ff3e967",
+      "source_binding": "pinned_code_sha_with_post_pin_result_envelope",
+      "source_git_sha": "81405f4278b034911bc613c4ee17c79d15ee8f35",
+      "source_tree_sha": "4a8bf0f6cd72ec09859f8301dc92b6aabb25d2bf"
+    }
+  },
+  "reset_validation": {
+    "passed": true
+  },
+  "restart_index": 1,
+  "run_id": "p7-ceiling-p7-a8-r0-body2048-rho2-chunk1024-sensitivity-r1-20260728T170616797395Z",
+  "runner": {
+    "module": "benchmark.approx_kv.run_p7_ceiling",
+    "path": "benchmark/approx_kv/run_p7_ceiling.py",
+    "sha256": "1db0c0f37260e8ca4ff1050491721a58fa9e70e321818552b5a732dfd2bc5016"
+  },
+  "schema_version": 1,
+  "setting": {
+    "activation_rule_id": null,
+    "arm_order_by_repeat": {
+      "0": [
+        "D0",
+        "E0",
+        "R0"
+      ],
+      "1": [
+        "R0",
+        "E0",
+        "D0"
+      ]
+    },
+    "arms": [
+      "D0",
+      "E0",
+      "R0"
+    ],
+    "body_tokens": 2048,
+    "capacity_mode": "natural_capacity",
+    "capacity_relative_error_tolerance": null,
+    "chunked_prefill_size": 1024,
+    "conditional": false,
+    "formal_repeats": 2,
+    "known_capacity_ceiling_tokens": 13130,
+    "max_prefill_tokens": 1024,
+    "max_total_tokens": null,
+    "mem_fraction_static": 0.35,
+    "policy": "lru",
+    "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8",
+    "restart_indices": [
+      0,
+      1
+    ],
+    "rho_logical_demand": 2.0,
+    "rho_realization": "filler_pool",
+    "runner": "benchmark.approx_kv.run_p7_ceiling",
+    "screening_restarts": [
+      0
+    ],
+    "setting_id": "p7-a8-r0-body2048-rho2-chunk1024-sensitivity",
+    "supplement_gate": "ES-W-UNCONDITIONAL",
+    "supplement_restarts": [
+      1
+    ],
+    "warmup_repeats": 1,
+    "wave": "wave-2",
+    "workload": "A8-body2048"
+  },
+  "setting_id": "p7-a8-r0-body2048-rho2-chunk1024-sensitivity",
+  "source_hashes": {
+    "raw": {
+      "file_sha256": "111748b3e0851a086b0cfb8d82386ba187c5fe85057b8dbeade7150da81fdd19",
+      "internal_raw_sha256": "eaf6c8d611409c5c5f79d6453b8372f766b27e7c5e499c566350519480becc32",
+      "path": "raw/p7-a8-r0-body2048-rho2-chunk1024-sensitivity-r1.json"
+    },
+    "server_log": {
+      "path": "logs/p7-a8-r0-body2048-rho2-chunk1024-sensitivity-r1.log",
+      "sha256": "dbda56356b818163cc9a6b1f37b463ba55f3851a703a585745acda4283e15d25"
+    }
+  },
+  "status": "valid"
+}
