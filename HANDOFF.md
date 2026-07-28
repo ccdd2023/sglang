@@ -26,6 +26,14 @@
   hard cap36 starts/6 GPUh。
 - 下一步生成并review Phase7 primary manifest；仍未进入Phase7。
 
+- Phase7 primary manifest现已生成并自检通过：
+  - 16 settings；
+  - 30 committed / 33 total starts；
+  - status=`preregistered_blocked`；
+  - 5个显式execution blocker；
+  - `phase7_execution_authorized=false`。
+- Sol/Opus manifest targeted review进行中。
+
 ### 2026-07-27T17:15:00-07:00 V5 full review FAIL已修订，等待targeted delta
 
 - Sol/Opus两份full review均为FAIL，已全文互换并cross-consolidate。

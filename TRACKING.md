@@ -2775,3 +2775,20 @@ technical_exit = PASS WITH CAVEATS
   `not_separable`。
 - 最终review结论均为`PASS WITH CAVEATS`，无开放P0，V5计划已足以生成
   Phase7 primary manifest。
+## 2026-07-27T18:30:00-07:00 — Phase7 primary manifest生成并进入targeted review
+
+- 实现`build_phase7_manifest.py --check`。
+- manifest绑定reviewed V5 docs commit `8fac9333`与Phase6 evidence head
+  `924c9d1d`。
+- 冻结：
+  - 2个A8 workload × 8个完整target；
+  - fixed40 W object/request order；
+  - 64个filler pool；
+  - 16个GPU setting；
+  - 30 committed / 33 total starts；
+  - MDE=5%；
+  -完整server template、taxonomy、early-stop与scope caveat。
+- status=`preregistered_blocked`，授权为false。
+- 5个执行blocker显式列出：ceiling/scheduler runner缺失、pinned
+  implementation SHA缺失、R2 strategy未定、用户未授权。
+- builder自检通过；Sol/Opus manifest targeted review已启动。

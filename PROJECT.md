@@ -50,6 +50,22 @@
 - 下一步：生成、提交并review Phase7 primary manifest。
 - 仍未进入Phase7。
 
+### 2026-07-27 Phase7 primary manifest已预注册，状态明确blocked
+
+- `build_phase7_manifest.py`已实现并通过`--check`。
+- `phase7-primary-manifest.json`绑定V5 plan commit
+  `8fac933371ab26891dcd4c981a3d1156bf2e9814`。
+- manifest冻结16个GPU setting、30 committed starts、3 conditional starts、
+  33 total starts、MDE=5%、完整A8/W/filler与early-stop/taxonomy。
+- status=`preregistered_blocked`，`phase7_execution_authorized=false`。
+- 明确blockers：
+  - `run_p7_ceiling.py`未实现；
+  - `run_p7_scheduler.py`未实现；
+  - Phase7 pinned implementation SHA未生成；
+  - R2 strategy未完成；
+  - 用户未授权Phase7。
+- manifest targeted双review进行中；仍未进入Phase7。
+
 ### 2026-07-27 V5双模型full review与交叉consolidation完成，revision待delta review
 
 - Sol与Opus独立full review均判`FAIL`；两份报告已全文互换。
