@@ -24,7 +24,10 @@ Current boundary: do not enter Phase 7 without reporting to the user.
     implementation:
       /home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate
       branch research/cross-store-substrate
-      expected HEAD c487e36af5f7ce4da556da1b88c85df750a0b14d
+      current Phase6 evidence HEAD
+      924c9d1d6c074f304189248f0fc5b15aa6d25adb
+      Phase7 runner implementation will create a new pinned HEAD in the
+      primary manifest; update HANDOFF/TODO/manifest atomically then.
 
 [ ] Confirm local and remote implementation SHA are identical.
 
@@ -55,13 +58,10 @@ Current boundary: do not enter Phase 7 without reporting to the user.
 -----------------------------------
 
 [x] Phase 4/5 CL0 authority manifest and supersession cleanup.
-[ ] CL3 Phase 5 zero-GPU recalculation.
-    CORRECTION 2026-07-26T18:43:56-07:00: this was previously recorded here as
-    complete. It is NOT complete. No code and no artifact exist in the
-    scheduler-policies worktree or in PROJECT.md. Plan section 8.1 requires
-    Closeout CL0-CL4 before Phase 7 Entry, so this is a real blocker.
-    "Variable-size offline optimum" is a Phase 7 deliverable (plan section 12),
-    not a Closeout deliverable; the two were conflated in the old entry.
+[x] CL3 Phase 5 zero-GPU recalculation.
+    LATEST CORRECTION 2026-07-27: completed. Artifact:
+    cl3-phase5-recalculation.json. The older 2026-07-26 "NOT complete"
+    correction is superseded.
 [x] Phase 5 variable-size offline optimum: NOT required before Phase 7.
 [x] Corrected R2/R5 rho2 causal reruns.
 [x] Phase 6 cross-store core implementation.
@@ -96,8 +96,8 @@ Persistent commits:
 -------------------
 
 Consolidated 2026-07-27 from a GPT-5.6 Sol max-reasoning audit, replacing the
-accumulated per-round sections. Implementation HEAD at consolidation:
-7dd07a6b4. Phase 7 is NOT authorized.
+accumulated per-round sections. Current Phase6 evidence HEAD:
+924c9d1d6. Phase 7 is NOT authorized.
 
 Status to quote verbatim:
     technical_exit = PASS WITH CAVEATS
@@ -182,15 +182,20 @@ The caveat is permanent:
        target-allocation window. A header-dependent implementation defect
        remains possible and must stay in the wording.
 
-[ ] 7. Correct guardrail semantics in V5.
-       Separate same-context corruption detection from cross-context
-       conservative exact-output promotion. Only in the same-context canary
-       does a mismatch directly indicate corruption.
+[x] 7. Correct guardrail semantics in V5.
+       DONE: V5 §5.9.A/B separates same-context corruption canary from
+       cross-context conservative exact-output promotion.
 
 [ ] 8. Finalize the result-bound V5 plan.
        Draft created and V4 archived. Remaining: Sol/Opus independent review,
        report exchange, cross-consolidation, main-session disposition and
        accepted-P0 closure before marking Current / Latest.
+       Both independent reviews and report exchange are complete; current
+       cross-consolidated verdict was FAIL. Accepted P0 work is now revised
+       in V5 and awaits targeted delta review:
+       A8/W workload split, D0/E0/R0 baseline, P6-4Delta-4096, runner/manifest
+       engineering gate, R4 S0/S4-only, expanded outcome taxonomy and
+       chunk-confounded Phase4 wording.
        Must carry: profile-level vs cell-level status; CL3 denominator
        wording; P6-H canary scope; reversible vs irreversible rollback;
        separate device and host budgets; the corrected fallback taxonomy; and
@@ -205,7 +210,8 @@ The caveat is permanent:
 
 [ ] Targeted P6-4 rerun if the immediate-cleanup change alters the
     admission/capacity path; start with S0/rho2 and S4/rho3.
-[ ] Rerun affected P6-4 cells if the final chunk differs from provisional 1024.
+[x] Chunk migration condition IS triggered and moved into V5 P7-0b:
+    required S4/rho2 and S0/rho2 at chunk/max-prefill4096; S4/rho3 conditional.
 [ ] R2/R5 matched ratio/pressure only for a mechanism-ranking claim.
 [ ] R2/R5 rho1.1/rho3 only for a rho-robustness claim.
 [ ] One R2 explicit-counter cell only if direct zero-fallback evidence is needed.

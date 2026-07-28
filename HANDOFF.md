@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-27T16:40:00-07:00
+最后更新：2026-07-27T17:15:00-07:00
 
 ## 新会话启动顺序
 
@@ -23,6 +23,20 @@
 - 预算：17 logical settings、28 server starts、hard cap 36 starts/6 GPUh。
 - 仍未进入Phase7。
 
+### 2026-07-27T17:15:00-07:00 V5 full review FAIL已修订，等待targeted delta
+
+- Sol/Opus两份full review均为FAIL，已全文互换并cross-consolidate。
+- 8个accepted P0已全部定点修订；整体result-bound结构未推翻。
+- 新的关键门禁：
+  - P7-0 runner/manifest CPU gate；
+  - P7-0b P6-4Δ-4096；
+  - A8与W workload分离；
+  - D0/E0/R0三臂；
+  - R4-like只跑S0/S4；
+  - expanded outcome taxonomy。
+- committed预算30 starts，含条件项33，hard cap36。
+- V5仍不是Current / Latest；下一步只做targeted delta review。
+
 ### 2026-07-27T16:10:00-07:00 Phase6 technical Exit为PASS WITH CAVEATS
 
 - 用户以test-only集成路线取代此前方案C治理性豁免。
@@ -43,7 +57,7 @@
   P0-1/P0-3，最终判`PASS WITH CAVEATS`，无新P0/P1。
 
 - 全部实验在Docker SM75镜像内执行。
-- 实现branch head：`7dd07a6b4d98f76329108e0db6f7a0bdcf896309`（以远程分支为准，每次push后核对）。
+- 实现branch head：`924c9d1d6c074f304189248f0fc5b15aa6d25adb`（Phase6 final evidence head；Phase7 runner实现后须由primary manifest重新pin）。
 
 | 门禁 | 状态 |
 | --- | --- |

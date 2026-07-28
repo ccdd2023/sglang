@@ -2716,3 +2716,26 @@ technical_exit = PASS WITH CAVEATS
   hard cap 36 starts/6 GPUh。
 - N=1/2/4/8必须由真实连续8 targets计算，不再使用单请求外推。
 - V5 review完成前仍不是Current / Latest；未进入Phase7。
+## 2026-07-27T17:15:00-07:00 — V5独立full review、全文互换与cross-consolidation
+
+- Sol与Opus对`b1dc30c6` V5 draft独立review，均判`FAIL`。
+- 两份完整报告写入session files并全文互换；双方cross-consolidation仍判FAIL。
+- 去重后接受8个P0：
+  1. A8 N=1/2/4/8合同与single-target/reset/旧公式冲突；
+  2. P7-1 A8与P7-2 W workload不可复用；
+  3. R4 S1–S3无cross-store policy实现；
+  4. outcome taxonomy会重现exact miss误标；
+  5. chunk4096触发P6-4Δ兼容性门；
+  6. Phase4 R2/R5收益未标chunk1024 confounding；
+  7. 8/28 starts无runner/manifest工程前置；
+  8. P7-1缺D0/E0/R0 paired baseline。
+- V5 revision已逐项修订：
+  - 新增A8/W合同、P7-0工程gate、P7-0b chunk migration gate；
+  - R4-like仅S0/S4；
+  - R2 gated on cross-store runner；
+  - primary manifest字段扩充；
+  - same/cross-context guardrail拆分；
+  - stats、MDE、early-stop、budget重写。
+- 修订预算：committed 13 GPU settings/30 starts；含条件项16/33；
+  hard cap36 starts/6 GPUh。
+- 下一步按review制度只做targeted delta review，不重复full review。

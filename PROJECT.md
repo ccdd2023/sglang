@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-27T16:40:00-07:00
+最后更新：2026-07-27T17:15:00-07:00
 
 ## 项目概况
 
@@ -43,6 +43,25 @@
 - 下一步：V5双模型review与consolidation；随后生成并review Phase7 primary manifest。
 - 仍未进入Phase7。
 
+### 2026-07-27 V5双模型full review与交叉consolidation完成，revision待delta review
+
+- Sol与Opus独立full review均判`FAIL`；两份报告已全文互换。
+- cross-consolidation接受8个P0，均已在V5 revision中定点修订：
+  1. A8真实N合同与旧single-target/公式冲突；
+  2. A8 microbenchmark与W workflow workload必须分离；
+  3. R4 S1–S3无cross-store实现，删除；
+  4. cache outcome taxonomy必须区分ordinary exact miss与approx fallback；
+  5. chunk4096触发P6-4Δ兼容性复核；
+  6. Phase4 R2/R5收益必须标`chunk-confounded`；
+  7. P7 runner/manifest/R2工程前置缺失；
+  8. P7-1必须恢复D0/E0/R0三臂。
+- 预算修订为：
+  - committed：13 GPU settings / 30 starts；
+  - 条件项：R2 2 starts、S4/rho3 P6-4Δ 1 start；
+  - 全部条件项：16 GPU settings / 33 starts；
+  - hard cap仍为36 starts / 6 GPUh。
+- V5仍为Draft，下一步只做targeted delta review；不重复full review。
+
 ### 2026-07-27 当前无Phase6 blocker；剩余项均为Phase7 Entry
 
 - Phase6 technical Exit已是`PASS WITH CAVEATS`，无开放P0/P1。
@@ -57,7 +76,9 @@
 - `winner=NONE`含义已冻结为被测实现、模型、prompt族、GPU、chunk配置和
   exact-output promotion规则下的结果；未证明context差异是唯一原因，
   未排除header-dependent实现缺陷。
-- 当前没有触发任何条件性重跑。
+- V5将primary chunk从1024迁移到4096，已触发`P6-4Δ-4096`兼容性复核：
+  S4/rho2、S0/rho2为required，S4/rho3为条件项。该复核属于Phase7 P7-0b
+  工程前置，不得与旧P6-4全矩阵重跑混淆。
 
 ### 2026-07-27 Phase6 technical Exit最终为PASS WITH CAVEATS
 
