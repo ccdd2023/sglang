@@ -21,6 +21,138 @@
   },
   "files": [
     {
+      "file": "benchmark/approx_kv/results/phase7/compact/p6delta-s0-rho2-chunk4096-r0.compact.json",
+      "sha256": "4e6f8849470839c31d6ef05637624c2019e4c5895a6f4fb090bb6aeb79624dcd",
+      "bytes": 11945,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p6delta-s4-rho2-chunk4096-r0.compact.json",
+      "sha256": "ddb9265382c439a159179678171db87cdbf9f980d116d24cea794ea089caf636",
+      "bytes": 11966,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-a8-r0-body1024-rho1.5-r0.compact.json",
+      "sha256": "56052197f9d8002cad85625c7c2aacba0d8d93bf1a00bee5ba8f711472352eb7",
+      "bytes": 70746,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-a8-r0-body1024-rho2.0-r0.compact.json",
+      "sha256": "dfbc116b316b7d6feb7f04f4536c86a9437911f80424226397c2866bd2df22e1",
+      "bytes": 70752,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-a8-r0-body2048-rho1.5-r0.compact.json",
+      "sha256": "7f92c613ea7bcf175eeb12ce638f2e4cbfcdecdc79f2147eeaa993b807e09a0b",
+      "bytes": 70703,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-a8-r0-body2048-rho2-chunk1024-sensitivity-r0.compact.json",
+      "sha256": "86256e92e98441f8782d72d803f5e9647d1be5e468e5fcfa04cd612149eb80db",
+      "bytes": 70733,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-a8-r0-body2048-rho2-chunk1024-sensitivity-r1.compact.json",
+      "sha256": "86a4387677711970cb382fcc00fb0c530d2a057e942c7f0fa2e5c36b23df6269",
+      "bytes": 70724,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-a8-r0-body2048-rho2.0-r0.compact.json",
+      "sha256": "a22f9826ba9ebbbba12dd2270597c8596eaf7ee0d1c42a024ec66f0172e5f790",
+      "bytes": 70701,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-hierarchical-rho1.5-r0.compact.json",
+      "sha256": "7b324be9e8310a263b69ad1db7240a9d66bf8fa9e074ebd2e3474697803a41f5",
+      "bytes": 32440,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-hierarchical-rho1.5-r1.compact.json",
+      "sha256": "1b6e9fab9a3878cd4fcf0877a98449bfb387118f441b91168d84b078ac9720dc",
+      "bytes": 32440,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-hierarchical-rho1.5-r2.compact.json",
+      "sha256": "e03c8ffd69011b097af00d21a3fb28fd6e362310a5cd59366d7c87c21becbe05",
+      "bytes": 32440,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-hierarchical-rho2.0-r0.compact.json",
+      "sha256": "65a99e044aead44d2ea802e1022f86ec5d50bca3b3a7eff94dc8ca1f986134f4",
+      "bytes": 32438,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-hierarchical-rho2.0-r1.compact.json",
+      "sha256": "15b32d0c833b9aa98dcc69b3c0c3a522446a57128a374f53ff6072ea932de142",
+      "bytes": 32440,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-hierarchical-rho2.0-r2.compact.json",
+      "sha256": "81d598ba6ae155c65f730b9270a7c7d27ffc848cdb39a4e7f4d023e6b9e7bd7f",
+      "bytes": 32446,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-lru-rho1.5-r0.compact.json",
+      "sha256": "aab7f44c51c5bba60cd78d815164e5f651e75cc4cbd2fa969589241d190c31f3",
+      "bytes": 32654,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-lru-rho1.5-r1.compact.json",
+      "sha256": "367cdaf1edca333cb2c1b09433af5b6021e9f790fcfa824aae6154802e228ab2",
+      "bytes": 32626,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-lru-rho1.5-r2.compact.json",
+      "sha256": "46bdf1f1603ff1d9064770ee30d25e179beb0f90b534cb4961c827156aea504b",
+      "bytes": 32635,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-lru-rho2.0-r0.compact.json",
+      "sha256": "2b5bbc0e08de0b4e03956830a7454389859eec8533d11e41fa66f277ee8fb1a7",
+      "bytes": 32634,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-lru-rho2.0-r1.compact.json",
+      "sha256": "3fa2753eec24af41991a38cb506a1824405c9a779bebc6c575a72fab45598069",
+      "bytes": 32615,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-lru-rho2.0-r2.compact.json",
+      "sha256": "236df3c37efe77dcd705f045f1392be74cfc655bbc0a2cf0098e1a4ea12739cb",
+      "bytes": 32633,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r4like-hierarchical-rho2-r0.compact.json",
+      "sha256": "715d9aa2b0196a257b77a8db67f337dd34f88cbabd78944582c44413e01bc15d",
+      "bytes": 20184,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r4like-lru-rho2-r0.compact.json",
+      "sha256": "dd2d149aa6c98f0667a356ac8e0f4746c4a9c02826724817f038c1a92f3a56c2",
+      "bytes": 22794,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
       "file": "benchmark/approx_kv/results/phase7/evidence/capacity-pilot-cpu.json",
       "sha256": "cdd75f6d9af29d885cbf0a8d8b3a645c94dbd5822c000949f5da0332acd075ad",
       "bytes": 795,
@@ -39,6 +171,144 @@
       "containing_commit": "f6a9baca82856a3f17cff3face63024ddc6e251a"
     },
     {
+      "file": "benchmark/approx_kv/results/phase7/logs/p6delta-s0-rho2-chunk4096-r0.log",
+      "sha256": "215db919318ec96e3f4c87b8e6e46fafdd3865c4a839f95eb8a5bf4fe4e4e910",
+      "bytes": 1470,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p6delta-s4-rho2-chunk4096-r0.log",
+      "sha256": "9d0ef9e7cad1d3cda49ede0848c3ae56353a07fabf54edc0f12722b0adf7bcd8",
+      "bytes": 1470,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-a8-r0-body1024-rho1.5-r0.log",
+      "sha256": "d0cf94e0ac55eac46e42a7a4a617d892e5fa1735e647c66bbcb8ecb849f60ac1",
+      "bytes": 1470,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-a8-r0-body1024-rho2.0-r0.log",
+      "sha256": "6bd811fce8c6e21e113797baaa197562ba3dcf21c3be364c714f01a25794a588",
+      "bytes": 1470,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-a8-r0-body2048-rho1.5-r0.log",
+      "sha256": "442b91f3f1f2debd6339ac13eef0723e3573227c3cc12ca863bbfe2da8db4017",
+      "bytes": 1470,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-a8-r0-body2048-rho2-chunk1024-sensitivity-r0.log",
+      "sha256": "a87e73560ded243c838e7d1deb6f556e2c0143a00f4e2139236b414495eba3ea",
+      "bytes": 1470,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-a8-r0-body2048-rho2-chunk1024-sensitivity-r1.log",
+      "sha256": "dbda56356b818163cc9a6b1f37b463ba55f3851a703a585745acda4283e15d25",
+      "bytes": 1470,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-a8-r0-body2048-rho2.0-r0.log",
+      "sha256": "f6e2b70060f570c59814175c757e79d624f20acee2f0612fbb11314be77b8571",
+      "bytes": 1470,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-w-r0-hierarchical-rho1.5-r0.log",
+      "sha256": "2fd4134d4e8a1d78c2bc21a62536c18ed96efa4e0082a7fab3f5348700f0a39c",
+      "bytes": 1161,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-w-r0-hierarchical-rho1.5-r1.log",
+      "sha256": "390cb58d026b8fde60c59bdeb05d7c732823a6fd0ef439909b80659105240f16",
+      "bytes": 1471,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-w-r0-hierarchical-rho1.5-r2.log",
+      "sha256": "ee9943171fc76bebf19d9cc82bf0c0a1a5428447bf4d3f5894e49806749773a0",
+      "bytes": 1161,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-w-r0-hierarchical-rho2.0-r0.log",
+      "sha256": "9946f0d7166da77ca6641040966b30ef5b2e88b2a8edfa1b57682f258c587d2c",
+      "bytes": 1471,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-w-r0-hierarchical-rho2.0-r1.log",
+      "sha256": "07bd53bfc375d02b2d965de846c20311e34d4055498e6db567de57f20741a108",
+      "bytes": 1471,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-w-r0-hierarchical-rho2.0-r2.log",
+      "sha256": "0e1e3a663a6e8169d7d6a73ffc478476c403efbd11533501e9eb0dd75d08a3d4",
+      "bytes": 1471,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-w-r0-lru-rho1.5-r0.log",
+      "sha256": "89503d17f409a7393e72642a16307bcbc691c7b8e60e49c78d8708dae244baa7",
+      "bytes": 1470,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-w-r0-lru-rho1.5-r1.log",
+      "sha256": "01f7ce9e67b5d7937bb769a0f069b8b69148642add6969a1fac84b2a7ade3dd2",
+      "bytes": 1470,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-w-r0-lru-rho1.5-r2.log",
+      "sha256": "645b9ef24f7e73575da5685c95e1dfcecd53b8d1aa356448e8fdd7645e0493f5",
+      "bytes": 1470,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-w-r0-lru-rho2.0-r0.log",
+      "sha256": "d2c6bc8a9ed4784982a95ff8ed3e9936fdabda3f117ceeff7fdff6b807b38cec",
+      "bytes": 1161,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-w-r0-lru-rho2.0-r1.log",
+      "sha256": "c1ba055064c48487856d89bc2836ddf902d3bedd47e6dc5161a50bd625cbf91e",
+      "bytes": 1161,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-w-r0-lru-rho2.0-r2.log",
+      "sha256": "e585c0de87273ca3480d1dcdce9c06542b861bb400c72b845d359921eb0eda72",
+      "bytes": 1471,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-w-r4like-hierarchical-rho2-r0.log",
+      "sha256": "aea7a3fe37037e2652b5b666b2056722ddc328fb275c183bbacf19d95756e8a8",
+      "bytes": 1470,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/logs/p7-w-r4like-lru-rho2-r0.log",
+      "sha256": "bce9f1acda6eed43fe5caaae0b070915b4ace6ecda2aae23831ab7b7f8e4955b",
+      "bytes": 1470,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/phase7-consolidated-summary.json",
+      "sha256": "98bf536068cecfbb4dfe9fe54fbc725a6c6a1b762894573ae58d5048b397ab4f",
+      "bytes": 137160,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
       "file": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
       "sha256": "9e1f7da8baeb53846e8f5b75a693d69fe0327559d5342c27cb413eee2990ad13",
       "bytes": 2628,
@@ -49,6 +319,144 @@
       "sha256": "c0a14e3a8127db4ad7fba20920a156b9b731e7ea36711c8c104a49bca3a8667d",
       "bytes": 99310,
       "containing_commit": "759476c901b1ac30eeeb96f83b9257586a103c4e"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/phase7-runs.jsonl",
+      "sha256": "3655a374a554161a1c52a2ac1ce23a3cc2fc321c9d92772b2193aae60697ea67",
+      "bytes": 16500,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p6delta-s0-rho2-chunk4096-r0.json",
+      "sha256": "1e5c0da07b32beb5a063a5d4f6810139e50f6eb22c0698fee1616176c9da4432",
+      "bytes": 616659,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p6delta-s4-rho2-chunk4096-r0.json",
+      "sha256": "97360a4d8966e6a5b92e7e4ac1772cb63bc023b91f40bac36d9337d1e5f1cf73",
+      "bytes": 617664,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-a8-r0-body1024-rho1.5-r0.json",
+      "sha256": "f148073188b739f53c37dcb397aa928f1897360ac63f72dba5fc7e634f12a53f",
+      "bytes": 900219,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-a8-r0-body1024-rho2.0-r0.json",
+      "sha256": "3d411caaa43d59da29ac2abe87c83da063dee92d16ed38baddb1b635689afe07",
+      "bytes": 931786,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-a8-r0-body2048-rho1.5-r0.json",
+      "sha256": "70eb97db6304f16436684d5662a4129246991eaabf8da04b40274280039b5a17",
+      "bytes": 911065,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-a8-r0-body2048-rho2-chunk1024-sensitivity-r0.json",
+      "sha256": "d5dcc6b04a76f6c8287b507b1775a202caec460b69834f2f539479c8365cdc9e",
+      "bytes": 942575,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-a8-r0-body2048-rho2-chunk1024-sensitivity-r1.json",
+      "sha256": "111748b3e0851a086b0cfb8d82386ba187c5fe85057b8dbeade7150da81fdd19",
+      "bytes": 942529,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-a8-r0-body2048-rho2.0-r0.json",
+      "sha256": "013c4a157618e409ca7dfc2f91905d2f11e14bca5ee820ee34ab364961794146",
+      "bytes": 942624,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-w-r0-hierarchical-rho1.5-r0.json",
+      "sha256": "ad182c5ea555828bd0ef6de27a687382ad808061a969a51bbfd3ec677794271d",
+      "bytes": 5458380,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-w-r0-hierarchical-rho1.5-r1.json",
+      "sha256": "19e8b1df82810818a75c977db20ccf016c12ecf19b396e918598db226354597b",
+      "bytes": 5458246,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-w-r0-hierarchical-rho1.5-r2.json",
+      "sha256": "e517fbeb90b585b359d4c900548ea6f4f124c39361a3ec9b93a23d9ab117d66c",
+      "bytes": 5458299,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-w-r0-hierarchical-rho2.0-r0.json",
+      "sha256": "66be9b1e4f3f6ee293332152323e0d8c5a24c7a7067b93f62881c527f43448bb",
+      "bytes": 5506511,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-w-r0-hierarchical-rho2.0-r1.json",
+      "sha256": "d7c97f5ce901e88466cf6dcb87d4adc7a8dd80a89511c8a90d437f7d1d69166b",
+      "bytes": 5506472,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-w-r0-hierarchical-rho2.0-r2.json",
+      "sha256": "43577a110515cb311c26190d2ec0d408619928fbef65aecf2154a2a6a3725b36",
+      "bytes": 5506516,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-w-r0-lru-rho1.5-r0.json",
+      "sha256": "677a81afa2224ecbb8209f7ed5c426ce9475115dd67c82015554505b447384d7",
+      "bytes": 5467878,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-w-r0-lru-rho1.5-r1.json",
+      "sha256": "9178e17cce21dc0266974ad995c3fd52ac2019989c10b86c6a9625dba3868544",
+      "bytes": 5468015,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-w-r0-lru-rho1.5-r2.json",
+      "sha256": "b76c2040761b320b2218002be434977435c7ebb79291ffc47f48146dc86dfd0f",
+      "bytes": 5467877,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-w-r0-lru-rho2.0-r0.json",
+      "sha256": "ed68f317bacdb4b496bc22f0de47af589c5ff7c988c2ab9edea82d3bc89c0372",
+      "bytes": 5492478,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-w-r0-lru-rho2.0-r1.json",
+      "sha256": "3a021784fa9a8b24b3f4e912615e6aecb727bc51fdbff96f95f221888d64692a",
+      "bytes": 5492422,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-w-r0-lru-rho2.0-r2.json",
+      "sha256": "8133d610d293600a04ca0b171ca1123640d478f4220b3df39d4f8a6a58f775ac",
+      "bytes": 5492546,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-w-r4like-hierarchical-rho2-r0.json",
+      "sha256": "195e190ca2cc464c6d0faa2db0d92ee43ede066878cece94149f6518ae6df0cb",
+      "bytes": 227376,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/raw/p7-w-r4like-lru-rho2-r0.json",
+      "sha256": "e2e5a0c1c973efcdd33749207224668278b8f7efd1e92e747e4cf7d9595e8277",
+      "bytes": 4492939,
+      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
     }
   ]
 }
