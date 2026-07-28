@@ -1,18 +1,18 @@
-# 实施计划 V6（Candidate）：Pinned Result-Bound Integrated Evaluation
+# 实施计划 V7：Byte-Frozen Phase7 Plan of Record
 
-> 版本：V6
+> 版本：V7
 >
-> 状态：Candidate / Pending Final Opus Review
+> 状态：Byte-frozen plan of record；activation由`PROJECT.md`/`HANDOFF.md`记录
 >
-> 最后更新：2026-07-28T04:47:27-07:00
+> 最后更新：2026-07-28T08:46:11-07:00
 >
 > 当前阶段：Phase6 technical Exit=`PASS WITH CAVEATS`；Phase7 runners、
 > Docker CPU tests与targeted reviews已完成；R2已解析为
-> `disabled_not_comparable`；final code pin=`5d9a5793d73121f088890aa6c02cfebc31cd97be`；
-> latest pinned review manifest已通过自检与provenance check；最终
+> `disabled_not_comparable`；final code pin=`4f0b504cc244bffc1f3f4c71956285ee1853d3ea`；
+> V6 final review findings已在实现中闭合；V7 manifest与最终增量
 > Opus 5 Max Thinking review尚未完成；未进入Phase7。
 >
-> 取代版本：[`IMPLEMENTATION_PLAN_V5_ARCHIVED.md`](IMPLEMENTATION_PLAN_V5_ARCHIVED.md)
+> 取代版本：[`IMPLEMENTATION_PLAN_V6_ARCHIVED.md`](IMPLEMENTATION_PLAN_V6_ARCHIVED.md)
 
 ## 1. 文档职责与版本规则
 
@@ -21,7 +21,7 @@
 - `CONSOLIDATED_PHASE4_PHASE6_REVIEW.txt`：Phase4/5审计、corrected rerun与双模型review证据。
 - `HANDOFF.md`：当前快照和下一步。
 - `TRACKING.md`：不可改写时间线。
-- V1/V2/V3/V4/V5 archive只用于历史追溯。
+- V1/V2/V3/V4/V5/V6 archive只用于历史追溯。
 
 若本文件与`PROJECT.md`中更新、明确的事实或决策冲突，以`PROJECT.md`为准并立即同步。
 
@@ -31,7 +31,8 @@
 2. 提升版本号；
 3. GPT-5.6 Sol Max Thinking与Claude Opus 5 Max Thinking独立review；
 4. 全文互换并交叉consolidate；
-5. 主会话完成final disposition后才标记`Current / Latest`。
+5. plan文件在review后保持byte-frozen；`PROJECT.md`与`HANDOFF.md`记录
+   `Current / Latest` activation，不再修改plan blob，避免design-hash循环。
 
 ## 2. 已冻结的证据与结论
 
@@ -75,12 +76,12 @@
 - 原rho sweep改变对象数及dead/live组成。
 - prefetch host tier饱和且H2D同步，只能作为功能/开销canary。
 
-## 3. V6 Pinned Result-Bound架构
+## 3. V7 Pinned Result-Bound架构
 
-V6不改Phase编号，只把已经完成的Closeout/Phase6固化为证据输入，并将
-Phase7收窄为实际触发的`practical=NONE`分支。与V5相比，V6删除不可实现而
-不改变core dispatch的R2 GPU cells，并冻结runner、source pin、segment与
-post-pin execution envelope。
+V7不改Phase编号，只把已经完成的Closeout/Phase6固化为证据输入，并将
+Phase7收窄为实际触发的`practical=NONE`分支。V7继承V6的R2禁用、runner、
+source pin与segment合同，并新增runtime staging、capacity runner授权绑定、
+版本化CPU/review evidence与byte-frozen plan activation。
 
 ```text
 Closeout + Phase6 evidence
@@ -112,11 +113,11 @@ V3 → V4 → V5编号映射（历史）：
 | P6-3b | Closeout CL2 |
 | P6-0/P6-1/P6-2 | Phase6 P6-0/P6-1/P6-2/P6-3/P6-4/P6-H |
 | P6-3c/P6-3.5/P6-4 | Phase7 P7-1/P7-2 |
-| P6-5/P6-5.5 | V4历史host/prefetch tracks；V6默认defer |
+| P6-5/P6-5.5 | V4历史host/prefetch tracks；V7默认defer |
 
 ### Closeout Lane
 
-- **已完成**，作为V6冻结输入，不再执行。
+- **已完成**，作为V7冻结输入，不再执行。
 
 ### Phase6：Cross-Store Substrate & Feasibility
 
@@ -137,7 +138,7 @@ V3 → V4 → V5编号映射（历史）：
 > S4是否改变R0 ceiling的system behaviour？
 
 R2只保留Phase4 chunk1024历史引用并标`disabled_not_comparable`。
-V6不回答HiCache/prefetch，因为`practical=NONE`已触发停止分支。
+V7不回答HiCache/prefetch，因为`practical=NONE`已触发停止分支。
 
 ### 可选Phase8
 
@@ -155,7 +156,7 @@ V6不回答HiCache/prefetch，因为`practical=NONE`已触发停止分支。
 
 - 全部Closeout Lane；
 - Phase6 technical Exit=`PASS WITH CAVEATS`；
-- V6 final Opus 5 Max Thinking review与主会话disposition完成；
+- V7 final Opus 5 Max Thinking review与主会话disposition完成；
 - practical family=`NONE`、chunk primary=`4096`、sensitivity=`1024`；
 - Phase7 primary manifest预注册并hash/commit验证；
 - primary manifest冻结唯一`phase7_pinned_implementation_sha`与runner blob；
@@ -198,11 +199,11 @@ R5不因“被R2性能支配”而排除；默认不进入primary是因为与R2�
 | E4 | exact + S4 + GPU-only + P0 |
 | C0 | R0 ceiling + S0 |
 | C4 | R0 ceiling + S4 |
-| PR-S0 | practical recovery + S0；V6不生成 |
-| PR-S4 | practical recovery + S4；V6不生成 |
-| O2 | R2 historical oracle；V6不生成GPU cell |
-| H4 | exact + S4 + HiCache + P0；V6不生成 |
-| RH4 | practical recovery + S4 + HiCache + P0；V6不生成 |
+| PR-S0 | practical recovery + S0；V7不生成 |
+| PR-S4 | practical recovery + S4；V7不生成 |
+| O2 | R2 historical oracle；V7不生成GPU cell |
+| H4 | exact + S4 + HiCache + P0；V7不生成 |
+| RH4 | practical recovery + S4 + HiCache + P0；V7不生成 |
 
 ### 5.3 Paired launch block
 
@@ -775,7 +776,8 @@ Phase7中任何依赖自然reservation失败的claim，仍必须重新取得自�
 ### 8.1 Entry（全部必须满足）
 
 - Phase6 technical Exit=`PASS WITH CAVEATS`；
-- V6完成最终Opus 5 Max Thinking review并成为`Current / Latest`；
+- V7 plan commit完成最终Opus 5 Max Thinking review；
+- `PROJECT.md`/`HANDOFF.md`将该byte-frozen commit标记为`Current / Latest`；
 - latest `phase7-primary-manifest.json`已pin、提交并hash验证；
 - 两个runner的Docker CPU tests与targeted reviews通过；
 - R2=`disabled_not_comparable`；
@@ -785,7 +787,7 @@ Phase6通过本身**不授权**Phase7。
 
 ### 8.2 P7-0：Result-Bound Freeze
 
-| Track | V6冻结值 | 允许的claim |
+| Track | V7冻结值 | 允许的claim |
 | --- | --- | --- |
 | Ceiling | R0 | 仅性能上限；不通过exact-output gate，不是practical |
 | Practical | **NONE** | 不生成任何practical cell |
@@ -798,8 +800,8 @@ Phase6通过本身**不授权**Phase7。
 > 在本模型、合成prompt族、SM75、`chunk=max-prefill=1024`与冻结exact-output
 > promotion规则下，没有candidate通过。已排除已修复的
 > eviction-dependent prefix-overwrite缺陷，但未证明context差异是唯一原因，
-> 也未排除header-dependent实现缺陷。V6将primary迁移到4096；`NONE`在4096下
-> 未重新qualification，跳过practical是V6 scope决策，不是新的经验结论。
+> 也未排除header-dependent实现缺陷。V7将primary迁移到4096；`NONE`在4096下
+> 未重新qualification，跳过practical是V7 scope决策，不是新的经验结论。
 
 ### 8.2.1 P7-0工程前置（0-GPU，阻塞任何GPU运行）
 
@@ -818,7 +820,7 @@ Phase6通过本身**不授权**Phase7。
 4. R2已冻结为`disabled_not_comparable`：
    - bounded feasibility确认历史CacheBlend package与core hooks已删除；
    - 恢复R2至少需要修改scheduler dispatch、runtime与store lifecycle；
-   - 因而V6删除R2 GPU cells，只保留Phase4历史引用；
+   - 因而V7删除R2 GPU cells，只保留Phase4历史引用；
 5. R4统一为`R4-like synthetic footprint proxy`，不得声称执行KVCOMM重建。
 
 额外冻结：
@@ -832,10 +834,16 @@ Phase6通过本身**不授权**Phase7。
   `benchmark/approx_kv/results/phase7/phase7-final-opus-review.json`；
   review revision保持`pinned_blocked`，review通过后使用保持同一design hash的后续revision
   转为`authorized`。
+- 三个execution runner都必须在server launch前验证authorized manifest、
+  runner blob、review evidence与execution envelope。
+- runtime raw/compact/log/central-log只允许写入容器可写
+  `/results/phase7` staging；implementation worktree只读且不得实时写结果。
+- CPU test evidence必须为版本化JSON，并绑定runner blob、固定Docker digest、
+  frozen required command、exit code与pytest summary。
 
 ### 8.2.2 P7-0b Chunk-migration feasibility gate
 
-V6将primary chunk从Phase6 P6-4的`1024`迁移到`4096`，因此触发兼容性复核：
+V7将primary chunk从Phase6 P6-4的`1024`迁移到`4096`，因此触发兼容性复核：
 
 ```text
 required:
@@ -845,6 +853,15 @@ required:
 conditional:
   cell C: S4/rho3.0（仅当最终报告需要任何chunk4096/rho3 claim时）
 ```
+
+执行合同：
+
+- `run_p6_4_capacity_pilot.py`必须使用Phase7模式并绑定单一setting；
+- 无authorized manifest不得启动server；
+- `capacity_relative_error_tolerance=0.05`由manifest冻结，CLI不得覆盖；
+- formal repeat 0按正序profiles执行，repeat 1按完整逆序执行；
+- warmup/formal、policy、rho、capacity、chunk、profiles和seed全部从setting读取；
+- runtime artifact写入`/results/phase7` staging，波次结束后再版本化。
 
 必须覆盖`exact_only`、`R0-like`、`R1-like-k32`、`R2-like`、
 `R4-like-5x` footprint、accounting与死亡瞬间store gauge
@@ -920,7 +937,7 @@ semantic质量或一般不可用性claim。
 
 #### Historical oracle disposition
 
-R2在V6中固定为：
+R2在V7中固定为：
 
 ```text
 strategy = disabled_not_comparable
@@ -983,7 +1000,7 @@ body=2048, rho=2.0, chunk=4096, policies=S0/S4, restart=1
 
 ### 8.6 明确跳过的轨道
 
-因`practical=NONE`，V6默认**不创建**以下cell：
+因`practical=NONE`，V7默认**不创建**以下cell：
 
 - practical scheduler revalidation；
 - R2 Phase7 adapter/oracle cells；
@@ -993,11 +1010,11 @@ body=2048, rho=2.0, chunk=4096, policies=S0/S4, restart=1
 - async H2D性能claim；
 - exact-only prefetch回归canary。
 
-P0下仍需做0成本inactive断言：prefetch/host/async相关counter在全部V6 run中
+P0下仍需做0成本inactive断言：prefetch/host/async相关counter在全部V7 run中
 零增量；这不是轨道或性能实验。
 
 若未来用户单独授权这些轨道，必须先提升计划版本并重新预注册manifest；
-不能在本V6 Phase7运行中临时添加。
+不能在本V7 Phase7运行中临时添加。
 
 ### 8.7 Early-stop
 
@@ -1033,7 +1050,7 @@ MDE冻结后才允许生成primary manifest；不得根据restart-0结果修改�
    则记`NEGATIVE/INCONCLUSIVE`，不发布ceiling speedup headline；
 4. chunk规则作用于配对speedup比值`R=dense/approx(request-path)`。
    CL2 body1024的`R1024≈1.547`、`R4096≈1.025`已相差约51%，
-   因此V6**预先声明不发布“机制固有speedup”headline**，只报告chunk-coupled结果；
+   因此V7**预先声明不发布“机制固有speedup”headline**，只报告chunk-coupled结果；
 5. S4在rho1.5与rho2.0均：
    - all-reusable mean改善`<5%`，且
    - `miss_S4>=miss_S0 AND peak_S4>=peak_S0`；
@@ -1074,7 +1091,7 @@ disposition后才可发布。
 
 ## 9. Phase8（Potential Scope — Not Yet Created）
 
-V6不自动触发Phase8。以下均为**未来版本**的必要但不充分条件：
+V7不自动触发Phase8。以下均为**未来版本**的必要但不充分条件：
 
 - R0 ceiling在chunk4096下显示稳定且超过MDE的系统空间；
 - S4在W workload中显示可重复的miss/peak/system-behaviour改善；
@@ -1090,7 +1107,7 @@ Phase8候选范围：
 - source/dependency invalidation；
 - end-to-end coding correctness。
 
-Phase8必须另行版本化规划，不在V6中预先承诺矩阵。
+Phase8必须另行版本化规划，不在V7中预先承诺矩阵。
 
 Phase7 schema必须提前采集足以判断Phase8触发条件的forward-compatible字段：
 
@@ -1108,13 +1125,13 @@ Reviewer：
 
 里程碑：
 
-1. V6 plan定稿；
+1. V7 plan定稿；
 2. Phase7 primary manifest定稿；
 3. P7-1 recovery ceiling/oracle；
 4. P7-2 narrow scheduler matrix/R4 diagnostic；
 5. P7-3 final validation与最终结论。
 
-host/prefetch不在V6默认轨道中，不创建对应review里程碑。
+host/prefetch不在V7默认轨道中，不创建对应review里程碑。
 
 流程：
 
@@ -1148,7 +1165,7 @@ Phase7执行前新增最终门：
 | P6-4Δ S4/rho3（条件） | `1` | `1` | 仅需chunk4096/rho3 claim时 |
 | **含全部条件项** | **`14 GPU + 1行政`** | **`31`** | hard cap内余5 |
 
-- GPUh按wave结算；基于Phase5/P6/CL1历史server启动与请求时长，V6预注册
+- GPUh按wave结算；基于Phase5/P6/CL1历史server启动与请求时长，V7预注册
   `expected_gpu_hours_total=3.8h`（wave-0=`0.3h`、wave-1=`0.4h`、
   wave-2=`2.9h`、rho3条件项=`0.2h`）；
 - hard cap：`36 server starts / 6 GPUh`；
@@ -1205,11 +1222,11 @@ Early-stop以§8.7为唯一权威定义，不在本节重复或添加结果后�
 
 ## 13. Review Disposition Mapping
 
-| Review范围 | V6锚点 | 状态 |
+| Review范围 | V7锚点 | 状态 |
 | --- | --- | --- |
 | C-01–C-16 Phase4 provenance/fairness | CL0、§5、CL1/CL2 | accepted |
 | C-17–C-23 R1/R3/R4 | CL1、P7-1/P7-2、defer | accepted/conditional |
-| C-24–C-38 Phase5 metrics/prefetch | CL3、P6-4、P7-2；prefetch在V6 defer | accepted/deferred |
+| C-24–C-38 Phase5 metrics/prefetch | CL3、P6-4、P7-2；prefetch在V7 defer | accepted/deferred |
 | C-39–C-65 Phase6 architecture/statistics/governance | §5、Phase6、§10–§12 | accepted |
 | PRC-01–PRC-05 artifact/ledger | CL0、§5.4 | accepted |
 | PRC-06 register-and-insert | 条件项 | conditional |
@@ -1238,42 +1255,48 @@ technical_exit = PASS WITH CAVEATS
 - practical promotion结果为`NONE`，严格限定于被测实现与冻结规则；
 - 未进入Phase7。
 
-V6 candidate当前状态：
+V7 candidate当前状态：
 
-- V5已由不可变commit归档；
+- V5/V6已由不可变commit归档；
 - Phase7矩阵已收窄为R0 ceiling、R4-like proxy与R0×S0/S4；
 - R2 bounded feasibility结论为`disabled_not_comparable`，无Phase7 GPU cell；
 - host、HiCache、prefetch、async轨道默认全部跳过；
 - `run_p7_ceiling.py`、`run_p7_scheduler.py`与共享Phase7模块已实现；
-- 固定Docker镜像targeted CPU suite=`152 passed + 10 subtests`；
-- 三轮targeted review已闭合全部P0/P1；
-- final code pin=`5d9a5793d73121f088890aa6c02cfebc31cd97be`；
-- latest pinned review manifest已通过provenance check；
-- V6 final Opus review与final disposition待完成；
+- 固定Docker镜像targeted CPU suite=`268 passed + 22 subtests`；
+- required runner commands：
+  - capacity pilot=`23 passed`；
+  - ceiling=`55 passed`；
+  - scheduler=`12 passed`；
+- V6 final Opus review与后续targeted review findings已在实现中闭合；
+- final code pin=`4f0b504cc244bffc1f3f4c71956285ee1853d3ea`；
+- CPU evidence envelope commit=`f6a9baca82856a3f17cff3face63024ddc6e251a`；
+- V7 manifest与final delta review待完成；
 - 用户已给条件性授权，但尚未生效；未进入Phase7。
 
-## 15. V6冻结约束与已吸收教训
+## 15. V7冻结约束与已吸收教训
 
-### 15.1 V6生效条件
+### 15.1 V7生效条件
 
-V6只有在以下条件全部满足后才可改为`Current / Latest`：
+V7 plan blob在提交后保持byte-frozen。以下条件全部满足后，由
+`PROJECT.md`/`HANDOFF.md`将其标记为`Current / Latest`：
 
-1. V5不可变归档完成；
+1. V5/V6不可变归档完成；
 2. final code pin与latest pinned manifest完成；
 3. Opus 5 Max Thinking final review完成；
 4. 主会话逐项disposition并闭合accepted feedback；
 5. 无开放P0/P1；
 6. manifest、runner blobs、plan commit/hash与execution envelope全部验证通过。
 
-V6生效后，用户已给出的条件性授权才生效；在此之前不得启动Phase7 GPU。
+外部authority activation完成后，用户已给出的条件性授权才生效；在此之前
+不得启动Phase7 GPU。activation不得修改本plan blob。
 
 ### 15.2 已由执行结果确定并吸收的合同修订
 
-以下修订已进入V6正文或Phase7运行合同；review时必须检查是否完整且无冲突：
+以下修订已进入V7正文或Phase7运行合同；review时必须检查是否完整且无冲突：
 
 1. **guardrail语义歧义已消解。** §5.9把8-token canary定义为“记录逐token
    一致率、不扩展semantic correctness claim”，但冻结的CL1 runner把8-token
-   完全一致当作promotion硬门。V6区分same-context corruption canary与
+   完全一致当作promotion硬门。V7区分same-context corruption canary与
    cross-context conservative promotion gate。
 2. **fallback证据分级。** 带label的Prometheus counter在未发生事件时不会输出
    任何series，因此“counter缺失”只能记为`indirectly_verified`，不得记为显式
@@ -1285,7 +1308,7 @@ V6生效后，用户已给出的条件性授权才生效；在此之前不得启
 4. **Phase6 Exit Gate已新增数据保真条目。** §7.9原先只要求安全竞争、双向
    pressure、可回滚、无泄漏，没有任何一条要求“近似reuse在压力下必须与matched
    dense逐token一致”。正因为缺这一条，该底座通过了三轮review和全部CPU回归，
-   却在GPU压力下返回损坏KV。V6把它列为独立的Exit条件。
+   却在GPU压力下返回损坏KV。V7把它列为独立的Exit条件。
 5. **压力态保真回归已新增。** P6-H与P6-F均经过真实GPU server路径；
    后续不得退回只依赖CPU fake allocator。
 6. **Phase5结论按分母分列。** S4相对S1–S3的独特高rho优势只在
@@ -1332,9 +1355,9 @@ V6生效后，用户已给出的条件性授权才生效；在此之前不得启
     file→commit映射、内容哈希与验证命令，并且不得据artifact字段声称
     “provenance完整”。
 19. **code pin与execution envelope必须分层。** manifest不能自包含它所在
-    commit的SHA；V6采用code pin commit为祖先、后续只允许Phase7 result
+    commit的SHA；V7采用code pin commit为祖先、后续只允许Phase7 result
     envelope路径变化，并逐blob验证runner与manifest。
-20. **A8 source必须真实pin到sequence结束。** V6使用默认关闭、服务端门控、
+20. **A8 source必须真实pin到sequence结束。** V7使用默认关闭、服务端门控、
     上限16条的`pin_until_reset` registration lease；reset必须释放全部lease。
 21. **process-lifetime peak不能冒充per-arm peak。** full reset现在清零
     cross-store budget high-water；artifact字段明确为
@@ -1343,8 +1366,15 @@ V6生效后，用户已给出的条件性授权才生效；在此之前不得启
     已包含approx slot；另报`approx_device_bytes`与
     `exact_only_estimated_bytes`，禁止相加重复计算。
 23. **R2方案B的停止条件已触发。** bounded feasibility确认恢复R2需要重建
-    已删除的CacheBlend package并修改冻结dispatch，因此V6按预定决策树选择
+    已删除的CacheBlend package并修改冻结dispatch，因此V7按预定决策树选择
     `disabled_not_comparable`，不是实现失败后的临时删项。
+24. **runtime结果不得污染code worktree。** 三个Phase7 runner只写
+    `/results/phase7` staging；implementation worktree在Docker中只读。
+25. **P7-0b与主runner共享同一授权门。** capacity pilot在Phase7模式中只能
+    执行一个manifest setting，并绑定runner blob、CPU evidence与review。
+26. **CPU/review evidence必须内容绑定。** runner证据记录固定Docker digest、
+    exact required command、exit code与summary；final Opus artifact绑定被审
+    manifest self/design hash、code pin与runner hashes。
 
 ### 15.3 已完成或作废的旧P0方向
 

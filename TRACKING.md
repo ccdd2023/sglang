@@ -3006,3 +3006,23 @@ technical_exit = PASS WITH CAVEATS
 - primary manifest/provenance envelope HEAD=`eb7daf63...`；
   Phase7 result manifest `1/1`通过。
 - rev9作为最终Opus review输入。
+
+## 2026-07-28T08:52:08-07:00 — V7闭合final Opus review blockers
+
+- V6 rev9 final Opus verdict=`FAIL`：
+  - P0：repo内实时result artifact使第二次run无法通过clean envelope；
+  - P1：ceiling CPU证据陈旧；
+  - P1：P7-0b capacity runner不受authorized gate；
+  - P1：plan自改Current/Latest与design hash保持形成循环。
+- V7修复：
+  - runtime只写`/results/phase7` staging；
+  - capacity runner加入Phase7 authorized/single-setting/blob gate；
+  - formal profile按repeat正序/逆序执行；
+  - tolerance=0.05与warmup由setting冻结；
+  - CPU evidence与final review evidence均版本化并内容绑定；
+  - plan byte-frozen，activation移至PROJECT/HANDOFF。
+- Docker full targeted=`268 passed + 22 subtests`。
+- required commands：capacity=23、ceiling=55、scheduler=12。
+- final code pin=`4f0b504cc244bffc1f3f4c71956285ee1853d3ea`。
+- CPU evidence commit=`f6a9baca82856a3f17cff3face63024ddc6e251a`。
+- 下一步生成V7 pinned manifest并做final delta Opus review。

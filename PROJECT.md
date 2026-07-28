@@ -2,14 +2,14 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-28T04:45:16-07:00
+最后更新：2026-07-28T08:52:08-07:00
 
 ## 项目概况
 
 | 项目 | 当前值 |
 | --- | --- |
 | 名称 | `code-agent-kvcache` |
-| 阶段 | Phase6=`PASS WITH CAVEATS`；V5已归档；V6 Candidate与rev6 manifest待最终Opus review；未进入Phase7 |
+| 阶段 | Phase6=`PASS WITH CAVEATS`；V5/V6已归档；V7 byte-frozen candidate待增量Opus review；未进入Phase7 |
 | 业务目标 | 在 SGLang 上比较多种跨 context 近似 KV 恢复与 workflow-aware cache scheduling，降低 Coding Agent TTFT |
 | 技术栈 | SGLang、HiCache、Docker、KVFlow、KVCOMM、CacheBlend、Cache-Craft、EPIC、CacheTune |
 | 默认分支 | `main` |
@@ -26,6 +26,35 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-28T08:52:08-07:00 V7闭合最终Opus review findings
+
+- V6 final Opus review结论=`FAIL`，发现1 P0/3 P1：
+  - repo内实时artifact导致第二次run无法满足clean envelope；
+  - ceiling required CPU test证据陈旧；
+  - P7-0b capacity runner未接入授权/manifest门；
+  - plan自改`Current / Latest`与design hash保持互斥。
+- 已创建V7并归档V6：
+  - runtime raw/compact/log/central-log只写`/results/phase7` staging；
+  - 三个runner均在server launch前验证authorized manifest与runner blob；
+  - capacity runner Phase7模式只执行单一setting，并按formal repeat执行
+    正序/逆序profiles；
+  - capacity tolerance=`0.05`、warmup/formal/seed均由manifest冻结；
+  - CPU test evidence改为版本化JSON并绑定Docker digest、exact command、
+    exit code、summary、runner blob；
+  - final Opus evidence绑定被审manifest self/design hash、code pin和runner hashes；
+  - plan文件byte-frozen，`Current / Latest` activation由PROJECT/HANDOFF记录。
+- 最终Docker证据：
+  - targeted regression=`268 passed + 22 subtests`；
+  - capacity required command=`23 passed`；
+  - ceiling required command=`55 passed`；
+  - scheduler required command=`12 passed`。
+- final code pin=`4f0b504cc244bffc1f3f4c71956285ee1853d3ea`。
+- CPU evidence envelope commit=`f6a9baca82856a3f17cff3face63024ddc6e251a`。
+- R2仍为`disabled_not_comparable`；矩阵仍为13 committed/30 starts，
+  含rho3条件项14/31，3.8 expected GPUh。
+- 下一步：生成V7 pinned manifest、执行最终增量Opus review、闭合feedback，
+  再生成authorized revision。仍未进入Phase7。
 
 ### 2026-07-28T04:31:07-07:00 V6 Candidate、runner完成与R2最终disposition
 
