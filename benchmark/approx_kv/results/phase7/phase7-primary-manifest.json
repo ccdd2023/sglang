@@ -1,20 +1,41 @@
 {
   "schema_version": 1,
   "artifact": "phase7-primary-manifest",
-  "manifest_revision": 3,
-  "supersedes_manifest_sha256": "ee01e602bd68f8b4d6141e8aafcfb4b75c73f90db36b03abf3429fdc3964ab79",
-  "revision_reason": "close rev2 review P1/P2: supplement gates, GPUh headroom, state validation, canary/role/provenance hardening",
+  "manifest_revision": 4,
+  "supersedes_manifest_sha256": "a3601cec1a77a1efabf69124503adcb3a1028e7d1037e3ec430119e2d5dd792c",
+  "supersedes_design_payload_sha256": "de5e2d80b24ae2040edc925d537c9e60f2f4b9c169d46b5fdb1eac245632d091",
+  "design_keys": [
+    "plan",
+    "environment",
+    "server_template",
+    "workloads",
+    "arms",
+    "footprint_profiles",
+    "arm_execution",
+    "statistics",
+    "outcome_taxonomy",
+    "exclusive_terminal_reasons",
+    "conditional_rules",
+    "settings",
+    "early_stops",
+    "budget",
+    "artifact_templates",
+    "skipped_tracks",
+    "required_inactive_counters",
+    "scope_caveats"
+  ],
+  "revision_reason": "bind final Current/Latest V5 plan and reviewed GPU-hour budget; no matrix-setting changes",
   "status": "preregistered_blocked",
   "phase7_execution_authorized": false,
   "plan": {
     "version": "V5",
-    "plan_commit": "a53f56f239ddb1a13817ecfac12236af5be46862",
+    "plan_commit": "5a6b740e82061e5c69947f102e2ae514ed66ba4e",
     "plan_file": "IMPLEMENTATION_PLAN_LATEST.md",
-    "plan_sha256": "8f57290269774586040635697f0a1e0920af65a7b3ec434e678ae76ba75d9dc8"
+    "plan_sha256": "6a758d5fc43d04d7ad198b3cce050ec6fd5ea6e4b509ae1fc16667225bc8c804"
   },
   "implementation": {
-    "manifest_generation_sha": "5f8272a021ffcc8a810121593ee307adaa9f9b0b",
-    "manifest_generation_tree_sha": "c9edacfebb734830711bf4963358b2e206e1e13d",
+    "manifest_generation_sha": "9c37c5a03b1276060174ebc864f2c0386c574aa1",
+    "manifest_generation_tree_sha": "c24f944cc0c4cde8f7c819cc37005e4daa1e0b89",
     "phase6_evidence_sha": "924c9d1d6c074f304189248f0fc5b15aa6d25adb",
     "phase7_pinned_implementation_sha": null,
     "phase7_pinned_tree_sha": null,
@@ -45,7 +66,7 @@
     "manifest": {
       "path": "benchmark/approx_kv/build_phase7_manifest.py",
       "exists": true,
-      "sha256": "ae691ccc4466d8dea27e99a1acddaa30e847f6ab30da0ee8e6afb0d427cfeb04",
+      "sha256": "2303aab200e00d8a01ddc35e460314e90cdcec0c541c043ed29ea0f2ab07b772",
       "required_cpu_test": "python3 -m benchmark.approx_kv.build_phase7_manifest --check",
       "cpu_test_status": "passed",
       "review_status": "reviewed"
@@ -2726,13 +2747,21 @@
     "expected_gpu_hours": {
       "wave-0": 0.3,
       "wave-1": 0.4,
-      "wave-2": 2.3,
-      "conditional": 0.5
+      "wave-2": 2.9,
+      "conditional": 0.4
     },
-    "expected_gpu_hours_total": 3.5,
+    "expected_gpu_hours_total": 4.0,
+    "expected_minutes_per_start_by_runner": {
+      "run_p6_4_capacity_pilot": 9,
+      "run_p7_ceiling_A8": 6,
+      "run_p7_ceiling_sensitivity": 6,
+      "run_p7_scheduler_W": 8,
+      "run_p7_scheduler_R4_like": 8,
+      "conditional_R2": 6
+    },
     "hard_cap_server_starts": 36,
     "hard_cap_gpu_hours": 6,
-    "gpu_hour_headroom": 2.5,
+    "gpu_hour_headroom": 2.0,
     "minimum_headroom_fraction": 0.15,
     "retries_count_against_cap": true
   },
@@ -2767,6 +2796,6 @@
     "P6-4 rho1.1/rho1.5/rho3 feasibility remains chunk1024 unless separately revalidated",
     "host/prefetch/async tracks are not generated in V5"
   ],
-  "design_payload_sha256": "de5e2d80b24ae2040edc925d537c9e60f2f4b9c169d46b5fdb1eac245632d091",
-  "preregistered_manifest_sha256": "a3601cec1a77a1efabf69124503adcb3a1028e7d1037e3ec430119e2d5dd792c"
+  "design_payload_sha256": "3cbd2cc1a7eb96fae8b85bb595a7c8bfb25aa6c04c1c2d57ab9bfad39f0c51ab",
+  "preregistered_manifest_sha256": "6e5617aec12f70ea7ef423f425afad88cf36f67dfdb610107999ab8ce31dd0f3"
 }
