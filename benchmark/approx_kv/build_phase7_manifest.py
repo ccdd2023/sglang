@@ -957,17 +957,23 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
                 problems.append("pinned implementation tree mismatch")
 
     for runner_name in ("ceiling", "scheduler"):
-        status = manifest["runners"][runner_name]
+        runner_status_entry = manifest["runners"][runner_name]
         missing_blocker = f"missing_runner:{runner_name}"
         pending_blocker = f"runner_not_ready:{runner_name}"
-        if not status["exists"] and missing_blocker not in blockers:
+        if not runner_status_entry["exists"] and missing_blocker not in blockers:
             problems.append(f"{runner_name} missing without blocker")
-        if status["exists"] and missing_blocker in blockers:
+        if runner_status_entry["exists"] and missing_blocker in blockers:
             problems.append(f"{runner_name} exists but listed as missing")
-        if status["exists"] and status["cpu_test_status"] != "passed":
+        if (
+            runner_status_entry["exists"]
+            and runner_status_entry["cpu_test_status"] != "passed"
+        ):
             if pending_blocker not in blockers:
                 problems.append(f"{runner_name} untested without blocker")
-        if status["exists"] and status["review_status"] != "reviewed":
+        if (
+            runner_status_entry["exists"]
+            and runner_status_entry["review_status"] != "reviewed"
+        ):
             if pending_blocker not in blockers:
                 problems.append(f"{runner_name} unreviewed without blocker")
 
