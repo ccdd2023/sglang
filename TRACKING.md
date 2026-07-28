@@ -3021,8 +3021,8 @@ technical_exit = PASS WITH CAVEATS
   - tolerance=0.05与warmup由setting冻结；
   - CPU evidence与final review evidence均版本化并内容绑定；
   - plan byte-frozen，activation移至PROJECT/HANDOFF。
-- Docker full targeted=`268 passed + 22 subtests`。
-- required commands：capacity=23、ceiling=55、scheduler=12。
-- final code pin=`4f0b504cc244bffc1f3f4c71956285ee1853d3ea`。
-- CPU evidence commit=`f6a9baca82856a3f17cff3face63024ddc6e251a`。
+- Docker full targeted=`269 passed + 22 subtests`。
+- required commands：capacity=24、ceiling=55、scheduler=12。
+- final code pin=`81405f4278b034911bc613c4ee17c79d15ee8f35`。
+- CPU evidence HEAD=`a01642fdd6cdc869cb2c991c23003ff600665f37`。
 - 下一步生成V7 pinned manifest并做final delta Opus review。

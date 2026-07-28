@@ -18,11 +18,11 @@
 - V5/V6已归档；V7 plan为byte-frozen plan of record。
 - V6 final Opus的1 P0/3 P1与后续capacity/evidence findings已闭合。
 - runtime结果写`/results/phase7` staging，三个runner共享authorized gate。
-- final code pin=`4f0b504cc244bffc1f3f4c71956285ee1853d3ea`。
-- CPU evidence commit=`f6a9baca82856a3f17cff3face63024ddc6e251a`。
+- final code pin=`81405f4278b034911bc613c4ee17c79d15ee8f35`。
+- CPU evidence HEAD=`a01642fdd6cdc869cb2c991c23003ff600665f37`。
 - Docker evidence：
-  - full targeted=`268 passed + 22 subtests`；
-  - capacity=`23 passed`；
+  - full targeted=`269 passed + 22 subtests`；
+  - capacity=`24 passed`；
   - ceiling=`55 passed`；
   - scheduler=`12 passed`。
 - 下一步：提交V7 plan → 生成V7 pinned manifest → Opus final delta review →

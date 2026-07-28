@@ -8,7 +8,7 @@
 >
 > 当前阶段：Phase6 technical Exit=`PASS WITH CAVEATS`；Phase7 runners、
 > Docker CPU tests与targeted reviews已完成；R2已解析为
-> `disabled_not_comparable`；final code pin=`4f0b504cc244bffc1f3f4c71956285ee1853d3ea`；
+> `disabled_not_comparable`；final code pin=`81405f4278b034911bc613c4ee17c79d15ee8f35`；
 > V6 final review findings已在实现中闭合；V7 manifest与最终增量
 > Opus 5 Max Thinking review尚未完成；未进入Phase7。
 >
@@ -1262,14 +1262,14 @@ V7 candidate当前状态：
 - R2 bounded feasibility结论为`disabled_not_comparable`，无Phase7 GPU cell；
 - host、HiCache、prefetch、async轨道默认全部跳过；
 - `run_p7_ceiling.py`、`run_p7_scheduler.py`与共享Phase7模块已实现；
-- 固定Docker镜像targeted CPU suite=`268 passed + 22 subtests`；
+- 固定Docker镜像targeted CPU suite=`269 passed + 22 subtests`；
 - required runner commands：
-  - capacity pilot=`23 passed`；
+  - capacity pilot=`24 passed`；
   - ceiling=`55 passed`；
   - scheduler=`12 passed`；
 - V6 final Opus review与后续targeted review findings已在实现中闭合；
-- final code pin=`4f0b504cc244bffc1f3f4c71956285ee1853d3ea`；
-- CPU evidence envelope commit=`f6a9baca82856a3f17cff3face63024ddc6e251a`；
+- final code pin=`81405f4278b034911bc613c4ee17c79d15ee8f35`；
+- CPU evidence envelope HEAD=`a01642fdd6cdc869cb2c991c23003ff600665f37`；
 - V7 manifest与final delta review待完成；
 - 用户已给条件性授权，但尚未生效；未进入Phase7。
 

@@ -45,12 +45,12 @@
   - final Opus evidence绑定被审manifest self/design hash、code pin和runner hashes；
   - plan文件byte-frozen，`Current / Latest` activation由PROJECT/HANDOFF记录。
 - 最终Docker证据：
-  - targeted regression=`268 passed + 22 subtests`；
-  - capacity required command=`23 passed`；
+  - targeted regression=`269 passed + 22 subtests`；
+  - capacity required command=`24 passed`；
   - ceiling required command=`55 passed`；
   - scheduler required command=`12 passed`。
-- final code pin=`4f0b504cc244bffc1f3f4c71956285ee1853d3ea`。
-- CPU evidence envelope commit=`f6a9baca82856a3f17cff3face63024ddc6e251a`。
+- final code pin=`81405f4278b034911bc613c4ee17c79d15ee8f35`。
+- CPU evidence envelope HEAD=`a01642fdd6cdc869cb2c991c23003ff600665f37`。
 - R2仍为`disabled_not_comparable`；矩阵仍为13 committed/30 starts，
   含rho3条件项14/31，3.8 expected GPUh。
 - 下一步：生成V7 pinned manifest、执行最终增量Opus review、闭合feedback，

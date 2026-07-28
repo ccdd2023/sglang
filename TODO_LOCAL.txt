@@ -210,9 +210,9 @@ The caveat is permanent:
        final pin, plan disposition and final Opus review are complete.
 
 [x] 11. Implement and review run_p7_ceiling.py and run_p7_scheduler.py.
-       DONE at final code pin 4f0b504cc244bffc1f3f4c71956285ee1853d3ea.
-       Docker targeted suite: 268 passed + 22 subtests.
-       Required commands: capacity=23, ceiling=55, scheduler=12.
+       DONE at final code pin 81405f4278b034911bc613c4ee17c79d15ee8f35.
+       Docker targeted suite: 269 passed + 22 subtests.
+       Required commands: capacity=24, ceiling=55, scheduler=12.
 
 [x] 12. Resolve R2 strategy.
        DONE: disabled_not_comparable. Bounded feasibility proved that restoring
@@ -221,9 +221,9 @@ The caveat is permanent:
 
 [ ] 13. Pin the V7 Phase7 implementation SHA atomically.
        Final code pin:
-       4f0b504cc244bffc1f3f4c71956285ee1853d3ea
+       81405f4278b034911bc613c4ee17c79d15ee8f35
        CPU evidence commit:
-       f6a9baca82856a3f17cff3face63024ddc6e251a
+       a01642fdd6cdc869cb2c991c23003ff600665f37
        Generate a V7 pinned manifest binding the byte-frozen plan and all
        three versioned runner evidence files.
 
