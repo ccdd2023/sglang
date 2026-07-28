@@ -10,11 +10,45 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from benchmark.approx_kv.phase7.evidence import validate_runner_test_evidence
+from benchmark.approx_kv.phase7.review import (
+    load_final_review,
+    validate_review_binding,
+)
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = Path("benchmark/approx_kv/results/phase7/phase7-primary-manifest.json")
 P6_CONTRACT = Path("benchmark/approx_kv/results/phase6/p6-0-contract.json")
 FINAL_OPUS_REVIEW = Path(
     "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json"
 )
+RUNTIME_STAGING_ROOT = "/results/phase7"
+CAPACITY_RELATIVE_ERROR_TOLERANCE = 0.05
+MAX_CAPACITY_RELATIVE_ERROR_TOLERANCE = 0.1
+RUNNER_SPECS = {
+    "ceiling": {
+        "module": "benchmark.approx_kv.run_p7_ceiling",
+        "path": "benchmark/approx_kv/run_p7_ceiling.py",
+        "required_cpu_test": (
+            "python3 -m pytest -q test/registered/unit/bench/" "test_run_p7_ceiling.py"
+        ),
+    },
+    "scheduler": {
+        "module": "benchmark.approx_kv.run_p7_scheduler",
+        "path": "benchmark/approx_kv/run_p7_scheduler.py",
+        "required_cpu_test": (
+            "python3 -m pytest -q "
+            "test/registered/unit/bench/test_run_p7_scheduler.py"
+        ),
+    },
+    "capacity_pilot": {
+        "module": "benchmark.approx_kv.run_p6_4_capacity_pilot",
+        "path": "benchmark/approx_kv/run_p6_4_capacity_pilot.py",
+        "required_cpu_test": (
+            "python3 -m pytest -q test/registered/unit/bench/" "test_phase6_manifest.py"
+        ),
+    },
+}
 DESIGN_KEYS = (
     "plan",
     "environment",
@@ -33,6 +67,7 @@ DESIGN_KEYS = (
     "artifact_templates",
     "skipped_tracks",
     "required_inactive_counters",
+    "inactive_counter_pins",
     "scope_caveats",
     "review_contract",
 )
@@ -77,8 +112,158 @@ def git(*args: str, cwd: Path | None = None) -> str:
     ).stdout.strip()
 
 
+def build_artifact_templates() -> dict[str, Any]:
+    return {
+        "runtime_staging_root": RUNTIME_STAGING_ROOT,
+        "staging_raw_json": f"{RUNTIME_STAGING_ROOT}/raw/{{run_id}}.json",
+        "staging_compact_json": f"{RUNTIME_STAGING_ROOT}/compact/{{run_id}}.json",
+        "staging_server_log": f"{RUNTIME_STAGING_ROOT}/logs/{{run_id}}.log",
+        "staging_central_log": f"{RUNTIME_STAGING_ROOT}/phase7-runs.jsonl",
+        "versioned_destination_raw_json": (
+            "benchmark/approx_kv/results/phase7/raw/{run_id}.json"
+        ),
+        "versioned_destination_compact_json": (
+            "benchmark/approx_kv/results/phase7/compact/{run_id}.json"
+        ),
+        "versioned_destination_server_log": (
+            "benchmark/approx_kv/results/phase7/logs/{run_id}.log"
+        ),
+        "versioned_destination_central_log": (
+            "benchmark/approx_kv/results/phase7/phase7-runs.jsonl"
+        ),
+        "versioned_copy_policy": (
+            "copy from runtime staging and commit once after an experiment wave; "
+            "runners never write the implementation worktree"
+        ),
+        "implementation_worktree_mount": "read_only",
+        "hash_timing": "after server stop and file close",
+        "result_manifest": ("benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json"),
+    }
+
+
+def build_inactive_counter_pins() -> dict[str, Any]:
+    return {
+        "host_load": {
+            "disabled": True,
+            "manifest_pins": {
+                "plugin_env.SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+                "skipped_track": "host_matrix",
+            },
+        },
+        "prefetch_request": {
+            "disabled": True,
+            "manifest_pins": {
+                "skipped_tracks": [
+                    "prefetch_functionality",
+                    "prefetch_performance",
+                ]
+            },
+        },
+        "prefetch_loaded_tokens": {
+            "disabled": True,
+            "manifest_pins": {
+                "skipped_tracks": [
+                    "prefetch_functionality",
+                    "prefetch_performance",
+                ]
+            },
+        },
+        "async_load": {
+            "disabled": True,
+            "manifest_pins": {
+                "plugin_env.SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+                "skipped_track": "async_h2d_performance",
+            },
+        },
+    }
+
+
 def token_list_sha(tokens: list[int]) -> str:
     return sha256_bytes(json.dumps(tokens, separators=(",", ":")).encode("utf-8"))
+
+
+def parse_named_evidence_paths(values: list[str]) -> dict[str, Path]:
+    parsed: dict[str, Path] = {}
+    for value in values:
+        name, separator, raw_path = value.partition("=")
+        if not separator or name not in RUNNER_SPECS or not raw_path:
+            raise ValueError(
+                "runner test evidence must use "
+                f"name=path with name in {sorted(RUNNER_SPECS)}"
+            )
+        if name in parsed:
+            raise ValueError(f"duplicate runner test evidence for {name}")
+        parsed[name] = Path(raw_path)
+    resolved = [path.resolve() for path in parsed.values()]
+    if len(resolved) != len(set(resolved)):
+        raise ValueError("runner test evidence paths must be distinct")
+    return parsed
+
+
+def load_versioned_runner_test_evidence(
+    *,
+    runner_key: str,
+    evidence_path: Path,
+    image_digest: str,
+) -> dict[str, Any]:
+    resolved = evidence_path.resolve()
+    repo_root = REPO_ROOT.resolve()
+    if not resolved.is_relative_to(repo_root):
+        raise ValueError(f"{runner_key} test evidence is outside the repository")
+    relative = str(resolved.relative_to(repo_root))
+    if not relative.startswith("benchmark/approx_kv/results/phase7/"):
+        raise ValueError(
+            f"{runner_key} test evidence is outside the Phase7 result envelope"
+        )
+    if not resolved.is_file():
+        raise ValueError(f"{runner_key} test evidence is missing: {relative}")
+    head_blob = subprocess.run(
+        ("git", "show", f"HEAD:{relative}"),
+        cwd=REPO_ROOT,
+        capture_output=True,
+        check=False,
+    )
+    if head_blob.returncode != 0 or head_blob.stdout != resolved.read_bytes():
+        raise ValueError(
+            f"{runner_key} test evidence is not the versioned HEAD blob: {relative}"
+        )
+    payload = json.loads(resolved.read_text(encoding="utf-8"))
+    validate_runner_test_evidence(payload)
+    spec = RUNNER_SPECS[runner_key]
+    runner_path = Path(spec["path"])
+    expected = {
+        "runner_key": runner_key,
+        "runner_module": spec["module"],
+        "runner_path": spec["path"],
+        "runner_sha256": sha256_file(REPO_ROOT / runner_path),
+        "image_digest": image_digest,
+        "command": spec["required_cpu_test"],
+        "exit_code": 0,
+    }
+    drifted = {
+        field: (payload.get(field), value)
+        for field, value in expected.items()
+        if payload.get(field) != value
+    }
+    if drifted:
+        raise ValueError(f"{runner_key} test evidence binding mismatch: {drifted}")
+    if int(payload["passed_count"]) <= 0:
+        raise ValueError(f"{runner_key} test evidence reports no passing tests")
+    if not str(payload["summary_line"]).strip():
+        raise ValueError(f"{runner_key} test evidence lacks a summary line")
+    return {
+        "path": relative,
+        "file_sha256": sha256_file(resolved),
+        "artifact_sha256": payload["artifact_sha256"],
+        "image_digest": payload["image_digest"],
+        "command": payload["command"],
+        "exit_code": payload["exit_code"],
+        "summary_line": payload["summary_line"],
+        "passed_count": payload["passed_count"],
+        "subtests": payload["subtests"],
+        "timestamp": payload["timestamp"],
+        "runner_sha256": payload["runner_sha256"],
+    }
 
 
 def build_a8_workload() -> dict[str, Any]:
@@ -253,6 +438,7 @@ def setting(
     capacity_ceiling_tokens: int = 13130,
     activation_rule_id: str | None = None,
     supplement_gate: str | None = None,
+    capacity_relative_error_tolerance: float | None = None,
 ) -> dict[str, Any]:
     screening = [0] if 0 in restarts else []
     supplements = [restart for restart in restarts if restart != 0]
@@ -284,6 +470,11 @@ def setting(
         ),
         "rho_realization": rho_realization,
         "known_capacity_ceiling_tokens": capacity_ceiling_tokens,
+        "capacity_relative_error_tolerance": (
+            CAPACITY_RELATIVE_ERROR_TOLERANCE
+            if rho_realization == "capacity_pinning"
+            else capacity_relative_error_tolerance
+        ),
         "arm_order_by_repeat": {
             "0": arms,
             "1": list(reversed(arms)),
@@ -471,41 +662,112 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     conditional = [row for row in settings if row["conditional"]]
     committed_starts = sum(len(row["restart_indices"]) for row in committed)
     conditional_starts = sum(len(row["restart_indices"]) for row in conditional)
-    runner_paths = {
-        "ceiling": "benchmark/approx_kv/run_p7_ceiling.py",
-        "scheduler": "benchmark/approx_kv/run_p7_scheduler.py",
-        "manifest": "benchmark/approx_kv/build_phase7_manifest.py",
+    evidence_paths = parse_named_evidence_paths(args.runner_test_evidence)
+    unexpected_evidence = sorted(set(evidence_paths).difference(args.runner_ready))
+    if unexpected_evidence:
+        raise ValueError(
+            "runner test evidence supplied without --runner-ready: "
+            f"{unexpected_evidence}"
+        )
+    review_artifact = (
+        load_final_review(FINAL_OPUS_REVIEW)
+        if args.final_opus_review_complete
+        else None
+    )
+    review_summary = {
+        "status": "passed" if review_artifact is not None else "pending",
+        "artifact_path": str(FINAL_OPUS_REVIEW),
+        "artifact_sha256": (
+            sha256_file(FINAL_OPUS_REVIEW) if review_artifact is not None else None
+        ),
+        "verdict": (None if review_artifact is None else review_artifact["verdict"]),
+        "open_p0": (None if review_artifact is None else review_artifact["open_p0"]),
+        "open_p1": (None if review_artifact is None else review_artifact["open_p1"]),
+        "reviewed_manifest_revision": (
+            None
+            if review_artifact is None
+            else review_artifact["reviewed_manifest_revision"]
+        ),
+        "reviewed_manifest_sha256": (
+            None
+            if review_artifact is None
+            else review_artifact["reviewed_manifest_sha256"]
+        ),
+        "reviewed_design_payload_sha256": (
+            None
+            if review_artifact is None
+            else review_artifact["design_payload_sha256"]
+        ),
+        "reviewed_pinned_implementation_sha": (
+            None
+            if review_artifact is None
+            else review_artifact["reviewed_pinned_implementation_sha"]
+        ),
+        "round_summary": (
+            "final V7 Opus review covers the plan, manifest, all execution "
+            "runners, CPU evidence, R2 disposition, and implementation binding"
+        ),
     }
-    runner_status = {
-        name: {
-            "path": path,
-            "exists": Path(path).exists(),
-            "sha256": sha256_file(Path(path)) if Path(path).exists() else None,
-            "required_cpu_test": (
-                f"python3 -m pytest -q test/registered/unit/bench/"
-                f"test_{Path(path).stem}.py"
-                if name != "manifest"
-                else "python3 -m benchmark.approx_kv.build_phase7_manifest --check"
-            ),
+    runner_status = {}
+    for name, spec in RUNNER_SPECS.items():
+        path = Path(spec["path"])
+        resolved_path = REPO_ROOT / path
+        evidence = (
+            load_versioned_runner_test_evidence(
+                runner_key=name,
+                evidence_path=evidence_paths[name],
+                image_digest=args.image_digest,
+            )
+            if name in evidence_paths
+            else None
+        )
+        runner_status[name] = {
+            "execution_runner": True,
+            "module": spec["module"],
+            "path": spec["path"],
+            "exists": resolved_path.exists(),
+            "sha256": sha256_file(resolved_path) if resolved_path.exists() else None,
+            "required_cpu_test": spec["required_cpu_test"],
             "cpu_test_status": (
                 "passed"
-                if name == "manifest" or name in args.runner_ready
+                if name in args.runner_ready and evidence is not None
                 else "pending"
             ),
+            "cpu_test_evidence": evidence,
             "review_status": (
-                "reviewed"
-                if name == "manifest" or name in args.runner_ready
-                else "pending"
+                "reviewed" if args.final_opus_review_complete else "pending"
             ),
+            "review_evidence": dict(review_summary),
         }
-        for name, path in runner_paths.items()
+    manifest_builder_path = Path("benchmark/approx_kv/build_phase7_manifest.py")
+    resolved_manifest_builder_path = REPO_ROOT / manifest_builder_path
+    runner_status["manifest"] = {
+        "execution_runner": False,
+        "module": "benchmark.approx_kv.build_phase7_manifest",
+        "path": str(manifest_builder_path),
+        "exists": resolved_manifest_builder_path.exists(),
+        "sha256": (
+            sha256_file(resolved_manifest_builder_path)
+            if resolved_manifest_builder_path.exists()
+            else None
+        ),
+        "required_cpu_test": (
+            "python3 -m benchmark.approx_kv.build_phase7_manifest --check"
+        ),
+        "cpu_test_status": "self_validated",
+        "cpu_test_evidence": {
+            "status": "validated_during_manifest_generation",
+            "command": ("python3 -m benchmark.approx_kv.build_phase7_manifest --check"),
+        },
+        "review_status": ("reviewed" if args.final_opus_review_complete else "pending"),
+        "review_evidence": dict(review_summary),
     }
     execution_blockers = []
-    for name in ("ceiling", "scheduler"):
+    for name in RUNNER_SPECS:
         status = runner_status[name]
         if not status["exists"]:
             execution_blockers.append(f"missing_runner:{name}")
-        elif name not in args.runner_ready:
+        elif status["cpu_test_status"] != "passed":
             execution_blockers.append(f"runner_not_ready:{name}")
     if not args.phase7_pinned_implementation_sha:
         execution_blockers.append("phase7_pinned_implementation_sha_pending")
@@ -527,7 +789,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "status": args.status,
         "phase7_execution_authorized": args.authorize,
         "plan": {
-            "version": "V6",
+            "version": "V7",
             "plan_commit": args.plan_commit,
             "plan_file": args.plan_file_in_repo,
             "plan_sha256": sha256_bytes(plan_blob),
@@ -555,6 +817,14 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
                 "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json",
                 "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
                 str(FINAL_OPUS_REVIEW),
+                *[
+                    evidence["path"]
+                    for evidence in (
+                        runner_status[name]["cpu_test_evidence"]
+                        for name in RUNNER_SPECS
+                    )
+                    if evidence is not None
+                ],
             ],
             "post_pin_envelope_rule": (
                 "the pinned code SHA must be an ancestor of the execution HEAD "
@@ -582,7 +852,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "final_opus_required": True,
             "reviewer": "Claude Opus 5 / Max Thinking / long context",
             "scope": (
-                "final V6 plan, manifest, runners, Docker CPU evidence, R2 "
+                "final V7 plan, manifest, runners, Docker CPU evidence, R2 "
                 "disposition, implementation binding, budget and early-stop"
             ),
             "pass_condition": "no open P0/P1 after accepted-feedback closure",
@@ -592,14 +862,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
                 "only after this review passes"
             ),
         },
-        "review_evidence": {
-            "status": "passed" if args.final_opus_review_complete else "pending",
-            "artifact_sha256": (
-                sha256_file(FINAL_OPUS_REVIEW)
-                if args.final_opus_review_complete
-                else None
-            ),
-        },
+        "review_evidence": review_summary,
         "environment": {
             "image_digest": args.image_digest,
             "model": "Qwen/Qwen3-0.6B",
@@ -749,7 +1012,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
                 "checkpoint": "none",
                 "rule": (
                     "W and chunk1024 sensitivity supplements are "
-                    "unconditional per V6; only ES-ENGINEERING can stop them. "
+                    "unconditional per V7; only ES-ENGINEERING can stop them. "
                     "ES-R0-MDE governs A8 supplements only."
                 ),
             },
@@ -806,17 +1069,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "minimum_headroom_fraction": 0.15,
             "retries_count_against_cap": True,
         },
-        "artifact_templates": {
-            "raw_json": ("benchmark/approx_kv/results/phase7/raw/{run_id}.json"),
-            "compact_json": (
-                "benchmark/approx_kv/results/phase7/compact/{run_id}.json"
-            ),
-            "server_log": ("benchmark/approx_kv/results/phase7/logs/{run_id}.log"),
-            "hash_timing": "after server stop and file close",
-            "result_manifest": (
-                "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json"
-            ),
-        },
+        "artifact_templates": build_artifact_templates(),
         "skipped_tracks": [
             "practical_recovery",
             "practical_scheduler_revalidation",
@@ -833,6 +1086,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "prefetch_loaded_tokens",
             "async_load",
         ],
+        "inactive_counter_pins": build_inactive_counter_pins(),
         "scope_caveats": [
             "practical=NONE is scoped to the tested implementation and chunk1024 qualification",
             "R0 is a ceiling, not a practical candidate",
@@ -840,7 +1094,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "R4-like is a synthetic footprint proxy, not KVCOMM execution",
             "P6-F verifies fault-injected fallback only; natural pressure reachability is unproven",
             "P6-4 rho1.1/rho1.5/rho3 feasibility remains chunk1024 unless separately revalidated",
-            "host/prefetch/async tracks are not generated in V5",
+            "host/prefetch/async tracks are not generated in V7",
         ],
     }
     manifest["design_payload_sha256"] = design_payload_sha256(manifest)
@@ -866,6 +1120,27 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
         problems.append("revised manifest must record the superseded design hash")
     if manifest.get("design_keys") != list(DESIGN_KEYS):
         problems.append("design key list does not match the builder")
+    if manifest.get("artifact_templates") != build_artifact_templates():
+        problems.append("artifact templates differ from the frozen staging contract")
+    if manifest.get("inactive_counter_pins") != build_inactive_counter_pins():
+        problems.append("inactive counter pins differ from the frozen contract")
+    if (
+        manifest.get("server_template", {})
+        .get("plugin_env", {})
+        .get("SGLANG_APPROX_KV_HOST_BUDGET_BYTES")
+        != "0"
+    ):
+        problems.append("host load is not pinned disabled")
+    required_inactive_skips = {
+        "host_matrix",
+        "prefetch_functionality",
+        "prefetch_performance",
+        "async_h2d_performance",
+    }
+    if not required_inactive_skips.issubset(set(manifest.get("skipped_tracks", ()))):
+        problems.append("inactive counter tracks are not all pinned skipped")
+    if manifest.get("plan", {}).get("version") != "V7":
+        problems.append("Phase7 execution requires the V7 plan")
 
     expected_settings = build_settings()
     if manifest["settings"] != expected_settings:
@@ -910,6 +1185,17 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
             elif row["max_total_tokens"] > row["known_capacity_ceiling_tokens"]:
                 problems.append(
                     f"{row['setting_id']}: pinned capacity exceeds known ceiling"
+                )
+            tolerance = row.get("capacity_relative_error_tolerance")
+            if not isinstance(tolerance, (int, float)) or isinstance(tolerance, bool):
+                problems.append(
+                    f"{row['setting_id']}: capacity pinning lacks a frozen "
+                    "capacity_relative_error_tolerance"
+                )
+            elif not 0 <= float(tolerance) <= MAX_CAPACITY_RELATIVE_ERROR_TOLERANCE:
+                problems.append(
+                    f"{row['setting_id']}: capacity tolerance must be within "
+                    f"[0, {MAX_CAPACITY_RELATIVE_ERROR_TOLERANCE}]"
                 )
         elif row["rho_realization"] == "filler_pool":
             if row["max_total_tokens"] is not None:
@@ -977,6 +1263,8 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
     review_evidence = manifest.get("review_evidence", {})
     if review_contract.get("artifact_path") != str(FINAL_OPUS_REVIEW):
         problems.append("final Opus review artifact path mismatch")
+    if review_evidence.get("artifact_path") != review_contract.get("artifact_path"):
+        problems.append("final Opus review evidence path mismatch")
     if review_contract.get("final_opus_required") is not True:
         problems.append("final Opus review is not required")
     if manifest.get("conditional_user_authorization_recorded") is not True:
@@ -986,6 +1274,53 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
             problems.append("final Opus review artifact is missing")
         elif review_evidence.get("artifact_sha256") != sha256_file(FINAL_OPUS_REVIEW):
             problems.append("final Opus review artifact hash mismatch")
+        else:
+            try:
+                review = load_final_review(FINAL_OPUS_REVIEW)
+                validate_review_binding(
+                    review,
+                    design_payload_sha256=manifest["design_payload_sha256"],
+                    supersedes_manifest_sha256=manifest.get(
+                        "supersedes_manifest_sha256"
+                    ),
+                    manifest_revision=manifest["manifest_revision"],
+                    pinned_implementation_sha=manifest["implementation"].get(
+                        "phase7_pinned_implementation_sha"
+                    ),
+                    pinned_tree_sha=manifest["implementation"].get(
+                        "phase7_pinned_tree_sha"
+                    ),
+                    runner_sha256={
+                        name: manifest["runners"][name].get("sha256")
+                        for name in RUNNER_SPECS
+                    },
+                )
+            except (ValueError, KeyError, json.JSONDecodeError) as error:
+                problems.append(f"final Opus review artifact is not bound: {error}")
+            else:
+                summary_drift = {
+                    field: (review_evidence.get(field), review[key])
+                    for field, key in (
+                        ("verdict", "verdict"),
+                        ("open_p0", "open_p0"),
+                        ("open_p1", "open_p1"),
+                        ("reviewed_manifest_revision", "reviewed_manifest_revision"),
+                        ("reviewed_manifest_sha256", "reviewed_manifest_sha256"),
+                        (
+                            "reviewed_design_payload_sha256",
+                            "design_payload_sha256",
+                        ),
+                        (
+                            "reviewed_pinned_implementation_sha",
+                            "reviewed_pinned_implementation_sha",
+                        ),
+                    )
+                    if review_evidence.get(field) != review[key]
+                }
+                if summary_drift:
+                    problems.append(
+                        f"final Opus review summary mismatch: {summary_drift}"
+                    )
     elif review_evidence.get("status") != "pending":
         problems.append("invalid final Opus review status")
     if status == "preregistered_blocked":
@@ -1016,8 +1351,10 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
             if pinned_tree != expected_tree:
                 problems.append("pinned implementation tree mismatch")
 
-    for runner_name in ("ceiling", "scheduler"):
+    for runner_name in RUNNER_SPECS:
         runner_status_entry = manifest["runners"][runner_name]
+        if runner_status_entry.get("module") != RUNNER_SPECS[runner_name]["module"]:
+            problems.append(f"{runner_name} runner module mismatch")
         missing_blocker = f"missing_runner:{runner_name}"
         pending_blocker = f"runner_not_ready:{runner_name}"
         if not runner_status_entry["exists"] and missing_blocker not in blockers:
@@ -1030,15 +1367,95 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
         ):
             if pending_blocker not in blockers:
                 problems.append(f"{runner_name} untested without blocker")
+        if runner_status_entry["cpu_test_status"] == "passed":
+            evidence = runner_status_entry.get("cpu_test_evidence")
+            if not isinstance(evidence, dict):
+                problems.append(f"{runner_name} passed without CPU test evidence")
+            else:
+                for field in (
+                    "path",
+                    "file_sha256",
+                    "artifact_sha256",
+                    "image_digest",
+                    "command",
+                    "exit_code",
+                    "summary_line",
+                    "passed_count",
+                    "subtests",
+                    "timestamp",
+                    "runner_sha256",
+                ):
+                    if field not in evidence:
+                        problems.append(
+                            f"{runner_name} CPU test evidence lacks {field}"
+                        )
+                if (
+                    evidence.get("image_digest")
+                    != manifest["environment"]["image_digest"]
+                ):
+                    problems.append(
+                        f"{runner_name} CPU test evidence image digest mismatch"
+                    )
+                if evidence.get("runner_sha256") != runner_status_entry.get("sha256"):
+                    problems.append(
+                        f"{runner_name} CPU test evidence runner hash mismatch"
+                    )
+                required_cpu_test = RUNNER_SPECS[runner_name]["required_cpu_test"]
+                if runner_status_entry.get("required_cpu_test") != required_cpu_test:
+                    problems.append(f"{runner_name} required CPU test drift")
+                if evidence.get("command") != required_cpu_test:
+                    problems.append(f"{runner_name} CPU test evidence command mismatch")
+                if evidence.get("exit_code") != 0:
+                    problems.append(
+                        f"{runner_name} CPU test evidence exit code is not 0"
+                    )
+                if not str(evidence.get("summary_line") or "").strip():
+                    problems.append(
+                        f"{runner_name} CPU test evidence lacks a summary line"
+                    )
+                passed_count = evidence.get("passed_count")
+                if (
+                    not isinstance(passed_count, int)
+                    or isinstance(passed_count, bool)
+                    or passed_count <= 0
+                ):
+                    problems.append(
+                        f"{runner_name} CPU test evidence reports no passing tests"
+                    )
+                evidence_path = evidence.get("path")
+                if isinstance(evidence_path, str):
+                    path = REPO_ROOT / evidence_path
+                    if not path.is_file():
+                        problems.append(
+                            f"{runner_name} CPU test evidence file is missing"
+                        )
+                    elif evidence.get("file_sha256") != sha256_file(path):
+                        problems.append(
+                            f"{runner_name} CPU test evidence file hash mismatch"
+                        )
         if (
             runner_status_entry["exists"]
             and runner_status_entry["review_status"] != "reviewed"
         ):
-            if pending_blocker not in blockers:
-                problems.append(f"{runner_name} unreviewed without blocker")
+            if "final_opus_review_pending" not in blockers:
+                problems.append(f"{runner_name} unreviewed without review blocker")
+        runner_review = runner_status_entry.get("review_evidence")
+        if not isinstance(runner_review, dict):
+            problems.append(f"{runner_name} lacks review evidence")
+        elif runner_status_entry["review_status"] == "reviewed":
+            if runner_review.get("status") != "passed":
+                problems.append(f"{runner_name} review evidence is not passed")
+            if runner_review.get("artifact_path") != review_evidence.get(
+                "artifact_path"
+            ):
+                problems.append(f"{runner_name} review evidence path mismatch")
+            if runner_review.get("artifact_sha256") != review_evidence.get(
+                "artifact_sha256"
+            ):
+                problems.append(f"{runner_name} review evidence hash mismatch")
 
     manifest_runner = manifest["runners"]["manifest"]
-    manifest_path = Path(manifest_runner["path"])
+    manifest_path = REPO_ROOT / manifest_runner["path"]
     if not manifest_path.exists():
         problems.append("manifest builder is missing")
     elif sha256_file(manifest_path) != manifest_runner["sha256"]:
@@ -1054,7 +1471,7 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
         problems.append("generation commit has a different manifest builder")
 
     if pinned_sha is not None:
-        for runner_name in ("ceiling", "scheduler"):
+        for runner_name in RUNNER_SPECS:
             runner = manifest["runners"][runner_name]
             if not runner["exists"]:
                 continue
@@ -1125,11 +1542,11 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
         problems.append("filler pool count is not 64")
     resolutions = manifest["conditional_resolution"]
     if manifest.get("r2_strategy") != "disabled_not_comparable":
-        problems.append("V6 requires R2 disabled_not_comparable")
+        problems.append("V7 requires R2 disabled_not_comparable")
     if resolutions.get("CR-R2-ADAPTER") != "disabled_not_comparable":
-        problems.append("V6 R2 resolution is not disabled_not_comparable")
+        problems.append("V7 R2 resolution is not disabled_not_comparable")
     if any("R2" in row["arms"] for row in manifest["settings"]):
-        problems.append("V6 must not generate R2 GPU settings")
+        problems.append("V7 must not generate R2 GPU settings")
     if status in {"pinned_blocked", "authorized"}:
         if any(value == "pending" for value in resolutions.values()):
             problems.append("pinned/authorized manifest has pending conditions")
@@ -1169,7 +1586,7 @@ def main() -> int:
         default="IMPLEMENTATION_PLAN_LATEST.md",
     )
     parser.add_argument("--plan-commit")
-    parser.add_argument("--manifest-revision", type=int, default=6)
+    parser.add_argument("--manifest-revision", type=int, default=10)
     parser.add_argument("--supersedes-manifest-sha256")
     parser.add_argument("--supersedes-design-payload-sha256")
     parser.add_argument("--revision-reason", default="initial preregistration")
@@ -1184,8 +1601,14 @@ def main() -> int:
     parser.add_argument(
         "--runner-ready",
         action="append",
-        choices=("ceiling", "scheduler"),
+        choices=tuple(RUNNER_SPECS),
         default=[],
+    )
+    parser.add_argument(
+        "--runner-test-evidence",
+        action="append",
+        default=[],
+        metavar="NAME=PATH",
     )
     parser.add_argument(
         "--r2-strategy",

@@ -31,6 +31,8 @@ from benchmark.approx_kv.phase7.common import (
     SCHEDULER_RUNNER,
     Phase7ContractError,
     Phase7RunError,
+    build_arm_inactive_counter_assertion,
+    build_inactive_counter_assertion,
     classify_request_outcome,
     cross_store_metrics,
     ensure_artifact_path_layout,
@@ -835,6 +837,11 @@ def execute(args: argparse.Namespace, context, run_id: str) -> dict[str, Any]:
         math.ceil(int(item["logical_tokens"]) / segment_tokens_max)
         for item in workload["objects"]
     )
+    inactive_assertion = build_arm_inactive_counter_assertion(
+        manifest,
+        warmup=result["warmup"],
+        formal=result["formal"],
+    )
     artifact = {
         "schema_version": 1,
         "run_id": run_id,
@@ -909,6 +916,7 @@ def execute(args: argparse.Namespace, context, run_id: str) -> dict[str, Any]:
             },
         },
         "status": result["status"],
+        "inactive_counter_assertion": inactive_assertion,
         "manifest_revision": manifest["manifest_revision"],
         "preregistered_manifest_sha256": manifest["preregistered_manifest_sha256"],
         "manifest_file_sha256": context.manifest_file_sha256,
@@ -967,8 +975,10 @@ def execute(args: argparse.Namespace, context, run_id: str) -> dict[str, Any]:
         "paired_E0_R0": result["paired_E0_R0"],
         "paired_per_repeat": result["paired_per_repeat"],
     }
+    if not inactive_assertion["passed"]:
+        artifact["status"] = "invalid"
     finalize_artifact_hash(artifact)
-    validate_phase7_artifact(artifact)
+    validate_phase7_artifact(artifact, manifest=manifest)
     return artifact
 
 
@@ -999,6 +1009,7 @@ def failure_artifact(
             for item in workload["objects"]
         )
     )
+    inactive_assertion = build_inactive_counter_assertion(manifest, [])
     payload = {
         "schema_version": 1,
         "run_id": run_id,
@@ -1048,6 +1059,7 @@ def failure_artifact(
             "rho_logical_demand": setting["rho_logical_demand"],
         },
         "status": "invalid",
+        "inactive_counter_assertion": inactive_assertion,
         "manifest_revision": manifest["manifest_revision"],
         "preregistered_manifest_sha256": manifest["preregistered_manifest_sha256"],
         "manifest_file_sha256": context.manifest_file_sha256,
@@ -1079,17 +1091,12 @@ def failure_artifact(
         "error": f"{type(error).__name__}: {error}",
     }
     finalize_artifact_hash(payload)
-    validate_phase7_artifact(payload)
+    validate_phase7_artifact(payload, manifest=manifest)
     return payload
 
 
 def main() -> int:
     args = parse_args()
-    ensure_artifact_path_layout(
-        output=args.output,
-        log=args.log,
-        central_log=args.central_log,
-    )
     context = load_execution_context(
         manifest_path=args.manifest,
         setting_id=args.setting_id,
@@ -1097,6 +1104,12 @@ def main() -> int:
         runner_key=RUNNER_KEY,
         runner_module=SCHEDULER_RUNNER,
         runner_file=Path(__file__),
+    )
+    ensure_artifact_path_layout(
+        output=args.output,
+        log=args.log,
+        central_log=args.central_log,
+        staging_root=context.manifest["artifact_templates"]["runtime_staging_root"],
     )
     run_id = (
         f"p7-scheduler-{args.setting_id}-r{args.restart_index}-"

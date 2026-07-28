@@ -40,6 +40,19 @@ from benchmark.approx_kv.phase6.schema import (
     payload_sha256,
     validate_phase6_artifact,
 )
+from benchmark.approx_kv.phase7.common import (
+    CAPACITY_RUNNER,
+    Phase7ContractError,
+    build_inactive_counter_assertion,
+    capacity_error_tolerance,
+    ensure_artifact_path_layout,
+    finalize_artifact_hash,
+    formal_arm_order,
+    inactive_counter_observations,
+    load_execution_context,
+    pending_result_provenance,
+    validate_phase7_artifact,
+)
 
 _SAMPLE_RE = re.compile(
     r"^(?P<name>[a-zA-Z_:][a-zA-Z0-9_:]*)"
@@ -52,6 +65,12 @@ PROFILE_KINDS = {
     name: tuple(profile["representation_kinds"])
     for name, profile in REPRESENTATION_PROFILES.items()
 }
+RUNNER_KEY = "capacity_pilot"
+PHASE7_MODE_FIELDS = (
+    "phase7_manifest",
+    "phase7_setting_id",
+    "phase7_restart_index",
+)
 
 
 def csv_values(value: str, cast) -> tuple:
@@ -64,12 +83,13 @@ def csv_values(value: str, cast) -> tuple:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="Qwen/Qwen3-0.6B")
-    parser.add_argument("--model-revision", required=True)
-    parser.add_argument("--source-git-sha", required=True)
-    parser.add_argument("--image-digest", required=True)
+    parser.add_argument("--model-revision")
+    parser.add_argument("--source-git-sha")
+    parser.add_argument("--image-digest")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--central-log", type=Path, required=True)
-    parser.add_argument("--log-dir", type=Path, required=True)
+    parser.add_argument("--log-dir", type=Path)
+    parser.add_argument("--log", type=Path)
     parser.add_argument("--port", type=int, default=30011)
     parser.add_argument("--mem-fraction-static", type=float, default=0.65)
     parser.add_argument("--chunked-prefill-size", type=int, default=1024)
@@ -87,7 +107,95 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--server-start-timeout-s", type=float, default=600)
     parser.add_argument("--kv-bytes-per-token", type=int, default=114688)
     parser.add_argument("--capacity-tolerance", type=float, default=0.05)
+    parser.add_argument("--phase7-manifest", type=Path)
+    parser.add_argument("--phase7-setting-id")
+    parser.add_argument("--phase7-restart-index", type=int)
     return parser.parse_args()
+
+
+def phase7_mode_requested(args: argparse.Namespace) -> bool:
+    present = [getattr(args, field, None) is not None for field in PHASE7_MODE_FIELDS]
+    if any(present) and not all(present):
+        raise Phase7ContractError(
+            "--phase7-manifest, --phase7-setting-id, and "
+            "--phase7-restart-index must be provided together"
+        )
+    return all(present)
+
+
+def configure_phase7_args(
+    args: argparse.Namespace,
+    context,
+) -> argparse.Namespace:
+    manifest = context.manifest
+    setting = context.setting
+    if args.log is None:
+        raise Phase7ContractError("Phase7 capacity mode requires --log")
+    if args.log_dir is not None:
+        raise Phase7ContractError("Phase7 capacity mode uses --log, not --log-dir")
+    restart_seeds = manifest["server_template"]["restart_seeds"]
+    if context.restart_index >= len(restart_seeds):
+        raise Phase7ContractError("Phase7 restart index lacks a pinned server seed")
+    args.model = manifest["environment"]["model"]
+    args.model_revision = manifest["environment"]["model_revision"]
+    args.source_git_sha = context.source["source_git_sha"]
+    args.image_digest = manifest["environment"]["image_digest"]
+    args.mem_fraction_static = float(setting["mem_fraction_static"])
+    args.chunked_prefill_size = int(setting["chunked_prefill_size"])
+    args.chunk_source = (
+        "cl2" if args.chunked_prefill_size == 4096 else "provisional_worst_case"
+    )
+    args.rhos = str(setting["rho_logical_demand"])
+    args.profiles = ",".join(setting["arms"])
+    args.formal_repeats = int(setting["formal_repeats"])
+    args.warmup_repeats = int(setting["warmup_repeats"])
+    args.capacity_tolerance = capacity_error_tolerance(setting)
+    args.kv_bytes_per_token = int(
+        manifest["server_template"]["plugin_env"]["SGLANG_APPROX_KV_BYTES_PER_TOKEN"]
+    )
+    args.phase7_policy = str(setting["policy"])
+    args.phase7_rho = float(setting["rho_logical_demand"])
+    args.phase7_max_total_tokens = int(setting["max_total_tokens"])
+    args.phase7_server_seed = int(restart_seeds[context.restart_index])
+    args.phase7_plugin_env = dict(manifest["server_template"]["plugin_env"])
+    args.phase7_attention_backend = manifest["server_template"]["attention_backend"]
+    args.phase7_sampling_backend = manifest["server_template"]["sampling_backend"]
+    args.phase7_context = context
+    return args
+
+
+def validate_historical_args(args: argparse.Namespace) -> None:
+    missing = [
+        flag
+        for flag, value in (
+            ("--model-revision", args.model_revision),
+            ("--source-git-sha", args.source_git_sha),
+            ("--image-digest", args.image_digest),
+            ("--log-dir", args.log_dir),
+        )
+        if value is None
+    ]
+    if missing:
+        raise Phase7ContractError(f"historical P6 mode requires {', '.join(missing)}")
+    if args.log is not None:
+        raise Phase7ContractError("historical P6 mode uses --log-dir, not --log")
+
+
+def execution_cells(args: argparse.Namespace) -> list[tuple[str, float]]:
+    if hasattr(args, "phase7_context"):
+        return [(args.phase7_policy, args.phase7_rho)]
+    return launch_cells(csv_values(args.rhos, float))
+
+
+def capacity_log_path(
+    args: argparse.Namespace,
+    *,
+    policy: str,
+    rho: float,
+) -> Path:
+    if hasattr(args, "phase7_context"):
+        return args.log
+    return args.log_dir / f"p6-4-{policy}-rho{rho:.1f}-server.log"
 
 
 def labeled_metric_sum(
@@ -614,6 +722,121 @@ def run_profile(
     }
 
 
+def profile_summary(
+    profile: str,
+    *,
+    representation_kinds: tuple[str, ...],
+    warmup: list[dict[str, Any]],
+    formal: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Per-profile view of repeat-major execution.
+
+    ``formal`` is ordered by ``round_index`` so that every existing cell and
+    status computation keeps working unchanged; the authoritative execution
+    order lives in the cell-level ``formal_repeats`` record.
+    """
+    return {
+        "profile": profile,
+        "representation_kinds": list(representation_kinds),
+        "warmup": warmup,
+        "warmup_repeats": len(warmup),
+        "formal": formal,
+        "reachability": (
+            "invalid"
+            if any(row["reachability"] == "invalid" for row in formal)
+            else (
+                "diagnostic-unavailable"
+                if any(
+                    row["reachability"] == "diagnostic-unavailable" for row in formal
+                )
+                else "reachable"
+            )
+        ),
+        "valid": all(row["valid"] for row in formal),
+    }
+
+
+def run_phase7_repeat_major(
+    args: argparse.Namespace,
+    manifest: dict[str, Any],
+    *,
+    profiles: tuple[str, ...],
+    setting: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Execute Phase 7 capacity profiles repeat-major.
+
+    Every formal repeat runs each profile once, in the preregistered
+    ``arm_order_by_repeat`` order, so that profile position inside a repeat is
+    counterbalanced instead of frozen by manifest order. Warmup keeps the fixed
+    manifest arm order and is indexed by warmup repeat.
+    """
+    warmup_rounds: dict[str, list[dict[str, Any]]] = {
+        profile: [] for profile in profiles
+    }
+    formal_rounds: dict[str, list[dict[str, Any]]] = {
+        profile: [] for profile in profiles
+    }
+    if tuple(profiles) != tuple(setting["arms"]):
+        raise Phase7ContractError(
+            f"{setting['setting_id']}: executed profiles differ from the "
+            "preregistered arms"
+        )
+    for warmup_index in range(int(setting["warmup_repeats"])):
+        for profile in profiles:
+            warmup_rounds[profile].append(
+                run_round(
+                    args,
+                    manifest,
+                    profile=profile,
+                    representation_kinds=PROFILE_KINDS[profile],
+                    round_index=-(warmup_index + 1),
+                )
+            )
+    formal_repeats = []
+    for repeat_index in range(int(args.formal_repeats)):
+        order = formal_arm_order(setting, repeat_index)
+        executed = []
+        for execution_index, profile in enumerate(order):
+            row = run_round(
+                args,
+                manifest,
+                profile=profile,
+                representation_kinds=PROFILE_KINDS[profile],
+                round_index=repeat_index,
+            )
+            formal_rounds[profile].append(row)
+            executed.append(
+                {
+                    "profile": profile,
+                    "execution_index": execution_index,
+                    "round_index": repeat_index,
+                    "representation_kinds": list(PROFILE_KINDS[profile]),
+                    "reachability": row["reachability"],
+                    "valid": row["valid"],
+                    # binds this ordered entry to the full round payload kept
+                    # in the compatibility per-profile summary
+                    "round_sha256": payload_sha256(row),
+                }
+            )
+        formal_repeats.append(
+            {
+                "repeat_index": repeat_index,
+                "arm_order": list(order),
+                "profiles": executed,
+            }
+        )
+    profile_results = [
+        profile_summary(
+            profile,
+            representation_kinds=PROFILE_KINDS[profile],
+            warmup=warmup_rounds[profile],
+            formal=formal_rounds[profile],
+        )
+        for profile in profiles
+    ]
+    return profile_results, formal_repeats
+
+
 def launch_cells(rhos: tuple[float, ...]) -> list[tuple[str, float]]:
     cells = [("hierarchical", rho) for rho in rhos if rho != 2.0]
     insert_at = next(
@@ -625,33 +848,53 @@ def launch_cells(rhos: tuple[float, ...]) -> list[tuple[str, float]]:
 
 
 def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
-    rhos = csv_values(args.rhos, float)
+    phase7_context = getattr(args, "phase7_context", None)
+    rhos = (
+        (args.phase7_rho,)
+        if phase7_context is not None
+        else csv_values(args.rhos, float)
+    )
     profiles = csv_values(args.profiles, str)
     unknown = set(profiles).difference(PROFILE_KINDS)
     if unknown:
         raise ValueError(f"unknown profiles: {sorted(unknown)}")
     if args.formal_repeats < 2:
         raise ValueError("formal-repeats must be at least 2")
-    provenance = source_provenance(args.source_git_sha)
-    observed_sha = provenance["source_git_sha"]
+    if phase7_context is None:
+        provenance = source_provenance(args.source_git_sha)
+        observed_sha = provenance["source_git_sha"]
+    else:
+        provenance = {
+            "source_git_sha": phase7_context.source["source_git_sha"],
+            "source_tree_sha": phase7_context.source["source_tree_sha"],
+        }
+        observed_sha = provenance["source_git_sha"]
 
     manifest = build_fixed40_manifest(
         chunked_prefill_size=args.chunked_prefill_size,
         chunk_source=args.chunk_source,
     )
     logical_tokens = sum(int(item["logical_tokens"]) for item in manifest["objects"])
-    plugin_env = {
-        "SGLANG_APPROX_KV_CORE": "1",
-        "SGLANG_APPROX_KV_CROSS_STORE": "1",
-        "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT": "1",
-        "SGLANG_APPROX_KV_BYTES_PER_TOKEN": str(args.kv_bytes_per_token),
-        "SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
-    }
+    plugin_env = (
+        dict(args.phase7_plugin_env)
+        if phase7_context is not None
+        else {
+            "SGLANG_APPROX_KV_CORE": "1",
+            "SGLANG_APPROX_KV_CROSS_STORE": "1",
+            "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT": "1",
+            "SGLANG_APPROX_KV_BYTES_PER_TOKEN": str(args.kv_bytes_per_token),
+            "SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+        }
+    )
     cell_results = []
     server_manifests = []
-    for cell_index, (policy, rho) in enumerate(launch_cells(rhos)):
-        requested_capacity_tokens = math.ceil(logical_tokens / rho)
-        log_path = args.log_dir / (f"p6-4-{policy}-rho{rho:.1f}-server.log")
+    for cell_index, (policy, rho) in enumerate(execution_cells(args)):
+        requested_capacity_tokens = (
+            args.phase7_max_total_tokens
+            if phase7_context is not None
+            else math.ceil(logical_tokens / rho)
+        )
+        log_path = capacity_log_path(args, policy=policy, rho=rho)
         server = launch_server(
             model=args.model,
             model_revision=args.model_revision,
@@ -662,7 +905,21 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
             log_path=log_path,
             plugin_env=plugin_env,
             max_total_tokens=requested_capacity_tokens,
-            server_seed=17 + cell_index,
+            server_seed=(
+                args.phase7_server_seed
+                if phase7_context is not None
+                else 17 + cell_index
+            ),
+            attention_backend=(
+                args.phase7_attention_backend
+                if phase7_context is not None
+                else "torch_native"
+            ),
+            sampling_backend=(
+                args.phase7_sampling_backend
+                if phase7_context is not None
+                else "pytorch"
+            ),
         )
         try:
             wait_ready(
@@ -671,15 +928,30 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                 timeout_s=args.server_start_timeout_s,
             )
             observed_capacity_tokens = max_total_num_tokens(metric_snapshot(args.port))
-            profile_results = [
-                run_profile(
+            before_profiles_text = (
+                metric_text(args.port) if phase7_context is not None else None
+            )
+            formal_repeat_records = None
+            if phase7_context is not None:
+                profile_results, formal_repeat_records = run_phase7_repeat_major(
                     args,
                     manifest,
-                    profile=profile,
-                    representation_kinds=PROFILE_KINDS[profile],
+                    profiles=profiles,
+                    setting=phase7_context.setting,
                 )
-                for profile in profiles
-            ]
+            else:
+                profile_results = [
+                    run_profile(
+                        args,
+                        manifest,
+                        profile=profile,
+                        representation_kinds=PROFILE_KINDS[profile],
+                    )
+                    for profile in profiles
+                ]
+            after_profiles_text = (
+                metric_text(args.port) if phase7_context is not None else None
+            )
             capacity_error = (
                 abs(observed_capacity_tokens - requested_capacity_tokens)
                 / requested_capacity_tokens
@@ -740,6 +1012,23 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                     "observed_capacity_tokens": observed_capacity_tokens,
                     "capacity_relative_error": capacity_error,
                     "profiles": profile_results,
+                    **(
+                        {
+                            "capacity_relative_error_tolerance": (
+                                args.capacity_tolerance
+                            ),
+                            "execution_order": "repeat_major",
+                            "formal_repeats": formal_repeat_records,
+                            "inactive_counter_observations": (
+                                inactive_counter_observations(
+                                    before_profiles_text,
+                                    after_profiles_text,
+                                )
+                            ),
+                        }
+                        if phase7_context is not None
+                        else {}
+                    ),
                     "evidence": {
                         "exact_evicted_bytes": exact_evicted,
                         "approx_evicted_bytes": approx_evicted,
@@ -783,6 +1072,18 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                     "requested_capacity_tokens": requested_capacity_tokens,
                     "observed_capacity_tokens": None,
                     "profiles": [],
+                    **(
+                        {
+                            "capacity_relative_error_tolerance": (
+                                args.capacity_tolerance
+                            ),
+                            "execution_order": "repeat_major",
+                            "formal_repeats": [],
+                            "inactive_counter_observations": {},
+                        }
+                        if phase7_context is not None
+                        else {}
+                    ),
                     "evidence": {},
                     "status": "diagnostic-unavailable",
                     "unreachable_reason": f"{type(exc).__name__}: {exc}",
@@ -878,7 +1179,11 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
         "segment_count": sum(
             int(item["segment_count"]) for item in manifest["objects"]
         ),
-        "warmup_repeats": 1,
+        "warmup_repeats": (
+            int(phase7_context.setting["warmup_repeats"])
+            if phase7_context is not None
+            else 1
+        ),
         "formal_repeats": args.formal_repeats,
         "restarts": 1,
         "cells": cell_results,
@@ -965,23 +1270,271 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
         "performance_claim": "disabled",
         "status": overall_status,
     }
+    if phase7_context is not None:
+        manifest_payload = phase7_context.manifest
+        setting = phase7_context.setting
+        inactive_assertion = build_inactive_counter_assertion(
+            manifest_payload,
+            [
+                cell["inactive_counter_observations"]
+                for cell in cell_results
+                if cell["inactive_counter_observations"]
+            ],
+        )
+        outcome_counts = {
+            outcome: 0 for outcome in manifest_payload["outcome_taxonomy"]
+        }
+        outcome_mapping = {
+            "exact_gpu_hit": "exact_gpu_hit",
+            "approximate_gpu_recovery": "approximate_gpu_recovery",
+            "host_demand_load": "host_demand_load",
+            "dense_fallback": "approximate_recovery_failed_dense",
+            "exact_cache_miss": "ordinary_exact_cache_miss",
+        }
+        for row in all_formal:
+            for source_outcome, count in row["cache_outcomes"].items():
+                target_outcome = outcome_mapping.get(source_outcome)
+                if target_outcome is not None:
+                    outcome_counts[target_outcome] += int(count)
+        payload.update(
+            {
+                "phase": "Phase7-capacity",
+                "phase7_mode": True,
+                "execution_envelope": phase7_context.envelope,
+                "manifest_revision": manifest_payload["manifest_revision"],
+                "preregistered_manifest_sha256": manifest_payload[
+                    "preregistered_manifest_sha256"
+                ],
+                "manifest_file_sha256": phase7_context.manifest_file_sha256,
+                "plan": manifest_payload["plan"],
+                "setting_id": setting["setting_id"],
+                "setting": setting,
+                "restart_index": phase7_context.restart_index,
+                "runner": {
+                    "module": phase7_context.runner_module,
+                    "path": phase7_context.runner_path,
+                    "sha256": phase7_context.runner_sha256,
+                },
+                "server_log_path": str(args.log.resolve()),
+                "server_log_sha256": None,
+                "outcome": {
+                    "taxonomy": manifest_payload["outcome_taxonomy"],
+                    "counts": outcome_counts,
+                    "exclusive_terminal_reasons": manifest_payload[
+                        "exclusive_terminal_reasons"
+                    ],
+                    "terminal_reason_counts": {},
+                },
+                "reset": {
+                    str(cell_index): {
+                        profile["profile"]: [
+                            {
+                                "reset_invariant": row["reset_invariant"],
+                                "store_reset_gauges": row["store_reset_gauges"],
+                            }
+                            for row in profile["formal"]
+                        ]
+                        for profile in cell["profiles"]
+                    }
+                    for cell_index, cell in enumerate(cell_results)
+                },
+                "inactive_counter_assertion": inactive_assertion,
+                "provenance": {
+                    "manifest_path": str(phase7_context.manifest_path.resolve()),
+                    "manifest_file_sha256": phase7_context.manifest_file_sha256,
+                    "implementation": manifest_payload["implementation"],
+                    "runner_sha256": phase7_context.runner_sha256,
+                    "source": phase7_context.source,
+                },
+                "phase7_parameters": {
+                    "policy": args.phase7_policy,
+                    "rho_logical_demand": args.phase7_rho,
+                    "chunked_prefill_size": args.chunked_prefill_size,
+                    "max_total_tokens": args.phase7_max_total_tokens,
+                    "mem_fraction_static": args.mem_fraction_static,
+                    "profiles": list(profiles),
+                    "warmup_repeats": int(setting["warmup_repeats"]),
+                    "formal_repeats": args.formal_repeats,
+                    "arm_order_by_repeat": dict(setting["arm_order_by_repeat"]),
+                    "execution_order": "repeat_major",
+                    "capacity_relative_error_tolerance": args.capacity_tolerance,
+                    "restart_index": phase7_context.restart_index,
+                    "server_seed": args.phase7_server_seed,
+                },
+            }
+        )
+        if not inactive_assertion["passed"]:
+            payload["status"] = "invalid"
     payload["raw_sha256"] = payload_sha256(payload)
     validate_phase6_artifact(payload)
     return payload
 
 
+def phase7_failure_artifact(
+    *,
+    args: argparse.Namespace,
+    context,
+    run_id: str,
+    error: Exception,
+) -> dict[str, Any]:
+    manifest = context.manifest
+    setting = context.setting
+    workload = build_fixed40_manifest(
+        chunked_prefill_size=int(setting["chunked_prefill_size"]),
+        chunk_source=(
+            "cl2"
+            if int(setting["chunked_prefill_size"]) == 4096
+            else "provisional_worst_case"
+        ),
+    )
+    payload = {
+        "schema_version": 1,
+        "run_id": run_id,
+        "phase": "Phase7-capacity",
+        "phase7_mode": True,
+        "source_git_sha": context.source["source_git_sha"],
+        "source_tree_sha": context.source["source_tree_sha"],
+        **pending_result_provenance(),
+        "execution_envelope": context.envelope,
+        "raw_sha256": "",
+        "server_argv": [],
+        "plugin_env": dict(args.phase7_plugin_env),
+        "machine": {"runtime_probe": "unavailable_due_to_failure"},
+        "image_digest": manifest["environment"]["image_digest"],
+        "requested_capacity": {
+            "tokens": [int(setting["max_total_tokens"])],
+            "pages": [int(setting["max_total_tokens"])],
+            "bytes": [int(setting["max_total_tokens"]) * args.kv_bytes_per_token],
+        },
+        "observed_capacity": {
+            "tokens": [None],
+            "pages": [None],
+            "bytes": [None],
+        },
+        "crosses_chunk_boundary": any(
+            item["crosses_chunk_boundary"] for item in workload["objects"]
+        ),
+        "segment_count": sum(
+            int(item["segment_count"]) for item in workload["objects"]
+        ),
+        "warmup_repeats": int(setting["warmup_repeats"]),
+        "formal_repeats": int(setting["formal_repeats"]),
+        "restarts": 1,
+        "ledger": {
+            "setup": {},
+            "materialization": {},
+            "recovery": {},
+            "scheduler": {},
+            "transfer": {},
+            "temporary_peak": {},
+        },
+        "rho": {
+            **RhoDefinitions().__dict__,
+            "logical_values": [float(setting["rho_logical_demand"])],
+        },
+        "status": "invalid",
+        "manifest_revision": manifest["manifest_revision"],
+        "preregistered_manifest_sha256": manifest["preregistered_manifest_sha256"],
+        "manifest_file_sha256": context.manifest_file_sha256,
+        "plan": manifest["plan"],
+        "setting_id": setting["setting_id"],
+        "setting": setting,
+        "restart_index": context.restart_index,
+        "runner": {
+            "module": context.runner_module,
+            "path": context.runner_path,
+            "sha256": context.runner_sha256,
+        },
+        "server_log_path": str(args.log.resolve()),
+        "server_log_sha256": file_sha256(args.log) if args.log.exists() else None,
+        "outcome": {
+            "taxonomy": manifest["outcome_taxonomy"],
+            "counts": {},
+            "exclusive_terminal_reasons": manifest["exclusive_terminal_reasons"],
+            "terminal_reason_counts": {},
+        },
+        "reset": {},
+        "inactive_counter_assertion": build_inactive_counter_assertion(manifest, []),
+        "provenance": {
+            "manifest_path": str(context.manifest_path.resolve()),
+            "manifest_file_sha256": context.manifest_file_sha256,
+            "implementation": manifest["implementation"],
+            "runner_sha256": context.runner_sha256,
+            "source": context.source,
+        },
+        "phase7_parameters": {
+            "policy": args.phase7_policy,
+            "rho_logical_demand": args.phase7_rho,
+            "chunked_prefill_size": args.chunked_prefill_size,
+            "max_total_tokens": args.phase7_max_total_tokens,
+            "mem_fraction_static": args.mem_fraction_static,
+            "profiles": list(setting["arms"]),
+            "warmup_repeats": int(setting["warmup_repeats"]),
+            "formal_repeats": args.formal_repeats,
+            "arm_order_by_repeat": dict(setting["arm_order_by_repeat"]),
+            "execution_order": "repeat_major",
+            "capacity_relative_error_tolerance": capacity_error_tolerance(setting),
+            "restart_index": context.restart_index,
+            "server_seed": args.phase7_server_seed,
+        },
+        "execution_status": execution_status(error),
+        "error": f"{type(error).__name__}: {error}",
+    }
+    finalize_artifact_hash(payload)
+    validate_phase7_artifact(payload, manifest=manifest)
+    return payload
+
+
 def main() -> int:
     args = parse_args()
-    run_id = datetime.now(timezone.utc).strftime("p6-4-%Y%m%dT%H%M%SZ")
-    if args.output.exists():
-        raise FileExistsError(f"refusing to overwrite {args.output}")
+    phase7_mode = phase7_mode_requested(args)
+    context = None
+    if phase7_mode:
+        context = load_execution_context(
+            manifest_path=args.phase7_manifest,
+            setting_id=args.phase7_setting_id,
+            restart_index=args.phase7_restart_index,
+            runner_key=RUNNER_KEY,
+            runner_module=CAPACITY_RUNNER,
+            runner_file=Path(__file__),
+        )
+        configure_phase7_args(args, context)
+        ensure_artifact_path_layout(
+            output=args.output,
+            log=args.log,
+            central_log=args.central_log,
+            staging_root=context.manifest["artifact_templates"]["runtime_staging_root"],
+        )
+        run_id = (
+            f"p7-capacity-{args.phase7_setting_id}-"
+            f"r{args.phase7_restart_index}-"
+            f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}"
+        )
+        phase = "Phase7-capacity"
+    else:
+        validate_historical_args(args)
+        if args.output.exists():
+            raise FileExistsError(f"refusing to overwrite {args.output}")
+        run_id = datetime.now(timezone.utc).strftime("p6-4-%Y%m%dT%H%M%SZ")
+        phase = "P6-4"
     append_jsonl(
         args.central_log,
         {
             "run_id": run_id,
-            "phase": "P6-4",
+            "phase": phase,
             "status": "running",
             "output": str(args.output.resolve()),
+            **(
+                {
+                    "setting_id": context.setting["setting_id"],
+                    "restart_index": context.restart_index,
+                    "manifest_sha256": context.manifest[
+                        "preregistered_manifest_sha256"
+                    ],
+                }
+                if context is not None
+                else {}
+            ),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         },
     )
@@ -989,18 +1542,31 @@ def main() -> int:
         payload = execute(args, run_id)
         for manifest in payload["server_manifests"]:
             manifest["log_sha256"] = file_sha256(Path(manifest["log_path"]))
-        payload.pop("raw_sha256", None)
-        payload["raw_sha256"] = payload_sha256(payload)
-        validate_phase6_artifact(payload)
+        if context is not None:
+            payload["server_log_sha256"] = file_sha256(args.log)
+            finalize_artifact_hash(payload)
+            validate_phase7_artifact(payload, manifest=context.manifest)
+        else:
+            payload.pop("raw_sha256", None)
+            payload["raw_sha256"] = payload_sha256(payload)
+            validate_phase6_artifact(payload)
         write_json(args.output, payload)
         append_jsonl(
             args.central_log,
             {
                 "run_id": run_id,
-                "phase": "P6-4",
+                "phase": phase,
                 "status": "completed",
                 "raw_sha256": payload["raw_sha256"],
                 "output": str(args.output.resolve()),
+                **(
+                    {
+                        "setting_id": context.setting["setting_id"],
+                        "restart_index": context.restart_index,
+                    }
+                    if context is not None
+                    else {}
+                ),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )
@@ -1015,23 +1581,31 @@ def main() -> int:
         requests.RequestException,
     ) as exc:
         status = execution_status(exc)
-        failure = {
-            "schema_version": 1,
-            "run_id": run_id,
-            "phase": "P6-4",
-            "source_git_sha": args.source_git_sha,
-            "image_digest": args.image_digest,
-            "status": "invalid",
-            "execution_status": status,
-            "error": f"{type(exc).__name__}: {exc}",
-        }
-        failure["raw_sha256"] = payload_sha256(failure)
+        if context is not None:
+            failure = phase7_failure_artifact(
+                args=args,
+                context=context,
+                run_id=run_id,
+                error=exc,
+            )
+        else:
+            failure = {
+                "schema_version": 1,
+                "run_id": run_id,
+                "phase": "P6-4",
+                "source_git_sha": args.source_git_sha,
+                "image_digest": args.image_digest,
+                "status": "invalid",
+                "execution_status": status,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+            failure["raw_sha256"] = payload_sha256(failure)
         write_json(args.output, failure)
         append_jsonl(
             args.central_log,
             {
                 "run_id": run_id,
-                "phase": "P6-4",
+                "phase": phase,
                 "status": status,
                 "error": failure["error"],
                 "raw_sha256": failure["raw_sha256"],

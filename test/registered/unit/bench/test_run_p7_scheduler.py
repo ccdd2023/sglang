@@ -17,6 +17,8 @@ register_cpu_ci(est_time=2, suite="base-c-test-cpu")
 from benchmark.approx_kv import run_p7_scheduler
 from benchmark.approx_kv.build_phase7_manifest import (
     build_a8_workload,
+    build_artifact_templates,
+    build_inactive_counter_pins,
     build_settings,
     build_w_workload,
     design_payload_sha256,
@@ -25,6 +27,8 @@ from benchmark.approx_kv.phase6.schema import payload_sha256
 from benchmark.approx_kv.phase7.common import (
     SCHEDULER_RUNNER,
     Phase7ContractError,
+    arm_inactive_observations,
+    build_arm_inactive_counter_assertion,
     cross_store_metrics,
     manifest_self_sha256,
     select_setting,
@@ -44,9 +48,7 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 MANIFEST_PATH = (
     REPO_ROOT / "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json"
 )
-FINAL_REVIEW_REL = (
-    "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json"
-)
+FINAL_REVIEW_REL = "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json"
 
 
 def load_manifest() -> dict:
@@ -56,7 +58,7 @@ def load_manifest() -> dict:
 def revised_manifest() -> dict:
     manifest = load_manifest()
     manifest["manifest_revision"] = 6
-    manifest["plan"]["version"] = "V6"
+    manifest["plan"]["version"] = "V7"
     manifest["settings"] = build_settings()
     p6_contract = json.loads(
         (
@@ -84,8 +86,12 @@ def revised_manifest() -> dict:
     }
     manifest["review_evidence"] = {
         "status": "pending",
+        "artifact_path": FINAL_REVIEW_REL,
         "artifact_sha256": None,
+        "round_summary": "synthetic pending V7 review",
     }
+    manifest["artifact_templates"] = build_artifact_templates()
+    manifest["inactive_counter_pins"] = build_inactive_counter_pins()
     manifest["design_payload_sha256"] = design_payload_sha256(manifest)
     manifest["preregistered_manifest_sha256"] = manifest_self_sha256(manifest)
     return manifest
@@ -114,6 +120,32 @@ def record(
 
 
 class TestPhase7WContract(unittest.TestCase):
+    def test_authorization_is_loaded_before_staging_validation(self):
+        args = SimpleNamespace(
+            manifest=MANIFEST_PATH,
+            setting_id="p7-w-r0-lru-rho1.5",
+            restart_index=0,
+            output=Path("/results/phase7/raw/test.json"),
+            log=Path("/results/phase7/logs/test.log"),
+            central_log=Path("/results/phase7/central.jsonl"),
+        )
+        with (
+            patch.object(run_p7_scheduler, "parse_args", return_value=args),
+            patch.object(
+                run_p7_scheduler,
+                "load_execution_context",
+                side_effect=Phase7ContractError("unauthorized"),
+            ) as load_context,
+            patch.object(
+                run_p7_scheduler,
+                "ensure_artifact_path_layout",
+            ) as ensure_layout,
+        ):
+            with self.assertRaisesRegex(Phase7ContractError, "unauthorized"):
+                run_p7_scheduler.main()
+        load_context.assert_called_once()
+        ensure_layout.assert_not_called()
+
     def test_request_order_hash_count_and_phases_are_frozen(self):
         workload = w_workload(revised_manifest())
         self.assertEqual(workload["workload_id"], "W-fixed40-v1")
@@ -135,7 +167,7 @@ class TestPhase7WContract(unittest.TestCase):
             w_workload(drifted)
 
     def test_scheduler_setting_selection_and_arm_order(self):
-        manifest = load_manifest()
+        manifest = revised_manifest()
         setting = select_setting(
             manifest,
             setting_id="p7-w-r0-hierarchical-rho2.0",
@@ -214,6 +246,79 @@ class TestPhase7SchedulerPairing(unittest.TestCase):
         self.assertIn("not_kvcomm", contract["claim"])
         self.assertFalse(performance_ranking_enabled(["R4-like-5x"]))
         self.assertTrue(performance_ranking_enabled(["E0", "R0"]))
+
+
+class TestPhase7SchedulerInactiveCounters(unittest.TestCase):
+    def arm(self, host_load_value: float) -> dict:
+        return {
+            "metrics": {
+                "inactive_tracks": {
+                    counter: {
+                        "verification": "direct",
+                        "value": (host_load_value if counter == "host_load" else 0.0),
+                        "metric": metric,
+                    }
+                    for counter, metric in (
+                        ("host_load", "sglang:approx_kv_h2d_tokens_total"),
+                        (
+                            "prefetch_request",
+                            "sglang:workflow_prefetch_requests_total",
+                        ),
+                        (
+                            "prefetch_loaded_tokens",
+                            "sglang:workflow_prefetch_loaded_tokens_total",
+                        ),
+                        (
+                            "async_load",
+                            "sglang:approx_kv_h2d_duration_seconds_count",
+                        ),
+                    )
+                }
+            }
+        }
+
+    def test_scheduler_assertion_covers_warmup_and_formal_arms(self):
+        manifest = revised_manifest()
+        warmup = [{"E0": self.arm(0.0), "R0": self.arm(0.0)}]
+        formal = [
+            {
+                "repeat_index": 0,
+                "arm_order": ["E0", "R0"],
+                "arms": {"E0": self.arm(0.0), "R0": self.arm(0.0)},
+            },
+            {
+                "repeat_index": 1,
+                "arm_order": ["R0", "E0"],
+                "arms": {"R0": self.arm(0.0), "E0": self.arm(0.0)},
+            },
+        ]
+        self.assertEqual(
+            len(arm_inactive_observations(warmup=warmup, formal=formal)),
+            6,
+        )
+        assertion = build_arm_inactive_counter_assertion(
+            manifest,
+            warmup=warmup,
+            formal=formal,
+        )
+        self.assertTrue(assertion["passed"])
+        self.assertEqual(
+            assertion["assertions"]["host_load"]["source_observation_count"],
+            6,
+        )
+        leaked = build_arm_inactive_counter_assertion(
+            manifest,
+            warmup=[{"E0": self.arm(7.0), "R0": self.arm(0.0)}],
+            formal=formal,
+        )
+        self.assertFalse(leaked["passed"])
+        self.assertEqual(leaked["assertions"]["host_load"]["value"], 7.0)
+
+    def test_scheduler_runner_uses_the_shared_arm_assertion(self):
+        self.assertIs(
+            run_p7_scheduler.build_arm_inactive_counter_assertion,
+            build_arm_inactive_counter_assertion,
+        )
 
 
 class TestPhase7PhysicalMetrics(unittest.TestCase):

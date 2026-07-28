@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import re
 import subprocess
 from dataclasses import dataclass
@@ -10,8 +11,12 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Mapping, Sequence
 
 from benchmark.approx_kv.build_phase7_manifest import (
+    MAX_CAPACITY_RELATIVE_ERROR_TOLERANCE,
+    RUNNER_SPECS,
     build_a8_workload,
+    build_artifact_templates,
     build_filler_pool,
+    build_inactive_counter_pins,
     build_settings,
     build_w_workload,
     design_payload_sha256,
@@ -36,10 +41,29 @@ from benchmark.approx_kv.phase6.schema import (
     payload_sha256,
     validate_phase6_artifact,
 )
-from benchmark.approx_kv.run_p6_4_capacity_pilot import labeled_metric_delta
+from benchmark.approx_kv.phase7.evidence import validate_runner_test_evidence
+from benchmark.approx_kv.phase7.review import (
+    validate_final_review,
+    validate_review_binding,
+)
 
 CEILING_RUNNER = "benchmark.approx_kv.run_p7_ceiling"
 SCHEDULER_RUNNER = "benchmark.approx_kv.run_p7_scheduler"
+CAPACITY_RUNNER = "benchmark.approx_kv.run_p6_4_capacity_pilot"
+
+CAPACITY_PROFILES = (
+    "exact_only",
+    "r0_like",
+    "r1_like_k32",
+    "r2_like",
+    "r4_like",
+)
+INACTIVE_COUNTER_METRICS = {
+    "host_load": "sglang:approx_kv_h2d_tokens_total",
+    "prefetch_request": "sglang:workflow_prefetch_requests_total",
+    "prefetch_loaded_tokens": "sglang:workflow_prefetch_loaded_tokens_total",
+    "async_load": "sglang:approx_kv_h2d_duration_seconds_count",
+}
 
 POST_PIN_ENVELOPE_PREFIX = "benchmark/approx_kv/results/phase7/"
 
@@ -166,6 +190,36 @@ def _require_sha(value: Any, *, field: str, git: bool = False) -> str:
     return value
 
 
+def validate_inactive_counter_manifest_pins(manifest: Mapping[str, Any]) -> None:
+    expected_pins = build_inactive_counter_pins()
+    if manifest.get("inactive_counter_pins") != expected_pins:
+        raise Phase7ContractError("Phase 7 inactive counter pins drift")
+    if manifest.get("required_inactive_counters") != list(expected_pins):
+        raise Phase7ContractError("Phase 7 inactive counter list drift")
+    plugin_env = manifest.get("server_template", {}).get("plugin_env", {})
+    if plugin_env.get("SGLANG_APPROX_KV_HOST_BUDGET_BYTES") != "0":
+        raise Phase7ContractError("Phase 7 host load is not pinned disabled")
+    skipped_tracks = set(manifest.get("skipped_tracks", ()))
+    required_skips = {
+        "host_matrix",
+        "prefetch_functionality",
+        "prefetch_performance",
+        "async_h2d_performance",
+    }
+    missing_skips = sorted(required_skips.difference(skipped_tracks))
+    if missing_skips:
+        raise Phase7ContractError(
+            f"Phase 7 inactive tracks are not pinned skipped: {missing_skips}"
+        )
+
+
+def require_read_only_implementation_worktree() -> None:
+    if not os.statvfs(REPO_ROOT).f_flag & os.ST_RDONLY:
+        raise Phase7ContractError(
+            "Phase 7 implementation worktree must be mounted read-only"
+        )
+
+
 def validate_manifest_envelope(
     manifest: Mapping[str, Any],
     *,
@@ -221,18 +275,19 @@ def validate_manifest_envelope(
         raise Phase7ContractError("Phase 7 execution requires an authorized manifest")
 
     plan = manifest.get("plan", {})
-    if plan.get("version") != "V6":
-        raise Phase7ContractError("Phase 7 execution requires the V6 plan")
+    if plan.get("version") != "V7":
+        raise Phase7ContractError("Phase 7 execution requires the V7 plan")
     _require_sha(plan.get("plan_sha256"), field="plan_sha256")
     _require_sha(plan.get("plan_commit"), field="plan_commit", git=True)
     if manifest.get("r2_strategy") != "disabled_not_comparable":
-        raise Phase7ContractError("V6 requires R2 disabled_not_comparable")
-    if manifest.get("conditional_resolution", {}).get(
-        "CR-R2-ADAPTER"
-    ) != "disabled_not_comparable":
-        raise Phase7ContractError("V6 R2 resolution is not disabled_not_comparable")
+        raise Phase7ContractError("V7 requires R2 disabled_not_comparable")
+    if (
+        manifest.get("conditional_resolution", {}).get("CR-R2-ADAPTER")
+        != "disabled_not_comparable"
+    ):
+        raise Phase7ContractError("V7 R2 resolution is not disabled_not_comparable")
     if any("R2" in row.get("arms", ()) for row in manifest.get("settings", ())):
-        raise Phase7ContractError("V6 must not contain R2 GPU settings")
+        raise Phase7ContractError("V7 must not contain R2 GPU settings")
     if manifest.get("conditional_user_authorization_recorded") is not True:
         raise Phase7ContractError("conditional user authorization is not recorded")
     review_contract = manifest.get("review_contract", {})
@@ -241,8 +296,18 @@ def validate_manifest_envelope(
         raise Phase7ContractError("final Opus review is not required")
     if review_evidence.get("status") not in {"pending", "passed"}:
         raise Phase7ContractError("invalid final Opus review status")
+    if review_evidence.get("artifact_path") != review_contract.get("artifact_path"):
+        raise Phase7ContractError("final Opus review evidence path mismatch")
+    if review_evidence.get("status") == "passed":
+        _require_sha(
+            review_evidence.get("artifact_sha256"),
+            field="review_evidence.artifact_sha256",
+        )
     if status == "authorized" and review_evidence.get("status") != "passed":
         raise Phase7ContractError("authorized manifest lacks final Opus approval")
+    if manifest.get("artifact_templates") != build_artifact_templates():
+        raise Phase7ContractError("Phase 7 runtime staging contract drift")
+    validate_inactive_counter_manifest_pins(manifest)
     flags = manifest.get("server_template", {}).get("test_only_injection_flags")
     if flags != {
         "SGLANG_APPROX_KV_TEST_ONLY": "0",
@@ -305,6 +370,17 @@ def select_setting(
     if runner_module == SCHEDULER_RUNNER:
         if arms != ("R4-like-5x",) and set(arms) != {"E0", "R0"}:
             raise Phase7ContractError(f"{setting_id}: invalid scheduler arms")
+    if runner_module == CAPACITY_RUNNER:
+        if arms != CAPACITY_PROFILES:
+            raise Phase7ContractError(f"{setting_id}: invalid capacity profiles")
+        if setting.get("activation_rule_id") == "CR-P6DELTA-RHO3":
+            resolution = manifest.get("conditional_resolution", {}).get(
+                "CR-P6DELTA-RHO3"
+            )
+            if resolution != "enabled":
+                raise DisabledSettingError(
+                    f"{setting_id}: rho3 conditional resolution is {resolution!r}"
+                )
     for repeat in range(int(setting["formal_repeats"])):
         order = setting["arm_order_by_repeat"].get(str(repeat))
         if order is None or sorted(order) != sorted(setting["arms"]):
@@ -312,6 +388,31 @@ def select_setting(
                 f"{setting_id}: invalid arm order for repeat {repeat}"
             )
     return setting
+
+
+def capacity_error_tolerance(setting: Mapping[str, Any]) -> float:
+    """Return the frozen capacity relative-error tolerance of a setting."""
+    tolerance = setting.get("capacity_relative_error_tolerance")
+    if (
+        not isinstance(tolerance, (int, float))
+        or isinstance(tolerance, bool)
+        or not 0 <= float(tolerance) <= MAX_CAPACITY_RELATIVE_ERROR_TOLERANCE
+    ):
+        raise Phase7ContractError(
+            f"{setting.get('setting_id')}: capacity tolerance is not frozen within "
+            f"[0, {MAX_CAPACITY_RELATIVE_ERROR_TOLERANCE}]"
+        )
+    return float(tolerance)
+
+
+def formal_arm_order(setting: Mapping[str, Any], repeat_index: int) -> tuple[str, ...]:
+    """Return the preregistered arm order for one formal repeat."""
+    order = setting["arm_order_by_repeat"].get(str(repeat_index))
+    if order is None or sorted(order) != sorted(setting["arms"]):
+        raise Phase7ContractError(
+            f"{setting['setting_id']}: invalid arm order for repeat {repeat_index}"
+        )
+    return tuple(order)
 
 
 def validate_runner_binding(
@@ -334,8 +435,62 @@ def validate_runner_binding(
         raise Phase7ContractError(f"{runner_key} CPU tests are not marked passed")
     if entry.get("review_status") != "reviewed":
         raise Phase7ContractError(f"{runner_key} review is not marked complete")
+    cpu_evidence = entry.get("cpu_test_evidence")
+    if not isinstance(cpu_evidence, Mapping):
+        raise Phase7ContractError(f"{runner_key} CPU test evidence is missing")
+    for field in (
+        "path",
+        "file_sha256",
+        "artifact_sha256",
+        "image_digest",
+        "command",
+        "exit_code",
+        "summary_line",
+        "passed_count",
+        "subtests",
+        "timestamp",
+        "runner_sha256",
+    ):
+        if field not in cpu_evidence:
+            raise Phase7ContractError(f"{runner_key} CPU test evidence lacks {field}")
+    if cpu_evidence.get("image_digest") != manifest.get("environment", {}).get(
+        "image_digest"
+    ):
+        raise Phase7ContractError(
+            f"{runner_key} CPU test evidence image digest mismatch"
+        )
+    required_cpu_test = RUNNER_SPECS[runner_key]["required_cpu_test"]
+    if entry.get("required_cpu_test") != required_cpu_test:
+        raise Phase7ContractError(f"{runner_key} required CPU test drift")
+    if cpu_evidence.get("command") != required_cpu_test:
+        raise Phase7ContractError(f"{runner_key} CPU test evidence command mismatch")
+    if cpu_evidence.get("exit_code") != 0:
+        raise Phase7ContractError(f"{runner_key} CPU test evidence exit code is not 0")
+    if not str(cpu_evidence.get("summary_line") or "").strip():
+        raise Phase7ContractError(f"{runner_key} CPU test evidence lacks a summary")
+    passed_count = cpu_evidence.get("passed_count")
+    if (
+        not isinstance(passed_count, int)
+        or isinstance(passed_count, bool)
+        or passed_count <= 0
+    ):
+        raise Phase7ContractError(
+            f"{runner_key} CPU test evidence reports no passing tests"
+        )
+    review_evidence = entry.get("review_evidence")
+    manifest_review = manifest.get("review_evidence", {})
+    if not isinstance(review_evidence, Mapping):
+        raise Phase7ContractError(f"{runner_key} review evidence is missing")
+    if review_evidence.get("status") != "passed":
+        raise Phase7ContractError(f"{runner_key} review evidence is not passed")
+    if review_evidence.get("artifact_path") != manifest_review.get("artifact_path"):
+        raise Phase7ContractError(f"{runner_key} review evidence path mismatch")
+    if review_evidence.get("artifact_sha256") != manifest_review.get("artifact_sha256"):
+        raise Phase7ContractError(f"{runner_key} review evidence hash mismatch")
     if entry.get("path") != runner_path:
         raise Phase7ContractError(f"{runner_key} runner path mismatch")
+    if entry.get("module") != runner_module:
+        raise Phase7ContractError(f"{runner_key} runner module mismatch")
     expected_runner_sha = _require_sha(
         entry.get("sha256"), field=f"{runner_key}.sha256"
     )
@@ -343,6 +498,10 @@ def validate_runner_binding(
         raise Phase7ContractError(f"{runner_key} current runner blob hash mismatch")
     if pinned_runner_sha256 != expected_runner_sha:
         raise Phase7ContractError(f"{runner_key} pinned runner blob hash mismatch")
+    if cpu_evidence.get("runner_sha256") != expected_runner_sha:
+        raise Phase7ContractError(
+            f"{runner_key} CPU test evidence runner hash mismatch"
+        )
 
     implementation = manifest["implementation"]
     pinned_source_sha = implementation["phase7_pinned_implementation_sha"]
@@ -351,7 +510,7 @@ def validate_runner_binding(
         raise Phase7ContractError("pinned source SHA mismatch")
     if observed_pinned_tree != pinned_source_tree:
         raise Phase7ContractError("pinned source tree mismatch")
-    if runner_module not in {CEILING_RUNNER, SCHEDULER_RUNNER}:
+    if runner_module not in {CEILING_RUNNER, SCHEDULER_RUNNER, CAPACITY_RUNNER}:
         raise Phase7ContractError(f"unknown Phase 7 runner {runner_module}")
 
 
@@ -503,6 +662,146 @@ def require_envelope_path(
     return relative
 
 
+def validate_evidence_artifact_binding(
+    *,
+    manifest: Mapping[str, Any],
+    envelope: Mapping[str, Any],
+    artifact_path: str,
+    artifact_sha256: Any,
+    field: str,
+) -> str:
+    if not isinstance(artifact_path, str) or not artifact_path:
+        raise Phase7ContractError(f"{field} artifact path is invalid")
+    expected_sha = _require_sha(artifact_sha256, field=f"{field}.artifact_sha256")
+    relative = require_envelope_path(
+        REPO_ROOT / artifact_path,
+        manifest=manifest,
+        field=field,
+    )
+    observed_sha = file_sha256(REPO_ROOT / relative)
+    if observed_sha != expected_sha:
+        raise Phase7ContractError(f"{field} file SHA-256 mismatch")
+    envelope_sha = envelope.get("post_pin_envelope_sha256", {}).get(relative)
+    if envelope_sha != expected_sha:
+        raise Phase7ContractError(f"{field} execution HEAD blob hash mismatch")
+    return relative
+
+
+def validate_runner_test_evidence_binding(
+    *,
+    manifest: Mapping[str, Any],
+    envelope: Mapping[str, Any],
+    runner_key: str,
+) -> None:
+    runner = manifest["runners"][runner_key]
+    summary = runner["cpu_test_evidence"]
+    relative = validate_evidence_artifact_binding(
+        manifest=manifest,
+        envelope=envelope,
+        artifact_path=summary["path"],
+        artifact_sha256=summary["file_sha256"],
+        field=f"{runner_key}.cpu_test_evidence",
+    )
+    evidence = json.loads((REPO_ROOT / relative).read_text(encoding="utf-8"))
+    try:
+        validate_runner_test_evidence(evidence)
+    except ValueError as error:
+        raise Phase7ContractError(
+            f"{runner_key} CPU test evidence is invalid: {error}"
+        ) from error
+    expected = {
+        "runner_key": runner_key,
+        "runner_module": runner["module"],
+        "runner_path": runner["path"],
+        "runner_sha256": runner["sha256"],
+        "image_digest": manifest["environment"]["image_digest"],
+        "artifact_sha256": summary["artifact_sha256"],
+        "command": summary["command"],
+        "exit_code": summary["exit_code"],
+        "summary_line": summary["summary_line"],
+        "passed_count": summary["passed_count"],
+        "subtests": summary["subtests"],
+        "timestamp": summary["timestamp"],
+    }
+    drifted = {
+        field: (evidence.get(field), value)
+        for field, value in expected.items()
+        if evidence.get(field) != value
+    }
+    if drifted:
+        raise Phase7ContractError(
+            f"{runner_key} CPU test evidence summary mismatch: {drifted}"
+        )
+
+
+def validate_final_review_binding(
+    *,
+    manifest: Mapping[str, Any],
+    envelope: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Bind the executing manifest to the content of the final Opus review.
+
+    The review artifact reviews the *superseded* manifest revision, so the
+    activating manifest must keep the reviewed design payload, supersede
+    exactly the reviewed manifest hash, carry a strictly greater revision and
+    keep every reviewed runner blob hash. Binding the review to the manifest
+    that embeds its own hash would be a self-containing cycle.
+    """
+    review_contract = manifest["review_contract"]
+    review_evidence = manifest["review_evidence"]
+    if review_evidence.get("status") != "passed":
+        raise Phase7ContractError("final Opus review has not passed")
+    relative = validate_evidence_artifact_binding(
+        manifest=manifest,
+        envelope=envelope,
+        artifact_path=review_contract["artifact_path"],
+        artifact_sha256=review_evidence["artifact_sha256"],
+        field="review_contract",
+    )
+    review = json.loads((REPO_ROOT / relative).read_text(encoding="utf-8"))
+    try:
+        validate_final_review(review)
+        validate_review_binding(
+            review,
+            design_payload_sha256=manifest["design_payload_sha256"],
+            supersedes_manifest_sha256=manifest.get("supersedes_manifest_sha256"),
+            manifest_revision=manifest["manifest_revision"],
+            pinned_implementation_sha=manifest["implementation"].get(
+                "phase7_pinned_implementation_sha"
+            ),
+            pinned_tree_sha=manifest["implementation"].get("phase7_pinned_tree_sha"),
+            runner_sha256={
+                name: manifest.get("runners", {}).get(name, {}).get("sha256")
+                for name in RUNNER_SPECS
+            },
+        )
+    except (ValueError, KeyError) as error:
+        raise Phase7ContractError(
+            f"final Opus review artifact is not bound: {error}"
+        ) from error
+    summary_drift = {
+        field: (review_evidence.get(field), review[key])
+        for field, key in (
+            ("verdict", "verdict"),
+            ("open_p0", "open_p0"),
+            ("open_p1", "open_p1"),
+            ("reviewed_manifest_revision", "reviewed_manifest_revision"),
+            ("reviewed_manifest_sha256", "reviewed_manifest_sha256"),
+            ("reviewed_design_payload_sha256", "design_payload_sha256"),
+            (
+                "reviewed_pinned_implementation_sha",
+                "reviewed_pinned_implementation_sha",
+            ),
+        )
+        if review_evidence.get(field) != review[key]
+    }
+    if summary_drift:
+        raise Phase7ContractError(
+            f"final Opus review summary mismatch: {summary_drift}"
+        )
+    return review
+
+
 def load_execution_context(
     *,
     manifest_path: Path,
@@ -514,6 +813,7 @@ def load_execution_context(
 ) -> Phase7ExecutionContext:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     validate_manifest_envelope(manifest, require_authorized=True)
+    require_read_only_implementation_worktree()
     setting = select_setting(
         manifest,
         setting_id=setting_id,
@@ -531,6 +831,7 @@ def load_execution_context(
         pinned_tree=pinned_tree,
     )
     require_envelope_path(manifest_path, manifest=manifest, field="manifest")
+    validate_final_review_binding(manifest=manifest, envelope=envelope)
     pinned_runner_sha = hashlib.sha256(_git_blob(pinned_sha, runner_path)).hexdigest()
     validate_runner_binding(
         manifest,
@@ -541,6 +842,11 @@ def load_execution_context(
         pinned_runner_sha256=pinned_runner_sha,
         observed_pinned_sha=envelope["pinned_source_git_sha"],
         observed_pinned_tree=envelope["pinned_source_tree_sha"],
+    )
+    validate_runner_test_evidence_binding(
+        manifest=manifest,
+        envelope=envelope,
+        runner_key=runner_key,
     )
     source = {
         "source_git_sha": pinned_sha,
@@ -894,6 +1200,24 @@ def parse_labeled_samples(
         }
         samples.append((labels, float(match.group("value"))))
     return samples
+
+
+def labeled_metric_delta(
+    before: str,
+    after: str,
+    name: str,
+    required_labels: Mapping[str, str],
+) -> float:
+    def total(text: str) -> float:
+        return sum(
+            value
+            for labels, value in parse_labeled_samples(text, name)
+            if all(
+                labels.get(key) == expected for key, expected in required_labels.items()
+            )
+        )
+
+    return total(after) - total(before)
 
 
 def labeled_counter_observation(
@@ -1256,6 +1580,45 @@ def validate_outcome_record(record: Mapping[str, Any]) -> bool:
     return reason is None and record.get("ambiguity") is None
 
 
+def inactive_counter_observations(
+    before_text: str,
+    after_text: str,
+) -> dict[str, dict[str, Any]]:
+    indirect_evidence = (
+        "the corresponding track is explicitly pinned disabled in the manifest"
+    )
+    return {
+        counter: text_counter_observation(
+            before_text,
+            after_text,
+            name=metric,
+            indirect_evidence=indirect_evidence,
+        )
+        for counter, metric in INACTIVE_COUNTER_METRICS.items()
+    }
+
+
+def arm_inactive_observations(
+    *,
+    warmup: Sequence[Mapping[str, Any]],
+    formal: Sequence[Mapping[str, Any]],
+) -> list[Mapping[str, Any]]:
+    """Collect inactive-counter observations from warmup and formal arms.
+
+    Warmup arms drive exactly the same pinned-disabled tracks as the formal
+    repeats, so a nonzero host/prefetch/async counter observed during warmup
+    is just as disqualifying and must reach the assertion.
+    """
+    observations: list[Mapping[str, Any]] = []
+    for repeat in warmup:
+        for data in repeat.values():
+            observations.append(data["metrics"]["inactive_tracks"])
+    for repeat in formal:
+        for data in repeat["arms"].values():
+            observations.append(data["metrics"]["inactive_tracks"])
+    return observations
+
+
 def cross_store_metrics(
     *,
     before_text: str,
@@ -1375,33 +1738,128 @@ def cross_store_metrics(
             ),
         },
         "store_gauges_after": store_gauge_snapshot(after_snapshot),
-        "inactive_tracks": {
-            "host_load": text_counter_observation(
-                before_text,
-                after_text,
-                name="sglang:approx_kv_h2d_tokens_total",
-                indirect_evidence=inactive_evidence,
-            ),
-            "prefetch_request": text_counter_observation(
-                before_text,
-                after_text,
-                name="sglang:workflow_prefetch_requests_total",
-                indirect_evidence=inactive_evidence,
-            ),
-            "prefetch_loaded_tokens": text_counter_observation(
-                before_text,
-                after_text,
-                name="sglang:workflow_prefetch_loaded_tokens_total",
-                indirect_evidence=inactive_evidence,
-            ),
-            "async_load": text_counter_observation(
-                before_text,
-                after_text,
-                name="sglang:approx_kv_h2d_duration_seconds_count",
-                indirect_evidence=inactive_evidence,
-            ),
-        },
+        "inactive_tracks": inactive_counter_observations(before_text, after_text),
     }
+
+
+def build_inactive_counter_assertion(
+    manifest: Mapping[str, Any],
+    observation_sets: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    expected_pins = build_inactive_counter_pins()
+    validate_inactive_counter_manifest_pins(manifest)
+    required = manifest.get("required_inactive_counters")
+    if required != list(expected_pins):
+        raise Phase7ContractError("required inactive counter list drift")
+    assertions = {}
+    for counter in required:
+        observations = [
+            group[counter]
+            for group in observation_sets
+            if isinstance(group, Mapping) and counter in group
+        ]
+        direct_values = [
+            float(observation["value"])
+            for observation in observations
+            if observation.get("verification") == "direct"
+            and observation.get("value") is not None
+        ]
+        nonzero = [value for value in direct_values if value != 0.0]
+        if nonzero:
+            verification = "direct"
+            value = max(nonzero, key=abs)
+        elif observations and all(
+            observation.get("verification") == "direct"
+            and observation.get("value") is not None
+            for observation in observations
+        ):
+            verification = "direct"
+            value = 0.0
+        else:
+            verification = "indirectly_verified"
+            value = None
+        assertions[counter] = {
+            "verification": verification,
+            "value": value,
+            "metric": INACTIVE_COUNTER_METRICS[counter],
+            "manifest_pinned_disabled": True,
+            "manifest_pins": expected_pins[counter]["manifest_pins"],
+            "source_observation_count": len(observations),
+        }
+    return {
+        "required_counters": list(required),
+        "assertions": assertions,
+        "passed": all(
+            assertion["verification"] == "indirectly_verified"
+            or assertion["value"] == 0.0
+            for assertion in assertions.values()
+        ),
+    }
+
+
+def build_arm_inactive_counter_assertion(
+    manifest: Mapping[str, Any],
+    *,
+    warmup: Sequence[Mapping[str, Any]],
+    formal: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Assert the pinned-disabled counters across warmup and formal arms."""
+    return build_inactive_counter_assertion(
+        manifest,
+        arm_inactive_observations(warmup=warmup, formal=formal),
+    )
+
+
+def validate_inactive_counter_assertion(
+    payload: Mapping[str, Any],
+    manifest: Mapping[str, Any],
+) -> None:
+    assertion = payload.get("inactive_counter_assertion")
+    if not isinstance(assertion, Mapping):
+        raise Phase7ContractError("missing inactive_counter_assertion")
+    expected_pins = build_inactive_counter_pins()
+    validate_inactive_counter_manifest_pins(manifest)
+    required = manifest.get("required_inactive_counters")
+    if assertion.get("required_counters") != required:
+        raise Phase7ContractError("inactive counter assertion list mismatch")
+    rows = assertion.get("assertions")
+    if not isinstance(rows, Mapping) or set(rows) != set(required):
+        raise Phase7ContractError("inactive counter assertions are incomplete")
+    passed = True
+    for counter in required:
+        row = rows[counter]
+        if not isinstance(row, Mapping):
+            raise Phase7ContractError(f"{counter} inactive assertion is invalid")
+        if row.get("manifest_pinned_disabled") is not True:
+            raise Phase7ContractError(f"{counter} is not manifest-pinned disabled")
+        if row.get("manifest_pins") != expected_pins[counter]["manifest_pins"]:
+            raise Phase7ContractError(f"{counter} manifest pin evidence drift")
+        if row.get("metric") != INACTIVE_COUNTER_METRICS[counter]:
+            raise Phase7ContractError(f"{counter} inactive metric mapping drift")
+        verification = row.get("verification")
+        value = row.get("value")
+        if verification == "direct":
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise Phase7ContractError(
+                    f"{counter} direct assertion lacks a numeric value"
+                )
+            if float(value) != 0.0:
+                passed = False
+        elif verification == "indirectly_verified":
+            if value is not None:
+                raise Phase7ContractError(
+                    f"{counter} indirect assertion must not fabricate zero"
+                )
+        else:
+            raise Phase7ContractError(
+                f"{counter} inactive assertion is neither direct nor pinned indirect"
+            )
+    if assertion.get("passed") is not passed:
+        raise Phase7ContractError("inactive counter assertion status mismatch")
+    if not passed and payload.get("status") != "invalid":
+        raise Phase7ContractError(
+            "direct nonzero inactive counter requires invalid artifact status"
+        )
 
 
 def observed_capacity(
@@ -1432,7 +1890,11 @@ def finalize_artifact_hash(payload: dict[str, Any]) -> None:
     payload["raw_sha256"] = payload_sha256(payload)
 
 
-def validate_phase7_artifact(payload: dict[str, Any]) -> None:
+def validate_phase7_artifact(
+    payload: dict[str, Any],
+    *,
+    manifest: Mapping[str, Any],
+) -> None:
     validate_phase6_artifact(payload)
     required = (
         "manifest_revision",
@@ -1447,12 +1909,19 @@ def validate_phase7_artifact(payload: dict[str, Any]) -> None:
         "provenance",
         "server_log_path",
         "server_log_sha256",
+        "inactive_counter_assertion",
     )
     missing = [field for field in required if field not in payload]
     if missing:
         raise Phase7ContractError(f"missing Phase 7 artifact fields: {missing}")
     if payload["preregistered_manifest_sha256"] is None:
         raise Phase7ContractError("artifact does not bind the manifest")
+    if payload["preregistered_manifest_sha256"] != manifest.get(
+        "preregistered_manifest_sha256"
+    ):
+        raise Phase7ContractError("artifact binds a different manifest")
+    if payload["manifest_revision"] != manifest.get("manifest_revision"):
+        raise Phase7ContractError("artifact manifest revision mismatch")
     stored_raw_sha = payload.get("raw_sha256")
     canonical = dict(payload)
     canonical.pop("raw_sha256", None)
@@ -1460,6 +1929,7 @@ def validate_phase7_artifact(payload: dict[str, Any]) -> None:
         raise Phase7ContractError("Phase 7 raw artifact hash mismatch")
     if payload["server_log_sha256"] is not None:
         _require_sha(payload["server_log_sha256"], field="server_log_sha256")
+    validate_inactive_counter_assertion(payload, manifest)
 
 
 def ensure_new_artifact_paths(*paths: Path) -> None:
@@ -1476,8 +1946,25 @@ def ensure_artifact_path_layout(
     output: Path,
     log: Path,
     central_log: Path,
+    staging_root: str | Path,
 ) -> None:
+    root = Path(staging_root).resolve()
+    frozen_root = Path("/results/phase7")
+    if root != frozen_root:
+        raise ValueError(
+            f"runtime staging root must resolve to {frozen_root}, got {root}"
+        )
     resolved = (output.resolve(), log.resolve(), central_log.resolve())
+    labels = ("output", "server log", "central log")
+    escaped = [
+        f"{label}={path}"
+        for label, path in zip(labels, resolved)
+        if not path.is_relative_to(root)
+    ]
+    if escaped:
+        raise ValueError(
+            f"artifact paths must remain under staging root {root}: {escaped}"
+        )
     if len(set(resolved)) != len(resolved):
         raise ValueError("output, server log, and central log must be distinct")
     ensure_new_artifact_paths(output, log)
