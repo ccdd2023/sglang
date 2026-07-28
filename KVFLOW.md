@@ -24,7 +24,7 @@ policy-neutral **KVCOMM data plane** and must remain independently testable.
 | `kvflow/shared-core` | Segment identity, residency, lease lifecycle, safe transfer plan execution |
 | `research/coding-aware-lossy` | Coding signals and lossy recompute/copy plans; no prefetch or eviction |
 | `research/prefetch-p8-async-20260722` | Prefix/middle-KV prefetch, priority and residency; no coding policy |
-| `integration/coding-aware-prefetch` | Composition tests and thin adapters only |
+| `integration/coding-aware-prefetch-v2` | Current composition tests and thin adapters only |
 
 The legacy `feature/context-aware-kv-reuse` and
 `fix/placeholder-pool-activation` branches are preserved as read-only
@@ -120,7 +120,8 @@ Research and collaborator heads used by this audit:
 V44 result     144e80255
 coding docs    current HEAD (this file)
 prefetch      e44ce40dc
-integration   d4a7ec132
+integration-v2 0ab4fc942
+old integration d4a7ec132
 shared core   c16bfbb8e
 ```
 
@@ -132,11 +133,16 @@ A three-way merge preview from the shared-core merge base found:
 - two modify/delete documentation conflicts:
   `docs/kvflow/HANDOFF.md` and `docs/kvflow/STATUS.md`.
 
-The old integration head contains only an early July-17 coding snapshot, so
-integration must be refreshed from the current coding head before merging the
-latest prefetch head. The expected code merge is additive, but composition is
-not accepted until the lifecycle and attribution matrix in
-`docs/kvflow/ARCHITECTURE.md` passes.
+The old integration head contains only an early July-17 coding snapshot.
+Integration-v2 was therefore created from the current coding head and merged
+with the latest prefetch head. The merge added the independent
+`kvcomm_prefetch/` namespace and one composition test; it did not modify either
+research branch.
+
+The merged unit surface passed **113 tests**, including coding policy, KVCOMM,
+prefetch coordinator/middle-KV/async scheduler, and
+select → reside → validate → execute → release composition. This establishes
+merge and lifecycle mechanics, not production GPU prefetch performance.
 
 ## Feature gates
 

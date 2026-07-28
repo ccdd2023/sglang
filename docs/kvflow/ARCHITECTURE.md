@@ -105,9 +105,9 @@ Rules:
 
 ## Integration sequence
 
-The existing integration branch is stale relative to the current coding head.
-Use a fresh integration branch; do not merge either research branch into the
-other.
+The existing `integration/coding-aware-prefetch` branch is stale relative to
+the current coding head. A fresh branch was prepared without merging either
+research branch into the other:
 
 ```bash
 git switch -c integration/coding-aware-prefetch-v2 \
@@ -115,10 +115,20 @@ git switch -c integration/coding-aware-prefetch-v2 \
 git merge --no-ff research/prefetch-p8-async-20260722
 ```
 
-Resolve the two documentation conflicts by keeping `KVFLOW.md` as the global
-status and incorporating collaborator-specific operational notes without
-restoring stale coding claims. No paper, report artifact, experiment result, or
-preregistered threshold belongs in this merge.
+Prepared result:
+
+```text
+integration/coding-aware-prefetch-v2 @ 0ab4fc942
+```
+
+The two documentation conflicts were resolved by keeping `KVFLOW.md` as the
+global status and renaming the collaborator snapshot to
+`docs/kvflow/PREFETCH_HANDOFF_20260722.md`. No paper, report artifact,
+experiment result, or preregistered threshold entered the merge.
+
+The merged unit surface passed 113 tests, including a new
+`kvflow_integration/test_composition_v2.py`. Server-mode, CUDA-overlap, HiCache,
+and sustained-soak gates below remain open.
 
 ## Integration acceptance gates
 
