@@ -22,9 +22,9 @@
   "files": [
     {
       "file": "benchmark/approx_kv/results/phase6/PHASE6_EXIT_DISPOSITION.json",
-      "sha256": "c1e2581abed2dedc370c0a7f6885e6ff0ca9081a414f8bafab9b24b509bc399e",
-      "bytes": 5826,
-      "containing_commit": "98fd76af88a9b8fb05dfab9d2a62e5e910af9f6b"
+      "sha256": "75857a44af0683fa634a1206c208997cdb67b2c1229d4ebbb75573f5626e69c7",
+      "bytes": 5856,
+      "containing_commit": "1a59470f5eeebe50eebd1451c9a3ef42ded7ba80"
     },
     {
       "file": "benchmark/approx_kv/results/phase6/cl1-confirm-consistency.json",
