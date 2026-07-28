@@ -308,6 +308,9 @@ native-system结果另报，并给approx写回加provenance/taint。
 
 - 每个formal repeat包含两个隔离sequence：`dense-A8`与`recovery-A8`；
 - 每个sequence含8个预注册target；sequence内不reset，第8个target后reset；
+- dense-A8执行与recovery-A8相同的source materialization但`register=false`，
+  使`dense_source_materialization`可测；不可测时incremental口径写
+  `not_separable`；
 - 8个target使用独立target ID与extra-key，禁止后续target exact-hit前一target；
 - source对象pin到sequence结束；
 - 每target记录exclusive outcome/reason、`rho_resident`以及
@@ -820,15 +823,17 @@ required:
   cell A: S4/rho2.0
   cell B: S0/rho2.0
 conditional:
-  cell C: S4/rho3.0（仅A/B结论不足或出现新边界行为时）
+  cell C: S4/rho3.0（仅当最终报告需要任何chunk4096/rho3 claim时）
 ```
 
 必须覆盖`exact_only`、`R0-like`、`R1-like-k32`、`R2-like`、
 `R4-like-5x` footprint、accounting与死亡瞬间store gauge
 （采样间隔`<=0.05s`）。
 
-- 全部required cell取得可达或明确死亡态结论后，Phase6 feasibility才可迁移到4096；
-- 若waive或出现无法解释的死亡，Phase6 feasibility明确限定为chunk1024，
+- A/B只关闭Phase7相关的`rho2/chunk4096`兼容性；
+- 若不运行C，rho3 feasibility永久限定为chunk1024，Phase7不得发布任何
+  chunk4096/rho3 claim；
+- 若waive A/B或出现无法解释的死亡，整个Phase6 feasibility限定为chunk1024，
   Phase7不得引用其4096兼容性。
 
 ### 8.3 Chunk与共同运行合同
@@ -1111,7 +1116,7 @@ host/prefetch不在V5默认轨道中，不创建对应review里程碑。
 | R4-like W × S0/S4 | `2` | `2` | 1 restart |
 | **committed合计** | **`13 GPU + 1行政`** | **`30`** | 不含条件项 |
 | R2 A8（条件） | `2` | `2` | gated on R2 runner |
-| P6-4Δ S4/rho3（条件） | `1` | `1` | 仅A/B结论不足时 |
+| P6-4Δ S4/rho3（条件） | `1` | `1` | 仅需chunk4096/rho3 claim时 |
 | **含全部条件项** | **`16 GPU + 1行政`** | **`33`** | hard cap内余3 |
 
 - GPUh按wave结算；`W` start预计显著长于A8，不能只按start数估时；
