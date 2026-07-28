@@ -802,7 +802,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             },
             "hard_cap_server_starts": 36,
             "hard_cap_gpu_hours": 6,
-            "gpu_hour_headroom": 2.0,
+            "gpu_hour_headroom": 2.2,
             "minimum_headroom_fraction": 0.15,
             "retries_count_against_cap": True,
         },
