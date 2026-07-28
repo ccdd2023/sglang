@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "artifact": "phase7-runner-cpu-test-evidence",
+  "runner_key": "capacity_pilot",
+  "runner_module": "benchmark.approx_kv.run_p6_4_capacity_pilot",
+  "runner_path": "benchmark/approx_kv/run_p6_4_capacity_pilot.py",
+  "runner_sha256": "ff21855bbf1d98f8615d19cdf884bbf301694fb815b4b08e3a14cbc5207c84a2",
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "command": "python3 -m pytest -q test/registered/unit/bench/test_phase6_manifest.py",
+  "exit_code": 0,
+  "summary_line": "23 passed, 2 warnings in 6.37s",
+  "passed_count": 23,
+  "subtests": {
+    "passed_count": 0,
+    "names": []
+  },
+  "timestamp": "2026-07-28T08:50:49-07:00",
+  "artifact_sha256": "57b73dc9e11d720d60d79c469257a4b2638c0469644e271a857754442bdf61e5"
+}

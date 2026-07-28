@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "artifact": "phase7-runner-cpu-test-evidence",
+  "runner_key": "ceiling",
+  "runner_module": "benchmark.approx_kv.run_p7_ceiling",
+  "runner_path": "benchmark/approx_kv/run_p7_ceiling.py",
+  "runner_sha256": "1db0c0f37260e8ca4ff1050491721a58fa9e70e321818552b5a732dfd2bc5016",
+  "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+  "command": "python3 -m pytest -q test/registered/unit/bench/test_run_p7_ceiling.py",
+  "exit_code": 0,
+  "summary_line": "55 passed, 2 warnings in 7.34s",
+  "passed_count": 55,
+  "subtests": {
+    "passed_count": 0,
+    "names": []
+  },
+  "timestamp": "2026-07-28T08:50:49-07:00",
+  "artifact_sha256": "1d1177b7b78b4879597d32fe6d48d7c85925112909cd29270065a84d2ef354cc"
+}
