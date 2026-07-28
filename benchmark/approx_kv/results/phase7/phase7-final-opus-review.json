@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "artifact": "phase7-final-opus-review",
+  "reviewer": "Claude Opus 5 / Max Thinking / long context",
+  "model": "claude-opus-5",
+  "verdict": "PASS_WITH_CAVEATS",
+  "open_p0": 0,
+  "open_p1": 0,
+  "reviewed_manifest_revision": 11,
+  "reviewed_manifest_sha256": "48c86bf0f4df6f5c8baa41fc6871e3bcdfba59ea46f9022875f8453f2d5a5236",
+  "design_payload_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+  "reviewed_pinned_implementation_sha": "81405f4278b034911bc613c4ee17c79d15ee8f35",
+  "reviewed_pinned_tree_sha": "4a8bf0f6cd72ec09859f8301dc92b6aabb25d2bf",
+  "runner_sha256": {
+    "ceiling": "1db0c0f37260e8ca4ff1050491721a58fa9e70e321818552b5a732dfd2bc5016",
+    "scheduler": "42b0d924020e086064e53981b511ad0ad9096e031f281058fc887904ea25fb14",
+    "capacity_pilot": "ff21855bbf1d98f8615d19cdf884bbf301694fb815b4b08e3a14cbc5207c84a2"
+  },
+  "findings": [
+    {
+      "finding_id": "P2-1",
+      "severity": "P2",
+      "summary": "supersedes hash remains operator-supplied; preserve every revision hash in TRACKING",
+      "disposition": "accepted_no_change"
+    },
+    {
+      "finding_id": "P2-2",
+      "severity": "P2",
+      "summary": "post-pin allowlist is closed; all GPU waves remain in staging and are versioned once after execution",
+      "disposition": "accepted_no_change"
+    },
+    {
+      "finding_id": "P2-3",
+      "severity": "P2",
+      "summary": "Docker must mount the linked-worktree gitdir repository read-only at its identical absolute path",
+      "disposition": "closed"
+    },
+    {
+      "finding_id": "P2-4",
+      "severity": "P2",
+      "summary": "rev11 bindings and activation state must be synchronized to external authority documents",
+      "disposition": "closed"
+    },
+    {
+      "finding_id": "P2-5",
+      "severity": "P2",
+      "summary": "MDE supplement activation remains an operator assertion recorded in artifacts",
+      "disposition": "accepted_no_change"
+    },
+    {
+      "finding_id": "P2-6",
+      "severity": "P2",
+      "summary": "staging filenames are operator-supplied and may not literally expand the run_id template; run_id remains embedded in artifact and central log",
+      "disposition": "accepted_no_change"
+    }
+  ],
+  "disposition": "PASS WITH CAVEATS: all prior P0/P1 findings are closed; activate only through a design-preserving authorized revision that supersedes rev11. Keep all GPU wave outputs in /results/phase7 staging and version them once after all waves.",
+  "timestamp": "2026-07-28T09:23:24-07:00",
+  "artifact_sha256": "2c83f7ddec41d65a937a6b71cab851230c0fb06ff725f09cb36dd596e81e8649"
+}
