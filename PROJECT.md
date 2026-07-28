@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-28T09:28:47-07:00
+最后更新：2026-07-28T09:45:04-07:00
 
 ## 项目概况
 
@@ -26,6 +26,27 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-28T09:45:04-07:00 Phase7 wave-0 required完成
+
+- 全部实验在authorized rev12与固定Docker镜像内执行。
+- `p6delta-s4-rho2-chunk4096`：
+  - requested/observed capacity=`11392/11392`；
+  - exact/r0/r1-k32/r2-like均reachable/valid；
+  - R4-like在第5 representation出现预期partial registration，
+    `diagnostic-unavailable`；
+  - 两个formal repeat结果一致；
+  - reset、orphan、inactive counter assertion全部通过。
+- `p6delta-s0-rho2-chunk4096`：
+  - requested/observed capacity=`11392/11392`；
+  - 五个profile全部reachable/valid；
+  - reset、orphan、inactive counter assertion全部通过。
+- 两cell均无unexpected OOM、server death、stale handle、double free或
+  accounting failure；S4 R4-like属于容量型diagnostic-unavailable，不是
+  engineering failure。
+- rho3保持`disabled_scoped_chunk1024`，未运行。
+- runtime artifacts保留在`/results/phase7` staging，未修改implementation repo。
+- 下一步：A8 restart-0四个primary settings。
 
 ### 2026-07-28T09:28:47-07:00 Phase7 manifest rev12已授权
 

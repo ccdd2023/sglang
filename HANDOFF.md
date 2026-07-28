@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-28T09:28:47-07:00
+最后更新：2026-07-28T09:45:04-07:00
 
 ## 新会话启动顺序
 
@@ -12,6 +12,14 @@
 6. 开始工作后持续维护上述文件，不把重要信息只留在聊天中。
 
 ## 当前快照
+
+### 2026-07-28T09:45:04-07:00 Phase7 wave-0完成
+
+- S4/rho2/chunk4096：四个non-R4 profile可达；R4-like容量诊断不可达。
+- S0/rho2/chunk4096：五个profile全部可达。
+- 两cell capacity error=0，reset/inactive/orphan均通过。
+- 无ES-ENGINEERING failure；rho3未运行。
+- 下一步：A8 body1024/2048 × rho1.5/2.0 restart-0 screening。
 
 ### 2026-07-28T09:28:47-07:00 rev12 authorized
 

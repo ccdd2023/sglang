@@ -248,9 +248,15 @@ The caveat is permanent:
        DONE: rev12 authorized, self=2d66a1bc..., design=50003145...,
        blockers=[], RESULT_MANIFEST=5/5.
 
-[ ] 16. Execute Phase7 wave-0 in Docker.
+[x] 16. Execute Phase7 wave-0 in Docker.
        Run required S4/rho2/chunk4096 then S0/rho2/chunk4096.
        Keep rho3 disabled and stop on any ES-ENGINEERING failure.
+       DONE: capacity error=0 for both required cells; no engineering failure.
+       S4 R4-like diagnostic-unavailable; S0 R4-like reachable.
+
+[ ] 17. Execute A8 restart-0 screening in Docker.
+       Run body1024/2048 x rho1.5/2.0. Evaluate the frozen 5% MDE only after
+       all four restart-0 settings complete.
 
 
 3.3 CONDITIONAL - ONLY IF TRIGGERED

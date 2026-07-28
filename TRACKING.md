@@ -3062,3 +3062,20 @@ technical_exit = PASS WITH CAVEATS
 - final review artifact与3份CPU evidence纳入RESULT_MANIFEST，`5/5`通过。
 - Docker image、GPU、linked-worktree gitdir双只读挂载均验证。
 - Phase7 Entry Gate全部关闭；下一步正式执行wave-0 required两cell。
+
+## 2026-07-28T09:45:04-07:00 — Phase7 wave-0 required两cell完成
+
+- S4/rho2/chunk4096：
+  - capacity=11392 exact；
+  - exact/r0/r1-k32/r2-like reachable；
+  - R4-like第5 representation partial registration，
+    `diagnostic-unavailable`；
+  - reset/inactive/orphan通过。
+- S0/rho2/chunk4096：
+  - capacity=11392 exact；
+  - 全部五profile reachable；
+  - reset/inactive/orphan通过。
+- 无unexpected OOM/server death/stale handle/double free/accounting failure。
+- rho3条件项保持disabled。
+- artifacts仍在`/results/phase7` staging。
+- wave-0 Gate关闭；下一步A8四个restart-0 settings。
