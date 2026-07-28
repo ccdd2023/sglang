@@ -96,7 +96,7 @@ def build_a8_workload() -> dict[str, Any]:
                     "extra_key": (f"p7-a8-b{body_tokens}-target-{target_index}"),
                     "extra_keys_by_arm": {
                         arm: (f"p7-a8-b{body_tokens}-target-{target_index}-{arm}")
-                        for arm in ("D0", "E0", "R0", "R2")
+                        for arm in ("D0", "E0", "R0")
                     },
                     "header_token_sha256": token_list_sha(target_header),
                     "body_token_sha256": token_list_sha(body),
@@ -121,7 +121,7 @@ def build_a8_workload() -> dict[str, Any]:
                     "extra_key": f"p7-a8-b{body_tokens}-same-context-canary",
                     "max_new_tokens": 8,
                     "placement": "after_target_8_before_reset",
-                    "arms": ["R0", "R2"],
+                    "arms": ["R0"],
                     "included_in_amortization": False,
                     "any_token_mismatch_is_invalid": True,
                 },
@@ -436,24 +436,6 @@ def build_settings() -> list[dict[str, Any]]:
                 capacity_ceiling_tokens=20713,
             )
         )
-    for rho in (1.5, 2.0):
-        settings.append(
-            setting(
-                f"p7-a8-r2-rho{rho}",
-                wave="conditional",
-                runner="benchmark.approx_kv.run_p7_ceiling",
-                workload="A8-body2048",
-                body=2048,
-                rho=rho,
-                chunk=4096,
-                policy="lru",
-                restarts=[0],
-                arms=["D0", "E0", "R2"],
-                conditional=True,
-                rho_realization="filler_pool",
-                activation_rule_id="CR-R2-ADAPTER",
-            )
-        )
     return settings
 
 
@@ -541,7 +523,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "status": args.status,
         "phase7_execution_authorized": args.authorize,
         "plan": {
-            "version": "V5",
+            "version": "V6",
             "plan_commit": args.plan_commit,
             "plan_file": args.plan_file_in_repo,
             "plan_sha256": sha256_bytes(plan_blob),
@@ -631,7 +613,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "D0": "dense_no_reuse_baseline",
             "E0": "exact_cache",
             "R0": "raw_copy_ceiling",
-            "R2": "conditional_cross_store_adapter_or_not_comparable",
+            "R2": "disabled_not_comparable_historical_only",
             "R4-like-5x": "synthetic_footprint_proxy_not_kvcomm",
         },
         "footprint_profiles": {
@@ -704,9 +686,8 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
                 "rho3 feasibility scoped to chunk1024"
             ),
             "CR-R2-ADAPTER": (
-                "enable only after the cross-store R2 adapter exists, passes "
-                "CPU tests and is pinned in the Phase7 implementation SHA; "
-                "otherwise resolve disabled/not_comparable"
+                "resolved disabled_not_comparable after bounded feasibility "
+                "showed that restoring R2 would change frozen core dispatch"
             ),
         },
         "early_stops": [
@@ -740,7 +721,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
                 "checkpoint": "none",
                 "rule": (
                     "W and chunk1024 sensitivity supplements are "
-                    "unconditional per V5; only ES-ENGINEERING can stop them. "
+                    "unconditional per V6; only ES-ENGINEERING can stop them. "
                     "ES-R0-MDE governs A8 supplements only."
                 ),
             },
@@ -781,16 +762,15 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
                 "wave-0": 0.3,
                 "wave-1": 0.4,
                 "wave-2": 2.9,
-                "conditional": 0.4,
+                "conditional": 0.2,
             },
-            "expected_gpu_hours_total": 4.0,
+            "expected_gpu_hours_total": 3.8,
             "expected_minutes_per_start_by_runner": {
                 "run_p6_4_capacity_pilot": 9,
                 "run_p7_ceiling_A8": 6,
                 "run_p7_ceiling_sensitivity": 6,
                 "run_p7_scheduler_W": 8,
                 "run_p7_scheduler_R4_like": 8,
-                "conditional_R2": 6,
             },
             "hard_cap_server_starts": 36,
             "hard_cap_gpu_hours": 6,
@@ -812,6 +792,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "skipped_tracks": [
             "practical_recovery",
             "practical_scheduler_revalidation",
+            "r2_phase7_adapter",
             "hicache_adapter",
             "host_matrix",
             "prefetch_functionality",
@@ -827,7 +808,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "scope_caveats": [
             "practical=NONE is scoped to the tested implementation and chunk1024 qualification",
             "R0 is a ceiling, not a practical candidate",
-            "R2 is conditional and otherwise not_comparable historical evidence",
+            "R2 is disabled_not_comparable and retained only as historical evidence",
             "R4-like is a synthetic footprint proxy, not KVCOMM execution",
             "P6-F verifies fault-injected fallback only; natural pressure reachability is unproven",
             "P6-4 rho1.1/rho1.5/rho3 feasibility remains chunk1024 unless separately revalidated",
@@ -1084,7 +1065,7 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
         canary = workload.get("same_context_canary", {})
         if canary.get("placement") != "after_target_8_before_reset":
             problems.append(f"{workload['workload_id']} canary placement is invalid")
-        if canary.get("arms") != ["R0", "R2"]:
+        if canary.get("arms") != ["R0"]:
             problems.append(f"{workload['workload_id']} canary arms are invalid")
     if not manifest["workloads"]["W"]["request_order"]:
         problems.append("W request order is empty")
@@ -1098,6 +1079,12 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
     if len(manifest["workloads"]["filler_pool"]["pool"]) != 64:
         problems.append("filler pool count is not 64")
     resolutions = manifest["conditional_resolution"]
+    if manifest.get("r2_strategy") != "disabled_not_comparable":
+        problems.append("V6 requires R2 disabled_not_comparable")
+    if resolutions.get("CR-R2-ADAPTER") != "disabled_not_comparable":
+        problems.append("V6 R2 resolution is not disabled_not_comparable")
+    if any("R2" in row["arms"] for row in manifest["settings"]):
+        problems.append("V6 must not generate R2 GPU settings")
     if status in {"pinned_blocked", "authorized"}:
         if any(value == "pending" for value in resolutions.values()):
             problems.append("pinned/authorized manifest has pending conditions")
@@ -1157,7 +1144,7 @@ def main() -> int:
     parser.add_argument(
         "--r2-strategy",
         choices=("pending", "adapter", "disabled_not_comparable"),
-        default="pending",
+        default="disabled_not_comparable",
     )
     parser.add_argument(
         "--rho3-resolution",

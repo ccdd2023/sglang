@@ -16,13 +16,13 @@ register_cpu_ci(est_time=4, suite="base-c-test-cpu")
 from benchmark.approx_kv import run_p7_ceiling
 from benchmark.approx_kv.build_phase7_manifest import (
     build_a8_workload,
+    build_settings,
     build_w_workload,
     design_payload_sha256,
 )
 from benchmark.approx_kv.phase7 import common as phase7_common
 from benchmark.approx_kv.phase7.common import (
     CEILING_RUNNER,
-    DisabledSettingError,
     Phase7ContractError,
     a8_tokens,
     classify_request_outcome,
@@ -64,8 +64,8 @@ def load_manifest() -> dict:
     return json.loads(MANIFEST_PATH.read_text())
 
 
-def authorized_manifest(*, r2_disabled: bool = False) -> dict:
-    manifest = revised_manifest(r2_disabled=r2_disabled)
+def authorized_manifest() -> dict:
+    manifest = revised_manifest()
     manifest["status"] = "authorized"
     manifest["phase7_execution_authorized"] = True
     manifest["execution_blockers"] = []
@@ -87,7 +87,7 @@ def authorized_manifest(*, r2_disabled: bool = False) -> dict:
     return manifest
 
 
-def revised_manifest(*, r2_disabled: bool = False) -> dict:
+def revised_manifest() -> dict:
     """Synthetic rev6 envelope carrying the post-review builder semantics.
 
     The committed rev5 artifact is intentionally left untouched; the main
@@ -95,7 +95,9 @@ def revised_manifest(*, r2_disabled: bool = False) -> dict:
     """
     manifest = load_manifest()
     manifest["manifest_revision"] = 6
+    manifest["plan"]["version"] = "V6"
     manifest["workloads"]["A8"] = build_a8_workload()
+    manifest["settings"] = build_settings()
     p6_contract = json.loads(
         (
             REPO_ROOT / "benchmark/approx_kv/results/phase6/p6-0-contract.json"
@@ -108,9 +110,8 @@ def revised_manifest(*, r2_disabled: bool = False) -> dict:
             "SGLANG_APPROX_KV_MAX_PERSISTENT_PINS": "16",
         }
     )
-    if r2_disabled:
-        manifest["r2_strategy"] = "disabled_not_comparable"
-        manifest["conditional_resolution"]["CR-R2-ADAPTER"] = "disabled_not_comparable"
+    manifest["r2_strategy"] = "disabled_not_comparable"
+    manifest["conditional_resolution"]["CR-R2-ADAPTER"] = "disabled_not_comparable"
     manifest["design_payload_sha256"] = design_payload_sha256(manifest)
     manifest["preregistered_manifest_sha256"] = manifest_self_sha256(manifest)
     return manifest
@@ -209,16 +210,17 @@ class TestPhase7CeilingGuards(unittest.TestCase):
             )
 
     def test_r2_disabled_not_comparable_is_not_executable(self):
-        manifest = authorized_manifest(r2_disabled=True)
+        manifest = authorized_manifest()
         validate_manifest_envelope(manifest, require_authorized=True)
-        with self.assertRaises(DisabledSettingError) as raised:
+        self.assertEqual(manifest["r2_strategy"], "disabled_not_comparable")
+        self.assertFalse(any("R2" in row["arms"] for row in manifest["settings"]))
+        with self.assertRaisesRegex(Phase7ContractError, "found 0"):
             select_setting(
                 manifest,
                 setting_id="p7-a8-r2-rho1.5",
                 restart_index=0,
                 runner_module=CEILING_RUNNER,
             )
-        self.assertEqual(raised.exception.reason, "disabled_not_comparable")
 
     def test_artifact_paths_must_be_distinct(self):
         path = REPO_ROOT / "phase7-path-placeholder"

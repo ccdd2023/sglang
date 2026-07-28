@@ -221,8 +221,18 @@ def validate_manifest_envelope(
         raise Phase7ContractError("Phase 7 execution requires an authorized manifest")
 
     plan = manifest.get("plan", {})
+    if plan.get("version") != "V6":
+        raise Phase7ContractError("Phase 7 execution requires the V6 plan")
     _require_sha(plan.get("plan_sha256"), field="plan_sha256")
     _require_sha(plan.get("plan_commit"), field="plan_commit", git=True)
+    if manifest.get("r2_strategy") != "disabled_not_comparable":
+        raise Phase7ContractError("V6 requires R2 disabled_not_comparable")
+    if manifest.get("conditional_resolution", {}).get(
+        "CR-R2-ADAPTER"
+    ) != "disabled_not_comparable":
+        raise Phase7ContractError("V6 R2 resolution is not disabled_not_comparable")
+    if any("R2" in row.get("arms", ()) for row in manifest.get("settings", ())):
+        raise Phase7ContractError("V6 must not contain R2 GPU settings")
     flags = manifest.get("server_template", {}).get("test_only_injection_flags")
     if flags != {
         "SGLANG_APPROX_KV_TEST_ONLY": "0",
