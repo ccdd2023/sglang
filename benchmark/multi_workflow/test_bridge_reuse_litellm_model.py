@@ -166,6 +166,84 @@ def test_v35b_vetoes_first_validation_target_only() -> None:
     assert second["target_vetoed"] is False
 
 
+def test_v37_vetoes_patch_decision_and_recognizes_shell_write() -> None:
+    shell_write = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {
+                            "command": "cat > /testbed/pkg/a.py <<'EOF'\nx = 1\nEOF"
+                        },
+                    }
+                }
+            ],
+        },
+        {"role": "tool", "content": "<returncode>0</returncode>"},
+    ]
+    validation = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {"command": "pytest tests/test_a.py"},
+                    }
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": "<returncode>0</returncode><output>1 passed</output>",
+        },
+    ]
+    diff = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {"command": "git diff"},
+                    }
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": (
+                "<returncode>0</returncode><output>"
+                "diff --git a/pkg/a.py b/pkg/a.py</output>"
+            ),
+        },
+    ]
+
+    _, _, after_validation = bridge.apply_current_target_veto(
+        arm="coding_patch_lifecycle_target_v37",
+        selected_groups=[shell_write, validation],
+        target={"source_id": "source-v"},
+        releases=[],
+    )
+    assert after_validation["target_veto_reasons"] == [
+        "first_validation_of_version_before_submit"
+    ]
+
+    guarded, releases, after_diff = bridge.apply_current_target_veto(
+        arm="coding_patch_lifecycle_target_v37",
+        selected_groups=[shell_write, validation, diff],
+        target={"source_id": "source-d"},
+        releases=[],
+    )
+    assert guarded is None
+    assert releases == ["source-d"]
+    assert after_diff["target_veto_reasons"] == [
+        "patch_diff_before_submission_decision"
+    ]
+
+
 def test_query_closes_underlying_sync_stream(monkeypatch) -> None:
     chunk = SimpleNamespace(
         choices=[

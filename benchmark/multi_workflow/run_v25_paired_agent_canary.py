@@ -63,14 +63,19 @@ TARGET_VETO_CANDIDATES = {
     "coding_state_transition_target_v33b",
     "coding_critical_current_target_v34",
     "coding_version_validation_target_v35b",
+    "coding_patch_lifecycle_target_v37",
 }
 TARGET_VETO_DENSE_MODES = {
     "state_transition_target_dense_veto",
     "critical_current_target_dense_veto",
     "version_validation_target_dense_veto",
+    "patch_lifecycle_target_dense_veto",
 }
 TARGET_VETO_CANDIDATE = V23 in TARGET_VETO_CANDIDATES
 TARGET_VETO_DENSE_MODE = (
+    "patch_lifecycle_target_dense_veto"
+    if V23 == "coding_patch_lifecycle_target_v37"
+    else
     "version_validation_target_dense_veto"
     if V23 == "coding_version_validation_target_v35b"
     else

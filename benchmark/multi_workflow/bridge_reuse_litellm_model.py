@@ -27,6 +27,7 @@ from minisweagent.models.utils.actions_toolcall import BASH_TOOL
 from pydantic import Field, model_validator
 
 from benchmark.multi_workflow.coding_reuse_policy import (
+    coding_patch_lifecycle_target_reasons,
     coding_state_transition_target_reasons,
     coding_version_validation_target_reasons,
     critical_coding_event_reasons,
@@ -53,6 +54,7 @@ TARGET_VETO_ARMS = (
     "coding_state_transition_target_v33b",
     "coding_critical_current_target_v34",
     "coding_version_validation_target_v35b",
+    "coding_patch_lifecycle_target_v37",
 )
 
 
@@ -93,6 +95,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_state_transition_target_v33b",
         "coding_critical_current_target_v34",
         "coding_version_validation_target_v35b",
+        "coding_patch_lifecycle_target_v37",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
@@ -170,6 +173,8 @@ def apply_current_target_veto(
         )
     elif arm == "coding_version_validation_target_v35b":
         reasons = coding_version_validation_target_reasons(selected_groups)
+    elif arm == "coding_patch_lifecycle_target_v37":
+        reasons = coding_patch_lifecycle_target_reasons(selected_groups)
     else:
         reasons = []
     vetoed = bool(reasons and target is not None)
@@ -691,6 +696,10 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             )
             if self.config.reuse_arm in TARGET_VETO_ARMS:
                 dense_veto_mode = (
+                    "patch_lifecycle_target_dense_veto"
+                    if self.config.reuse_arm
+                    == "coding_patch_lifecycle_target_v37"
+                    else
                     "version_validation_target_dense_veto"
                     if self.config.reuse_arm
                     == "coding_version_validation_target_v35b"
@@ -701,6 +710,10 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                     else "state_transition_target_dense_veto"
                 )
                 general_reuse_mode = (
+                    "patch_lifecycle_target_general_reuse"
+                    if self.config.reuse_arm
+                    == "coding_patch_lifecycle_target_v37"
+                    else
                     "version_validation_target_general_reuse"
                     if self.config.reuse_arm
                     == "coding_version_validation_target_v35b"

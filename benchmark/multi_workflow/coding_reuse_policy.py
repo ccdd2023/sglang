@@ -48,6 +48,12 @@ _OPEN_WRITE_MUTATION = re.compile(
     r"\bopen\(\s*[\"'][^\"']+[\"']\s*,\s*[\"'][wax+]",
     re.I,
 )
+_SHELL_SOURCE_WRITE = re.compile(
+    r"\b(?:cat|printf|echo)\b[^\n]*(?:>>|>)\s*"
+    r"(?:/testbed/|\./)?[^\s;&|]+"
+    r"\.(?:py|pyi|toml|yaml|yml|json|cfg|ini)\b",
+    re.I,
+)
 _SEARCH_COMMAND = re.compile(
     r"(?:^|&&\s*|;\s*|\|\s*|\|\|\s*)"
     r"(?:grep|rg|find)\b",
@@ -421,6 +427,61 @@ def is_successful_focused_validation(
         and is_successful_executable_evidence(group)
         and not critical_coding_event_reasons(group)
     )
+
+
+def is_shell_source_write(
+    group: Sequence[dict[str, Any]],
+) -> bool:
+    """Identify a shell redirection that writes a source/configuration file."""
+
+    commands = "\n".join(
+        command
+        for message in group
+        if (command := _tool_command(message))
+    )
+    return bool(_SHELL_SOURCE_WRITE.search(commands))
+
+
+def coding_patch_lifecycle_target_reasons(
+    groups: Sequence[Sequence[dict[str, Any]]],
+) -> list[str]:
+    """Protect repair, first-validation, and patch-review decisions.
+
+    This is deliberately separate from the older risk classifier so adding
+    shell-write coverage cannot silently change any frozen V31--V35 arm.
+    """
+
+    if not groups:
+        return []
+    latest = groups[-1]
+    if is_high_value_executable_failure(latest):
+        return ["executable_failure_before_repair"]
+    if (
+        "repository_diff_observed"
+        in critical_coding_event_reasons(latest)
+    ):
+        return ["patch_diff_before_submission_decision"]
+    if not is_successful_focused_validation(latest):
+        return []
+    state_changes = [
+        index
+        for index, group in enumerate(groups[:-1])
+        if is_shell_source_write(group)
+        or any(
+            reason
+            in {"repository_mutation_command", "repository_diff_observed"}
+            for reason in critical_coding_event_reasons(group)
+        )
+    ]
+    if not state_changes:
+        return []
+    latest_change = state_changes[-1]
+    if any(
+        is_successful_focused_validation(group)
+        for group in groups[latest_change + 1 : -1]
+    ):
+        return []
+    return ["first_validation_of_version_before_submit"]
 
 
 def coding_version_validation_target_reasons(
