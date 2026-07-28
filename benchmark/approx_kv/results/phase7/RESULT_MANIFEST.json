@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "artifact": "phase7-result-manifest",
+  "purpose": "Supply the file-to-commit mapping that the individual result artifacts cannot: a runner never knows the commit that will contain its own output, so every artifact carries result_git_sha=null and result_commit_status=pending_result_commit.",
+  "authority": "This manifest, not the result_git_sha field inside an artifact, is the authoritative mapping. Regenerate and re-check it in the same commit that adds or changes an artifact, otherwise entries rot into pending or stale-blob states.",
+  "known_gaps": [
+    "The Phase7 manifest is pre-implementation and blocked. Runner outputs and logs do not exist yet."
+  ],
+  "environment": {
+    "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+    "model": "Qwen/Qwen3-0.6B",
+    "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+    "gpu": "NVIDIA GeForce RTX 2080 SUPER, SM75, 8192 MiB",
+    "driver": "580.173.02",
+    "container_flags": "--runtime=nvidia --gpus all --ipc=host --shm-size=8g --user 1000:1000"
+  },
+  "verification_commands": {
+    "targeted_regression": "python3 -m pytest -q test/registered/unit/mem_cache/test_approx_kv_core.py test/registered/unit/mem_cache/test_approx_kv_runtime.py test/registered/unit/mem_cache/test_approx_kv_integration_source.py test/registered/unit/mem_cache/test_approx_kv_hicache_backend.py test/registered/unit/mem_cache/test_approx_kv_cuda.py test/registered/unit/mem_cache/test_cross_store_substrate.py test/registered/unit/mem_cache/test_epic_leadingk.py test/registered/unit/bench/",
+    "manifest_self_check": "python3 -m benchmark.approx_kv.build_result_manifest --check --phase phase7 --results-dir benchmark/approx_kv/results/phase7",
+    "known_baseline": "Running the whole test/registered/unit/mem_cache and test/registered/unit/bench trees reports 935 pre-existing failures both with and without this branch's changes, verified by stashing. Judge regressions with the targeted selection above."
+  },
+  "files": [
+    {
+      "file": "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
+      "sha256": "f9cb8d35fff686577fff17d9ec2b1d5f029000d5a55ceba04a346b8c162f60fe",
+      "bytes": 89481,
+      "containing_commit": "ce7fd8746ab5a4dc337f452714d2a314bef5298d"
+    }
+  ]
+}
