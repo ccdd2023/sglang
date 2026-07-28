@@ -763,14 +763,22 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                     == "coding_critical_current_target_v34"
                     else "state_transition_target_general_reuse"
                 )
-                policy_decision.update(
-                    mode=(
-                        dense_veto_mode
-                        if target_guard["target_vetoed"]
-                        else general_reuse_mode
-                    ),
-                    **target_guard,
-                )
+                if (
+                    self.config.reuse_arm
+                    == "coding_commit_phase_dense_v38"
+                    and self._commit_phase_latched
+                    and not target_guard["target_vetoed"]
+                ):
+                    policy_decision.update(**target_guard)
+                else:
+                    policy_decision.update(
+                        mode=(
+                            dense_veto_mode
+                            if target_guard["target_vetoed"]
+                            else general_reuse_mode
+                        ),
+                        **target_guard,
+                    )
             if write_sidecar:
                 self._atomic_sidecar_update(
                     sources=[source] if source else [],

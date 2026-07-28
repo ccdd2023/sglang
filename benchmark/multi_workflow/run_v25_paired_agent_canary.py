@@ -59,6 +59,11 @@ V23 = os.environ.get(
     "coding_post_mutation_target_prefix_v23",
 )
 ABSTENTION_CANDIDATE = V23 == "coding_critical_event_abstain_v31"
+SOURCE_ABSTENTION_CANDIDATE = V23 in {
+    "coding_critical_event_abstain_v31",
+    "coding_commit_phase_dense_v38",
+}
+HYBRID_COMMIT_PHASE_CANDIDATE = V23 == "coding_commit_phase_dense_v38"
 TARGET_VETO_CANDIDATES = {
     "coding_state_transition_target_v33b",
     "coding_critical_current_target_v34",
@@ -178,15 +183,15 @@ def _branch_kind(
         return "current_target_veto"
     sources = {arm: prepared[arm]["source"] for arm in REUSE_ARMS}
     if (
-        ABSTENTION_CANDIDATE
+        SOURCE_ABSTENTION_CANDIDATE
         and sources[V23] is None
         and sources[GENERAL] is not None
         and _policy_mode(prepared[V23])
-        == "critical_event_dense_abstain"
+        in {"critical_event_dense_abstain", "commit_phase_dense_latched"}
     ):
         return "future_source_plan"
     if (
-        not ABSTENTION_CANDIDATE
+        not SOURCE_ABSTENTION_CANDIDATE
         and not TARGET_VETO_CANDIDATE
         and all(sources.values())
         and int(sources[V23]["length"])
@@ -328,6 +333,14 @@ def register(output: Path) -> dict[str, Any]:
         "experiment": "V25 shared-prefix, cloned-repository paired agent canary",
         "motivation": (
             (
+                f"{V23} may enter its persistent Dense commit phase before "
+                "a pending target exists or while a target exists. Branch on "
+                "either its future-source abstention or its current-target "
+                "veto against General, using the real shared Dense request."
+            )
+            if HYBRID_COMMIT_PHASE_CANDIDATE
+            else
+            (
                 f"{V23} must veto the current General target at an online "
                 "coding event selected by its frozen policy. Maintain "
                 "candidate and General sources from real shared requests, "
@@ -377,13 +390,18 @@ def register(output: Path) -> dict[str, Any]:
             "step_limit": 20,
             "branch_rule": (
                 (
+                    "first online request where the V38 commit latch either "
+                    "declines a future source that General registers or "
+                    "vetoes a current target that General registers"
+                    if HYBRID_COMMIT_PHASE_CANDIDATE
+                    else
                     "first online request where General registers a target "
                     f"and the candidate emits {TARGET_VETO_DENSE_MODE}"
                     if TARGET_VETO_CANDIDATE
                     else
                     "first online request where General registers a source "
                     "and the candidate emits critical_event_dense_abstain"
-                    if ABSTENTION_CANDIDATE
+                    if SOURCE_ABSTENTION_CANDIDATE
                     else (
                         "first online request where General and candidate "
                         "both register a source and selected lengths differ"
@@ -406,12 +424,14 @@ def register(output: Path) -> dict[str, Any]:
             "branch_or_shared_completion": True,
             "branch_source_prompt_hash_identical": True,
             (
-                "branch_target_plans_different"
+                "branch_candidate_general_plans_different"
+                if HYBRID_COMMIT_PHASE_CANDIDATE
+                else "branch_target_plans_different"
                 if TARGET_VETO_CANDIDATE
                 else "branch_source_plans_different"
             ): True,
             "source_materializations_if_branched_min": (
-                1 if ABSTENTION_CANDIDATE else 2
+                1 if SOURCE_ABSTENTION_CANDIDATE else 2
             ),
             (
                 "general_target_copies_if_branched_min"
@@ -422,7 +442,13 @@ def register(output: Path) -> dict[str, Any]:
                 1 if ABSTENTION_CANDIDATE else 0
             ),
             "candidate_target_vetoes_if_enabled_min": (
-                1 if TARGET_VETO_CANDIDATE else 0
+                1
+                if TARGET_VETO_CANDIDATE
+                and not HYBRID_COMMIT_PHASE_CANDIDATE
+                else 0
+            ),
+            "candidate_commit_phase_entries_if_enabled_min": (
+                1 if HYBRID_COMMIT_PHASE_CANDIDATE else 0
             ),
             "dense_control_requests_if_enabled_min": (
                 1 if INCLUDE_DENSE_CONTROL else 0
@@ -1064,6 +1090,14 @@ def run(output: Path) -> dict[str, Any]:
     candidate_target_vetoes = sum(
         _is_target_veto_record(row) for row in candidate_client
     )
+    candidate_commit_phase_entries = sum(
+        _policy_mode(row)
+        in {
+            "commit_phase_dense_latched",
+            "commit_phase_target_dense_veto",
+        }
+        for row in candidate_client
+    )
     gates = {
         "branch_or_shared_completion": True,
         **(
@@ -1074,17 +1108,20 @@ def run(output: Path) -> dict[str, Any]:
         "branch_source_prompt_hash_identical": branch is None
         or branch["source_prompt_hash"] is not None,
         (
-            "branch_target_plans_different"
+            "branch_candidate_general_plans_different"
+            if HYBRID_COMMIT_PHASE_CANDIDATE
+            else "branch_target_plans_different"
             if TARGET_VETO_CANDIDATE
             else "branch_source_plans_different"
         ): branch is None
         or (
             len(set(branch["target_registered"].values())) == 2
-            if TARGET_VETO_CANDIDATE
+            if branch["kind"] == "current_target_veto"
             else len(set(branch["source_lengths"].values())) == 2
         ),
         "source_materializations_if_branched_min": branch is None
-        or len(materialized) >= (1 if ABSTENTION_CANDIDATE else 2),
+        or len(materialized)
+        >= (1 if SOURCE_ABSTENTION_CANDIDATE else 2),
         (
             "general_target_copies_if_branched_min"
             if TARGET_VETO_CANDIDATE
@@ -1093,7 +1130,7 @@ def run(output: Path) -> dict[str, Any]:
         or (
             copy_counts[GENERAL] >= 1
             and (
-                ABSTENTION_CANDIDATE
+                SOURCE_ABSTENTION_CANDIDATE
                 or TARGET_VETO_CANDIDATE
                 or copy_counts[V23] >= 1
             )
@@ -1105,8 +1142,14 @@ def run(output: Path) -> dict[str, Any]:
         ),
         "candidate_target_vetoes_if_enabled_min": (
             not TARGET_VETO_CANDIDATE
+            or HYBRID_COMMIT_PHASE_CANDIDATE
             or branch is None
             or candidate_target_vetoes >= 1
+        ),
+        "candidate_commit_phase_entries_if_enabled_min": (
+            not HYBRID_COMMIT_PHASE_CANDIDATE
+            or branch is None
+            or candidate_commit_phase_entries >= 1
         ),
         "dense_control_requests_if_enabled_min": (
             not INCLUDE_DENSE_CONTROL
@@ -1157,6 +1200,9 @@ def run(output: Path) -> dict[str, Any]:
                 candidate_critical_abstentions
             ),
             "candidate_target_vetoes": candidate_target_vetoes,
+            "candidate_commit_phase_entries": (
+                candidate_commit_phase_entries
+            ),
         },
         "gates": gates,
         "accuracy": (

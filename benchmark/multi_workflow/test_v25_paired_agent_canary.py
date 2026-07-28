@@ -276,3 +276,33 @@ def test_v38_branches_when_commit_phase_latches(
     }
 
     assert canary._branch_kind(prepared) == "current_target_veto"
+
+
+def test_v38_branches_on_commit_phase_future_source_abstention(
+    monkeypatch,
+) -> None:
+    candidate = "coding_commit_phase_dense_v38"
+    monkeypatch.setattr(canary, "V23", candidate)
+    monkeypatch.setattr(canary, "REUSE_ARMS", (candidate, canary.GENERAL))
+    monkeypatch.setattr(canary, "TARGET_VETO_CANDIDATE", True)
+    monkeypatch.setattr(canary, "SOURCE_ABSTENTION_CANDIDATE", True)
+    monkeypatch.setattr(canary, "ABSTENTION_CANDIDATE", False)
+    prepared = {
+        candidate: {
+            "prompt_ids": [16, 17, 18],
+            "source": None,
+            "target": None,
+            "policy_decision": {"mode": "commit_phase_dense_latched"},
+        },
+        canary.GENERAL: {
+            "prompt_ids": [16, 17, 18],
+            "source": {
+                "source_id": "general-v38",
+                "length": 1200,
+            },
+            "target": None,
+            "policy_decision": {"mode": "general_contiguous"},
+        },
+    }
+
+    assert canary._branch_kind(prepared) == "future_source_plan"
