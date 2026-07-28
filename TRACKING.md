@@ -2807,3 +2807,23 @@ technical_exit = PASS WITH CAVEATS
   - expected GPUh冻结为3.5h、headroom2.5h，validator要求<=85% hard cap。
 - 同批闭合review P2：same-context canary placement、plan纳入design hash、
   per-role描述性样本、pinned SHA runner blob校验、rho3三态、Phase7结果清单路径。
+## 2026-07-27T19:30:00-07:00 — V5与Phase7 primary manifest完成封版
+
+- Manifest rev2 review：
+  - Sol：`PASS WITH CAVEATS`；
+  - Opus：`PASS WITH CAVEATS`，无P0。
+- Manifest rev3关闭全部P1/P2：
+  - per-setting capacity/rho；
+  - revision/design hash/state machine；
+  -完整validator；
+  - W连续index与第二遍replay；
+  - same-context canary与per-arm extra key；
+  - unconditional W/sensitivity supplements；
+  - GPUh headroom；
+  - pinned runner blob/rho3三态/result-manifest路径。
+- Sol/Opus对rev3最终均判`PASS`，无新P0/P1。
+- V5标记`Current / Latest`。
+- primary manifest rev4仅绑定最终V5 plan commit与revision chain，不改变矩阵。
+- manifest仍`preregistered_blocked`，Phase7未授权。
+- 后续blocker仅为runner实现/review、pinned implementation SHA、R2 strategy与
+  用户明确授权。

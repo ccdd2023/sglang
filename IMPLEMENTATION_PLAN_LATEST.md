@@ -2,9 +2,9 @@
 
 > 版本：V5
 >
-> 状态：Draft / Reviewed, pending primary manifest
+> 状态：Current / Latest
 >
-> 最后更新：2026-07-27T17:45:00-07:00
+> 最后更新：2026-07-27T19:30:00-07:00
 >
 > 当前阶段：Phase6 technical Exit=`PASS WITH CAVEATS`；正在冻结result-bound
 > Phase7计划与primary manifest；未进入Phase7。
@@ -1120,10 +1120,10 @@ host/prefetch不在V5默认轨道中，不创建对应review里程碑。
 | **含全部条件项** | **`16 GPU + 1行政`** | **`33`** | hard cap内余3 |
 
 - GPUh按wave结算；基于Phase5/P6/CL1历史server启动与请求时长，V5预注册
-  `expected_gpu_hours_total=3.5h`（wave-0=`0.3h`、wave-1=`0.4h`、
-  wave-2=`2.3h`、全部条件项=`0.5h`）；
+  `expected_gpu_hours_total=4.0h`（wave-0=`0.3h`、wave-1=`0.4h`、
+  wave-2=`2.9h`、全部条件项=`0.4h`）；
 - hard cap：`36 server starts / 6 GPUh`；
-- GPUh headroom=`2.5h`；manifest validator要求expected总量`<=85%` hard cap；
+- GPUh headroom=`2.0h`；manifest validator要求expected总量`<=85%` hard cap；
 - 重试计入同一hard cap；任一上限先到即绑定；
 - 若全部条件项触发，33 starts后仅余3次重试；触发任一条件项前重新结算余量；
 - 基于CL2 chunk4096 body1024约`1.025x`的历史量级，R0 A8很可能未过5% MDE，
@@ -1211,13 +1211,13 @@ technical_exit = PASS WITH CAVEATS
 
 V5当前状态：
 
-- 已创建result-bound draft；
+- 已完成result-bound plan review与primary manifest review；
 - Phase7矩阵已收窄为R0 ceiling、条件R2、R4-like proxy与R0×S0/S4；
 - host、HiCache、prefetch、async轨道默认全部跳过；
-- Sol/Opus独立full review、全文互换与cross-consolidation已完成；
-- 8个accepted P0已闭合；targeted delta review只新增MDE定义P0与少量同步项；
-- MDE现已数值冻结为5%，P1/P2同步项已修订；等待一次最终minimal delta确认；
-- Phase7 primary manifest尚未预注册；
+- Sol/Opus独立full review、全文互换、cross-consolidation与targeted delta均完成；
+- 所有accepted P0/P1已闭合，MDE冻结为5%；
+- Phase7 primary manifest rev3已获两位reviewer PASS；
+- manifest rev4仅绑定本次Current/Latest状态与revision chain，不改变矩阵；
 - 用户尚未授权Phase7。
 
 ## 15. V5冻结约束与已吸收教训

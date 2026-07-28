@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-27T17:45:00-07:00
+最后更新：2026-07-27T19:30:00-07:00
 
 ## 新会话启动顺序
 
@@ -13,10 +13,10 @@
 
 ## 当前快照
 
-### 2026-07-27T17:45:00-07:00 V5 revision通过targeted review，等待manifest
+### 2026-07-27T19:30:00-07:00 V5与primary manifest已封版
 
 - V4已归档为`IMPLEMENTATION_PLAN_V4_ARCHIVED.md`。
-- latest为V5 Draft / Revised，尚未标记Current / Latest。
+- latest为V5 Current / Latest。
 - 8个accepted P0已关闭；targeted review新增MDE定义P0，现冻结`MDE=5%`；
   final minimal delta无开放P0，计划已足以生成primary manifest。
 - Phase7已收窄为R0 ceiling、条件R2、R4-like proxy与R0 W×S0/S4；
@@ -24,7 +24,9 @@
 - primary chunk=`4096`；`1024`只作diagnostic sensitivity。
 - 预算：committed 13 GPU settings/30 starts；含条件项16/33；
   hard cap36 starts/6 GPUh。
-- 下一步生成并review Phase7 primary manifest；仍未进入Phase7。
+- Phase7 primary manifest rev3已获Sol/Opus PASS；rev4仅绑定最终plan commit。
+- manifest status=`preregistered_blocked`，仍有5个显式execution blocker。
+- 仍未进入Phase7。
 
 - Phase7 primary manifest现已生成并自检通过：
   - 16 settings；
@@ -120,10 +122,10 @@ host使用独立host limit；exact-host/HiCache unification未实现。
 
 ### 下一步
 
-1. V5 draft已创建；按计划§1执行Sol/Opus独立review、互换、consolidate和
-   主会话disposition；
-2. 按最终V5预注册Phase7 primary manifest；
-3. 严格停在Phase7前，等待用户明确授权。
+1. 实现并review `run_p7_ceiling.py`与`run_p7_scheduler.py`；
+2. 决定R2 strategy（adapter或disabled/not_comparable）；
+3. 原子更新manifest/HANDOFF/PROJECT/TODO并pin Phase7 implementation SHA；
+4. 等待用户明确授权Phase7。
 
 ### 不要重做
 

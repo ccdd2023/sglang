@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-27T17:45:00-07:00
+最后更新：2026-07-27T19:30:00-07:00
 
 ## 项目概况
 
@@ -27,10 +27,10 @@
 
 ## 当前状态
 
-### 2026-07-27 V5 revision通过targeted review，等待primary manifest
+### 2026-07-27 V5与Phase7 primary manifest完成review并封版
 
 - `IMPLEMENTATION_PLAN_V4_ARCHIVED.md`为V4只读归档。
-- `IMPLEMENTATION_PLAN_LATEST.md`为V5 Draft / Revised，尚未标Current / Latest。
+- `IMPLEMENTATION_PLAN_LATEST.md`为V5 Current / Latest。
 - V5 full review发现的8个P0已全部关闭；targeted delta review新增MDE定义P0，
   已用CL2 body768/chunk4096 noise model冻结为`MDE=5%`。
 - 最终minimal delta：
@@ -47,7 +47,15 @@
   - committed 13 GPU settings/30 starts；含条件项16/33；hard cap36/6 GPUh；
   - N=1/2/4/8改为一次setup后的真实连续8 targets，不再外推；
   - fallback仅有fault-injected canary证据，natural pressure claim必须重新取证。
-- 下一步：生成、提交并review Phase7 primary manifest。
+- Phase7 primary manifest rev3已生成、提交、自检并获Sol/Opus PASS。
+- rev4只更新最终plan binding/revision chain，不改变design payload。
+- manifest仍为`preregistered_blocked`，禁止GPU执行。
+- 当前剩余执行blocker：
+  - `run_p7_ceiling.py`未实现/测试/review；
+  - `run_p7_scheduler.py`未实现/测试/review；
+  - Phase7 pinned implementation SHA未生成；
+  - R2 strategy未决；
+  - 用户未授权Phase7。
 - 仍未进入Phase7。
 
 ### 2026-07-27 Phase7 primary manifest已预注册，状态明确blocked
@@ -66,11 +74,11 @@
   - 用户未授权Phase7。
 - manifest targeted双review进行中；仍未进入Phase7。
 
-- Manifest rev2 review结果：
+- Manifest review结果：
   - Sol：`PASS WITH CAVEATS`；
   - Opus：`PASS WITH CAVEATS`，接受rev2为pre-registration of record；
   - 无新P0。
-- 两个赋值级P1不留到runner阶段，现直接生成rev3关闭：
+- 两个赋值级P1已在rev3关闭：
   - W/sensitivity supplements使用无条件gate，不受A8 MDE早停；
   - GPUh按start类型重估，并保留>=15% hard-cap headroom。
 

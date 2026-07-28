@@ -186,10 +186,9 @@ The caveat is permanent:
        DONE: V5 §5.9.A/B separates same-context corruption canary from
        cross-context conservative exact-output promotion.
 
-[ ] 8. Finalize the result-bound V5 plan.
-       Draft created and V4 archived. Remaining: Sol/Opus independent review,
-       report exchange, cross-consolidation, main-session disposition and
-       accepted-P0 closure before marking Current / Latest.
+[x] 8. Finalize the result-bound V5 plan.
+       V4 archived; Sol/Opus independent review, exchange, consolidation and
+       targeted delta closure completed; V5 marked Current / Latest.
        Both independent reviews and report exchange are complete; current
        cross-consolidated verdict was FAIL. Accepted P0 work is revised in
        V5; targeted delta review closed all 8 and added one MDE-definition P0,
@@ -202,7 +201,9 @@ The caveat is permanent:
        separate device and host budgets; the corrected fallback taxonomy; and
        the statistical replicate limits.
 
-[ ] 9. Pre-register the Phase 7 primary manifest before any Phase 7 run.
+[x] 9. Pre-register the Phase 7 primary manifest before any Phase 7 run.
+       Revision 3 accepted by Sol/Opus; revision 4 binds the final V5 commit.
+       Status remains preregistered_blocked and execution_authorized=false.
 
 [ ] 10. Obtain explicit user authorization for Phase 7.
 
