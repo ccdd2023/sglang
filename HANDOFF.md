@@ -33,6 +33,8 @@
   - 5个显式execution blocker；
   - `phase7_execution_authorized=false`。
 - Sol/Opus manifest targeted review进行中。
+- Manifest rev2已获两位reviewer `PASS WITH CAVEATS`，无P0。
+- rev3正在关闭两个赋值级P1：supplement gate作用域与GPUh headroom。
 
 ### 2026-07-27T17:15:00-07:00 V5 full review FAIL已修订，等待targeted delta
 

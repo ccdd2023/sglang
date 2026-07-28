@@ -2792,3 +2792,18 @@ technical_exit = PASS WITH CAVEATS
 - 5个执行blocker显式列出：ceiling/scheduler runner缺失、pinned
   implementation SHA缺失、R2 strategy未定、用户未授权。
 - builder自检通过；Sol/Opus manifest targeted review已启动。
+## 2026-07-27T19:05:00-07:00 — Phase7 manifest rev2 review通过，直接闭合两项P1
+
+- Sol manifest review：P0 capacity问题关闭；rev2 `PASS WITH CAVEATS`。
+- Opus manifest review：前次1 P0/6 P1/4 P2全部关闭；rev2被接受为
+  pre-registration of record，`PASS WITH CAVEATS`。
+- 无新P0。
+- 两个赋值级P1：
+  1. W与chunk sensitivity错误继承A8的`ES-R0-MDE` supplement gate；
+  2. expected GPUh恰等hard cap且未校验headroom。
+- 决定不把这两项留到runner pin，直接生成rev3关闭：
+  - 新增`ES-W-UNCONDITIONAL`；
+  - MDE只允许作用于A8；
+  - expected GPUh冻结为3.5h、headroom2.5h，validator要求<=85% hard cap。
+- 同批闭合review P2：same-context canary placement、plan纳入design hash、
+  per-role描述性样本、pinned SHA runner blob校验、rho3三态、Phase7结果清单路径。

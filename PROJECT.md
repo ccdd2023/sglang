@@ -66,6 +66,14 @@
   - 用户未授权Phase7。
 - manifest targeted双review进行中；仍未进入Phase7。
 
+- Manifest rev2 review结果：
+  - Sol：`PASS WITH CAVEATS`；
+  - Opus：`PASS WITH CAVEATS`，接受rev2为pre-registration of record；
+  - 无新P0。
+- 两个赋值级P1不留到runner阶段，现直接生成rev3关闭：
+  - W/sensitivity supplements使用无条件gate，不受A8 MDE早停；
+  - GPUh按start类型重估，并保留>=15% hard-cap headroom。
+
 ### 2026-07-27 V5双模型full review与交叉consolidation完成，revision待delta review
 
 - Sol与Opus独立full review均判`FAIL`；两份报告已全文互换。

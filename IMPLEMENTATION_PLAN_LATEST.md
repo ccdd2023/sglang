@@ -1119,8 +1119,11 @@ host/prefetch不在V5默认轨道中，不创建对应review里程碑。
 | P6-4Δ S4/rho3（条件） | `1` | `1` | 仅需chunk4096/rho3 claim时 |
 | **含全部条件项** | **`16 GPU + 1行政`** | **`33`** | hard cap内余3 |
 
-- GPUh按wave结算；`W` start预计显著长于A8，不能只按start数估时；
+- GPUh按wave结算；基于Phase5/P6/CL1历史server启动与请求时长，V5预注册
+  `expected_gpu_hours_total=3.5h`（wave-0=`0.3h`、wave-1=`0.4h`、
+  wave-2=`2.3h`、全部条件项=`0.5h`）；
 - hard cap：`36 server starts / 6 GPUh`；
+- GPUh headroom=`2.5h`；manifest validator要求expected总量`<=85%` hard cap；
 - 重试计入同一hard cap；任一上限先到即绑定；
 - 若全部条件项触发，33 starts后仅余3次重试；触发任一条件项前重新结算余量；
 - 基于CL2 chunk4096 body1024约`1.025x`的历史量级，R0 A8很可能未过5% MDE，
