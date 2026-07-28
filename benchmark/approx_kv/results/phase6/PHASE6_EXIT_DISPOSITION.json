@@ -85,7 +85,7 @@
       "id": 10,
       "item": "raw, commit, environment, log and test provenance",
       "verdict": "satisfied_for_formal_exit_package",
-      "evidence": "RESULT_MANIFEST.json --check verifies 47/47 artifacts against containing commits; raw JSONL and primary P6-H/P6-4/P6-F logs are versioned",
+      "evidence": "RESULT_MANIFEST.json --check verifies 48/48 artifacts against containing commits after adding this disposition; raw JSONL and primary P6-H/P6-4/P6-F logs are versioned",
       "caveat": "Historical failed-attempt and optional diagnostic logs outside the formal Exit package may remain unversioned."
     }
   ],
