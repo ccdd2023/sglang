@@ -2885,3 +2885,16 @@ technical_exit = PASS WITH CAVEATS
 - R1只在wave-0作footprint profile；R3/R5/practical/host/prefetch/async不进入
   Phase7 primary性能矩阵。
 - Phase7尚未运行，目前只有冻结的metrics contract，没有Phase7数值结果。
+
+## 2026-07-27T22:50:26-07:00 — 区分metric schema更新与Phase7新raw data
+
+- R2/R5 corrected rerun已经使用纠正后的ledger，不是继续使用错误metrics；
+  但底层raw仍来自body1024/2048、chunk/max-prefill1024和旧harness。
+- 没有任何R family已有完整Phase7结果：
+  - R0/R1有post-fix CL1和部分CL2 chunk4096 sensitivity；
+  - R2/R5无chunk4096 cross-store Phase7数据；
+  - R4只有synthetic footprint profile，不是真实KVCOMM；
+  - P6-4 profiles只证明capacity/reachability，不是机制性能。
+- CL2 body1024把R0/R1-k0约`1.547x`降到chunk4096约`1.025x`，
+  直接证明chunk1024结果不能平移。
+- Phase7 wave-0 P6-4Delta-4096与后续A8/W新metrics均尚未执行。

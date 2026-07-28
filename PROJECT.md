@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-27T22:31:46-07:00
+最后更新：2026-07-27T22:50:26-07:00
 
 ## 项目概况
 
@@ -26,6 +26,35 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-27 Recovery数据代际：metric schema不等于Phase7新数据
+
+必须区分：
+
+1. metric/ledger定义是否已纠正；
+2. raw data是否在Phase7匹配配置下重新采集。
+
+目前没有任何recovery family拥有Phase7数值结果：
+
+| 路径 | 现有最新证据 | Phase7匹配数据 |
+| --- | --- | --- |
+| R0 | post-fix CL1为body1024/2048、chunk1024；CL2为body768/1024、chunk1024/4096 | 无A8/W、真实N=1/2/4/8或Phase7 scheduler结果 |
+| R1 | post-fix CL1全k轴仍为chunk1024；CL2只覆盖与R0同物理family的k0 | 无Phase7性能数据；`winner=NONE` |
+| R2 | corrected rerun已使用纠正ledger，但raw仍为body1024/2048、chunk1024旧harness | 无chunk4096 cross-store adapter数据 |
+| R4 | Phase6只有`R4-like` synthetic footprint/capacity profile，非真实KVCOMM | 无真实R4机制数据；Phase7仅计划新proxy diagnostic |
+| R5 | corrected rerun已使用纠正ledger，但raw仍为body1024/2048、chunk1024 | 无Phase7数据，且V5默认排除 |
+
+因此R2/R5并非“仍使用错误指标”，而是“指标已纠正，但底层实验配置与
+Phase7不匹配”。缺少的数据包括chunk4096、A8真实连续targets、当前
+cross-store substrate、统一D0/E0配对、当前taxonomy/accounting和Phase7
+restart合同。
+
+CL2直接说明配置不可平移：R0/R1-k0 body1024 request-path从chunk1024约
+`1.547x`降到chunk4096约`1.025x`。因此任何chunk1024历史收益都不能自动
+作为Phase7结果。
+
+P6-4中的R0/R1/R2/R4-like是capacity footprint profile，不是相应机制的
+新性能/正确性实验；Phase7 wave-0的P6-4Delta-4096尚未执行。
 
 ### 2026-07-27 R0/R2定位、Phase7矩阵与指标合同
 
