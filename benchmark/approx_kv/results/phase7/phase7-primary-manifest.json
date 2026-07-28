@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "artifact": "phase7-primary-manifest",
-  "manifest_revision": 8,
-  "supersedes_manifest_sha256": "3eebdbfbf6b32052c2efe71d535fdda51aef4cb4ecf75ba63f1894a69ca3b89c",
-  "supersedes_design_payload_sha256": "ec5aaf5986cfd48e81d7cdace19205620cd0065016f715d968579d29aa0725ee",
+  "manifest_revision": 9,
+  "supersedes_manifest_sha256": "0033bf9c6907071a98e9c3ad6d95710f9a219c2e8d7a23cf3c46831564042921",
+  "supersedes_design_payload_sha256": "19c1faaa32ed8530b28cf5ccc76c406300f2af65ca3aaaa2c826825298a41e78",
   "design_keys": [
     "plan",
     "environment",
@@ -25,18 +25,18 @@
     "scope_caveats",
     "review_contract"
   ],
-  "revision_reason": "V6 rev8: bind review-ready plan status; no matrix or workload change",
+  "revision_reason": "V6 rev9: bind revision-stable review-ready plan wording; no matrix/workload change",
   "status": "pinned_blocked",
   "phase7_execution_authorized": false,
   "plan": {
     "version": "V6",
-    "plan_commit": "a22d4bdb82db154100e96abb5693dc9578507309",
+    "plan_commit": "14a573eb942742fddeba372fea03326b5d6c251a",
     "plan_file": "IMPLEMENTATION_PLAN_LATEST.md",
-    "plan_sha256": "345ad5fa968fe6dcca4189877b29c79f560e17dcc046dfef921c09b7e3a3b4b1"
+    "plan_sha256": "86e25989e7b36bd02cc22749835be220062067ab67a305217f9825004d505226"
   },
   "implementation": {
-    "manifest_generation_sha": "897c1d4bc7c30956c3030409b4a6fec1db99a1ac",
-    "manifest_generation_tree_sha": "9a248fc1376536cf610458eeaa205189c514d02e",
+    "manifest_generation_sha": "24552fc47a09403de4b5378790bb3c4dcd1b1e18",
+    "manifest_generation_tree_sha": "113b02f328c8205b9f1c643ec520bfa293cb2a05",
     "phase6_evidence_sha": "924c9d1d6c074f304189248f0fc5b15aa6d25adb",
     "phase7_pinned_implementation_sha": "5d9a5793d73121f088890aa6c02cfebc31cd97be",
     "phase7_pinned_tree_sha": "97af089c2d024b14aa36da3f3abdea4fe6c188d4",
@@ -2711,6 +2711,6 @@
     "P6-4 rho1.1/rho1.5/rho3 feasibility remains chunk1024 unless separately revalidated",
     "host/prefetch/async tracks are not generated in V5"
   ],
-  "design_payload_sha256": "19c1faaa32ed8530b28cf5ccc76c406300f2af65ca3aaaa2c826825298a41e78",
-  "preregistered_manifest_sha256": "0033bf9c6907071a98e9c3ad6d95710f9a219c2e8d7a23cf3c46831564042921"
+  "design_payload_sha256": "ae8d8e1eece7708bc21c74a0543582f170a4d244ed6273fdadc40bd55cf1305b",
+  "preregistered_manifest_sha256": "5daa95a310a93901b68302873791658a55bbbf48889e3495781faf06d0c9b7fd"
 }
