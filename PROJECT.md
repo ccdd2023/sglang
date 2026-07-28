@@ -69,6 +69,16 @@
   - design hash=`ec5aaf59...`；
   - 14 settings / 31 starts；
   - Phase7 result manifest `1/1`通过。
+- rev8仅绑定review-ready状态；rev9进一步将计划措辞改为revision-stable，
+  settings/workloads均未改变。
+- rev9为final Opus review-of-record：
+  - status=`pinned_blocked`；
+  - blocker仅`final_opus_review_pending`；
+  - self hash=`5daa95a3...`；
+  - design hash=`ae8d8e1e...`；
+  - plan commit=`14a573eb...`；
+  - envelope HEAD=`eb7daf63...`；
+  - result manifest `1/1`通过。
 - 仍未进入Phase7。
 
 ### 2026-07-28 最终Phase7计划增加Opus 5 Max Thinking强制复核门

@@ -240,6 +240,9 @@ The caveat is permanent:
        no open P0/P1 may the conditional user authorization become active.
        Persist evidence at:
        benchmark/approx_kv/results/phase7/phase7-final-opus-review.json
+       Review-of-record manifest revision 9:
+       self=5daa95a310a93901b68302873791658a55bbbf48889e3495781faf06d0c9b7fd
+       design=ae8d8e1eece7708bc21c74a0543582f170a4d244ed6273fdadc40bd55cf1305b
 
 
 3.3 CONDITIONAL - ONLY IF TRIGGERED

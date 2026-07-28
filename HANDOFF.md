@@ -25,6 +25,8 @@
   expected 3.8 GPUh，hard cap 6 GPUh。
 - rev7 manifest已pin：self=`3eebdbfb...`，design=`ec5aaf59...`，
   blocker仅`final_opus_review_pending`；result manifest `1/1`通过。
+- rev9现为final review-of-record：self=`5daa95a3...`，
+  design=`ae8d8e1e...`，plan=`14a573eb...`，envelope HEAD=`eb7daf63...`。
 - 下一步：Opus 5 Max Thinking final review → closure → 条件性授权生效。
 - final review artifact路径：
   `benchmark/approx_kv/results/phase7/phase7-final-opus-review.json`。

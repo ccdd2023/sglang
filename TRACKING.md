@@ -2990,3 +2990,19 @@ technical_exit = PASS WITH CAVEATS
 - Phase7 `RESULT_MANIFEST.json`更新并`1/1`通过；
   envelope HEAD=`897c1d4b...`。
 - 下一步仅为V6 final Opus review与accepted feedback closure。
+
+## 2026-07-28T04:47:27-07:00 — rev9成为final Opus review-of-record
+
+- rev8绑定review-ready plan状态。
+- 为避免plan写死revision造成无限状态绑定循环，V6改为引用
+  “latest pinned review manifest”；矩阵/workloads不变。
+- rev9：
+  - plan commit=`14a573eb...`；
+  - code pin=`5d9a5793...`；
+  - self hash=`5daa95a3...`；
+  - design hash=`ae8d8e1e...`；
+  - status=`pinned_blocked`；
+  - blocker仅`final_opus_review_pending`。
+- primary manifest/provenance envelope HEAD=`eb7daf63...`；
+  Phase7 result manifest `1/1`通过。
+- rev9作为最终Opus review输入。
