@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-27T17:15:00-07:00
+最后更新：2026-07-27T17:45:00-07:00
 
 ## 项目概况
 
@@ -27,20 +27,23 @@
 
 ## 当前状态
 
-### 2026-07-27 V4已归档，result-bound V5 draft已创建
+### 2026-07-27 V5 revision通过targeted review，等待primary manifest
 
 - `IMPLEMENTATION_PLAN_V4_ARCHIVED.md`为V4只读归档。
-- `IMPLEMENTATION_PLAN_LATEST.md`已提升为V5 Draft / Under Dual Review。
-- V5实际冻结：
+- `IMPLEMENTATION_PLAN_LATEST.md`为V5 Draft / Revised，尚未标Current / Latest。
+- V5 full review发现的8个P0已全部关闭；targeted delta review新增MDE定义P0，
+  已用CL2 body768/chunk4096 noise model冻结为`MDE=5%`。
+- V5实际范围：
   - practical=`NONE`；
-  - R0 ceiling、R2 oracle、R4 diagnostic；
+  - R0 ceiling、条件R2、R4-like synthetic footprint proxy；
   - primary chunk=`4096`，chunk=`1024`仅作sensitivity；
-  - Phase7主矩阵为R0 ceiling × S0/S4；
+  - A8 recovery与W workflow严格分离；
+  - Phase7主矩阵为R0 W × S0/S4；
   - HiCache/host/prefetch/async默认全部跳过；
-  - 17 logical settings、28 server starts、hard cap 36 starts/6 GPUh；
+  - committed 13 GPU settings/30 starts；含条件项16/33；hard cap36/6 GPUh；
   - N=1/2/4/8改为一次setup后的真实连续8 targets，不再外推；
   - fallback仅有fault-injected canary证据，natural pressure claim必须重新取证。
-- 下一步：V5双模型review与consolidation；随后生成并review Phase7 primary manifest。
+- 下一步：一次minimal delta确认；随后生成并review Phase7 primary manifest。
 - 仍未进入Phase7。
 
 ### 2026-07-27 V5双模型full review与交叉consolidation完成，revision待delta review

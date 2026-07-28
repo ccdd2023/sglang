@@ -2739,3 +2739,27 @@ technical_exit = PASS WITH CAVEATS
 - 修订预算：committed 13 GPU settings/30 starts；含条件项16/33；
   hard cap36 starts/6 GPUh。
 - 下一步按review制度只做targeted delta review，不重复full review。
+## 2026-07-27T17:45:00-07:00 — V5 targeted delta review：8个P0关闭，新增MDE定义P0已修
+
+- Sol与Opus对`dff6789c`做targeted delta review，均确认原8个accepted P0
+  已实质关闭，budget算术一致。
+- Sol判`PASS WITH CAVEATS`，新增：
+  - P1：P6-4Δ required A/B只能证明rho2兼容，S4/rho3保持条件项；
+  - P2：R2/manifest/HEAD/旧引用同步。
+- Opus判`PASS WITH CAVEATS`，新增唯一P0：
+  - MDE是manifest必填与wave checkpoint输入，却无数值定义。
+- 使用CL2 boundary-free body768/chunk4096 4个repeat：
+  - speedup=`1.005757/1.004354/1.010055/1.002774`；
+  - mean=`1.005735`；
+  - sample SD=`0.003127`；
+  - `2×SD=0.625%`；
+  - 冻结`MDE=max(5%,2×SD)=5%`。
+- 同步关闭Opus新增P1/P2：
+  - W primary增加physical peak与victim accounting；
+  - R0 A8 NEGATIVE不取消W，W改以victim/footprint为primary；
+  - full-setup/incremental-setup两版break-even；
+  - A8压力组成轨迹；
+  - W完整trace列表；
+  - budget wave-0、条件项余量与预期22 starts；
+  - §12/§14/HANDOFF/TODO同步。
+- V5仍为Draft / Revised；下一步做一次minimal delta确认，然后生成primary manifest。

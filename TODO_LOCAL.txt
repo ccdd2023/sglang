@@ -1,7 +1,7 @@
 CODE-AGENT KVCACHE LOCAL TODO LIST
 ==================================
 
-Last updated: 2026-07-27T13:20:00-07:00
+Last updated: 2026-07-27T17:45:00-07:00
 Authority: PROJECT.md and IMPLEMENTATION_PLAN_LATEST.md
 Current boundary: do not enter Phase 7 without reporting to the user.
 
@@ -191,8 +191,9 @@ The caveat is permanent:
        report exchange, cross-consolidation, main-session disposition and
        accepted-P0 closure before marking Current / Latest.
        Both independent reviews and report exchange are complete; current
-       cross-consolidated verdict was FAIL. Accepted P0 work is now revised
-       in V5 and awaits targeted delta review:
+       cross-consolidated verdict was FAIL. Accepted P0 work is revised in
+       V5; targeted delta review closed all 8 and added one MDE-definition P0,
+       now fixed at MDE=5%. One minimal confirmation remains before manifest:
        A8/W workload split, D0/E0/R0 baseline, P6-4Delta-4096, runner/manifest
        engineering gate, R4 S0/S4-only, expanded outcome taxonomy and
        chunk-confounded Phase4 wording.

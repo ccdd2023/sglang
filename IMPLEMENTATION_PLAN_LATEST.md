@@ -2,9 +2,9 @@
 
 > 版本：V5
 >
-> 状态：Draft / Under Dual Review
+> 状态：Draft / Revised, pending primary manifest and final delta disposition
 >
-> 最后更新：2026-07-27T16:30:00-07:00
+> 最后更新：2026-07-27T17:45:00-07:00
 >
 > 当前阶段：Phase6 technical Exit=`PASS WITH CAVEATS`；正在冻结result-bound
 > Phase7计划与primary manifest；未进入Phase7。
@@ -256,6 +256,17 @@ dense_total_N =
   sum(request_path_i for i in matched dense targets 1..N)
 
 speedup_N = dense_total_N / recovery_total_N
+
+incremental_setup =
+  recovery_source_preparation
+  - dense_source_materialization
+
+recovery_incremental_total_N =
+  incremental_setup
+  + sum(request_path_i for i in measured recovery targets 1..N)
+
+speedup_incremental_N =
+  dense_total_N / recovery_incremental_total_N
 ```
 
 `protocol_overhead_ms`无独立one-token control、KV-copy时间和register elapsed时必须写`not_measured`。
@@ -265,8 +276,12 @@ speedup_N = dense_total_N / recovery_total_N
 必须输出：
 
 - `speedup_N1/N2/N4/N8`，全部来自实际累计；
-- `break_even_observed_N`：`{1,2,4,8}`中第一个`speedup_N>1`；
+- `full_setup_break_even_observed_N`：`speedup_N>1`的第一个实测N；
+- `incremental_setup_break_even_observed_N`：`speedup_incremental_N>1`的第一个实测N；
 - N<=8未观察到时写`>8/not_observed`，禁止插值或公式外推。
+
+这是保守双口径披露：headline默认full-setup；incremental-setup用于分离两臂
+共享source materialization，不得只报告较有利的一版。
 
 `cold_start_ms`细分：
 
@@ -295,7 +310,8 @@ native-system结果另报，并给approx写回加provenance/taint。
 - 每个sequence含8个预注册target；sequence内不reset，第8个target后reset；
 - 8个target使用独立target ID与extra-key，禁止后续target exact-hit前一target；
 - source对象pin到sequence结束；
-- 每target记录exclusive outcome/reason与`rho_resident`轨迹；
+- 每target记录exclusive outcome/reason、`rho_resident`以及
+  `filler/prior-target/pinned-source`三段token组成轨迹；
 - 只有前N个target全部为预期arm outcome时，`speedup_N`有效，否则N=`INVALID`；
 - dense/recovery共享target列表、顺序、suffix与pressure manifest。
 
@@ -422,7 +438,9 @@ Phase7 primary manifest还必须冻结：
 - plan/implementation/runner/source-tree commit与hash；
 - `preregistered_manifest_sha256`反向绑定；
 - image/model/tokenizer/chat-template revision；
-- A8/W/filler manifest hash与8-target完整列表；
+- A8/W/filler manifest hash；
+- A8的8-target完整列表；
+- W的object/role/size/next-use/dead-live/request-order完整列表；
 - setting ID、arm order、reset boundary、依赖/reuse关系；
 - 完整server argv/env模板：chunk/max-prefill、mem_fraction_static、
   max_total_tokens、attention/cuda-graph backend、max_running_requests、
@@ -916,12 +934,16 @@ primary视图：
 - workflow-only SLA；
 - per-role TTFT；
 - per-restart paired delta。
+- physical peak；
+- victim/evict accounting by object kind。
 
 解释规则：
 
 - S4相对S1–S3的独特性只在workflow-only历史结果中出现；
 - all-reusable下S1–S4相对S0均有相近描述性改善，现有历史数据不足以排序；
 - P7只回答S4是否改变**R0 ceiling**下的system behaviour，不宣称practical收益。
+- 即使R0 A8 ceiling判`NEGATIVE`，W矩阵仍执行；其primary结论改为
+  cross-store victim/footprint behaviour，延迟视图降为次要。
 
 #### R4 victim diagnostic
 
@@ -954,6 +976,25 @@ P0下仍需做0成本inactive断言：prefetch/host/async相关counter在全部V
 
 结果型early-stop只在完整restart-0矩阵后评估。
 
+#### MDE冻结
+
+执行前写入primary manifest：
+
+```text
+noise_model =
+  CL2 boundary-free body768 @ chunk4096
+  request_path_speedup =
+    1.005757, 1.004354, 1.010055, 1.002774
+  mean = 1.005735
+  sample_sd = 0.003127
+  2 * sample_sd = 0.006254
+
+MDE = max(5%, 2 * sample_sd) = 5%
+```
+
+body768在两种chunk下均单chunk，因此仅用于noise floor，不是Phase7 result cell。
+MDE冻结后才允许生成primary manifest；不得根据restart-0结果修改。
+
 立即停止当前track并记录`NEGATIVE`/`INCONCLUSIVE`，若：
 
 1. unexpected primary OOM、请求未完成、stale handle、double free、
@@ -961,7 +1002,7 @@ P0下仍需做0成本inactive断言：prefetch/host/async相关counter在全部V
 2. R4/P6-4Δ有`<=0.05s`死亡快照且store已耗尽→`DIAGNOSTIC_UNAVAILABLE`；
 3. R0改善未同时满足：
    - per-restart paired median改善`>=5%`；
-   - 且超过预注册boundary-free noise model的MDE；
+   - 且超过上述MDE；
    则记`NEGATIVE/INCONCLUSIVE`，不发布ceiling speedup headline；
 4. chunk规则作用于配对speedup比值`R=dense/approx(request-path)`。
    CL2 body1024的`R1024≈1.547`、`R4096≈1.025`已相差约51%，
@@ -1063,7 +1104,7 @@ host/prefetch不在V5默认轨道中，不创建对应review里程碑。
 | Phase7 item | logical settings | server starts | 说明 |
 | --- | ---: | ---: | --- |
 | P7-0 manifest/contract | `1` | `0` | 0-GPU |
-| P6-4Δ-4096 required | `2` | `2` | S4/rho2、S0/rho2 |
+| P6-4Δ-4096 required | `2` | `2` | wave-0；S4/rho2、S0/rho2 |
 | R0 A8 primary | `4` | `12` | wave-1=4，过checkpoint后补8 |
 | chunk1024 sensitivity | `1` | `2` | 仅body2048，2 restart |
 | R0 W × S0/S4 | `4` | `12` | 独立workflow，不复用A8 |
@@ -1076,6 +1117,9 @@ host/prefetch不在V5默认轨道中，不创建对应review里程碑。
 - GPUh按wave结算；`W` start预计显著长于A8，不能只按start数估时；
 - hard cap：`36 server starts / 6 GPUh`；
 - 重试计入同一hard cap；任一上限先到即绑定；
+- 若全部条件项触发，33 starts后仅余3次重试；触发任一条件项前重新结算余量；
+- 基于CL2 chunk4096 body1024约`1.025x`的历史量级，R0 A8很可能未过5% MDE，
+  预期不补8个primary starts；届时committed实际约`22` starts，但预算仍按30保留；
 - 超出hard cap必须停止并升级计划版本，不能临时扩表；
 - host/prefetch/async预算为`0`。
 
@@ -1107,10 +1151,14 @@ Early-stop以§8.7为唯一权威定义，不在本节重复或添加结果后�
 ### Phase7
 
 - result-bound primary manifest；
+- `run_p7_ceiling.py`、`run_p7_scheduler.py`、`build_phase7_manifest.py --check`
+  与CPU回归；
+- A8/W/filler workload manifests；
+- P6-4Δ-4096 compatibility report；
 - R0 ceiling与真实N=1/2/4/8 amortization；
 - chunk4096 primary与chunk1024 sensitivity；
-- R2 oracle report；
-- R4 footprint/victim diagnostic；
+- R2 oracle report（条件；无runner时仅保留Phase4 `not_comparable`引用）；
+- R4-like synthetic footprint/victim diagnostic；
 - R0 ceiling × S0/S4 narrow matrix；
 - exact-cache-miss与approximate fallback分离后的taxonomy；
 - per-restart compact/raw/log SHA与result manifest；
@@ -1156,9 +1204,11 @@ technical_exit = PASS WITH CAVEATS
 V5当前状态：
 
 - 已创建result-bound draft；
-- Phase7矩阵已收窄为R0 ceiling、R2 oracle、R4 diagnostic与R0×S0/S4；
+- Phase7矩阵已收窄为R0 ceiling、条件R2、R4-like proxy与R0×S0/S4；
 - host、HiCache、prefetch、async轨道默认全部跳过；
-- V5尚需Sol/Opus独立review、报告互换与主会话disposition；
+- Sol/Opus独立full review、全文互换与cross-consolidation已完成；
+- 8个accepted P0已闭合；targeted delta review只新增MDE定义P0与少量同步项；
+- MDE现已数值冻结为5%，P1/P2同步项已修订；等待一次最终minimal delta确认；
 - Phase7 primary manifest尚未预注册；
 - 用户尚未授权Phase7。
 

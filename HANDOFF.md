@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-27T17:15:00-07:00
+最后更新：2026-07-27T17:45:00-07:00
 
 ## 新会话启动顺序
 
@@ -13,14 +13,16 @@
 
 ## 当前快照
 
-### 2026-07-27T16:40:00-07:00 V5 result-bound draft已创建
+### 2026-07-27T17:45:00-07:00 V5 revision通过targeted review，等待manifest
 
 - V4已归档为`IMPLEMENTATION_PLAN_V4_ARCHIVED.md`。
-- latest为V5 Draft / Under Dual Review，尚未标记Current / Latest。
-- Phase7已收窄为R0 ceiling、R2 oracle、R4 diagnostic与R0×S0/S4；
+- latest为V5 Draft / Revised，尚未标记Current / Latest。
+- 8个accepted P0已关闭；targeted review新增MDE定义P0，现冻结`MDE=5%`。
+- Phase7已收窄为R0 ceiling、条件R2、R4-like proxy与R0 W×S0/S4；
   practical/host/prefetch/async轨道默认全部跳过。
 - primary chunk=`4096`；`1024`只作diagnostic sensitivity。
-- 预算：17 logical settings、28 server starts、hard cap 36 starts/6 GPUh。
+- 预算：committed 13 GPU settings/30 starts；含条件项16/33；
+  hard cap36 starts/6 GPUh。
 - 仍未进入Phase7。
 
 ### 2026-07-27T17:15:00-07:00 V5 full review FAIL已修订，等待targeted delta
@@ -66,7 +68,7 @@
 | CL3 | 完成 |
 | P6-H | **通过**，`status=valid`（1 restart/2 round的8-token输出canary；不是KV或logit保真证明） |
 | P6-4 | **完整跑通**；三个S4 cell中的四个non-R4 profile可达，所有顶层cell仍为`diagnostic-unavailable` |
-| CL4 | 正式双模型Exit review完成，结论为**FAIL** |
+| CL4 | 正式双模型Exit review完成，最终结论为`PASS WITH CAVEATS` |
 
 #### Phase6 Exit逐条
 
