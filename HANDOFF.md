@@ -20,7 +20,7 @@
 - 两个Phase7 runner及共享模块已实现。
 - Docker targeted suite=`152 passed + 10 subtests`。
 - 三轮targeted review无开放P0/P1。
-- final code pin=`7a1ebf4f60877cb6ac55a796c0cdce2087ca549a`。
+- final code pin=`8d0e42fbf975240a5999670a47243e9d99bc494d`。
 - 最终矩阵：13 committed/30 starts；含rho3条件项14/31；
   expected 3.8 GPUh，hard cap 6 GPUh。
 - 下一步：提交V6 plan → 生成rev6 pinned manifest → Opus 5 Max Thinking

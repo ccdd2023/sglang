@@ -8,7 +8,7 @@
 >
 > 当前阶段：Phase6 technical Exit=`PASS WITH CAVEATS`；Phase7 runners、
 > Docker CPU tests与targeted reviews已完成；R2已解析为
-> `disabled_not_comparable`；final code pin=`7a1ebf4f60877cb6ac55a796c0cdce2087ca549a`；
+> `disabled_not_comparable`；final code pin=`8d0e42fbf975240a5999670a47243e9d99bc494d`；
 > rev6 manifest与最终Opus 5 Max Thinking review尚未完成；未进入Phase7。
 >
 > 取代版本：[`IMPLEMENTATION_PLAN_V5_ARCHIVED.md`](IMPLEMENTATION_PLAN_V5_ARCHIVED.md)
@@ -1246,7 +1246,7 @@ V6 candidate当前状态：
 - `run_p7_ceiling.py`、`run_p7_scheduler.py`与共享Phase7模块已实现；
 - 固定Docker镜像targeted CPU suite=`152 passed + 10 subtests`；
 - 三轮targeted review已闭合全部P0/P1；
-- final code pin=`7a1ebf4f60877cb6ac55a796c0cdce2087ca549a`；
+- final code pin=`8d0e42fbf975240a5999670a47243e9d99bc494d`；
 - rev6 primary manifest、V6 final Opus review与final disposition待完成；
 - 用户已给条件性授权，但尚未生效；未进入Phase7。
 

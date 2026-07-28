@@ -46,7 +46,7 @@
   - `10 subtests passed`。
 - 三轮targeted review已关闭全部P0/P1；最后一轮无开放P0/P1。
 - final implementation code pin：
-  `7a1ebf4f60877cb6ac55a796c0cdce2087ca549a`。
+  `8d0e42fbf975240a5999670a47243e9d99bc494d`。
 - V5完整内容由commit `d314cc41...`与SHA-256归档；
   `IMPLEMENTATION_PLAN_V5_ARCHIVED.md`为定位入口。
 - V6矩阵：

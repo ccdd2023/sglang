@@ -2951,7 +2951,7 @@ technical_exit = PASS WITH CAVEATS
 - 固定Docker镜像最终targeted suite：
   `152 passed + 10 subtests`。
 - 三轮targeted review最终无开放P0/P1。
-- final code pin=`7a1ebf4f60877cb6ac55a796c0cdce2087ca549a`。
+- final code pin=`8d0e42fbf975240a5999670a47243e9d99bc494d`。
 - V5以commit `d314cc41...`和文件SHA
   `ba6aec34...`归档；创建V6 candidate。
 - V6预算：13 committed/30 starts；含rho3条件项14/31；3.8 expected GPUh。
