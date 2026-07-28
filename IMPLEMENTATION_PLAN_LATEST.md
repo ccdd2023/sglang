@@ -2,7 +2,7 @@
 
 > 版本：V5
 >
-> 状态：Draft / Revised, pending primary manifest and final delta disposition
+> 状态：Draft / Reviewed, pending primary manifest
 >
 > 最后更新：2026-07-27T17:45:00-07:00
 >
