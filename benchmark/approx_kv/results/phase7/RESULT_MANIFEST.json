@@ -39,10 +39,16 @@
       "containing_commit": "f6a9baca82856a3f17cff3face63024ddc6e251a"
     },
     {
+      "file": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
+      "sha256": "9e1f7da8baeb53846e8f5b75a693d69fe0327559d5342c27cb413eee2990ad13",
+      "bytes": 2628,
+      "containing_commit": "b0837505abc4efe7df914c3b504693956fe71df9"
+    },
+    {
       "file": "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
-      "sha256": "9691e71858bacbc053d97bb3fc58e187c1ee48f056519ee9ebfe7edead015459",
-      "bytes": 98209,
-      "containing_commit": "f1c3fb32b9ec2a11c308949e336d80d34093a5fa"
+      "sha256": "c0a14e3a8127db4ad7fba20920a156b9b731e7ea36711c8c104a49bca3a8667d",
+      "bytes": 99310,
+      "containing_commit": "759476c901b1ac30eeeb96f83b9257586a103c4e"
     }
   ]
 }
