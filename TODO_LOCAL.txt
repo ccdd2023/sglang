@@ -202,10 +202,26 @@ The caveat is permanent:
        the statistical replicate limits.
 
 [x] 9. Pre-register the Phase 7 primary manifest before any Phase 7 run.
-       Revision 3 accepted by Sol/Opus; revision 4 binds the final V5 commit.
+       Revision 4 accepted by Sol/Opus; no open P0/P1.
        Status remains preregistered_blocked and execution_authorized=false.
 
 [ ] 10. Obtain explicit user authorization for Phase 7.
+
+[ ] 11. Implement and review run_p7_ceiling.py and run_p7_scheduler.py.
+       Both must pass CPU tests and targeted review before the manifest may
+       transition from preregistered_blocked to pinned_blocked.
+
+[ ] 12. Resolve R2 strategy.
+       Choose adapter (implement/test/review) or disabled_not_comparable.
+       Do not silently treat the Phase4 harness as cross-store Phase7 data.
+
+[ ] 13. Pin the Phase7 implementation SHA atomically.
+       Generate manifest revision 5 with the final runner SHA/tree/blob hashes;
+       update HANDOFF/PROJECT/TODO together.
+       Rev5 must supersede envelope hash
+       6e5617aec12f70ea7ef423f425afad88cf36f67dfdb610107999ab8ce31dd0f3
+       and preserve design hash
+       3cbd2cc1a7eb96fae8b85bb595a7c8bfb25aa6c04c1c2d57ab9bfad39f0c51ab.
 
 
 3.3 CONDITIONAL - ONLY IF TRIGGERED

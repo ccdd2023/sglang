@@ -1,4 +1,4 @@
-# 实施计划 V5（Draft）：Result-Bound Integrated Evaluation
+# 实施计划 V5（Latest）：Result-Bound Integrated Evaluation
 
 > 版本：V5
 >
@@ -6,8 +6,9 @@
 >
 > 最后更新：2026-07-27T19:30:00-07:00
 >
-> 当前阶段：Phase6 technical Exit=`PASS WITH CAVEATS`；正在冻结result-bound
-> Phase7计划与primary manifest；未进入Phase7。
+> 当前阶段：Phase6 technical Exit=`PASS WITH CAVEATS`；V5与Phase7 primary
+> manifest rev4均已完成双模型review并封版；Phase7仍被runner/pin/R2决议/
+> 用户授权阻断，未进入Phase7。
 >
 > 取代版本：[`IMPLEMENTATION_PLAN_V4_ARCHIVED.md`](IMPLEMENTATION_PLAN_V4_ARCHIVED.md)
 

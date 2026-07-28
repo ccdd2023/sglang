@@ -2,14 +2,14 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-27T19:30:00-07:00
+最后更新：2026-07-27T19:50:00-07:00
 
 ## 项目概况
 
 | 项目 | 当前值 |
 | --- | --- |
 | 名称 | `code-agent-kvcache` |
-| 阶段 | Phase6 technical Exit为`PASS WITH CAVEATS`；V5与Phase7 primary manifest尚未冻结；未进入Phase7 |
+| 阶段 | Phase6=`PASS WITH CAVEATS`；V5 Current/Latest与Phase7 manifest rev4已封版；execution仍blocked；未进入Phase7 |
 | 业务目标 | 在 SGLang 上比较多种跨 context 近似 KV 恢复与 workflow-aware cache scheduling，降低 Coding Agent TTFT |
 | 技术栈 | SGLang、HiCache、Docker、KVFlow、KVCOMM、CacheBlend、Cache-Craft、EPIC、CacheTune |
 | 默认分支 | `main` |
@@ -47,8 +47,8 @@
   - committed 13 GPU settings/30 starts；含条件项16/33；hard cap36/6 GPUh；
   - N=1/2/4/8改为一次setup后的真实连续8 targets，不再外推；
   - fallback仅有fault-injected canary证据，natural pressure claim必须重新取证。
-- Phase7 primary manifest rev3已生成、提交、自检并获Sol/Opus PASS。
-- rev4只更新最终plan binding/revision chain，不改变design payload。
+- Phase7 primary manifest rev4已获Sol/Opus最终PASS，无新P0/P1。
+- rev4绑定最终V5 plan commit，并完整记录revision/design hash chain。
 - manifest仍为`preregistered_blocked`，禁止GPU执行。
 - 当前剩余执行blocker：
   - `run_p7_ceiling.py`未实现/测试/review；
@@ -72,7 +72,7 @@
   - Phase7 pinned implementation SHA未生成；
   - R2 strategy未完成；
   - 用户未授权Phase7。
-- manifest targeted双review进行中；仍未进入Phase7。
+- manifest review全部完成；仍未进入Phase7。
 
 - Manifest review结果：
   - Sol：`PASS WITH CAVEATS`；
@@ -99,7 +99,8 @@
   - 条件项：R2 2 starts、S4/rho3 P6-4Δ 1 start；
   - 全部条件项：16 GPU settings / 33 starts；
   - hard cap仍为36 starts / 6 GPUh。
-- V5仍为Draft，下一步只做targeted delta review；不重复full review。
+- （历史状态）当时V5仍为Draft；现已完成targeted delta与manifest review，
+  并标记Current / Latest。
 
 ### 2026-07-27 当前无Phase6 blocker；剩余项均为Phase7 Entry
 
@@ -109,9 +110,10 @@
 - 该caveat不再阻塞Phase6，但Phase7若依赖自然压力fallback，必须重新取证。
 - V4已归档，result-bound V5 draft已创建。
 - 当前真正阻塞Phase7 Entry的事项只有：
-  1. V5完成Sol/Opus独立review、互换、consolidate与主会话disposition；
-  2. 预注册Phase7 primary manifest；
-  3. 用户明确授权Phase7。
+  1. 两个Phase7 runner实现、CPU测试与targeted review；
+  2. R2 strategy决议；
+  3. 原子pin Phase7 implementation SHA；
+  4. 用户明确授权Phase7。
 - `winner=NONE`含义已冻结为被测实现、模型、prompt族、GPU、chunk配置和
   exact-output promotion规则下的结果；未证明context差异是唯一原因，
   未排除header-dependent实现缺陷。
@@ -867,7 +869,7 @@ AssertionError: parent does not have child key
 - 只读核对确认 `ccdd2023/sglang:main` 为 `3343a79466aa714d34a14d08d3929f7953a47212`，upstream `sgl-project/sglang:main` 为 `c0ed009f5b566be023661bd4e93065b8b4b8b31f`；前者是后者祖先，落后 4,654 commits，可 fast-forward-only。
 - 远程当前不存在 `latest-main`；实施时将在 Docker 内 fast-forward fork main 后创建并推送该分支。
 - Git fetch、checkout、编辑、依赖下载、构建、测试、server 和 benchmark 全部必须在 Docker 内执行；宿主机只负责启动容器、挂载目录和收集结果。
-- 当前实施计划为`IMPLEMENTATION_PLAN_LATEST.md`（**V5 Draft / Under Dual Review**）；V1/V2/V3/V4均已归档。
+- 当前实施计划为`IMPLEMENTATION_PLAN_LATEST.md`（**V5 Current / Latest**）；V1/V2/V3/V4均已归档。
 - 已在空目录中初始化 Git 仓库，默认分支为 `main`。
 - 已建立项目主文档、讨论追踪文件和会话交接文件。
 - 已建立 Copilot 仓库指令，确保后续会话先读取交接信息并持续维护文档。
@@ -2276,7 +2278,7 @@ vs S4 + HiCache demand load
 - 三restart compact manifests；
 - 明确区分speed ceiling、precomputed oracle和practical winner的结论。
 
-（历史记录，已过时：当时Phase6仅完成计划修订。当前为V5 Draft，Phase6 technical Exit已通过。）
+（历史记录，已过时：当时Phase6仅完成计划修订。当前为V5 Current / Latest，Phase6 technical Exit已通过。）
 
 ## 2026-07-24T15:43:46-07:00 S1-S3与P1-P3不彻底取消，增加revalidation gate
 

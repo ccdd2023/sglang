@@ -2827,3 +2827,16 @@ technical_exit = PASS WITH CAVEATS
 - manifest仍`preregistered_blocked`，Phase7未授权。
 - 后续blocker仅为runner实现/review、pinned implementation SHA、R2 strategy与
   用户明确授权。
+## 2026-07-27T19:50:00-07:00 — Phase7 manifest rev4最终PASS，V5流程完成
+
+- Manifest rev4绑定最终V5 Current/Latest plan commit。
+- revision chain：
+  - supersedes rev3 envelope `a3601cec...`；
+  - supersedes rev3 design `de5e2d80...`；
+  - rev4 design `3cbd2cc1...`；
+  - design变更仅`plan`与`budget`，settings/workloads逐字节未变。
+- GPUh更新为4.0h、headroom2.0h；每runner假设显式化。
+- Sol/Opus对rev4最终均判`PASS`，无新P0/P1。
+- V5与primary manifest流程全部完成；manifest仍`preregistered_blocked`。
+- 剩余execution blockers：两个runner、pinned implementation SHA、R2 strategy、
+  用户授权。

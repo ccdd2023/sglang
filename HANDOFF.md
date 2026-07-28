@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-27T19:30:00-07:00
+最后更新：2026-07-27T19:50:00-07:00
 
 ## 新会话启动顺序
 
@@ -24,7 +24,7 @@
 - primary chunk=`4096`；`1024`只作diagnostic sensitivity。
 - 预算：committed 13 GPU settings/30 starts；含条件项16/33；
   hard cap36 starts/6 GPUh。
-- Phase7 primary manifest rev3已获Sol/Opus PASS；rev4仅绑定最终plan commit。
+- Phase7 primary manifest rev4已获Sol/Opus最终PASS，无新P0/P1。
 - manifest status=`preregistered_blocked`，仍有5个显式execution blocker。
 - 仍未进入Phase7。
 
