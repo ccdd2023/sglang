@@ -58,6 +58,9 @@ MANIFEST_PATH = (
 )
 PRIMARY_MANIFEST_REL = "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json"
 RESULT_MANIFEST_REL = "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json"
+FINAL_REVIEW_REL = (
+    "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json"
+)
 
 
 def load_manifest() -> dict:
@@ -69,11 +72,16 @@ def authorized_manifest() -> dict:
     manifest["status"] = "authorized"
     manifest["phase7_execution_authorized"] = True
     manifest["execution_blockers"] = []
+    manifest["review_evidence"] = {
+        "status": "passed",
+        "artifact_sha256": "d" * 64,
+    }
     manifest["implementation"]["phase7_pinned_implementation_sha"] = "a" * 40
     manifest["implementation"]["phase7_pinned_tree_sha"] = "b" * 40
     manifest["implementation"]["post_pin_envelope_allowlist"] = [
         RESULT_MANIFEST_REL,
         PRIMARY_MANIFEST_REL,
+        FINAL_REVIEW_REL,
     ]
     manifest["runners"]["ceiling"] = {
         "path": "benchmark/approx_kv/run_p7_ceiling.py",
@@ -112,6 +120,19 @@ def revised_manifest() -> dict:
     )
     manifest["r2_strategy"] = "disabled_not_comparable"
     manifest["conditional_resolution"]["CR-R2-ADAPTER"] = "disabled_not_comparable"
+    manifest["conditional_user_authorization_recorded"] = True
+    manifest["review_contract"] = {
+        "final_opus_required": True,
+        "reviewer": "Claude Opus 5 / Max Thinking / long context",
+        "scope": "test",
+        "pass_condition": "no open P0/P1 after accepted-feedback closure",
+        "artifact_path": FINAL_REVIEW_REL,
+        "authorization_activation": "test",
+    }
+    manifest["review_evidence"] = {
+        "status": "pending",
+        "artifact_sha256": None,
+    }
     manifest["design_payload_sha256"] = design_payload_sha256(manifest)
     manifest["preregistered_manifest_sha256"] = manifest_self_sha256(manifest)
     return manifest
@@ -813,7 +834,7 @@ class TestPhase7ExecutionEnvelope(unittest.TestCase):
             )
         self.assertEqual(
             post_pin_envelope_allowlist(authorized_manifest()),
-            (RESULT_MANIFEST_REL, PRIMARY_MANIFEST_REL),
+            (RESULT_MANIFEST_REL, PRIMARY_MANIFEST_REL, FINAL_REVIEW_REL),
         )
 
 

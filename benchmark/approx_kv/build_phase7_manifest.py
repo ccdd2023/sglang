@@ -12,6 +12,9 @@ from typing import Any
 
 DEFAULT_OUTPUT = Path("benchmark/approx_kv/results/phase7/phase7-primary-manifest.json")
 P6_CONTRACT = Path("benchmark/approx_kv/results/phase6/p6-0-contract.json")
+FINAL_OPUS_REVIEW = Path(
+    "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json"
+)
 DESIGN_KEYS = (
     "plan",
     "environment",
@@ -31,6 +34,7 @@ DESIGN_KEYS = (
     "skipped_tracks",
     "required_inactive_counters",
     "scope_caveats",
+    "review_contract",
 )
 
 
@@ -509,8 +513,8 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         execution_blockers.append("r2_strategy_pending")
     if args.rho3_resolution == "pending":
         execution_blockers.append("rho3_resolution_pending")
-    if not args.authorize:
-        execution_blockers.append("explicit_user_authorization_missing")
+    if not args.final_opus_review_complete:
+        execution_blockers.append("final_opus_review_pending")
 
     manifest = {
         "schema_version": 1,
@@ -550,6 +554,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "post_pin_envelope_allowlist": [
                 "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json",
                 "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
+                str(FINAL_OPUS_REVIEW),
             ],
             "post_pin_envelope_rule": (
                 "the pinned code SHA must be an ancestor of the execution HEAD "
@@ -572,6 +577,29 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             ),
         },
         "execution_blockers": execution_blockers,
+        "conditional_user_authorization_recorded": True,
+        "review_contract": {
+            "final_opus_required": True,
+            "reviewer": "Claude Opus 5 / Max Thinking / long context",
+            "scope": (
+                "final V6 plan, manifest, runners, Docker CPU evidence, R2 "
+                "disposition, implementation binding, budget and early-stop"
+            ),
+            "pass_condition": "no open P0/P1 after accepted-feedback closure",
+            "artifact_path": str(FINAL_OPUS_REVIEW),
+            "authorization_activation": (
+                "the recorded conditional user authorization becomes active "
+                "only after this review passes"
+            ),
+        },
+        "review_evidence": {
+            "status": "passed" if args.final_opus_review_complete else "pending",
+            "artifact_sha256": (
+                sha256_file(FINAL_OPUS_REVIEW)
+                if args.final_opus_review_complete
+                else None
+            ),
+        },
         "environment": {
             "image_digest": args.image_digest,
             "model": "Qwen/Qwen3-0.6B",
@@ -945,6 +973,21 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
     authorized = manifest.get("phase7_execution_authorized")
     pinned_sha = manifest["implementation"].get("phase7_pinned_implementation_sha")
     blockers = manifest["execution_blockers"]
+    review_contract = manifest.get("review_contract", {})
+    review_evidence = manifest.get("review_evidence", {})
+    if review_contract.get("artifact_path") != str(FINAL_OPUS_REVIEW):
+        problems.append("final Opus review artifact path mismatch")
+    if review_contract.get("final_opus_required") is not True:
+        problems.append("final Opus review is not required")
+    if manifest.get("conditional_user_authorization_recorded") is not True:
+        problems.append("conditional user authorization is not recorded")
+    if review_evidence.get("status") == "passed":
+        if not FINAL_OPUS_REVIEW.exists():
+            problems.append("final Opus review artifact is missing")
+        elif review_evidence.get("artifact_sha256") != sha256_file(FINAL_OPUS_REVIEW):
+            problems.append("final Opus review artifact hash mismatch")
+    elif review_evidence.get("status") != "pending":
+        problems.append("invalid final Opus review status")
     if status == "preregistered_blocked":
         if authorized or pinned_sha is not None or not blockers:
             problems.append("invalid preregistered_blocked state")
@@ -954,6 +997,8 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
     elif status == "authorized":
         if not authorized or pinned_sha is None or blockers:
             problems.append("invalid authorized state")
+        if review_evidence.get("status") != "passed":
+            problems.append("authorized manifest lacks passed final Opus review")
     else:
         problems.append(f"unknown manifest status: {status}")
 
@@ -1134,6 +1179,7 @@ def main() -> int:
         default="preregistered_blocked",
     )
     parser.add_argument("--authorize", action="store_true")
+    parser.add_argument("--final-opus-review-complete", action="store_true")
     parser.add_argument("--phase7-pinned-implementation-sha")
     parser.add_argument(
         "--runner-ready",
@@ -1164,6 +1210,9 @@ def main() -> int:
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--check-plan", action="store_true", default=True)
     args = parser.parse_args()
+
+    if args.authorize and not args.final_opus_review_complete:
+        parser.error("--authorize requires --final-opus-review-complete")
 
     if args.check:
         manifest = json.loads(args.output.read_text())

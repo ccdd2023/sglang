@@ -233,6 +233,16 @@ def validate_manifest_envelope(
         raise Phase7ContractError("V6 R2 resolution is not disabled_not_comparable")
     if any("R2" in row.get("arms", ()) for row in manifest.get("settings", ())):
         raise Phase7ContractError("V6 must not contain R2 GPU settings")
+    if manifest.get("conditional_user_authorization_recorded") is not True:
+        raise Phase7ContractError("conditional user authorization is not recorded")
+    review_contract = manifest.get("review_contract", {})
+    review_evidence = manifest.get("review_evidence", {})
+    if review_contract.get("final_opus_required") is not True:
+        raise Phase7ContractError("final Opus review is not required")
+    if review_evidence.get("status") not in {"pending", "passed"}:
+        raise Phase7ContractError("invalid final Opus review status")
+    if status == "authorized" and review_evidence.get("status") != "passed":
+        raise Phase7ContractError("authorized manifest lacks final Opus approval")
     flags = manifest.get("server_template", {}).get("test_only_injection_flags")
     if flags != {
         "SGLANG_APPROX_KV_TEST_ONLY": "0",

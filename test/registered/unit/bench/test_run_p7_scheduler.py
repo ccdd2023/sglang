@@ -17,6 +17,7 @@ register_cpu_ci(est_time=2, suite="base-c-test-cpu")
 from benchmark.approx_kv import run_p7_scheduler
 from benchmark.approx_kv.build_phase7_manifest import (
     build_a8_workload,
+    build_settings,
     build_w_workload,
     design_payload_sha256,
 )
@@ -43,6 +44,9 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 MANIFEST_PATH = (
     REPO_ROOT / "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json"
 )
+FINAL_REVIEW_REL = (
+    "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json"
+)
 
 
 def load_manifest() -> dict:
@@ -52,6 +56,8 @@ def load_manifest() -> dict:
 def revised_manifest() -> dict:
     manifest = load_manifest()
     manifest["manifest_revision"] = 6
+    manifest["plan"]["version"] = "V6"
+    manifest["settings"] = build_settings()
     p6_contract = json.loads(
         (
             REPO_ROOT / "benchmark/approx_kv/results/phase6/p6-0-contract.json"
@@ -65,6 +71,21 @@ def revised_manifest() -> dict:
             "SGLANG_APPROX_KV_MAX_PERSISTENT_PINS": "16",
         }
     )
+    manifest["r2_strategy"] = "disabled_not_comparable"
+    manifest["conditional_resolution"]["CR-R2-ADAPTER"] = "disabled_not_comparable"
+    manifest["conditional_user_authorization_recorded"] = True
+    manifest["review_contract"] = {
+        "final_opus_required": True,
+        "reviewer": "Claude Opus 5 / Max Thinking / long context",
+        "scope": "test",
+        "pass_condition": "no open P0/P1 after accepted-feedback closure",
+        "artifact_path": FINAL_REVIEW_REL,
+        "authorization_activation": "test",
+    }
+    manifest["review_evidence"] = {
+        "status": "pending",
+        "artifact_sha256": None,
+    }
     manifest["design_payload_sha256"] = design_payload_sha256(manifest)
     manifest["preregistered_manifest_sha256"] = manifest_self_sha256(manifest)
     return manifest
