@@ -2898,3 +2898,20 @@ technical_exit = PASS WITH CAVEATS
 - CL2 body1024把R0/R1-k0约`1.547x`降到chunk4096约`1.025x`，
   直接证明chunk1024结果不能平移。
 - Phase7 wave-0 P6-4Delta-4096与后续A8/W新metrics均尚未执行。
+
+## 2026-07-27T23:50:58-07:00 — 汇总Phase7 Entry Gate与推荐选项
+
+- 无隐藏Phase6 blocker；剩余五个manifest blocker为两个runner、R2 strategy、
+  implementation pin和用户授权。
+- 推荐顺序：
+  1. 两个runner；
+  2. Docker CPU tests与Sol/Opus targeted review；
+  3. 有界R2 adapter feasibility；
+  4. rev6 pin并转`pinned_blocked`；
+  5. 用户明确授权后转`authorized`。
+- 最小路线：R2=`disabled_not_comparable`，保留30 committed starts。
+- 证据增强路线：若R2 adapter无需改变core recovery语义，则实现并在Phase7
+  激活2 settings/2 starts；这是当前推荐。
+- 不建议在Entry前扩大到R1/R5/真实R4/host/prefetch；如扩大，必须新版计划、
+  新design hash和完整review。
+- P7-0b chunk4096 feasibility属于授权后的wave-0，不是Entry前Gate。

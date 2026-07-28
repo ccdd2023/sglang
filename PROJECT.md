@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-27T22:50:26-07:00
+最后更新：2026-07-27T23:50:58-07:00
 
 ## 项目概况
 
@@ -26,6 +26,49 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-27 Phase7正式Entry前剩余Gate与推荐路径
+
+当前没有隐藏的Phase6 blocker。五个manifest blocker对应四类操作待办：
+
+| Gate | 当前状态 | 关闭条件 |
+| --- | --- | --- |
+| Ceiling runner | 未实现 | 实现`run_p7_ceiling.py`，在Docker内通过CPU tests与targeted review |
+| Scheduler runner | 未实现 | 实现`run_p7_scheduler.py`，在Docker内通过CPU tests与targeted review |
+| R2 strategy | `pending` | 选择并冻结`adapter`或`disabled_not_comparable` |
+| Implementation pin | 未生成 | 生成manifest rev6，pin final commit/tree/runner hashes并更新authority docs |
+| User authorization | 未获得 | 用户在看到rev6 pinned状态后明确授权Phase7 |
+
+推荐执行顺序：
+
+1. 先完成两个runner及其Docker CPU tests、schema/golden tests和Sol/Opus
+   targeted review；
+2. 对R2做有界的0-GPU adapter feasibility检查：
+   - 若只需harness/plugin plumbing且不改变core recovery语义，则实现、
+     测试并选择`adapter`；
+   - 若需要侵入性修改或威胁已冻结substrate，则选择
+     `disabled_not_comparable`；
+3. 生成manifest rev6，状态转为`pinned_blocked`，保持rev5 design hash；
+4. 向用户呈现最终pin、runner review和R2 disposition；
+5. 只有用户明确授权后才转为`authorized`。
+
+可选路线：
+
+- **最小准入**：R2=`disabled_not_comparable`。最快、风险最低，Phase7运行
+  13 committed settings/最多30 starts，但没有新R2 GPU数据。
+- **证据增强**：实现R2 adapter。若上述feasibility检查证明改动受控，这是
+  当前推荐路线；Phase7可增加2个R2 conditional settings/2 starts，
+  解决旧chunk1024 R2不可比较问题。
+- **扩大research范围**：重新加入R1性能、R5 matched comparison、真实R4/
+  KVCOMM或host/prefetch。当前不建议；这会改变V5设计，必须创建新版计划、
+  新design hash并重做双模型review，而不是简单关闭Entry gate。
+
+不属于正式Entry前Gate：
+
+- P7-0b chunk4096 feasibility是授权后的Phase7 wave-0，不能提前偷跑；
+- natural-pressure fallback reachability仍是caveat，不阻塞Entry；
+- S4/rho3 chunk4096只在需要rho3 claim时激活；
+- Phase4/5完整矩阵、CL1/CL2/CL3/P6-H和完整P6-4默认不重做。
 
 ### 2026-07-27 Recovery数据代际：metric schema不等于Phase7新数据
 

@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-27T19:50:00-07:00
+最后更新：2026-07-27T23:50:58-07:00
 
 ## 新会话启动顺序
 
@@ -12,6 +12,21 @@
 6. 开始工作后持续维护上述文件，不把重要信息只留在聊天中。
 
 ## 当前快照
+
+### 2026-07-27T23:50:58-07:00 Phase7 Entry前推荐顺序
+
+1. 实现`run_p7_ceiling.py`和`run_p7_scheduler.py`；
+2. 在Docker内完成CPU tests和Sol/Opus targeted review；
+3. 对R2做有界0-GPU feasibility：
+   - 非侵入则实现adapter；
+   - 侵入性过高则冻结`disabled_not_comparable`；
+4. 生成manifest rev6并pin final SHA/tree/runner hashes，转
+   `pinned_blocked`；
+5. 等待用户明确授权后才转`authorized`。
+
+当前推荐证据增强路线：只在R2 adapter不改变core recovery语义时实现它；
+不建议在Entry前扩大到R1/R5/真实R4/host/prefetch。P7-0b chunk4096
+feasibility属于授权后的wave-0，不能提前执行。
 
 ### 2026-07-27T19:30:00-07:00 V5与primary manifest已封版
 
