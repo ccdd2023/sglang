@@ -2853,3 +2853,18 @@ technical_exit = PASS WITH CAVEATS
 - rev5 self hash=`98cff1d8...`，design hash=`24f149f1...`。
 - builder自检通过；Phase7 result manifest `1/1`通过。
 - future runner pin必须生成rev6并保持rev5 design hash不变。
+
+## 2026-07-27T21:26:50-07:00 — 澄清`preregistered_blocked`与五个Phase7准入门
+
+- `preregistered_blocked`不是review失败，而是“设计已冻结、执行仍禁止”的
+  有意安全状态。
+- 五个blocker分为：
+  - 两个真实缺失实现：ceiling runner、scheduler runner；
+  - 一个后置provenance动作：final implementation SHA/tree/runner hash pin；
+  - 一个条件策略：R2 adapter或`disabled_not_comparable`；
+  - 一个用户治理门：明确授权。
+- 状态机固定为
+  `preregistered_blocked -> pinned_blocked -> authorized`。
+- 当前解释不构成Phase7授权；Phase7 GPU执行仍为禁止状态。
+- P7-0b chunk4096 feasibility是授权后的wave-0实验门，不属于五个
+  pre-execution blocker。

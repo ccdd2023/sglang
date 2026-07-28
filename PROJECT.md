@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-27T19:50:00-07:00
+最后更新：2026-07-27T21:26:50-07:00
 
 ## 项目概况
 
@@ -26,6 +26,38 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-27 Phase7 `preregistered_blocked`与五个准入门解释
+
+`preregistered_blocked`是有意设置的安全状态，不是review失败：
+
+- `preregistered`表示V5实验设计已在GPU执行前冻结并由manifest绑定，包括
+  workload、arms、settings、repeat、MDE、early-stop、预算、环境、
+  outcome taxonomy和artifact provenance；
+- `blocked`表示manifest仍禁止Phase7 GPU执行，
+  `phase7_execution_authorized=false`，且最终可执行实现尚未完整pin。
+
+五个显式execution blocker的性质不同：
+
+| Blocker | 当前事实 | 是否需要实现 |
+| --- | --- | --- |
+| `missing_runner:ceiling` | `run_p7_ceiling.py`文件不存在，CPU测试与review均pending | 是；实现A8 D0/E0/R0、真实N=1/2/4/8和结果记账 |
+| `missing_runner:scheduler` | `run_p7_scheduler.py`文件不存在，CPU测试与review均pending | 是；实现独立W、S0/S4和各统计视图 |
+| `phase7_pinned_implementation_sha_pending` | final runner code尚未完成，因此不能冻结最终commit/tree/runner hash | 不是新机制；在runner与R2 disposition完成后生成manifest rev6并pin |
+| `r2_strategy_pending` | conditional R2尚未决定走真实cross-store adapter还是`disabled_not_comparable` | 二选一；只有选择adapter才需要实现/测试额外代码 |
+| `explicit_user_authorization_missing` | 用户尚未明确授权进入Phase7 | 不需要代码；是最后的人为治理门 |
+
+状态机为：
+
+1. `preregistered_blocked`：设计已冻结，但未pin且仍有blocker；
+2. `pinned_blocked`：runner/R2 disposition已完成，final implementation已pin，
+   但仍至少缺用户授权；
+3. `authorized`：已pin、blocker清零且用户明确授权，才允许在Docker内启动
+   Phase7 GPU执行。
+
+当前问题与解释不构成Phase7授权。Phase7之前可继续完成前四项工程/决策工作。
+P7-0b chunk4096 feasibility属于授权后的wave-0实验门，不在上述五个
+pre-execution blocker中；它通过后才允许继续后续Phase7结果解释。
 
 ### 2026-07-27 V5与Phase7 primary manifest完成review并封版
 
