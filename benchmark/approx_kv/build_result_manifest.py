@@ -170,11 +170,20 @@ def main() -> int:
                 "paths and are not part of the Phase 6 Exit evidence package."
             ]
             if args.phase == "phase6"
-            else [
-                "The Phase7 plan, runners and implementation are pinned. "
-                "Execution remains blocked on the mandatory final Opus "
-                "review, so GPU result artifacts and logs do not exist yet."
-            ]
+            else (
+                [
+                    "Phase7 GPU artifacts and logs are versioned. Final "
+                    "dual-model result review and main-session disposition "
+                    "remain pending."
+                ]
+                if (results / "raw").is_dir()
+                and any((results / "raw").glob("*.json"))
+                else [
+                    "The Phase7 plan, runners and implementation are pinned. "
+                    "Execution remains blocked on the mandatory final Opus "
+                    "review, so GPU result artifacts and logs do not exist yet."
+                ]
+            )
         ),
         "environment": ENVIRONMENT,
         "verification_commands": {

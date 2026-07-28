@@ -179,6 +179,13 @@ class TestPhase6Manifest(unittest.TestCase):
                 any(path.endswith(f"/phase7/evidence/{name}") for path in files)
             )
 
+    def test_phase7_result_manifest_has_versioned_gpu_artifacts(self):
+        root = Path(__file__).resolve().parents[4]
+        results = root / "benchmark/approx_kv/results/phase7"
+        self.assertEqual(len(list((results / "raw").glob("*.json"))), 22)
+        self.assertEqual(len(list((results / "compact").glob("*.json"))), 22)
+        self.assertEqual(len(list((results / "logs").glob("*.log"))), 22)
+
     def test_manifest_is_deterministic_and_fixed(self):
         first = build_fixed40_manifest()
         second = build_fixed40_manifest()
