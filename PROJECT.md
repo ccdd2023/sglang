@@ -9,7 +9,7 @@
 | 项目 | 当前值 |
 | --- | --- |
 | 名称 | `code-agent-kvcache` |
-| 阶段 | Phase6=`PASS WITH CAVEATS`；V5 Current/Latest与Phase7 manifest rev4已封版；execution仍blocked；未进入Phase7 |
+| 阶段 | Phase6=`PASS WITH CAVEATS`；V5 Current/Latest与Phase7 manifest rev5已封版；execution仍blocked；未进入Phase7 |
 | 业务目标 | 在 SGLang 上比较多种跨 context 近似 KV 恢复与 workflow-aware cache scheduling，降低 Coding Agent TTFT |
 | 技术栈 | SGLang、HiCache、Docker、KVFlow、KVCOMM、CacheBlend、Cache-Craft、EPIC、CacheTune |
 | 默认分支 | `main` |
@@ -48,7 +48,8 @@
   - N=1/2/4/8改为一次setup后的真实连续8 targets，不再外推；
   - fallback仅有fault-injected canary证据，natural pressure claim必须重新取证。
 - Phase7 primary manifest rev4已获Sol/Opus最终PASS，无新P0/P1。
-- rev4绑定最终V5 plan commit，并完整记录revision/design hash chain。
+- rev5仅绑定最终V5 Current/Latest plan commit，settings/workloads未变；
+  自检与Phase7 result-manifest均通过。
 - manifest仍为`preregistered_blocked`，禁止GPU执行。
 - 当前剩余执行blocker：
   - `run_p7_ceiling.py`未实现/测试/review；

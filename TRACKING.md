@@ -2840,3 +2840,16 @@ technical_exit = PASS WITH CAVEATS
 - V5与primary manifest流程全部完成；manifest仍`preregistered_blocked`。
 - 剩余execution blockers：两个runner、pinned implementation SHA、R2 strategy、
   用户授权。
+## 2026-07-27T20:10:00-07:00 — Manifest rev5绑定最终V5 Current/Latest plan
+
+- docs plan最终commit=`d314cc41`，只更新V5 final状态/交接，不改变矩阵。
+- manifest rev5：
+  - supersedes rev4 envelope `6e5617ae...`；
+  - supersedes rev4 design `3cbd2cc1...`；
+  - 绑定final V5 plan commit；
+  - settings/workloads保持不变；
+  - status仍`preregistered_blocked`；
+  - 5个execution blocker不变。
+- rev5 self hash=`98cff1d8...`，design hash=`24f149f1...`。
+- builder自检通过；Phase7 result manifest `1/1`通过。
+- future runner pin必须生成rev6并保持rev5 design hash不变。

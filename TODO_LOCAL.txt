@@ -24,8 +24,8 @@ Current boundary: do not enter Phase 7 without reporting to the user.
     implementation:
       /home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate
       branch research/cross-store-substrate
-      current Phase6 evidence HEAD
-      924c9d1d6c074f304189248f0fc5b15aa6d25adb
+      current implementation/manifest HEAD
+      5966983236599bd07bf3e582474e41bc01a22f6b
       Phase7 runner implementation will create a new pinned HEAD in the
       primary manifest; update HANDOFF/TODO/manifest atomically then.
 
@@ -96,8 +96,8 @@ Persistent commits:
 -------------------
 
 Consolidated 2026-07-27 from a GPT-5.6 Sol max-reasoning audit, replacing the
-accumulated per-round sections. Current Phase6 evidence HEAD:
-924c9d1d6. Phase 7 is NOT authorized.
+accumulated per-round sections. Current implementation/manifest HEAD:
+596698323. Phase 7 is NOT authorized.
 
 Status to quote verbatim:
     technical_exit = PASS WITH CAVEATS
@@ -216,12 +216,12 @@ The caveat is permanent:
        Do not silently treat the Phase4 harness as cross-store Phase7 data.
 
 [ ] 13. Pin the Phase7 implementation SHA atomically.
-       Generate manifest revision 5 with the final runner SHA/tree/blob hashes;
+       Generate manifest revision 6 with the final runner SHA/tree/blob hashes;
        update HANDOFF/PROJECT/TODO together.
-       Rev5 must supersede envelope hash
-       6e5617aec12f70ea7ef423f425afad88cf36f67dfdb610107999ab8ce31dd0f3
+       Rev6 must supersede envelope hash
+       98cff1d8c1c8586335f33463bf98b2b494df78ebcbe8baceb47c32dc89e9ab78
        and preserve design hash
-       3cbd2cc1a7eb96fae8b85bb595a7c8bfb25aa6c04c1c2d57ab9bfad39f0c51ab.
+       24f149f140cf593c68d90ad7d6959b1b008f804f71766bff35ddae2b4c95732d.
 
 
 3.3 CONDITIONAL - ONLY IF TRIGGERED

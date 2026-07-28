@@ -24,7 +24,8 @@
 - primary chunk=`4096`；`1024`只作diagnostic sensitivity。
 - 预算：committed 13 GPU settings/30 starts；含条件项16/33；
   hard cap36 starts/6 GPUh。
-- Phase7 primary manifest rev4已获Sol/Opus最终PASS，无新P0/P1。
+- Phase7 primary manifest rev4已获Sol/Opus最终PASS；rev5仅绑定最终V5 plan，
+  settings/workloads未变。
 - manifest status=`preregistered_blocked`，仍有5个显式execution blocker。
 - 仍未进入Phase7。
 
@@ -72,7 +73,7 @@
   P0-1/P0-3，最终判`PASS WITH CAVEATS`，无新P0/P1。
 
 - 全部实验在Docker SM75镜像内执行。
-- 实现branch head：`924c9d1d6c074f304189248f0fc5b15aa6d25adb`（Phase6 final evidence head；Phase7 runner实现后须由primary manifest重新pin）。
+- 实现branch head：`5966983236599bd07bf3e582474e41bc01a22f6b`（含manifest rev5；Phase7 runner实现后须由rev6重新pin）。
 
 | 门禁 | 状态 |
 | --- | --- |
