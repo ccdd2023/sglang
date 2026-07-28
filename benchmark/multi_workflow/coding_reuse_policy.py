@@ -442,6 +442,17 @@ def is_shell_source_write(
     return bool(_SHELL_SOURCE_WRITE.search(commands))
 
 
+def repository_commit_phase_event(
+    group: Sequence[dict[str, Any]],
+) -> bool:
+    """Return whether completed online evidence starts the commit phase."""
+
+    return is_shell_source_write(group) or (
+        "repository_mutation_command"
+        in critical_coding_event_reasons(group)
+    )
+
+
 def coding_patch_lifecycle_target_reasons(
     groups: Sequence[Sequence[dict[str, Any]]],
 ) -> list[str]:
@@ -630,6 +641,7 @@ def select_reuse_groups(
         "coding_critical_current_target_v34",
         "coding_version_validation_target_v35b",
         "coding_patch_lifecycle_target_v37",
+        "coding_commit_phase_dense_v38",
     ):
         decision["mode"] = (
             "general_contiguous_8k"
@@ -644,6 +656,8 @@ def select_reuse_groups(
             if arm == "coding_version_validation_target_v35b"
             else "patch_lifecycle_target_general_source"
             if arm == "coding_patch_lifecycle_target_v37"
+            else "commit_phase_exploration_general_source"
+            if arm == "coding_commit_phase_dense_v38"
             else "general_contiguous"
         )
         return retained, decision

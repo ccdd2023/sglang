@@ -252,6 +252,50 @@ def test_v37_vetoes_patch_decision_and_recognizes_shell_write() -> None:
     )
 
 
+def test_v38_latch_vetoes_target_and_stops_future_source() -> None:
+    target = {"source_id": "source-v38"}
+    guarded, releases, decision = bridge.apply_current_target_veto(
+        arm="coding_commit_phase_dense_v38",
+        selected_groups=[],
+        target=target,
+        releases=[],
+        commit_phase_latched=True,
+    )
+    assert guarded is None
+    assert releases == ["source-v38"]
+    assert decision["target_veto_reasons"] == [
+        "repository_commit_phase_latched"
+    ]
+    retained, source_decision = bridge.select_reuse_groups(
+        "coding_commit_phase_dense_v38",
+        [[{"role": "tool", "content": "old"}], [{"role": "tool", "content": "new"}]],
+    )
+    assert retained == [[{"role": "tool", "content": "new"}]]
+    assert source_decision["mode"] == (
+        "commit_phase_exploration_general_source"
+    )
+    model = object.__new__(bridge.BridgeReuseLitellmModel)
+    model.config = SimpleNamespace(
+        reuse_arm="coding_commit_phase_dense_v38",
+        rolling_history_groups=6,
+    )
+    model._commit_phase_latched = True
+    source, pending, commit_decision = model._future_source(
+        prompt_ids=[],
+        selected_groups=[],
+    )
+    assert source is pending is None
+    assert commit_decision["mode"] == "commit_phase_dense_latched"
+    assert commit_decision["source_registered"] is False
+
+    model._pending_source = None
+    model._last_message_count = 10
+    model._session_index = 1
+    model._request_index = 7
+    model._new_session_if_needed([{"role": "system"}, {"role": "user"}])
+    assert model._commit_phase_latched is False
+
+
 def test_query_closes_underlying_sync_stream(monkeypatch) -> None:
     chunk = SimpleNamespace(
         choices=[

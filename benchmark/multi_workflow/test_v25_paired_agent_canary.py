@@ -27,6 +27,7 @@ def test_target_veto_counter_accepts_v33b_and_v34_modes() -> None:
         "critical_current_target_dense_veto",
         "version_validation_target_dense_veto",
         "patch_lifecycle_target_dense_veto",
+        "commit_phase_target_dense_veto",
     ):
         assert canary._is_target_veto_record(
             {
@@ -237,6 +238,38 @@ def test_v37_branches_on_patch_lifecycle_target_veto(
                 "case_id": "general-target",
                 "source_id": "source-4",
                 "length": 986,
+            },
+            "policy_decision": {"mode": "general_contiguous"},
+        },
+    }
+
+    assert canary._branch_kind(prepared) == "current_target_veto"
+
+
+def test_v38_branches_when_commit_phase_latches(
+    monkeypatch,
+) -> None:
+    candidate = "coding_commit_phase_dense_v38"
+    monkeypatch.setattr(canary, "V23", candidate)
+    monkeypatch.setattr(canary, "REUSE_ARMS", (candidate, canary.GENERAL))
+    monkeypatch.setattr(canary, "TARGET_VETO_CANDIDATE", True)
+    monkeypatch.setattr(canary, "ABSTENTION_CANDIDATE", False)
+    prepared = {
+        candidate: {
+            "prompt_ids": [13, 14, 15],
+            "source": None,
+            "target": None,
+            "policy_decision": {
+                "mode": "commit_phase_target_dense_veto"
+            },
+        },
+        canary.GENERAL: {
+            "prompt_ids": [13, 14, 15],
+            "source": {"length": 1024},
+            "target": {
+                "case_id": "general-target",
+                "source_id": "source-v38",
+                "length": 1024,
             },
             "policy_decision": {"mode": "general_contiguous"},
         },

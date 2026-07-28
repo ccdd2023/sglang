@@ -33,6 +33,7 @@ from benchmark.multi_workflow.coding_reuse_policy import (
     critical_coding_event_reasons,
     effective_copy_cap,
     post_mutation_payoff_guard,
+    repository_commit_phase_event,
     select_failure_memory_groups,
     select_reuse_groups,
 )
@@ -55,6 +56,7 @@ TARGET_VETO_ARMS = (
     "coding_critical_current_target_v34",
     "coding_version_validation_target_v35b",
     "coding_patch_lifecycle_target_v37",
+    "coding_commit_phase_dense_v38",
 )
 
 
@@ -96,6 +98,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_critical_current_target_v34",
         "coding_version_validation_target_v35b",
         "coding_patch_lifecycle_target_v37",
+        "coding_commit_phase_dense_v38",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
@@ -162,6 +165,7 @@ def apply_current_target_veto(
     selected_groups: list[list[dict[str, Any]]],
     target: dict[str, Any] | None,
     releases: list[str],
+    commit_phase_latched: bool = False,
 ) -> tuple[dict[str, Any] | None, list[str], dict[str, Any]]:
     """Apply the V33B online target guard without consulting future output."""
 
@@ -175,6 +179,8 @@ def apply_current_target_veto(
         reasons = coding_version_validation_target_reasons(selected_groups)
     elif arm == "coding_patch_lifecycle_target_v37":
         reasons = coding_patch_lifecycle_target_reasons(selected_groups)
+    elif arm == "coding_commit_phase_dense_v38" and commit_phase_latched:
+        reasons = ["repository_commit_phase_latched"]
     else:
         reasons = []
     vetoed = bool(reasons and target is not None)
@@ -207,6 +213,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         self._session_index = 0
         self._last_message_count = 0
         self._pending_source: dict[str, Any] | None = None
+        self._commit_phase_latched = False
         self._last_stream_stats: dict[str, Any] = {}
         if self.config.reuse_arm not in DENSE_REUSE_ARMS:
             # Workers are frozen to one.  A new wrapper therefore marks a
@@ -372,6 +379,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             ):
                 self._atomic_sidecar_update(release_source_ids=release)
             self._pending_source = None
+            self._commit_phase_latched = False
             self._session_index += 1
             self._request_index = 0
         self._last_message_count = len(messages)
@@ -433,6 +441,21 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         # rolling_history_groups groups.  Therefore selected_groups[0] will be
         # dropped.  General copies all retained history; coding-aware protects
         # the current latest group plus the future newest group.
+        if (
+            self.config.reuse_arm == "coding_commit_phase_dense_v38"
+            and self._commit_phase_latched
+        ):
+            return None, None, {
+                "arm": self.config.reuse_arm,
+                "mode": "commit_phase_dense_latched",
+                "latest_group_protected": True,
+                "risk_reasons": ["repository_commit_phase_latched"],
+                "retained_groups_after_roll": max(
+                    0, len(selected_groups) - 1
+                ),
+                "source_registered": False,
+                "skip_reason": "repository_commit_phase_latched",
+            }
         if len(selected_groups) < self.config.rolling_history_groups:
             return None, None, {
                 "arm": self.config.reuse_arm,
@@ -669,6 +692,14 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         rolling_messages, selected_groups, rolling = self._rolling_messages(
             messages
         )
+        if self.config.reuse_arm == "coding_commit_phase_dense_v38":
+            self._commit_phase_latched = (
+                self._commit_phase_latched
+                or any(
+                    repository_commit_phase_event(group)
+                    for group in selected_groups
+                )
+            )
         compacted_messages, compaction = self.compact_messages(rolling_messages)
         prompt_ids = self._render_prompt_ids(compacted_messages)
 
@@ -689,6 +720,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 selected_groups=selected_groups,
                 target=target,
                 releases=releases,
+                commit_phase_latched=self._commit_phase_latched,
             )
             source, next_pending, policy_decision = self._future_source(
                 prompt_ids=prompt_ids,
@@ -696,6 +728,10 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             )
             if self.config.reuse_arm in TARGET_VETO_ARMS:
                 dense_veto_mode = (
+                    "commit_phase_target_dense_veto"
+                    if self.config.reuse_arm
+                    == "coding_commit_phase_dense_v38"
+                    else
                     "patch_lifecycle_target_dense_veto"
                     if self.config.reuse_arm
                     == "coding_patch_lifecycle_target_v37"
@@ -710,6 +746,10 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                     else "state_transition_target_dense_veto"
                 )
                 general_reuse_mode = (
+                    "commit_phase_exploration_general_reuse"
+                    if self.config.reuse_arm
+                    == "coding_commit_phase_dense_v38"
+                    else
                     "patch_lifecycle_target_general_reuse"
                     if self.config.reuse_arm
                     == "coding_patch_lifecycle_target_v37"
