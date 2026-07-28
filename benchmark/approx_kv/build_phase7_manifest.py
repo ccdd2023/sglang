@@ -531,6 +531,8 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "artifact": "phase7-primary-manifest",
         "manifest_revision": args.manifest_revision,
         "supersedes_manifest_sha256": args.supersedes_manifest_sha256,
+        "supersedes_design_payload_sha256": (args.supersedes_design_payload_sha256),
+        "design_keys": list(DESIGN_KEYS),
         "revision_reason": args.revision_reason,
         "status": args.status,
         "phase7_execution_authorized": args.authorize,
@@ -760,13 +762,21 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "expected_gpu_hours": {
                 "wave-0": 0.3,
                 "wave-1": 0.4,
-                "wave-2": 2.3,
-                "conditional": 0.5,
+                "wave-2": 2.9,
+                "conditional": 0.4,
             },
-            "expected_gpu_hours_total": 3.5,
+            "expected_gpu_hours_total": 4.0,
+            "expected_minutes_per_start_by_runner": {
+                "run_p6_4_capacity_pilot": 9,
+                "run_p7_ceiling_A8": 6,
+                "run_p7_ceiling_sensitivity": 6,
+                "run_p7_scheduler_W": 8,
+                "run_p7_scheduler_R4_like": 8,
+                "conditional_R2": 6,
+            },
             "hard_cap_server_starts": 36,
             "hard_cap_gpu_hours": 6,
-            "gpu_hour_headroom": 2.5,
+            "gpu_hour_headroom": 2.0,
             "minimum_headroom_fraction": 0.15,
             "retries_count_against_cap": True,
         },
@@ -823,6 +833,12 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
         "supersedes_manifest_sha256"
     ):
         problems.append("revised manifest must record the superseded hash")
+    if manifest["manifest_revision"] > 1 and not manifest.get(
+        "supersedes_design_payload_sha256"
+    ):
+        problems.append("revised manifest must record the superseded design hash")
+    if manifest.get("design_keys") != list(DESIGN_KEYS):
+        problems.append("design key list does not match the builder")
 
     expected_settings = build_settings()
     if manifest["settings"] != expected_settings:
@@ -1086,6 +1102,7 @@ def main() -> int:
     parser.add_argument("--plan-commit")
     parser.add_argument("--manifest-revision", type=int, default=1)
     parser.add_argument("--supersedes-manifest-sha256")
+    parser.add_argument("--supersedes-design-payload-sha256")
     parser.add_argument("--revision-reason", default="initial preregistration")
     parser.add_argument(
         "--status",
