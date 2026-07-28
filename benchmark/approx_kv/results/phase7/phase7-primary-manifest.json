@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "artifact": "phase7-primary-manifest",
-  "manifest_revision": 10,
-  "supersedes_manifest_sha256": "5daa95a310a93901b68302873791658a55bbbf48889e3495781faf06d0c9b7fd",
-  "supersedes_design_payload_sha256": "ae8d8e1eece7708bc21c74a0543582f170a4d244ed6273fdadc40bd55cf1305b",
+  "manifest_revision": 11,
+  "supersedes_manifest_sha256": "720a2ef8ec7b5c027439db99f1d5044e3cf1b3660df0491c3ce16878d67d6712",
+  "supersedes_design_payload_sha256": "813f77005c61f50b4a666662a1a0b131d65e975df2e409368d0cf468f4a3fc34",
   "design_keys": [
     "plan",
     "environment",
@@ -26,21 +26,21 @@
     "scope_caveats",
     "review_contract"
   ],
-  "revision_reason": "V7: close final Opus execution blockers with runtime staging, capacity authorization, and versioned evidence",
+  "revision_reason": "V7 rev11: bind final recursive provenance code pin and refreshed Docker CPU evidence; await final Opus delta review",
   "status": "pinned_blocked",
   "phase7_execution_authorized": false,
   "plan": {
     "version": "V7",
-    "plan_commit": "04cd8491a75e991692ede18adf88d3664cfbb6ce",
+    "plan_commit": "c80ec165713772c533e17ef4c50f083c36dc9d72",
     "plan_file": "IMPLEMENTATION_PLAN_LATEST.md",
-    "plan_sha256": "6de53fd51f6b1d2187341a1f95ea87500c3c3e3f6917e10357266e4216dfeab6"
+    "plan_sha256": "95cfbb3114a3708d52e80e9ea90825031a660e5b800939cbdc29a43bf6286d8c"
   },
   "implementation": {
-    "manifest_generation_sha": "f6a9baca82856a3f17cff3face63024ddc6e251a",
-    "manifest_generation_tree_sha": "5ee89fdf25063ab7432191c304eb49c062c6192b",
+    "manifest_generation_sha": "a01642fdd6cdc869cb2c991c23003ff600665f37",
+    "manifest_generation_tree_sha": "ea0c7b2f377207161a4a562b29e39ea5b08a779a",
     "phase6_evidence_sha": "924c9d1d6c074f304189248f0fc5b15aa6d25adb",
-    "phase7_pinned_implementation_sha": "4f0b504cc244bffc1f3f4c71956285ee1853d3ea",
-    "phase7_pinned_tree_sha": "73acfe6eb37505125eb765496a539324cfee1695",
+    "phase7_pinned_implementation_sha": "81405f4278b034911bc613c4ee17c79d15ee8f35",
+    "phase7_pinned_tree_sha": "4a8bf0f6cd72ec09859f8301dc92b6aabb25d2bf",
     "atomic_update_required": [
       "phase7-primary-manifest.json",
       "RESULT_MANIFEST.json"
@@ -149,18 +149,18 @@
       "cpu_test_status": "passed",
       "cpu_test_evidence": {
         "path": "benchmark/approx_kv/results/phase7/evidence/capacity-pilot-cpu.json",
-        "file_sha256": "608bed73efb25cd65dd7cab0589672773141a547f7efdf1a76a59d895830b2c3",
-        "artifact_sha256": "57b73dc9e11d720d60d79c469257a4b2638c0469644e271a857754442bdf61e5",
+        "file_sha256": "cdd75f6d9af29d885cbf0a8d8b3a645c94dbd5822c000949f5da0332acd075ad",
+        "artifact_sha256": "95ad0454a6659ddc78046fe2ad9db133fcb216046aa1cee3e22c82f9f00d28c5",
         "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
         "command": "python3 -m pytest -q test/registered/unit/bench/test_phase6_manifest.py",
         "exit_code": 0,
-        "summary_line": "23 passed, 2 warnings in 6.37s",
-        "passed_count": 23,
+        "summary_line": "24 passed, 2 warnings in 6.35s",
+        "passed_count": 24,
         "subtests": {
           "passed_count": 0,
           "names": []
         },
-        "timestamp": "2026-07-28T08:50:49-07:00",
+        "timestamp": "2026-07-28T08:58:54-07:00",
         "runner_sha256": "ff21855bbf1d98f8615d19cdf884bbf301694fb815b4b08e3a14cbc5207c84a2"
       },
       "review_status": "pending",
@@ -2900,6 +2900,6 @@
     "P6-4 rho1.1/rho1.5/rho3 feasibility remains chunk1024 unless separately revalidated",
     "host/prefetch/async tracks are not generated in V7"
   ],
-  "design_payload_sha256": "813f77005c61f50b4a666662a1a0b131d65e975df2e409368d0cf468f4a3fc34",
-  "preregistered_manifest_sha256": "720a2ef8ec7b5c027439db99f1d5044e3cf1b3660df0491c3ce16878d67d6712"
+  "design_payload_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+  "preregistered_manifest_sha256": "48c86bf0f4df6f5c8baa41fc6871e3bcdfba59ea46f9022875f8453f2d5a5236"
 }
