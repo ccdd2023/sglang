@@ -180,6 +180,7 @@ class ExactMiddleCanaryController:
         manifest_path: Path | None = None,
         reclaim_device_tokens: Callable[[int], None] | None = None,
         host_overflow_enabled: bool = False,
+        prefer_host_sources: bool = False,
         ordinary_prefix_reuse_enabled: bool = False,
         ordinary_prefix_repair_tokens: int = 0,
         ordinary_prefix_target_only: bool = False,
@@ -202,6 +203,7 @@ class ExactMiddleCanaryController:
         self.lease_ttl_s = lease_ttl_s
         self.reclaim_device_tokens = reclaim_device_tokens
         self.host_overflow_enabled = host_overflow_enabled
+        self.prefer_host_sources = prefer_host_sources
         self.ordinary_prefix_reuse_enabled = ordinary_prefix_reuse_enabled
         if ordinary_prefix_repair_tokens < 0:
             raise ValueError(
@@ -351,6 +353,9 @@ class ExactMiddleCanaryController:
             host_overflow_enabled=bool(
                 value.get("host_overflow_enabled", False)
             ),
+            prefer_host_sources=bool(
+                value.get("prefer_host_sources", False)
+            ),
             ordinary_prefix_reuse_enabled=bool(
                 value.get("ordinary_prefix_reuse_enabled", False)
             ),
@@ -484,6 +489,12 @@ class ExactMiddleCanaryController:
                 raise ValueError(
                     "dynamic reuse manifest host_overflow_enabled changed"
                 )
+            if bool(value.get("prefer_host_sources", False)) != (
+                self.prefer_host_sources
+            ):
+                raise ValueError(
+                    "dynamic reuse manifest prefer_host_sources changed"
+                )
             if bool(value.get("ordinary_prefix_reuse_enabled", False)) != (
                 self.ordinary_prefix_reuse_enabled
             ):
@@ -607,6 +618,44 @@ class ExactMiddleCanaryController:
             req.req_pool_idx, source.source_start:end
         ].to(dtype=torch.int64, copy=True)
         started = time.perf_counter()
+        if self.prefer_host_sources:
+            try:
+                handle = self.materializer.materialize_host(
+                    token_ids=segment,
+                    source_indices=source_indices,
+                    source_start=source.source_start,
+                    content_hash=source.content_hash,
+                )
+            except (MemoryError, RuntimeError) as error:
+                self._record(
+                    {
+                        "source_id": source.source_id,
+                        "event": "source_materialization_skipped",
+                        "policy_label": source.policy_label,
+                        "reason": "preferred_host_materialization_failed",
+                        "error_type": type(error).__name__,
+                        "requested_tokens": source.length,
+                        "owned_device_tokens": self.owned_device_tokens,
+                    }
+                )
+                return None
+            self._materialized_sources[source.source_id] = handle
+            self._pin_for_repeated_targets(source, handle)
+            self._record(
+                {
+                    "source_id": source.source_id,
+                    "event": "source_materialized_host",
+                    "materialize_ms": (
+                        time.perf_counter() - started
+                    )
+                    * 1000,
+                    "policy_label": source.policy_label,
+                    "reason": "preferred_host_residency",
+                    "tokens": source.length,
+                    **self._lifecycle_counts(),
+                }
+            )
+            return handle
         flush_deferred_frees = getattr(
             self.allocator, "flush_free_group", None
         )

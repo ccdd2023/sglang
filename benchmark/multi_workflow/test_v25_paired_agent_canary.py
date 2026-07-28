@@ -1,4 +1,7 @@
 from benchmark.multi_workflow import run_v25_paired_agent_canary as canary
+from benchmark.multi_workflow.run_frozen_trajectory_replay_v18 import (
+    read_json,
+)
 
 
 def test_policy_mode_accepts_prepared_and_client_ledger_schema() -> None:
@@ -19,6 +22,14 @@ def test_policy_mode_accepts_prepared_and_client_ledger_schema() -> None:
         == "critical_event_dense_abstain"
     )
     assert canary._policy_mode({}) == ""
+
+
+def test_paired_accuracy_manifest_prefers_host_sources(tmp_path) -> None:
+    path = canary._init_manifest(tmp_path)
+    manifest = read_json(path)
+
+    assert manifest["host_overflow_enabled"] is True
+    assert manifest["prefer_host_sources"] is True
 
 
 def test_target_veto_counter_accepts_v33b_and_v34_modes() -> None:

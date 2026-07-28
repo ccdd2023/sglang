@@ -311,6 +311,11 @@ def _init_manifest(output: Path) -> Path:
             "release_source_ids": [],
             "arm": "v25_paired_agent",
             "host_overflow_enabled": True,
+            # Accuracy arms share one server only to preserve paired request
+            # conditions. Keep both source snapshots off the shared device KV
+            # pool so one arm cannot prevent another arm's target admission.
+            # Formal speed runs use independent, device-resident servers.
+            "prefer_host_sources": True,
             "ordinary_prefix_reuse_enabled": TARGET_PREFIX_CANDIDATE,
             "ordinary_prefix_repair_tokens": 0,
             "ordinary_prefix_target_only": TARGET_PREFIX_CANDIDATE,

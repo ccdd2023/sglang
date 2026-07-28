@@ -107,6 +107,7 @@ def _case(
 def _controller(
     *,
     host_overflow_enabled=False,
+    prefer_host_sources=False,
     ordinary_prefix_reuse_enabled=False,
     ordinary_prefix_repair_tokens=0,
     ordinary_prefix_target_only=False,
@@ -126,6 +127,7 @@ def _controller(
         rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
         cases=(_case(source, target),),
         host_overflow_enabled=host_overflow_enabled,
+        prefer_host_sources=prefer_host_sources,
         ordinary_prefix_reuse_enabled=ordinary_prefix_reuse_enabled,
         ordinary_prefix_repair_tokens=ordinary_prefix_repair_tokens,
         ordinary_prefix_target_only=ordinary_prefix_target_only,
@@ -218,6 +220,35 @@ def test_source_capacity_overflow_uses_host_and_loads_on_target():
     state = controller.maybe_attach_target(target_req)
     assert state is not None and state.source.residency == ResidencyTier.HOST
     assert controller.stage_prefix_length(target_req) == 0
+    stats = controller.copy_into_request(target_req)
+    assert stats is not None and stats.mechanically_valid
+    copied = pool.req_to_token[1, 3:6].long()
+    assert torch.equal(allocator.cache.values[0][copied], expected_values)
+
+
+def test_preferred_host_source_never_reserves_device_slots():
+    controller, source, target, allocator, pool = _controller(
+        prefer_host_sources=True
+    )
+    original_alloc = allocator.alloc
+    source_allocations = 0
+
+    def count_allocations(length):
+        nonlocal source_allocations
+        source_allocations += 1
+        return original_alloc(length)
+
+    allocator.alloc = count_allocations
+    expected_values = allocator.cache.values[0][2:5].clone()
+    handle = controller.maybe_materialize_source(_req(source))
+
+    assert handle is not None
+    assert handle.residency == ResidencyTier.HOST
+    assert source_allocations == 0
+    assert controller.owned_device_tokens == 0
+
+    target_req = _req(target, pool_index=1, prefix=(11, 12, 13))
+    assert controller.maybe_attach_target(target_req) is not None
     stats = controller.copy_into_request(target_req)
     assert stats is not None and stats.mechanically_valid
     copied = pool.req_to_token[1, 3:6].long()
