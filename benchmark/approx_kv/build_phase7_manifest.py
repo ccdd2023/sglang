@@ -11,6 +11,25 @@ from typing import Any
 
 DEFAULT_OUTPUT = Path("benchmark/approx_kv/results/phase7/phase7-primary-manifest.json")
 P6_CONTRACT = Path("benchmark/approx_kv/results/phase6/p6-0-contract.json")
+DESIGN_KEYS = (
+    "environment",
+    "server_template",
+    "workloads",
+    "arms",
+    "footprint_profiles",
+    "arm_execution",
+    "statistics",
+    "outcome_taxonomy",
+    "exclusive_terminal_reasons",
+    "conditional_rules",
+    "settings",
+    "early_stops",
+    "budget",
+    "artifact_templates",
+    "skipped_tracks",
+    "required_inactive_counters",
+    "scope_caveats",
+)
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -26,6 +45,13 @@ def payload_sha256(payload: dict[str, Any]) -> str:
     canonical.pop("preregistered_manifest_sha256", None)
     return sha256_bytes(
         json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode()
+    )
+
+
+def design_payload_sha256(payload: dict[str, Any]) -> str:
+    design = {key: payload[key] for key in DESIGN_KEYS}
+    return sha256_bytes(
+        json.dumps(design, sort_keys=True, separators=(",", ":")).encode()
     )
 
 
@@ -60,6 +86,10 @@ def build_a8_workload() -> dict[str, Any]:
                     "target_id": f"a8-b{body_tokens}-target-{target_index}",
                     "order": target_index,
                     "extra_key": (f"p7-a8-b{body_tokens}-target-{target_index}"),
+                    "extra_keys_by_arm": {
+                        arm: (f"p7-a8-b{body_tokens}-target-{target_index}-{arm}")
+                        for arm in ("D0", "E0", "R0", "R2")
+                    },
                     "header_token_sha256": token_list_sha(target_header),
                     "body_token_sha256": token_list_sha(body),
                     "suffix_token_sha256": token_list_sha(suffix),
@@ -76,6 +106,15 @@ def build_a8_workload() -> dict[str, Any]:
                 "source_object_pinned_for_sequence": True,
                 "dense_source_materialization": "same_source_register_false",
                 "targets": targets,
+                "same_context_canary": {
+                    "target_id": f"a8-b{body_tokens}-same-context-canary",
+                    "header_token_sha256": token_list_sha(source_header),
+                    "body_token_sha256": token_list_sha(body),
+                    "extra_key": f"p7-a8-b{body_tokens}-same-context-canary",
+                    "max_new_tokens": 8,
+                    "included_in_amortization": False,
+                    "any_token_mismatch_is_invalid": True,
+                },
             }
         )
     payload = {
@@ -136,17 +175,26 @@ def build_w_workload(p6_contract: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
-    replay = [
+    active_objects = [item for item in objects if item["active"]]
+    first_replay = [
         {
-            "request_index": len(workflow_requests) + index,
+            "request_index": len(workflow_requests) + position,
             "phase": "replay",
             "role": item["role"],
             "object_id": item["object_id"],
         }
-        for index, item in enumerate(objects)
-        if item["active"]
+        for position, item in enumerate(active_objects)
     ]
-    request_order = workflow_requests + replay
+    second_replay = [
+        {
+            "request_index": (len(workflow_requests) + len(first_replay) + position),
+            "phase": "replay-2",
+            "role": item["role"],
+            "object_id": item["object_id"],
+        }
+        for position, item in enumerate(active_objects)
+    ]
+    request_order = workflow_requests + first_replay + second_replay
     for index, request in enumerate(request_order):
         later = [
             row["request_index"]
@@ -182,7 +230,13 @@ def setting(
     arms: list[str],
     conditional: bool = False,
     max_total_tokens: int | None = None,
+    mem_fraction_static: float = 0.35,
+    rho_realization: str = "filler_pool",
+    capacity_ceiling_tokens: int = 13130,
+    activation_rule_id: str | None = None,
 ) -> dict[str, Any]:
+    screening = [0] if 0 in restarts else []
+    supplements = [restart for restart in restarts if restart != 0]
     return {
         "setting_id": setting_id,
         "wave": wave,
@@ -194,11 +248,31 @@ def setting(
         "max_prefill_tokens": chunk,
         "policy": policy,
         "restart_indices": restarts,
+        "screening_restarts": screening,
+        "supplement_restarts": supplements,
+        "supplement_gate": "ES-R0-MDE" if supplements else None,
         "warmup_repeats": 1,
         "formal_repeats": 2,
         "arms": arms,
         "conditional": conditional,
+        "activation_rule_id": activation_rule_id,
         "max_total_tokens": max_total_tokens,
+        "mem_fraction_static": mem_fraction_static,
+        "capacity_mode": (
+            "explicit_max_total_tokens"
+            if max_total_tokens is not None
+            else "natural_capacity"
+        ),
+        "rho_realization": rho_realization,
+        "known_capacity_ceiling_tokens": capacity_ceiling_tokens,
+        "arm_order_by_repeat": {
+            "0": arms,
+            "1": list(reversed(arms)),
+        },
+        "reset_boundary": (
+            "full exact/approx/metadata reset between arms; "
+            "A8 sequence has no reset between targets and resets after target 8"
+        ),
     }
 
 
@@ -222,6 +296,9 @@ def build_settings() -> list[dict[str, Any]]:
                 "r4_like",
             ],
             max_total_tokens=11392,
+            mem_fraction_static=0.65,
+            rho_realization="capacity_pinning",
+            capacity_ceiling_tokens=20713,
         ),
         setting(
             "p6delta-s0-rho2-chunk4096",
@@ -241,6 +318,9 @@ def build_settings() -> list[dict[str, Any]]:
                 "r4_like",
             ],
             max_total_tokens=11392,
+            mem_fraction_static=0.65,
+            rho_realization="capacity_pinning",
+            capacity_ceiling_tokens=20713,
         ),
         setting(
             "p6delta-s4-rho3-chunk4096",
@@ -261,6 +341,10 @@ def build_settings() -> list[dict[str, Any]]:
             ],
             conditional=True,
             max_total_tokens=7595,
+            mem_fraction_static=0.65,
+            rho_realization="capacity_pinning",
+            capacity_ceiling_tokens=20713,
+            activation_rule_id="CR-P6DELTA-RHO3",
         ),
     ]
     for body in (1024, 2048):
@@ -277,6 +361,7 @@ def build_settings() -> list[dict[str, Any]]:
                     policy="lru",
                     restarts=[0, 1, 2],
                     arms=["D0", "E0", "R0"],
+                    rho_realization="filler_pool",
                 )
             )
     settings.append(
@@ -291,6 +376,7 @@ def build_settings() -> list[dict[str, Any]]:
             policy="lru",
             restarts=[0, 1],
             arms=["D0", "E0", "R0"],
+            rho_realization="filler_pool",
         )
     )
     for rho in (1.5, 2.0):
@@ -307,6 +393,10 @@ def build_settings() -> list[dict[str, Any]]:
                     policy=policy,
                     restarts=[0, 1, 2],
                     arms=["E0", "R0"],
+                    max_total_tokens=(15190 if rho == 1.5 else 11392),
+                    mem_fraction_static=0.65,
+                    rho_realization="capacity_pinning",
+                    capacity_ceiling_tokens=20713,
                 )
             )
     for policy in ("lru", "hierarchical"):
@@ -322,6 +412,10 @@ def build_settings() -> list[dict[str, Any]]:
                 policy=policy,
                 restarts=[0],
                 arms=["R4-like-5x"],
+                max_total_tokens=11392,
+                mem_fraction_static=0.65,
+                rho_realization="capacity_pinning",
+                capacity_ceiling_tokens=20713,
             )
         )
     for rho in (1.5, 2.0):
@@ -338,6 +432,8 @@ def build_settings() -> list[dict[str, Any]]:
                 restarts=[0],
                 arms=["D0", "E0", "R2"],
                 conditional=True,
+                rho_realization="filler_pool",
+                activation_rule_id="CR-R2-ADAPTER",
             )
         )
     return settings
@@ -373,27 +469,47 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "path": path,
             "exists": Path(path).exists(),
             "sha256": sha256_file(Path(path)) if Path(path).exists() else None,
+            "required_cpu_test": (
+                f"python3 -m pytest -q test/registered/unit/bench/"
+                f"test_{Path(path).stem}.py"
+                if name != "manifest"
+                else "python3 -m benchmark.approx_kv.build_phase7_manifest --check"
+            ),
+            "cpu_test_status": (
+                "passed"
+                if name == "manifest" or name in args.runner_ready
+                else "pending"
+            ),
+            "review_status": (
+                "reviewed"
+                if name == "manifest" or name in args.runner_ready
+                else "pending"
+            ),
         }
         for name, path in runner_paths.items()
     }
-    execution_blockers = [
-        name
-        for name, status in runner_status.items()
-        if name != "manifest" and not status["exists"]
-    ]
-    execution_blockers.extend(
-        [
-            "phase7_pinned_implementation_sha_pending_runner_implementation",
-            "r2_strategy_pending_runner_decision",
-            "explicit_user_authorization_missing",
-        ]
-    )
+    execution_blockers = []
+    for name in ("ceiling", "scheduler"):
+        status = runner_status[name]
+        if not status["exists"]:
+            execution_blockers.append(f"missing_runner:{name}")
+        elif name not in args.runner_ready:
+            execution_blockers.append(f"runner_not_ready:{name}")
+    if not args.phase7_pinned_implementation_sha:
+        execution_blockers.append("phase7_pinned_implementation_sha_pending")
+    if args.r2_strategy == "pending":
+        execution_blockers.append("r2_strategy_pending")
+    if not args.authorize:
+        execution_blockers.append("explicit_user_authorization_missing")
 
     manifest = {
         "schema_version": 1,
         "artifact": "phase7-primary-manifest",
-        "status": "preregistered_blocked",
-        "phase7_execution_authorized": False,
+        "manifest_revision": args.manifest_revision,
+        "supersedes_manifest_sha256": args.supersedes_manifest_sha256,
+        "revision_reason": args.revision_reason,
+        "status": args.status,
+        "phase7_execution_authorized": args.authorize,
         "plan": {
             "version": "V5",
             "plan_commit": args.plan_commit,
@@ -404,15 +520,33 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "manifest_generation_sha": implementation_sha,
             "manifest_generation_tree_sha": implementation_tree,
             "phase6_evidence_sha": args.phase6_evidence_sha,
-            "phase7_pinned_implementation_sha": None,
-            "phase7_pinned_tree_sha": None,
+            "phase7_pinned_implementation_sha": (args.phase7_pinned_implementation_sha),
+            "phase7_pinned_tree_sha": (
+                git("rev-parse", f"{args.phase7_pinned_implementation_sha}^{{tree}}")
+                if args.phase7_pinned_implementation_sha
+                else None
+            ),
             "atomic_update_required": [
                 "phase7-primary-manifest.json",
                 "HANDOFF.md",
+                "PROJECT.md",
                 "TODO_LOCAL.txt",
             ],
         },
         "runners": runner_status,
+        "r2_strategy": args.r2_strategy,
+        "conditional_resolution": {
+            "CR-P6DELTA-RHO3": ("enabled" if args.enable_rho3 else "pending"),
+            "CR-R2-ADAPTER": (
+                "enabled"
+                if args.r2_strategy == "adapter"
+                else (
+                    "disabled_not_comparable"
+                    if args.r2_strategy == "disabled_not_comparable"
+                    else "pending"
+                )
+            ),
+        },
         "execution_blockers": execution_blockers,
         "environment": {
             "image_digest": args.image_digest,
@@ -425,7 +559,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         },
         "server_template": {
             "tp_size": 1,
-            "mem_fraction_static": 0.35,
+            "default_mem_fraction_static": 0.35,
             "max_running_requests": 2,
             "attention_backend": "torch_native",
             "sampling_backend": "pytorch",
@@ -435,6 +569,15 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "enable_metrics": True,
             "restart_seeds": [17, 18, 19],
             "test_only_injection_flags": {
+                "SGLANG_APPROX_KV_TEST_ONLY": "0",
+                "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE": "0",
+            },
+            "plugin_env": {
+                "SGLANG_APPROX_KV_CORE": "1",
+                "SGLANG_APPROX_KV_CROSS_STORE": "1",
+                "SGLANG_APPROX_KV_BYTES_PER_TOKEN": "114688",
+                "SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+                "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT": "1",
                 "SGLANG_APPROX_KV_TEST_ONLY": "0",
                 "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE": "0",
             },
@@ -450,6 +593,24 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "R0": "raw_copy_ceiling",
             "R2": "conditional_cross_store_adapter_or_not_comparable",
             "R4-like-5x": "synthetic_footprint_proxy_not_kvcomm",
+        },
+        "footprint_profiles": {
+            "exact_only": "phase6 exact-only footprint profile",
+            "r0_like": "one approximate representation",
+            "r1_like_k32": "worst-case repair/temporary footprint",
+            "r2_like": "2x synthetic representation multiplicity",
+            "r4_like": "5x synthetic representation multiplicity",
+            "relation_to_R4-like-5x_arm": (
+                "same synthetic 5x footprint concept; different runner-specific "
+                "identifier; neither executes KVCOMM"
+            ),
+        },
+        "arm_execution": {
+            "formal_0": ["D0", "E0", "R0"],
+            "formal_1": ["R0", "E0", "D0"],
+            "reset_between_arms": True,
+            "A8_reset_between_targets": False,
+            "A8_reset_after_target_8": True,
         },
         "statistics": {
             "process_level_timing_replicates": [0, 1, 2],
@@ -494,6 +655,18 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "prefix_gap",
         ],
         "settings": settings,
+        "conditional_rules": {
+            "CR-P6DELTA-RHO3": (
+                "enable only if the final report will make a "
+                "chunk4096/rho3 claim; otherwise resolve disabled and keep "
+                "rho3 feasibility scoped to chunk1024"
+            ),
+            "CR-R2-ADAPTER": (
+                "enable only after the cross-store R2 adapter exists, passes "
+                "CPU tests and is pinned in the Phase7 implementation SHA; "
+                "otherwise resolve disabled/not_comparable"
+            ),
+        },
         "early_stops": [
             {
                 "rule_id": "ES-ENGINEERING",
@@ -547,15 +720,32 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             },
         ],
         "budget": {
-            "committed_gpu_settings": 13,
+            "committed_gpu_settings": len(committed),
             "committed_server_starts": committed_starts,
-            "conditional_gpu_settings": 3,
+            "conditional_gpu_settings": len(conditional),
             "conditional_server_starts": conditional_starts,
-            "all_gpu_settings": 16,
+            "all_gpu_settings": len(settings),
             "all_server_starts": committed_starts + conditional_starts,
+            "expected_gpu_hours": {
+                "wave-0": 0.5,
+                "wave-1": 0.75,
+                "wave-2": 3.75,
+                "conditional": 1.0,
+            },
             "hard_cap_server_starts": 36,
             "hard_cap_gpu_hours": 6,
             "retries_count_against_cap": True,
+        },
+        "artifact_templates": {
+            "raw_json": ("benchmark/approx_kv/results/phase7/raw/{run_id}.json"),
+            "compact_json": (
+                "benchmark/approx_kv/results/phase7/compact/{run_id}.json"
+            ),
+            "server_log": ("benchmark/approx_kv/results/phase7/logs/{run_id}.log"),
+            "hash_timing": "after server stop and file close",
+            "result_manifest": (
+                "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json"
+            ),
         },
         "skipped_tracks": [
             "practical_recovery",
@@ -582,6 +772,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "host/prefetch/async tracks are not generated in V5",
         ],
     }
+    manifest["design_payload_sha256"] = design_payload_sha256(manifest)
     manifest["preregistered_manifest_sha256"] = payload_sha256(manifest)
     return manifest
 
@@ -590,9 +781,73 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
     problems: list[str] = []
     if manifest.get("preregistered_manifest_sha256") != payload_sha256(manifest):
         problems.append("manifest self-hash mismatch")
+    if manifest.get("design_payload_sha256") != design_payload_sha256(manifest):
+        problems.append("immutable design payload hash mismatch")
+    if manifest.get("manifest_revision", 0) <= 0:
+        problems.append("manifest revision must be positive")
+    if manifest["manifest_revision"] > 1 and not manifest.get(
+        "supersedes_manifest_sha256"
+    ):
+        problems.append("revised manifest must record the superseded hash")
+
+    expected_settings = build_settings()
+    if manifest["settings"] != expected_settings:
+        problems.append("settings differ from the frozen builder design")
+    p6_contract = json.loads(P6_CONTRACT.read_text())
+    expected_workloads = {
+        "A8": build_a8_workload(),
+        "W": build_w_workload(p6_contract),
+        "filler_pool": build_filler_pool(),
+    }
+    if manifest["workloads"] != expected_workloads:
+        problems.append("workloads differ from the frozen builder design")
+    for name, workload in manifest["workloads"].items():
+        expected_hash = workload.get("manifest_sha256")
+        if expected_hash != payload_sha256(workload):
+            problems.append(f"{name} nested manifest hash mismatch")
+
     setting_ids = [row["setting_id"] for row in manifest["settings"]]
     if len(setting_ids) != len(set(setting_ids)):
         problems.append("duplicate setting IDs")
+    allowed_policies = {"lru", "hierarchical"}
+    allowed_arms = set(manifest["arms"])
+    allowed_footprints = set(manifest["footprint_profiles"])
+    for row in manifest["settings"]:
+        if row["policy"] not in allowed_policies:
+            problems.append(f"{row['setting_id']}: unsupported policy")
+        if row["chunked_prefill_size"] not in {1024, 4096}:
+            problems.append(f"{row['setting_id']}: unsupported chunk")
+        if (
+            "sensitivity" not in row["setting_id"]
+            and row["chunked_prefill_size"] != 4096
+        ):
+            problems.append(f"{row['setting_id']}: non-sensitivity chunk is not 4096")
+        unknown_arms = set(row["arms"]).difference(allowed_arms | allowed_footprints)
+        if unknown_arms:
+            problems.append(f"{row['setting_id']}: unknown arms {sorted(unknown_arms)}")
+        if row["rho_realization"] == "capacity_pinning":
+            if row["max_total_tokens"] is None:
+                problems.append(
+                    f"{row['setting_id']}: capacity pinning lacks max_total_tokens"
+                )
+            elif row["max_total_tokens"] > row["known_capacity_ceiling_tokens"]:
+                problems.append(
+                    f"{row['setting_id']}: pinned capacity exceeds known ceiling"
+                )
+        elif row["rho_realization"] == "filler_pool":
+            if row["max_total_tokens"] is not None:
+                problems.append(
+                    f"{row['setting_id']}: filler realization pins capacity"
+                )
+        else:
+            problems.append(f"{row['setting_id']}: unknown rho realization")
+        if row["restart_indices"] != (
+            row["screening_restarts"] + row["supplement_restarts"]
+        ):
+            problems.append(f"{row['setting_id']}: restart waves do not compose")
+        if row["supplement_restarts"] and not row["supplement_gate"]:
+            problems.append(f"{row['setting_id']}: supplements lack a gate")
+
     budget = manifest["budget"]
     committed = [row for row in manifest["settings"] if not row["conditional"]]
     conditional = [row for row in manifest["settings"] if row["conditional"]]
@@ -604,20 +859,63 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
         problems.append("conditional start count mismatch")
     if committed_starts + conditional_starts != budget["all_server_starts"]:
         problems.append("total start count mismatch")
+    if len(committed) != budget["committed_gpu_settings"]:
+        problems.append("committed setting count mismatch")
+    if len(conditional) != budget["conditional_gpu_settings"]:
+        problems.append("conditional setting count mismatch")
+    if len(manifest["settings"]) != budget["all_gpu_settings"]:
+        problems.append("total setting count mismatch")
     if budget["all_server_starts"] > budget["hard_cap_server_starts"]:
         problems.append("server-start budget exceeds hard cap")
     if manifest["statistics"]["mde"]["mde_fraction"] != 0.05:
         problems.append("MDE is not frozen to 5%")
-    if manifest["phase7_execution_authorized"]:
-        problems.append("Phase7 must not be authorized by this manifest")
-    if not manifest["execution_blockers"]:
-        problems.append("pre-implementation manifest must remain blocked")
+    status = manifest.get("status")
+    authorized = manifest.get("phase7_execution_authorized")
+    pinned_sha = manifest["implementation"].get("phase7_pinned_implementation_sha")
+    blockers = manifest["execution_blockers"]
+    if status == "preregistered_blocked":
+        if authorized or pinned_sha is not None or not blockers:
+            problems.append("invalid preregistered_blocked state")
+    elif status == "pinned_blocked":
+        if authorized or pinned_sha is None or not blockers:
+            problems.append("invalid pinned_blocked state")
+    elif status == "authorized":
+        if not authorized or pinned_sha is None or blockers:
+            problems.append("invalid authorized state")
+    else:
+        problems.append(f"unknown manifest status: {status}")
+
     for runner_name in ("ceiling", "scheduler"):
         status = manifest["runners"][runner_name]
-        if status["exists"] and runner_name in manifest["execution_blockers"]:
-            problems.append(f"{runner_name} exists but remains listed as missing")
-        if not status["exists"] and runner_name not in manifest["execution_blockers"]:
-            problems.append(f"{runner_name} missing without execution blocker")
+        missing_blocker = f"missing_runner:{runner_name}"
+        pending_blocker = f"runner_not_ready:{runner_name}"
+        if not status["exists"] and missing_blocker not in blockers:
+            problems.append(f"{runner_name} missing without blocker")
+        if status["exists"] and missing_blocker in blockers:
+            problems.append(f"{runner_name} exists but listed as missing")
+        if status["exists"] and status["cpu_test_status"] != "passed":
+            if pending_blocker not in blockers:
+                problems.append(f"{runner_name} untested without blocker")
+        if status["exists"] and status["review_status"] != "reviewed":
+            if pending_blocker not in blockers:
+                problems.append(f"{runner_name} unreviewed without blocker")
+
+    manifest_runner = manifest["runners"]["manifest"]
+    manifest_path = Path(manifest_runner["path"])
+    if not manifest_path.exists():
+        problems.append("manifest builder is missing")
+    elif sha256_file(manifest_path) != manifest_runner["sha256"]:
+        problems.append("manifest builder hash mismatch")
+    generation_sha = manifest["implementation"]["manifest_generation_sha"]
+    blob = subprocess.run(
+        ("git", "show", f"{generation_sha}:{manifest_runner['path']}"),
+        capture_output=True,
+    )
+    if blob.returncode != 0:
+        problems.append("manifest builder is absent from generation commit")
+    elif sha256_bytes(blob.stdout) != manifest_runner["sha256"]:
+        problems.append("generation commit has a different manifest builder")
+
     if manifest["server_template"]["test_only_injection_flags"] != {
         "SGLANG_APPROX_KV_TEST_ONLY": "0",
         "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE": "0",
@@ -628,8 +926,24 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
     for workload in manifest["workloads"]["A8"]["workloads"]:
         if len(workload["targets"]) != 8:
             problems.append(f"{workload['workload_id']} does not have 8 targets")
+        keys = [
+            extra_key
+            for target in workload["targets"]
+            for extra_key in target["extra_keys_by_arm"].values()
+        ]
+        if len(keys) != len(set(keys)):
+            problems.append(f"{workload['workload_id']} has duplicate arm keys")
     if not manifest["workloads"]["W"]["request_order"]:
         problems.append("W request order is empty")
+    request_order = manifest["workloads"]["W"]["request_order"]
+    if [row["request_index"] for row in request_order] != list(
+        range(len(request_order))
+    ):
+        problems.append("W request indexes are not contiguous")
+    if len(manifest["workloads"]["W"]["objects"]) != 40:
+        problems.append("W object count is not 40")
+    if len(manifest["workloads"]["filler_pool"]["pool"]) != 64:
+        problems.append("filler pool count is not 64")
     if args.check_plan:
         plan_repo = args.plan_repo.resolve()
         blob = subprocess.run(
@@ -654,20 +968,40 @@ def main() -> int:
     parser.add_argument(
         "--plan-repo",
         type=Path,
-        default=Path("/home/chris/Workspaces/code-agent-kvcache"),
+        required=True,
     )
     parser.add_argument(
         "--plan-path",
         type=Path,
-        default=Path(
-            "/home/chris/Workspaces/code-agent-kvcache/" "IMPLEMENTATION_PLAN_LATEST.md"
-        ),
+        required=True,
     )
     parser.add_argument(
         "--plan-file-in-repo",
         default="IMPLEMENTATION_PLAN_LATEST.md",
     )
     parser.add_argument("--plan-commit")
+    parser.add_argument("--manifest-revision", type=int, default=1)
+    parser.add_argument("--supersedes-manifest-sha256")
+    parser.add_argument("--revision-reason", default="initial preregistration")
+    parser.add_argument(
+        "--status",
+        choices=("preregistered_blocked", "pinned_blocked", "authorized"),
+        default="preregistered_blocked",
+    )
+    parser.add_argument("--authorize", action="store_true")
+    parser.add_argument("--phase7-pinned-implementation-sha")
+    parser.add_argument(
+        "--runner-ready",
+        action="append",
+        choices=("ceiling", "scheduler"),
+        default=[],
+    )
+    parser.add_argument(
+        "--r2-strategy",
+        choices=("pending", "adapter", "disabled_not_comparable"),
+        default="pending",
+    )
+    parser.add_argument("--enable-rho3", action="store_true")
     parser.add_argument(
         "--phase6-evidence-sha",
         default="924c9d1d6c074f304189248f0fc5b15aa6d25adb",
