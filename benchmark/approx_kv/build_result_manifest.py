@@ -78,7 +78,7 @@ def blob_sha256_at(commit: str, path: Path) -> str | None:
 
 def build_entries(results: Path, manifest_path: Path) -> list[dict]:
     entries = []
-    for path in sorted(results.iterdir()):
+    for path in sorted(results.rglob("*")):
         if not path.is_file() or path == manifest_path:
             continue
         entries.append(
@@ -100,7 +100,7 @@ def check(results: Path, manifest_path: Path) -> int:
     problems: list[str] = []
     listed = {entry["file"] for entry in manifest["files"]}
 
-    for path in sorted(results.iterdir()):
+    for path in sorted(results.rglob("*")):
         if path.is_file() and path != manifest_path:
             if str(path) not in listed:
                 problems.append(f"{path}: present on disk but absent from manifest")

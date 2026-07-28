@@ -5,6 +5,7 @@ import json
 import unittest
 from argparse import Namespace
 from pathlib import Path
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -20,6 +21,7 @@ from benchmark.approx_kv.build_phase7_manifest import (
     build_settings,
 )
 from benchmark.approx_kv.phase6.manifest import build_fixed40_manifest
+from benchmark.approx_kv.build_result_manifest import build_entries
 from benchmark.approx_kv.phase6.schema import payload_sha256
 from benchmark.approx_kv.phase7.common import Phase7ContractError
 from benchmark.approx_kv.run_p6_0_contract import build_contract, verify_contract
@@ -167,6 +169,16 @@ def phase7_capacity_args(
 
 
 class TestPhase6Manifest(unittest.TestCase):
+    def test_result_manifest_recurses_into_phase7_evidence(self):
+        root = Path(__file__).resolve().parents[4]
+        results = root / "benchmark/approx_kv/results/phase7"
+        entries = build_entries(results, results / "RESULT_MANIFEST.json")
+        files = {Path(entry["file"]).as_posix() for entry in entries}
+        for name in ("ceiling-cpu.json", "scheduler-cpu.json", "capacity-pilot-cpu.json"):
+            self.assertTrue(
+                any(path.endswith(f"/phase7/evidence/{name}") for path in files)
+            )
+
     def test_manifest_is_deterministic_and_fixed(self):
         first = build_fixed40_manifest()
         second = build_fixed40_manifest()
