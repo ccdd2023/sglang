@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "artifact": "phase7-primary-manifest",
-  "manifest_revision": 5,
-  "supersedes_manifest_sha256": "6e5617aec12f70ea7ef423f425afad88cf36f67dfdb610107999ab8ce31dd0f3",
-  "supersedes_design_payload_sha256": "3cbd2cc1a7eb96fae8b85bb595a7c8bfb25aa6c04c1c2d57ab9bfad39f0c51ab",
+  "manifest_revision": 6,
+  "supersedes_manifest_sha256": "98cff1d8c1c8586335f33463bf98b2b494df78ebcbe8baceb47c32dc89e9ab78",
+  "supersedes_design_payload_sha256": "24f149f140cf593c68d90ad7d6959b1b008f804f71766bff35ddae2b4c95732d",
   "design_keys": [
     "plan",
     "environment",
@@ -22,68 +22,87 @@
     "artifact_templates",
     "skipped_tracks",
     "required_inactive_counters",
-    "scope_caveats"
+    "scope_caveats",
+    "review_contract"
   ],
-  "revision_reason": "bind final V5 Latest status and handoff text; no settings/workload change",
-  "status": "preregistered_blocked",
+  "revision_reason": "V6: bind reviewed runners, disable infeasible R2 GPU cells, freeze source-pin/segment/envelope contracts, and await final Opus review",
+  "status": "pinned_blocked",
   "phase7_execution_authorized": false,
   "plan": {
-    "version": "V5",
-    "plan_commit": "d314cc4143b6d9ceffa08240fc13139c382c4529",
+    "version": "V6",
+    "plan_commit": "14af11575873db675573169dd84cafa705f5e282",
     "plan_file": "IMPLEMENTATION_PLAN_LATEST.md",
-    "plan_sha256": "ba6aec34ed5f333fb55b76b5a8cf0152264f7d72b90cc1b0b5079cea51ac39da"
+    "plan_sha256": "27fb4cf5fc9aeb6bb6f8695ccb34184292f8aaed6bece001669dc145a5243591"
   },
   "implementation": {
-    "manifest_generation_sha": "6d0f1942e1cbd13d6719c4ddc8886e1f1bb44b72",
-    "manifest_generation_tree_sha": "8f3ea5c1b2a36c2ab4708aede606eb975ac83530",
+    "manifest_generation_sha": "8d0e42fbf975240a5999670a47243e9d99bc494d",
+    "manifest_generation_tree_sha": "d57eef524787c84a296ad166c0bd260eeb4a8f17",
     "phase6_evidence_sha": "924c9d1d6c074f304189248f0fc5b15aa6d25adb",
-    "phase7_pinned_implementation_sha": null,
-    "phase7_pinned_tree_sha": null,
+    "phase7_pinned_implementation_sha": "8d0e42fbf975240a5999670a47243e9d99bc494d",
+    "phase7_pinned_tree_sha": "d57eef524787c84a296ad166c0bd260eeb4a8f17",
     "atomic_update_required": [
       "phase7-primary-manifest.json",
+      "RESULT_MANIFEST.json"
+    ],
+    "external_authority_update_required": [
       "HANDOFF.md",
       "PROJECT.md",
       "TODO_LOCAL.txt"
-    ]
+    ],
+    "post_pin_envelope_allowlist": [
+      "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json",
+      "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
+      "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json"
+    ],
+    "post_pin_envelope_rule": "the pinned code SHA must be an ancestor of the execution HEAD and every path changed between them must appear in post_pin_envelope_allowlist"
   },
   "runners": {
     "ceiling": {
       "path": "benchmark/approx_kv/run_p7_ceiling.py",
-      "exists": false,
-      "sha256": null,
+      "exists": true,
+      "sha256": "8922ef943e9089a70255f03be4f564ca4614a4b56c5de04e0491e88995b49836",
       "required_cpu_test": "python3 -m pytest -q test/registered/unit/bench/test_run_p7_ceiling.py",
-      "cpu_test_status": "pending",
-      "review_status": "pending"
+      "cpu_test_status": "passed",
+      "review_status": "reviewed"
     },
     "scheduler": {
       "path": "benchmark/approx_kv/run_p7_scheduler.py",
-      "exists": false,
-      "sha256": null,
+      "exists": true,
+      "sha256": "4b7ac3e1e4617338f380dfa490e4103eea13a6ffd7765b8770d3e42d3ebefacc",
       "required_cpu_test": "python3 -m pytest -q test/registered/unit/bench/test_run_p7_scheduler.py",
-      "cpu_test_status": "pending",
-      "review_status": "pending"
+      "cpu_test_status": "passed",
+      "review_status": "reviewed"
     },
     "manifest": {
       "path": "benchmark/approx_kv/build_phase7_manifest.py",
       "exists": true,
-      "sha256": "2303aab200e00d8a01ddc35e460314e90cdcec0c541c043ed29ea0f2ab07b772",
+      "sha256": "a8ab1a29ec7c6aa0132318bcec329ac742ab05972c6db1ff0dca26c99e2d3f6f",
       "required_cpu_test": "python3 -m benchmark.approx_kv.build_phase7_manifest --check",
       "cpu_test_status": "passed",
       "review_status": "reviewed"
     }
   },
-  "r2_strategy": "pending",
+  "r2_strategy": "disabled_not_comparable",
   "conditional_resolution": {
     "CR-P6DELTA-RHO3": "disabled_scoped_chunk1024",
-    "CR-R2-ADAPTER": "pending"
+    "CR-R2-ADAPTER": "disabled_not_comparable"
   },
   "execution_blockers": [
-    "missing_runner:ceiling",
-    "missing_runner:scheduler",
-    "phase7_pinned_implementation_sha_pending",
-    "r2_strategy_pending",
-    "explicit_user_authorization_missing"
+    "final_opus_review_pending"
   ],
+  "conditional_user_authorization_recorded": true,
+  "review_contract": {
+    "final_opus_required": true,
+    "reviewer": "Claude Opus 5 / Max Thinking / long context",
+    "scope": "final V6 plan, manifest, runners, Docker CPU evidence, R2 disposition, implementation binding, budget and early-stop",
+    "pass_condition": "no open P0/P1 after accepted-feedback closure",
+    "artifact_path": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
+    "authorization_activation": "the recorded conditional user authorization becomes active only after this review passes"
+  },
+  "review_evidence": {
+    "status": "pending",
+    "artifact_sha256": null
+  },
   "environment": {
     "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
     "model": "Qwen/Qwen3-0.6B",
@@ -118,6 +137,8 @@
       "SGLANG_APPROX_KV_BYTES_PER_TOKEN": "114688",
       "SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
       "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT": "1",
+      "SGLANG_APPROX_KV_ALLOW_PERSISTENT_PINS": "1",
+      "SGLANG_APPROX_KV_MAX_PERSISTENT_PINS": "16",
       "SGLANG_APPROX_KV_TEST_ONLY": "0",
       "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE": "0"
     }
@@ -127,6 +148,9 @@
       "schema_version": 1,
       "prompt_family_version": "p7-a8-v1",
       "targets_per_setup": 8,
+      "segment_tokens_max": 512,
+      "source_pin_until_reset": true,
+      "source_pin_mechanism": "persistent_registration_lease_until_reset",
       "workloads": [
         {
           "workload_id": "A8-body1024",
@@ -143,8 +167,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b1024-target-0-D0",
                 "E0": "p7-a8-b1024-target-0-E0",
-                "R0": "p7-a8-b1024-target-0-R0",
-                "R2": "p7-a8-b1024-target-0-R2"
+                "R0": "p7-a8-b1024-target-0-R0"
               },
               "header_token_sha256": "df8729a5daa56729daf61209371d69f524d2b5c3312c341292da42484de6acac",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
@@ -159,8 +182,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b1024-target-1-D0",
                 "E0": "p7-a8-b1024-target-1-E0",
-                "R0": "p7-a8-b1024-target-1-R0",
-                "R2": "p7-a8-b1024-target-1-R2"
+                "R0": "p7-a8-b1024-target-1-R0"
               },
               "header_token_sha256": "4c6f03ec1493aded46e7ce05f7a556d0176eb4ef24ff9041e8731725797e94a1",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
@@ -175,8 +197,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b1024-target-2-D0",
                 "E0": "p7-a8-b1024-target-2-E0",
-                "R0": "p7-a8-b1024-target-2-R0",
-                "R2": "p7-a8-b1024-target-2-R2"
+                "R0": "p7-a8-b1024-target-2-R0"
               },
               "header_token_sha256": "652eb6d75f86611ab822d1fc704c9e94312440eb76f92d025ad65c1f9758eecf",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
@@ -191,8 +212,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b1024-target-3-D0",
                 "E0": "p7-a8-b1024-target-3-E0",
-                "R0": "p7-a8-b1024-target-3-R0",
-                "R2": "p7-a8-b1024-target-3-R2"
+                "R0": "p7-a8-b1024-target-3-R0"
               },
               "header_token_sha256": "5902f21ddd87647a66bb3419917d953cc64a1d90cbe152d49681109333d21194",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
@@ -207,8 +227,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b1024-target-4-D0",
                 "E0": "p7-a8-b1024-target-4-E0",
-                "R0": "p7-a8-b1024-target-4-R0",
-                "R2": "p7-a8-b1024-target-4-R2"
+                "R0": "p7-a8-b1024-target-4-R0"
               },
               "header_token_sha256": "331723b85e10b27cf4dbb5e7429048814e65910b60a761cf3dab3d7f26e83c2e",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
@@ -223,8 +242,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b1024-target-5-D0",
                 "E0": "p7-a8-b1024-target-5-E0",
-                "R0": "p7-a8-b1024-target-5-R0",
-                "R2": "p7-a8-b1024-target-5-R2"
+                "R0": "p7-a8-b1024-target-5-R0"
               },
               "header_token_sha256": "b62fc6302ee70ffbdb4c8c0287c9916ab1685a1d9b9d38f8b13ee5d3c32475b9",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
@@ -239,8 +257,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b1024-target-6-D0",
                 "E0": "p7-a8-b1024-target-6-E0",
-                "R0": "p7-a8-b1024-target-6-R0",
-                "R2": "p7-a8-b1024-target-6-R2"
+                "R0": "p7-a8-b1024-target-6-R0"
               },
               "header_token_sha256": "aee69b27a9347eabb2459c605ee1facbf56d4728931d4934971868efa7f03973",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
@@ -255,8 +272,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b1024-target-7-D0",
                 "E0": "p7-a8-b1024-target-7-E0",
-                "R0": "p7-a8-b1024-target-7-R0",
-                "R2": "p7-a8-b1024-target-7-R2"
+                "R0": "p7-a8-b1024-target-7-R0"
               },
               "header_token_sha256": "63ed7d2966f9b9f4ece383dd77e81615b96ebe0007a8a79d8369cb100d21c659",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
@@ -273,8 +289,7 @@
             "max_new_tokens": 8,
             "placement": "after_target_8_before_reset",
             "arms": [
-              "R0",
-              "R2"
+              "R0"
             ],
             "included_in_amortization": false,
             "any_token_mismatch_is_invalid": true
@@ -295,8 +310,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b2048-target-0-D0",
                 "E0": "p7-a8-b2048-target-0-E0",
-                "R0": "p7-a8-b2048-target-0-R0",
-                "R2": "p7-a8-b2048-target-0-R2"
+                "R0": "p7-a8-b2048-target-0-R0"
               },
               "header_token_sha256": "df8729a5daa56729daf61209371d69f524d2b5c3312c341292da42484de6acac",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
@@ -311,8 +325,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b2048-target-1-D0",
                 "E0": "p7-a8-b2048-target-1-E0",
-                "R0": "p7-a8-b2048-target-1-R0",
-                "R2": "p7-a8-b2048-target-1-R2"
+                "R0": "p7-a8-b2048-target-1-R0"
               },
               "header_token_sha256": "4c6f03ec1493aded46e7ce05f7a556d0176eb4ef24ff9041e8731725797e94a1",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
@@ -327,8 +340,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b2048-target-2-D0",
                 "E0": "p7-a8-b2048-target-2-E0",
-                "R0": "p7-a8-b2048-target-2-R0",
-                "R2": "p7-a8-b2048-target-2-R2"
+                "R0": "p7-a8-b2048-target-2-R0"
               },
               "header_token_sha256": "652eb6d75f86611ab822d1fc704c9e94312440eb76f92d025ad65c1f9758eecf",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
@@ -343,8 +355,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b2048-target-3-D0",
                 "E0": "p7-a8-b2048-target-3-E0",
-                "R0": "p7-a8-b2048-target-3-R0",
-                "R2": "p7-a8-b2048-target-3-R2"
+                "R0": "p7-a8-b2048-target-3-R0"
               },
               "header_token_sha256": "5902f21ddd87647a66bb3419917d953cc64a1d90cbe152d49681109333d21194",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
@@ -359,8 +370,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b2048-target-4-D0",
                 "E0": "p7-a8-b2048-target-4-E0",
-                "R0": "p7-a8-b2048-target-4-R0",
-                "R2": "p7-a8-b2048-target-4-R2"
+                "R0": "p7-a8-b2048-target-4-R0"
               },
               "header_token_sha256": "331723b85e10b27cf4dbb5e7429048814e65910b60a761cf3dab3d7f26e83c2e",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
@@ -375,8 +385,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b2048-target-5-D0",
                 "E0": "p7-a8-b2048-target-5-E0",
-                "R0": "p7-a8-b2048-target-5-R0",
-                "R2": "p7-a8-b2048-target-5-R2"
+                "R0": "p7-a8-b2048-target-5-R0"
               },
               "header_token_sha256": "b62fc6302ee70ffbdb4c8c0287c9916ab1685a1d9b9d38f8b13ee5d3c32475b9",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
@@ -391,8 +400,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b2048-target-6-D0",
                 "E0": "p7-a8-b2048-target-6-E0",
-                "R0": "p7-a8-b2048-target-6-R0",
-                "R2": "p7-a8-b2048-target-6-R2"
+                "R0": "p7-a8-b2048-target-6-R0"
               },
               "header_token_sha256": "aee69b27a9347eabb2459c605ee1facbf56d4728931d4934971868efa7f03973",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
@@ -407,8 +415,7 @@
               "extra_keys_by_arm": {
                 "D0": "p7-a8-b2048-target-7-D0",
                 "E0": "p7-a8-b2048-target-7-E0",
-                "R0": "p7-a8-b2048-target-7-R0",
-                "R2": "p7-a8-b2048-target-7-R2"
+                "R0": "p7-a8-b2048-target-7-R0"
               },
               "header_token_sha256": "63ed7d2966f9b9f4ece383dd77e81615b96ebe0007a8a79d8369cb100d21c659",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
@@ -425,20 +432,20 @@
             "max_new_tokens": 8,
             "placement": "after_target_8_before_reset",
             "arms": [
-              "R0",
-              "R2"
+              "R0"
             ],
             "included_in_amortization": false,
             "any_token_mismatch_is_invalid": true
           }
         }
       ],
-      "manifest_sha256": "76e021289465e783cd8e7e5c5740c7490d19de126fee89d38f672b8cc31e668a"
+      "manifest_sha256": "600b507f5443a529a12193395700928d115be6a3155cc7f85e5b46d7416796b5"
     },
     "W": {
       "schema_version": 1,
       "workload_id": "W-fixed40-v1",
       "source_workload_sha256": "30c9ae8de429a6389e58bbdcdf096101cf6296ff14d4e6fcf5c2b87c6b1f0749",
+      "segment_tokens_max": 512,
       "objects": [
         {
           "active": true,
@@ -1439,7 +1446,7 @@
           "next_use_request_index": null
         }
       ],
-      "manifest_sha256": "709b576ed5e6b3778354b9934e62e2bfcbaa80dbd4b90512509b0b4fc3312c14"
+      "manifest_sha256": "2d02daa2f5f2b4f11e65158cf5bf1b863ff46c7abe19150495df4887efe54851"
     },
     "filler_pool": {
       "schema_version": 1,
@@ -1837,7 +1844,7 @@
     "D0": "dense_no_reuse_baseline",
     "E0": "exact_cache",
     "R0": "raw_copy_ceiling",
-    "R2": "conditional_cross_store_adapter_or_not_comparable",
+    "R2": "disabled_not_comparable_historical_only",
     "R4-like-5x": "synthetic_footprint_proxy_not_kvcomm"
   },
   "footprint_profiles": {
@@ -2602,103 +2609,11 @@
         ]
       },
       "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
-    },
-    {
-      "setting_id": "p7-a8-r2-rho1.5",
-      "wave": "conditional",
-      "runner": "benchmark.approx_kv.run_p7_ceiling",
-      "workload": "A8-body2048",
-      "body_tokens": 2048,
-      "rho_logical_demand": 1.5,
-      "chunked_prefill_size": 4096,
-      "max_prefill_tokens": 4096,
-      "policy": "lru",
-      "restart_indices": [
-        0
-      ],
-      "screening_restarts": [
-        0
-      ],
-      "supplement_restarts": [],
-      "supplement_gate": null,
-      "warmup_repeats": 1,
-      "formal_repeats": 2,
-      "arms": [
-        "D0",
-        "E0",
-        "R2"
-      ],
-      "conditional": true,
-      "activation_rule_id": "CR-R2-ADAPTER",
-      "max_total_tokens": null,
-      "mem_fraction_static": 0.35,
-      "capacity_mode": "natural_capacity",
-      "rho_realization": "filler_pool",
-      "known_capacity_ceiling_tokens": 13130,
-      "arm_order_by_repeat": {
-        "0": [
-          "D0",
-          "E0",
-          "R2"
-        ],
-        "1": [
-          "R2",
-          "E0",
-          "D0"
-        ]
-      },
-      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
-    },
-    {
-      "setting_id": "p7-a8-r2-rho2.0",
-      "wave": "conditional",
-      "runner": "benchmark.approx_kv.run_p7_ceiling",
-      "workload": "A8-body2048",
-      "body_tokens": 2048,
-      "rho_logical_demand": 2.0,
-      "chunked_prefill_size": 4096,
-      "max_prefill_tokens": 4096,
-      "policy": "lru",
-      "restart_indices": [
-        0
-      ],
-      "screening_restarts": [
-        0
-      ],
-      "supplement_restarts": [],
-      "supplement_gate": null,
-      "warmup_repeats": 1,
-      "formal_repeats": 2,
-      "arms": [
-        "D0",
-        "E0",
-        "R2"
-      ],
-      "conditional": true,
-      "activation_rule_id": "CR-R2-ADAPTER",
-      "max_total_tokens": null,
-      "mem_fraction_static": 0.35,
-      "capacity_mode": "natural_capacity",
-      "rho_realization": "filler_pool",
-      "known_capacity_ceiling_tokens": 13130,
-      "arm_order_by_repeat": {
-        "0": [
-          "D0",
-          "E0",
-          "R2"
-        ],
-        "1": [
-          "R2",
-          "E0",
-          "D0"
-        ]
-      },
-      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     }
   ],
   "conditional_rules": {
     "CR-P6DELTA-RHO3": "enable only if the final report will make a chunk4096/rho3 claim; otherwise resolve disabled and keep rho3 feasibility scoped to chunk1024",
-    "CR-R2-ADAPTER": "enable only after the cross-store R2 adapter exists, passes CPU tests and is pinned in the Phase7 implementation SHA; otherwise resolve disabled/not_comparable"
+    "CR-R2-ADAPTER": "resolved disabled_not_comparable after bounded feasibility showed that restoring R2 would change frozen core dispatch"
   },
   "early_stops": [
     {
@@ -2719,7 +2634,7 @@
     {
       "rule_id": "ES-W-UNCONDITIONAL",
       "checkpoint": "none",
-      "rule": "W and chunk1024 sensitivity supplements are unconditional per V5; only ES-ENGINEERING can stop them. ES-R0-MDE governs A8 supplements only."
+      "rule": "W and chunk1024 sensitivity supplements are unconditional per V6; only ES-ENGINEERING can stop them. ES-R0-MDE governs A8 supplements only."
     },
     {
       "rule_id": "ES-CHUNK-HEADLINE",
@@ -2740,28 +2655,27 @@
   "budget": {
     "committed_gpu_settings": 13,
     "committed_server_starts": 30,
-    "conditional_gpu_settings": 3,
-    "conditional_server_starts": 3,
-    "all_gpu_settings": 16,
-    "all_server_starts": 33,
+    "conditional_gpu_settings": 1,
+    "conditional_server_starts": 1,
+    "all_gpu_settings": 14,
+    "all_server_starts": 31,
     "expected_gpu_hours": {
       "wave-0": 0.3,
       "wave-1": 0.4,
       "wave-2": 2.9,
-      "conditional": 0.4
+      "conditional": 0.2
     },
-    "expected_gpu_hours_total": 4.0,
+    "expected_gpu_hours_total": 3.8,
     "expected_minutes_per_start_by_runner": {
       "run_p6_4_capacity_pilot": 9,
       "run_p7_ceiling_A8": 6,
       "run_p7_ceiling_sensitivity": 6,
       "run_p7_scheduler_W": 8,
-      "run_p7_scheduler_R4_like": 8,
-      "conditional_R2": 6
+      "run_p7_scheduler_R4_like": 8
     },
     "hard_cap_server_starts": 36,
     "hard_cap_gpu_hours": 6,
-    "gpu_hour_headroom": 2.0,
+    "gpu_hour_headroom": 2.2,
     "minimum_headroom_fraction": 0.15,
     "retries_count_against_cap": true
   },
@@ -2775,6 +2689,7 @@
   "skipped_tracks": [
     "practical_recovery",
     "practical_scheduler_revalidation",
+    "r2_phase7_adapter",
     "hicache_adapter",
     "host_matrix",
     "prefetch_functionality",
@@ -2790,12 +2705,12 @@
   "scope_caveats": [
     "practical=NONE is scoped to the tested implementation and chunk1024 qualification",
     "R0 is a ceiling, not a practical candidate",
-    "R2 is conditional and otherwise not_comparable historical evidence",
+    "R2 is disabled_not_comparable and retained only as historical evidence",
     "R4-like is a synthetic footprint proxy, not KVCOMM execution",
     "P6-F verifies fault-injected fallback only; natural pressure reachability is unproven",
     "P6-4 rho1.1/rho1.5/rho3 feasibility remains chunk1024 unless separately revalidated",
     "host/prefetch/async tracks are not generated in V5"
   ],
-  "design_payload_sha256": "24f149f140cf593c68d90ad7d6959b1b008f804f71766bff35ddae2b4c95732d",
-  "preregistered_manifest_sha256": "98cff1d8c1c8586335f33463bf98b2b494df78ebcbe8baceb47c32dc89e9ab78"
+  "design_payload_sha256": "2076555ee898725215c60c3be61319c0913eaaf53480f7f30e5eaab55be66c6f",
+  "preregistered_manifest_sha256": "cc899d01c538f2f0a7f90565bed6579ee79f3aa5afe5825f190a460936d4428e"
 }
