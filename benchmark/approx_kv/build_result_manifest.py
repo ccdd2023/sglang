@@ -171,8 +171,9 @@ def main() -> int:
             ]
             if args.phase == "phase6"
             else [
-                "The Phase7 manifest is pre-implementation and blocked. "
-                "Runner outputs and logs do not exist yet."
+                "The Phase7 plan, runners and implementation are pinned. "
+                "Execution remains blocked on the mandatory final Opus "
+                "review, so GPU result artifacts and logs do not exist yet."
             ]
         ),
         "environment": ENVIRONMENT,
