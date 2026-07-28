@@ -2929,3 +2929,30 @@ technical_exit = PASS WITH CAVEATS
 - accepted feedback必须闭合；若design改变，必须旧版归档、新版latest、
   新design hash并再次review。
 - 只有最终无开放P0/P1，条件性授权才生效，manifest才可转`authorized`。
+
+## 2026-07-28T04:31:07-07:00 — Phase7 runners完成、R2禁用并创建V6 candidate
+
+- R2 bounded feasibility：
+  - 历史CacheBlend实现与core hooks已删除；
+  - 恢复至少需要修改scheduler/runtime dispatch和store lifecycle；
+  - 按方案B停止条件选择`disabled_not_comparable`，无Phase7 R2 GPU cell。
+- 实现两个Phase7 runner、共享common/statistics、真实A8 N=1/2/4/8、
+  W-fixed40 paired统计、R4-like diagnostic与execution envelope。
+- review修复包括：
+  - startup missing labeled gauge；
+  - commit/tree自包含pin循环；
+  - process-lifetime peak跨arm污染；
+  - approx memory双计；
+  - churn/wasted双计；
+  - terminal reason catch-all；
+  - A8/W segment freeze；
+  - A8 source persistent `pin_until_reset`；
+  - reset accounting与artifact provenance。
+- 固定Docker镜像最终targeted suite：
+  `152 passed + 10 subtests`。
+- 三轮targeted review最终无开放P0/P1。
+- final code pin=`4177cb97122887c5729b275076dedec6560a55ba`。
+- V5以commit `d314cc41...`和文件SHA
+  `ba6aec34...`归档；创建V6 candidate。
+- V6预算：13 committed/30 starts；含rho3条件项14/31；3.8 expected GPUh。
+- Phase7仍未开始；下一步rev6 manifest与final Opus review。

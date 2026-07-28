@@ -209,20 +209,24 @@ The caveat is permanent:
        Received 2026-07-28: execute Phase7 only after runners, R2 strategy,
        final pin, plan disposition and final Opus review are complete.
 
-[ ] 11. Implement and review run_p7_ceiling.py and run_p7_scheduler.py.
-       Both must pass CPU tests and targeted review before the manifest may
-       transition from preregistered_blocked to pinned_blocked.
+[x] 11. Implement and review run_p7_ceiling.py and run_p7_scheduler.py.
+       DONE at final code pin 4177cb97122887c5729b275076dedec6560a55ba.
+       Docker targeted suite: 152 passed + 10 subtests.
+       Three targeted review rounds closed all P0/P1.
 
-[ ] 12. Resolve R2 strategy.
-       Choose adapter (implement/test/review) or disabled_not_comparable.
-       Do not silently treat the Phase4 harness as cross-store Phase7 data.
+[x] 12. Resolve R2 strategy.
+       DONE: disabled_not_comparable. Bounded feasibility proved that restoring
+       the removed CacheBlend package would change frozen core dispatch.
+       V6 removes the two Phase7 R2 GPU settings.
 
 [ ] 13. Pin the Phase7 implementation SHA atomically.
-       Generate manifest revision 6 with the final runner SHA/tree/blob hashes;
-       update HANDOFF/PROJECT/TODO together.
+       Final code pin:
+       4177cb97122887c5729b275076dedec6560a55ba
+       Generate manifest revision 6 with final runner SHA/tree/blob hashes and
+       V6 plan commit; update HANDOFF/PROJECT/TODO together.
        Rev6 must supersede envelope hash
        98cff1d8c1c8586335f33463bf98b2b494df78ebcbe8baceb47c32dc89e9ab78
-       and preserve design hash
+       and explicitly supersede design hash
        24f149f140cf593c68d90ad7d6959b1b008f804f71766bff35ddae2b4c95732d.
 
 [ ] 14. Final Opus 5 Max Thinking review before Phase7 execution.
@@ -237,7 +241,7 @@ The caveat is permanent:
 
 [ ] Targeted P6-4 rerun if the immediate-cleanup change alters the
     admission/capacity path; start with S0/rho2 and S4/rho3.
-[x] Chunk migration condition IS triggered and moved into V5 P7-0b:
+[x] Chunk migration condition IS triggered and moved into V6 P7-0b:
     required S4/rho2 and S0/rho2 at chunk/max-prefill4096; S4/rho3 conditional.
 [ ] R2/R5 matched ratio/pressure only for a mechanism-ranking claim.
 [ ] R2/R5 rho1.1/rho3 only for a rho-robustness claim.

@@ -2,14 +2,14 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-28T00:07:40-07:00
+最后更新：2026-07-28T04:31:07-07:00
 
 ## 项目概况
 
 | 项目 | 当前值 |
 | --- | --- |
 | 名称 | `code-agent-kvcache` |
-| 阶段 | Phase6=`PASS WITH CAVEATS`；V5 Current/Latest与Phase7 manifest rev5已封版；execution仍blocked；未进入Phase7 |
+| 阶段 | Phase6=`PASS WITH CAVEATS`；V5已归档；V6 Candidate与rev6 manifest待最终Opus review；未进入Phase7 |
 | 业务目标 | 在 SGLang 上比较多种跨 context 近似 KV 恢复与 workflow-aware cache scheduling，降低 Coding Agent TTFT |
 | 技术栈 | SGLang、HiCache、Docker、KVFlow、KVCOMM、CacheBlend、Cache-Craft、EPIC、CacheTune |
 | 默认分支 | `main` |
@@ -26,6 +26,40 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-28T04:31:07-07:00 V6 Candidate、runner完成与R2最终disposition
+
+- 用户选择方案B后，已按预定停止条件完成bounded R2 feasibility：
+  - 历史CacheBlend package与core hooks已删除；
+  - 恢复R2必须修改冻结的scheduler/runtime dispatch与store lifecycle；
+  - 因此非侵入adapter不可行，按方案B决策树冻结
+    `R2=disabled_not_comparable`。
+- 已实现：
+  - `run_p7_ceiling.py`；
+  - `run_p7_scheduler.py`；
+  - Phase7 common/statistics模块；
+  - A8 persistent `pin_until_reset` source lease；
+  - code-pin/execution-envelope验证；
+  - per-arm peak、memory/churn/terminal taxonomy修复。
+- 固定Docker镜像targeted suite：
+  - `152 passed`；
+  - `10 subtests passed`。
+- 三轮targeted review已关闭全部P0/P1；最后一轮无开放P0/P1。
+- final implementation code pin：
+  `4177cb97122887c5729b275076dedec6560a55ba`。
+- V5完整内容由commit `d314cc41...`与SHA-256归档；
+  `IMPLEMENTATION_PLAN_V5_ARCHIVED.md`为定位入口。
+- V6矩阵：
+  - 13 committed GPU settings / 30 starts；
+  - 1 conditional rho3 setting / 1 start；
+  - 14 settings / 31 starts total；
+  - expected `3.8 GPUh`，hard cap `6 GPUh`。
+- 当前仍需：
+  1. 提交V6 candidate plan；
+  2. 生成并pin rev6 manifest；
+  3. Opus 5 Max Thinking最终review与feedback closure；
+  4. 条件性授权生效后才转`authorized`。
+- 仍未进入Phase7。
 
 ### 2026-07-28 最终Phase7计划增加Opus 5 Max Thinking强制复核门
 

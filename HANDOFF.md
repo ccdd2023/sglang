@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-28T00:07:40-07:00
+最后更新：2026-07-28T04:31:07-07:00
 
 ## 新会话启动顺序
 
@@ -12,6 +12,20 @@
 6. 开始工作后持续维护上述文件，不把重要信息只留在聊天中。
 
 ## 当前快照
+
+### 2026-07-28T04:31:07-07:00 V6 candidate与runner完成
+
+- V5已通过不可变commit/hash归档。
+- V6 candidate已创建；R2=`disabled_not_comparable`，删除Phase7 R2 GPU cells。
+- 两个Phase7 runner及共享模块已实现。
+- Docker targeted suite=`152 passed + 10 subtests`。
+- 三轮targeted review无开放P0/P1。
+- final code pin=`4177cb97122887c5729b275076dedec6560a55ba`。
+- 最终矩阵：13 committed/30 starts；含rho3条件项14/31；
+  expected 3.8 GPUh，hard cap 6 GPUh。
+- 下一步：提交V6 plan → 生成rev6 pinned manifest → Opus 5 Max Thinking
+  final review → closure → 条件性授权生效。
+- Phase7仍未开始。
 
 ### 2026-07-28T00:07:40-07:00 新增最终Opus审阅门
 
