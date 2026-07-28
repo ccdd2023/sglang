@@ -2,14 +2,14 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-28T08:52:08-07:00
+最后更新：2026-07-28T09:23:55-07:00
 
 ## 项目概况
 
 | 项目 | 当前值 |
 | --- | --- |
 | 名称 | `code-agent-kvcache` |
-| 阶段 | Phase6=`PASS WITH CAVEATS`；V5/V6已归档；V7 byte-frozen candidate待增量Opus review；未进入Phase7 |
+| 阶段 | Phase6=`PASS WITH CAVEATS`；V5/V6已归档；V7 byte-frozen plan已激活为Current/Latest；等待authorized rev12；未进入Phase7 |
 | 业务目标 | 在 SGLang 上比较多种跨 context 近似 KV 恢复与 workflow-aware cache scheduling，降低 Coding Agent TTFT |
 | 技术栈 | SGLang、HiCache、Docker、KVFlow、KVCOMM、CacheBlend、Cache-Craft、EPIC、CacheTune |
 | 默认分支 | `main` |
@@ -26,6 +26,38 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-28T09:23:55-07:00 V7 final Opus PASS WITH CAVEATS
+
+- V7 plan commit=`c80ec165713772c533e17ef4c50f083c36dc9d72`，
+  通过外部authority激活为`Current / Latest`；plan blob不再修改。
+- rev11 review-of-record：
+  - self=`48c86bf0f4df6f5c8baa41fc6871e3bcdfba59ea46f9022875f8453f2d5a5236`；
+  - design=`50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987`；
+  - code pin=`81405f4278b034911bc613c4ee17c79d15ee8f35`；
+  - status=`pinned_blocked`；
+  - blocker仅`final_opus_review_pending`。
+- final Opus delta verdict=`PASS WITH CAVEATS`：
+  - open P0=`0`；
+  - open P1=`0`；
+  - entry=`READY_AFTER_REVIEW_ARTIFACT_AND_AUTH_REVISION`。
+- review artifact：
+  `benchmark/approx_kv/results/phase7/phase7-final-opus-review.json`；
+  artifact SHA=`2c83f7ddec41d65a937a6b71cab851230c0fb06ff725f09cb36dd596e81e8649`；
+  containing commit=`b0837505abc4efe7df914c3b504693956fe71df9`。
+- 固定执行策略：
+  - implementation worktree只读；
+  - linked-worktree gitdir所属主仓库
+    `/home/chris/Workspaces/kvcache-research/sglang-experiments`
+    必须以相同绝对路径只读挂载；
+  - 所有GPU wave输出保留在`/results/phase7` staging；
+  - **全部GPU wave结束后一次性复制、hash、版本化**，波次间不修改repo envelope。
+- 仍需生成rev12：
+  - supersede rev11 self hash；
+  - 保持design hash=`50003145...`；
+  - 绑定final review artifact；
+  - status=`authorized`，blockers=[]。
+- rev12完成前仍未进入Phase7。
 
 ### 2026-07-28T08:52:08-07:00 V7闭合最终Opus review findings
 

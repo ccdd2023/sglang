@@ -219,15 +219,16 @@ The caveat is permanent:
        the removed CacheBlend package would change frozen core dispatch.
        V7 removes the two Phase7 R2 GPU settings.
 
-[ ] 13. Pin the V7 Phase7 implementation SHA atomically.
+[x] 13. Pin the V7 Phase7 implementation SHA atomically.
        Final code pin:
        81405f4278b034911bc613c4ee17c79d15ee8f35
        CPU evidence commit:
        a01642fdd6cdc869cb2c991c23003ff600665f37
-       Generate a V7 pinned manifest binding the byte-frozen plan and all
-       three versioned runner evidence files.
+       DONE: rev11 binds the byte-frozen plan and all runner evidence.
+       self=48c86bf0f4df6f5c8baa41fc6871e3bcdfba59ea46f9022875f8453f2d5a5236
+       design=50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987
 
-[ ] 14. Final Opus 5 Max Thinking delta review before Phase7 execution.
+[x] 14. Final Opus 5 Max Thinking delta review before Phase7 execution.
        Review the final V7 plan, pinned manifest, runner/test/review evidence, R2
        disposition and pinned implementation. Close all accepted feedback.
        If the plan design changes, archive the old version, create a new
@@ -235,7 +236,15 @@ The caveat is permanent:
        no open P0/P1 may the conditional user authorization become active.
        Persist evidence at:
        benchmark/approx_kv/results/phase7/phase7-final-opus-review.json
-       V6 rev9 review failed with 1 P0/3 P1 and is superseded by V7.
+       DONE: PASS_WITH_CAVEATS; open P0/P1=0/0.
+       artifact SHA=2c83f7ddec41d65a937a6b71cab851230c0fb06ff725f09cb36dd596e81e8649
+
+[ ] 15. Activate the conditional authorization with manifest revision 12.
+       Supersede rev11 self hash, preserve design hash 50003145..., bind the
+       final review artifact, set status=authorized and blockers=[].
+       Before launch verify both Docker read-only mounts at identical paths.
+       Keep every GPU wave in /results/phase7 staging and version all results
+       only once after the full Phase7 execution.
 
 
 3.3 CONDITIONAL - ONLY IF TRIGGERED

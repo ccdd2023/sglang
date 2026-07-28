@@ -3026,3 +3026,26 @@ technical_exit = PASS WITH CAVEATS
 - final code pin=`81405f4278b034911bc613c4ee17c79d15ee8f35`。
 - CPU evidence HEAD=`a01642fdd6cdc869cb2c991c23003ff600665f37`。
 - 下一步生成V7 pinned manifest并做final delta Opus review。
+
+## 2026-07-28T09:23:55-07:00 — V7 final Opus PASS WITH CAVEATS
+
+- V7 plan commit=`c80ec165...`，由外部authority激活Current/Latest，
+  plan blob保持byte-frozen。
+- rev11：
+  - self=`48c86bf0...`；
+  - design=`50003145...`；
+  - code pin=`81405f42...`；
+  - result manifest在review前为4/4。
+- final Opus delta：
+  - verdict=`PASS WITH CAVEATS`；
+  - entry=`READY_AFTER_REVIEW_ARTIFACT_AND_AUTH_REVISION`；
+  - open P0/P1=`0/0`。
+- review artifact：
+  - path=`benchmark/approx_kv/results/phase7/phase7-final-opus-review.json`；
+  - SHA=`2c83f7dd...`；
+  - commit=`b0837505...`。
+- accepted P2 execution policy：
+  - linked-worktree gitdir主仓必须保持相同绝对路径只读挂载；
+  - 全部GPU wave只写`/results/phase7`；
+  - wave之间不版本化；全部Phase7执行结束后一次性复制/hash/commit。
+- 下一步生成rev12，必须保持design hash=`50003145...`并转authorized。

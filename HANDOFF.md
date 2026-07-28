@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-28T08:52:08-07:00
+最后更新：2026-07-28T09:23:55-07:00
 
 ## 新会话启动顺序
 
@@ -12,6 +12,23 @@
 6. 开始工作后持续维护上述文件，不把重要信息只留在聊天中。
 
 ## 当前快照
+
+### 2026-07-28T09:23:55-07:00 V7已激活，等待authorized rev12
+
+- V7 plan commit=`c80ec165...`，由PROJECT/HANDOFF激活为Current/Latest；
+  plan blob byte-frozen。
+- rev11 self=`48c86bf0...`，design=`50003145...`，
+  code pin=`81405f42...`。
+- final Opus verdict=`PASS WITH CAVEATS`，open P0/P1=`0/0`。
+- review artifact commit=`b0837505...`，artifact SHA=`2c83f7dd...`。
+- 下一步只剩生成design-preserving authorized rev12。
+- Docker必须同时只读挂载：
+  - cross-store worktree；
+  - `/home/chris/Workspaces/kvcache-research/sglang-experiments`
+    （linked-worktree gitdir，保持相同绝对路径）。
+- 波次策略：全部run写`/results/phase7`；所有GPU wave结束后一次性版本化，
+  wave之间不提交raw/compact/log。
+- rev12完成前不得启动Phase7。
 
 ### 2026-07-28T08:52:08-07:00 V7等待final delta review
 
