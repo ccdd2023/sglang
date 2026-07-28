@@ -1,23 +1,27 @@
 {
   "schema_version": 1,
   "artifact": "phase7-primary-manifest",
+  "manifest_revision": 2,
+  "supersedes_manifest_sha256": "1d65f54d6a635999f8e74a04f13419f32d86ab2dba734c082d83664cabbe4999",
+  "revision_reason": "close manifest review P0/P1: per-setting capacity, state machine, validator, W/A8 hardening",
   "status": "preregistered_blocked",
   "phase7_execution_authorized": false,
   "plan": {
     "version": "V5",
-    "plan_commit": "8fac933371ab26891dcd4c981a3d1156bf2e9814",
+    "plan_commit": "7b5e32753e50bf9308ce7298fac5b198cf185566",
     "plan_file": "IMPLEMENTATION_PLAN_LATEST.md",
     "plan_sha256": "10c5c2f9b330219ada0ed2772c5deb30293beafa72261effd213993a3243a560"
   },
   "implementation": {
-    "manifest_generation_sha": "eca5044272d508c6b7cbf17b2b088bbd8fb3e6ce",
-    "manifest_generation_tree_sha": "84d2213931cc6201efe75cfeeae2050c672cb21b",
+    "manifest_generation_sha": "be5583cf5c1f6e7eff190d12b9af29312861c678",
+    "manifest_generation_tree_sha": "33f1faa0a867fd4d26435d878ac4788cbdff64b3",
     "phase6_evidence_sha": "924c9d1d6c074f304189248f0fc5b15aa6d25adb",
     "phase7_pinned_implementation_sha": null,
     "phase7_pinned_tree_sha": null,
     "atomic_update_required": [
       "phase7-primary-manifest.json",
       "HANDOFF.md",
+      "PROJECT.md",
       "TODO_LOCAL.txt"
     ]
   },
@@ -25,24 +29,38 @@
     "ceiling": {
       "path": "benchmark/approx_kv/run_p7_ceiling.py",
       "exists": false,
-      "sha256": null
+      "sha256": null,
+      "required_cpu_test": "python3 -m pytest -q test/registered/unit/bench/test_run_p7_ceiling.py",
+      "cpu_test_status": "pending",
+      "review_status": "pending"
     },
     "scheduler": {
       "path": "benchmark/approx_kv/run_p7_scheduler.py",
       "exists": false,
-      "sha256": null
+      "sha256": null,
+      "required_cpu_test": "python3 -m pytest -q test/registered/unit/bench/test_run_p7_scheduler.py",
+      "cpu_test_status": "pending",
+      "review_status": "pending"
     },
     "manifest": {
       "path": "benchmark/approx_kv/build_phase7_manifest.py",
       "exists": true,
-      "sha256": "9f309e1c48b8c3e42e78f59eb4443bd832afa895c31c9d5d7e23004091e63bd5"
+      "sha256": "7a10e60f98ee99e12afa52cfc3c1069efef34ece7d75627196e0ab558dd58d56",
+      "required_cpu_test": "python3 -m benchmark.approx_kv.build_phase7_manifest --check",
+      "cpu_test_status": "passed",
+      "review_status": "reviewed"
     }
   },
+  "r2_strategy": "pending",
+  "conditional_resolution": {
+    "CR-P6DELTA-RHO3": "pending",
+    "CR-R2-ADAPTER": "pending"
+  },
   "execution_blockers": [
-    "ceiling",
-    "scheduler",
-    "phase7_pinned_implementation_sha_pending_runner_implementation",
-    "r2_strategy_pending_runner_decision",
+    "missing_runner:ceiling",
+    "missing_runner:scheduler",
+    "phase7_pinned_implementation_sha_pending",
+    "r2_strategy_pending",
     "explicit_user_authorization_missing"
   ],
   "environment": {
@@ -56,7 +74,7 @@
   },
   "server_template": {
     "tp_size": 1,
-    "mem_fraction_static": 0.35,
+    "default_mem_fraction_static": 0.35,
     "max_running_requests": 2,
     "attention_backend": "torch_native",
     "sampling_backend": "pytorch",
@@ -70,6 +88,15 @@
       19
     ],
     "test_only_injection_flags": {
+      "SGLANG_APPROX_KV_TEST_ONLY": "0",
+      "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE": "0"
+    },
+    "plugin_env": {
+      "SGLANG_APPROX_KV_CORE": "1",
+      "SGLANG_APPROX_KV_CROSS_STORE": "1",
+      "SGLANG_APPROX_KV_BYTES_PER_TOKEN": "114688",
+      "SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+      "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT": "1",
       "SGLANG_APPROX_KV_TEST_ONLY": "0",
       "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE": "0"
     }
@@ -92,6 +119,12 @@
               "target_id": "a8-b1024-target-0",
               "order": 0,
               "extra_key": "p7-a8-b1024-target-0",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-0-D0",
+                "E0": "p7-a8-b1024-target-0-E0",
+                "R0": "p7-a8-b1024-target-0-R0",
+                "R2": "p7-a8-b1024-target-0-R2"
+              },
               "header_token_sha256": "df8729a5daa56729daf61209371d69f524d2b5c3312c341292da42484de6acac",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
               "suffix_token_sha256": "a43c12d79de62b8c9d364db2233e0a0939c086b939a0eec0f18a17b0dc2fe20c",
@@ -102,6 +135,12 @@
               "target_id": "a8-b1024-target-1",
               "order": 1,
               "extra_key": "p7-a8-b1024-target-1",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-1-D0",
+                "E0": "p7-a8-b1024-target-1-E0",
+                "R0": "p7-a8-b1024-target-1-R0",
+                "R2": "p7-a8-b1024-target-1-R2"
+              },
               "header_token_sha256": "4c6f03ec1493aded46e7ce05f7a556d0176eb4ef24ff9041e8731725797e94a1",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
               "suffix_token_sha256": "6ea33133f2eb8c10a338b179024eeecb7c6fe889eb3eef577422ef595019828c",
@@ -112,6 +151,12 @@
               "target_id": "a8-b1024-target-2",
               "order": 2,
               "extra_key": "p7-a8-b1024-target-2",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-2-D0",
+                "E0": "p7-a8-b1024-target-2-E0",
+                "R0": "p7-a8-b1024-target-2-R0",
+                "R2": "p7-a8-b1024-target-2-R2"
+              },
               "header_token_sha256": "652eb6d75f86611ab822d1fc704c9e94312440eb76f92d025ad65c1f9758eecf",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
               "suffix_token_sha256": "fe93999bc9deb2c9f57d235b40dab92d2af7ab5bac283e58bc9366e9103b3341",
@@ -122,6 +167,12 @@
               "target_id": "a8-b1024-target-3",
               "order": 3,
               "extra_key": "p7-a8-b1024-target-3",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-3-D0",
+                "E0": "p7-a8-b1024-target-3-E0",
+                "R0": "p7-a8-b1024-target-3-R0",
+                "R2": "p7-a8-b1024-target-3-R2"
+              },
               "header_token_sha256": "5902f21ddd87647a66bb3419917d953cc64a1d90cbe152d49681109333d21194",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
               "suffix_token_sha256": "dce9f66598d61a56850e7bfc417f49357fba4116887c3cc5b377f76c80442018",
@@ -132,6 +183,12 @@
               "target_id": "a8-b1024-target-4",
               "order": 4,
               "extra_key": "p7-a8-b1024-target-4",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-4-D0",
+                "E0": "p7-a8-b1024-target-4-E0",
+                "R0": "p7-a8-b1024-target-4-R0",
+                "R2": "p7-a8-b1024-target-4-R2"
+              },
               "header_token_sha256": "331723b85e10b27cf4dbb5e7429048814e65910b60a761cf3dab3d7f26e83c2e",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
               "suffix_token_sha256": "d5365e5cedd93cdd21181f5b392209a7301c75646d5ceea2590fbc35c43e23ef",
@@ -142,6 +199,12 @@
               "target_id": "a8-b1024-target-5",
               "order": 5,
               "extra_key": "p7-a8-b1024-target-5",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-5-D0",
+                "E0": "p7-a8-b1024-target-5-E0",
+                "R0": "p7-a8-b1024-target-5-R0",
+                "R2": "p7-a8-b1024-target-5-R2"
+              },
               "header_token_sha256": "b62fc6302ee70ffbdb4c8c0287c9916ab1685a1d9b9d38f8b13ee5d3c32475b9",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
               "suffix_token_sha256": "83c66207e56090a900cbecdc0b4e93869da14bc022cd63b4e5368a9d0c2cc615",
@@ -152,6 +215,12 @@
               "target_id": "a8-b1024-target-6",
               "order": 6,
               "extra_key": "p7-a8-b1024-target-6",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-6-D0",
+                "E0": "p7-a8-b1024-target-6-E0",
+                "R0": "p7-a8-b1024-target-6-R0",
+                "R2": "p7-a8-b1024-target-6-R2"
+              },
               "header_token_sha256": "aee69b27a9347eabb2459c605ee1facbf56d4728931d4934971868efa7f03973",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
               "suffix_token_sha256": "85cefd3373840b62f5b9253cb05297ecf965e30239f187b12d6f2a184a5347c4",
@@ -162,13 +231,28 @@
               "target_id": "a8-b1024-target-7",
               "order": 7,
               "extra_key": "p7-a8-b1024-target-7",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-7-D0",
+                "E0": "p7-a8-b1024-target-7-E0",
+                "R0": "p7-a8-b1024-target-7-R0",
+                "R2": "p7-a8-b1024-target-7-R2"
+              },
               "header_token_sha256": "63ed7d2966f9b9f4ece383dd77e81615b96ebe0007a8a79d8369cb100d21c659",
               "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
               "suffix_token_sha256": "7e8785543ef6fb1240a8c45b0b8507344bc0ce2157bae447981ee0ec45c282b8",
               "prompt_token_sha256": "14bc5183df967f85d5162cf61aeb6236620c024cfb47ee5a180a7a013947d9a2",
               "prompt_tokens": 1089
             }
-          ]
+          ],
+          "same_context_canary": {
+            "target_id": "a8-b1024-same-context-canary",
+            "header_token_sha256": "225343a494d3ecd5a3fb314a8740288a2da67e2f7911ec3e9375ed65318a6e93",
+            "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
+            "extra_key": "p7-a8-b1024-same-context-canary",
+            "max_new_tokens": 8,
+            "included_in_amortization": false,
+            "any_token_mismatch_is_invalid": true
+          }
         },
         {
           "workload_id": "A8-body2048",
@@ -182,6 +266,12 @@
               "target_id": "a8-b2048-target-0",
               "order": 0,
               "extra_key": "p7-a8-b2048-target-0",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-0-D0",
+                "E0": "p7-a8-b2048-target-0-E0",
+                "R0": "p7-a8-b2048-target-0-R0",
+                "R2": "p7-a8-b2048-target-0-R2"
+              },
               "header_token_sha256": "df8729a5daa56729daf61209371d69f524d2b5c3312c341292da42484de6acac",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
               "suffix_token_sha256": "a43c12d79de62b8c9d364db2233e0a0939c086b939a0eec0f18a17b0dc2fe20c",
@@ -192,6 +282,12 @@
               "target_id": "a8-b2048-target-1",
               "order": 1,
               "extra_key": "p7-a8-b2048-target-1",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-1-D0",
+                "E0": "p7-a8-b2048-target-1-E0",
+                "R0": "p7-a8-b2048-target-1-R0",
+                "R2": "p7-a8-b2048-target-1-R2"
+              },
               "header_token_sha256": "4c6f03ec1493aded46e7ce05f7a556d0176eb4ef24ff9041e8731725797e94a1",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
               "suffix_token_sha256": "6ea33133f2eb8c10a338b179024eeecb7c6fe889eb3eef577422ef595019828c",
@@ -202,6 +298,12 @@
               "target_id": "a8-b2048-target-2",
               "order": 2,
               "extra_key": "p7-a8-b2048-target-2",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-2-D0",
+                "E0": "p7-a8-b2048-target-2-E0",
+                "R0": "p7-a8-b2048-target-2-R0",
+                "R2": "p7-a8-b2048-target-2-R2"
+              },
               "header_token_sha256": "652eb6d75f86611ab822d1fc704c9e94312440eb76f92d025ad65c1f9758eecf",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
               "suffix_token_sha256": "fe93999bc9deb2c9f57d235b40dab92d2af7ab5bac283e58bc9366e9103b3341",
@@ -212,6 +314,12 @@
               "target_id": "a8-b2048-target-3",
               "order": 3,
               "extra_key": "p7-a8-b2048-target-3",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-3-D0",
+                "E0": "p7-a8-b2048-target-3-E0",
+                "R0": "p7-a8-b2048-target-3-R0",
+                "R2": "p7-a8-b2048-target-3-R2"
+              },
               "header_token_sha256": "5902f21ddd87647a66bb3419917d953cc64a1d90cbe152d49681109333d21194",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
               "suffix_token_sha256": "dce9f66598d61a56850e7bfc417f49357fba4116887c3cc5b377f76c80442018",
@@ -222,6 +330,12 @@
               "target_id": "a8-b2048-target-4",
               "order": 4,
               "extra_key": "p7-a8-b2048-target-4",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-4-D0",
+                "E0": "p7-a8-b2048-target-4-E0",
+                "R0": "p7-a8-b2048-target-4-R0",
+                "R2": "p7-a8-b2048-target-4-R2"
+              },
               "header_token_sha256": "331723b85e10b27cf4dbb5e7429048814e65910b60a761cf3dab3d7f26e83c2e",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
               "suffix_token_sha256": "d5365e5cedd93cdd21181f5b392209a7301c75646d5ceea2590fbc35c43e23ef",
@@ -232,6 +346,12 @@
               "target_id": "a8-b2048-target-5",
               "order": 5,
               "extra_key": "p7-a8-b2048-target-5",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-5-D0",
+                "E0": "p7-a8-b2048-target-5-E0",
+                "R0": "p7-a8-b2048-target-5-R0",
+                "R2": "p7-a8-b2048-target-5-R2"
+              },
               "header_token_sha256": "b62fc6302ee70ffbdb4c8c0287c9916ab1685a1d9b9d38f8b13ee5d3c32475b9",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
               "suffix_token_sha256": "83c66207e56090a900cbecdc0b4e93869da14bc022cd63b4e5368a9d0c2cc615",
@@ -242,6 +362,12 @@
               "target_id": "a8-b2048-target-6",
               "order": 6,
               "extra_key": "p7-a8-b2048-target-6",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-6-D0",
+                "E0": "p7-a8-b2048-target-6-E0",
+                "R0": "p7-a8-b2048-target-6-R0",
+                "R2": "p7-a8-b2048-target-6-R2"
+              },
               "header_token_sha256": "aee69b27a9347eabb2459c605ee1facbf56d4728931d4934971868efa7f03973",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
               "suffix_token_sha256": "85cefd3373840b62f5b9253cb05297ecf965e30239f187b12d6f2a184a5347c4",
@@ -252,16 +378,31 @@
               "target_id": "a8-b2048-target-7",
               "order": 7,
               "extra_key": "p7-a8-b2048-target-7",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-7-D0",
+                "E0": "p7-a8-b2048-target-7-E0",
+                "R0": "p7-a8-b2048-target-7-R0",
+                "R2": "p7-a8-b2048-target-7-R2"
+              },
               "header_token_sha256": "63ed7d2966f9b9f4ece383dd77e81615b96ebe0007a8a79d8369cb100d21c659",
               "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
               "suffix_token_sha256": "7e8785543ef6fb1240a8c45b0b8507344bc0ce2157bae447981ee0ec45c282b8",
               "prompt_token_sha256": "f81fe2e450a15887f4e5240c9f1816aadc6c30caeacd2195ebd605f6c30445d9",
               "prompt_tokens": 2113
             }
-          ]
+          ],
+          "same_context_canary": {
+            "target_id": "a8-b2048-same-context-canary",
+            "header_token_sha256": "225343a494d3ecd5a3fb314a8740288a2da67e2f7911ec3e9375ed65318a6e93",
+            "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
+            "extra_key": "p7-a8-b2048-same-context-canary",
+            "max_new_tokens": 8,
+            "included_in_amortization": false,
+            "any_token_mismatch_is_invalid": true
+          }
         }
       ],
-      "manifest_sha256": "37edd367d6ebb6410fd6231a7a1cd0f9182d7d92291c311643eed3030f92d005"
+      "manifest_sha256": "2ef8805935751aa9086d5bbbc82039d2ba8ac573576cae12bb124858bbf7cf9a"
     },
     "W": {
       "schema_version": 1,
@@ -879,199 +1020,395 @@
           "phase": "replay",
           "role": "architect",
           "object_id": "workflow-00",
-          "next_use_request_index": null
+          "next_use_request_index": 33
         },
         {
           "request_index": 6,
           "phase": "replay",
           "role": "coder",
           "object_id": "workflow-01",
-          "next_use_request_index": null
+          "next_use_request_index": 34
         },
         {
           "request_index": 7,
           "phase": "replay",
           "role": "debugger",
           "object_id": "workflow-02",
-          "next_use_request_index": null
+          "next_use_request_index": 35
         },
         {
           "request_index": 8,
           "phase": "replay",
           "role": "coder",
           "object_id": "workflow-03",
-          "next_use_request_index": null
+          "next_use_request_index": 36
         },
         {
           "request_index": 9,
           "phase": "replay",
           "role": "debugger",
           "object_id": "workflow-04",
-          "next_use_request_index": null
+          "next_use_request_index": 37
+        },
+        {
+          "request_index": 10,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-12",
+          "next_use_request_index": 38
+        },
+        {
+          "request_index": 11,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-13",
+          "next_use_request_index": 39
+        },
+        {
+          "request_index": 12,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-14",
+          "next_use_request_index": 40
+        },
+        {
+          "request_index": 13,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-15",
+          "next_use_request_index": 41
+        },
+        {
+          "request_index": 14,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-16",
+          "next_use_request_index": 42
+        },
+        {
+          "request_index": 15,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-17",
+          "next_use_request_index": 43
+        },
+        {
+          "request_index": 16,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-18",
+          "next_use_request_index": 44
+        },
+        {
+          "request_index": 17,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-19",
+          "next_use_request_index": 45
+        },
+        {
+          "request_index": 18,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-20",
+          "next_use_request_index": 46
+        },
+        {
+          "request_index": 19,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-21",
+          "next_use_request_index": 47
+        },
+        {
+          "request_index": 20,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-22",
+          "next_use_request_index": 48
+        },
+        {
+          "request_index": 21,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-23",
+          "next_use_request_index": 49
         },
         {
           "request_index": 22,
           "phase": "replay",
           "role": "live_filler",
-          "object_id": "filler-12",
-          "next_use_request_index": null
+          "object_id": "filler-24",
+          "next_use_request_index": 50
         },
         {
           "request_index": 23,
           "phase": "replay",
           "role": "live_filler",
-          "object_id": "filler-13",
-          "next_use_request_index": null
+          "object_id": "filler-25",
+          "next_use_request_index": 51
         },
         {
           "request_index": 24,
           "phase": "replay",
           "role": "live_filler",
-          "object_id": "filler-14",
-          "next_use_request_index": null
+          "object_id": "filler-26",
+          "next_use_request_index": 52
         },
         {
           "request_index": 25,
           "phase": "replay",
           "role": "live_filler",
-          "object_id": "filler-15",
-          "next_use_request_index": null
+          "object_id": "filler-27",
+          "next_use_request_index": 53
         },
         {
           "request_index": 26,
           "phase": "replay",
           "role": "live_filler",
-          "object_id": "filler-16",
-          "next_use_request_index": null
+          "object_id": "filler-28",
+          "next_use_request_index": 54
         },
         {
           "request_index": 27,
           "phase": "replay",
           "role": "live_filler",
-          "object_id": "filler-17",
-          "next_use_request_index": null
+          "object_id": "filler-29",
+          "next_use_request_index": 55
         },
         {
           "request_index": 28,
           "phase": "replay",
           "role": "live_filler",
-          "object_id": "filler-18",
-          "next_use_request_index": null
+          "object_id": "filler-30",
+          "next_use_request_index": 56
         },
         {
           "request_index": 29,
           "phase": "replay",
           "role": "live_filler",
-          "object_id": "filler-19",
-          "next_use_request_index": null
+          "object_id": "filler-31",
+          "next_use_request_index": 57
         },
         {
           "request_index": 30,
           "phase": "replay",
           "role": "live_filler",
-          "object_id": "filler-20",
-          "next_use_request_index": null
+          "object_id": "filler-32",
+          "next_use_request_index": 58
         },
         {
           "request_index": 31,
           "phase": "replay",
           "role": "live_filler",
-          "object_id": "filler-21",
-          "next_use_request_index": null
+          "object_id": "filler-33",
+          "next_use_request_index": 59
         },
         {
           "request_index": 32,
           "phase": "replay",
           "role": "live_filler",
+          "object_id": "filler-34",
+          "next_use_request_index": 60
+        },
+        {
+          "request_index": 33,
+          "phase": "replay-2",
+          "role": "architect",
+          "object_id": "workflow-00",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 34,
+          "phase": "replay-2",
+          "role": "coder",
+          "object_id": "workflow-01",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 35,
+          "phase": "replay-2",
+          "role": "debugger",
+          "object_id": "workflow-02",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 36,
+          "phase": "replay-2",
+          "role": "coder",
+          "object_id": "workflow-03",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 37,
+          "phase": "replay-2",
+          "role": "debugger",
+          "object_id": "workflow-04",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 38,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-12",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 39,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-13",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 40,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-14",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 41,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-15",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 42,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-16",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 43,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-17",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 44,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-18",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 45,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-19",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 46,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-20",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 47,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-21",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 48,
+          "phase": "replay-2",
+          "role": "live_filler",
           "object_id": "filler-22",
           "next_use_request_index": null
         },
         {
-          "request_index": 33,
-          "phase": "replay",
+          "request_index": 49,
+          "phase": "replay-2",
           "role": "live_filler",
           "object_id": "filler-23",
           "next_use_request_index": null
         },
         {
-          "request_index": 34,
-          "phase": "replay",
+          "request_index": 50,
+          "phase": "replay-2",
           "role": "live_filler",
           "object_id": "filler-24",
           "next_use_request_index": null
         },
         {
-          "request_index": 35,
-          "phase": "replay",
+          "request_index": 51,
+          "phase": "replay-2",
           "role": "live_filler",
           "object_id": "filler-25",
           "next_use_request_index": null
         },
         {
-          "request_index": 36,
-          "phase": "replay",
+          "request_index": 52,
+          "phase": "replay-2",
           "role": "live_filler",
           "object_id": "filler-26",
           "next_use_request_index": null
         },
         {
-          "request_index": 37,
-          "phase": "replay",
+          "request_index": 53,
+          "phase": "replay-2",
           "role": "live_filler",
           "object_id": "filler-27",
           "next_use_request_index": null
         },
         {
-          "request_index": 38,
-          "phase": "replay",
+          "request_index": 54,
+          "phase": "replay-2",
           "role": "live_filler",
           "object_id": "filler-28",
           "next_use_request_index": null
         },
         {
-          "request_index": 39,
-          "phase": "replay",
+          "request_index": 55,
+          "phase": "replay-2",
           "role": "live_filler",
           "object_id": "filler-29",
           "next_use_request_index": null
         },
         {
-          "request_index": 40,
-          "phase": "replay",
+          "request_index": 56,
+          "phase": "replay-2",
           "role": "live_filler",
           "object_id": "filler-30",
           "next_use_request_index": null
         },
         {
-          "request_index": 41,
-          "phase": "replay",
+          "request_index": 57,
+          "phase": "replay-2",
           "role": "live_filler",
           "object_id": "filler-31",
           "next_use_request_index": null
         },
         {
-          "request_index": 42,
-          "phase": "replay",
+          "request_index": 58,
+          "phase": "replay-2",
           "role": "live_filler",
           "object_id": "filler-32",
           "next_use_request_index": null
         },
         {
-          "request_index": 43,
-          "phase": "replay",
+          "request_index": 59,
+          "phase": "replay-2",
           "role": "live_filler",
           "object_id": "filler-33",
           "next_use_request_index": null
         },
         {
-          "request_index": 44,
-          "phase": "replay",
+          "request_index": 60,
+          "phase": "replay-2",
           "role": "live_filler",
           "object_id": "filler-34",
           "next_use_request_index": null
         }
       ],
-      "manifest_sha256": "dc9ea4c2c16174309ab341e9bf309a76bab0b77a54e6dbf1cd935daec96001c8"
+      "manifest_sha256": "709b576ed5e6b3778354b9934e62e2bfcbaa80dbd4b90512509b0b4fc3312c14"
     },
     "filler_pool": {
       "schema_version": 1,
@@ -1472,6 +1809,29 @@
     "R2": "conditional_cross_store_adapter_or_not_comparable",
     "R4-like-5x": "synthetic_footprint_proxy_not_kvcomm"
   },
+  "footprint_profiles": {
+    "exact_only": "phase6 exact-only footprint profile",
+    "r0_like": "one approximate representation",
+    "r1_like_k32": "worst-case repair/temporary footprint",
+    "r2_like": "2x synthetic representation multiplicity",
+    "r4_like": "5x synthetic representation multiplicity",
+    "relation_to_R4-like-5x_arm": "same synthetic 5x footprint concept; different runner-specific identifier; neither executes KVCOMM"
+  },
+  "arm_execution": {
+    "formal_0": [
+      "D0",
+      "E0",
+      "R0"
+    ],
+    "formal_1": [
+      "R0",
+      "E0",
+      "D0"
+    ],
+    "reset_between_arms": true,
+    "A8_reset_between_targets": false,
+    "A8_reset_after_target_8": true
+  },
   "statistics": {
     "process_level_timing_replicates": [
       0,
@@ -1537,6 +1897,11 @@
       "restart_indices": [
         0
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [],
+      "supplement_gate": null,
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -1547,7 +1912,29 @@
         "r4_like"
       ],
       "conditional": false,
-      "max_total_tokens": 11392
+      "activation_rule_id": null,
+      "max_total_tokens": 11392,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "arm_order_by_repeat": {
+        "0": [
+          "exact_only",
+          "r0_like",
+          "r1_like_k32",
+          "r2_like",
+          "r4_like"
+        ],
+        "1": [
+          "r4_like",
+          "r2_like",
+          "r1_like_k32",
+          "r0_like",
+          "exact_only"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     },
     {
       "setting_id": "p6delta-s0-rho2-chunk4096",
@@ -1562,6 +1949,11 @@
       "restart_indices": [
         0
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [],
+      "supplement_gate": null,
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -1572,7 +1964,29 @@
         "r4_like"
       ],
       "conditional": false,
-      "max_total_tokens": 11392
+      "activation_rule_id": null,
+      "max_total_tokens": 11392,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "arm_order_by_repeat": {
+        "0": [
+          "exact_only",
+          "r0_like",
+          "r1_like_k32",
+          "r2_like",
+          "r4_like"
+        ],
+        "1": [
+          "r4_like",
+          "r2_like",
+          "r1_like_k32",
+          "r0_like",
+          "exact_only"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     },
     {
       "setting_id": "p6delta-s4-rho3-chunk4096",
@@ -1587,6 +2001,11 @@
       "restart_indices": [
         0
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [],
+      "supplement_gate": null,
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -1597,7 +2016,29 @@
         "r4_like"
       ],
       "conditional": true,
-      "max_total_tokens": 7595
+      "activation_rule_id": "CR-P6DELTA-RHO3",
+      "max_total_tokens": 7595,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "arm_order_by_repeat": {
+        "0": [
+          "exact_only",
+          "r0_like",
+          "r1_like_k32",
+          "r2_like",
+          "r4_like"
+        ],
+        "1": [
+          "r4_like",
+          "r2_like",
+          "r1_like_k32",
+          "r0_like",
+          "exact_only"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     },
     {
       "setting_id": "p7-a8-r0-body1024-rho1.5",
@@ -1614,6 +2055,14 @@
         1,
         2
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-R0-MDE",
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -1622,7 +2071,25 @@
         "R0"
       ],
       "conditional": false,
-      "max_total_tokens": null
+      "activation_rule_id": null,
+      "max_total_tokens": null,
+      "mem_fraction_static": 0.35,
+      "capacity_mode": "natural_capacity",
+      "rho_realization": "filler_pool",
+      "known_capacity_ceiling_tokens": 13130,
+      "arm_order_by_repeat": {
+        "0": [
+          "D0",
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0",
+          "D0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     },
     {
       "setting_id": "p7-a8-r0-body1024-rho2.0",
@@ -1639,6 +2106,14 @@
         1,
         2
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-R0-MDE",
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -1647,7 +2122,25 @@
         "R0"
       ],
       "conditional": false,
-      "max_total_tokens": null
+      "activation_rule_id": null,
+      "max_total_tokens": null,
+      "mem_fraction_static": 0.35,
+      "capacity_mode": "natural_capacity",
+      "rho_realization": "filler_pool",
+      "known_capacity_ceiling_tokens": 13130,
+      "arm_order_by_repeat": {
+        "0": [
+          "D0",
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0",
+          "D0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     },
     {
       "setting_id": "p7-a8-r0-body2048-rho1.5",
@@ -1664,6 +2157,14 @@
         1,
         2
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-R0-MDE",
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -1672,7 +2173,25 @@
         "R0"
       ],
       "conditional": false,
-      "max_total_tokens": null
+      "activation_rule_id": null,
+      "max_total_tokens": null,
+      "mem_fraction_static": 0.35,
+      "capacity_mode": "natural_capacity",
+      "rho_realization": "filler_pool",
+      "known_capacity_ceiling_tokens": 13130,
+      "arm_order_by_repeat": {
+        "0": [
+          "D0",
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0",
+          "D0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     },
     {
       "setting_id": "p7-a8-r0-body2048-rho2.0",
@@ -1689,6 +2208,14 @@
         1,
         2
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-R0-MDE",
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -1697,7 +2224,25 @@
         "R0"
       ],
       "conditional": false,
-      "max_total_tokens": null
+      "activation_rule_id": null,
+      "max_total_tokens": null,
+      "mem_fraction_static": 0.35,
+      "capacity_mode": "natural_capacity",
+      "rho_realization": "filler_pool",
+      "known_capacity_ceiling_tokens": 13130,
+      "arm_order_by_repeat": {
+        "0": [
+          "D0",
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0",
+          "D0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     },
     {
       "setting_id": "p7-a8-r0-body2048-rho2-chunk1024-sensitivity",
@@ -1713,6 +2258,13 @@
         0,
         1
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1
+      ],
+      "supplement_gate": "ES-R0-MDE",
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -1721,7 +2273,25 @@
         "R0"
       ],
       "conditional": false,
-      "max_total_tokens": null
+      "activation_rule_id": null,
+      "max_total_tokens": null,
+      "mem_fraction_static": 0.35,
+      "capacity_mode": "natural_capacity",
+      "rho_realization": "filler_pool",
+      "known_capacity_ceiling_tokens": 13130,
+      "arm_order_by_repeat": {
+        "0": [
+          "D0",
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0",
+          "D0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     },
     {
       "setting_id": "p7-w-r0-lru-rho1.5",
@@ -1738,6 +2308,14 @@
         1,
         2
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-R0-MDE",
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -1745,7 +2323,23 @@
         "R0"
       ],
       "conditional": false,
-      "max_total_tokens": null
+      "activation_rule_id": null,
+      "max_total_tokens": 15190,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "arm_order_by_repeat": {
+        "0": [
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     },
     {
       "setting_id": "p7-w-r0-hierarchical-rho1.5",
@@ -1762,6 +2356,14 @@
         1,
         2
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-R0-MDE",
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -1769,7 +2371,23 @@
         "R0"
       ],
       "conditional": false,
-      "max_total_tokens": null
+      "activation_rule_id": null,
+      "max_total_tokens": 15190,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "arm_order_by_repeat": {
+        "0": [
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     },
     {
       "setting_id": "p7-w-r0-lru-rho2.0",
@@ -1786,6 +2404,14 @@
         1,
         2
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-R0-MDE",
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -1793,7 +2419,23 @@
         "R0"
       ],
       "conditional": false,
-      "max_total_tokens": null
+      "activation_rule_id": null,
+      "max_total_tokens": 11392,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "arm_order_by_repeat": {
+        "0": [
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     },
     {
       "setting_id": "p7-w-r0-hierarchical-rho2.0",
@@ -1810,6 +2452,14 @@
         1,
         2
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-R0-MDE",
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -1817,7 +2467,23 @@
         "R0"
       ],
       "conditional": false,
-      "max_total_tokens": null
+      "activation_rule_id": null,
+      "max_total_tokens": 11392,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "arm_order_by_repeat": {
+        "0": [
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     },
     {
       "setting_id": "p7-w-r4like-lru-rho2",
@@ -1832,13 +2498,32 @@
       "restart_indices": [
         0
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [],
+      "supplement_gate": null,
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
         "R4-like-5x"
       ],
       "conditional": false,
-      "max_total_tokens": null
+      "activation_rule_id": null,
+      "max_total_tokens": 11392,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "arm_order_by_repeat": {
+        "0": [
+          "R4-like-5x"
+        ],
+        "1": [
+          "R4-like-5x"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     },
     {
       "setting_id": "p7-w-r4like-hierarchical-rho2",
@@ -1853,13 +2538,32 @@
       "restart_indices": [
         0
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [],
+      "supplement_gate": null,
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
         "R4-like-5x"
       ],
       "conditional": false,
-      "max_total_tokens": null
+      "activation_rule_id": null,
+      "max_total_tokens": 11392,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "arm_order_by_repeat": {
+        "0": [
+          "R4-like-5x"
+        ],
+        "1": [
+          "R4-like-5x"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     },
     {
       "setting_id": "p7-a8-r2-rho1.5",
@@ -1874,6 +2578,11 @@
       "restart_indices": [
         0
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [],
+      "supplement_gate": null,
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -1882,7 +2591,25 @@
         "R2"
       ],
       "conditional": true,
-      "max_total_tokens": null
+      "activation_rule_id": "CR-R2-ADAPTER",
+      "max_total_tokens": null,
+      "mem_fraction_static": 0.35,
+      "capacity_mode": "natural_capacity",
+      "rho_realization": "filler_pool",
+      "known_capacity_ceiling_tokens": 13130,
+      "arm_order_by_repeat": {
+        "0": [
+          "D0",
+          "E0",
+          "R2"
+        ],
+        "1": [
+          "R2",
+          "E0",
+          "D0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     },
     {
       "setting_id": "p7-a8-r2-rho2.0",
@@ -1897,6 +2624,11 @@
       "restart_indices": [
         0
       ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [],
+      "supplement_gate": null,
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -1905,9 +2637,31 @@
         "R2"
       ],
       "conditional": true,
-      "max_total_tokens": null
+      "activation_rule_id": "CR-R2-ADAPTER",
+      "max_total_tokens": null,
+      "mem_fraction_static": 0.35,
+      "capacity_mode": "natural_capacity",
+      "rho_realization": "filler_pool",
+      "known_capacity_ceiling_tokens": 13130,
+      "arm_order_by_repeat": {
+        "0": [
+          "D0",
+          "E0",
+          "R2"
+        ],
+        "1": [
+          "R2",
+          "E0",
+          "D0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
     }
   ],
+  "conditional_rules": {
+    "CR-P6DELTA-RHO3": "enable only if the final report will make a chunk4096/rho3 claim; otherwise resolve disabled and keep rho3 feasibility scoped to chunk1024",
+    "CR-R2-ADAPTER": "enable only after the cross-store R2 adapter exists, passes CPU tests and is pinned in the Phase7 implementation SHA; otherwise resolve disabled/not_comparable"
+  },
   "early_stops": [
     {
       "rule_id": "ES-ENGINEERING",
@@ -1947,9 +2701,22 @@
     "conditional_server_starts": 3,
     "all_gpu_settings": 16,
     "all_server_starts": 33,
+    "expected_gpu_hours": {
+      "wave-0": 0.5,
+      "wave-1": 0.75,
+      "wave-2": 3.75,
+      "conditional": 1.0
+    },
     "hard_cap_server_starts": 36,
     "hard_cap_gpu_hours": 6,
     "retries_count_against_cap": true
+  },
+  "artifact_templates": {
+    "raw_json": "benchmark/approx_kv/results/phase7/raw/{run_id}.json",
+    "compact_json": "benchmark/approx_kv/results/phase7/compact/{run_id}.json",
+    "server_log": "benchmark/approx_kv/results/phase7/logs/{run_id}.log",
+    "hash_timing": "after server stop and file close",
+    "result_manifest": "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json"
   },
   "skipped_tracks": [
     "practical_recovery",
@@ -1975,5 +2742,6 @@
     "P6-4 rho1.1/rho1.5/rho3 feasibility remains chunk1024 unless separately revalidated",
     "host/prefetch/async tracks are not generated in V5"
   ],
-  "preregistered_manifest_sha256": "1d65f54d6a635999f8e74a04f13419f32d86ab2dba734c082d83664cabbe4999"
+  "design_payload_sha256": "7ea1b7fe6b9e18107d2c7d27d0aeb26ea0f37c5e47fe361642e7dab399212741",
+  "preregistered_manifest_sha256": "ee01e602bd68f8b4d6141e8aafcfb4b75c73f90db36b03abf3429fdc3964ab79"
 }

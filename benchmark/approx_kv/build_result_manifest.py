@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and validate the Phase 6 result manifest.
+"""Build and validate a phase result manifest.
 
 Independent review found the hand-built manifest had rotted: two files were
 left as ``pending_this_commit`` and one pointed at a commit whose blob no
@@ -20,8 +20,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-RESULTS = Path("benchmark/approx_kv/results/phase6")
-MANIFEST = RESULTS / "RESULT_MANIFEST.json"
+DEFAULT_RESULTS = Path("benchmark/approx_kv/results/phase6")
 
 ENVIRONMENT = {
     "image_digest": (
@@ -79,10 +78,10 @@ def blob_sha256_at(commit: str, path: Path) -> str | None:
     return hashlib.sha256(blob.stdout).hexdigest()
 
 
-def build_entries() -> list[dict]:
+def build_entries(results: Path, manifest_path: Path) -> list[dict]:
     entries = []
-    for path in sorted(RESULTS.iterdir()):
-        if not path.is_file() or path.name == MANIFEST.name:
+    for path in sorted(results.iterdir()):
+        if not path.is_file() or path == manifest_path:
             continue
         entries.append(
             {
@@ -95,16 +94,16 @@ def build_entries() -> list[dict]:
     return entries
 
 
-def check() -> int:
-    if not MANIFEST.exists():
+def check(results: Path, manifest_path: Path) -> int:
+    if not manifest_path.exists():
         print("FAIL: manifest does not exist")
         return 1
-    manifest = json.loads(MANIFEST.read_text())
+    manifest = json.loads(manifest_path.read_text())
     problems: list[str] = []
     listed = {entry["file"] for entry in manifest["files"]}
 
-    for path in sorted(RESULTS.iterdir()):
-        if path.is_file() and path.name != MANIFEST.name:
+    for path in sorted(results.iterdir()):
+        if path.is_file() and path != manifest_path:
             if str(path) not in listed:
                 problems.append(f"{path}: present on disk but absent from manifest")
 
@@ -137,13 +136,17 @@ def check() -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--results-dir", type=Path, default=DEFAULT_RESULTS)
+    parser.add_argument("--phase", default="phase6")
     args = parser.parse_args()
+    results = args.results_dir
+    manifest_path = results / "RESULT_MANIFEST.json"
     if args.check:
-        return check()
+        return check(results, manifest_path)
 
     manifest = {
         "schema_version": 2,
-        "artifact": "phase6-result-manifest",
+        "artifact": f"{args.phase}-result-manifest",
         "purpose": (
             "Supply the file-to-commit mapping that the individual result "
             "artifacts cannot: a runner never knows the commit that will "
@@ -157,17 +160,30 @@ def main() -> int:
             "same commit that adds or changes an artifact, otherwise entries "
             "rot into pending or stale-blob states."
         ),
-        "known_gaps": [
-            "The primary P6-H, P6-4 and P6-F server logs are versioned and "
-            "content-addressed. Some historical failed attempts and optional "
-            "diagnostic logs still exist only at absolute host paths and are "
-            "not part of the Phase 6 Exit evidence package."
-        ],
+        "known_gaps": (
+            [
+                "The primary P6-H, P6-4 and P6-F server logs are versioned and "
+                "content-addressed. Some historical failed attempts and "
+                "optional diagnostic logs still exist only at absolute host "
+                "paths and are not part of the Phase 6 Exit evidence package."
+            ]
+            if args.phase == "phase6"
+            else [
+                "The Phase7 manifest is pre-implementation and blocked. "
+                "Runner outputs and logs do not exist yet."
+            ]
+        ),
         "environment": ENVIRONMENT,
-        "verification_commands": VERIFICATION,
-        "files": build_entries(),
+        "verification_commands": {
+            **VERIFICATION,
+            "manifest_self_check": (
+                "python3 -m benchmark.approx_kv.build_result_manifest "
+                f"--check --phase {args.phase} --results-dir {results}"
+            ),
+        },
+        "files": build_entries(results, manifest_path),
     }
-    MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n")
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
     pending = sum(1 for entry in manifest["files"] if not entry["containing_commit"])
     print(f"wrote {len(manifest['files'])} entries, {pending} not yet committed")
     print("now commit, then re-run with --check")
