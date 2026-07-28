@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "artifact": "phase7-primary-manifest",
-  "manifest_revision": 4,
-  "supersedes_manifest_sha256": "a3601cec1a77a1efabf69124503adcb3a1028e7d1037e3ec430119e2d5dd792c",
-  "supersedes_design_payload_sha256": "de5e2d80b24ae2040edc925d537c9e60f2f4b9c169d46b5fdb1eac245632d091",
+  "manifest_revision": 5,
+  "supersedes_manifest_sha256": "6e5617aec12f70ea7ef423f425afad88cf36f67dfdb610107999ab8ce31dd0f3",
+  "supersedes_design_payload_sha256": "3cbd2cc1a7eb96fae8b85bb595a7c8bfb25aa6c04c1c2d57ab9bfad39f0c51ab",
   "design_keys": [
     "plan",
     "environment",
@@ -24,18 +24,18 @@
     "required_inactive_counters",
     "scope_caveats"
   ],
-  "revision_reason": "bind final Current/Latest V5 plan and reviewed GPU-hour budget; no matrix-setting changes",
+  "revision_reason": "bind final V5 Latest status and handoff text; no settings/workload change",
   "status": "preregistered_blocked",
   "phase7_execution_authorized": false,
   "plan": {
     "version": "V5",
-    "plan_commit": "5a6b740e82061e5c69947f102e2ae514ed66ba4e",
+    "plan_commit": "d314cc4143b6d9ceffa08240fc13139c382c4529",
     "plan_file": "IMPLEMENTATION_PLAN_LATEST.md",
-    "plan_sha256": "6a758d5fc43d04d7ad198b3cce050ec6fd5ea6e4b509ae1fc16667225bc8c804"
+    "plan_sha256": "ba6aec34ed5f333fb55b76b5a8cf0152264f7d72b90cc1b0b5079cea51ac39da"
   },
   "implementation": {
-    "manifest_generation_sha": "9c37c5a03b1276060174ebc864f2c0386c574aa1",
-    "manifest_generation_tree_sha": "c24f944cc0c4cde8f7c819cc37005e4daa1e0b89",
+    "manifest_generation_sha": "6d0f1942e1cbd13d6719c4ddc8886e1f1bb44b72",
+    "manifest_generation_tree_sha": "8f3ea5c1b2a36c2ab4708aede606eb975ac83530",
     "phase6_evidence_sha": "924c9d1d6c074f304189248f0fc5b15aa6d25adb",
     "phase7_pinned_implementation_sha": null,
     "phase7_pinned_tree_sha": null,
@@ -2796,6 +2796,6 @@
     "P6-4 rho1.1/rho1.5/rho3 feasibility remains chunk1024 unless separately revalidated",
     "host/prefetch/async tracks are not generated in V5"
   ],
-  "design_payload_sha256": "3cbd2cc1a7eb96fae8b85bb595a7c8bfb25aa6c04c1c2d57ab9bfad39f0c51ab",
-  "preregistered_manifest_sha256": "6e5617aec12f70ea7ef423f425afad88cf36f67dfdb610107999ab8ce31dd0f3"
+  "design_payload_sha256": "24f149f140cf593c68d90ad7d6959b1b008f804f71766bff35ddae2b4c95732d",
+  "preregistered_manifest_sha256": "98cff1d8c1c8586335f33463bf98b2b494df78ebcbe8baceb47c32dc89e9ab78"
 }
