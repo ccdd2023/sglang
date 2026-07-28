@@ -210,7 +210,7 @@ The caveat is permanent:
        final pin, plan disposition and final Opus review are complete.
 
 [x] 11. Implement and review run_p7_ceiling.py and run_p7_scheduler.py.
-       DONE at final code pin 8d0e42fbf975240a5999670a47243e9d99bc494d.
+       DONE at final code pin 5d9a5793d73121f088890aa6c02cfebc31cd97be.
        Docker targeted suite: 152 passed + 10 subtests.
        Three targeted review rounds closed all P0/P1.
 
@@ -221,13 +221,13 @@ The caveat is permanent:
 
 [ ] 13. Pin the Phase7 implementation SHA atomically.
        Final code pin:
-       8d0e42fbf975240a5999670a47243e9d99bc494d
-       Generate manifest revision 6 with final runner SHA/tree/blob hashes and
+       5d9a5793d73121f088890aa6c02cfebc31cd97be
+       Generate manifest revision 7 with final runner SHA/tree/blob hashes and
        V6 plan commit; update HANDOFF/PROJECT/TODO together.
-       Rev6 must supersede envelope hash
-       98cff1d8c1c8586335f33463bf98b2b494df78ebcbe8baceb47c32dc89e9ab78
+       Rev7 must supersede rev6 envelope hash
+       cc899d01c538f2f0a7f90565bed6579ee79f3aa5afe5825f190a460936d4428e
        and explicitly supersede design hash
-       24f149f140cf593c68d90ad7d6959b1b008f804f71766bff35ddae2b4c95732d.
+       2076555ee898725215c60c3be61319c0913eaaf53480f7f30e5eaab55be66c6f.
 
 [ ] 14. Final Opus 5 Max Thinking review before Phase7 execution.
        Review the final plan, rev6 manifest, runner/test/review evidence, R2

@@ -2951,7 +2951,7 @@ technical_exit = PASS WITH CAVEATS
 - 固定Docker镜像最终targeted suite：
   `152 passed + 10 subtests`。
 - 三轮targeted review最终无开放P0/P1。
-- final code pin=`8d0e42fbf975240a5999670a47243e9d99bc494d`。
+- final code pin=`5d9a5793d73121f088890aa6c02cfebc31cd97be`。
 - V5以commit `d314cc41...`和文件SHA
   `ba6aec34...`归档；创建V6 candidate。
 - V6预算：13 committed/30 starts；含rho3条件项14/31；3.8 expected GPUh。
@@ -2960,3 +2960,17 @@ technical_exit = PASS WITH CAVEATS
   `benchmark/approx_kv/results/phase7/phase7-final-opus-review.json`。
   rev6保持`pinned_blocked`，通过review后用保持同一design hash的后续revision
   激活条件性授权。
+
+## 2026-07-28T04:41:19-07:00 — rev6在final review前被supersede
+
+- rev6成功生成并绑定：
+  - 14 settings / 31 starts；
+  - R2=`disabled_not_comparable`；
+  - blocker仅`final_opus_review_pending`；
+  - self hash=`cc899d01...`；
+  - design hash=`2076555e...`。
+- 随后发现`build_result_manifest.py`仍输出“runner未实现”的陈旧known-gap，
+  会腐化正式provenance。
+- 在任何final review/GPU执行前修复该builder，并将final code pin推进为
+  `5d9a5793d73121f088890aa6c02cfebc31cd97be`。
+- rev6因此不再作为review-of-record；下一版为rev7并显式supersede rev6。

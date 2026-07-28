@@ -4,12 +4,13 @@
 >
 > 状态：Candidate / Pending Final Opus Review
 >
-> 最后更新：2026-07-28T04:31:07-07:00
+> 最后更新：2026-07-28T04:41:19-07:00
 >
 > 当前阶段：Phase6 technical Exit=`PASS WITH CAVEATS`；Phase7 runners、
 > Docker CPU tests与targeted reviews已完成；R2已解析为
-> `disabled_not_comparable`；final code pin=`8d0e42fbf975240a5999670a47243e9d99bc494d`；
-> rev6 manifest与最终Opus 5 Max Thinking review尚未完成；未进入Phase7。
+> `disabled_not_comparable`；final code pin=`5d9a5793d73121f088890aa6c02cfebc31cd97be`；
+> rev6已在final review前因provenance-builder状态修正而supersede；rev7 manifest
+> 与最终Opus 5 Max Thinking review尚未完成；未进入Phase7。
 >
 > 取代版本：[`IMPLEMENTATION_PLAN_V5_ARCHIVED.md`](IMPLEMENTATION_PLAN_V5_ARCHIVED.md)
 
@@ -775,7 +776,7 @@ Phase7中任何依赖自然reservation失败的claim，仍必须重新取得自�
 
 - Phase6 technical Exit=`PASS WITH CAVEATS`；
 - V6完成最终Opus 5 Max Thinking review并成为`Current / Latest`；
-- `phase7-primary-manifest.json` rev6已pin、提交并hash验证；
+- latest `phase7-primary-manifest.json`已pin、提交并hash验证；
 - 两个runner的Docker CPU tests与targeted reviews通过；
 - R2=`disabled_not_comparable`；
 - 用户条件性授权在上述Gate全部关闭后生效。
@@ -802,7 +803,7 @@ Phase6通过本身**不授权**Phase7。
 
 ### 8.2.1 P7-0工程前置（0-GPU，阻塞任何GPU运行）
 
-以下工程前置已经实现；rev6必须绑定其最终blob与review状态：
+以下工程前置已经实现；latest pinned manifest必须绑定其最终blob与review状态：
 
 1. `run_p7_ceiling.py`：
    - A8 workload；
@@ -829,7 +830,7 @@ Phase6通过本身**不授权**Phase7。
 - code pin之后只允许primary/result manifest envelope commits。
 - final Opus review evidence固定写入
   `benchmark/approx_kv/results/phase7/phase7-final-opus-review.json`；
-  rev6保持`pinned_blocked`，review通过后使用保持同一design hash的后续revision
+  review revision保持`pinned_blocked`，review通过后使用保持同一design hash的后续revision
   转为`authorized`。
 
 ### 8.2.2 P7-0b Chunk-migration feasibility gate
@@ -1127,7 +1128,7 @@ host/prefetch不在V6默认轨道中，不创建对应review里程碑。
 
 Phase7执行前新增最终门：
 
-1. code pin与rev6 manifest完成；
+1. code pin与latest pinned manifest完成；
 2. Claude Opus 5 / Max Thinking / long context独立review最终plan、
    manifest、runner/test evidence、R2 disposition与implementation binding；
 3. accepted feedback全部闭合；
@@ -1246,8 +1247,8 @@ V6 candidate当前状态：
 - `run_p7_ceiling.py`、`run_p7_scheduler.py`与共享Phase7模块已实现；
 - 固定Docker镜像targeted CPU suite=`152 passed + 10 subtests`；
 - 三轮targeted review已闭合全部P0/P1；
-- final code pin=`8d0e42fbf975240a5999670a47243e9d99bc494d`；
-- rev6 primary manifest、V6 final Opus review与final disposition待完成；
+- final code pin=`5d9a5793d73121f088890aa6c02cfebc31cd97be`；
+- rev7 primary manifest、V6 final Opus review与final disposition待完成；
 - 用户已给条件性授权，但尚未生效；未进入Phase7。
 
 ## 15. V6冻结约束与已吸收教训
@@ -1257,7 +1258,7 @@ V6 candidate当前状态：
 V6只有在以下条件全部满足后才可改为`Current / Latest`：
 
 1. V5不可变归档完成；
-2. final code pin与rev6 manifest完成；
+2. final code pin与latest pinned manifest完成；
 3. Opus 5 Max Thinking final review完成；
 4. 主会话逐项disposition并闭合accepted feedback；
 5. 无开放P0/P1；
