@@ -85,12 +85,17 @@ class ApproxKVRequestMetadata:
     model_fingerprint: str
     cache_dtype: str
     plugin: str | None = None
+    pin_until_reset: bool = False
 
     def __post_init__(self) -> None:
         if not self.segments:
             raise ValueError("segments must not be empty")
         if not self.model_fingerprint or not self.cache_dtype:
             raise ValueError("model_fingerprint and cache_dtype must be non-empty")
+        if not isinstance(self.pin_until_reset, bool):
+            raise ValueError("pin_until_reset must be a boolean")
+        if self.pin_until_reset and self.operation != ApproxKVRequestOperation.REGISTER:
+            raise ValueError("pin_until_reset is only valid for registration")
 
     def validate_prompt_length(self, prompt_length: int) -> None:
         if prompt_length <= 0:
@@ -130,6 +135,11 @@ def parse_request_metadata(
         (str, bytes),
     ):
         raise ValueError("approx_kv.segments must be an array")
+    if "pin_ttl_s" in raw:
+        raise ValueError("approx_kv.pin_ttl_s is unsupported; use pin_until_reset")
+    pin_until_reset = raw.get("pin_until_reset", False)
+    if not isinstance(pin_until_reset, bool):
+        raise ValueError("approx_kv.pin_until_reset must be a boolean")
     segments = tuple(
         ApproxKVRequestSegment(
             content_hash=str(segment["content_hash"]),
@@ -178,4 +188,5 @@ def parse_request_metadata(
         model_fingerprint=str(raw.get("model_fingerprint", "runtime")),
         cache_dtype=str(raw.get("cache_dtype", "auto")),
         plugin=(None if raw.get("plugin") is None else str(raw["plugin"])),
+        pin_until_reset=pin_until_reset,
     )

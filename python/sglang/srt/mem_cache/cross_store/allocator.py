@@ -243,7 +243,14 @@ class CrossStoreAllocator:
                     demoted_bytes=sum(item.resident_bytes for item in demoted),
                     peak_device_bytes=self.budget.snapshot().peak_device_bytes,
                 )
-            except (KeyError, MemoryError, RuntimeError, TypeError, ValueError) as exc:
+            except (
+                AssertionError,
+                KeyError,
+                MemoryError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as exc:
                 if commit_phase:
                     requires_reset = True
                 if allocation is not None:
@@ -265,7 +272,13 @@ class CrossStoreAllocator:
                         else:
                             self.budget.restore_host(resource.item.resident_bytes)
                         rolled_back_indexes.add(index)
-                    except (KeyError, MemoryError, RuntimeError, ValueError):
+                    except (
+                        AssertionError,
+                        KeyError,
+                        MemoryError,
+                        RuntimeError,
+                        ValueError,
+                    ):
                         requires_reset = True
                 victims = tuple(
                     resource.item

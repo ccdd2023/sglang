@@ -134,6 +134,7 @@ class TestApproxKVRuntime(unittest.TestCase):
             core_enabled=True,
             host_residency_enabled=True,
             cross_store_bytes_per_token=256,
+            allow_persistent_pins=True,
         )
         self.manager = ApproxKVManager(config)
         self.manager.bind_residency_backend(
@@ -150,13 +151,75 @@ class TestApproxKVRuntime(unittest.TestCase):
             length=3,
         )
 
-    def metadata(self, operation):
+    def metadata(self, operation, *, pin_until_reset=False):
         return ApproxKVRequestMetadata(
             operation=operation,
             segments=(self.segment,),
             model_fingerprint="model",
             cache_dtype="fp32",
+            pin_until_reset=pin_until_reset,
         )
+
+    def test_registration_pin_is_opt_in_and_released_by_reset(self):
+        unpinned = FakeReq(
+            self.metadata(ApproxKVRequestOperation.REGISTER),
+            (10, 11, 12, 13),
+        )
+        self.assertEqual(register_request_segments(self.tree, unpinned), 3)
+        self.assertEqual(self.manager.store.lease_count, 0)
+        self.assertEqual(self.manager.persistent_lease_count, 0)
+        self.manager.reset()
+
+        pinned = FakeReq(
+            self.metadata(
+                ApproxKVRequestOperation.REGISTER,
+                pin_until_reset=True,
+            ),
+            (10, 11, 12, 13),
+        )
+        self.assertEqual(register_request_segments(self.tree, pinned), 3)
+        self.assertEqual(self.manager.store.record_count, 1)
+        self.assertEqual(self.manager.store.lease_count, 1)
+        self.assertEqual(self.manager.persistent_lease_count, 1)
+
+        reuse = FakeReq(
+            self.metadata(ApproxKVRequestOperation.REUSE),
+            (10, 11, 12, 99),
+        )
+        self.assertTrue(restore_request_prefix(self.tree, reuse))
+        self.assertEqual(self.manager.store.lease_count, 1)
+
+        self.manager.reset()
+        self.assertEqual(self.manager.store.lease_count, 0)
+        self.assertEqual(self.manager.persistent_lease_count, 0)
+        self.assertEqual(self.manager.store.record_count, 0)
+
+    def test_registration_pin_fails_explicitly_when_gate_is_closed(self):
+        manager = ApproxKVManager(
+            ApproxKVFeatureConfig(
+                core_enabled=True,
+                cross_store_bytes_per_token=256,
+            )
+        )
+        tree = SimpleNamespace(
+            token_to_kv_pool_allocator=self.allocator,
+            req_to_token_pool=self.req_pool,
+            approx_kv=manager,
+        )
+        request = FakeReq(
+            self.metadata(
+                ApproxKVRequestOperation.REGISTER,
+                pin_until_reset=True,
+            ),
+            (10, 11, 12, 13),
+        )
+        with self.assertRaises(ApproxKVRegistrationError) as raised:
+            register_request_segments(tree, request)
+        self.assertIn(
+            "persistent registration pins are disabled", str(raised.exception.__cause__)
+        )
+        self.assertEqual(manager.store.record_count, 0)
+        self.assertEqual(manager.store.lease_count, 0)
 
     def test_host_register_load_copy_and_last_token_forward(self):
         source_keys = [

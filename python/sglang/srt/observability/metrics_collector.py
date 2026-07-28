@@ -2216,14 +2216,25 @@ class RadixCacheMetricsCollector(_StatLoggerDIMixin):
         peak_device_bytes: int,
         reserved_device_bytes: int,
     ) -> None:
-        self.cross_store_peak_device_bytes.labels(**self.labels).set(peak_device_bytes)
-        self.cross_store_reserved_device_bytes.labels(**self.labels).set(
-            reserved_device_bytes
+        self.set_cross_store_device_accounting(
+            peak_device_bytes=peak_device_bytes,
+            reserved_device_bytes=reserved_device_bytes,
         )
         if not committed and destroyed_bytes:
             self.cross_store_wasted_bytes_total.labels(**self.labels).inc(
                 destroyed_bytes
             )
+
+    def set_cross_store_device_accounting(
+        self,
+        *,
+        peak_device_bytes: int,
+        reserved_device_bytes: int,
+    ) -> None:
+        self.cross_store_peak_device_bytes.labels(**self.labels).set(peak_device_bytes)
+        self.cross_store_reserved_device_bytes.labels(**self.labels).set(
+            reserved_device_bytes
+        )
 
     def set_approx_kv_store_state(
         self,

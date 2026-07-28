@@ -13,6 +13,7 @@ from .async_transfer import ApproxKVPrefetchTicket
 from .config import ApproxKVFeatureConfig
 from .plugins import RecoveryPlugin, RecoveryPluginRegistry
 from .store import (
+    ApproxKVLease,
     ApproxKVSegmentStore,
     ApproxKVStoreCapacityError,
     AsyncResidencyLoader,
@@ -74,6 +75,8 @@ class ApproxKVManager:
         self._ticket_lock = threading.Lock()
         self._provisional_lock = threading.Lock()
         self._provisional_tokens = 0
+        self._persistent_lease_lock = threading.Lock()
+        self._persistent_leases: dict[KVSegmentKey, ApproxKVLease] = {}
         self._cross_store_coordinator = None
         if self.config.epic_enabled:
             from .epic_plugin import EPICLeadingKPlugin
@@ -512,6 +515,74 @@ class ApproxKVManager:
         with self._provisional_lock:
             return self._provisional_tokens
 
+    def pin_registration(
+        self,
+        handle: KVSegmentHandle,
+    ) -> ApproxKVLease:
+        """Hold an opt-in persistent lease on a freshly registered segment.
+
+        The lease survives request completion so a registered source object
+        stays reusable across a target sequence; it is released by
+        :meth:`reset`.
+        """
+        if not self.config.allow_persistent_pins:
+            raise RuntimeError("persistent registration pins are disabled")
+        with self._persistent_lease_lock:
+            previous = self._persistent_leases.get(handle.key)
+            if previous is not None and previous.generation == handle.generation:
+                return previous
+            additional = 0 if previous is not None else 1
+            if (
+                len(self._persistent_leases) + additional
+                > self.config.max_persistent_pins
+            ):
+                raise RuntimeError(
+                    "persistent registration pin cap exceeded: "
+                    f"max={self.config.max_persistent_pins}"
+                )
+            if previous is not None:
+                self.store.unpin(previous)
+                self._persistent_leases.pop(handle.key, None)
+            lease = self.store.pin(handle, ttl_s=None)
+            self._persistent_leases[handle.key] = lease
+        self._record_store_state()
+        return lease
+
+    def validate_persistent_registration_request(self, requested_pins: int) -> None:
+        if requested_pins <= 0:
+            raise ValueError("requested_pins must be positive")
+        if not self.config.allow_persistent_pins:
+            raise RuntimeError("persistent registration pins are disabled")
+        with self._persistent_lease_lock:
+            if (
+                len(self._persistent_leases) + requested_pins
+                > self.config.max_persistent_pins
+            ):
+                raise RuntimeError(
+                    "persistent registration pin cap exceeded: "
+                    f"requested={requested_pins}, "
+                    f"active={len(self._persistent_leases)}, "
+                    f"max={self.config.max_persistent_pins}"
+                )
+
+    def release_segment(self, handle: KVSegmentHandle) -> bool:
+        released = self.store.release(handle)
+        if released:
+            self._record_store_state()
+        return released
+
+    @property
+    def persistent_lease_count(self) -> int:
+        with self._persistent_lease_lock:
+            return len(self._persistent_leases)
+
+    def _release_persistent_leases(self) -> None:
+        with self._persistent_lease_lock:
+            leases = tuple(self._persistent_leases.values())
+            self._persistent_leases.clear()
+        for lease in leases:
+            self.store.unpin(lease)
+
     def _record_store_state(self) -> None:
         collector = self.metrics_collector
         if collector is None:
@@ -537,10 +608,25 @@ class ApproxKVManager:
             tickets = tuple(self._tickets.values())
         for ticket in tickets:
             ticket.cancel()
+        self._release_persistent_leases()
         self.store.reset()
         with self._provisional_lock:
             self._provisional_tokens = 0
+        self._reset_cross_store_accounting()
         self._record_store_state()
+
+    def _reset_cross_store_accounting(self) -> None:
+        coordinator = self._cross_store_coordinator
+        if coordinator is not None:
+            reset_accounting = getattr(coordinator, "reset_accounting", None)
+            if reset_accounting is not None:
+                reset_accounting(force=True)
+        collector = self.metrics_collector
+        if collector is None:
+            return
+        callback = getattr(collector, "set_cross_store_device_accounting", None)
+        if callback is not None:
+            callback(peak_device_bytes=0, reserved_device_bytes=0)
 
     def _forget_ticket(self, ticket_id: str) -> None:
         with self._ticket_lock:

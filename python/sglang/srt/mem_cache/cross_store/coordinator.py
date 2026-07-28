@@ -67,6 +67,21 @@ class CrossStoreCoordinator:
             release_allocation=lambda allocation: None,
         )
 
+    def reset_accounting(self, *, force: bool = False) -> bool:
+        """Zero budget usage and the device peak after a full store reset.
+
+        Returns ``True`` when a budget existed and was reset.
+        """
+        with self._allocation_lock:
+            if self._allocating:
+                raise RuntimeError(
+                    "cannot reset cross-store accounting during an allocation"
+                )
+            if self._budget is None:
+                return False
+            self._budget.reset_accounting(force=force)
+            return True
+
     def _run_allocation(
         self,
         num_tokens: int,

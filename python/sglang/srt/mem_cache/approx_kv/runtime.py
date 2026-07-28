@@ -182,6 +182,17 @@ def _segment_key(
     )
 
 
+def _pin_registered_segment(manager: Any, metadata: Any, handle: Any) -> None:
+    """Hold an opt-in persistent lease on a just-registered source segment."""
+    if not getattr(metadata, "pin_until_reset", False) or handle is None:
+        return
+    try:
+        manager.pin_registration(handle)
+    except Exception:
+        manager.release_segment(handle)
+        raise
+
+
 def register_request_segments(tree_cache: Any, req: Any) -> int:
     try:
         return _register_request_segments(tree_cache, req)
@@ -204,6 +215,8 @@ def _register_request_segments(tree_cache: Any, req: Any) -> int:
         or not manager.config.core_enabled
     ):
         return 0
+    if metadata.pin_until_reset:
+        manager.validate_persistent_registration_request(len(metadata.segments))
     if req.req_pool_idx is None or req.kv is None:
         raise RuntimeError("request KV must exist before source registration")
 
@@ -299,6 +312,7 @@ def _register_request_segments(tree_cache: Any, req: Any) -> int:
                 )
                 if handle is None:
                     continue
+                _pin_registered_segment(manager, metadata, handle)
                 manager.record_host_export(
                     load_result.num_tokens or segment.length,
                     transfer_bytes,
@@ -344,6 +358,7 @@ def _register_request_segments(tree_cache: Any, req: Any) -> int:
                 )
                 if handle is None:
                     continue
+                _pin_registered_segment(manager, metadata, handle)
         finally:
             for lease in reversed(dependency_leases):
                 manager.store.unpin(lease)

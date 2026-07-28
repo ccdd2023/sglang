@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import threading
 import time
 import uuid
@@ -92,7 +93,7 @@ class ApproxKVLease:
     lease_id: str
     key: KVSegmentKey
     generation: int
-    expires_at_s: float
+    expires_at_s: float | None
 
 
 class ApproxKVSegmentStore:
@@ -272,9 +273,17 @@ class ApproxKVSegmentStore:
             record = self._records.get(handle.key)
             return record is not None and record.generation == handle.generation
 
-    def pin(self, handle: KVSegmentHandle, ttl_s: float) -> ApproxKVLease:
-        if ttl_s <= 0:
-            raise ValueError("ttl_s must be positive")
+    def pin(
+        self,
+        handle: KVSegmentHandle,
+        ttl_s: float | None,
+    ) -> ApproxKVLease:
+        expires_at_s = None
+        if ttl_s is not None:
+            ttl_s = float(ttl_s)
+            if not math.isfinite(ttl_s) or ttl_s <= 0:
+                raise ValueError("ttl_s must be finite and positive")
+            expires_at_s = time.monotonic() + ttl_s
         with self._lock:
             if not self.is_current(handle):
                 raise KeyError("cannot pin a stale or missing segment")
@@ -282,7 +291,7 @@ class ApproxKVSegmentStore:
                 lease_id=uuid.uuid4().hex,
                 key=handle.key,
                 generation=handle.generation,
-                expires_at_s=time.monotonic() + ttl_s,
+                expires_at_s=expires_at_s,
             )
             self._leases[lease.lease_id] = lease
             return lease
@@ -298,7 +307,7 @@ class ApproxKVSegmentStore:
             expired = [
                 lease_id
                 for lease_id, lease in self._leases.items()
-                if lease.expires_at_s <= now_s
+                if lease.expires_at_s is not None and lease.expires_at_s <= now_s
             ]
             for lease_id in expired:
                 del self._leases[lease_id]
@@ -464,10 +473,19 @@ class ApproxKVSegmentStore:
         return tuple(self._cross_store_resource(record) for record in records)
 
     def _is_leased(self, key: KVSegmentKey, generation: int) -> bool:
-        return any(
-            lease.key == key and lease.generation == generation
-            for lease in self._leases.values()
-        )
+        with self._lock:
+            now_s = time.monotonic()
+            expired = [
+                lease_id
+                for lease_id, lease in self._leases.items()
+                if lease.expires_at_s is not None and lease.expires_at_s <= now_s
+            ]
+            for lease_id in expired:
+                del self._leases[lease_id]
+            return any(
+                lease.key == key and lease.generation == generation
+                for lease in self._leases.values()
+            )
 
     def _cross_store_resource(self, record: _Record) -> CrossStoreResource:
         handle = self._handle(record)

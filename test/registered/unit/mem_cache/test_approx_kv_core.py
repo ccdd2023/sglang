@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import importlib
+import math
 import sys
 import types as python_types
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 PACKAGE_DIR = REPO_ROOT / "python/sglang/srt/mem_cache/approx_kv"
@@ -254,6 +256,44 @@ class TestApproxKVCore(unittest.TestCase):
             ],
         )
 
+    def test_finite_lease_expires_without_explicit_gc(self):
+        store = ApproxKVSegmentStore()
+        handle = store.register(
+            key=make_key((1,), "finite"),
+            token_ids=(1,),
+            source_start=0,
+            residency=ResidencyTier.DEVICE,
+            backend_ref="finite",
+        )
+        with patch.object(store_module.time, "monotonic", return_value=10.0):
+            lease = store.pin(handle, ttl_s=1.0)
+        self.assertEqual(lease.expires_at_s, 11.0)
+
+        with patch.object(store_module.time, "monotonic", return_value=12.0):
+            self.assertTrue(store.release(handle))
+        self.assertEqual(store.lease_count, 0)
+
+    def test_pin_rejects_non_finite_ttl_and_persistent_gc_is_ignored(self):
+        store = ApproxKVSegmentStore()
+        handle = store.register(
+            key=make_key((1,), "persistent"),
+            token_ids=(1,),
+            source_start=0,
+            residency=ResidencyTier.DEVICE,
+            backend_ref="persistent",
+        )
+        for ttl_s in (0.0, -1.0, math.nan, math.inf, -math.inf):
+            with self.subTest(ttl_s=ttl_s):
+                with self.assertRaisesRegex(ValueError, "finite and positive"):
+                    store.pin(handle, ttl_s=ttl_s)
+
+        lease = store.pin(handle, ttl_s=None)
+        self.assertIsNone(lease.expires_at_s)
+        self.assertEqual(store.gc_expired_leases(now_s=math.inf), 0)
+        self.assertFalse(store.release(handle))
+        self.assertTrue(store.unpin(lease))
+        self.assertTrue(store.release(handle))
+
     def test_leased_replacement_releases_new_backend_once(self):
         disposed = []
 
@@ -288,9 +328,7 @@ class TestApproxKVCore(unittest.TestCase):
 
     def test_complete_copy_and_dense_head(self):
         tokens = tuple(range(10))
-        manager = ApproxKVManager(
-            ApproxKVFeatureConfig(core_enabled=True)
-        )
+        manager = ApproxKVManager(ApproxKVFeatureConfig(core_enabled=True))
         handle = manager.register_segment(
             key=make_key(tokens),
             token_ids=tokens,
@@ -328,9 +366,7 @@ class TestApproxKVCore(unittest.TestCase):
     def test_source_mismatch_falls_back_complete_chunk(self):
         source = tuple(range(10))
         target = tuple(range(9)) + (99,)
-        manager = ApproxKVManager(
-            ApproxKVFeatureConfig(core_enabled=True)
-        )
+        manager = ApproxKVManager(ApproxKVFeatureConfig(core_enabled=True))
         handle = manager.register_segment(
             key=make_key(source),
             token_ids=source,

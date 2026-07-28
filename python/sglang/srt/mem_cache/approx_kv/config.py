@@ -21,6 +21,23 @@ def _read_bool(
     raise ValueError(f"{name} must be a boolean value, got {value!r}")
 
 
+def _read_positive_int(
+    env: Mapping[str, str],
+    name: str,
+    default: int,
+) -> int:
+    value = env.get(name)
+    if value is None:
+        return default
+    try:
+        parsed = int(value.strip())
+    except ValueError as exc:
+        raise ValueError(f"{name} must be an integer, got {value!r}") from exc
+    if parsed <= 0:
+        raise ValueError(f"{name} must be positive, got {parsed}")
+    return parsed
+
+
 # EPIC fixed leading-k attention-sink repair only supports these window
 # sizes (see epic_plugin.EPICLeadingKPlugin / Phase 4 R1 requirements).
 # k=0 degenerates to the plain raw-copy (R0) path.
@@ -55,6 +72,8 @@ class ApproxKVFeatureConfig:
     cross_store_bytes_per_token: int = 1
     cross_store_host_budget_bytes: int = 0
     cross_store_registration_evicts_exact: bool = False
+    allow_persistent_pins: bool = False
+    max_persistent_pins: int = 16
     test_mode_enabled: bool = False
     cross_store_test_reservation_failure: bool = False
 
@@ -74,6 +93,12 @@ class ApproxKVFeatureConfig:
             raise ValueError("cross_store_bytes_per_token must be positive")
         if self.cross_store_host_budget_bytes < 0:
             raise ValueError("cross_store_host_budget_bytes must be non-negative")
+        if (
+            isinstance(self.max_persistent_pins, bool)
+            or not isinstance(self.max_persistent_pins, int)
+            or self.max_persistent_pins <= 0
+        ):
+            raise ValueError("max_persistent_pins must be a positive integer")
         if self.cross_store_registration_evicts_exact and not self.cross_store_enabled:
             raise ValueError(
                 "cross_store_enabled=True is required when registration "
@@ -117,6 +142,16 @@ class ApproxKVFeatureConfig:
             "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT",
             False,
         )
+        allow_persistent_pins = _read_bool(
+            env,
+            "SGLANG_APPROX_KV_ALLOW_PERSISTENT_PINS",
+            False,
+        )
+        max_persistent_pins = _read_positive_int(
+            env,
+            "SGLANG_APPROX_KV_MAX_PERSISTENT_PINS",
+            16,
+        )
         test_mode_enabled = _read_bool(
             env,
             "SGLANG_APPROX_KV_TEST_ONLY",
@@ -155,6 +190,8 @@ class ApproxKVFeatureConfig:
             cross_store_registration_evicts_exact=(
                 cross_store_registration_evicts_exact
             ),
+            allow_persistent_pins=allow_persistent_pins,
+            max_persistent_pins=max_persistent_pins,
             test_mode_enabled=test_mode_enabled,
             cross_store_test_reservation_failure=(cross_store_test_reservation_failure),
         )

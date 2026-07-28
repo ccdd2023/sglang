@@ -201,6 +201,29 @@ class TestCrossStoreAllocator(unittest.TestCase):
                 self.assertEqual(budget.snapshot().device_used_bytes, 200)
                 self.assertEqual(budget.snapshot().device_reserved_bytes, 0)
 
+    def test_assertion_error_after_reserve_uses_rollback_path(self):
+        budget = CrossStoreBudget(device_limit_bytes=200, host_limit_bytes=0)
+        budget.seed_usage(device_bytes=100)
+
+        def inject(point):
+            if point == AllocationFailurePoint.AFTER_RESERVE:
+                raise AssertionError("high-confidence invariant")
+
+        result = CrossStoreAllocator(
+            budget=budget,
+            policy=CrossStorePolicy(PolicyKind.S0_LRU),
+            fault_injector=inject,
+        ).allocate(
+            required_device_bytes=50,
+            resources=(),
+            allocate_backend=lambda: object(),
+            release_allocation=lambda allocation: None,
+        )
+        self.assertFalse(result.committed)
+        self.assertIn("AssertionError", result.failure)
+        self.assertEqual(budget.snapshot().device_reserved_bytes, 0)
+        self.assertEqual(budget.snapshot().device_used_bytes, 100)
+
     def test_reservation_failure_degrades_to_dense_fallback(self):
         """A failed reservation must degrade, and be counted as a fallback.
 
@@ -1123,6 +1146,24 @@ class TestCrossStoreConfig(unittest.TestCase):
         self.assertEqual(config.cross_store_bytes_per_token, 16)
         self.assertEqual(config.cross_store_host_budget_bytes, 64)
 
+    def test_persistent_pin_settings_are_gated_and_positive(self):
+        defaults = ApproxKVFeatureConfig.from_env({})
+        self.assertFalse(defaults.allow_persistent_pins)
+        self.assertEqual(defaults.max_persistent_pins, 16)
+
+        enabled = ApproxKVFeatureConfig.from_env(
+            {
+                "SGLANG_APPROX_KV_ALLOW_PERSISTENT_PINS": "1",
+                "SGLANG_APPROX_KV_MAX_PERSISTENT_PINS": "3",
+            }
+        )
+        self.assertTrue(enabled.allow_persistent_pins)
+        self.assertEqual(enabled.max_persistent_pins, 3)
+        with self.assertRaisesRegex(ValueError, "must be positive"):
+            ApproxKVFeatureConfig.from_env(
+                {"SGLANG_APPROX_KV_MAX_PERSISTENT_PINS": "0"}
+            )
+
     def test_reservation_failure_injection_requires_both_test_gates(self):
         base = {
             "SGLANG_APPROX_KV_CORE": "1",
@@ -1324,6 +1365,290 @@ class TestCrossStoreRuntimeIntegration(unittest.TestCase):
         evict_from_tree_cache(cache, 1)
         self.assertEqual(cache.approx_kv.store.record_count, 0)
         self.assertEqual(allocator.available_size(), 1)
+
+
+class TestCrossStoreResetAccounting(unittest.TestCase):
+    def test_budget_reset_clears_usage_and_device_peak(self):
+        budget = CrossStoreBudget(device_limit_bytes=1000, host_limit_bytes=1000)
+        budget.reserve_device(400)
+        budget.commit_device(400)
+        self.assertEqual(budget.snapshot().peak_device_bytes, 400)
+        budget.release_device(400)
+        self.assertEqual(budget.snapshot().peak_device_bytes, 400)
+
+        budget.reset_accounting()
+        snapshot = budget.snapshot()
+        self.assertEqual(snapshot.peak_device_bytes, 0)
+        self.assertEqual(snapshot.device_used_bytes, 0)
+        self.assertEqual(snapshot.host_used_bytes, 0)
+        self.assertEqual(snapshot.device_reserved_bytes, 0)
+
+    def test_budget_reset_is_rejected_while_a_reservation_is_active(self):
+        budget = CrossStoreBudget(device_limit_bytes=1000, host_limit_bytes=0)
+        budget.reserve_device(100)
+        with self.assertRaisesRegex(RuntimeError, "active reservation"):
+            budget.reset_accounting()
+        self.assertEqual(budget.snapshot().peak_device_bytes, 100)
+
+    def test_forced_budget_reset_clears_stale_reservation_and_usage(self):
+        budget = CrossStoreBudget(device_limit_bytes=1000, host_limit_bytes=1000)
+        budget.seed_usage(device_bytes=300, host_bytes=200)
+        budget.reserve_device(100)
+
+        budget.reset_accounting(force=True)
+        snapshot = budget.snapshot()
+        self.assertEqual(snapshot.device_used_bytes, 0)
+        self.assertEqual(snapshot.host_used_bytes, 0)
+        self.assertEqual(snapshot.device_reserved_bytes, 0)
+        self.assertEqual(snapshot.peak_device_bytes, 0)
+
+    def test_coordinator_reset_is_a_noop_without_a_budget(self):
+        coordinator = CrossStoreCoordinator(
+            object(),
+            bytes_per_token=1,
+            host_budget_bytes=0,
+        )
+        self.assertFalse(coordinator.reset_accounting())
+        coordinator._budget = CrossStoreBudget(
+            device_limit_bytes=100,
+            host_limit_bytes=0,
+        )
+        coordinator._budget.reserve_device(10)
+        coordinator._budget.commit_device(10)
+        self.assertTrue(coordinator.reset_accounting())
+        self.assertEqual(coordinator._budget.snapshot().peak_device_bytes, 0)
+
+    def test_coordinator_reset_is_rejected_during_allocation(self):
+        coordinator = CrossStoreCoordinator(
+            object(),
+            bytes_per_token=1,
+            host_budget_bytes=0,
+        )
+        coordinator._allocating = True
+        with self.assertRaisesRegex(RuntimeError, "during an allocation"):
+            coordinator.reset_accounting(force=True)
+
+    def test_manager_reset_zeroes_peak_and_reserved_gauges(self):
+        class RecordingCollector:
+            def __init__(self):
+                self.accounting = []
+                self.store_state = []
+
+            def set_cross_store_device_accounting(
+                self,
+                *,
+                peak_device_bytes,
+                reserved_device_bytes,
+            ):
+                self.accounting.append((peak_device_bytes, reserved_device_bytes))
+
+            def record_cross_store_result(self, **kwargs):
+                self.set_cross_store_device_accounting(
+                    peak_device_bytes=kwargs["peak_device_bytes"],
+                    reserved_device_bytes=kwargs["reserved_device_bytes"],
+                )
+
+            def set_approx_kv_store_state(self, **kwargs):
+                self.store_state.append(kwargs)
+
+        collector = RecordingCollector()
+        manager = ApproxKVManager(
+            ApproxKVFeatureConfig(
+                core_enabled=True,
+                cross_store_enabled=True,
+                cross_store_bytes_per_token=1,
+            ),
+            metrics_collector=collector,
+        )
+        coordinator = manager.cross_store_coordinator(object())
+        coordinator._budget = CrossStoreBudget(
+            device_limit_bytes=1000,
+            host_limit_bytes=0,
+        )
+        coordinator._budget.reserve_device(500)
+        coordinator._budget.commit_device(500)
+        coordinator._budget.release_device(500)
+        manager.record_cross_store_result(
+            SimpleNamespace(
+                committed=True,
+                destroyed_bytes=0,
+                peak_device_bytes=500,
+                reserved_device_bytes=0,
+            )
+        )
+        self.assertEqual(collector.accounting[-1], (500, 0))
+
+        manager.reset()
+        self.assertEqual(collector.accounting[-1], (0, 0))
+        self.assertEqual(coordinator._budget.snapshot().peak_device_bytes, 0)
+        self.assertEqual(collector.store_state[-1]["records"], 0)
+
+    def test_manager_full_reset_forces_stale_reservation_cleanup(self):
+        manager = ApproxKVManager(
+            ApproxKVFeatureConfig(
+                core_enabled=True,
+                cross_store_enabled=True,
+                cross_store_bytes_per_token=1,
+            )
+        )
+        coordinator = manager.cross_store_coordinator(object())
+        coordinator._budget = CrossStoreBudget(
+            device_limit_bytes=1000,
+            host_limit_bytes=100,
+        )
+        coordinator._budget.seed_usage(device_bytes=300, host_bytes=100)
+        coordinator._budget.reserve_device(200)
+
+        manager.reset()
+        snapshot = coordinator._budget.snapshot()
+        self.assertEqual(snapshot.device_used_bytes, 0)
+        self.assertEqual(snapshot.host_used_bytes, 0)
+        self.assertEqual(snapshot.device_reserved_bytes, 0)
+        self.assertEqual(snapshot.peak_device_bytes, 0)
+
+
+class TestPersistentRegistrationLease(unittest.TestCase):
+    def test_pin_until_reset_is_optional_boolean_registration_metadata(self):
+        default = parse_request_metadata(
+            {
+                "approx_kv": {
+                    "operation": "register",
+                    "segments": [
+                        {"content_hash": "artifact", "target_start": 0, "length": 1}
+                    ],
+                }
+            }
+        )
+        self.assertFalse(default.pin_until_reset)
+
+        pinned = parse_request_metadata(
+            {
+                "approx_kv": {
+                    "operation": "register",
+                    "pin_until_reset": True,
+                    "segments": [
+                        {"content_hash": "artifact", "target_start": 0, "length": 1}
+                    ],
+                }
+            }
+        )
+        self.assertTrue(pinned.pin_until_reset)
+
+        with self.assertRaisesRegex(ValueError, "must be a boolean"):
+            parse_request_metadata(
+                {
+                    "approx_kv": {
+                        "operation": "register",
+                        "pin_until_reset": 1,
+                        "segments": [
+                            {"content_hash": "artifact", "target_start": 0, "length": 1}
+                        ],
+                    }
+                }
+            )
+        with self.assertRaisesRegex(ValueError, "pin_ttl_s is unsupported"):
+            parse_request_metadata(
+                {
+                    "approx_kv": {
+                        "operation": "register",
+                        "pin_ttl_s": 3600,
+                        "segments": [
+                            {
+                                "content_hash": "artifact",
+                                "target_start": 0,
+                                "length": 1,
+                            }
+                        ],
+                    }
+                }
+            )
+
+    def test_manager_pin_registration_holds_and_reset_releases(self):
+        store = ApproxKVSegmentStore(bytes_per_token=1)
+        manager = ApproxKVManager(
+            ApproxKVFeatureConfig(
+                core_enabled=True,
+                allow_persistent_pins=True,
+            ),
+            store=store,
+        )
+        handle = manager.register_segment(
+            key=TestApproxStoreByteBudget()._key("pinned-source"),
+            token_ids=(1,),
+            source_start=0,
+            residency=ResidencyTier.DEVICE,
+            backend_ref=object(),
+            resident_bytes=1,
+            object_id="pinned-source",
+        )
+        self.assertEqual(store.lease_count, 0)
+
+        lease = manager.pin_registration(handle)
+        self.assertIsNotNone(lease)
+        self.assertIsNone(lease.expires_at_s)
+        self.assertEqual(store.lease_count, 1)
+        self.assertEqual(manager.persistent_lease_count, 1)
+
+        manager.reset()
+        self.assertEqual(store.lease_count, 0)
+        self.assertEqual(manager.persistent_lease_count, 0)
+        self.assertEqual(store.record_count, 0)
+
+    def test_pin_registration_gate_cap_and_duplicate(self):
+        manager = ApproxKVManager(ApproxKVFeatureConfig(core_enabled=True))
+        handle = manager.register_segment(
+            key=TestApproxStoreByteBudget()._key("gate"),
+            token_ids=(1,),
+            source_start=0,
+            residency=ResidencyTier.DEVICE,
+            backend_ref=object(),
+            resident_bytes=1,
+            object_id="gate",
+        )
+        with self.assertRaisesRegex(RuntimeError, "pins are disabled"):
+            manager.pin_registration(handle)
+
+        store = ApproxKVSegmentStore(bytes_per_token=1)
+        capped = ApproxKVManager(
+            ApproxKVFeatureConfig(
+                core_enabled=True,
+                allow_persistent_pins=True,
+                max_persistent_pins=1,
+            ),
+            store=store,
+        )
+        first = capped.register_segment(
+            key=TestApproxStoreByteBudget()._key("first-persistent"),
+            token_ids=(1,),
+            source_start=0,
+            residency=ResidencyTier.DEVICE,
+            backend_ref=object(),
+            resident_bytes=1,
+            object_id="first-persistent",
+        )
+        first_lease = capped.pin_registration(first)
+        duplicate = capped.pin_registration(first)
+        self.assertIs(duplicate, first_lease)
+        self.assertEqual(capped.persistent_lease_count, 1)
+        self.assertEqual(store.lease_count, 1)
+
+        second = capped.register_segment(
+            key=TestApproxStoreByteBudget()._key("second-persistent"),
+            token_ids=(1,),
+            source_start=0,
+            residency=ResidencyTier.DEVICE,
+            backend_ref=object(),
+            resident_bytes=1,
+            object_id="second-persistent",
+        )
+        with self.assertRaisesRegex(RuntimeError, "pin cap exceeded"):
+            capped.pin_registration(second)
+        self.assertEqual(capped.persistent_lease_count, 1)
+        self.assertEqual(store.lease_count, 1)
+
+        capped.reset()
+        self.assertEqual(capped.persistent_lease_count, 0)
+        self.assertEqual(store.lease_count, 0)
 
 
 if __name__ == "__main__":

@@ -140,6 +140,23 @@ class CrossStoreBudget:
     def reconcile_usage(self, *, device_bytes: int, host_bytes: int) -> None:
         self.seed_usage(device_bytes=device_bytes, host_bytes=host_bytes)
 
+    def reset_accounting(self, *, force: bool = False) -> None:
+        """Clear usage and the peak high-water mark after a full store reset.
+
+        Without ``force``, an active reservation still indicates a live
+        allocation. A full store reset uses ``force`` to discard stale
+        accounting left by an interrupted allocation.
+        """
+        with self._lock:
+            if self.device_reserved_bytes and not force:
+                raise RuntimeError(
+                    "cannot reset cross-store accounting with an active reservation"
+                )
+            self.device_used_bytes = 0
+            self.host_used_bytes = 0
+            self.device_reserved_bytes = 0
+            self.peak_device_bytes = 0
+
     def _update_peak(self) -> None:
         self.peak_device_bytes = max(
             self.peak_device_bytes,

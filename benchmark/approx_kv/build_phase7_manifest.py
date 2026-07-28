@@ -131,6 +131,9 @@ def build_a8_workload() -> dict[str, Any]:
         "schema_version": 1,
         "prompt_family_version": "p7-a8-v1",
         "targets_per_setup": 8,
+        "segment_tokens_max": 512,
+        "source_pin_until_reset": True,
+        "source_pin_mechanism": "persistent_registration_lease_until_reset",
         "workloads": workloads,
     }
     payload["manifest_sha256"] = payload_sha256(payload)
@@ -217,6 +220,7 @@ def build_w_workload(p6_contract: dict[str, Any]) -> dict[str, Any]:
         "schema_version": 1,
         "workload_id": "W-fixed40-v1",
         "source_workload_sha256": workload["manifest_sha256"],
+        "segment_tokens_max": int(workload["segment_tokens_max"]),
         "objects": objects,
         "workflow_sequence": workload["workflow_sequence"],
         "fill_order": [item["object_id"] for item in objects],
@@ -554,10 +558,22 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             ),
             "atomic_update_required": [
                 "phase7-primary-manifest.json",
+                "RESULT_MANIFEST.json",
+            ],
+            "external_authority_update_required": [
                 "HANDOFF.md",
                 "PROJECT.md",
                 "TODO_LOCAL.txt",
             ],
+            "post_pin_envelope_allowlist": [
+                "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json",
+                "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
+            ],
+            "post_pin_envelope_rule": (
+                "the pinned code SHA must be an ancestor of the execution HEAD "
+                "and every path changed between them must appear in "
+                "post_pin_envelope_allowlist"
+            ),
         },
         "runners": runner_status,
         "r2_strategy": args.r2_strategy,
@@ -604,6 +620,8 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
                 "SGLANG_APPROX_KV_BYTES_PER_TOKEN": "114688",
                 "SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
                 "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT": "1",
+                "SGLANG_APPROX_KV_ALLOW_PERSISTENT_PINS": "1",
+                "SGLANG_APPROX_KV_MAX_PERSISTENT_PINS": "16",
                 "SGLANG_APPROX_KV_TEST_ONLY": "0",
                 "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE": "0",
             },
@@ -827,8 +845,8 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
         problems.append("manifest self-hash mismatch")
     if manifest.get("design_payload_sha256") != design_payload_sha256(manifest):
         problems.append("immutable design payload hash mismatch")
-    if manifest.get("manifest_revision", 0) <= 0:
-        problems.append("manifest revision must be positive")
+    if manifest.get("manifest_revision", 0) < 6:
+        problems.append("new Phase7 builder semantics require manifest revision >= 6")
     if manifest["manifest_revision"] > 1 and not manifest.get(
         "supersedes_manifest_sha256"
     ):
@@ -1034,6 +1052,25 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
         problems.append("test-only injection flags are not pinned off")
     if len(manifest["workloads"]["A8"]["workloads"]) != 2:
         problems.append("A8 workload count mismatch")
+    if manifest["workloads"]["A8"].get("segment_tokens_max") != 512:
+        problems.append("A8 segment_tokens_max is not frozen at 512")
+    if manifest["workloads"]["A8"].get("source_pin_until_reset") is not True:
+        problems.append("A8 source_pin_until_reset is not frozen true")
+    if manifest["workloads"]["W"].get("segment_tokens_max") != 512:
+        problems.append("W segment_tokens_max is not frozen at 512")
+    plugin_env = manifest["server_template"]["plugin_env"]
+    if plugin_env.get("SGLANG_APPROX_KV_ALLOW_PERSISTENT_PINS") != "1":
+        problems.append("persistent registration pins are not enabled for Phase7")
+    if plugin_env.get("SGLANG_APPROX_KV_MAX_PERSISTENT_PINS") != "16":
+        problems.append("Phase7 persistent registration pin cap is not 16")
+    allowlist = manifest["implementation"].get("post_pin_envelope_allowlist")
+    if not isinstance(allowlist, list) or not allowlist:
+        problems.append("post-pin envelope allowlist is missing")
+    elif any(
+        not str(path).startswith("benchmark/approx_kv/results/phase7/")
+        for path in allowlist
+    ):
+        problems.append("post-pin envelope allowlist escapes the result envelope")
     for workload in manifest["workloads"]["A8"]["workloads"]:
         if len(workload["targets"]) != 8:
             problems.append(f"{workload['workload_id']} does not have 8 targets")
@@ -1100,7 +1137,7 @@ def main() -> int:
         default="IMPLEMENTATION_PLAN_LATEST.md",
     )
     parser.add_argument("--plan-commit")
-    parser.add_argument("--manifest-revision", type=int, default=1)
+    parser.add_argument("--manifest-revision", type=int, default=6)
     parser.add_argument("--supersedes-manifest-sha256")
     parser.add_argument("--supersedes-design-payload-sha256")
     parser.add_argument("--revision-reason", default="initial preregistration")
