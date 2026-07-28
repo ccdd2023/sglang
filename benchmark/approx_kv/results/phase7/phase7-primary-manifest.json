@@ -1,20 +1,20 @@
 {
   "schema_version": 1,
   "artifact": "phase7-primary-manifest",
-  "manifest_revision": 2,
-  "supersedes_manifest_sha256": "1d65f54d6a635999f8e74a04f13419f32d86ab2dba734c082d83664cabbe4999",
-  "revision_reason": "close manifest review P0/P1: per-setting capacity, state machine, validator, W/A8 hardening",
+  "manifest_revision": 3,
+  "supersedes_manifest_sha256": "ee01e602bd68f8b4d6141e8aafcfb4b75c73f90db36b03abf3429fdc3964ab79",
+  "revision_reason": "close rev2 review P1/P2: supplement gates, GPUh headroom, state validation, canary/role/provenance hardening",
   "status": "preregistered_blocked",
   "phase7_execution_authorized": false,
   "plan": {
     "version": "V5",
-    "plan_commit": "7b5e32753e50bf9308ce7298fac5b198cf185566",
+    "plan_commit": "a53f56f239ddb1a13817ecfac12236af5be46862",
     "plan_file": "IMPLEMENTATION_PLAN_LATEST.md",
-    "plan_sha256": "10c5c2f9b330219ada0ed2772c5deb30293beafa72261effd213993a3243a560"
+    "plan_sha256": "8f57290269774586040635697f0a1e0920af65a7b3ec434e678ae76ba75d9dc8"
   },
   "implementation": {
-    "manifest_generation_sha": "be5583cf5c1f6e7eff190d12b9af29312861c678",
-    "manifest_generation_tree_sha": "33f1faa0a867fd4d26435d878ac4788cbdff64b3",
+    "manifest_generation_sha": "5f8272a021ffcc8a810121593ee307adaa9f9b0b",
+    "manifest_generation_tree_sha": "c9edacfebb734830711bf4963358b2e206e1e13d",
     "phase6_evidence_sha": "924c9d1d6c074f304189248f0fc5b15aa6d25adb",
     "phase7_pinned_implementation_sha": null,
     "phase7_pinned_tree_sha": null,
@@ -45,7 +45,7 @@
     "manifest": {
       "path": "benchmark/approx_kv/build_phase7_manifest.py",
       "exists": true,
-      "sha256": "7a10e60f98ee99e12afa52cfc3c1069efef34ece7d75627196e0ab558dd58d56",
+      "sha256": "ae691ccc4466d8dea27e99a1acddaa30e847f6ab30da0ee8e6afb0d427cfeb04",
       "required_cpu_test": "python3 -m benchmark.approx_kv.build_phase7_manifest --check",
       "cpu_test_status": "passed",
       "review_status": "reviewed"
@@ -53,7 +53,7 @@
   },
   "r2_strategy": "pending",
   "conditional_resolution": {
-    "CR-P6DELTA-RHO3": "pending",
+    "CR-P6DELTA-RHO3": "disabled_scoped_chunk1024",
     "CR-R2-ADAPTER": "pending"
   },
   "execution_blockers": [
@@ -250,6 +250,11 @@
             "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
             "extra_key": "p7-a8-b1024-same-context-canary",
             "max_new_tokens": 8,
+            "placement": "after_target_8_before_reset",
+            "arms": [
+              "R0",
+              "R2"
+            ],
             "included_in_amortization": false,
             "any_token_mismatch_is_invalid": true
           }
@@ -397,12 +402,17 @@
             "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
             "extra_key": "p7-a8-b2048-same-context-canary",
             "max_new_tokens": 8,
+            "placement": "after_target_8_before_reset",
+            "arms": [
+              "R0",
+              "R2"
+            ],
             "included_in_amortization": false,
             "any_token_mismatch_is_invalid": true
           }
         }
       ],
-      "manifest_sha256": "2ef8805935751aa9086d5bbbc82039d2ba8ac573576cae12bb124858bbf7cf9a"
+      "manifest_sha256": "76e021289465e783cd8e7e5c5740c7490d19de126fee89d38f672b8cc31e668a"
     },
     "W": {
       "schema_version": 1,
@@ -1866,7 +1876,14 @@
       "full_setup_break_even_observed_N",
       "incremental_setup_break_even_observed_N"
     ],
-    "not_observed_value": ">8/not_observed"
+    "not_observed_value": ">8/not_observed",
+    "per_role_requests_per_formal": {
+      "architect": 3,
+      "coder": 6,
+      "debugger": 6,
+      "live_filler": 46
+    },
+    "per_role_ttft_reporting": "descriptive_only_list_all_values"
   },
   "outcome_taxonomy": [
     "dense_no_reuse_baseline",
@@ -2264,7 +2281,7 @@
       "supplement_restarts": [
         1
       ],
-      "supplement_gate": "ES-R0-MDE",
+      "supplement_gate": "ES-W-UNCONDITIONAL",
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -2315,7 +2332,7 @@
         1,
         2
       ],
-      "supplement_gate": "ES-R0-MDE",
+      "supplement_gate": "ES-W-UNCONDITIONAL",
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -2363,7 +2380,7 @@
         1,
         2
       ],
-      "supplement_gate": "ES-R0-MDE",
+      "supplement_gate": "ES-W-UNCONDITIONAL",
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -2411,7 +2428,7 @@
         1,
         2
       ],
-      "supplement_gate": "ES-R0-MDE",
+      "supplement_gate": "ES-W-UNCONDITIONAL",
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -2459,7 +2476,7 @@
         1,
         2
       ],
-      "supplement_gate": "ES-R0-MDE",
+      "supplement_gate": "ES-W-UNCONDITIONAL",
       "warmup_repeats": 1,
       "formal_repeats": 2,
       "arms": [
@@ -2679,6 +2696,11 @@
       "rule": "if paired median improvement <5% or does not exceed the frozen MDE, record NEGATIVE/INCONCLUSIVE and skip restart1-2 supplements"
     },
     {
+      "rule_id": "ES-W-UNCONDITIONAL",
+      "checkpoint": "none",
+      "rule": "W and chunk1024 sensitivity supplements are unconditional per V5; only ES-ENGINEERING can stop them. ES-R0-MDE governs A8 supplements only."
+    },
+    {
       "rule_id": "ES-CHUNK-HEADLINE",
       "checkpoint": "predeclared from CL2",
       "rule": "do not publish mechanism-intrinsic speedup; all speedup reporting is chunk-coupled"
@@ -2686,7 +2708,7 @@
     {
       "rule_id": "ES-S4",
       "checkpoint": "complete restart-0 W matrix",
-      "rule": "if all-reusable mean gain <5% and miss_S4>=miss_S0 and peak_S4>=peak_S0, stop scheduler benefit claim"
+      "rule": "only if BOTH rho1.5 and rho2.0 have all-reusable mean gain <5% and miss_S4>=miss_S0 and peak_S4>=peak_S0, stop scheduler benefit claim"
     },
     {
       "rule_id": "ES-NATURAL-FALLBACK",
@@ -2702,13 +2724,16 @@
     "all_gpu_settings": 16,
     "all_server_starts": 33,
     "expected_gpu_hours": {
-      "wave-0": 0.5,
-      "wave-1": 0.75,
-      "wave-2": 3.75,
-      "conditional": 1.0
+      "wave-0": 0.3,
+      "wave-1": 0.4,
+      "wave-2": 2.3,
+      "conditional": 0.5
     },
+    "expected_gpu_hours_total": 3.5,
     "hard_cap_server_starts": 36,
     "hard_cap_gpu_hours": 6,
+    "gpu_hour_headroom": 2.5,
+    "minimum_headroom_fraction": 0.15,
     "retries_count_against_cap": true
   },
   "artifact_templates": {
@@ -2742,6 +2767,6 @@
     "P6-4 rho1.1/rho1.5/rho3 feasibility remains chunk1024 unless separately revalidated",
     "host/prefetch/async tracks are not generated in V5"
   ],
-  "design_payload_sha256": "7ea1b7fe6b9e18107d2c7d27d0aeb26ea0f37c5e47fe361642e7dab399212741",
-  "preregistered_manifest_sha256": "ee01e602bd68f8b4d6141e8aafcfb4b75c73f90db36b03abf3429fdc3964ab79"
+  "design_payload_sha256": "de5e2d80b24ae2040edc925d537c9e60f2f4b9c169d46b5fdb1eac245632d091",
+  "preregistered_manifest_sha256": "a3601cec1a77a1efabf69124503adcb3a1028e7d1037e3ec430119e2d5dd792c"
 }
