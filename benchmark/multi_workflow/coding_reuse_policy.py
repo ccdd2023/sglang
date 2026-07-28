@@ -629,6 +629,7 @@ def select_reuse_groups(
         "coding_state_transition_target_v33b",
         "coding_critical_current_target_v34",
         "coding_version_validation_target_v35b",
+        "coding_patch_lifecycle_target_v37",
     ):
         decision["mode"] = (
             "general_contiguous_8k"
@@ -641,6 +642,8 @@ def select_reuse_groups(
             if arm == "coding_critical_current_target_v34"
             else "version_validation_target_general_source"
             if arm == "coding_version_validation_target_v35b"
+            else "patch_lifecycle_target_general_source"
+            if arm == "coding_patch_lifecycle_target_v37"
             else "general_contiguous"
         )
         return retained, decision

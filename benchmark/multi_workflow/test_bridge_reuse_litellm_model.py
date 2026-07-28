@@ -242,6 +242,14 @@ def test_v37_vetoes_patch_decision_and_recognizes_shell_write() -> None:
     assert after_diff["target_veto_reasons"] == [
         "patch_diff_before_submission_decision"
     ]
+    retained, source_decision = bridge.select_reuse_groups(
+        [shell_write, validation, diff],
+        arm="coding_patch_lifecycle_target_v37",
+    )
+    assert retained == [validation, diff]
+    assert source_decision["mode"] == (
+        "patch_lifecycle_target_general_source"
+    )
 
 
 def test_query_closes_underlying_sync_stream(monkeypatch) -> None:
