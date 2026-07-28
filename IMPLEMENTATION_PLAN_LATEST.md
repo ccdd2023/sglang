@@ -8,7 +8,7 @@
 >
 > 当前阶段：Phase6 technical Exit=`PASS WITH CAVEATS`；Phase7 runners、
 > Docker CPU tests与targeted reviews已完成；R2已解析为
-> `disabled_not_comparable`；final code pin=`4177cb97122887c5729b275076dedec6560a55ba`；
+> `disabled_not_comparable`；final code pin=`7a1ebf4f60877cb6ac55a796c0cdce2087ca549a`；
 > rev6 manifest与最终Opus 5 Max Thinking review尚未完成；未进入Phase7。
 >
 > 取代版本：[`IMPLEMENTATION_PLAN_V5_ARCHIVED.md`](IMPLEMENTATION_PLAN_V5_ARCHIVED.md)
@@ -827,6 +827,10 @@ Phase6通过本身**不授权**Phase7。
 - A8 source使用服务端门控、最多16条的`pin_until_reset` registration lease；
 - reset必须释放persistent lease并清零reserved/provisional/orphan与arm peak；
 - code pin之后只允许primary/result manifest envelope commits。
+- final Opus review evidence固定写入
+  `benchmark/approx_kv/results/phase7/phase7-final-opus-review.json`；
+  rev6保持`pinned_blocked`，review通过后使用保持同一design hash的后续revision
+  转为`authorized`。
 
 ### 8.2.2 P7-0b Chunk-migration feasibility gate
 
@@ -1242,7 +1246,7 @@ V6 candidate当前状态：
 - `run_p7_ceiling.py`、`run_p7_scheduler.py`与共享Phase7模块已实现；
 - 固定Docker镜像targeted CPU suite=`152 passed + 10 subtests`；
 - 三轮targeted review已闭合全部P0/P1；
-- final code pin=`4177cb97122887c5729b275076dedec6560a55ba`；
+- final code pin=`7a1ebf4f60877cb6ac55a796c0cdce2087ca549a`；
 - rev6 primary manifest、V6 final Opus review与final disposition待完成；
 - 用户已给条件性授权，但尚未生效；未进入Phase7。
 

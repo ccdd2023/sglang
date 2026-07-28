@@ -46,7 +46,7 @@
   - `10 subtests passed`。
 - 三轮targeted review已关闭全部P0/P1；最后一轮无开放P0/P1。
 - final implementation code pin：
-  `4177cb97122887c5729b275076dedec6560a55ba`。
+  `7a1ebf4f60877cb6ac55a796c0cdce2087ca549a`。
 - V5完整内容由commit `d314cc41...`与SHA-256归档；
   `IMPLEMENTATION_PLAN_V5_ARCHIVED.md`为定位入口。
 - V6矩阵：
@@ -59,6 +59,9 @@
   2. 生成并pin rev6 manifest；
   3. Opus 5 Max Thinking最终review与feedback closure；
   4. 条件性授权生效后才转`authorized`。
+- final review evidence将版本化为
+  `benchmark/approx_kv/results/phase7/phase7-final-opus-review.json`；
+  rev6保持`pinned_blocked`，后续授权revision必须保持V6 design hash。
 - 仍未进入Phase7。
 
 ### 2026-07-28 最终Phase7计划增加Opus 5 Max Thinking强制复核门

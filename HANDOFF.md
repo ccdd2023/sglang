@@ -20,11 +20,13 @@
 - 两个Phase7 runner及共享模块已实现。
 - Docker targeted suite=`152 passed + 10 subtests`。
 - 三轮targeted review无开放P0/P1。
-- final code pin=`4177cb97122887c5729b275076dedec6560a55ba`。
+- final code pin=`7a1ebf4f60877cb6ac55a796c0cdce2087ca549a`。
 - 最终矩阵：13 committed/30 starts；含rho3条件项14/31；
   expected 3.8 GPUh，hard cap 6 GPUh。
 - 下一步：提交V6 plan → 生成rev6 pinned manifest → Opus 5 Max Thinking
   final review → closure → 条件性授权生效。
+- final review artifact路径：
+  `benchmark/approx_kv/results/phase7/phase7-final-opus-review.json`。
 - Phase7仍未开始。
 
 ### 2026-07-28T00:07:40-07:00 新增最终Opus审阅门

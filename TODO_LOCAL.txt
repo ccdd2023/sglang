@@ -210,7 +210,7 @@ The caveat is permanent:
        final pin, plan disposition and final Opus review are complete.
 
 [x] 11. Implement and review run_p7_ceiling.py and run_p7_scheduler.py.
-       DONE at final code pin 4177cb97122887c5729b275076dedec6560a55ba.
+       DONE at final code pin 7a1ebf4f60877cb6ac55a796c0cdce2087ca549a.
        Docker targeted suite: 152 passed + 10 subtests.
        Three targeted review rounds closed all P0/P1.
 
@@ -221,7 +221,7 @@ The caveat is permanent:
 
 [ ] 13. Pin the Phase7 implementation SHA atomically.
        Final code pin:
-       4177cb97122887c5729b275076dedec6560a55ba
+       7a1ebf4f60877cb6ac55a796c0cdce2087ca549a
        Generate manifest revision 6 with final runner SHA/tree/blob hashes and
        V6 plan commit; update HANDOFF/PROJECT/TODO together.
        Rev6 must supersede envelope hash
@@ -235,6 +235,8 @@ The caveat is permanent:
        If the plan design changes, archive the old version, create a new
        latest version, update the design hash and repeat review. Only after
        no open P0/P1 may the conditional user authorization become active.
+       Persist evidence at:
+       benchmark/approx_kv/results/phase7/phase7-final-opus-review.json
 
 
 3.3 CONDITIONAL - ONLY IF TRIGGERED

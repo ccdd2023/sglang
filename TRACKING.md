@@ -2951,8 +2951,12 @@ technical_exit = PASS WITH CAVEATS
 - 固定Docker镜像最终targeted suite：
   `152 passed + 10 subtests`。
 - 三轮targeted review最终无开放P0/P1。
-- final code pin=`4177cb97122887c5729b275076dedec6560a55ba`。
+- final code pin=`7a1ebf4f60877cb6ac55a796c0cdce2087ca549a`。
 - V5以commit `d314cc41...`和文件SHA
   `ba6aec34...`归档；创建V6 candidate。
 - V6预算：13 committed/30 starts；含rho3条件项14/31；3.8 expected GPUh。
 - Phase7仍未开始；下一步rev6 manifest与final Opus review。
+- final Opus review已加入design contract；evidence路径为
+  `benchmark/approx_kv/results/phase7/phase7-final-opus-review.json`。
+  rev6保持`pinned_blocked`，通过review后用保持同一design hash的后续revision
+  激活条件性授权。
