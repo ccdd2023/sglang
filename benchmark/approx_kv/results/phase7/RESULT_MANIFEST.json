@@ -4,7 +4,7 @@
   "purpose": "Supply the file-to-commit mapping that the individual result artifacts cannot: a runner never knows the commit that will contain its own output, so every artifact carries result_git_sha=null and result_commit_status=pending_result_commit.",
   "authority": "This manifest, not the result_git_sha field inside an artifact, is the authoritative mapping. Regenerate and re-check it in the same commit that adds or changes an artifact, otherwise entries rot into pending or stale-blob states.",
   "known_gaps": [
-    "The Phase7 plan, runners and implementation are pinned. Execution remains blocked on the mandatory final Opus review, so GPU result artifacts and logs do not exist yet."
+    "Phase7 GPU artifacts and logs are versioned. Final dual-model result review and main-session disposition remain pending."
   ],
   "environment": {
     "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
