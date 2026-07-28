@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "artifact": "phase7-primary-manifest",
-  "manifest_revision": 11,
-  "supersedes_manifest_sha256": "720a2ef8ec7b5c027439db99f1d5044e3cf1b3660df0491c3ce16878d67d6712",
-  "supersedes_design_payload_sha256": "813f77005c61f50b4a666662a1a0b131d65e975df2e409368d0cf468f4a3fc34",
+  "manifest_revision": 12,
+  "supersedes_manifest_sha256": "48c86bf0f4df6f5c8baa41fc6871e3bcdfba59ea46f9022875f8453f2d5a5236",
+  "supersedes_design_payload_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
   "design_keys": [
     "plan",
     "environment",
@@ -26,9 +26,9 @@
     "scope_caveats",
     "review_contract"
   ],
-  "revision_reason": "V7 rev11: bind final recursive provenance code pin and refreshed Docker CPU evidence; await final Opus delta review",
-  "status": "pinned_blocked",
-  "phase7_execution_authorized": false,
+  "revision_reason": "V7 rev12: activate conditional user authorization after final Opus PASS WITH CAVEATS; no design change",
+  "status": "authorized",
+  "phase7_execution_authorized": true,
   "plan": {
     "version": "V7",
     "plan_commit": "c80ec165713772c533e17ef4c50f083c36dc9d72",
@@ -36,8 +36,8 @@
     "plan_sha256": "95cfbb3114a3708d52e80e9ea90825031a660e5b800939cbdc29a43bf6286d8c"
   },
   "implementation": {
-    "manifest_generation_sha": "a01642fdd6cdc869cb2c991c23003ff600665f37",
-    "manifest_generation_tree_sha": "ea0c7b2f377207161a4a562b29e39ea5b08a779a",
+    "manifest_generation_sha": "b0837505abc4efe7df914c3b504693956fe71df9",
+    "manifest_generation_tree_sha": "3f0ac373cd5dc21218679ed26c406182fa82b11c",
     "phase6_evidence_sha": "924c9d1d6c074f304189248f0fc5b15aa6d25adb",
     "phase7_pinned_implementation_sha": "81405f4278b034911bc613c4ee17c79d15ee8f35",
     "phase7_pinned_tree_sha": "4a8bf0f6cd72ec09859f8301dc92b6aabb25d2bf",
@@ -85,18 +85,18 @@
         "timestamp": "2026-07-28T08:50:49-07:00",
         "runner_sha256": "1db0c0f37260e8ca4ff1050491721a58fa9e70e321818552b5a732dfd2bc5016"
       },
-      "review_status": "pending",
+      "review_status": "reviewed",
       "review_evidence": {
-        "status": "pending",
+        "status": "passed",
         "artifact_path": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
-        "artifact_sha256": null,
-        "verdict": null,
-        "open_p0": null,
-        "open_p1": null,
-        "reviewed_manifest_revision": null,
-        "reviewed_manifest_sha256": null,
-        "reviewed_design_payload_sha256": null,
-        "reviewed_pinned_implementation_sha": null,
+        "artifact_sha256": "9e1f7da8baeb53846e8f5b75a693d69fe0327559d5342c27cb413eee2990ad13",
+        "verdict": "PASS_WITH_CAVEATS",
+        "open_p0": 0,
+        "open_p1": 0,
+        "reviewed_manifest_revision": 11,
+        "reviewed_manifest_sha256": "48c86bf0f4df6f5c8baa41fc6871e3bcdfba59ea46f9022875f8453f2d5a5236",
+        "reviewed_design_payload_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+        "reviewed_pinned_implementation_sha": "81405f4278b034911bc613c4ee17c79d15ee8f35",
         "round_summary": "final V7 Opus review covers the plan, manifest, all execution runners, CPU evidence, R2 disposition, and implementation binding"
       }
     },
@@ -124,18 +124,18 @@
         "timestamp": "2026-07-28T08:50:49-07:00",
         "runner_sha256": "42b0d924020e086064e53981b511ad0ad9096e031f281058fc887904ea25fb14"
       },
-      "review_status": "pending",
+      "review_status": "reviewed",
       "review_evidence": {
-        "status": "pending",
+        "status": "passed",
         "artifact_path": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
-        "artifact_sha256": null,
-        "verdict": null,
-        "open_p0": null,
-        "open_p1": null,
-        "reviewed_manifest_revision": null,
-        "reviewed_manifest_sha256": null,
-        "reviewed_design_payload_sha256": null,
-        "reviewed_pinned_implementation_sha": null,
+        "artifact_sha256": "9e1f7da8baeb53846e8f5b75a693d69fe0327559d5342c27cb413eee2990ad13",
+        "verdict": "PASS_WITH_CAVEATS",
+        "open_p0": 0,
+        "open_p1": 0,
+        "reviewed_manifest_revision": 11,
+        "reviewed_manifest_sha256": "48c86bf0f4df6f5c8baa41fc6871e3bcdfba59ea46f9022875f8453f2d5a5236",
+        "reviewed_design_payload_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+        "reviewed_pinned_implementation_sha": "81405f4278b034911bc613c4ee17c79d15ee8f35",
         "round_summary": "final V7 Opus review covers the plan, manifest, all execution runners, CPU evidence, R2 disposition, and implementation binding"
       }
     },
@@ -163,18 +163,18 @@
         "timestamp": "2026-07-28T08:58:54-07:00",
         "runner_sha256": "ff21855bbf1d98f8615d19cdf884bbf301694fb815b4b08e3a14cbc5207c84a2"
       },
-      "review_status": "pending",
+      "review_status": "reviewed",
       "review_evidence": {
-        "status": "pending",
+        "status": "passed",
         "artifact_path": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
-        "artifact_sha256": null,
-        "verdict": null,
-        "open_p0": null,
-        "open_p1": null,
-        "reviewed_manifest_revision": null,
-        "reviewed_manifest_sha256": null,
-        "reviewed_design_payload_sha256": null,
-        "reviewed_pinned_implementation_sha": null,
+        "artifact_sha256": "9e1f7da8baeb53846e8f5b75a693d69fe0327559d5342c27cb413eee2990ad13",
+        "verdict": "PASS_WITH_CAVEATS",
+        "open_p0": 0,
+        "open_p1": 0,
+        "reviewed_manifest_revision": 11,
+        "reviewed_manifest_sha256": "48c86bf0f4df6f5c8baa41fc6871e3bcdfba59ea46f9022875f8453f2d5a5236",
+        "reviewed_design_payload_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+        "reviewed_pinned_implementation_sha": "81405f4278b034911bc613c4ee17c79d15ee8f35",
         "round_summary": "final V7 Opus review covers the plan, manifest, all execution runners, CPU evidence, R2 disposition, and implementation binding"
       }
     },
@@ -190,18 +190,18 @@
         "status": "validated_during_manifest_generation",
         "command": "python3 -m benchmark.approx_kv.build_phase7_manifest --check"
       },
-      "review_status": "pending",
+      "review_status": "reviewed",
       "review_evidence": {
-        "status": "pending",
+        "status": "passed",
         "artifact_path": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
-        "artifact_sha256": null,
-        "verdict": null,
-        "open_p0": null,
-        "open_p1": null,
-        "reviewed_manifest_revision": null,
-        "reviewed_manifest_sha256": null,
-        "reviewed_design_payload_sha256": null,
-        "reviewed_pinned_implementation_sha": null,
+        "artifact_sha256": "9e1f7da8baeb53846e8f5b75a693d69fe0327559d5342c27cb413eee2990ad13",
+        "verdict": "PASS_WITH_CAVEATS",
+        "open_p0": 0,
+        "open_p1": 0,
+        "reviewed_manifest_revision": 11,
+        "reviewed_manifest_sha256": "48c86bf0f4df6f5c8baa41fc6871e3bcdfba59ea46f9022875f8453f2d5a5236",
+        "reviewed_design_payload_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+        "reviewed_pinned_implementation_sha": "81405f4278b034911bc613c4ee17c79d15ee8f35",
         "round_summary": "final V7 Opus review covers the plan, manifest, all execution runners, CPU evidence, R2 disposition, and implementation binding"
       }
     }
@@ -211,9 +211,7 @@
     "CR-P6DELTA-RHO3": "disabled_scoped_chunk1024",
     "CR-R2-ADAPTER": "disabled_not_comparable"
   },
-  "execution_blockers": [
-    "final_opus_review_pending"
-  ],
+  "execution_blockers": [],
   "conditional_user_authorization_recorded": true,
   "review_contract": {
     "final_opus_required": true,
@@ -224,16 +222,16 @@
     "authorization_activation": "the recorded conditional user authorization becomes active only after this review passes"
   },
   "review_evidence": {
-    "status": "pending",
+    "status": "passed",
     "artifact_path": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
-    "artifact_sha256": null,
-    "verdict": null,
-    "open_p0": null,
-    "open_p1": null,
-    "reviewed_manifest_revision": null,
-    "reviewed_manifest_sha256": null,
-    "reviewed_design_payload_sha256": null,
-    "reviewed_pinned_implementation_sha": null,
+    "artifact_sha256": "9e1f7da8baeb53846e8f5b75a693d69fe0327559d5342c27cb413eee2990ad13",
+    "verdict": "PASS_WITH_CAVEATS",
+    "open_p0": 0,
+    "open_p1": 0,
+    "reviewed_manifest_revision": 11,
+    "reviewed_manifest_sha256": "48c86bf0f4df6f5c8baa41fc6871e3bcdfba59ea46f9022875f8453f2d5a5236",
+    "reviewed_design_payload_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+    "reviewed_pinned_implementation_sha": "81405f4278b034911bc613c4ee17c79d15ee8f35",
     "round_summary": "final V7 Opus review covers the plan, manifest, all execution runners, CPU evidence, R2 disposition, and implementation binding"
   },
   "environment": {
@@ -2901,5 +2899,5 @@
     "host/prefetch/async tracks are not generated in V7"
   ],
   "design_payload_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
-  "preregistered_manifest_sha256": "48c86bf0f4df6f5c8baa41fc6871e3bcdfba59ea46f9022875f8453f2d5a5236"
+  "preregistered_manifest_sha256": "2d66a1bcdb6dc92a72c59fefc581212fcd541accbc8ededa221495d30d039bef"
 }
