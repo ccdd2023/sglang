@@ -243,8 +243,8 @@ def test_v37_vetoes_patch_decision_and_recognizes_shell_write() -> None:
         "patch_diff_before_submission_decision"
     ]
     retained, source_decision = bridge.select_reuse_groups(
+        "coding_patch_lifecycle_target_v37",
         [shell_write, validation, diff],
-        arm="coding_patch_lifecycle_target_v37",
     )
     assert retained == [validation, diff]
     assert source_decision["mode"] == (
