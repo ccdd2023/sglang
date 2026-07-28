@@ -32,6 +32,7 @@ from benchmark.multi_workflow.coding_reuse_policy import (
     coding_version_validation_target_reasons,
     critical_coding_event_reasons,
     effective_copy_cap,
+    grounded_observation_candidates,
     post_mutation_payoff_guard,
     repository_commit_phase_event,
     select_failure_memory_groups,
@@ -99,6 +100,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_version_validation_target_v35b",
         "coding_patch_lifecycle_target_v37",
         "coding_commit_phase_dense_v38",
+        "coding_grounded_observation_island_v40",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
@@ -466,17 +468,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                     0, len(selected_groups) - 1
                 ),
             }
-        eligible, decision = select_reuse_groups(
-            self.config.reuse_arm,
-            selected_groups,
-            latest_group_messages=selected_groups[-1],
-        )
-        if decision["mode"] == "critical_event_dense_abstain":
-            return None, None, {
-                **decision,
-                "source_registered": False,
-                "skip_reason": "critical_coding_event",
-            }
+        grounded_encoded: tuple[list[int], list[int]] | None = None
 
         def encoded_groups(
             groups: list[list[dict[str, Any]]],
@@ -491,7 +483,65 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             ).ids
             return ids, find_sublist(prompt_ids, ids)
 
-        segment_ids, positions = encoded_groups(eligible)
+        if (
+            self.config.reuse_arm
+            == "coding_grounded_observation_island_v40"
+        ):
+            candidates, decision = grounded_observation_candidates(
+                selected_groups[1:]
+            )
+            encoded_candidates = [
+                (index, candidate, *encoded_groups([candidate]))
+                for index, candidate in enumerate(candidates)
+            ]
+            eligible_candidates = [
+                row
+                for row in encoded_candidates
+                if len(row[2]) >= self.config.reuse_min_tokens
+                and len(row[3]) == 1
+            ]
+            if not eligible_candidates:
+                return None, None, {
+                    **decision,
+                    "source_registered": False,
+                    "skip_reason": (
+                        "no_unique_version_valid_observation_at_minimum_size"
+                    ),
+                }
+            selected = max(
+                eligible_candidates,
+                key=lambda row: (
+                    min(len(row[2]), self.config.reuse_copy_cap),
+                    decision["candidate_group_indices"][row[0]],
+                ),
+            )
+            eligible = [selected[1]]
+            grounded_encoded = (selected[2], selected[3])
+            decision.update(
+                selected_candidate_index=selected[0],
+                selected_group_index=decision[
+                    "candidate_group_indices"
+                ][selected[0]],
+                selected_uncapped_tokens=len(selected[2]),
+            )
+        else:
+            eligible, decision = select_reuse_groups(
+                self.config.reuse_arm,
+                selected_groups,
+                latest_group_messages=selected_groups[-1],
+            )
+        if decision["mode"] == "critical_event_dense_abstain":
+            return None, None, {
+                **decision,
+                "source_registered": False,
+                "skip_reason": "critical_coding_event",
+            }
+
+        segment_ids, positions = (
+            grounded_encoded
+            if grounded_encoded is not None
+            else encoded_groups(eligible)
+        )
         if self.config.reuse_arm in (
             "coding_post_mutation_payoff_guard_v28",
             "coding_post_mutation_payoff_guard_v29",

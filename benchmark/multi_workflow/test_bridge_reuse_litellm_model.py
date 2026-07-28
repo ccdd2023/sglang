@@ -22,6 +22,12 @@ class _LiteLLMStream:
         return iter(self._chunks)
 
 
+class _CharacterTokenizer:
+    def encode(self, value, add_special_tokens=False):
+        del add_special_tokens
+        return SimpleNamespace(ids=[ord(character) for character in value])
+
+
 def _bare_model() -> bridge.BridgeReuseLitellmModel:
     model = object.__new__(bridge.BridgeReuseLitellmModel)
     model.config = SimpleNamespace(model_kwargs={}, model_name="test-model")
@@ -294,6 +300,70 @@ def test_v38_latch_vetoes_target_and_stops_future_source() -> None:
     model._request_index = 7
     model._new_session_if_needed([{"role": "system"}, {"role": "user"}])
     assert model._commit_phase_latched is False
+
+
+def test_v40_future_source_contains_only_grounded_tool_observation() -> None:
+    def read_group(path: str, marker: str):
+        return [
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "function": {
+                            "name": "bash",
+                            "arguments": {
+                                "command": f"sed -n '1,200p' {path}"
+                            },
+                        }
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "content": (
+                    f"{marker} " * 100
+                    + "<returncode>0</returncode>"
+                ),
+            },
+        ]
+
+    groups = [
+        read_group(f"/testbed/pkg/{index}.py", f"evidence-{index}")
+        for index in range(6)
+    ]
+    model = object.__new__(bridge.BridgeReuseLitellmModel)
+    model.config = SimpleNamespace(
+        reuse_arm="coding_grounded_observation_island_v40",
+        rolling_history_groups=6,
+        reuse_min_tokens=128,
+        reuse_copy_cap=4096,
+    )
+    model._tokenizer = _CharacterTokenizer()
+    model._instance_nonce = "v40"
+    model._session_index = 1
+    model._request_index = 7
+    literal = "".join(
+        model._render_message_literal(message)
+        for group in groups
+        for message in group
+    )
+    prompt_ids = [1, *model._tokenizer.encode(literal).ids, 2]
+
+    source, pending, decision = model._future_source(
+        prompt_ids=prompt_ids,
+        selected_groups=groups,
+    )
+
+    assert source is not None
+    assert pending is not None
+    assert decision["mode"] == (
+        "grounded_version_valid_observation_island"
+    )
+    assert decision["assistant_tokens_selected"] == 0
+    selected_literal = model._render_message_literal(groups[-1][1])
+    assert pending["segment_ids"] == model._tokenizer.encode(
+        selected_literal
+    ).ids
 
 
 def test_query_closes_underlying_sync_stream(monkeypatch) -> None:

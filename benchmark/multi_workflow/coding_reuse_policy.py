@@ -383,6 +383,63 @@ def is_successful_readonly_evidence(
     )
 
 
+def grounded_observation_candidates(
+    retained_groups: Sequence[Sequence[dict[str, Any]]],
+) -> tuple[list[list[dict[str, Any]]], dict[str, Any]]:
+    """Return version-valid, successful read-only tool observations.
+
+    V40 deliberately excludes assistant reasoning and tool-call tokens.  A
+    read observation is also excluded when a later retained group mutates the
+    same repository path, or when either side of that mutation cannot be
+    localized safely.
+    """
+
+    candidates: list[list[dict[str, Any]]] = []
+    candidate_group_indices: list[int] = []
+    invalidated = 0
+    read_only = 0
+    for index, group in enumerate(retained_groups):
+        if not is_successful_readonly_evidence(group):
+            continue
+        read_only += 1
+        source_paths = repository_paths(group)
+        invalid = False
+        for later in retained_groups[index + 1 :]:
+            if (
+                "repository_mutation_command"
+                not in critical_coding_event_reasons(later)
+            ):
+                continue
+            changed_paths = repository_paths(later)
+            if (
+                not source_paths
+                or not changed_paths
+                or not source_paths.isdisjoint(changed_paths)
+            ):
+                invalid = True
+                break
+        if invalid:
+            invalidated += 1
+            continue
+        tool_messages = [
+            message for message in group if message.get("role") == "tool"
+        ]
+        if tool_messages:
+            candidates.append(tool_messages)
+            candidate_group_indices.append(index)
+    return candidates, {
+        "mode": "grounded_version_valid_observation_island",
+        "retained_groups_after_roll": len(retained_groups),
+        "read_only_observations": read_only,
+        "version_invalidated_observations": invalidated,
+        "eligible_observations": len(candidates),
+        "candidate_group_indices": candidate_group_indices,
+        "assistant_tokens_selected": 0,
+        "latest_group_protected": False,
+        "risk_reasons": [],
+    }
+
+
 def is_successful_executable_evidence(
     group: Sequence[dict[str, Any]],
 ) -> bool:

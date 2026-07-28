@@ -3,6 +3,7 @@ from benchmark.multi_workflow.coding_reuse_policy import (
     coding_version_validation_target_reasons,
     critical_coding_event_reasons,
     effective_copy_cap,
+    grounded_observation_candidates,
     is_concrete_source_read,
     is_high_value_executable_failure,
     is_successful_executable_evidence,
@@ -35,6 +36,43 @@ def _command_group(command: str, output: str = "") -> list[dict]:
             "content": f"<returncode>0</returncode><output>{output}</output>",
         },
     ]
+
+
+def test_grounded_observation_excludes_assistant_and_stale_read() -> None:
+    stable = _command_group(
+        "sed -n '1,200p' /testbed/pkg/stable.py",
+        "stable source " * 80,
+    )
+    stale = _command_group(
+        "sed -n '1,200p' /testbed/pkg/stale.py",
+        "old source " * 80,
+    )
+    mutation = _command_group(
+        "sed -i 's/old/new/' /testbed/pkg/stale.py"
+    )
+
+    candidates, decision = grounded_observation_candidates(
+        [stable, stale, mutation]
+    )
+
+    assert candidates == [[stable[1]]]
+    assert candidates[0][0]["role"] == "tool"
+    assert decision["read_only_observations"] == 2
+    assert decision["version_invalidated_observations"] == 1
+    assert decision["candidate_group_indices"] == [0]
+    assert decision["assistant_tokens_selected"] == 0
+
+
+def test_grounded_observation_rejects_validation_and_diff() -> None:
+    validation = _command_group("pytest -q", "1 passed " * 80)
+    diff = _command_group("git diff", "diff --git a/a.py b/a.py " * 40)
+
+    candidates, decision = grounded_observation_candidates(
+        [validation, diff]
+    )
+
+    assert candidates == []
+    assert decision["read_only_observations"] == 0
 
 
 def test_version_graph_removes_stale_file_observation() -> None:
