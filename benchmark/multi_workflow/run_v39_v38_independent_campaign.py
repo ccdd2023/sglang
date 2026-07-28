@@ -1,0 +1,516 @@
+#!/usr/bin/env python3
+"""Run the preregistered V38/General/Dense independent development sample."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import math
+import os
+import random
+import statistics
+import subprocess
+import time
+from pathlib import Path
+from typing import Any
+
+from benchmark.multi_workflow.run_bridge_reuse_agent_experiment import DATASET
+from benchmark.multi_workflow.run_frozen_trajectory_replay_v18 import (
+    read_json,
+    sha256,
+    utc_now,
+    write_json,
+)
+
+
+ARTIFACTS = Path("/home/gfy/CodeMAS_Project/kvflow-artifacts")
+DEFAULT_OUTPUT = ARTIFACTS / "impactkv_v39_v38_independent_20260728"
+PROJECT = Path(__file__).resolve().parents[2]
+RUNNER = PROJECT / "benchmark/multi_workflow/run_v25_paired_agent_canary.py"
+PYTHON = Path("/home/gfy/.venvs/mini-swe-agent-v2.3.0/bin/python")
+MOTIVATION = (
+    ARTIFACTS
+    / "impactkv_v38_commit_phase_motivation_20260728"
+    / "V38_MOTIVATION_RESULT.json"
+)
+POSITIVE_CONTROL = (
+    ARTIFACTS
+    / "impactkv_v38a2_positive_control_astropy7336_20260728"
+    / "V25_OFFICIAL_RESULT.json"
+)
+V38 = "coding_commit_phase_dense_v38"
+GENERAL = "general"
+DENSE = "dense"
+ARMS = (V38, GENERAL, DENSE)
+TASKS = (
+    "django__django-14855",
+    "pydata__xarray-6461",
+    "pylint-dev__pylint-4970",
+    "pytest-dev__pytest-7432",
+    "pytest-dev__pytest-7982",
+    "sympy__sympy-24539",
+)
+SELECTION_SALT = "v39-v38-independent-all-eligible-v1"
+SELECTION_SHA256 = (
+    "250fd1af7098f37399ea79cbe3030a2b5cd39c9325def494d44f34f7d3d63f99"
+)
+BOOTSTRAP_SEED = 20260728
+BOOTSTRAPS = 100_000
+CACHEBLEND_DAMAGE_RATE = 9 / 167
+
+
+def task_dir(output: Path, instance_id: str) -> Path:
+    return output / "tasks" / instance_id
+
+
+def _selection_hash() -> str:
+    value = json.dumps(
+        {"salt": SELECTION_SALT, "tasks": list(TASKS)},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def _motivation_rows() -> dict[str, dict[str, Any]]:
+    value = read_json(MOTIVATION)
+    return {
+        row["instance_id"]: row for row in value["cohorts"]["full18"]
+    }
+
+
+def _environment(instance_id: str) -> dict[str, str]:
+    env = os.environ.copy()
+    for key in (
+        "ALL_PROXY",
+        "HTTPS_PROXY",
+        "HTTP_PROXY",
+        "all_proxy",
+        "https_proxy",
+        "http_proxy",
+    ):
+        env.pop(key, None)
+    env.update(
+        {
+            "NO_PROXY": "*",
+            "no_proxy": "*",
+            "HF_HUB_OFFLINE": "1",
+            "PYTHONPATH": (
+                f"{PROJECT}:{PROJECT / 'python'}:"
+                "/home/gfy/.venvs/mini-swe-agent-v2.3.0/"
+                "lib/python3.12/site-packages"
+            ),
+            "IMPACTKV_PAIRED_CANDIDATE_ARM": V38,
+            "IMPACTKV_PAIRED_DENSE_CONTROL": "1",
+            "IMPACTKV_ALLOW_EMPTY_SUBMISSION_OUTCOME": "1",
+            "IMPACTKV_PAIRED_INSTANCE_ID": instance_id,
+            "IMPACTKV_REQUEST_TIMEOUT_SECONDS": "180",
+            "MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1",
+        }
+    )
+    env.pop("IMPACTKV_REQUIRE_BRANCH", None)
+    return env
+
+
+def register(output: Path) -> dict[str, Any]:
+    path = output / "V39_REGISTRATION.json"
+    if path.exists():
+        return read_json(path)
+    if output.exists():
+        raise FileExistsError(output)
+    output.mkdir(parents=True)
+    if _selection_hash() != SELECTION_SHA256:
+        raise AssertionError("V39 task selection changed")
+    motivation = _motivation_rows()
+    selected = [motivation[instance_id] for instance_id in TASKS]
+    if any(not row["latched"] for row in selected):
+        raise AssertionError("V39 requires a frozen V38 latch on every task")
+    dataset_path = DATASET / "test.jsonl"
+    dataset_ids = {
+        json.loads(line)["instance_id"]
+        for line in dataset_path.read_text().splitlines()
+        if line.strip()
+    }
+    if any(instance_id not in dataset_ids for instance_id in TASKS):
+        raise ValueError("V39 task missing from frozen dataset")
+    value = {
+        "registered_at_utc": utc_now(),
+        "status": "REGISTERED_BEFORE_ANY_V39_TREATMENT_RUN",
+        "experiment": "V39 independent V38 phase-latch development sample",
+        "motivation": (
+            "V38 preserved the official Dense-pass positive control after "
+            "V37 single-point guards failed. Test the persistent phase latch "
+            "on every remaining full18 task with a frozen latch after "
+            "excluding all six V36 tasks and declared prior tuned/timeout "
+            "canaries."
+        ),
+        "selection": {
+            "source": str(MOTIVATION),
+            "source_sha256": sha256(MOTIVATION),
+            "rule": (
+                "Use all six remaining full18 tasks with a V38 latch after "
+                "excluding the six V36 tasks, V35C xarray-4075, repeated "
+                "Pylint-7277, and prior timeout sklearn-13779. No outcome "
+                "value is used to order, drop, or replace a selected task."
+            ),
+            "salt": SELECTION_SALT,
+            "selection_sha256": SELECTION_SHA256,
+            "tasks": selected,
+            "official_outcomes_used_for_selection": False,
+            "replacement_on_failure": False,
+            "outcome_exposure_class": (
+                "DEVELOPMENT_POOL_PREVIOUSLY_EVALUATED_NOT_HELD_OUT"
+            ),
+        },
+        "protocol": {
+            "arms": list(ARMS),
+            "task_level_intention_to_treat": True,
+            "all_children_registered_before_first_treatment": True,
+            "shared_dense_history_before_branch": True,
+            "container_snapshot_before_branch": True,
+            "hybrid_source_abstention_or_target_veto_branch": True,
+            "no_branch_inherits_shared_dense_outcome": True,
+            "step_limit": 20,
+            "temperature": 0,
+            "request_timeout_seconds": 180,
+            "official_swebench_container_each_arm": True,
+            "empty_or_step_limit_scored_unresolved": True,
+            "fixed_order_ttft_is_diagnostic_only": True,
+            "prefetch": False,
+            "reference_patch_or_future_output_used": False,
+            "bootstrap_seed": BOOTSTRAP_SEED,
+            "bootstrap_iterations": BOOTSTRAPS,
+        },
+        "frozen_development_gates": {
+            "official_tasks_completed": len(TASKS),
+            "runtime_mechanics_passes": len(TASKS),
+            "tasks_with_online_branch_min": 4,
+            "target_fallbacks": 0,
+            "v38_resolved_strictly_above_general": True,
+            "v38_resolved_not_below_dense": True,
+            "v38_damage_strictly_below_general": True,
+            "v38_damage_rate_below_cacheblend": CACHEBLEND_DAMAGE_RATE,
+            "v38_rescue_not_below_general": True,
+            "v38_only_vs_general_min": 1,
+            "report_accuracy_damage_rescue_speed_separately": True,
+            "do_not_make_population_or_sota_claim": True,
+        },
+        "inputs": {
+            "dataset": str(dataset_path),
+            "dataset_sha256": sha256(dataset_path),
+            "runner_sha256": sha256(RUNNER),
+            "campaign_sha256": sha256(Path(__file__)),
+            "positive_control": str(POSITIVE_CONTROL),
+            "positive_control_sha256": sha256(POSITIVE_CONTROL),
+        },
+        "protected": {
+            "old_dirty_checkout_modified": False,
+            "paper_modified": False,
+            "old_preregistration_thresholds_modified": False,
+            "prefetch": False,
+        },
+    }
+    write_json(path, value)
+    return value
+
+
+def _run_stage(
+    output: Path, instance_id: str, stage: str
+) -> dict[str, Any]:
+    log_path = output / "orchestration_logs" / instance_id / f"{stage}.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    command = [
+        str(PYTHON),
+        str(RUNNER),
+        stage,
+        "--output",
+        str(task_dir(output, instance_id)),
+    ]
+    started = time.perf_counter()
+    with log_path.open("a", encoding="utf-8") as log:
+        process = subprocess.run(
+            command,
+            cwd=PROJECT,
+            env=_environment(instance_id),
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+        )
+    value = {
+        "instance_id": instance_id,
+        "stage": stage,
+        "returncode": process.returncode,
+        "elapsed_seconds": time.perf_counter() - started,
+        "log_path": str(log_path),
+    }
+    write_json(
+        output / "orchestration_status" / instance_id / f"{stage}.json",
+        value,
+    )
+    return value
+
+
+def preregister_children(output: Path) -> list[dict[str, Any]]:
+    registration = register(output)
+    rows = []
+    for task in registration["selection"]["tasks"]:
+        instance_id = task["instance_id"]
+        child = task_dir(output, instance_id) / "V25_REGISTRATION.json"
+        rows.append(
+            {
+                "instance_id": instance_id,
+                "stage": "register",
+                "returncode": 0,
+                "resumed": True,
+            }
+            if child.exists()
+            else _run_stage(output, instance_id, "register")
+        )
+    write_json(output / "V39_CHILD_REGISTRATIONS.json", rows)
+    if any(row["returncode"] != 0 for row in rows):
+        raise RuntimeError("one or more V39 child registrations failed")
+    return rows
+
+
+def _wilson(successes: int, total: int) -> list[float] | None:
+    if total == 0:
+        return None
+    z = 1.959963984540054
+    p = successes / total
+    denominator = 1 + z * z / total
+    center = (p + z * z / (2 * total)) / denominator
+    radius = (
+        z
+        * math.sqrt(
+            p * (1 - p) / total + z * z / (4 * total * total)
+        )
+        / denominator
+    )
+    return [max(0.0, center - radius), min(1.0, center + radius)]
+
+
+def _bootstrap(values: list[int]) -> list[float] | None:
+    if not values:
+        return None
+    rng = random.Random(BOOTSTRAP_SEED)
+    samples = sorted(
+        statistics.fmean(rng.choice(values) for _ in values)
+        for _ in range(BOOTSTRAPS)
+    )
+    return [
+        samples[int(0.025 * BOOTSTRAPS)],
+        samples[min(BOOTSTRAPS - 1, int(0.975 * BOOTSTRAPS))],
+    ]
+
+
+def _median(values: list[float | None]) -> float | None:
+    present = [float(value) for value in values if value is not None]
+    return statistics.median(present) if present else None
+
+
+def summarize(output: Path) -> dict[str, Any]:
+    registration = register(output)
+    rows: list[dict[str, Any]] = []
+    for task in registration["selection"]["tasks"]:
+        instance_id = task["instance_id"]
+        child = task_dir(output, instance_id)
+        runtime_path = child / "V25_RESULT.json"
+        official_path = child / "V25_OFFICIAL_RESULT.json"
+        if not runtime_path.exists() or not official_path.exists():
+            rows.append({**task, "status": "INCOMPLETE"})
+            continue
+        runtime = read_json(runtime_path)
+        official = read_json(official_path)
+        resolved = {
+            arm: int(official["arms"][arm]["resolved"]) for arm in ARMS
+        }
+        rows.append(
+            {
+                **task,
+                "status": "COMPLETE",
+                "runtime_status": runtime["status"],
+                "branch_reached": runtime["branch"] is not None,
+                "branch_kind": (
+                    runtime["branch"]["kind"] if runtime["branch"] else None
+                ),
+                "resolved": resolved,
+                "candidate_minus_general": resolved[V38] - resolved[GENERAL],
+                "candidate_minus_dense": resolved[V38] - resolved[DENSE],
+                "candidate_damage": resolved[DENSE] == 1
+                and resolved[V38] == 0,
+                "general_damage": resolved[DENSE] == 1
+                and resolved[GENERAL] == 0,
+                "candidate_rescue": resolved[DENSE] == 0
+                and resolved[V38] == 1,
+                "general_rescue": resolved[DENSE] == 0
+                and resolved[GENERAL] == 1,
+                "target_fallbacks": runtime["server"]["target_fallbacks"],
+                "candidate_commit_phase_entries": runtime["server"].get(
+                    "candidate_commit_phase_entries", 0
+                ),
+                "copy_counts": runtime["server"]["copy_counts"],
+                "median_ttft_ms": {
+                    arm: official["arms"][arm]["median_ttft_ms"]
+                    for arm in ARMS
+                },
+            }
+        )
+    complete = [row for row in rows if row["status"] == "COMPLETE"]
+    resolved = {
+        arm: sum(row["resolved"][arm] for row in complete) for arm in ARMS
+    }
+    dense_passes = sum(row["resolved"][DENSE] for row in complete)
+    dense_fails = len(complete) - dense_passes
+    damage = {
+        V38: sum(row["candidate_damage"] for row in complete),
+        GENERAL: sum(row["general_damage"] for row in complete),
+    }
+    rescue = {
+        V38: sum(row["candidate_rescue"] for row in complete),
+        GENERAL: sum(row["general_rescue"] for row in complete),
+    }
+    damage_rate = {
+        arm: damage[arm] / dense_passes if dense_passes else None
+        for arm in (V38, GENERAL)
+    }
+    branches = sum(row["branch_reached"] for row in complete)
+    fallbacks = sum(row["target_fallbacks"] for row in complete)
+    candidate_only = sum(
+        row["resolved"][V38] == 1 and row["resolved"][GENERAL] == 0
+        for row in complete
+    )
+    general_only = sum(
+        row["resolved"][V38] == 0 and row["resolved"][GENERAL] == 1
+        for row in complete
+    )
+    gates = {
+        "official_tasks_completed": len(complete) == len(TASKS),
+        "runtime_mechanics_passes": len(complete) == len(TASKS)
+        and all(row["runtime_status"] == "PASS" for row in complete),
+        "tasks_with_online_branch_min": branches >= 4,
+        "target_fallbacks": fallbacks == 0,
+        "v38_resolved_strictly_above_general": (
+            resolved[V38] > resolved[GENERAL]
+        ),
+        "v38_resolved_not_below_dense": resolved[V38] >= resolved[DENSE],
+        "v38_damage_strictly_below_general": (
+            damage[V38] < damage[GENERAL]
+        ),
+        "v38_damage_rate_below_cacheblend": (
+            damage_rate[V38] is not None
+            and damage_rate[V38] < CACHEBLEND_DAMAGE_RATE
+        ),
+        "v38_rescue_not_below_general": rescue[V38] >= rescue[GENERAL],
+        "v38_only_vs_general_min": candidate_only >= 1,
+        "report_accuracy_damage_rescue_speed_separately": True,
+        "do_not_make_population_or_sota_claim": True,
+    }
+    value = {
+        "completed_at_utc": utc_now(),
+        "status": (
+            "PASS_V39_DEVELOPMENT"
+            if all(gates.values())
+            else "INCOMPLETE_V39"
+            if len(complete) < len(TASKS)
+            else "FAIL_V39_DEVELOPMENT"
+        ),
+        "registration_sha256": sha256(
+            output / "V39_REGISTRATION.json"
+        ),
+        "tasks": rows,
+        "aggregate": {
+            "complete_tasks": len(complete),
+            "tasks_with_online_branch": branches,
+            "resolved": resolved,
+            "accuracy": {
+                arm: resolved[arm] / len(complete) if complete else None
+                for arm in ARMS
+            },
+            "accuracy_wilson95": {
+                arm: _wilson(resolved[arm], len(complete)) for arm in ARMS
+            },
+            "candidate_minus_general_bootstrap95": _bootstrap(
+                [row["candidate_minus_general"] for row in complete]
+            ),
+            "candidate_minus_dense_bootstrap95": _bootstrap(
+                [row["candidate_minus_dense"] for row in complete]
+            ),
+            "paired_candidate_only_vs_general_only": {
+                V38: candidate_only,
+                GENERAL: general_only,
+            },
+            "dense_passes": dense_passes,
+            "dense_fails": dense_fails,
+            "damage_count_given_dense_pass": damage,
+            "damage_rate_given_dense_pass": damage_rate,
+            "cacheblend_damage_rate_reference": CACHEBLEND_DAMAGE_RATE,
+            "rescue_count_given_dense_fail": rescue,
+            "task_median_ttft_ms_fixed_order_diagnostic": {
+                arm: _median(
+                    [row["median_ttft_ms"][arm] for row in complete]
+                )
+                for arm in ARMS
+            },
+            "target_fallbacks": fallbacks,
+        },
+        "gate_outcomes": gates,
+        "registered_gates": registration["frozen_development_gates"],
+        "interpretation": (
+            "Outcome-independent selection from a previously evaluated "
+            "development pool. A pass permits counterbalanced speed work; "
+            "it is not a held-out population or SOTA claim."
+        ),
+    }
+    write_json(output / "V39_RESULT.json", value)
+    return value
+
+
+def run(output: Path) -> dict[str, Any]:
+    registration = register(output)
+    preregister_children(output)
+    stages = []
+    for task in registration["selection"]["tasks"]:
+        instance_id = task["instance_id"]
+        child = task_dir(output, instance_id)
+        if not (child / "V25_RESULT.json").exists():
+            stages.append(_run_stage(output, instance_id, "run"))
+        if (
+            (child / "V25_RESULT.json").exists()
+            and not (child / "V25_OFFICIAL_RESULT.json").exists()
+        ):
+            stages.append(_run_stage(output, instance_id, "evaluate"))
+    write_json(output / "V39_STAGE_STATUS.json", stages)
+    return summarize(output)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "command",
+        choices=("register", "preregister", "run", "summarize"),
+        nargs="?",
+        default="run",
+    )
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    args = parser.parse_args()
+    if args.command == "register":
+        value = register(args.output)
+    elif args.command == "preregister":
+        value = {"children": preregister_children(args.output)}
+    elif args.command == "run":
+        value = run(args.output)
+    else:
+        value = summarize(args.output)
+    print(
+        {
+            "status": value.get("status"),
+            "output": str(args.output),
+            "gate_outcomes": value.get("gate_outcomes"),
+        }
+    )
+
+
+if __name__ == "__main__":
+    main()
