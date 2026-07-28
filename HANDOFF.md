@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-28T04:41:19-07:00
+最后更新：2026-07-28T04:45:16-07:00
 
 ## 新会话启动顺序
 
@@ -23,8 +23,9 @@
 - final code pin=`5d9a5793d73121f088890aa6c02cfebc31cd97be`。
 - 最终矩阵：13 committed/30 starts；含rho3条件项14/31；
   expected 3.8 GPUh，hard cap 6 GPUh。
-- 下一步：提交V6 plan → 生成rev7 pinned manifest → Opus 5 Max Thinking
-  final review → closure → 条件性授权生效。
+- rev7 manifest已pin：self=`3eebdbfb...`，design=`ec5aaf59...`，
+  blocker仅`final_opus_review_pending`；result manifest `1/1`通过。
+- 下一步：Opus 5 Max Thinking final review → closure → 条件性授权生效。
 - final review artifact路径：
   `benchmark/approx_kv/results/phase7/phase7-final-opus-review.json`。
 - rev6在final review前因result-manifest builder陈旧状态描述而supersede。

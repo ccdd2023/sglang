@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-28T04:41:19-07:00
+最后更新：2026-07-28T04:45:16-07:00
 
 ## 项目概况
 
@@ -55,15 +55,20 @@
   - 14 settings / 31 starts total；
   - expected `3.8 GPUh`，hard cap `6 GPUh`。
 - 当前仍需：
-  1. 提交V6 candidate plan；
-  2. 生成并pin rev7 manifest；
-  3. Opus 5 Max Thinking最终review与feedback closure；
-  4. 条件性授权生效后才转`authorized`。
+  1. Opus 5 Max Thinking最终review与feedback closure；
+  2. 条件性授权生效后才转`authorized`。
 - final review evidence将版本化为
   `benchmark/approx_kv/results/phase7/phase7-final-opus-review.json`；
   rev7保持`pinned_blocked`，后续授权revision必须保持V6 design hash。
 - rev6曾绑定前一code pin；因`build_result_manifest.py`仍含
   “runner未实现”的陈旧known-gap文字，在final review前被supersede。
+- rev7：
+  - status=`pinned_blocked`；
+  - blocker仅`final_opus_review_pending`；
+  - self hash=`3eebdbfb...`；
+  - design hash=`ec5aaf59...`；
+  - 14 settings / 31 starts；
+  - Phase7 result manifest `1/1`通过。
 - 仍未进入Phase7。
 
 ### 2026-07-28 最终Phase7计划增加Opus 5 Max Thinking强制复核门

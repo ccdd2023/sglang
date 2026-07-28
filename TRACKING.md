@@ -2974,3 +2974,19 @@ technical_exit = PASS WITH CAVEATS
 - 在任何final review/GPU执行前修复该builder，并将final code pin推进为
   `5d9a5793d73121f088890aa6c02cfebc31cd97be`。
 - rev6因此不再作为review-of-record；下一版为rev7并显式supersede rev6。
+
+## 2026-07-28T04:45:16-07:00 — rev7 pinned manifest完成
+
+- rev7绑定：
+  - plan commit=`4590e34e...`；
+  - code pin=`5d9a5793...`；
+  - 14 settings / 31 starts；
+  - expected 3.8 GPUh / hard cap 6 GPUh；
+  - R2=`disabled_not_comparable`；
+  - rho3=`disabled_scoped_chunk1024`。
+- status=`pinned_blocked`，唯一blocker=`final_opus_review_pending`。
+- self hash=`3eebdbfb...`，design hash=`ec5aaf59...`。
+- primary manifest containing commit=`8ac01ca9...`。
+- Phase7 `RESULT_MANIFEST.json`更新并`1/1`通过；
+  envelope HEAD=`897c1d4b...`。
+- 下一步仅为V6 final Opus review与accepted feedback closure。

@@ -219,15 +219,18 @@ The caveat is permanent:
        the removed CacheBlend package would change frozen core dispatch.
        V6 removes the two Phase7 R2 GPU settings.
 
-[ ] 13. Pin the Phase7 implementation SHA atomically.
+[x] 13. Pin the Phase7 implementation SHA atomically.
        Final code pin:
        5d9a5793d73121f088890aa6c02cfebc31cd97be
-       Generate manifest revision 7 with final runner SHA/tree/blob hashes and
-       V6 plan commit; update HANDOFF/PROJECT/TODO together.
+       DONE: rev7 pins final runner SHA/tree/blob hashes and V6 plan commit.
        Rev7 must supersede rev6 envelope hash
        cc899d01c538f2f0a7f90565bed6579ee79f3aa5afe5825f190a460936d4428e
        and explicitly supersede design hash
        2076555ee898725215c60c3be61319c0913eaaf53480f7f30e5eaab55be66c6f.
+       Rev7 self hash:
+       3eebdbfbf6b32052c2efe71d535fdda51aef4cb4ecf75ba63f1894a69ca3b89c
+       Rev7 design hash:
+       ec5aaf5986cfd48e81d7cdace19205620cd0065016f715d968579d29aa0725ee
 
 [ ] 14. Final Opus 5 Max Thinking review before Phase7 execution.
        Review the final plan, rev6 manifest, runner/test/review evidence, R2

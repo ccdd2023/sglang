@@ -4,13 +4,13 @@
 >
 > 状态：Candidate / Pending Final Opus Review
 >
-> 最后更新：2026-07-28T04:41:19-07:00
+> 最后更新：2026-07-28T04:45:16-07:00
 >
 > 当前阶段：Phase6 technical Exit=`PASS WITH CAVEATS`；Phase7 runners、
 > Docker CPU tests与targeted reviews已完成；R2已解析为
 > `disabled_not_comparable`；final code pin=`5d9a5793d73121f088890aa6c02cfebc31cd97be`；
-> rev6已在final review前因provenance-builder状态修正而supersede；rev7 manifest
-> 与最终Opus 5 Max Thinking review尚未完成；未进入Phase7。
+> rev7 manifest已pin并通过自检，rev6已supersede；最终Opus 5 Max Thinking
+> review尚未完成；未进入Phase7。
 >
 > 取代版本：[`IMPLEMENTATION_PLAN_V5_ARCHIVED.md`](IMPLEMENTATION_PLAN_V5_ARCHIVED.md)
 
@@ -1248,7 +1248,8 @@ V6 candidate当前状态：
 - 固定Docker镜像targeted CPU suite=`152 passed + 10 subtests`；
 - 三轮targeted review已闭合全部P0/P1；
 - final code pin=`5d9a5793d73121f088890aa6c02cfebc31cd97be`；
-- rev7 primary manifest、V6 final Opus review与final disposition待完成；
+- rev7 primary manifest已pin并通过provenance check；
+- V6 final Opus review与final disposition待完成；
 - 用户已给条件性授权，但尚未生效；未进入Phase7。
 
 ## 15. V6冻结约束与已吸收教训
