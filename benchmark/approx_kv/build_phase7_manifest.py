@@ -55,6 +55,12 @@ def design_payload_sha256(payload: dict[str, Any]) -> str:
     )
 
 
+def nested_manifest_sha256(payload: dict[str, Any]) -> str:
+    canonical = dict(payload)
+    canonical.pop("manifest_sha256", None)
+    return payload_sha256(canonical)
+
+
 def git(*args: str, cwd: Path | None = None) -> str:
     return subprocess.run(
         ("git", *args),
@@ -803,7 +809,7 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
         problems.append("workloads differ from the frozen builder design")
     for name, workload in manifest["workloads"].items():
         expected_hash = workload.get("manifest_sha256")
-        if expected_hash != payload_sha256(workload):
+        if expected_hash != nested_manifest_sha256(workload):
             problems.append(f"{name} nested manifest hash mismatch")
 
     setting_ids = [row["setting_id"] for row in manifest["settings"]]
