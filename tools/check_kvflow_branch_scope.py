@@ -21,8 +21,6 @@ def scope_violations(role: str, paths: list[str]) -> list[str]:
         elif role == "coding":
             forbidden = (
                 "python/sglang/srt/mem_cache/kvcomm_prefetch/",
-                "python/sglang/srt/managers/scheduler.py",
-                "python/sglang/srt/managers/schedule_policy.py",
                 "python/sglang/srt/mem_cache/evict_policy.py",
             )
         elif role == "prefetch":

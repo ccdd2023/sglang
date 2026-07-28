@@ -1,15 +1,21 @@
-# KVFlow fork
+# KVFlow research fork
 
-This fork studies two independent ways to reduce time-to-first-token for
-coding workloads:
+This file is the authoritative repository entry point as of **2026-07-28**.
+Historical weekly reports live outside this repository under
+`/home/gfy/CodeMAS_Project/kvflow-reports/`; frozen experiment outputs live
+under `/home/gfy/CodeMAS_Project/kvflow-artifacts/`.
 
-1. **Coding-aware lossy reuse** reuses more KV without relying on eviction. It
-   decides which code or workflow regions must be recomputed for accuracy.
-2. **KV prefetch** predicts future prefix and middle-of-request KV demand under
-   concurrency, then moves those segments to the device before use.
+KVFlow studies two independent ways to reduce time-to-first-token for coding
+workloads:
 
-The two control planes share only the policy-neutral **KVCOMM data plane**.
-Neither research branch imports or configures the other.
+1. **Coding-aware lossy reuse** chooses a token-identical middle region whose
+   old K/V may be copied, while recomputing the rest of the current request.
+2. **KV prefetch** predicts future KV demand and moves an already-created
+   segment to the device before it is needed.
+
+The first answers **what may be reused**. The second answers **when and where
+an existing segment should become resident**. They share only the
+policy-neutral **KVCOMM data plane** and must remain independently testable.
 
 ## Branches
 
@@ -17,38 +23,120 @@ Neither research branch imports or configures the other.
 |---|---|
 | `kvflow/shared-core` | Segment identity, residency, lease lifecycle, safe transfer plan execution |
 | `research/coding-aware-lossy` | Coding signals and lossy recompute/copy plans; no prefetch or eviction |
-| `research/prefetch` | Prefix/middle-KV prefetch, priority and eviction; no coding policy |
+| `research/prefetch-p8-async-20260722` | Prefix/middle-KV prefetch, priority and residency; no coding policy |
 | `integration/coding-aware-prefetch` | Composition tests and thin adapters only |
 
 The legacy `feature/context-aware-kv-reuse` and
 `fix/placeholder-pool-activation` branches are preserved as read-only
 research history. Do not use them as a shared development base.
 
-## Current status
+## Current coding-aware method
 
-The code layout is **interface complete but server-canary pending**:
+The active research arm is
+`coding_grounded_observation_island_v40` (“V40”). It is a **pure KV-reuse**
+method; it does not prefetch.
 
-- `kvcomm/` has identity, generation, lease/resource lifecycle, validated
-  transfer plans and a Radix allocator adapter;
-- the coding policy produces complete copy/dense plans without importing
-  scheduler or prefetch code;
-- the prefetch branch has a host/device middle-KV handoff contract;
-- the integration branch has a reference composition test;
-- no production request currently calls `KVCommManager.execute`, so none of
-  these interface tests is an end-to-end SGLang speed result.
+For every next agent request it:
 
-Research status:
+1. keeps a rolling six-interaction history and reasons over the five groups
+   that will remain after the next roll;
+2. considers only successful, substantial, read-only tool output produced by
+   commands such as `rg`, `grep`, `find`, `sed`, `cat`, `head`, or `tail`;
+3. rejects execution output, state-changing commands, failed reads, short
+   observations, assistant reasoning, and a read whose repository path was
+   later mutated;
+4. tokenizes eligible tool outputs, requires one exact occurrence in the
+   target prompt and a strict middle position, then selects one largest island
+   (at least 128 and at most 4,096 copied tokens; newest wins ties);
+5. materializes full-layer K/V from a request that naturally computes that
+   history, and allows one exact-token reuse in the next request;
+6. copies V unchanged, rotates every copied K by the source-to-target RoPE
+   position delta, and densely computes the prefix and suffix.
 
-- FileVersion SessionGraphKV V11 formal P0: **FALSIFIED**;
-- ProbeHead StateSensitivityKV V12 development calibration:
-  **FALSIFIED** (`4,784` observations, `4,639` configurations, `0` feasible);
-- sequential composition, holdout, objective workflow accuracy and P1 TTFT
-  remain closed.
+The coding signal is therefore concrete but deliberately narrow:
+**successful repository reads + file-version invalidation**. V40 does not yet
+use AST structure, symbol dependencies, test relevance, per-layer sensitivity,
+separate K/V budgets, or post-copy repair.
 
-Before a runtime-complete claim, the project still needs a real model-server
-exact-transfer canary, production allocator/source-lifecycle integration,
-target-slot and dense-fallback wiring, HiCache payload validation, stream
-synchronization, the four-mode server matrix and sustained lifecycle tests.
+The reuse remains lossy because a token-identical tool observation was
+originally encoded under an older left context. RoPE correction fixes position
+coordinates, not that contextual-state difference.
+
+Implementation:
+
+- `benchmark/multi_workflow/coding_reuse_policy.py`
+- `benchmark/multi_workflow/bridge_reuse_litellm_model.py`
+- `python/sglang/srt/mem_cache/kvcomm/radix_backend.py`
+
+The active/reproducible benchmark surface is indexed in
+`benchmark/multi_workflow/README.md`.
+
+## Latest truthful result: V44
+
+Frozen artifact:
+
+```text
+/home/gfy/CodeMAS_Project/kvflow-artifacts/
+  impactkv_v44_dense_sensitive_v40_20260728/V44_RESULT.json
+```
+
+V44 is a **12-task SWE-bench Verified development experiment**, not a
+population or SOTA result.
+
+| Metric | Dense | General contiguous reuse | V40 |
+|---|---:|---:|---:|
+| Official resolved | 3/12 | 3/12 | **4/12** |
+| Wilson 95% interval | 8.9–53.2% | 8.9–53.2% | 13.8–60.9% |
+| Damage among 3 Dense-pass tasks | — | 1/3 | **0/3** |
+| Rescue among 9 Dense-fail tasks | — | 1/9 | 1/9 |
+| Copied tokens | 0 | 487,144 | **171,139** |
+| Fixed-order host-resident median TTFT | 357.6 ms | 335.7 ms | 327.5 ms |
+
+V40 copied **64.9% fewer tokens** than General while winning one task that
+General lost (`scikit-learn__scikit-learn-10297`). However, the sample is too
+small for a superiority claim: the V40 accuracy interval is wide, only three
+tasks expose Dense-pass damage sensitivity, all sources were host-resident,
+and fixed-order TTFT is only a diagnostic.
+
+The preceding V43 run is not accuracy evidence. All six tasks exhausted the
+20-call agent budget and produced empty submissions, so the run was audited as
+a protocol failure and replaced by V44.
+
+Historical native baselines on a different frozen 225-task protocol remain the
+competitive reference:
+
+- KVCOMM: 164/225, 8.55× cache-ready and 5.34× at N=4 including build;
+- CacheBlend: 169/225, 4.77× cache-ready and 1.22× at N=4 including build.
+
+These figures cannot be directly ranked against V44. A same-task, native,
+four-arm evaluation is still required before claiming that V40 beats either
+baseline.
+
+## Merge readiness
+
+Research and collaborator heads used by this audit:
+
+```text
+V44 result     144e80255
+coding docs    current HEAD (this file)
+prefetch      e44ce40dc
+integration   d4a7ec132
+shared core   c16bfbb8e
+```
+
+A three-way merge preview from the shared-core merge base found:
+
+- coding-aware changed 174 paths after this documentation cleanup;
+- prefetch changed 11 paths;
+- **no overlapping code paths**;
+- two modify/delete documentation conflicts:
+  `docs/kvflow/HANDOFF.md` and `docs/kvflow/STATUS.md`.
+
+The old integration head contains only an early July-17 coding snapshot, so
+integration must be refreshed from the current coding head before merging the
+latest prefetch head. The expected code merge is additive, but composition is
+not accepted until the lifecycle and attribution matrix in
+`docs/kvflow/ARCHITECTURE.md` passes.
 
 ## Feature gates
 
@@ -66,6 +154,5 @@ Enabling either client without `SGLANG_KVCOMM_CORE=1` is an error. Old
 
 ## Read next
 
-- [Coding-aware session handoff (2026-07-17)](CODING_AWARE_HANDOFF_20260717.md)
-- [Architecture and interface contract](docs/kvflow/ARCHITECTURE.md)
-- [Weekly research and collaboration audit](docs/kvflow/WEEKLY_RESEARCH_AUDIT_20260718.md)
+- [Architecture, ownership, and merge contract](docs/kvflow/ARCHITECTURE.md)
+- [Experiment script index](benchmark/multi_workflow/README.md)
