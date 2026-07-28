@@ -8,12 +8,12 @@
   "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
   "command": "python3 -m pytest -q test/registered/unit/bench/test_phase6_manifest.py",
   "exit_code": 0,
-  "summary_line": "23 passed, 2 warnings in 6.37s",
-  "passed_count": 23,
+  "summary_line": "24 passed, 2 warnings in 6.35s",
+  "passed_count": 24,
   "subtests": {
     "passed_count": 0,
     "names": []
   },
-  "timestamp": "2026-07-28T08:50:49-07:00",
-  "artifact_sha256": "57b73dc9e11d720d60d79c469257a4b2638c0469644e271a857754442bdf61e5"
+  "timestamp": "2026-07-28T08:58:54-07:00",
+  "artifact_sha256": "95ad0454a6659ddc78046fe2ad9db133fcb216046aa1cee3e22c82f9f00d28c5"
 }
