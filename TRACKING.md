@@ -2868,3 +2868,20 @@ technical_exit = PASS WITH CAVEATS
 - 当前解释不构成Phase7授权；Phase7 GPU执行仍为禁止状态。
 - P7-0b chunk4096 feasibility是授权后的wave-0实验门，不属于五个
   pre-execution blocker。
+
+## 2026-07-27T22:31:46-07:00 — 澄清R0/R2、Phase7实际矩阵与metrics
+
+- R0=`Raw+RoPE/raw_copy_ceiling`：复制K/V并校正K的位置，不做
+  context-dependent repair，只是speed ceiling。
+- R2=CacheBlend-style precomputed oracle family代表；历史点使用显式约1%
+  repair ratio，必须计入target adapter setup，不等同faithful CacheBlend。
+- Phase7不是单个R0 run：
+  - 5个R0 A8 settings，最多14 starts；
+  - 4个R0 W scheduler settings，12 starts；
+  - 2个required P6-4Delta settings；
+  - 2个R4-like diagnostic settings；
+  - 条件R2 2 settings与条件rho3 1 setting。
+- 总预算仍为13 committed settings/30 starts，加3 conditional/3 starts。
+- R1只在wave-0作footprint profile；R3/R5/practical/host/prefetch/async不进入
+  Phase7 primary性能矩阵。
+- Phase7尚未运行，目前只有冻结的metrics contract，没有Phase7数值结果。

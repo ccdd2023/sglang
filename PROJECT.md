@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-27T21:26:50-07:00
+最后更新：2026-07-27T22:31:46-07:00
 
 ## 项目概况
 
@@ -26,6 +26,43 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-27 R0/R2定位、Phase7矩阵与指标合同
+
+- R0是`Raw+RoPE/raw_copy_ceiling`：
+  - 复制source body的K/V；
+  - 对K执行完整RoPE位置校正；
+  - 不修复header/context变化造成的hidden-state差异；
+  - 因此只代表最低恢复开销下的speed ceiling，不是practical candidate。
+- R2是项目中的CacheBlend-style precomputed oracle family代表：
+  - 复用大部分预计算KV；
+  - 通过显式repair比例生成target-specific adapter/recovery object；
+  - setup/adapter成本必须计入完整ledger；
+  - 历史点约为1% repair ratio，不等同于完整faithful CacheBlend实现。
+
+Phase7不是“只跑一个R0 run”，而是以R0为唯一primary recovery family：
+
+- R0 A8 ceiling：4个primary settings，最多12 starts；
+- R0 chunk1024 sensitivity：1个setting、2 starts；
+- R0 W × S0/S4：4个settings、12 starts；
+- P6-4Delta wave-0：2个required settings，内部含`r0_like`等footprint profile；
+- R4-like：2个settings、2 starts；
+- R2：2个conditional settings、2 starts，仅在adapter实现后运行；
+- rho3 P6-4Delta：1个conditional setting、1 start。
+
+总计13 committed settings/30 starts，另有3 conditional settings/3 starts。
+R1只在wave-0以capacity footprint profile出现，不做Phase7性能研究；R3 defer；
+R5因与R2冗余默认排除；practical/HiCache/host/prefetch/async轨道跳过。
+
+Phase7尚无数值结果，当前冻结的是metrics contract，覆盖：
+
+- latency/cost ledger与N=1/2/4/8真实amortization/break-even；
+- TTFT、request-path、full lifecycle、workflow wall-clock和per-role视图；
+- first-token/8-token逐位置一致率及same-context canary；
+- exact/approx outcome、fallback与exclusive terminal reason；
+- rho、resident/temporary peak、victim/evict/demote/transfer/churn/orphan；
+- paired per-restart统计、MDE=5%、p95口径；
+- validity/mechanism状态和完整raw/log/hash/commit provenance。
 
 ### 2026-07-27 Phase7 `preregistered_blocked`与五个准入门解释
 
