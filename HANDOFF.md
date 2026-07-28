@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-28T09:23:55-07:00
+最后更新：2026-07-28T09:28:47-07:00
 
 ## 新会话启动顺序
 
@@ -12,6 +12,16 @@
 6. 开始工作后持续维护上述文件，不把重要信息只留在聊天中。
 
 ## 当前快照
+
+### 2026-07-28T09:28:47-07:00 rev12 authorized
+
+- V7 Current/Latest。
+- rev12 self=`2d66a1bc...`，design=`50003145...`。
+- status=`authorized`，blockers=[]，review=`PASS WITH CAVEATS`。
+- primary commit=`759476c9...`，envelope HEAD=`d42a5d15...`，
+  RESULT_MANIFEST=`5/5`。
+- Phase7下一步：wave-0 S4/rho2/chunk4096，然后S0/rho2/chunk4096。
+- rho3 disabled；runtime只写`/results/phase7`。
 
 ### 2026-07-28T09:23:55-07:00 V7已激活，等待authorized rev12
 

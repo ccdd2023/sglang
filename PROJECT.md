@@ -2,14 +2,14 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-28T09:23:55-07:00
+最后更新：2026-07-28T09:28:47-07:00
 
 ## 项目概况
 
 | 项目 | 当前值 |
 | --- | --- |
 | 名称 | `code-agent-kvcache` |
-| 阶段 | Phase6=`PASS WITH CAVEATS`；V5/V6已归档；V7 byte-frozen plan已激活为Current/Latest；等待authorized rev12；未进入Phase7 |
+| 阶段 | Phase6=`PASS WITH CAVEATS`；V7 Current/Latest；manifest rev12已authorized；即将进入Phase7 wave-0 |
 | 业务目标 | 在 SGLang 上比较多种跨 context 近似 KV 恢复与 workflow-aware cache scheduling，降低 Coding Agent TTFT |
 | 技术栈 | SGLang、HiCache、Docker、KVFlow、KVCOMM、CacheBlend、Cache-Craft、EPIC、CacheTune |
 | 默认分支 | `main` |
@@ -26,6 +26,25 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-28T09:28:47-07:00 Phase7 manifest rev12已授权
+
+- rev12：
+  - status=`authorized`；
+  - `phase7_execution_authorized=true`；
+  - blockers=`[]`；
+  - self=`2d66a1bcdb6dc92a72c59fefc581212fcd541accbc8ededa221495d30d039bef`；
+  - design=`50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987`；
+  - supersedes rev11 self=`48c86bf0...`；
+  - design hash保持不变。
+- rev12 primary containing commit=`759476c901b1ac30eeeb96f83b9257586a103c4e`；
+  authorized result envelope HEAD=`d42a5d1546680de458122f605f8a486b8faf5564`；
+  RESULT_MANIFEST=`5/5`。
+- Docker image/GPU/linked-worktree gitdir挂载前置均验证通过。
+- 下一步为Phase7 wave-0 required：
+  - `p6delta-s4-rho2-chunk4096`；
+  - `p6delta-s0-rho2-chunk4096`。
+- rho3 conditional保持disabled；所有输出写`/results/phase7` staging。
 
 ### 2026-07-28T09:23:55-07:00 V7 final Opus PASS WITH CAVEATS
 

@@ -3049,3 +3049,16 @@ technical_exit = PASS WITH CAVEATS
   - 全部GPU wave只写`/results/phase7`；
   - wave之间不版本化；全部Phase7执行结束后一次性复制/hash/commit。
 - 下一步生成rev12，必须保持design hash=`50003145...`并转authorized。
+
+## 2026-07-28T09:28:47-07:00 — rev12 authorized，Phase7 Entry完成
+
+- rev12：
+  - status=`authorized`；
+  - execution_authorized=true；
+  - blockers=[]；
+  - self=`2d66a1bc...`；
+  - design=`50003145...`，与reviewed rev11完全一致。
+- primary commit=`759476c9...`，authorized envelope HEAD=`d42a5d15...`。
+- final review artifact与3份CPU evidence纳入RESULT_MANIFEST，`5/5`通过。
+- Docker image、GPU、linked-worktree gitdir双只读挂载均验证。
+- Phase7 Entry Gate全部关闭；下一步正式执行wave-0 required两cell。

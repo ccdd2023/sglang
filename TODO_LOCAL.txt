@@ -239,12 +239,18 @@ The caveat is permanent:
        DONE: PASS_WITH_CAVEATS; open P0/P1=0/0.
        artifact SHA=2c83f7ddec41d65a937a6b71cab851230c0fb06ff725f09cb36dd596e81e8649
 
-[ ] 15. Activate the conditional authorization with manifest revision 12.
+[x] 15. Activate the conditional authorization with manifest revision 12.
        Supersede rev11 self hash, preserve design hash 50003145..., bind the
        final review artifact, set status=authorized and blockers=[].
        Before launch verify both Docker read-only mounts at identical paths.
        Keep every GPU wave in /results/phase7 staging and version all results
        only once after the full Phase7 execution.
+       DONE: rev12 authorized, self=2d66a1bc..., design=50003145...,
+       blockers=[], RESULT_MANIFEST=5/5.
+
+[ ] 16. Execute Phase7 wave-0 in Docker.
+       Run required S4/rho2/chunk4096 then S0/rho2/chunk4096.
+       Keep rho3 disabled and stop on any ES-ENGINEERING failure.
 
 
 3.3 CONDITIONAL - ONLY IF TRIGGERED
