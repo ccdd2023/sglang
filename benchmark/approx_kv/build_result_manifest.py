@@ -20,8 +20,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-DEFAULT_RESULTS = Path("benchmark/approx_kv/results/phase6")
-
 ENVIRONMENT = {
     "image_digest": (
         "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781"
@@ -136,10 +134,14 @@ def check(results: Path, manifest_path: Path) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
-    parser.add_argument("--results-dir", type=Path, default=DEFAULT_RESULTS)
+    parser.add_argument("--results-dir", type=Path)
     parser.add_argument("--phase", default="phase6")
     args = parser.parse_args()
-    results = args.results_dir
+    results = args.results_dir or Path(f"benchmark/approx_kv/results/{args.phase}")
+    if results.name != args.phase:
+        parser.error(
+            f"--phase {args.phase!r} does not match results directory {results}"
+        )
     manifest_path = results / "RESULT_MANIFEST.json"
     if args.check:
         return check(results, manifest_path)

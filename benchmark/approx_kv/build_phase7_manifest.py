@@ -6,12 +6,14 @@ import hashlib
 import json
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
 DEFAULT_OUTPUT = Path("benchmark/approx_kv/results/phase7/phase7-primary-manifest.json")
 P6_CONTRACT = Path("benchmark/approx_kv/results/phase6/p6-0-contract.json")
 DESIGN_KEYS = (
+    "plan",
     "environment",
     "server_template",
     "workloads",
@@ -118,6 +120,8 @@ def build_a8_workload() -> dict[str, Any]:
                     "body_token_sha256": token_list_sha(body),
                     "extra_key": f"p7-a8-b{body_tokens}-same-context-canary",
                     "max_new_tokens": 8,
+                    "placement": "after_target_8_before_reset",
+                    "arms": ["R0", "R2"],
                     "included_in_amortization": False,
                     "any_token_mismatch_is_invalid": True,
                 },
@@ -240,6 +244,7 @@ def setting(
     rho_realization: str = "filler_pool",
     capacity_ceiling_tokens: int = 13130,
     activation_rule_id: str | None = None,
+    supplement_gate: str | None = None,
 ) -> dict[str, Any]:
     screening = [0] if 0 in restarts else []
     supplements = [restart for restart in restarts if restart != 0]
@@ -256,7 +261,7 @@ def setting(
         "restart_indices": restarts,
         "screening_restarts": screening,
         "supplement_restarts": supplements,
-        "supplement_gate": "ES-R0-MDE" if supplements else None,
+        "supplement_gate": (supplement_gate if supplements else None),
         "warmup_repeats": 1,
         "formal_repeats": 2,
         "arms": arms,
@@ -368,6 +373,7 @@ def build_settings() -> list[dict[str, Any]]:
                     restarts=[0, 1, 2],
                     arms=["D0", "E0", "R0"],
                     rho_realization="filler_pool",
+                    supplement_gate="ES-R0-MDE",
                 )
             )
     settings.append(
@@ -383,6 +389,7 @@ def build_settings() -> list[dict[str, Any]]:
             restarts=[0, 1],
             arms=["D0", "E0", "R0"],
             rho_realization="filler_pool",
+            supplement_gate="ES-W-UNCONDITIONAL",
         )
     )
     for rho in (1.5, 2.0):
@@ -403,6 +410,7 @@ def build_settings() -> list[dict[str, Any]]:
                     mem_fraction_static=0.65,
                     rho_realization="capacity_pinning",
                     capacity_ceiling_tokens=20713,
+                    supplement_gate="ES-W-UNCONDITIONAL",
                 )
             )
     for policy in ("lru", "hierarchical"):
@@ -461,6 +469,14 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
 
     p6_contract = json.loads(P6_CONTRACT.read_text())
     settings = build_settings()
+    workloads = {
+        "A8": build_a8_workload(),
+        "W": build_w_workload(p6_contract),
+        "filler_pool": build_filler_pool(),
+    }
+    per_role_requests = dict(
+        Counter(row["role"] for row in workloads["W"]["request_order"])
+    )
     committed = [row for row in settings if not row["conditional"]]
     conditional = [row for row in settings if row["conditional"]]
     committed_starts = sum(len(row["restart_indices"]) for row in committed)
@@ -505,6 +521,8 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         execution_blockers.append("phase7_pinned_implementation_sha_pending")
     if args.r2_strategy == "pending":
         execution_blockers.append("r2_strategy_pending")
+    if args.rho3_resolution == "pending":
+        execution_blockers.append("rho3_resolution_pending")
     if not args.authorize:
         execution_blockers.append("explicit_user_authorization_missing")
 
@@ -542,7 +560,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "runners": runner_status,
         "r2_strategy": args.r2_strategy,
         "conditional_resolution": {
-            "CR-P6DELTA-RHO3": ("enabled" if args.enable_rho3 else "pending"),
+            "CR-P6DELTA-RHO3": args.rho3_resolution,
             "CR-R2-ADAPTER": (
                 "enabled"
                 if args.r2_strategy == "adapter"
@@ -588,11 +606,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
                 "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE": "0",
             },
         },
-        "workloads": {
-            "A8": build_a8_workload(),
-            "W": build_w_workload(p6_contract),
-            "filler_pool": build_filler_pool(),
-        },
+        "workloads": workloads,
         "arms": {
             "D0": "dense_no_reuse_baseline",
             "E0": "exact_cache",
@@ -644,6 +658,8 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
                 "incremental_setup_break_even_observed_N",
             ],
             "not_observed_value": ">8/not_observed",
+            "per_role_requests_per_formal": per_role_requests,
+            "per_role_ttft_reporting": "descriptive_only_list_all_values",
         },
         "outcome_taxonomy": [
             "dense_no_reuse_baseline",
@@ -700,6 +716,15 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
                 ),
             },
             {
+                "rule_id": "ES-W-UNCONDITIONAL",
+                "checkpoint": "none",
+                "rule": (
+                    "W and chunk1024 sensitivity supplements are "
+                    "unconditional per V5; only ES-ENGINEERING can stop them. "
+                    "ES-R0-MDE governs A8 supplements only."
+                ),
+            },
+            {
                 "rule_id": "ES-CHUNK-HEADLINE",
                 "checkpoint": "predeclared from CL2",
                 "rule": (
@@ -711,9 +736,9 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
                 "rule_id": "ES-S4",
                 "checkpoint": "complete restart-0 W matrix",
                 "rule": (
-                    "if all-reusable mean gain <5% and "
-                    "miss_S4>=miss_S0 and peak_S4>=peak_S0, stop scheduler "
-                    "benefit claim"
+                    "only if BOTH rho1.5 and rho2.0 have all-reusable mean "
+                    "gain <5% and miss_S4>=miss_S0 and peak_S4>=peak_S0, "
+                    "stop scheduler benefit claim"
                 ),
             },
             {
@@ -733,13 +758,16 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "all_gpu_settings": len(settings),
             "all_server_starts": committed_starts + conditional_starts,
             "expected_gpu_hours": {
-                "wave-0": 0.5,
-                "wave-1": 0.75,
-                "wave-2": 3.75,
-                "conditional": 1.0,
+                "wave-0": 0.3,
+                "wave-1": 0.4,
+                "wave-2": 2.3,
+                "conditional": 0.5,
             },
+            "expected_gpu_hours_total": 3.5,
             "hard_cap_server_starts": 36,
             "hard_cap_gpu_hours": 6,
+            "gpu_hour_headroom": 2.5,
+            "minimum_headroom_fraction": 0.15,
             "retries_count_against_cap": True,
         },
         "artifact_templates": {
@@ -853,6 +881,20 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
             problems.append(f"{row['setting_id']}: restart waves do not compose")
         if row["supplement_restarts"] and not row["supplement_gate"]:
             problems.append(f"{row['setting_id']}: supplements lack a gate")
+        if row["supplement_gate"] == "ES-R0-MDE":
+            if (
+                row["runner"] != "benchmark.approx_kv.run_p7_ceiling"
+                or not row["workload"].startswith("A8-")
+                or "sensitivity" in row["setting_id"]
+            ):
+                problems.append(
+                    f"{row['setting_id']}: ES-R0-MDE used outside A8 primary"
+                )
+        if row["supplement_restarts"] and row["supplement_gate"] not in {
+            "ES-R0-MDE",
+            "ES-W-UNCONDITIONAL",
+        }:
+            problems.append(f"{row['setting_id']}: unknown supplement gate")
 
     budget = manifest["budget"]
     committed = [row for row in manifest["settings"] if not row["conditional"]]
@@ -873,6 +915,15 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
         problems.append("total setting count mismatch")
     if budget["all_server_starts"] > budget["hard_cap_server_starts"]:
         problems.append("server-start budget exceeds hard cap")
+    expected_gpu_hours = sum(budget["expected_gpu_hours"].values())
+    if expected_gpu_hours != budget["expected_gpu_hours_total"]:
+        problems.append("expected GPU-hour total mismatch")
+    if expected_gpu_hours > budget["hard_cap_gpu_hours"] * (
+        1 - budget["minimum_headroom_fraction"]
+    ):
+        problems.append("expected GPU hours do not preserve required headroom")
+    if budget["hard_cap_gpu_hours"] - expected_gpu_hours != budget["gpu_hour_headroom"]:
+        problems.append("GPU-hour headroom mismatch")
     if manifest["statistics"]["mde"]["mde_fraction"] != 0.05:
         problems.append("MDE is not frozen to 5%")
     status = manifest.get("status")
@@ -890,6 +941,20 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
             problems.append("invalid authorized state")
     else:
         problems.append(f"unknown manifest status: {status}")
+
+    pinned_tree = manifest["implementation"].get("phase7_pinned_tree_sha")
+    if pinned_sha is not None:
+        resolved = subprocess.run(
+            ("git", "rev-parse", pinned_sha),
+            capture_output=True,
+            text=True,
+        )
+        if resolved.returncode != 0 or resolved.stdout.strip() != pinned_sha:
+            problems.append("pinned implementation commit does not resolve exactly")
+        else:
+            expected_tree = git("rev-parse", f"{pinned_sha}^{{tree}}")
+            if pinned_tree != expected_tree:
+                problems.append("pinned implementation tree mismatch")
 
     for runner_name in ("ceiling", "scheduler"):
         status = manifest["runners"][runner_name]
@@ -922,6 +987,24 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
     elif sha256_bytes(blob.stdout) != manifest_runner["sha256"]:
         problems.append("generation commit has a different manifest builder")
 
+    if pinned_sha is not None:
+        for runner_name in ("ceiling", "scheduler"):
+            runner = manifest["runners"][runner_name]
+            if not runner["exists"]:
+                continue
+            blob = subprocess.run(
+                ("git", "show", f"{pinned_sha}:{runner['path']}"),
+                capture_output=True,
+            )
+            if blob.returncode != 0:
+                problems.append(
+                    f"{runner_name} runner absent from pinned implementation"
+                )
+            elif sha256_bytes(blob.stdout) != runner["sha256"]:
+                problems.append(
+                    f"{runner_name} runner hash differs at pinned implementation"
+                )
+
     if manifest["server_template"]["test_only_injection_flags"] != {
         "SGLANG_APPROX_KV_TEST_ONLY": "0",
         "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE": "0",
@@ -939,6 +1022,11 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
         ]
         if len(keys) != len(set(keys)):
             problems.append(f"{workload['workload_id']} has duplicate arm keys")
+        canary = workload.get("same_context_canary", {})
+        if canary.get("placement") != "after_target_8_before_reset":
+            problems.append(f"{workload['workload_id']} canary placement is invalid")
+        if canary.get("arms") != ["R0", "R2"]:
+            problems.append(f"{workload['workload_id']} canary arms are invalid")
     if not manifest["workloads"]["W"]["request_order"]:
         problems.append("W request order is empty")
     request_order = manifest["workloads"]["W"]["request_order"]
@@ -950,6 +1038,10 @@ def validate(manifest: dict[str, Any], args: argparse.Namespace) -> list[str]:
         problems.append("W object count is not 40")
     if len(manifest["workloads"]["filler_pool"]["pool"]) != 64:
         problems.append("filler pool count is not 64")
+    resolutions = manifest["conditional_resolution"]
+    if status in {"pinned_blocked", "authorized"}:
+        if any(value == "pending" for value in resolutions.values()):
+            problems.append("pinned/authorized manifest has pending conditions")
     if args.check_plan:
         plan_repo = args.plan_repo.resolve()
         blob = subprocess.run(
@@ -1007,7 +1099,11 @@ def main() -> int:
         choices=("pending", "adapter", "disabled_not_comparable"),
         default="pending",
     )
-    parser.add_argument("--enable-rho3", action="store_true")
+    parser.add_argument(
+        "--rho3-resolution",
+        choices=("pending", "enabled", "disabled_scoped_chunk1024"),
+        default="pending",
+    )
     parser.add_argument(
         "--phase6-evidence-sha",
         default="924c9d1d6c074f304189248f0fc5b15aa6d25adb",
