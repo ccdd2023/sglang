@@ -450,6 +450,8 @@ def register(output: Path) -> dict[str, Any]:
                 str(source.relative_to(PROJECT)): sha256(source)
                 for source in (
                     PROJECT
+                    / "benchmark/multi_workflow/coding_reuse_policy.py",
+                    PROJECT
                     / "benchmark/multi_workflow/bridge_reuse_litellm_model.py",
                     PROJECT
                     / "benchmark/multi_workflow/run_bridge_reuse_agent_experiment.py",
