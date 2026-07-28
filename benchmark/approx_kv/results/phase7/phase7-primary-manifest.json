@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "artifact": "phase7-primary-manifest",
-  "manifest_revision": 6,
-  "supersedes_manifest_sha256": "98cff1d8c1c8586335f33463bf98b2b494df78ebcbe8baceb47c32dc89e9ab78",
-  "supersedes_design_payload_sha256": "24f149f140cf593c68d90ad7d6959b1b008f804f71766bff35ddae2b4c95732d",
+  "manifest_revision": 7,
+  "supersedes_manifest_sha256": "cc899d01c538f2f0a7f90565bed6579ee79f3aa5afe5825f190a460936d4428e",
+  "supersedes_design_payload_sha256": "2076555ee898725215c60c3be61319c0913eaaf53480f7f30e5eaab55be66c6f",
   "design_keys": [
     "plan",
     "environment",
@@ -25,21 +25,21 @@
     "scope_caveats",
     "review_contract"
   ],
-  "revision_reason": "V6: bind reviewed runners, disable infeasible R2 GPU cells, freeze source-pin/segment/envelope contracts, and await final Opus review",
+  "revision_reason": "V6 rev7: bind corrected provenance builder and final code pin; remain blocked for final Opus review",
   "status": "pinned_blocked",
   "phase7_execution_authorized": false,
   "plan": {
     "version": "V6",
-    "plan_commit": "14af11575873db675573169dd84cafa705f5e282",
+    "plan_commit": "4590e34eece4069693ebbdea99aaaba1ba59a43b",
     "plan_file": "IMPLEMENTATION_PLAN_LATEST.md",
-    "plan_sha256": "27fb4cf5fc9aeb6bb6f8695ccb34184292f8aaed6bece001669dc145a5243591"
+    "plan_sha256": "c1210d8e6428b1e5c942da6fde6467ff62e6c5ea65466d93799910fd663bdbef"
   },
   "implementation": {
-    "manifest_generation_sha": "8d0e42fbf975240a5999670a47243e9d99bc494d",
-    "manifest_generation_tree_sha": "d57eef524787c84a296ad166c0bd260eeb4a8f17",
+    "manifest_generation_sha": "5d9a5793d73121f088890aa6c02cfebc31cd97be",
+    "manifest_generation_tree_sha": "97af089c2d024b14aa36da3f3abdea4fe6c188d4",
     "phase6_evidence_sha": "924c9d1d6c074f304189248f0fc5b15aa6d25adb",
-    "phase7_pinned_implementation_sha": "8d0e42fbf975240a5999670a47243e9d99bc494d",
-    "phase7_pinned_tree_sha": "d57eef524787c84a296ad166c0bd260eeb4a8f17",
+    "phase7_pinned_implementation_sha": "5d9a5793d73121f088890aa6c02cfebc31cd97be",
+    "phase7_pinned_tree_sha": "97af089c2d024b14aa36da3f3abdea4fe6c188d4",
     "atomic_update_required": [
       "phase7-primary-manifest.json",
       "RESULT_MANIFEST.json"
@@ -2711,6 +2711,6 @@
     "P6-4 rho1.1/rho1.5/rho3 feasibility remains chunk1024 unless separately revalidated",
     "host/prefetch/async tracks are not generated in V5"
   ],
-  "design_payload_sha256": "2076555ee898725215c60c3be61319c0913eaaf53480f7f30e5eaab55be66c6f",
-  "preregistered_manifest_sha256": "cc899d01c538f2f0a7f90565bed6579ee79f3aa5afe5825f190a460936d4428e"
+  "design_payload_sha256": "ec5aaf5986cfd48e81d7cdace19205620cd0065016f715d968579d29aa0725ee",
+  "preregistered_manifest_sha256": "3eebdbfbf6b32052c2efe71d535fdda51aef4cb4ecf75ba63f1894a69ca3b89c"
 }
