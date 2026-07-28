@@ -254,9 +254,18 @@ The caveat is permanent:
        DONE: capacity error=0 for both required cells; no engineering failure.
        S4 R4-like diagnostic-unavailable; S0 R4-like reachable.
 
-[ ] 17. Execute A8 restart-0 screening in Docker.
+[x] 17. Execute A8 restart-0 screening in Docker.
        Run body1024/2048 x rho1.5/2.0. Evaluate the frozen 5% MDE only after
        all four restart-0 settings complete.
+       DONE: all settings valid; request-path=0.772-0.936x; N8 full setup
+       =0.609-0.642x. R0 track NEGATIVE; skip 8 supplements.
+
+[ ] 18. Execute unconditional chunk1024 sensitivity.
+       Run body2048/rho2/S0 restart0-1. This track is not gated by A8 MDE.
+
+[ ] 19. Execute unconditional W/R4 scheduler matrix.
+       Run 4 W E0/R0 settings x 3 restarts and 2 R4-like diagnostics x 1.
+       With A8 NEGATIVE, latency is secondary and victim/footprint primary.
 
 
 3.3 CONDITIONAL - ONLY IF TRIGGERED

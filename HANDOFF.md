@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-28T09:45:04-07:00
+最后更新：2026-07-28T10:00:31-07:00
 
 ## 新会话启动顺序
 
@@ -12,6 +12,16 @@
 6. 开始工作后持续维护上述文件，不把重要信息只留在聊天中。
 
 ## 当前快照
+
+### 2026-07-28T10:00:31-07:00 A8 screening为NEGATIVE
+
+- 四个restart-0 settings全部工程有效。
+- request-path median：
+  - body1024=`0.772–0.775x`；
+  - body2048=`0.933–0.936x`。
+- N8 full-setup=`0.609–0.642x`，未达5% MDE。
+- 跳过8个primary supplement starts。
+- 下一步：chunk1024 sensitivity 2 starts，然后W/R4 scheduler矩阵。
 
 ### 2026-07-28T09:45:04-07:00 Phase7 wave-0完成
 

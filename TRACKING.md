@@ -3079,3 +3079,20 @@ technical_exit = PASS WITH CAVEATS
 - rho3条件项保持disabled。
 - artifacts仍在`/results/phase7` staging。
 - wave-0 Gate关闭；下一步A8四个restart-0 settings。
+
+## 2026-07-28T10:00:31-07:00 — A8 restart-0完成，R0 track NEGATIVE
+
+- 四个setting均工程valid：
+  - 32个R0 target全部`approximate_gpu_recovery`；
+  - D0/E0 outcome全部符合；
+  - same-context canary全部8-token一致；
+  - source pin/reset/inactive/orphan通过。
+- paired request-path median：
+  - b1024/rho1.5=`0.7723x`；
+  - b1024/rho2=`0.7751x`；
+  - b2048/rho1.5=`0.9334x`；
+  - b2048/rho2=`0.9362x`。
+- N8 full-setup=`0.6086–0.6419x`；incremental=`0.6838–0.7641x`。
+- 未满足1.0，更未满足5% MDE；track=`NEGATIVE`。
+- `ES-R0-MDE`触发，跳过8个primary supplement starts。
+- chunk1024 sensitivity与W/R4仍按unconditional合同执行。

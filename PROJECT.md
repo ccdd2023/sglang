@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-28T09:45:04-07:00
+最后更新：2026-07-28T10:00:31-07:00
 
 ## 项目概况
 
@@ -26,6 +26,30 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-28T10:00:31-07:00 A8 restart-0 screening完成：R0 NEGATIVE
+
+- 四个primary settings全部`status=valid`：
+  - D0/E0/R0 outcome全部符合预期；
+  - 每setting 2 formal × 8 targets均为真实请求；
+  - R0全部为`approximate_gpu_recovery`；
+  - same-context 8-token canary全部逐token一致；
+  - persistent source pin、reset、orphan、inactive assertions全部通过。
+- 结果：
+
+| body | rho | paired request-path median | N8 full-setup | N8 incremental |
+| ---: | ---: | ---: | ---: | ---: |
+| 1024 | 1.5 | `0.7723x` | `0.6086x` | `0.6838x` |
+| 1024 | 2.0 | `0.7751x` | `0.6101x` | `0.6855x` |
+| 2048 | 1.5 | `0.9334x` | `0.6398x` | `0.7607x` |
+| 2048 | 2.0 | `0.9362x` | `0.6419x` | `0.7641x` |
+
+- 所有setting均低于1.0，更不满足冻结MDE=`5%`；R0 ceiling track记
+  `NEGATIVE`。
+- 按`ES-R0-MDE`跳过primary restart1–2，共节省8 starts。
+- 不发布speedup headline；结果严格为chunk4096、当前SM75/model/workload下的
+  ceiling结论。
+- W与chunk1024 sensitivity使用`ES-W-UNCONDITIONAL`，仍继续执行。
 
 ### 2026-07-28T09:45:04-07:00 Phase7 wave-0 required完成
 
