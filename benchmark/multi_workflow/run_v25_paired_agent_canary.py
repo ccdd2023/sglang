@@ -107,6 +107,12 @@ INCLUDE_DENSE_CONTROL = (
 ALLOW_EMPTY_SUBMISSION_OUTCOME = (
     os.environ.get("IMPACTKV_ALLOW_EMPTY_SUBMISSION_OUTCOME", "0") == "1"
 )
+CAPTURE_LIMIT_PATCH = (
+    os.environ.get("IMPACTKV_CAPTURE_LIMIT_PATCH", "0") == "1"
+)
+AGENT_STEP_LIMIT = int(os.environ.get("IMPACTKV_AGENT_STEP_LIMIT", "20"))
+if not 1 <= AGENT_STEP_LIMIT <= 64:
+    raise ValueError("IMPACTKV_AGENT_STEP_LIMIT must be in [1, 64]")
 REQUIRE_BRANCH = os.environ.get("IMPACTKV_REQUIRE_BRANCH", "0") == "1"
 ARMS = REUSE_ARMS + ((DENSE,) if INCLUDE_DENSE_CONTROL else ())
 PORT = 32950
@@ -269,10 +275,12 @@ def _paired_cases(
 
 
 def _base_config() -> dict[str, Any]:
-    return recursive_merge(
+    config = recursive_merge(
         get_config_from_spec("swebench.yaml"),
         get_config_from_spec(CONFIG),
     )
+    config["agent"]["step_limit"] = AGENT_STEP_LIMIT
+    return config
 
 
 def _model(
@@ -392,7 +400,10 @@ def register(output: Path) -> dict[str, Any]:
         "protocol": {
             "model": MODEL,
             "temperature": 0,
-            "step_limit": 20,
+            "step_limit": AGENT_STEP_LIMIT,
+            "capture_tracked_worktree_patch_at_call_limit": (
+                CAPTURE_LIMIT_PATCH
+            ),
             "branch_rule": (
                 (
                     "first online request where the V38 commit latch either "
@@ -664,6 +675,34 @@ def _submission(agent: DefaultAgent) -> str:
     return str(agent.messages[-1].get("extra", {}).get("submission") or "")
 
 
+def _capture_limit_patch(agent: DefaultAgent) -> str:
+    """Capture tracked worktree changes without another model request."""
+    if not CAPTURE_LIMIT_PATCH:
+        return ""
+    output = agent.env.execute(
+        {"command": "git diff --binary --no-ext-diff"},
+        timeout=120,
+    )
+    if output.get("returncode") != 0:
+        return ""
+    return str(output.get("output") or "")
+
+
+def _add_limit_exit(agent: DefaultAgent) -> None:
+    submission = _capture_limit_patch(agent)
+    agent.add_messages(
+        agent.model.format_message(
+            role="exit",
+            content="LimitsExceeded",
+            extra={
+                "exit_status": "LimitsExceeded",
+                "submission": submission,
+                "terminal_patch_capture": bool(submission),
+            },
+        )
+    )
+
+
 def _save_branch(
     output: Path,
     arm: str,
@@ -890,16 +929,7 @@ def run(output: Path) -> dict[str, Any]:
         first_branch_hashes: dict[str, str] = {}
         if branch is None:
             if shared.messages[-1].get("role") != "exit":
-                shared.add_messages(
-                    dense_model.format_message(
-                        role="exit",
-                        content="LimitsExceeded",
-                        extra={
-                            "exit_status": "LimitsExceeded",
-                            "submission": "",
-                        },
-                    )
-                )
+                _add_limit_exit(shared)
             agents = {arm: shared for arm in ARMS}
         else:
             branch_envs, snapshot_image = _docker_clone_environments(
@@ -1013,16 +1043,7 @@ def run(output: Path) -> dict[str, Any]:
 
         for arm in ARMS:
             if agents[arm].messages[-1].get("role") != "exit":
-                agents[arm].add_messages(
-                    agents[arm].model.format_message(
-                        role="exit",
-                        content="LimitsExceeded",
-                        extra={
-                            "exit_status": "LimitsExceeded",
-                            "submission": "",
-                        },
-                    )
-                )
+                _add_limit_exit(agents[arm])
             _save_branch(output, arm, agents[arm])
     finally:
         for env in branch_envs.values():
@@ -1193,6 +1214,14 @@ def run(output: Path) -> dict[str, Any]:
         "exit_status": exit_status,
         "submission_bytes": {
             arm: len(submissions[arm].encode()) for arm in ARMS
+        },
+        "terminal_patch_captured": {
+            arm: bool(
+                agents[arm].messages[-1]
+                .get("extra", {})
+                .get("terminal_patch_capture", False)
+            )
+            for arm in ARMS
         },
         "branched_agent_elapsed_seconds": branch_agent_elapsed,
         "server": {

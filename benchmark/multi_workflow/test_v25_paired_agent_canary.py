@@ -32,6 +32,38 @@ def test_paired_accuracy_manifest_prefers_host_sources(tmp_path) -> None:
     assert manifest["prefer_host_sources"] is True
 
 
+def test_base_config_uses_frozen_environment_step_limit(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(canary, "AGENT_STEP_LIMIT", 32)
+
+    config = canary._base_config()
+
+    assert config["agent"]["step_limit"] == 32
+
+
+def test_limit_patch_capture_is_treatment_invariant(monkeypatch) -> None:
+    class Environment:
+        def execute(self, action, timeout):
+            assert action == {
+                "command": "git diff --binary --no-ext-diff"
+            }
+            assert timeout == 120
+            return {
+                "returncode": 0,
+                "output": "diff --git a/source.py b/source.py\n",
+            }
+
+    class Agent:
+        env = Environment()
+
+    monkeypatch.setattr(canary, "CAPTURE_LIMIT_PATCH", True)
+
+    assert canary._capture_limit_patch(Agent()) == (
+        "diff --git a/source.py b/source.py\n"
+    )
+
+
 def test_target_veto_counter_accepts_v33b_and_v34_modes() -> None:
     for mode in (
         "state_transition_target_dense_veto",
