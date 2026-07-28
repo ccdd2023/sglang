@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "artifact": "phase7-primary-manifest",
-  "manifest_revision": 9,
-  "supersedes_manifest_sha256": "0033bf9c6907071a98e9c3ad6d95710f9a219c2e8d7a23cf3c46831564042921",
-  "supersedes_design_payload_sha256": "19c1faaa32ed8530b28cf5ccc76c406300f2af65ca3aaaa2c826825298a41e78",
+  "manifest_revision": 10,
+  "supersedes_manifest_sha256": "5daa95a310a93901b68302873791658a55bbbf48889e3495781faf06d0c9b7fd",
+  "supersedes_design_payload_sha256": "ae8d8e1eece7708bc21c74a0543582f170a4d244ed6273fdadc40bd55cf1305b",
   "design_keys": [
     "plan",
     "environment",
@@ -22,24 +22,25 @@
     "artifact_templates",
     "skipped_tracks",
     "required_inactive_counters",
+    "inactive_counter_pins",
     "scope_caveats",
     "review_contract"
   ],
-  "revision_reason": "V6 rev9: bind revision-stable review-ready plan wording; no matrix/workload change",
+  "revision_reason": "V7: close final Opus execution blockers with runtime staging, capacity authorization, and versioned evidence",
   "status": "pinned_blocked",
   "phase7_execution_authorized": false,
   "plan": {
-    "version": "V6",
-    "plan_commit": "14a573eb942742fddeba372fea03326b5d6c251a",
+    "version": "V7",
+    "plan_commit": "04cd8491a75e991692ede18adf88d3664cfbb6ce",
     "plan_file": "IMPLEMENTATION_PLAN_LATEST.md",
-    "plan_sha256": "86e25989e7b36bd02cc22749835be220062067ab67a305217f9825004d505226"
+    "plan_sha256": "6de53fd51f6b1d2187341a1f95ea87500c3c3e3f6917e10357266e4216dfeab6"
   },
   "implementation": {
-    "manifest_generation_sha": "24552fc47a09403de4b5378790bb3c4dcd1b1e18",
-    "manifest_generation_tree_sha": "113b02f328c8205b9f1c643ec520bfa293cb2a05",
+    "manifest_generation_sha": "f6a9baca82856a3f17cff3face63024ddc6e251a",
+    "manifest_generation_tree_sha": "5ee89fdf25063ab7432191c304eb49c062c6192b",
     "phase6_evidence_sha": "924c9d1d6c074f304189248f0fc5b15aa6d25adb",
-    "phase7_pinned_implementation_sha": "5d9a5793d73121f088890aa6c02cfebc31cd97be",
-    "phase7_pinned_tree_sha": "97af089c2d024b14aa36da3f3abdea4fe6c188d4",
+    "phase7_pinned_implementation_sha": "4f0b504cc244bffc1f3f4c71956285ee1853d3ea",
+    "phase7_pinned_tree_sha": "73acfe6eb37505125eb765496a539324cfee1695",
     "atomic_update_required": [
       "phase7-primary-manifest.json",
       "RESULT_MANIFEST.json"
@@ -52,34 +53,157 @@
     "post_pin_envelope_allowlist": [
       "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json",
       "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
-      "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json"
+      "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
+      "benchmark/approx_kv/results/phase7/evidence/ceiling-cpu.json",
+      "benchmark/approx_kv/results/phase7/evidence/scheduler-cpu.json",
+      "benchmark/approx_kv/results/phase7/evidence/capacity-pilot-cpu.json"
     ],
     "post_pin_envelope_rule": "the pinned code SHA must be an ancestor of the execution HEAD and every path changed between them must appear in post_pin_envelope_allowlist"
   },
   "runners": {
     "ceiling": {
+      "execution_runner": true,
+      "module": "benchmark.approx_kv.run_p7_ceiling",
       "path": "benchmark/approx_kv/run_p7_ceiling.py",
       "exists": true,
-      "sha256": "8922ef943e9089a70255f03be4f564ca4614a4b56c5de04e0491e88995b49836",
+      "sha256": "1db0c0f37260e8ca4ff1050491721a58fa9e70e321818552b5a732dfd2bc5016",
       "required_cpu_test": "python3 -m pytest -q test/registered/unit/bench/test_run_p7_ceiling.py",
       "cpu_test_status": "passed",
-      "review_status": "reviewed"
+      "cpu_test_evidence": {
+        "path": "benchmark/approx_kv/results/phase7/evidence/ceiling-cpu.json",
+        "file_sha256": "90e61cf11993c88c012c04271be49795e6a82facea0e513ffd9b863273822b81",
+        "artifact_sha256": "1d1177b7b78b4879597d32fe6d48d7c85925112909cd29270065a84d2ef354cc",
+        "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+        "command": "python3 -m pytest -q test/registered/unit/bench/test_run_p7_ceiling.py",
+        "exit_code": 0,
+        "summary_line": "55 passed, 2 warnings in 7.34s",
+        "passed_count": 55,
+        "subtests": {
+          "passed_count": 0,
+          "names": []
+        },
+        "timestamp": "2026-07-28T08:50:49-07:00",
+        "runner_sha256": "1db0c0f37260e8ca4ff1050491721a58fa9e70e321818552b5a732dfd2bc5016"
+      },
+      "review_status": "pending",
+      "review_evidence": {
+        "status": "pending",
+        "artifact_path": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
+        "artifact_sha256": null,
+        "verdict": null,
+        "open_p0": null,
+        "open_p1": null,
+        "reviewed_manifest_revision": null,
+        "reviewed_manifest_sha256": null,
+        "reviewed_design_payload_sha256": null,
+        "reviewed_pinned_implementation_sha": null,
+        "round_summary": "final V7 Opus review covers the plan, manifest, all execution runners, CPU evidence, R2 disposition, and implementation binding"
+      }
     },
     "scheduler": {
+      "execution_runner": true,
+      "module": "benchmark.approx_kv.run_p7_scheduler",
       "path": "benchmark/approx_kv/run_p7_scheduler.py",
       "exists": true,
-      "sha256": "4b7ac3e1e4617338f380dfa490e4103eea13a6ffd7765b8770d3e42d3ebefacc",
+      "sha256": "42b0d924020e086064e53981b511ad0ad9096e031f281058fc887904ea25fb14",
       "required_cpu_test": "python3 -m pytest -q test/registered/unit/bench/test_run_p7_scheduler.py",
       "cpu_test_status": "passed",
-      "review_status": "reviewed"
+      "cpu_test_evidence": {
+        "path": "benchmark/approx_kv/results/phase7/evidence/scheduler-cpu.json",
+        "file_sha256": "99cf496d7e79ca7529e3aeea2cff3da417c3db8f69507ef4ad8a92f5e1f3191f",
+        "artifact_sha256": "dc8aa444328b419b1b7e6f70a19d34f4b0e41f58a7ac4c52570461774ebf94d1",
+        "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+        "command": "python3 -m pytest -q test/registered/unit/bench/test_run_p7_scheduler.py",
+        "exit_code": 0,
+        "summary_line": "12 passed, 2 warnings in 6.51s",
+        "passed_count": 12,
+        "subtests": {
+          "passed_count": 0,
+          "names": []
+        },
+        "timestamp": "2026-07-28T08:50:49-07:00",
+        "runner_sha256": "42b0d924020e086064e53981b511ad0ad9096e031f281058fc887904ea25fb14"
+      },
+      "review_status": "pending",
+      "review_evidence": {
+        "status": "pending",
+        "artifact_path": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
+        "artifact_sha256": null,
+        "verdict": null,
+        "open_p0": null,
+        "open_p1": null,
+        "reviewed_manifest_revision": null,
+        "reviewed_manifest_sha256": null,
+        "reviewed_design_payload_sha256": null,
+        "reviewed_pinned_implementation_sha": null,
+        "round_summary": "final V7 Opus review covers the plan, manifest, all execution runners, CPU evidence, R2 disposition, and implementation binding"
+      }
+    },
+    "capacity_pilot": {
+      "execution_runner": true,
+      "module": "benchmark.approx_kv.run_p6_4_capacity_pilot",
+      "path": "benchmark/approx_kv/run_p6_4_capacity_pilot.py",
+      "exists": true,
+      "sha256": "ff21855bbf1d98f8615d19cdf884bbf301694fb815b4b08e3a14cbc5207c84a2",
+      "required_cpu_test": "python3 -m pytest -q test/registered/unit/bench/test_phase6_manifest.py",
+      "cpu_test_status": "passed",
+      "cpu_test_evidence": {
+        "path": "benchmark/approx_kv/results/phase7/evidence/capacity-pilot-cpu.json",
+        "file_sha256": "608bed73efb25cd65dd7cab0589672773141a547f7efdf1a76a59d895830b2c3",
+        "artifact_sha256": "57b73dc9e11d720d60d79c469257a4b2638c0469644e271a857754442bdf61e5",
+        "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+        "command": "python3 -m pytest -q test/registered/unit/bench/test_phase6_manifest.py",
+        "exit_code": 0,
+        "summary_line": "23 passed, 2 warnings in 6.37s",
+        "passed_count": 23,
+        "subtests": {
+          "passed_count": 0,
+          "names": []
+        },
+        "timestamp": "2026-07-28T08:50:49-07:00",
+        "runner_sha256": "ff21855bbf1d98f8615d19cdf884bbf301694fb815b4b08e3a14cbc5207c84a2"
+      },
+      "review_status": "pending",
+      "review_evidence": {
+        "status": "pending",
+        "artifact_path": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
+        "artifact_sha256": null,
+        "verdict": null,
+        "open_p0": null,
+        "open_p1": null,
+        "reviewed_manifest_revision": null,
+        "reviewed_manifest_sha256": null,
+        "reviewed_design_payload_sha256": null,
+        "reviewed_pinned_implementation_sha": null,
+        "round_summary": "final V7 Opus review covers the plan, manifest, all execution runners, CPU evidence, R2 disposition, and implementation binding"
+      }
     },
     "manifest": {
+      "execution_runner": false,
+      "module": "benchmark.approx_kv.build_phase7_manifest",
       "path": "benchmark/approx_kv/build_phase7_manifest.py",
       "exists": true,
-      "sha256": "a8ab1a29ec7c6aa0132318bcec329ac742ab05972c6db1ff0dca26c99e2d3f6f",
+      "sha256": "b4d04983de5a6d92646b17fb8369992cb8d7e11b18adfd91f8d885a3f0db2261",
       "required_cpu_test": "python3 -m benchmark.approx_kv.build_phase7_manifest --check",
-      "cpu_test_status": "passed",
-      "review_status": "reviewed"
+      "cpu_test_status": "self_validated",
+      "cpu_test_evidence": {
+        "status": "validated_during_manifest_generation",
+        "command": "python3 -m benchmark.approx_kv.build_phase7_manifest --check"
+      },
+      "review_status": "pending",
+      "review_evidence": {
+        "status": "pending",
+        "artifact_path": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
+        "artifact_sha256": null,
+        "verdict": null,
+        "open_p0": null,
+        "open_p1": null,
+        "reviewed_manifest_revision": null,
+        "reviewed_manifest_sha256": null,
+        "reviewed_design_payload_sha256": null,
+        "reviewed_pinned_implementation_sha": null,
+        "round_summary": "final V7 Opus review covers the plan, manifest, all execution runners, CPU evidence, R2 disposition, and implementation binding"
+      }
     }
   },
   "r2_strategy": "disabled_not_comparable",
@@ -94,14 +218,23 @@
   "review_contract": {
     "final_opus_required": true,
     "reviewer": "Claude Opus 5 / Max Thinking / long context",
-    "scope": "final V6 plan, manifest, runners, Docker CPU evidence, R2 disposition, implementation binding, budget and early-stop",
+    "scope": "final V7 plan, manifest, runners, Docker CPU evidence, R2 disposition, implementation binding, budget and early-stop",
     "pass_condition": "no open P0/P1 after accepted-feedback closure",
     "artifact_path": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
     "authorization_activation": "the recorded conditional user authorization becomes active only after this review passes"
   },
   "review_evidence": {
     "status": "pending",
-    "artifact_sha256": null
+    "artifact_path": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
+    "artifact_sha256": null,
+    "verdict": null,
+    "open_p0": null,
+    "open_p1": null,
+    "reviewed_manifest_revision": null,
+    "reviewed_manifest_sha256": null,
+    "reviewed_design_payload_sha256": null,
+    "reviewed_pinned_implementation_sha": null,
+    "round_summary": "final V7 Opus review covers the plan, manifest, all execution runners, CPU evidence, R2 disposition, and implementation binding"
   },
   "environment": {
     "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
@@ -1963,6 +2096,7 @@
       "capacity_mode": "explicit_max_total_tokens",
       "rho_realization": "capacity_pinning",
       "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
       "arm_order_by_repeat": {
         "0": [
           "exact_only",
@@ -2015,6 +2149,7 @@
       "capacity_mode": "explicit_max_total_tokens",
       "rho_realization": "capacity_pinning",
       "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
       "arm_order_by_repeat": {
         "0": [
           "exact_only",
@@ -2067,6 +2202,7 @@
       "capacity_mode": "explicit_max_total_tokens",
       "rho_realization": "capacity_pinning",
       "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
       "arm_order_by_repeat": {
         "0": [
           "exact_only",
@@ -2122,6 +2258,7 @@
       "capacity_mode": "natural_capacity",
       "rho_realization": "filler_pool",
       "known_capacity_ceiling_tokens": 13130,
+      "capacity_relative_error_tolerance": null,
       "arm_order_by_repeat": {
         "0": [
           "D0",
@@ -2173,6 +2310,7 @@
       "capacity_mode": "natural_capacity",
       "rho_realization": "filler_pool",
       "known_capacity_ceiling_tokens": 13130,
+      "capacity_relative_error_tolerance": null,
       "arm_order_by_repeat": {
         "0": [
           "D0",
@@ -2224,6 +2362,7 @@
       "capacity_mode": "natural_capacity",
       "rho_realization": "filler_pool",
       "known_capacity_ceiling_tokens": 13130,
+      "capacity_relative_error_tolerance": null,
       "arm_order_by_repeat": {
         "0": [
           "D0",
@@ -2275,6 +2414,7 @@
       "capacity_mode": "natural_capacity",
       "rho_realization": "filler_pool",
       "known_capacity_ceiling_tokens": 13130,
+      "capacity_relative_error_tolerance": null,
       "arm_order_by_repeat": {
         "0": [
           "D0",
@@ -2324,6 +2464,7 @@
       "capacity_mode": "natural_capacity",
       "rho_realization": "filler_pool",
       "known_capacity_ceiling_tokens": 13130,
+      "capacity_relative_error_tolerance": null,
       "arm_order_by_repeat": {
         "0": [
           "D0",
@@ -2374,6 +2515,7 @@
       "capacity_mode": "explicit_max_total_tokens",
       "rho_realization": "capacity_pinning",
       "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
       "arm_order_by_repeat": {
         "0": [
           "E0",
@@ -2422,6 +2564,7 @@
       "capacity_mode": "explicit_max_total_tokens",
       "rho_realization": "capacity_pinning",
       "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
       "arm_order_by_repeat": {
         "0": [
           "E0",
@@ -2470,6 +2613,7 @@
       "capacity_mode": "explicit_max_total_tokens",
       "rho_realization": "capacity_pinning",
       "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
       "arm_order_by_repeat": {
         "0": [
           "E0",
@@ -2518,6 +2662,7 @@
       "capacity_mode": "explicit_max_total_tokens",
       "rho_realization": "capacity_pinning",
       "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
       "arm_order_by_repeat": {
         "0": [
           "E0",
@@ -2560,6 +2705,7 @@
       "capacity_mode": "explicit_max_total_tokens",
       "rho_realization": "capacity_pinning",
       "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
       "arm_order_by_repeat": {
         "0": [
           "R4-like-5x"
@@ -2600,6 +2746,7 @@
       "capacity_mode": "explicit_max_total_tokens",
       "rho_realization": "capacity_pinning",
       "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
       "arm_order_by_repeat": {
         "0": [
           "R4-like-5x"
@@ -2634,7 +2781,7 @@
     {
       "rule_id": "ES-W-UNCONDITIONAL",
       "checkpoint": "none",
-      "rule": "W and chunk1024 sensitivity supplements are unconditional per V6; only ES-ENGINEERING can stop them. ES-R0-MDE governs A8 supplements only."
+      "rule": "W and chunk1024 sensitivity supplements are unconditional per V7; only ES-ENGINEERING can stop them. ES-R0-MDE governs A8 supplements only."
     },
     {
       "rule_id": "ES-CHUNK-HEADLINE",
@@ -2680,9 +2827,17 @@
     "retries_count_against_cap": true
   },
   "artifact_templates": {
-    "raw_json": "benchmark/approx_kv/results/phase7/raw/{run_id}.json",
-    "compact_json": "benchmark/approx_kv/results/phase7/compact/{run_id}.json",
-    "server_log": "benchmark/approx_kv/results/phase7/logs/{run_id}.log",
+    "runtime_staging_root": "/results/phase7",
+    "staging_raw_json": "/results/phase7/raw/{run_id}.json",
+    "staging_compact_json": "/results/phase7/compact/{run_id}.json",
+    "staging_server_log": "/results/phase7/logs/{run_id}.log",
+    "staging_central_log": "/results/phase7/phase7-runs.jsonl",
+    "versioned_destination_raw_json": "benchmark/approx_kv/results/phase7/raw/{run_id}.json",
+    "versioned_destination_compact_json": "benchmark/approx_kv/results/phase7/compact/{run_id}.json",
+    "versioned_destination_server_log": "benchmark/approx_kv/results/phase7/logs/{run_id}.log",
+    "versioned_destination_central_log": "benchmark/approx_kv/results/phase7/phase7-runs.jsonl",
+    "versioned_copy_policy": "copy from runtime staging and commit once after an experiment wave; runners never write the implementation worktree",
+    "implementation_worktree_mount": "read_only",
     "hash_timing": "after server stop and file close",
     "result_manifest": "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json"
   },
@@ -2702,6 +2857,40 @@
     "prefetch_loaded_tokens",
     "async_load"
   ],
+  "inactive_counter_pins": {
+    "host_load": {
+      "disabled": true,
+      "manifest_pins": {
+        "plugin_env.SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+        "skipped_track": "host_matrix"
+      }
+    },
+    "prefetch_request": {
+      "disabled": true,
+      "manifest_pins": {
+        "skipped_tracks": [
+          "prefetch_functionality",
+          "prefetch_performance"
+        ]
+      }
+    },
+    "prefetch_loaded_tokens": {
+      "disabled": true,
+      "manifest_pins": {
+        "skipped_tracks": [
+          "prefetch_functionality",
+          "prefetch_performance"
+        ]
+      }
+    },
+    "async_load": {
+      "disabled": true,
+      "manifest_pins": {
+        "plugin_env.SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+        "skipped_track": "async_h2d_performance"
+      }
+    }
+  },
   "scope_caveats": [
     "practical=NONE is scoped to the tested implementation and chunk1024 qualification",
     "R0 is a ceiling, not a practical candidate",
@@ -2709,8 +2898,8 @@
     "R4-like is a synthetic footprint proxy, not KVCOMM execution",
     "P6-F verifies fault-injected fallback only; natural pressure reachability is unproven",
     "P6-4 rho1.1/rho1.5/rho3 feasibility remains chunk1024 unless separately revalidated",
-    "host/prefetch/async tracks are not generated in V5"
+    "host/prefetch/async tracks are not generated in V7"
   ],
-  "design_payload_sha256": "ae8d8e1eece7708bc21c74a0543582f170a4d244ed6273fdadc40bd55cf1305b",
-  "preregistered_manifest_sha256": "5daa95a310a93901b68302873791658a55bbbf48889e3495781faf06d0c9b7fd"
+  "design_payload_sha256": "813f77005c61f50b4a666662a1a0b131d65e975df2e409368d0cf468f4a3fc34",
+  "preregistered_manifest_sha256": "720a2ef8ec7b5c027439db99f1d5044e3cf1b3660df0491c3ce16878d67d6712"
 }
