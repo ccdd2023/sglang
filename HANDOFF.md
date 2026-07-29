@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-28T18:33:37-07:00
+最后更新：2026-07-28T19:37:55-07:00
 
 ## 新会话启动顺序
 
@@ -12,6 +12,29 @@
 6. 开始工作后持续维护上述文件，不把重要信息只留在聊天中。
 
 ## 当前快照
+
+### 2026-07-28T19:37:55-07:00 correction/reconsolidation完成
+
+- S0 correction：40/40 direct `unsupported <- store_miss`。
+- correction耗时0.09833h；原22 starts/1.31014h不变。
+- 原raw/log不可变；22 compact与summary全量重生成。
+- summary SHA=`e2deec5a...`；状态VALID / NEGATIVE / INCONCLUSIVE。
+- RESULT_MANIFEST=`79/79`。
+- 下一步：等待Sol/Opus targeted delta closure与final disposition。
+
+### 2026-07-28T19:19:44-07:00 Correction治理review通过，等待review artifact
+
+- 只读Opus delta review：`PASS_WITH_CAVEATS`，open P0/P1=`0/0`。
+- entry=`READY_AFTER_REVIEW_ARTIFACT_AND_AUTH_CORRECTION`。
+- 两个P1均CLOSED：RESULT_MANIFEST `--check` 复跑`75/75`；数值不变已独立验证。
+- correction manifest rev1自哈希重算=`2a907fee...`，`--check`通过。
+- runtime授权门与authorized rev2模拟共13用例行为正确；post-pin变更3文件
+  全在4项allowlist内；envelope仅因review artifact未创建而阻塞。
+- consolidator按设计在correction执行前不可端到端跑通，非缺陷。
+- 测试复现：targeted `119 passed`、`36 passed`、bench `144 passed`。
+- 6条P2记录在`PROJECT.md`，不阻塞授权。
+- 下一步：correction review artifact → authorized rev2 → Docker S0 correction
+  → `--force`重生成22 compact+summary并同commit重建RESULT_MANIFEST。
 
 ### 2026-07-28T18:33:37-07:00 等待S0 correction授权
 

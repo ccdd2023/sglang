@@ -3145,3 +3145,41 @@ technical_exit = PASS WITH CAVEATS
 - correction Opus PASS_WITH_CAVEATS；治理P1已闭合：
   RESULT_MANIFEST=`75/75`，并明确correction后重生成全部compact/summary。
 - 下一步生成review artifact与authorized correction rev2。
+
+## 2026-07-28T19:19:44-07:00 — Correction治理只读delta review
+
+- 模式：Claude Opus 5 Max，只读targeted delta review，未修改代码仓库，
+  未使用GPU、未启动server；code worktree复核后仍为clean、HEAD=`e3ee91ef8`。
+- 判定：`PASS_WITH_CAVEATS`，open P0/P1=`0/0`，
+  entry=`READY_AFTER_REVIEW_ARTIFACT_AND_AUTH_CORRECTION`。
+- P1-1 CLOSED：RESULT_MANIFEST含`phase7-capacity-correction-manifest.json`
+  与`evidence/capacity-correction-cpu.json`，`--check`复跑`75/75`；
+  consolidator把RESULT_MANIFEST作为硬输入校验publication inputs的hash。
+- P1-2 CLOSED：pin范围与correction后全量重生成已在三份文档披露；数值不变经
+  独立验证成立（pre-pin consolidator逐字节复现已提交产物，新旧比对无既有
+  数值改变，差异仅为新增/重命名/hash）。
+- correction manifest rev1自哈希重算=`2a907fee...`，`--check`=
+  `OK pinned_blocked revision 1`；pin=`a950ab91...`；runner=`c92225d4...`。
+- runtime授权门与authorized rev2模拟共13个正/负用例行为正确。
+- 测试复现：targeted `119 passed`、`test_phase6_manifest.py` `36 passed`、
+  bench目录`144 passed`。
+- 6条P2已登记在`PROJECT.md`，不阻塞correction授权。
+- 下一步不变：生成versioned correction review artifact → authorized rev2 →
+  Docker单一S0 correction → `--force`全量重生成22 compact+summary并同commit
+  重建RESULT_MANIFEST。
+
+## 2026-07-28T19:37:55-07:00 — S0 correction与reconsolidation完成
+
+- correction rev2授权并执行1个S0 supplementary start。
+- 40/40 dense fallback全部direct exclusive：
+  `unsupported <- store_miss`。
+- correction elapsed=`0.098331816h`，不计入原22 starts/1.310141804h。
+- 原22 raw/log不改写。
+- 22 compact与summary全量重生成：
+  - summary=`e2deec5a...`；
+  - engineering=VALID；
+  - mechanism=NEGATIVE；
+  - W=INCONCLUSIVE/DESCRIPTIVE。
+- cross-consolidated publication findings已进入新summary/compact。
+- RESULT_MANIFEST递归验证`79/79`。
+- Sol/Opus targeted delta review已启动。

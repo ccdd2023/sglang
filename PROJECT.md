@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-28T18:33:37-07:00
+最后更新：2026-07-28T19:37:55-07:00
 
 ## 项目概况
 
@@ -26,6 +26,74 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-28T19:37:55-07:00 S0 correction与reconsolidation完成
+
+- 专用correction rev2授权并执行1个S0 supplementary start。
+- correction结果：
+  - 40/40 approximate dense fallback；
+  - 全部direct exclusive `unsupported <- store_miss`；
+  - 无reservation failure、ambiguity、reset或inactive failure。
+- correction elapsed=`0.098331816h`，单列为post-hoc evidence：
+  - 不计入原22 authorized starts；
+  - 不改原1.310141804h primary execution；
+  - 原22 raw/log保持字节不变。
+- 全部22 compact与summary已`--force`重生成：
+  - summary SHA=`e2deec5afbbfffb7b22de84d7218e3ca1aac0ba7327abcad5b1ae402753e4134`；
+  - engineering=`VALID`；
+  - mechanism=`NEGATIVE`；
+  - W=`INCONCLUSIVE/DESCRIPTIVE`。
+- publication层已补W victim/footprint、R4 fallback/5x accounting、
+  wave0 cell/profile/outcome/reason、A8 n=1与request-path定义、
+  W fallback比例/non-adjacent protocol、p95与完整provenance。
+- RESULT_MANIFEST=`79/79`。
+- Sol/Opus targeted delta closure进行中。
+
+### 2026-07-28T19:19:44-07:00 Correction治理delta review为PASS_WITH_CAVEATS
+
+- 只读targeted delta review（Claude Opus 5 Max，无修改、无GPU、无server）。
+- 审查范围：pin `a950ab91...`→HEAD `e3ee91ef8...`，correction manifest rev1
+  self=`2a907fee...`，RESULT_MANIFEST，correction/runtime/consolidator。
+- 上一轮两个P1均判定为CLOSED：
+  - P1-1（correction manifest/evidence未纳入RESULT_MANIFEST）：两条目已在
+    manifest内（`b33403304`/`7b92f02ae`），`build_result_manifest --check`
+    复跑得`OK: 75 artifacts verified`；且consolidator现把RESULT_MANIFEST
+    作为硬输入校验publication inputs的存在与hash，属结构性闭合而非一次性重建。
+  - P1-2（pin同时含publication reconsolidation）：PROJECT/HANDOFF/TRACKING
+    已披露pin范围与correction后`--force`全量重生成22 compact+summary、
+    raw/log不改写；独立验证数值不变成立——pre-pin consolidator可逐字节复现
+    已提交22 compact与summary，新旧输出跨470条key path比对无任何既有数值改变，
+    差异仅为新增字段、重命名与hash字段。
+- 可执行性验证（全部CPU、只读）：
+  - `build_phase7_correction_manifest --check`=`OK pinned_blocked revision 1`；
+    manifest自哈希重算=`2a907fee...`，与pin值一致。
+  - runtime授权门6个用例全部正确拒绝：未授权rev1、错误setting、错误restart、
+    错误original raw sha、缺correction flag、primary manifest误用。
+  - 内存模拟authorized rev2通过校验，7个篡改向量（带blocker、错误supersede、
+    放宽allowed_setting、改pinned setting、放宽post-pin allowlist、复用rev12
+    primary pin、evidence含open P1）全部被拒。
+  - post-pin变更3个文件全部落在4项allowlist内，worktree clean；envelope当前
+    仅因review artifact尚未创建而阻塞，正是既定下一步。
+  - consolidator按设计要求`--correction-dir`，correction未执行前不可端到端跑通；
+    correction路径已有专用CPU测试覆盖（含拒绝多于1个supplementary raw）。
+  - 测试复现：4个Phase7 targeted文件`119 passed`；
+    `test_phase6_manifest.py`=`36 passed`与pinned CPU evidence一致；
+    bench目录（排除2个GPU依赖文件）=`144 passed`。
+- 结论：`PASS_WITH_CAVEATS`，open P0/P1=`0/0`；
+  entry=`READY_AFTER_REVIEW_ARTIFACT_AND_AUTH_CORRECTION`。
+- 剩余P2（不阻塞授权）：
+  1. consolidator `engineering_basis`与wave0 S0 `status_reason`无条件声称
+     correction已通过；当前数据集不可达，换数据集会成为虚假证据陈述。
+  2. `_ensure_output_paths`保护raw/log/central/manifest，但未保护
+     `RESULT_MANIFEST.json`、entry review与`evidence/*-cpu.json`。
+  3. A8 `_numeric_summary`输出`n=16/2`，与同artifact的`n_per_setting=1`
+     并列，易被误读为样本量。
+  4. 新版summary删除`within_policy…independent_restart_values`，而rev12
+     statistics规则为`report_all_three_values_and_min_max`（值仍可从
+     `w_scheduler.per_restart`取得）。
+  5. 文档未披露字段重命名与该删除项，只写了“数值不变”。
+  6. correction manifest/review/correction CPU evidence未列入consolidator的
+     `publication_inputs`，只靠`build_result_manifest --check`的全盘枚举兜底。
 
 ### 2026-07-28T18:33:37-07:00 Result review与S0 capacity correction
 
