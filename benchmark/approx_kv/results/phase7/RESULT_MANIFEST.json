@@ -310,9 +310,9 @@
     },
     {
       "file": "benchmark/approx_kv/results/phase7/phase7-capacity-correction-manifest.json",
-      "sha256": "4fc9a481372e679a2acfc76a18d0209880da824da9e99bb7ae76c81da336832a",
-      "bytes": 95318,
-      "containing_commit": "b334033046797e9c998e67f40ed92602120535af"
+      "sha256": "f976ef49402f5d1b365d61d3ff00d22ee0781bbd4c460b147808f8548083c117",
+      "bytes": 95549,
+      "containing_commit": "8c03381ded2448ff3615f6735a953497f6e52a30"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/phase7-capacity-correction-opus-review.json",
