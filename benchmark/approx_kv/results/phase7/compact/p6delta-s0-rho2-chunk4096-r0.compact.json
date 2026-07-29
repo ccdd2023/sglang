@@ -1,7 +1,15 @@
 {
   "artifact": "phase7-compact-result",
-  "compact_sha256": "0b705933877ec3cf3f14cc06eca1d2e974a635d00444fbc264ab936837d3df16",
+  "compact_sha256": "8df2ef6b5d16b2e35770a387ba623ed054d23374621e4dbc90e8f69a06a58d05",
   "engineering_valid": true,
+  "engineering_valid_derivation": {
+    "allowed_raw_statuses": [
+      "inconclusive",
+      "valid"
+    ],
+    "observed_raw_status": "inconclusive",
+    "rule": "true only after raw validation succeeds and status is in the allowed non-invalid set"
+  },
   "inactive_counter_assertion": {
     "assertions": {
       "async_load": {
@@ -209,7 +217,7 @@
             "valid": true
           }
         ],
-        "status": "diagnostic-unavailable"
+        "status": "diagnostic_unavailable"
       }
     ],
     "fallback_reachability": {

@@ -1,7 +1,15 @@
 {
   "artifact": "phase7-compact-result",
-  "compact_sha256": "822a934f947d6412cb16bad44d32756cb3c851fd67af4e86c1d9b0134bb94d84",
+  "compact_sha256": "44e4024be8de937d0b517e2da7ecb600028e9a7fb79bc2dc8e021fa11d85c700",
   "engineering_valid": true,
+  "engineering_valid_derivation": {
+    "allowed_raw_statuses": [
+      "inconclusive",
+      "valid"
+    ],
+    "observed_raw_status": "inconclusive",
+    "rule": "true only after raw validation succeeds and status is in the allowed non-invalid set"
+  },
   "inactive_counter_assertion": {
     "assertions": {
       "async_load": {
@@ -198,7 +206,7 @@
               }
             ],
             "profile": "r4_like",
-            "reachability": "diagnostic-unavailable",
+            "reachability": "diagnostic_unavailable",
             "representation_kinds": [
               "canonical_base",
               "anchor",
@@ -209,7 +217,7 @@
             "valid": true
           }
         ],
-        "status": "diagnostic-unavailable"
+        "status": "diagnostic_unavailable"
       }
     ],
     "fallback_reachability": {

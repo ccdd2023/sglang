@@ -1,7 +1,15 @@
 {
   "artifact": "phase7-compact-result",
-  "compact_sha256": "d6258d72fc535e7d9ae95edae7286f3d3238f75def2723551deba4f1edf2150c",
+  "compact_sha256": "38e39c57da0cc2fb252e23067a2047b8d5037824c4456787936f08eafccee7c2",
   "engineering_valid": true,
+  "engineering_valid_derivation": {
+    "allowed_raw_statuses": [
+      "inconclusive",
+      "valid"
+    ],
+    "observed_raw_status": "inconclusive",
+    "rule": "true only after raw validation succeeds and status is in the allowed non-invalid set"
+  },
   "inactive_counter_assertion": {
     "assertions": {
       "async_load": {
@@ -69,6 +77,17 @@
           "diagnostic_error": null,
           "diagnostic_error_stage": null,
           "diagnostic_status": "diagnostic_unavailable",
+          "memory_footprint_after": {
+            "approx_device_bytes": 763363328.0,
+            "approx_host_bytes": 0.0,
+            "arm_interval_peak_device_bytes": 1373388800.0,
+            "exact_only_estimated_bytes": 492699648.0,
+            "nonfree_resident_bytes": 1256062976.0,
+            "nonfree_resident_tokens": 10952.0,
+            "overlap_note": "nonfree_resident_bytes already contains approx_device_bytes; exact_only_estimated_bytes = max(nonfree - approx_device, 0) and must not be added back to approx_device_bytes",
+            "peak_semantics": "arm_high_water_since_last_full_reset",
+            "reserved_device_bytes": 0.0
+          },
           "metrics": {
             "arm_interval_peak_device_bytes": 1373388800.0,
             "churn_bytes": {
@@ -199,6 +218,32 @@
               "wasted_is_subset_of_evicted": true
             }
           },
+          "outcomes": {
+            "counts": {
+              "approximate_gpu_recovery": 0,
+              "approximate_recovery_failed_dense": 0,
+              "dense_no_reuse_baseline": 0,
+              "exact_gpu_hit": 0,
+              "host_demand_load": 0,
+              "ordinary_exact_cache_miss": 0
+            },
+            "dense_fallback": {
+              "count": 0,
+              "rate": null
+            },
+            "recovery": {
+              "count": 0,
+              "rate": null
+            },
+            "requests": 0,
+            "terminal_reason_counts": {
+              "cross_store_reservation_failed": 0,
+              "device_allocation_failed": 0,
+              "prefix_gap": 0,
+              "registration_failed": 0,
+              "unsupported": 0
+            }
+          },
           "registration_failed": true,
           "representation_kinds": [
             "canonical_base",
@@ -207,13 +252,67 @@
             "anchor",
             "delta"
           ],
+          "representation_metadata": {
+            "arm_label": "R4-like-5x",
+            "executes_kvcomm": false,
+            "performance_ranking_enabled": false,
+            "profile": "r4_like",
+            "resident_multiplicity": 5
+          },
           "representation_multiplicity": 5,
           "request_diagnostic": {
             "completed_request_records": 0,
             "error": null,
             "failed_request_index": null,
             "status": "not_applicable"
-          }
+          },
+          "victim_sequence": [
+            {
+              "bytes_or_count": 234881024.0,
+              "event_index": 1,
+              "object_kind": "anchor",
+              "provenance": "approximate",
+              "requester": "approximate",
+              "trigger_object_id": "workflow-01",
+              "trigger_phase": "setup"
+            },
+            {
+              "bytes_or_count": 645922816.0,
+              "event_index": 1,
+              "object_kind": "delta",
+              "provenance": "approximate",
+              "requester": "approximate",
+              "trigger_object_id": "workflow-01",
+              "trigger_phase": "setup"
+            },
+            {
+              "bytes_or_count": 293601280.0,
+              "event_index": 2,
+              "object_kind": "anchor",
+              "provenance": "approximate",
+              "requester": "approximate",
+              "trigger_object_id": "workflow-02",
+              "trigger_phase": "setup"
+            },
+            {
+              "bytes_or_count": 58720256.0,
+              "event_index": 2,
+              "object_kind": "anchor",
+              "provenance": "approximate",
+              "requester": "exact",
+              "trigger_object_id": "workflow-02",
+              "trigger_phase": "setup"
+            },
+            {
+              "bytes_or_count": 58720256.0,
+              "event_index": 2,
+              "object_kind": "delta",
+              "provenance": "approximate",
+              "requester": "exact",
+              "trigger_object_id": "workflow-02",
+              "trigger_phase": "setup"
+            }
+          ]
         },
         "repeat_index": 0
       },
@@ -223,6 +322,17 @@
           "diagnostic_error": null,
           "diagnostic_error_stage": null,
           "diagnostic_status": "diagnostic_unavailable",
+          "memory_footprint_after": {
+            "approx_device_bytes": 763363328.0,
+            "approx_host_bytes": 0.0,
+            "arm_interval_peak_device_bytes": 1373388800.0,
+            "exact_only_estimated_bytes": 492699648.0,
+            "nonfree_resident_bytes": 1256062976.0,
+            "nonfree_resident_tokens": 10952.0,
+            "overlap_note": "nonfree_resident_bytes already contains approx_device_bytes; exact_only_estimated_bytes = max(nonfree - approx_device, 0) and must not be added back to approx_device_bytes",
+            "peak_semantics": "arm_high_water_since_last_full_reset",
+            "reserved_device_bytes": 0.0
+          },
           "metrics": {
             "arm_interval_peak_device_bytes": 1373388800.0,
             "churn_bytes": {
@@ -353,6 +463,32 @@
               "wasted_is_subset_of_evicted": true
             }
           },
+          "outcomes": {
+            "counts": {
+              "approximate_gpu_recovery": 0,
+              "approximate_recovery_failed_dense": 0,
+              "dense_no_reuse_baseline": 0,
+              "exact_gpu_hit": 0,
+              "host_demand_load": 0,
+              "ordinary_exact_cache_miss": 0
+            },
+            "dense_fallback": {
+              "count": 0,
+              "rate": null
+            },
+            "recovery": {
+              "count": 0,
+              "rate": null
+            },
+            "requests": 0,
+            "terminal_reason_counts": {
+              "cross_store_reservation_failed": 0,
+              "device_allocation_failed": 0,
+              "prefix_gap": 0,
+              "registration_failed": 0,
+              "unsupported": 0
+            }
+          },
           "registration_failed": true,
           "representation_kinds": [
             "canonical_base",
@@ -361,17 +497,103 @@
             "anchor",
             "delta"
           ],
+          "representation_metadata": {
+            "arm_label": "R4-like-5x",
+            "executes_kvcomm": false,
+            "performance_ranking_enabled": false,
+            "profile": "r4_like",
+            "resident_multiplicity": 5
+          },
           "representation_multiplicity": 5,
           "request_diagnostic": {
             "completed_request_records": 0,
             "error": null,
             "failed_request_index": null,
             "status": "not_applicable"
-          }
+          },
+          "victim_sequence": [
+            {
+              "bytes_or_count": 234881024.0,
+              "event_index": 1,
+              "object_kind": "anchor",
+              "provenance": "approximate",
+              "requester": "approximate",
+              "trigger_object_id": "workflow-01",
+              "trigger_phase": "setup"
+            },
+            {
+              "bytes_or_count": 645922816.0,
+              "event_index": 1,
+              "object_kind": "delta",
+              "provenance": "approximate",
+              "requester": "approximate",
+              "trigger_object_id": "workflow-01",
+              "trigger_phase": "setup"
+            },
+            {
+              "bytes_or_count": 293601280.0,
+              "event_index": 2,
+              "object_kind": "anchor",
+              "provenance": "approximate",
+              "requester": "approximate",
+              "trigger_object_id": "workflow-02",
+              "trigger_phase": "setup"
+            },
+            {
+              "bytes_or_count": 58720256.0,
+              "event_index": 2,
+              "object_kind": "anchor",
+              "provenance": "approximate",
+              "requester": "exact",
+              "trigger_object_id": "workflow-02",
+              "trigger_phase": "setup"
+            },
+            {
+              "bytes_or_count": 58720256.0,
+              "event_index": 2,
+              "object_kind": "delta",
+              "provenance": "approximate",
+              "requester": "exact",
+              "trigger_object_id": "workflow-02",
+              "trigger_phase": "setup"
+            }
+          ]
         },
         "repeat_index": 1
       }
     ],
+    "outcome": {
+      "counts": {
+        "approximate_gpu_recovery": 0,
+        "approximate_recovery_failed_dense": 0,
+        "dense_no_reuse_baseline": 0,
+        "exact_gpu_hit": 0,
+        "host_demand_load": 0,
+        "ordinary_exact_cache_miss": 0
+      },
+      "exclusive_terminal_reasons": [
+        "cross_store_reservation_failed",
+        "device_allocation_failed",
+        "unsupported",
+        "registration_failed",
+        "prefix_gap"
+      ],
+      "taxonomy": [
+        "dense_no_reuse_baseline",
+        "exact_gpu_hit",
+        "ordinary_exact_cache_miss",
+        "approximate_gpu_recovery",
+        "host_demand_load",
+        "approximate_recovery_failed_dense"
+      ],
+      "terminal_reason_counts": {
+        "cross_store_reservation_failed": 0,
+        "device_allocation_failed": 0,
+        "prefix_gap": 0,
+        "registration_failed": 0,
+        "unsupported": 0
+      }
+    },
     "performance_contract": {
       "arm_label": "R4-like-5x",
       "claim": "synthetic_footprint_and_victim_diagnostic_only_not_kvcomm",

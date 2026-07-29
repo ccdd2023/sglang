@@ -1,7 +1,15 @@
 {
   "artifact": "phase7-compact-result",
-  "compact_sha256": "ae0af9018df4f73c3c6eb273729b4866d785c288179629238366b31a4a1f2f9b",
+  "compact_sha256": "089ca5f334fec2ab425d9812db9e49c65744219040a81bf0de0e1dbce4efeaa1",
   "engineering_valid": true,
+  "engineering_valid_derivation": {
+    "allowed_raw_statuses": [
+      "inconclusive",
+      "valid"
+    ],
+    "observed_raw_status": "valid",
+    "rule": "true only after raw validation succeeds and status is in the allowed non-invalid set"
+  },
   "inactive_counter_assertion": {
     "assertions": {
       "async_load": {
@@ -362,6 +370,3270 @@
         }
       }
     },
+    "formal": [
+      {
+        "arms": {
+          "E0": {
+            "memory_footprint_after": {
+              "approx_device_bytes": 0.0,
+              "approx_host_bytes": 0.0,
+              "arm_interval_peak_device_bytes": 1546338304.0,
+              "exact_only_estimated_bytes": 1296891904.0,
+              "nonfree_resident_bytes": 1296891904.0,
+              "nonfree_resident_tokens": 11308.0,
+              "overlap_note": "nonfree_resident_bytes already contains approx_device_bytes; exact_only_estimated_bytes = max(nonfree - approx_device, 0) and must not be added back to approx_device_bytes",
+              "peak_semantics": "arm_high_water_since_last_full_reset",
+              "reserved_device_bytes": 0.0
+            },
+            "metrics": {
+              "arm_interval_peak_device_bytes": 1546338304.0,
+              "churn_bytes": {
+                "definition": "evicted_bytes + demoted_bytes (wasted is excluded)",
+                "unobserved_components": [
+                  "demote_bytes"
+                ],
+                "value": 6037176320.0,
+                "verification": "partially_direct"
+              },
+              "demote_bytes": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "inactive_tracks": {
+                "async_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_count",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_loaded_tokens": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_loaded_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_request": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_requests_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "peak_semantics": "arm_high_water_since_last_full_reset",
+              "reservation_failures": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "store_gauges_after": {
+                "sglang:approx_kv_provisional_tokens": 0.0,
+                "sglang:approx_kv_store_device_bytes": 0.0,
+                "sglang:approx_kv_store_host_bytes": 0.0,
+                "sglang:approx_kv_store_leases": 0.0,
+                "sglang:approx_kv_store_orphans": 0.0,
+                "sglang:approx_kv_store_records": 0.0,
+                "sglang:cross_store_reserved_device_bytes": 0.0
+              },
+              "transfer": {
+                "copied_tokens": {
+                  "indirect_evidence": null,
+                  "metric": "sglang:approx_kv_copied_tokens_total",
+                  "value": 0.0,
+                  "verification": "direct"
+                },
+                "h2d_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_tokens": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "victim_evict_bytes": {
+                "rows": [
+                  {
+                    "bytes_or_count": 374341632.0,
+                    "object_kind": "canonical_base",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  },
+                  {
+                    "bytes_or_count": 4914151424.0,
+                    "object_kind": "exact_variant",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  },
+                  {
+                    "bytes_or_count": 748683264.0,
+                    "object_kind": "repair_state",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  }
+                ],
+                "verification": "direct"
+              },
+              "wasted_bytes": {
+                "definition": "irreversibly destroyed bytes from failed allocations; already counted inside cross_store_evicted_bytes_total",
+                "indirect_evidence": null,
+                "metric": "sglang:cross_store_wasted_bytes_total",
+                "value": null,
+                "verification": "unknown",
+                "wasted_is_subset_of_evicted": true
+              }
+            },
+            "outcomes": {
+              "counts": {
+                "approximate_gpu_recovery": 0,
+                "approximate_recovery_failed_dense": 0,
+                "dense_no_reuse_baseline": 0,
+                "exact_gpu_hit": 5,
+                "host_demand_load": 0,
+                "ordinary_exact_cache_miss": 56
+              },
+              "dense_fallback": {
+                "count": 0,
+                "rate": 0.0
+              },
+              "recovery": {
+                "count": 0,
+                "rate": 0.0
+              },
+              "requests": 61,
+              "terminal_reason_counts": {
+                "cross_store_reservation_failed": 0,
+                "device_allocation_failed": 0,
+                "prefix_gap": 0,
+                "registration_failed": 0,
+                "unsupported": 0
+              }
+            },
+            "representation_metadata": {
+              "arm_label": "E0",
+              "executes_kvcomm": false,
+              "performance_ranking_enabled": true,
+              "profile": null,
+              "resident_multiplicity": 0
+            },
+            "victim_sequence": [
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 12,
+                "object_kind": "canonical_base",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-07",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 458752.0,
+                "event_index": 12,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-07",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 14,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-09",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 18,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-13",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 18,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-13",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 20,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-15",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 25,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-20",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 25,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-20",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 27,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-22",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 28,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-23",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 29,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-24",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 30,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-25",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 31,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-26",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 32,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-27",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 33,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-28",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 34,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-29",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 35,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-30",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 36,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-31",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 37,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-32",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 38,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-33",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 39,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-34",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 117899264.0,
+                "event_index": 0,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-00",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 302088192.0,
+                "event_index": 1,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-01",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 117899264.0,
+                "event_index": 2,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-02",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 235798528.0,
+                "event_index": 3,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-03",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 117899264.0,
+                "event_index": 4,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-04",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 10,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-12",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 11,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-13",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 12,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-14",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 13,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-15",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 14,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-16",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 15,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-17",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 16,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-18",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 17,
+                "object_kind": "canonical_base",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-19",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 1376256.0,
+                "event_index": 17,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-19",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 19,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-21",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 23,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-25",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 23,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-25",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 25,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-27",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 30,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-32",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 30,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-32",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 32,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-34",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 117899264.0,
+                "event_index": 33,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-00",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 302088192.0,
+                "event_index": 34,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-01",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 117899264.0,
+                "event_index": 35,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-02",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 235798528.0,
+                "event_index": 36,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-03",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 117899264.0,
+                "event_index": 37,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-04",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 38,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-12",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 39,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-13",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 40,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-14",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 41,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-15",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 42,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-16",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 43,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-17",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 44,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-18",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 45,
+                "object_kind": "canonical_base",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-19",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 45,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-19",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 47,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-21",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 51,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-25",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 51,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-25",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 53,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-27",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 58,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-32",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 58,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-32",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 60,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-34",
+                "trigger_phase": "replay-2"
+              }
+            ]
+          },
+          "R0": {
+            "memory_footprint_after": {
+              "approx_device_bytes": 455081984.0,
+              "approx_host_bytes": 0.0,
+              "arm_interval_peak_device_bytes": 1422016512.0,
+              "exact_only_estimated_bytes": 614039552.0,
+              "nonfree_resident_bytes": 1069121536.0,
+              "nonfree_resident_tokens": 9322.0,
+              "overlap_note": "nonfree_resident_bytes already contains approx_device_bytes; exact_only_estimated_bytes = max(nonfree - approx_device, 0) and must not be added back to approx_device_bytes",
+              "peak_semantics": "arm_high_water_since_last_full_reset",
+              "reserved_device_bytes": 0.0
+            },
+            "metrics": {
+              "arm_interval_peak_device_bytes": 1422016512.0,
+              "churn_bytes": {
+                "definition": "evicted_bytes + demoted_bytes (wasted is excluded)",
+                "unobserved_components": [
+                  "demote_bytes"
+                ],
+                "value": 4668719104.0,
+                "verification": "partially_direct"
+              },
+              "demote_bytes": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "inactive_tracks": {
+                "async_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_count",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_loaded_tokens": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_loaded_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_request": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_requests_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "peak_semantics": "arm_high_water_since_last_full_reset",
+              "reservation_failures": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "store_gauges_after": {
+                "sglang:approx_kv_provisional_tokens": 0.0,
+                "sglang:approx_kv_store_device_bytes": 455081984.0,
+                "sglang:approx_kv_store_host_bytes": 0.0,
+                "sglang:approx_kv_store_leases": 0.0,
+                "sglang:approx_kv_store_orphans": 0.0,
+                "sglang:approx_kv_store_records": 9.0,
+                "sglang:cross_store_reserved_device_bytes": 0.0
+              },
+              "transfer": {
+                "copied_tokens": {
+                  "indirect_evidence": null,
+                  "metric": "sglang:approx_kv_copied_tokens_total",
+                  "value": 7936.0,
+                  "verification": "direct"
+                },
+                "h2d_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_tokens": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "victim_evict_bytes": {
+                "rows": [
+                  {
+                    "bytes_or_count": 411041792.0,
+                    "object_kind": "canonical_base",
+                    "provenance": "approximate",
+                    "requester": "approximate"
+                  },
+                  {
+                    "bytes_or_count": 124780544.0,
+                    "object_kind": "canonical_base",
+                    "provenance": "exact",
+                    "requester": "approximate"
+                  },
+                  {
+                    "bytes_or_count": 1415479296.0,
+                    "object_kind": "exact_variant",
+                    "provenance": "exact",
+                    "requester": "approximate"
+                  },
+                  {
+                    "bytes_or_count": 124780544.0,
+                    "object_kind": "repair_state",
+                    "provenance": "exact",
+                    "requester": "approximate"
+                  },
+                  {
+                    "bytes_or_count": 1746927616.0,
+                    "object_kind": "canonical_base",
+                    "provenance": "approximate",
+                    "requester": "exact"
+                  },
+                  {
+                    "bytes_or_count": 720928768.0,
+                    "object_kind": "exact_variant",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  },
+                  {
+                    "bytes_or_count": 124780544.0,
+                    "object_kind": "repair_state",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  }
+                ],
+                "verification": "direct"
+              },
+              "wasted_bytes": {
+                "definition": "irreversibly destroyed bytes from failed allocations; already counted inside cross_store_evicted_bytes_total",
+                "indirect_evidence": null,
+                "metric": "sglang:cross_store_wasted_bytes_total",
+                "value": null,
+                "verification": "unknown",
+                "wasted_is_subset_of_evicted": true
+              }
+            },
+            "outcomes": {
+              "counts": {
+                "approximate_gpu_recovery": 18,
+                "approximate_recovery_failed_dense": 43,
+                "dense_no_reuse_baseline": 0,
+                "exact_gpu_hit": 0,
+                "host_demand_load": 0,
+                "ordinary_exact_cache_miss": 0
+              },
+              "dense_fallback": {
+                "count": 43,
+                "rate": 0.7049180327868853
+              },
+              "recovery": {
+                "count": 18,
+                "rate": 0.29508196721311475
+              },
+              "requests": 61,
+              "terminal_reason_counts": {
+                "cross_store_reservation_failed": 0,
+                "device_allocation_failed": 0,
+                "prefix_gap": 0,
+                "registration_failed": 0,
+                "unsupported": 43
+              }
+            },
+            "representation_metadata": {
+              "arm_label": "R0",
+              "executes_kvcomm": false,
+              "performance_ranking_enabled": true,
+              "profile": "r0_like",
+              "resident_multiplicity": 1
+            },
+            "victim_sequence": [
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 3,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "approximate",
+                "trigger_object_id": "workflow-03",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 3,
+                "object_kind": "canonical_base",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "workflow-03",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 458752.0,
+                "event_index": 3,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "workflow-03",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 4,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "workflow-04",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 4,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-04",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 6,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "approximate",
+                "trigger_object_id": "filler-01",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 6,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-01",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 7,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "approximate",
+                "trigger_object_id": "filler-02",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 7,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-02",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 8,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-03",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 8,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-03",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 9,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "approximate",
+                "trigger_object_id": "filler-04",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 9,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-04",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 10,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-05",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 12,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "approximate",
+                "trigger_object_id": "filler-07",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 13,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "approximate",
+                "trigger_object_id": "filler-08",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 13,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-08",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 14,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-09",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 14,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-09",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 14,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-09",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 15,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "approximate",
+                "trigger_object_id": "filler-10",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 16,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-11",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 16,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-11",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 17,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-12",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 17,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-12",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 18,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-13",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 18,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-13",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 19,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-14",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 19,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-14",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 20,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-15",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 20,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-15",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 21,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-16",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 21,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-16",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 22,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-17",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 22,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-17",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 23,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-18",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 23,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-18",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 24,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-19",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 24,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-19",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 25,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-20",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 25,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-20",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 26,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-21",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 26,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-21",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 27,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-22",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 27,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-22",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 28,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-23",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 28,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-23",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 29,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-24",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 29,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-24",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 30,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-25",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 30,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-25",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 31,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-26",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 31,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-26",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 32,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-27",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 32,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-27",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 33,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-28",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 33,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-28",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 34,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-29",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 34,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-29",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 35,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-30",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 35,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-30",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 36,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-31",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 36,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-31",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 37,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-32",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 37,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-32",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 38,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-33",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 38,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-33",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 39,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-34",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 39,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-34",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 0,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "workflow-00",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 0,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-00",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 1,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "workflow-01",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 1,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-01",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 6,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "workflow-01",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 117899264.0,
+                "event_index": 34,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-01",
+                "trigger_phase": "replay-2"
+              }
+            ]
+          }
+        },
+        "repeat_index": 0
+      },
+      {
+        "arms": {
+          "E0": {
+            "memory_footprint_after": {
+              "approx_device_bytes": 0.0,
+              "approx_host_bytes": 0.0,
+              "arm_interval_peak_device_bytes": 1546338304.0,
+              "exact_only_estimated_bytes": 1296891904.0,
+              "nonfree_resident_bytes": 1296891904.0,
+              "nonfree_resident_tokens": 11308.0,
+              "overlap_note": "nonfree_resident_bytes already contains approx_device_bytes; exact_only_estimated_bytes = max(nonfree - approx_device, 0) and must not be added back to approx_device_bytes",
+              "peak_semantics": "arm_high_water_since_last_full_reset",
+              "reserved_device_bytes": 0.0
+            },
+            "metrics": {
+              "arm_interval_peak_device_bytes": 1546338304.0,
+              "churn_bytes": {
+                "definition": "evicted_bytes + demoted_bytes (wasted is excluded)",
+                "unobserved_components": [
+                  "demote_bytes"
+                ],
+                "value": 6037176320.0,
+                "verification": "partially_direct"
+              },
+              "demote_bytes": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "inactive_tracks": {
+                "async_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_count",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_loaded_tokens": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_loaded_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_request": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_requests_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "peak_semantics": "arm_high_water_since_last_full_reset",
+              "reservation_failures": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "store_gauges_after": {
+                "sglang:approx_kv_provisional_tokens": 0.0,
+                "sglang:approx_kv_store_device_bytes": 0.0,
+                "sglang:approx_kv_store_host_bytes": 0.0,
+                "sglang:approx_kv_store_leases": 0.0,
+                "sglang:approx_kv_store_orphans": 0.0,
+                "sglang:approx_kv_store_records": 0.0,
+                "sglang:cross_store_reserved_device_bytes": 0.0
+              },
+              "transfer": {
+                "copied_tokens": {
+                  "indirect_evidence": null,
+                  "metric": "sglang:approx_kv_copied_tokens_total",
+                  "value": 0.0,
+                  "verification": "direct"
+                },
+                "h2d_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_tokens": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "victim_evict_bytes": {
+                "rows": [
+                  {
+                    "bytes_or_count": 374341632.0,
+                    "object_kind": "canonical_base",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  },
+                  {
+                    "bytes_or_count": 4914151424.0,
+                    "object_kind": "exact_variant",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  },
+                  {
+                    "bytes_or_count": 748683264.0,
+                    "object_kind": "repair_state",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  }
+                ],
+                "verification": "direct"
+              },
+              "wasted_bytes": {
+                "definition": "irreversibly destroyed bytes from failed allocations; already counted inside cross_store_evicted_bytes_total",
+                "indirect_evidence": null,
+                "metric": "sglang:cross_store_wasted_bytes_total",
+                "value": null,
+                "verification": "unknown",
+                "wasted_is_subset_of_evicted": true
+              }
+            },
+            "outcomes": {
+              "counts": {
+                "approximate_gpu_recovery": 0,
+                "approximate_recovery_failed_dense": 0,
+                "dense_no_reuse_baseline": 0,
+                "exact_gpu_hit": 5,
+                "host_demand_load": 0,
+                "ordinary_exact_cache_miss": 56
+              },
+              "dense_fallback": {
+                "count": 0,
+                "rate": 0.0
+              },
+              "recovery": {
+                "count": 0,
+                "rate": 0.0
+              },
+              "requests": 61,
+              "terminal_reason_counts": {
+                "cross_store_reservation_failed": 0,
+                "device_allocation_failed": 0,
+                "prefix_gap": 0,
+                "registration_failed": 0,
+                "unsupported": 0
+              }
+            },
+            "representation_metadata": {
+              "arm_label": "E0",
+              "executes_kvcomm": false,
+              "performance_ranking_enabled": true,
+              "profile": null,
+              "resident_multiplicity": 0
+            },
+            "victim_sequence": [
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 12,
+                "object_kind": "canonical_base",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-07",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 458752.0,
+                "event_index": 12,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-07",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 14,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-09",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 18,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-13",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 18,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-13",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 20,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-15",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 25,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-20",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 25,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-20",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 27,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-22",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 28,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-23",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 29,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-24",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 30,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-25",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 31,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-26",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 32,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-27",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 33,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-28",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 34,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-29",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 35,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-30",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 36,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-31",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 37,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-32",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 38,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-33",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 39,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-34",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 117899264.0,
+                "event_index": 0,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-00",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 302088192.0,
+                "event_index": 1,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-01",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 117899264.0,
+                "event_index": 2,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-02",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 235798528.0,
+                "event_index": 3,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-03",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 117899264.0,
+                "event_index": 4,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-04",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 10,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-12",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 11,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-13",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 12,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-14",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 13,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-15",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 14,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-16",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 15,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-17",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 16,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-18",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 17,
+                "object_kind": "canonical_base",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-19",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 1376256.0,
+                "event_index": 17,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-19",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 19,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-21",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 23,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-25",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 23,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-25",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 25,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-27",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 30,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-32",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 30,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-32",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 32,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-34",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 117899264.0,
+                "event_index": 33,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-00",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 302088192.0,
+                "event_index": 34,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-01",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 117899264.0,
+                "event_index": 35,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-02",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 235798528.0,
+                "event_index": 36,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-03",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 117899264.0,
+                "event_index": 37,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-04",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 38,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-12",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 39,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-13",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 40,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-14",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 41,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-15",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 42,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-16",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 43,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-17",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 44,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-18",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 45,
+                "object_kind": "canonical_base",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-19",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 45,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-19",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 47,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-21",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 51,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-25",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 51,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-25",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 53,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-27",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 58,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-32",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 58,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-32",
+                "trigger_phase": "replay-2"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 60,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-34",
+                "trigger_phase": "replay-2"
+              }
+            ]
+          },
+          "R0": {
+            "memory_footprint_after": {
+              "approx_device_bytes": 455081984.0,
+              "approx_host_bytes": 0.0,
+              "arm_interval_peak_device_bytes": 1422016512.0,
+              "exact_only_estimated_bytes": 614039552.0,
+              "nonfree_resident_bytes": 1069121536.0,
+              "nonfree_resident_tokens": 9322.0,
+              "overlap_note": "nonfree_resident_bytes already contains approx_device_bytes; exact_only_estimated_bytes = max(nonfree - approx_device, 0) and must not be added back to approx_device_bytes",
+              "peak_semantics": "arm_high_water_since_last_full_reset",
+              "reserved_device_bytes": 0.0
+            },
+            "metrics": {
+              "arm_interval_peak_device_bytes": 1422016512.0,
+              "churn_bytes": {
+                "definition": "evicted_bytes + demoted_bytes (wasted is excluded)",
+                "unobserved_components": [
+                  "demote_bytes"
+                ],
+                "value": 4668719104.0,
+                "verification": "partially_direct"
+              },
+              "demote_bytes": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "inactive_tracks": {
+                "async_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_count",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_load": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_loaded_tokens": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_loaded_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "prefetch_request": {
+                  "indirect_evidence": "the corresponding track is explicitly pinned disabled in the manifest",
+                  "metric": "sglang:workflow_prefetch_requests_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "peak_semantics": "arm_high_water_since_last_full_reset",
+              "reservation_failures": {
+                "rows": [],
+                "verification": "unknown"
+              },
+              "store_gauges_after": {
+                "sglang:approx_kv_provisional_tokens": 0.0,
+                "sglang:approx_kv_store_device_bytes": 455081984.0,
+                "sglang:approx_kv_store_host_bytes": 0.0,
+                "sglang:approx_kv_store_leases": 0.0,
+                "sglang:approx_kv_store_orphans": 0.0,
+                "sglang:approx_kv_store_records": 9.0,
+                "sglang:cross_store_reserved_device_bytes": 0.0
+              },
+              "transfer": {
+                "copied_tokens": {
+                  "indirect_evidence": null,
+                  "metric": "sglang:approx_kv_copied_tokens_total",
+                  "value": 7936.0,
+                  "verification": "direct"
+                },
+                "h2d_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "h2d_tokens": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_h2d_tokens_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_bytes": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_bytes_total",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                },
+                "host_export_duration_seconds": {
+                  "indirect_evidence": "host budget and prefetch/async tracks are pinned disabled in the manifest",
+                  "metric": "sglang:approx_kv_host_export_duration_seconds_sum",
+                  "value": null,
+                  "verification": "indirectly_verified"
+                }
+              },
+              "victim_evict_bytes": {
+                "rows": [
+                  {
+                    "bytes_or_count": 411041792.0,
+                    "object_kind": "canonical_base",
+                    "provenance": "approximate",
+                    "requester": "approximate"
+                  },
+                  {
+                    "bytes_or_count": 124780544.0,
+                    "object_kind": "canonical_base",
+                    "provenance": "exact",
+                    "requester": "approximate"
+                  },
+                  {
+                    "bytes_or_count": 1415479296.0,
+                    "object_kind": "exact_variant",
+                    "provenance": "exact",
+                    "requester": "approximate"
+                  },
+                  {
+                    "bytes_or_count": 124780544.0,
+                    "object_kind": "repair_state",
+                    "provenance": "exact",
+                    "requester": "approximate"
+                  },
+                  {
+                    "bytes_or_count": 1746927616.0,
+                    "object_kind": "canonical_base",
+                    "provenance": "approximate",
+                    "requester": "exact"
+                  },
+                  {
+                    "bytes_or_count": 720928768.0,
+                    "object_kind": "exact_variant",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  },
+                  {
+                    "bytes_or_count": 124780544.0,
+                    "object_kind": "repair_state",
+                    "provenance": "exact",
+                    "requester": "exact"
+                  }
+                ],
+                "verification": "direct"
+              },
+              "wasted_bytes": {
+                "definition": "irreversibly destroyed bytes from failed allocations; already counted inside cross_store_evicted_bytes_total",
+                "indirect_evidence": null,
+                "metric": "sglang:cross_store_wasted_bytes_total",
+                "value": null,
+                "verification": "unknown",
+                "wasted_is_subset_of_evicted": true
+              }
+            },
+            "outcomes": {
+              "counts": {
+                "approximate_gpu_recovery": 18,
+                "approximate_recovery_failed_dense": 43,
+                "dense_no_reuse_baseline": 0,
+                "exact_gpu_hit": 0,
+                "host_demand_load": 0,
+                "ordinary_exact_cache_miss": 0
+              },
+              "dense_fallback": {
+                "count": 43,
+                "rate": 0.7049180327868853
+              },
+              "recovery": {
+                "count": 18,
+                "rate": 0.29508196721311475
+              },
+              "requests": 61,
+              "terminal_reason_counts": {
+                "cross_store_reservation_failed": 0,
+                "device_allocation_failed": 0,
+                "prefix_gap": 0,
+                "registration_failed": 0,
+                "unsupported": 43
+              }
+            },
+            "representation_metadata": {
+              "arm_label": "R0",
+              "executes_kvcomm": false,
+              "performance_ranking_enabled": true,
+              "profile": "r0_like",
+              "resident_multiplicity": 1
+            },
+            "victim_sequence": [
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 3,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "approximate",
+                "trigger_object_id": "workflow-03",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 3,
+                "object_kind": "canonical_base",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "workflow-03",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 458752.0,
+                "event_index": 3,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "workflow-03",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 4,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "workflow-04",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 4,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-04",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 6,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "approximate",
+                "trigger_object_id": "filler-01",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 6,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-01",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 7,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "approximate",
+                "trigger_object_id": "filler-02",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 7,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-02",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 8,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-03",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 8,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-03",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 9,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "approximate",
+                "trigger_object_id": "filler-04",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 9,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-04",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 242450432.0,
+                "event_index": 10,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "filler-05",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 12,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "approximate",
+                "trigger_object_id": "filler-07",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 13,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "approximate",
+                "trigger_object_id": "filler-08",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 13,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-08",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 229376.0,
+                "event_index": 14,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-09",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 124780544.0,
+                "event_index": 14,
+                "object_kind": "repair_state",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-09",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 14,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-09",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 15,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "approximate",
+                "trigger_object_id": "filler-10",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 16,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-11",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 16,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-11",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 17,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-12",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 17,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-12",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 18,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-13",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 18,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-13",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 19,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-14",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 19,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-14",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 20,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-15",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 20,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-15",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 21,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-16",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 21,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-16",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 22,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-17",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 22,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-17",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 23,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-18",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 23,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-18",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 24,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-19",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 24,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-19",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 25,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-20",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 25,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-20",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 26,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-21",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 26,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-21",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 27,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-22",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 27,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-22",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 28,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-23",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 28,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-23",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 29,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-24",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 29,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-24",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 30,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-25",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 30,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-25",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 31,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-26",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 31,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-26",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 32,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-27",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 32,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-27",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 33,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-28",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 33,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-28",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 34,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-29",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 34,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-29",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 35,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-30",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 35,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-30",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 36,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-31",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 36,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-31",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 37,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-32",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 37,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-32",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 38,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-33",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 38,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-33",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 39,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "approximate",
+                "trigger_object_id": "filler-34",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 39,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "filler-34",
+                "trigger_phase": "setup"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 0,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "workflow-00",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 51609600.0,
+                "event_index": 0,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-00",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 44040192.0,
+                "event_index": 1,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "workflow-01",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 66289664.0,
+                "event_index": 1,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-01",
+                "trigger_phase": "workflow"
+              },
+              {
+                "bytes_or_count": 58720256.0,
+                "event_index": 6,
+                "object_kind": "canonical_base",
+                "provenance": "approximate",
+                "requester": "exact",
+                "trigger_object_id": "workflow-01",
+                "trigger_phase": "replay"
+              },
+              {
+                "bytes_or_count": 117899264.0,
+                "event_index": 34,
+                "object_kind": "exact_variant",
+                "provenance": "exact",
+                "requester": "exact",
+                "trigger_object_id": "workflow-01",
+                "trigger_phase": "replay-2"
+              }
+            ]
+          }
+        },
+        "repeat_index": 1
+      }
+    ],
+    "outcome": {
+      "counts": {
+        "approximate_gpu_recovery": 36,
+        "approximate_recovery_failed_dense": 86,
+        "dense_no_reuse_baseline": 0,
+        "exact_gpu_hit": 10,
+        "host_demand_load": 0,
+        "ordinary_exact_cache_miss": 112
+      },
+      "exclusive_terminal_reasons": [
+        "cross_store_reservation_failed",
+        "device_allocation_failed",
+        "unsupported",
+        "registration_failed",
+        "prefix_gap"
+      ],
+      "taxonomy": [
+        "dense_no_reuse_baseline",
+        "exact_gpu_hit",
+        "ordinary_exact_cache_miss",
+        "approximate_gpu_recovery",
+        "host_demand_load",
+        "approximate_recovery_failed_dense"
+      ],
+      "terminal_reason_counts": {
+        "cross_store_reservation_failed": 0,
+        "device_allocation_failed": 0,
+        "prefix_gap": 0,
+        "registration_failed": 0,
+        "unsupported": 86
+      }
+    },
     "paired_E0_R0": {
       "denominators": {
         "all_reusable": {
@@ -375,9 +3647,10 @@
             "ttft_p95_ms": 493.0776441819034,
             "wall_clock_ms": 16615.32041305327
           },
-          "mean_speedup": 0.686545762734857,
-          "p50_speedup": 0.5993603537620347,
-          "p95_ratio": 1.1223826345316519,
+          "e0_over_r0_mean_speedup": 0.686545762734857,
+          "e0_over_r0_p50_speedup": 0.5993603537620347,
+          "e0_over_r0_wall_speedup": 0.6866227145298903,
+          "p95_pairing": "nonpaired",
           "paired_delta_median_ms": -59.12905551667791,
           "per_role": {
             "architect": {
@@ -419,7 +3692,8 @@
             "ttft_p95_ms": 553.4217853055452,
             "wall_clock_ms": 24198.617466987344
           },
-          "wall_clock_speedup": 0.6866227145298903
+          "ratio_of_marginal_p95s": 1.1223826345316519,
+          "ratio_of_marginal_p95s_direction": "r0_over_e0"
         },
         "workflow_only": {
           "e0": {
@@ -432,9 +3706,10 @@
             "ttft_p95_ms": 494.400866907381,
             "wall_clock_ms": 3070.5184469989035
           },
-          "mean_speedup": 0.8428142554965704,
-          "p50_speedup": 0.7841044876373018,
-          "p95_ratio": 1.119551687100538,
+          "e0_over_r0_mean_speedup": 0.8428142554965704,
+          "e0_over_r0_p50_speedup": 0.7841044876373018,
+          "e0_over_r0_wall_speedup": 0.8428217826347779,
+          "p95_pairing": "nonpaired",
           "paired_delta_median_ms": -58.04158400860615,
           "per_role": {
             "architect": {
@@ -469,7 +3744,8 @@
             "ttft_p95_ms": 553.507324650127,
             "wall_clock_ms": 3643.140827945899
           },
-          "wall_clock_speedup": 0.8428217826347779
+          "ratio_of_marginal_p95s": 1.119551687100538,
+          "ratio_of_marginal_p95s_direction": "r0_over_e0"
         }
       },
       "pair_count": 122
@@ -489,9 +3765,10 @@
                 "ttft_p95_ms": 493.7283170002047,
                 "wall_clock_ms": 8354.046302032657
               },
-              "mean_speedup": 0.6879623918532467,
-              "p50_speedup": 0.5999569500976318,
-              "p95_ratio": 1.1201324209854155,
+              "e0_over_r0_mean_speedup": 0.6879623918532467,
+              "e0_over_r0_p50_speedup": 0.5999569500976318,
+              "e0_over_r0_wall_speedup": 0.6880315314666315,
+              "p95_pairing": "nonpaired",
               "paired_delta_median_ms": -59.157364012207836,
               "per_role": {
                 "architect": {
@@ -533,7 +3810,8 @@
                 "ttft_p95_ms": 553.041095030494,
                 "wall_clock_ms": 12141.952686710283
               },
-              "wall_clock_speedup": 0.6880315314666315
+              "ratio_of_marginal_p95s": 1.1201324209854155,
+              "ratio_of_marginal_p95s_direction": "r0_over_e0"
             },
             "workflow_only": {
               "e0": {
@@ -546,9 +3824,10 @@
                 "ttft_p95_ms": 494.70657141064294,
                 "wall_clock_ms": 1536.5912150009535
               },
-              "mean_speedup": 0.8439391276334797,
-              "p50_speedup": 0.7827494688625957,
-              "p95_ratio": 1.1177455804596081,
+              "e0_over_r0_mean_speedup": 0.8439391276334797,
+              "e0_over_r0_p50_speedup": 0.7827494688625957,
+              "e0_over_r0_wall_speedup": 0.8439494345839059,
+              "p95_pairing": "nonpaired",
               "paired_delta_median_ms": -57.73099898942746,
               "per_role": {
                 "architect": {
@@ -583,7 +3862,8 @@
                 "ttft_p95_ms": 552.9560838185716,
                 "wall_clock_ms": 1820.7147869688924
               },
-              "wall_clock_speedup": 0.8439494345839059
+              "ratio_of_marginal_p95s": 1.1177455804596081,
+              "ratio_of_marginal_p95s_direction": "r0_over_e0"
             }
           },
           "pair_count": 61
@@ -604,9 +3884,10 @@
                 "ttft_p95_ms": 491.8066429963801,
                 "wall_clock_ms": 8261.274111020612
               },
-              "mean_speedup": 0.6851190486389863,
-              "p50_speedup": 0.5964777463285852,
-              "p95_ratio": 1.1253140698431938,
+              "e0_over_r0_mean_speedup": 0.6851190486389863,
+              "e0_over_r0_p50_speedup": 0.5964777463285852,
+              "e0_over_r0_wall_speedup": 0.6852039317320033,
+              "p95_pairing": "nonpaired",
               "paired_delta_median_ms": -59.120513033121824,
               "per_role": {
                 "architect": {
@@ -648,7 +3929,8 @@
                 "ttft_p95_ms": 553.4369350061752,
                 "wall_clock_ms": 12056.66478027706
               },
-              "wall_clock_speedup": 0.6852039317320033
+              "ratio_of_marginal_p95s": 1.1253140698431938,
+              "ratio_of_marginal_p95s_direction": "r0_over_e0"
             },
             "workflow_only": {
               "e0": {
@@ -661,9 +3943,10 @@
                 "ttft_p95_ms": 493.18387820967473,
                 "wall_clock_ms": 1533.92723199795
               },
-              "mean_speedup": 0.8416904002861583,
-              "p50_speedup": 0.7854573521018885,
-              "p95_ratio": 1.1223256473754704,
+              "e0_over_r0_mean_speedup": 0.8416904002861583,
+              "e0_over_r0_p50_speedup": 0.7854573521018885,
+              "e0_over_r0_wall_speedup": 0.8416951895483277,
+              "p95_pairing": "nonpaired",
               "paired_delta_median_ms": -58.41634000535123,
               "per_role": {
                 "architect": {
@@ -698,7 +3981,8 @@
                 "ttft_p95_ms": 553.5129153868183,
                 "wall_clock_ms": 1822.4260409770068
               },
-              "wall_clock_speedup": 0.8416951895483277
+              "ratio_of_marginal_p95s": 1.1223256473754704,
+              "ratio_of_marginal_p95s_direction": "r0_over_e0"
             }
           },
           "pair_count": 61

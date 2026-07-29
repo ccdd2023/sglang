@@ -1,7 +1,15 @@
 {
   "artifact": "phase7-compact-result",
-  "compact_sha256": "d2d002502b2b4cc4a20ccb3218cb1a3b4d7518b39017d6ddeb67c2d90dd261ec",
+  "compact_sha256": "a85396c25d05a6f4c7d70ebd01c5fd3759456f4bc541b9cb506e3962dc9e77ab",
   "engineering_valid": true,
+  "engineering_valid_derivation": {
+    "allowed_raw_statuses": [
+      "inconclusive",
+      "valid"
+    ],
+    "observed_raw_status": "valid",
+    "rule": "true only after raw validation succeeds and status is in the allowed non-invalid set"
+  },
   "inactive_counter_assertion": {
     "assertions": {
       "async_load": {
