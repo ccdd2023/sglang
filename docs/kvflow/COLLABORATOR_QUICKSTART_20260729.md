@@ -119,7 +119,6 @@ PYTHONPATH=python /home/gfy/.conda/envs/sglang-kvflow/bin/python -m pytest -q \
   python/sglang/srt/mem_cache/kvcomm_prefetch/test_coordinator.py \
   python/sglang/srt/mem_cache/kvcomm_prefetch/test_middle_kv.py \
   python/sglang/srt/mem_cache/kvcomm_prefetch/test_scheduler.py \
-  python/sglang/srt/mem_cache/kvflow_integration/test_composition.py \
   python/sglang/srt/mem_cache/kvflow_integration/test_composition_v2.py
 ```
 
