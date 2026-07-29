@@ -21,136 +21,154 @@
   },
   "files": [
     {
+      "file": "benchmark/approx_kv/results/phase7/capacity-correction/logs/p6delta-s0-rho2-chunk4096-r0-terminal-reason.log",
+      "sha256": "438a5e44a49618da0739085e6ed4e332c8619ec9d563e2084c49ae3caef84786",
+      "bytes": 1470,
+      "containing_commit": "71bc70c760bedbfdeed49271672029baf367bd97"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/capacity-correction/phase7-runs.jsonl",
+      "sha256": "62f22ab3314a2cef33a0d8ab6921ad1e3cae34354891dd5f2b982256c404c3b4",
+      "bytes": 1291,
+      "containing_commit": "71bc70c760bedbfdeed49271672029baf367bd97"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/capacity-correction/raw/p6delta-s0-rho2-chunk4096-r0-terminal-reason.json",
+      "sha256": "b4ea8eb0f5c2c335d476f8a8a6125fe575e793a807dd62a9011ac4491c3bc157",
+      "bytes": 688266,
+      "containing_commit": "71bc70c760bedbfdeed49271672029baf367bd97"
+    },
+    {
       "file": "benchmark/approx_kv/results/phase7/compact/p6delta-s0-rho2-chunk4096-r0.compact.json",
-      "sha256": "4e6f8849470839c31d6ef05637624c2019e4c5895a6f4fb090bb6aeb79624dcd",
-      "bytes": 11945,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "08043d1f43266ac8c878cb8b1f34d96feafca36cac53e57a16b9f0afce7f91a3",
+      "bytes": 12201,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p6delta-s4-rho2-chunk4096-r0.compact.json",
-      "sha256": "ddb9265382c439a159179678171db87cdbf9f980d116d24cea794ea089caf636",
-      "bytes": 11966,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "25094ba3f2d772b53b879fae2fd849ebad4d7e584e7021cde44614d423003980",
+      "bytes": 12222,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-a8-r0-body1024-rho1.5-r0.compact.json",
-      "sha256": "56052197f9d8002cad85625c7c2aacba0d8d93bf1a00bee5ba8f711472352eb7",
-      "bytes": 70746,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "37a8c9fc47678c4cc201f9b7dee2423518dc7ad3f6c95f5061ef84087169e30d",
+      "bytes": 70995,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-a8-r0-body1024-rho2.0-r0.compact.json",
-      "sha256": "dfbc116b316b7d6feb7f04f4536c86a9437911f80424226397c2866bd2df22e1",
-      "bytes": 70752,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "fc849888678459571d662e45e9357519645005ac958382feda94907dda438ed9",
+      "bytes": 71001,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-a8-r0-body2048-rho1.5-r0.compact.json",
-      "sha256": "7f92c613ea7bcf175eeb12ce638f2e4cbfcdecdc79f2147eeaa993b807e09a0b",
-      "bytes": 70703,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "eefa892a454ed7da06600ad2c22278aff169eb51c3675f442f256cb0372151d7",
+      "bytes": 70952,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-a8-r0-body2048-rho2-chunk1024-sensitivity-r0.compact.json",
-      "sha256": "86256e92e98441f8782d72d803f5e9647d1be5e468e5fcfa04cd612149eb80db",
-      "bytes": 70733,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "18ab42b569aca09a05035dba0cb5dca8798f48bd3f59c5a0c2aa46938c0b7196",
+      "bytes": 70982,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-a8-r0-body2048-rho2-chunk1024-sensitivity-r1.compact.json",
-      "sha256": "86a4387677711970cb382fcc00fb0c530d2a057e942c7f0fa2e5c36b23df6269",
-      "bytes": 70724,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "e1c4570a8625a41e907f6da4e7b40f7fa1001a00834c54fa31620103a8ec6001",
+      "bytes": 70973,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-a8-r0-body2048-rho2.0-r0.compact.json",
-      "sha256": "a22f9826ba9ebbbba12dd2270597c8596eaf7ee0d1c42a024ec66f0172e5f790",
-      "bytes": 70701,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "49d91d6f963303515cb30a0be0a17d19fe687ad71cbf0ff580924bab036db9d7",
+      "bytes": 70950,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-hierarchical-rho1.5-r0.compact.json",
-      "sha256": "7b324be9e8310a263b69ad1db7240a9d66bf8fa9e074ebd2e3474697803a41f5",
-      "bytes": 32440,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "d54af4ec2d5b585bfe41e655e52250ac545291edadcebb0f426eefaf12c99e5e",
+      "bytes": 149178,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-hierarchical-rho1.5-r1.compact.json",
-      "sha256": "1b6e9fab9a3878cd4fcf0877a98449bfb387118f441b91168d84b078ac9720dc",
-      "bytes": 32440,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "8e85e6fc29cf203262e4cca3f95b5ccde56fe68e424ab1120e0e30e27673673e",
+      "bytes": 149178,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-hierarchical-rho1.5-r2.compact.json",
-      "sha256": "e03c8ffd69011b097af00d21a3fb28fd6e362310a5cd59366d7c87c21becbe05",
-      "bytes": 32440,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "1d6c598038805f83a223cf8eaa71fb8c8443012efcbdbf1c8fb519326c2d632a",
+      "bytes": 149178,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-hierarchical-rho2.0-r0.compact.json",
-      "sha256": "65a99e044aead44d2ea802e1022f86ec5d50bca3b3a7eff94dc8ca1f986134f4",
-      "bytes": 32438,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "a2e0ad8feac4709401415e7c15e2e9aaa4c7b92dcce6ad6ee73cca81d7732707",
+      "bytes": 163016,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-hierarchical-rho2.0-r1.compact.json",
-      "sha256": "15b32d0c833b9aa98dcc69b3c0c3a522446a57128a374f53ff6072ea932de142",
-      "bytes": 32440,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "cbedd44902be6641a014d0c54369c4e50a830bcef4b5416870146271d43746c9",
+      "bytes": 163018,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-hierarchical-rho2.0-r2.compact.json",
-      "sha256": "81d598ba6ae155c65f730b9270a7c7d27ffc848cdb39a4e7f4d023e6b9e7bd7f",
-      "bytes": 32446,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "42a34138f221837b67728615c18dd24789b9f8350db6edfcff311843c4f86bdc",
+      "bytes": 163024,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-lru-rho1.5-r0.compact.json",
-      "sha256": "aab7f44c51c5bba60cd78d815164e5f651e75cc4cbd2fa969589241d190c31f3",
-      "bytes": 32654,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "f6e8e484fb5a81b1e0a547c2a219423ad854be769eb9e8e02225b0876a4c6d6f",
+      "bytes": 156401,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-lru-rho1.5-r1.compact.json",
-      "sha256": "367cdaf1edca333cb2c1b09433af5b6021e9f790fcfa824aae6154802e228ab2",
-      "bytes": 32626,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "f7229184fcd08beb655d38f1fec7db388ea08af34e8d0fe76c8774872b517f74",
+      "bytes": 156373,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-lru-rho1.5-r2.compact.json",
-      "sha256": "46bdf1f1603ff1d9064770ee30d25e179beb0f90b534cb4961c827156aea504b",
-      "bytes": 32635,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "48722515739a4507760af400f607d6e83a50df64225e2fbc84955e9fd0cc0996",
+      "bytes": 156382,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-lru-rho2.0-r0.compact.json",
-      "sha256": "2b5bbc0e08de0b4e03956830a7454389859eec8533d11e41fa66f277ee8fb1a7",
-      "bytes": 32634,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "31da39559820473d1744fd2b553730a91d09ebcb1a2a6db242c218e69b6589bc",
+      "bytes": 159719,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-lru-rho2.0-r1.compact.json",
-      "sha256": "3fa2753eec24af41991a38cb506a1824405c9a779bebc6c575a72fab45598069",
-      "bytes": 32615,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "21ff2f0b29c628301376af7d522417d5b8ad1f1fc48ffe1088f095b3b647f427",
+      "bytes": 159700,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r0-lru-rho2.0-r2.compact.json",
-      "sha256": "236df3c37efe77dcd705f045f1392be74cfc655bbc0a2cf0098e1a4ea12739cb",
-      "bytes": 32633,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "fc1ee9f9cb3a4bdbeb4eef73744647b031208ec7060bf564fbc5e7cb4bc18322",
+      "bytes": 159718,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r4like-hierarchical-rho2-r0.compact.json",
-      "sha256": "715d9aa2b0196a257b77a8db67f337dd34f88cbabd78944582c44413e01bc15d",
-      "bytes": 20184,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "f77b2d0ebeeb9de5c27dcf6e55095cd5f77f011df9c4711185e81ab581fa637a",
+      "bytes": 28054,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/compact/p7-w-r4like-lru-rho2-r0.compact.json",
-      "sha256": "dd2d149aa6c98f0667a356ac8e0f4746c4a9c02826724817f038c1a92f3a56c2",
-      "bytes": 22794,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "0c987fedd8e89e01ee159130c71752b8f0649d499fbec2791a5c80899c0cdfce",
+      "bytes": 148434,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/evidence/capacity-correction-cpu.json",
@@ -322,9 +340,9 @@
     },
     {
       "file": "benchmark/approx_kv/results/phase7/phase7-consolidated-summary.json",
-      "sha256": "98bf536068cecfbb4dfe9fe54fbc725a6c6a1b762894573ae58d5048b397ab4f",
-      "bytes": 137160,
-      "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+      "sha256": "70361d746c243b52f772f1a91d3ca8336ddd942d5a0255e262f92dee6d15d300",
+      "bytes": 881628,
+      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
