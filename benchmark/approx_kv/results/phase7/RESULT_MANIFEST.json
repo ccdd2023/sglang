@@ -3,9 +3,7 @@
   "artifact": "phase7-result-manifest",
   "purpose": "Supply the file-to-commit mapping that the individual result artifacts cannot: a runner never knows the commit that will contain its own output, so every artifact carries result_git_sha=null and result_commit_status=pending_result_commit.",
   "authority": "This manifest, not the result_git_sha field inside an artifact, is the authoritative mapping. Regenerate and re-check it in the same commit that adds or changes an artifact, otherwise entries rot into pending or stale-blob states.",
-  "known_gaps": [
-    "Phase7 GPU artifacts and logs are versioned. Final dual-model result review and main-session disposition remain pending."
-  ],
+  "known_gaps": [],
   "environment": {
     "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
     "model": "Qwen/Qwen3-0.6B",
@@ -20,6 +18,12 @@
     "known_baseline": "Running the whole test/registered/unit/mem_cache and test/registered/unit/bench trees reports 935 pre-existing failures both with and without this branch's changes, verified by stashing. Judge regressions with the targeted selection above."
   },
   "files": [
+    {
+      "file": "benchmark/approx_kv/results/phase7/PHASE7_FINAL_DISPOSITION.json",
+      "sha256": "731ace74108bc6ec0b6beb160bb3a55fcdbaae2fd2959c1a3f3d0b7aff466af5",
+      "bytes": 5099,
+      "containing_commit": "f36b0caccc9bc258617aa0fd3b2548d93c286dad"
+    },
     {
       "file": "benchmark/approx_kv/results/phase7/capacity-correction/logs/p6delta-s0-rho2-chunk4096-r0-terminal-reason.log",
       "sha256": "438a5e44a49618da0739085e6ed4e332c8619ec9d563e2084c49ae3caef84786",
@@ -493,6 +497,54 @@
       "sha256": "e2e5a0c1c973efcdd33749207224668278b8f7efd1e92e747e4cf7d9595e8277",
       "bytes": 4492939,
       "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/reviews/opus-cross-consolidation.txt",
+      "sha256": "3cc01d25e81d99bbf3cc9390f088ef396d52c60afe4bca7010e7b1f238eb9012",
+      "bytes": 23819,
+      "containing_commit": "6407d1ca62c4d396c5acdba16c6227a32fce6643"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/reviews/opus-final-verify.txt",
+      "sha256": "20a03d99b32e3203de3dac9b93922dae94374b6102fdbed631aed1852c1a353d",
+      "bytes": 11881,
+      "containing_commit": "6407d1ca62c4d396c5acdba16c6227a32fce6643"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/reviews/opus-original.txt",
+      "sha256": "46d52e7de0a95bd246f6e7e2d84747fe92a9bf3a482e9e350bdfeaaaf281bbfe",
+      "bytes": 35393,
+      "containing_commit": "6407d1ca62c4d396c5acdba16c6227a32fce6643"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/reviews/opus-targeted-delta.txt",
+      "sha256": "8d983ead9dd30334479269b5da4657c86bceb5640875fff9a8774095fa149ef8",
+      "bytes": 28094,
+      "containing_commit": "6407d1ca62c4d396c5acdba16c6227a32fce6643"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/reviews/sol-cross-consolidation.txt",
+      "sha256": "fcccb4de33ae0127f7546052fb00b67f1544758a8d94ae5e5a7532f14d7bac0f",
+      "bytes": 8473,
+      "containing_commit": "6407d1ca62c4d396c5acdba16c6227a32fce6643"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/reviews/sol-final-verify-pre-authority.txt",
+      "sha256": "35b7cb798569f321e06c6bedfcef4d829c1379af630626f689daae225f298122",
+      "bytes": 1370,
+      "containing_commit": "6407d1ca62c4d396c5acdba16c6227a32fce6643"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/reviews/sol-original.txt",
+      "sha256": "f3cb83b8c3fa5ed51341f11258f78993299fda9b46141a5b2da5a342e022962f",
+      "bytes": 6453,
+      "containing_commit": "6407d1ca62c4d396c5acdba16c6227a32fce6643"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/reviews/sol-publication-ready.txt",
+      "sha256": "ea65a6b15919259758537f4b2855f1ff65ab94798a25a42fbad21074bf71ce33",
+      "bytes": 203,
+      "containing_commit": "f36b0caccc9bc258617aa0fd3b2548d93c286dad"
     }
   ]
 }
