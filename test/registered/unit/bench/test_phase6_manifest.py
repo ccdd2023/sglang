@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import subprocess
 import tempfile
@@ -412,6 +413,18 @@ class TestPhase6Manifest(unittest.TestCase):
         self.assertEqual(len(list((results / "raw").glob("*.json"))), 22)
         self.assertEqual(len(list((results / "compact").glob("*.json"))), 22)
         self.assertEqual(len(list((results / "logs").glob("*.log"))), 22)
+
+    def test_phase7_final_disposition_is_self_hashed(self):
+        root = Path(__file__).resolve().parents[4]
+        path = root / "benchmark/approx_kv/results/phase7/PHASE7_FINAL_DISPOSITION.json"
+        payload = json.loads(path.read_text())
+        stored = payload.pop("disposition_sha256")
+        observed = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        self.assertEqual(stored, observed)
+        self.assertEqual(payload["open_findings"], {"P0": 0, "P1": 0})
+        self.assertEqual(payload["publication_disposition"], "READY_WITH_CAVEATS")
 
     def test_manifest_is_deterministic_and_fixed(self):
         first = build_fixed40_manifest()

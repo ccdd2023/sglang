@@ -171,6 +171,9 @@ def main() -> int:
             ]
             if args.phase == "phase6"
             else (
+                []
+                if (results / "PHASE7_FINAL_DISPOSITION.json").is_file()
+                else
                 [
                     "Phase7 GPU artifacts and logs are versioned. Final "
                     "dual-model result review and main-session disposition "
