@@ -5,7 +5,7 @@ RepoBench-P does not contain an online coding-agent trajectory.  The V40 arm
 therefore uses a deliberately narrow projection of the real policy:
 
 * repository context is treated as a successful read-only observation;
-* exactly one largest unique middle island is selected (128--4096 tokens);
+* exactly one largest unique middle island is selected (minimum 128 tokens);
 * V is copied, K is position-corrected by the native exact-reuse backend;
 * all other target tokens are recomputed and Radix prefix reuse is disabled.
 
@@ -96,7 +96,13 @@ def _text_span(
     return positions[0], len(positions)
 
 
-def prepare_case(tokenizer: Any, case: dict[str, Any]) -> dict[str, Any]:
+def prepare_case(
+    tokenizer: Any,
+    case: dict[str, Any],
+    copy_cap: int = 4096,
+) -> dict[str, Any]:
+    if copy_cap < 128:
+        raise ValueError("copy_cap must be at least 128 tokens")
     reusable = [
         str(segment["text"])
         for segment in case["segments"]
@@ -134,7 +140,7 @@ def prepare_case(tokenizer: Any, case: dict[str, Any]) -> dict[str, Any]:
         target_start, target_length = target_span
         if source_length != target_length:
             continue
-        length = min(source_length, 4096)
+        length = min(source_length, copy_cap)
         if length < 128:
             continue
         offset = source_length - length
@@ -172,13 +178,21 @@ def prepare_case(tokenizer: Any, case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def prepare(workload_path: Path, output: Path, limit: int) -> dict[str, Any]:
+def prepare(
+    workload_path: Path,
+    output: Path,
+    limit: int,
+    copy_cap: int = 4096,
+) -> dict[str, Any]:
     workload = json.loads(workload_path.read_text(encoding="utf-8"))
     tokenizer = AutoTokenizer.from_pretrained(MODEL, local_files_only=True)
     source_cases = workload["cases"]
     if limit > 0:
         source_cases = source_cases[:limit]
-    cases = [prepare_case(tokenizer, case) for case in source_cases]
+    cases = [
+        prepare_case(tokenizer, case, copy_cap=copy_cap)
+        for case in source_cases
+    ]
     manifest_rows = []
     for case in cases:
         row = manifest_case(
@@ -221,14 +235,15 @@ def prepare(workload_path: Path, output: Path, limit: int) -> dict[str, Any]:
         "cases": len(cases),
         "dataset": "RepoBench-P",
         "model": MODEL,
+        "copy_cap": copy_cap,
         "projection_limitations": [
             "no rolling agent trajectory",
             "no file mutation or file-version invalidation",
             "repository chunks are treated as successful read-only observations",
         ],
         "selection": (
-            "one largest unique repository-context island, 128--4096 tokens, "
-            "newest wins ties"
+            "one largest unique repository-context island, at least 128 "
+            f"and at most {copy_cap} tokens, newest wins ties"
         ),
         "target_prompt_identity": "exact WORKLOAD.json messages",
         "prefetch": False,
@@ -425,6 +440,7 @@ def main() -> None:
     prepare_parser.add_argument("--workload", type=Path, default=DEFAULT_WORKLOAD)
     prepare_parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     prepare_parser.add_argument("--limit", type=int, default=0)
+    prepare_parser.add_argument("--copy-cap", type=int, default=4096)
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     run_parser.add_argument("--arm", choices=("dense", ARM), required=True)
@@ -433,7 +449,12 @@ def main() -> None:
     summary_parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
     if args.command == "prepare":
-        value = prepare(args.workload, args.output, args.limit)
+        value = prepare(
+            args.workload,
+            args.output,
+            args.limit,
+            copy_cap=args.copy_cap,
+        )
     elif args.command == "run":
         value = run_arm(args.output, args.arm, args.port)
     else:
