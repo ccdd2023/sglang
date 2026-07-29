@@ -3096,3 +3096,52 @@ technical_exit = PASS WITH CAVEATS
 - 未满足1.0，更未满足5% MDE；track=`NEGATIVE`。
 - `ES-R0-MDE`触发，跳过8个primary supplement starts。
 - chunk1024 sensitivity与W/R4仍按unconditional合同执行。
+
+## 2026-07-28T11:30:50-07:00 — Phase7离线consolidator实现并验证
+
+- 在`/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate`
+  新增`consolidate_phase7_results.py`和对应CPU tests，未提交。
+- 验证authorized rev12/self/design hash及22个实际执行start：
+  wave0=2、A8 restart0=4、chunk1024=2、W=12、R4=2；
+  A8 restart1/2按`ES-R0-MDE`跳过8，rho3 conditional disabled。
+- 验证raw内部hash、setting/restart/runner、server log hash、status、inactive
+  assertion、reset invariants，以及central每run一对running/completed且无failed。
+- compact不复制巨量request记录，保留provenance/hash/setting/status和关键metrics；
+  compact与summary均使用canonical JSON自哈希，并列出raw/log source hashes。
+- 真实staging计算elapsed GPU-equivalent=`1.3101418039h`，低于3.8h expected
+  与6h hard cap。
+- summary状态：
+  `engineering_status=VALID`、`mechanism_status=NEGATIVE`、
+  `system_behaviour_status=INCONCLUSIVE/DESCRIPTIVE`。
+- W paired-restart median复现预期：
+  rho1.5 all=`1.00208`、workflow=`1.02757`、miss=`-14`、peak=`1.01123`；
+  rho2 all=`1.02503`、workflow=`1.04418`、miss=`+2`、peak=`0.99806`。
+- host验证：`7 passed`；isort、ruff、black通过；真实staging生成22 compact，
+  全部compact与summary自哈希复核通过；scratch输出已清理。
+
+## 2026-07-28T12:00:11-07:00 — Consolidator最终provenance加固
+
+- 新增execution envelope/source SHA、manifest file SHA、runner path/hash、
+  central run_id/phase/output逐run绑定验证。
+- inactive counter从顶层`passed`扩展为逐counter direct-zero或pinned-indirect
+  语义验证；W主矩阵验证每formal 61 request pair，但聚合仍只以restart为独立
+  replicate。
+- summary compact清单同时写canonical compact hash与实际序列化文件SHA。
+- R4测试改为纯合成S0 available/valid、S4 diagnostic_unavailable语义测试，
+  不依赖外部staging。
+- 最终targeted suite仍为`7 passed`，真实22-run staging consolidation通过，
+  默认覆盖拒绝与显式`--force`均验证。
+
+## 2026-07-28T18:33:37-07:00 — Result review要求单一S0 correction
+
+- Sol/Opus独立result review、全文互换、cross-consolidation完成。
+- 核心数值PASS；publication NOT_READY；accepted 0 P0 / 6 P1 / 9 P2。
+- 原S0 wave0 40次dense fallback缺exclusive reason，raw/log无法离线恢复。
+- 决策：只运行1个supplementary S0 correction；原22 raw/log不可变，
+  S4/A8/W/R4不重跑。
+- correction code pin=`a950ab91...`，capacity runner=`c92225d4...`，
+  CPU evidence=`36 passed`。
+- correction manifest rev1 self=`2a907fee...`，original raw=`80e8e83d...`。
+- correction Opus PASS_WITH_CAVEATS；治理P1已闭合：
+  RESULT_MANIFEST=`75/75`，并明确correction后重生成全部compact/summary。
+- 下一步生成review artifact与authorized correction rev2。

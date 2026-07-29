@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-28T10:00:31-07:00
+最后更新：2026-07-28T18:33:37-07:00
 
 ## 新会话启动顺序
 
@@ -12,6 +12,35 @@
 6. 开始工作后持续维护上述文件，不把重要信息只留在聊天中。
 
 ## 当前快照
+
+### 2026-07-28T18:33:37-07:00 等待S0 correction授权
+
+- 原Phase7：22 starts / 1.31014h，raw/log不可变。
+- result review cross-consolidation：NOT_READY，0 P0 / 6 P1。
+- 只需1个S0 terminal-reason supplementary correction；其他GPU不重跑。
+- correction code pin=`a950ab91...`；runner=`c92225d4...`。
+- correction manifest rev1 self=`2a907fee...`，status=pinned_blocked。
+- correction Opus PASS_WITH_CAVEATS；RESULT_MANIFEST=`75/75`。
+- correction后全量重生成22 compact+summary，原raw/log保持不变。
+- 下一步：correction review artifact → authorized rev2 → Docker S0 correction。
+
+### 2026-07-28T11:30:50-07:00 Phase7 offline consolidation实现完成
+
+- `cross-store-substrate`新增纯离线consolidator与CPU tests，未提交。
+- 输入契约：authorized rev12/design hash，22 raw、22 logs、central JSONL。
+- 输出：22个自哈希compact JSON + 1个自哈希consolidated summary；默认拒绝
+  覆盖，`--force`显式允许。
+- 真实staging验证通过：
+  - elapsed GPU-equivalent=`1.31014h`；
+  - engineering=`VALID`；
+  - A8 mechanism=`NEGATIVE`；
+  - W system behaviour=`INCONCLUSIVE/DESCRIPTIVE`；
+  - S0 R4-like 5x available/valid，S4 diagnostic_unavailable；均非KVCOMM。
+- 验证：`7 passed`，isort/ruff/black通过，22 compact与summary自哈希复核通过。
+- 额外绑定验证：execution envelope、source SHA、manifest file SHA、runner
+  path/hash、central run_id/phase/output；compact list同时提供canonical/file hash。
+- 下一步：对新增两文件做独立review；之后在指定结果目录正式运行consolidator，
+  再生成/更新`RESULT_MANIFEST`。不要把`r2_like`写成R2执行。
 
 ### 2026-07-28T10:00:31-07:00 A8 screening为NEGATIVE
 

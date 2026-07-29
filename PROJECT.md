@@ -2,14 +2,14 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-28T10:00:31-07:00
+最后更新：2026-07-28T18:33:37-07:00
 
 ## 项目概况
 
 | 项目 | 当前值 |
 | --- | --- |
 | 名称 | `code-agent-kvcache` |
-| 阶段 | Phase6=`PASS WITH CAVEATS`；V7 Current/Latest；manifest rev12已authorized；即将进入Phase7 wave-0 |
+| 阶段 | Phase6=`PASS WITH CAVEATS`；Phase7原22 starts已完成；等待1个S0 terminal-reason correction |
 | 业务目标 | 在 SGLang 上比较多种跨 context 近似 KV 恢复与 workflow-aware cache scheduling，降低 Coding Agent TTFT |
 | 技术栈 | SGLang、HiCache、Docker、KVFlow、KVCOMM、CacheBlend、Cache-Craft、EPIC、CacheTune |
 | 默认分支 | `main` |
@@ -26,6 +26,68 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-28T18:33:37-07:00 Result review与S0 capacity correction
+
+- 原Phase7执行已完成并版本化：22 starts / 1.31014 GPU-equivalent hours。
+- Sol/Opus独立review、全文互换与cross-consolidation：
+  - 核心数值与hash全部PASS；
+  - publication package=`NOT_READY`；
+  - accepted P0/P1/P2=`0/6/9`。
+- 唯一GPU correction：
+  - 原S0 wave0有40次dense fallback但未保存exclusive reason；
+  - 原raw/log中reason已在metrics聚合时丢失，不能离线直接恢复；
+  - 只需1个supplementary S0 correction；S4/A8/W/R4不重跑。
+- 原22 raw/log与authorized rev12保持不可变；correction独立补充证据。
+- 已实现并通过Docker测试：
+  - capacity逐请求terminal reason采集与exclusive validation；
+  - 专用correction manifest/review/authorization链；
+  - W victim/footprint、R4 fallback、wave0 outcome、A8 n=1、
+    W fallback比例、p95/provenance等publication修复；
+  - targeted=`119 passed`。
+- correction code pin=`a950ab914e6b029f86d8ef666a3f770fc42980a7`；
+  runner SHA=`c92225d4...`；CPU evidence=`36 passed`。
+- correction manifest rev1：
+  - self=`2a907feec24f07d8601be0b48a21fc98cc6bdc08b6499031e2d284cf8b00a3f1`；
+  - status=`pinned_blocked`；
+  - allowed setting仅S0/rho2/chunk4096 restart0；
+  - original raw SHA=`80e8e83d...`。
+- correction Opus review为PASS_WITH_CAVEATS；两个治理P1已闭合：
+  - RESULT_MANIFEST现`75/75`；
+  - correction完成后会`--force`重生成全部22 compact与summary；
+    原raw/log不改写。
+- 下一步：versioned correction review artifact → authorized correction rev2 →
+  Docker单一S0 correction。
+
+### 2026-07-28T11:30:50-07:00 Phase7离线consolidator已实现
+
+- 在`cross-store-substrate` worktree新增：
+  - `benchmark/approx_kv/consolidate_phase7_results.py`；
+  - `test/registered/unit/bench/test_consolidate_phase7_results.py`。
+- consolidator纯离线读取`results/phase7` staging，验证authorized rev12、
+  design hash、22个实际start、8个`ES-R0-MDE` skip、rho3 disabled、raw/log/
+  central JSONL hash与工程不变量。
+- 每个raw生成自哈希compact JSON；summary包含执行时长/预算、wave0、A8、
+  chunk1024 sensitivity、W cross-policy、within-policy、R4与完整source hash
+  lists。
+- 真实staging验证结果：
+  - 22 raw + 22 logs；
+  - actual elapsed GPU-equivalent=`1.31014h`；
+  - `engineering_status=VALID`；
+  - `mechanism_status=NEGATIVE`；
+  - `system_behaviour_status=INCONCLUSIVE/DESCRIPTIVE`。
+- W paired-restart median：
+  - rho1.5 all=`1.00208`、workflow=`1.02757`、miss delta=`-14`、
+    peak ratio=`1.01123`；
+  - rho2 all=`1.02503`、workflow=`1.04418`、miss delta=`+2`、
+    peak ratio=`0.99806`。
+- host验证：新增CPU tests `7 passed`；isort/ruff/black通过；真实staging
+  生成22 compact并验证全部compact/summary自哈希。试运行输出已清理。
+- 最终加固还验证execution envelope/source SHA、manifest file SHA、central
+  run_id/phase/output绑定、runner path/hash、inactive counter逐项语义；summary
+  同时记录compact canonical hash与序列化文件hash。R4 test已改为纯合成语义测试。
+- target worktree未提交；下一步为独立review后生成正式compact/summary并纳入
+  后续`RESULT_MANIFEST`。
 
 ### 2026-07-28T10:00:31-07:00 A8 restart-0 screening完成：R0 NEGATIVE
 
