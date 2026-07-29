@@ -226,6 +226,9 @@ def revised_manifest() -> dict:
     """Synthetic manifest carrying the post-review builder semantics."""
     manifest = load_manifest()
     manifest["manifest_revision"] = 6
+    manifest["status"] = "pinned_blocked"
+    manifest["phase7_execution_authorized"] = False
+    manifest["execution_blockers"] = ["final_opus_review_pending"]
     manifest["plan"]["version"] = "V7"
     manifest["workloads"]["A8"] = build_a8_workload()
     manifest["settings"] = build_settings()

@@ -637,6 +637,12 @@ def build_settings() -> list[dict[str, Any]]:
 def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     plan_repo = args.plan_repo.resolve()
     plan_path = args.plan_path.resolve()
+    try:
+        manifest_output_path = str(args.output.resolve().relative_to(REPO_ROOT))
+    except ValueError as exc:
+        raise RuntimeError("manifest output must be inside the repository") from exc
+    if not manifest_output_path.startswith("benchmark/approx_kv/results/phase7/"):
+        raise RuntimeError("manifest output must remain in the Phase7 result envelope")
     implementation_sha = git("rev-parse", "HEAD")
     implementation_tree = git("rev-parse", "HEAD^{tree}")
     plan_blob = subprocess.run(
@@ -805,7 +811,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
                 else None
             ),
             "atomic_update_required": [
-                "phase7-primary-manifest.json",
+                Path(manifest_output_path).name,
                 "RESULT_MANIFEST.json",
             ],
             "external_authority_update_required": [
@@ -815,7 +821,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             ],
             "post_pin_envelope_allowlist": [
                 "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json",
-                "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
+                manifest_output_path,
                 str(FINAL_OPUS_REVIEW),
                 *[
                     evidence["path"]

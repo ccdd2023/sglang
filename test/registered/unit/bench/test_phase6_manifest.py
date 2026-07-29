@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import copy
 import json
+import subprocess
+import tempfile
 import unittest
 from argparse import Namespace
-from pathlib import Path
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -20,10 +21,39 @@ from benchmark.approx_kv.build_phase7_manifest import (
     build_inactive_counter_pins,
     build_settings,
 )
-from benchmark.approx_kv.phase6.manifest import build_fixed40_manifest
 from benchmark.approx_kv.build_result_manifest import build_entries
+from benchmark.approx_kv.phase6.manifest import build_fixed40_manifest
 from benchmark.approx_kv.phase6.schema import payload_sha256
-from benchmark.approx_kv.phase7.common import Phase7ContractError
+from benchmark.approx_kv.phase7 import common as phase7_common
+from benchmark.approx_kv.phase7.common import (
+    CAPACITY_RUNNER,
+    Phase7ContractError,
+    ensure_artifact_path_layout,
+    execution_envelope,
+    load_execution_context,
+    terminal_reason_observations,
+)
+from benchmark.approx_kv.phase7.correction import (
+    BASE_MANIFEST_PATH,
+    CAPACITY_CORRECTION_CPU_EVIDENCE_PATH,
+    CAPACITY_CORRECTION_MANIFEST_PATH,
+    CAPACITY_CORRECTION_REVIEW_PATH,
+    CAPACITY_CORRECTION_SETTING_ID,
+    CAPACITY_RUNNER_PATH,
+    ORIGINAL_RAW_PATH,
+    build_authorized_capacity_correction_manifest,
+    build_pinned_capacity_correction_manifest,
+    correction_manifest_payload_sha256,
+    design_key_value_bytes,
+)
+from benchmark.approx_kv.phase7.correction import file_sha256 as correction_file_sha256
+from benchmark.approx_kv.phase7.correction import (
+    load_capacity_cpu_evidence,
+    pending_review_evidence,
+    validate_capacity_correction_manifest,
+)
+from benchmark.approx_kv.phase7.correction_review import build_correction_review
+from benchmark.approx_kv.phase7.evidence import build_runner_test_evidence
 from benchmark.approx_kv.run_p6_0_contract import build_contract, verify_contract
 from benchmark.approx_kv.run_p6_4_capacity_pilot import (
     configure_phase7_args,
@@ -32,6 +62,7 @@ from benchmark.approx_kv.run_p6_4_capacity_pilot import (
     launch_cells,
     phase7_failure_artifact,
     phase7_mode_requested,
+    phase7_terminal_reason_result,
     representation_metadata,
     run_phase7_repeat_major,
     run_profile,
@@ -50,6 +81,7 @@ def capacity_setting(setting_id: str = CAPACITY_SETTING_ID) -> dict:
 
 
 def fake_round(profile: str, round_index: int) -> dict:
+    dense_fallback = int(profile == "r0_like")
     return {
         "round_index": round_index,
         "profile": profile,
@@ -63,13 +95,23 @@ def fake_round(profile: str, round_index: int) -> dict:
         },
         "cache_outcomes": {
             "exact_gpu_hit": 1,
-            "approximate_gpu_recovery": 1,
+            "approximate_gpu_recovery": 1 - dense_fallback,
             "host_demand_load": 0,
-            "dense_fallback": 0,
+            "dense_fallback": dense_fallback,
             "exact_cache_miss": 0,
             "unknown": 0,
         },
         "fallback_reachable": True,
+        "replay": (
+            [
+                {
+                    "outcome": "dense_fallback",
+                    "terminal_reason": "unsupported",
+                }
+            ]
+            if dense_fallback
+            else []
+        ),
         "reachability": "reachable",
         "reset_invariant": {"passed": True},
         "store_reset_gauges": {},
@@ -85,6 +127,16 @@ def recording_run_round(calls: list) -> callable:
     return run_round
 
 
+def diagnostic_recording_run_round(calls: list, token: str) -> callable:
+    def run_round(args, manifest, *, profile, representation_kinds, round_index):
+        calls.append((profile, round_index))
+        row = fake_round(profile, round_index)
+        row["reachability"] = token
+        return row
+
+    return run_round
+
+
 def phase7_capacity_manifest() -> dict:
     plugin_env = {
         "SGLANG_APPROX_KV_BYTES_PER_TOKEN": "114688",
@@ -93,6 +145,7 @@ def phase7_capacity_manifest() -> dict:
     return {
         "manifest_revision": 10,
         "preregistered_manifest_sha256": "a" * 64,
+        "design_payload_sha256": "f" * 64,
         "plan": {"version": "V7"},
         "implementation": {},
         "environment": {
@@ -149,7 +202,177 @@ def phase7_capacity_context(setting: dict) -> SimpleNamespace:
         runner_module="benchmark.approx_kv.run_p6_4_capacity_pilot",
         runner_path="benchmark/approx_kv/run_p6_4_capacity_pilot.py",
         runner_sha256="e" * 64,
+        is_correction=False,
     )
+
+
+def correction_cpu_summary(runner_sha256: str) -> dict:
+    base = json.loads(PHASE7_MANIFEST_PATH.read_text())
+    return {
+        "status": "passed",
+        "path": CAPACITY_CORRECTION_CPU_EVIDENCE_PATH,
+        "file_sha256": "6" * 64,
+        "artifact_sha256": "7" * 64,
+        "runner_sha256": runner_sha256,
+        "image_digest": base["environment"]["image_digest"],
+        "command": RUNNER_SPECS["capacity_pilot"]["required_cpu_test"],
+        "exit_code": 0,
+        "summary_line": "42 passed in 1.00s",
+        "passed_count": 42,
+        "subtests": {"passed_count": 0, "names": []},
+        "timestamp": "2026-07-28T16:00:00-07:00",
+    }
+
+
+def pinned_correction_manifest(runner_sha256: str = "e" * 64) -> dict:
+    base = json.loads(PHASE7_MANIFEST_PATH.read_text())
+    return build_pinned_capacity_correction_manifest(
+        base_manifest=base,
+        base_manifest_path=Path(BASE_MANIFEST_PATH),
+        base_manifest_file_sha256="4" * 64,
+        original_raw_file_sha256="5" * 64,
+        correction_manifest_revision=1,
+        correction_pinned_implementation_sha="8" * 40,
+        correction_pinned_tree_sha="9" * 40,
+        capacity_runner_sha256=runner_sha256,
+        capacity_cpu_evidence=correction_cpu_summary(runner_sha256),
+        manifest_generation_sha="a" * 40,
+        manifest_generation_tree_sha="b" * 40,
+    )
+
+
+def correction_review(pinned: dict) -> dict:
+    return build_correction_review(
+        reviewer="Claude Opus 5 / Max Thinking / long context",
+        model="claude-opus-5",
+        verdict="PASS",
+        open_p0=0,
+        open_p1=0,
+        reviewed_correction_manifest_revision=pinned["correction_manifest_revision"],
+        reviewed_correction_manifest_sha256=pinned["correction_manifest_sha256"],
+        base_manifest_revision=pinned["base_manifest_revision"],
+        base_manifest_self_sha256=pinned["base_manifest_self_sha256"],
+        base_manifest_design_sha256=pinned["base_manifest_design_sha256"],
+        base_manifest_path=pinned["base_manifest_path"],
+        reviewed_correction_pinned_implementation_sha=pinned[
+            "correction_pinned_implementation_sha"
+        ],
+        reviewed_correction_pinned_tree_sha=pinned["correction_pinned_tree_sha"],
+        capacity_runner_sha256=pinned["capacity_runner_sha256"],
+        original_raw_sha256=pinned["original_raw_sha256"],
+        scope=pinned["scope"],
+        allowed_setting=pinned["allowed_setting"],
+        restart=pinned["restart"],
+        findings=[],
+        disposition="all P0/P1 closed",
+        timestamp="2026-07-28T16:05:00-07:00",
+    )
+
+
+def git(root: Path, *args: str) -> str:
+    return subprocess.run(
+        ("git", *args),
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+
+def commit(root: Path, message: str) -> str:
+    git(root, "add", "--all")
+    git(
+        root,
+        "-c",
+        "user.name=phase7-correction-test",
+        "-c",
+        "user.email=phase7-correction@example.invalid",
+        "commit",
+        "--quiet",
+        "-m",
+        message,
+    )
+    return git(root, "rev-parse", "HEAD")
+
+
+def write_json(root: Path, relative: str, payload: dict) -> Path:
+    path = root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
+def build_runtime_correction_repo(root: Path) -> dict:
+    for relative in (BASE_MANIFEST_PATH, ORIGINAL_RAW_PATH, CAPACITY_RUNNER_PATH):
+        destination = root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes((REPO_ROOT / relative).read_bytes())
+    write_json(
+        root,
+        "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json",
+        {},
+    )
+    git(root, "init", "--quiet", "-b", "main")
+    pin = commit(root, "correction code pin")
+    tree = git(root, "rev-parse", "HEAD^{tree}")
+    base = json.loads((root / BASE_MANIFEST_PATH).read_text())
+    runner_sha = correction_file_sha256(root / CAPACITY_RUNNER_PATH)
+    evidence = build_runner_test_evidence(
+        runner_key="capacity_pilot",
+        runner_module=CAPACITY_RUNNER,
+        runner_path=CAPACITY_RUNNER_PATH,
+        runner_sha256=runner_sha,
+        image_digest=base["environment"]["image_digest"],
+        command=RUNNER_SPECS["capacity_pilot"]["required_cpu_test"],
+        exit_code=0,
+        summary_line="49 passed in 4.00s",
+        passed_count=49,
+        subtests_passed_count=0,
+        subtests=[],
+        timestamp="2026-07-28T16:00:00-07:00",
+    )
+    evidence_path = write_json(
+        root,
+        CAPACITY_CORRECTION_CPU_EVIDENCE_PATH,
+        evidence,
+    )
+    _, evidence_summary = load_capacity_cpu_evidence(
+        evidence_path,
+        runner_sha256=runner_sha,
+        image_digest=base["environment"]["image_digest"],
+        repo_root=root,
+    )
+    pinned = build_pinned_capacity_correction_manifest(
+        base_manifest=base,
+        base_manifest_path=Path(BASE_MANIFEST_PATH),
+        base_manifest_file_sha256=correction_file_sha256(root / BASE_MANIFEST_PATH),
+        original_raw_file_sha256=correction_file_sha256(root / ORIGINAL_RAW_PATH),
+        correction_manifest_revision=1,
+        correction_pinned_implementation_sha=pin,
+        correction_pinned_tree_sha=tree,
+        capacity_runner_sha256=runner_sha,
+        capacity_cpu_evidence=evidence_summary,
+        manifest_generation_sha=pin,
+        manifest_generation_tree_sha=tree,
+    )
+    write_json(root, CAPACITY_CORRECTION_MANIFEST_PATH, pinned)
+    commit(root, "pinned correction manifest")
+    review = correction_review(pinned)
+    review_path = write_json(root, CAPACITY_CORRECTION_REVIEW_PATH, review)
+    generation_sha = commit(root, "correction review")
+    generation_tree = git(root, "rev-parse", "HEAD^{tree}")
+    authorized = build_authorized_capacity_correction_manifest(
+        reviewed_manifest=pinned,
+        review=review,
+        review_path=review_path,
+        repo_root=root,
+        correction_manifest_revision=2,
+        manifest_generation_sha=generation_sha,
+        manifest_generation_tree_sha=generation_tree,
+    )
+    write_json(root, CAPACITY_CORRECTION_MANIFEST_PATH, authorized)
+    commit(root, "authorized correction manifest")
+    return authorized
 
 
 def phase7_capacity_args(
@@ -174,7 +397,11 @@ class TestPhase6Manifest(unittest.TestCase):
         results = root / "benchmark/approx_kv/results/phase7"
         entries = build_entries(results, results / "RESULT_MANIFEST.json")
         files = {Path(entry["file"]).as_posix() for entry in entries}
-        for name in ("ceiling-cpu.json", "scheduler-cpu.json", "capacity-pilot-cpu.json"):
+        for name in (
+            "ceiling-cpu.json",
+            "scheduler-cpu.json",
+            "capacity-pilot-cpu.json",
+        ):
             self.assertTrue(
                 any(path.endswith(f"/phase7/evidence/{name}") for path in files)
             )
@@ -360,6 +587,344 @@ class TestPhase6Manifest(unittest.TestCase):
         with self.assertRaisesRegex(Phase7ContractError, "provided together"):
             phase7_mode_requested(args)
 
+    def test_phase7_correction_sha_is_phase7_only_and_validated(self):
+        historical = SimpleNamespace(
+            phase7_manifest=None,
+            phase7_setting_id=None,
+            phase7_restart_index=None,
+            phase7_correction_of_raw_sha256="a" * 64,
+        )
+        with self.assertRaisesRegex(Phase7ContractError, "only valid in Phase7"):
+            phase7_mode_requested(historical)
+        invalid = SimpleNamespace(
+            phase7_manifest=Path("manifest.json"),
+            phase7_setting_id=CAPACITY_SETTING_ID,
+            phase7_restart_index=0,
+            phase7_correction_of_raw_sha256="not-a-sha",
+        )
+        with self.assertRaisesRegex(Phase7ContractError, "lowercase SHA-256"):
+            phase7_mode_requested(invalid)
+        valid = copy.copy(invalid)
+        valid.phase7_correction_of_raw_sha256 = "a" * 64
+        self.assertTrue(phase7_mode_requested(valid))
+
+    def test_capacity_correction_pinned_review_authorized_chain(self):
+        base = json.loads(PHASE7_MANIFEST_PATH.read_text())
+        pinned = pinned_correction_manifest()
+        validate_capacity_correction_manifest(
+            pinned,
+            base_manifest=base,
+            require_authorized=False,
+        )
+        self.assertEqual(pinned["review_evidence"], pending_review_evidence())
+        review = correction_review(pinned)
+        with tempfile.TemporaryDirectory(prefix="phase7-correction-review-") as raw:
+            root = Path(raw)
+            review_path = root / CAPACITY_CORRECTION_REVIEW_PATH
+            review_path.parent.mkdir(parents=True)
+            review_path.write_text(json.dumps(review, indent=2) + "\n")
+            authorized = build_authorized_capacity_correction_manifest(
+                reviewed_manifest=pinned,
+                review=review,
+                review_path=review_path,
+                repo_root=root,
+                correction_manifest_revision=2,
+                manifest_generation_sha="c" * 40,
+                manifest_generation_tree_sha="d" * 40,
+            )
+        validate_capacity_correction_manifest(
+            authorized,
+            base_manifest=base,
+            require_authorized=True,
+            review=review,
+        )
+        self.assertEqual(authorized["status"], "authorized_correction")
+        self.assertTrue(authorized["phase7_execution_authorized"])
+        self.assertEqual(
+            authorized["supersedes_correction_manifest_sha256"],
+            pinned["correction_manifest_sha256"],
+        )
+        self.assertEqual(
+            review["reviewed_correction_manifest_sha256"],
+            pinned["correction_manifest_sha256"],
+        )
+        self.assertNotEqual(
+            review["reviewed_correction_manifest_sha256"],
+            authorized["correction_manifest_sha256"],
+        )
+
+    def test_capacity_correction_keeps_base_design_values_byte_identical(self):
+        base = json.loads(PHASE7_MANIFEST_PATH.read_text())
+        pinned = pinned_correction_manifest()
+        for key in base["design_keys"]:
+            self.assertEqual(
+                design_key_value_bytes(pinned, key),
+                design_key_value_bytes(base, key),
+            )
+        drifted = copy.deepcopy(pinned)
+        drifted["statistics"] = dict(reversed(drifted["statistics"].items()))
+        drifted["correction_manifest_sha256"] = correction_manifest_payload_sha256(
+            drifted
+        )
+        with self.assertRaisesRegex(ValueError, "not byte-identical"):
+            validate_capacity_correction_manifest(
+                drifted,
+                base_manifest=base,
+                require_authorized=False,
+            )
+
+    def test_capacity_correction_rejects_wrong_scope_pin_and_review(self):
+        base = json.loads(PHASE7_MANIFEST_PATH.read_text())
+        pinned = pinned_correction_manifest()
+        for field, value, message in (
+            ("allowed_setting", CAPACITY_SETTING_ID, "scope binding"),
+            ("original_raw_sha256", "0" * 64, "scope binding"),
+            (
+                "correction_pinned_implementation_sha",
+                base["implementation"]["phase7_pinned_implementation_sha"],
+                "new implementation pin",
+            ),
+        ):
+            drifted = copy.deepcopy(pinned)
+            drifted[field] = value
+            drifted["correction_manifest_sha256"] = correction_manifest_payload_sha256(
+                drifted
+            )
+            with self.assertRaisesRegex(ValueError, message):
+                validate_capacity_correction_manifest(
+                    drifted,
+                    base_manifest=base,
+                    require_authorized=False,
+                )
+
+        review = correction_review(pinned)
+        bad_review = copy.deepcopy(review)
+        bad_review["capacity_runner_sha256"] = "0" * 64
+        with tempfile.TemporaryDirectory(prefix="phase7-correction-review-") as raw:
+            root = Path(raw)
+            review_path = root / CAPACITY_CORRECTION_REVIEW_PATH
+            review_path.parent.mkdir(parents=True)
+            review_path.write_text(json.dumps(bad_review, indent=2) + "\n")
+            with self.assertRaisesRegex(ValueError, "self-hash|binding"):
+                build_authorized_capacity_correction_manifest(
+                    reviewed_manifest=pinned,
+                    review=bad_review,
+                    review_path=review_path,
+                    repo_root=root,
+                    correction_manifest_revision=2,
+                    manifest_generation_sha="c" * 40,
+                    manifest_generation_tree_sha="d" * 40,
+                )
+
+    def test_runtime_routes_correction_only_through_dedicated_manifest(self):
+        with self.assertRaisesRegex(
+            Phase7ContractError,
+            "dedicated correction manifest",
+        ):
+            load_execution_context(
+                manifest_path=PHASE7_MANIFEST_PATH,
+                setting_id=CAPACITY_CORRECTION_SETTING_ID,
+                restart_index=0,
+                runner_key="capacity_pilot",
+                runner_module=CAPACITY_RUNNER,
+                runner_file=REPO_ROOT / CAPACITY_RUNNER_PATH,
+                correction_of_raw_sha256="a" * 64,
+            )
+        pinned = pinned_correction_manifest()
+        with tempfile.TemporaryDirectory(prefix="phase7-correction-runtime-") as raw:
+            path = Path(raw) / "correction.json"
+            path.write_text(json.dumps(pinned))
+            with self.assertRaisesRegex(Phase7ContractError, "original raw"):
+                load_execution_context(
+                    manifest_path=path,
+                    setting_id=CAPACITY_CORRECTION_SETTING_ID,
+                    restart_index=0,
+                    runner_key="capacity_pilot",
+                    runner_module=CAPACITY_RUNNER,
+                    runner_file=REPO_ROOT / CAPACITY_RUNNER_PATH,
+                    correction_of_raw_sha256="a" * 64,
+                )
+            with self.assertRaisesRegex(Phase7ContractError, "S0 setting/restart"):
+                load_execution_context(
+                    manifest_path=path,
+                    setting_id=CAPACITY_SETTING_ID,
+                    restart_index=0,
+                    runner_key="capacity_pilot",
+                    runner_module=CAPACITY_RUNNER,
+                    runner_file=REPO_ROOT / CAPACITY_RUNNER_PATH,
+                    correction_of_raw_sha256=pinned["original_raw_sha256"],
+                )
+            with self.assertRaisesRegex(Phase7ContractError, "requires"):
+                load_execution_context(
+                    manifest_path=path,
+                    setting_id=CAPACITY_CORRECTION_SETTING_ID,
+                    restart_index=0,
+                    runner_key="capacity_pilot",
+                    runner_module=CAPACITY_RUNNER,
+                    runner_file=REPO_ROOT / CAPACITY_RUNNER_PATH,
+                )
+
+    def test_runtime_accepts_authorized_correction_with_dedicated_review(self):
+        with tempfile.TemporaryDirectory(prefix="phase7-correction-runtime-") as raw:
+            root = Path(raw)
+            manifest = build_runtime_correction_repo(root)
+            with (
+                patch.object(phase7_common, "REPO_ROOT", root),
+                patch.object(
+                    phase7_common,
+                    "require_read_only_implementation_worktree",
+                ),
+            ):
+                context = load_execution_context(
+                    manifest_path=root / CAPACITY_CORRECTION_MANIFEST_PATH,
+                    setting_id=CAPACITY_CORRECTION_SETTING_ID,
+                    restart_index=0,
+                    runner_key="capacity_pilot",
+                    runner_module=CAPACITY_RUNNER,
+                    runner_file=root / CAPACITY_RUNNER_PATH,
+                    correction_of_raw_sha256=manifest["original_raw_sha256"],
+                )
+        self.assertTrue(context.is_correction)
+        self.assertEqual(
+            context.manifest_self_sha256,
+            manifest["correction_manifest_sha256"],
+        )
+        self.assertEqual(
+            context.runtime_staging_root,
+            "/results/phase7-capacity-correction",
+        )
+        ensure_artifact_path_layout(
+            output=Path("/results/phase7-capacity-correction/raw/correction.json"),
+            log=Path("/results/phase7-capacity-correction/logs/correction.log"),
+            central_log=Path("/results/phase7-capacity-correction/phase7-runs.jsonl"),
+            staging_root=context.runtime_staging_root,
+        )
+
+    def test_phase7_correction_envelope_allows_only_post_pin_artifacts(self):
+        manifest_path = CAPACITY_CORRECTION_MANIFEST_PATH
+        manifest = {
+            "artifact": "phase7-capacity-correction-manifest",
+            "post_pin_allowlist": [manifest_path],
+        }
+        pinned_sha = "1" * 40
+        pinned_tree = "2" * 40
+        head_sha = "3" * 40
+        head_tree = "4" * 40
+
+        def git_text(*args, status="", changed=manifest_path):
+            responses = {
+                ("status", "--porcelain", "--untracked-files=all"): status,
+                ("rev-parse", "HEAD"): head_sha,
+                ("rev-parse", "HEAD^{tree}"): head_tree,
+                ("rev-parse", f"{pinned_sha}^{{commit}}"): pinned_sha,
+                ("rev-parse", f"{pinned_sha}^{{tree}}"): pinned_tree,
+                ("diff", "--name-only", f"{pinned_sha}..{head_sha}"): changed,
+            }
+            return responses[args]
+
+        with (
+            patch.object(
+                phase7_common.subprocess,
+                "run",
+                return_value=SimpleNamespace(returncode=0),
+            ),
+            patch.object(
+                phase7_common,
+                "_verify_envelope_path",
+                return_value="a" * 64,
+            ),
+        ):
+            with (
+                patch.object(
+                    phase7_common,
+                    "_git_text",
+                    side_effect=lambda *args: git_text(
+                        *args,
+                        status=f" M {manifest_path}",
+                    ),
+                ),
+                self.assertRaisesRegex(
+                    Phase7ContractError,
+                    "worktree must be clean",
+                ),
+            ):
+                execution_envelope(
+                    manifest,
+                    pinned_sha=pinned_sha,
+                    pinned_tree=pinned_tree,
+                    execution_kind="capacity_correction",
+                )
+            with patch.object(phase7_common, "_git_text", side_effect=git_text):
+                correction = execution_envelope(
+                    manifest,
+                    pinned_sha=pinned_sha,
+                    pinned_tree=pinned_tree,
+                    execution_kind="capacity_correction",
+                )
+            with (
+                patch.object(
+                    phase7_common,
+                    "_git_text",
+                    side_effect=lambda *args: git_text(
+                        *args,
+                        changed="benchmark/approx_kv/unlisted.py",
+                    ),
+                ),
+                self.assertRaisesRegex(
+                    Phase7ContractError,
+                    "outside the envelope allowlist",
+                ),
+            ):
+                execution_envelope(
+                    manifest,
+                    pinned_sha=pinned_sha,
+                    pinned_tree=pinned_tree,
+                    execution_kind="capacity_correction",
+                )
+        self.assertTrue(correction["worktree_clean"])
+        self.assertEqual(correction["worktree_status_entries"], [])
+        self.assertEqual(
+            correction["post_pin_envelope_allowlist"],
+            [manifest_path],
+        )
+
+    def test_phase7_terminal_reason_requires_one_direct_positive_reason(self):
+        mapped = terminal_reason_observations(
+            "",
+            'sglang:approx_kv_dense_fallback_total{reason="store_miss"} 1024\n',
+        )
+        self.assertEqual(mapped["mapped"]["unsupported"], 1024)
+        self.assertEqual(mapped["mapped_from"]["unsupported"], ["store_miss"])
+        store_miss = {
+            "verification": "direct",
+            "mapped": {
+                "cross_store_reservation_failed": None,
+                "device_allocation_failed": None,
+                "unsupported": 1024.0,
+                "registration_failed": None,
+                "prefix_gap": None,
+            },
+            "unmapped_raw_reasons": {},
+        }
+        result = phase7_terminal_reason_result("dense_fallback", store_miss)
+        self.assertEqual(result["terminal_reason"], "unsupported")
+        self.assertTrue(result["terminal_reason_valid"])
+
+        missing = copy.deepcopy(store_miss)
+        missing["mapped"]["unsupported"] = None
+        self.assertFalse(
+            phase7_terminal_reason_result("dense_fallback", missing)[
+                "terminal_reason_valid"
+            ]
+        )
+        multiple = copy.deepcopy(store_miss)
+        multiple["mapped"]["prefix_gap"] = 1.0
+        self.assertFalse(
+            phase7_terminal_reason_result("dense_fallback", multiple)[
+                "terminal_reason_valid"
+            ]
+        )
+
     def test_unauthorized_phase7_capacity_stops_before_server_launch(self):
         args = SimpleNamespace(
             phase7_manifest=Path("manifest.json"),
@@ -432,6 +997,7 @@ class TestPhase6Manifest(unittest.TestCase):
             "plan": {"version": "V7"},
             "manifest_revision": 10,
             "preregistered_manifest_sha256": "a" * 64,
+            "design_payload_sha256": "f" * 64,
         }
         context = SimpleNamespace(
             manifest=manifest,
@@ -470,6 +1036,49 @@ class TestPhase6Manifest(unittest.TestCase):
             artifact["provenance"]["runner_sha256"],
             "e" * 64,
         )
+
+    def test_phase7_capacity_correction_artifact_binds_original_raw(self):
+        setting = capacity_setting(CAPACITY_CORRECTION_SETTING_ID)
+        manifest = pinned_correction_manifest()
+        context = SimpleNamespace(
+            manifest=manifest,
+            setting=setting,
+            restart_index=0,
+            source={"source_git_sha": "8" * 40, "source_tree_sha": "9" * 40},
+            envelope={},
+            manifest_file_sha256="d" * 64,
+            manifest_path=Path(CAPACITY_CORRECTION_MANIFEST_PATH),
+            runner_module=CAPACITY_RUNNER,
+            runner_path=CAPACITY_RUNNER_PATH,
+            runner_sha256="e" * 64,
+            is_correction=True,
+        )
+        args = phase7_capacity_args(context)
+        args.phase7_correction_of_raw_sha256 = manifest["original_raw_sha256"]
+        artifact = phase7_failure_artifact(
+            args=args,
+            context=context,
+            run_id="phase7-capacity-correction-test",
+            error=RuntimeError("synthetic"),
+        )
+        self.assertEqual(
+            artifact["correction"],
+            {
+                "scope": "capacity_terminal_reason",
+                "original_raw_sha256": manifest["original_raw_sha256"],
+                "setting_id": setting["setting_id"],
+                "restart_index": 0,
+            },
+        )
+        self.assertEqual(
+            artifact["design_payload_sha256"],
+            manifest["base_manifest_design_sha256"],
+        )
+        self.assertEqual(
+            artifact["correction_manifest_sha256"],
+            manifest["correction_manifest_sha256"],
+        )
+        self.assertNotIn("correction_manifest", artifact)
 
     def test_phase7_capacity_formal_repeats_are_repeat_major(self):
         setting = capacity_setting()
@@ -711,6 +1320,10 @@ class TestPhase6Manifest(unittest.TestCase):
             parameters["arm_order_by_repeat"],
             setting["arm_order_by_repeat"],
         )
+        self.assertEqual(
+            payload["outcome"]["terminal_reason_counts"]["unsupported"],
+            2,
+        )
         formal_calls = [row for row in calls if row[1] >= 0]
         self.assertEqual(
             formal_calls,
@@ -784,6 +1397,101 @@ class TestPhase6Manifest(unittest.TestCase):
             calls,
             [("exact_only", -1), ("exact_only", 0), ("exact_only", 1)] * 3,
         )
+
+    def test_historical_diagnostic_profile_keeps_hyphenated_status(self):
+        args = SimpleNamespace(
+            model="Qwen/Qwen3-0.6B",
+            model_revision="revision",
+            source_git_sha="a" * 40,
+            image_digest="sha256:" + "1" * 64,
+            log_dir=Path("/results/historical"),
+            port=30011,
+            mem_fraction_static=0.65,
+            chunked_prefill_size=1024,
+            chunk_source="provisional_worst_case",
+            rhos="1.5",
+            profiles="exact_only",
+            formal_repeats=2,
+            server_start_timeout_s=1.0,
+            kv_bytes_per_token=114688,
+            capacity_tolerance=10.0,
+        )
+        server = SimpleNamespace(command=["python3"], plugin_env={})
+        calls: list = []
+        with (
+            patch.object(
+                run_p6_4_capacity_pilot,
+                "source_provenance",
+                return_value={
+                    "source_git_sha": "a" * 40,
+                    "source_tree_sha": "b" * 40,
+                },
+            ),
+            patch.object(run_p6_4_capacity_pilot, "launch_server", return_value=server),
+            patch.object(run_p6_4_capacity_pilot, "wait_ready"),
+            patch.object(run_p6_4_capacity_pilot, "stop_server"),
+            patch.object(
+                run_p6_4_capacity_pilot,
+                "metric_snapshot",
+                return_value={"sglang:max_total_num_tokens": 40000},
+            ),
+            patch.object(run_p6_4_capacity_pilot, "metric_text", return_value=""),
+            patch.object(run_p6_4_capacity_pilot, "machine_manifest", return_value={}),
+            patch.object(
+                run_p6_4_capacity_pilot,
+                "run_round",
+                side_effect=diagnostic_recording_run_round(
+                    calls,
+                    "diagnostic-unavailable",
+                ),
+            ),
+        ):
+            payload = run_p6_4_capacity_pilot.execute(args, "p6-4-diagnostic-test")
+
+        self.assertEqual(payload["status"], "inconclusive")
+        self.assertEqual(
+            {cell["status"] for cell in payload["cells"]},
+            {"diagnostic-unavailable"},
+        )
+        self.assertNotIn("diagnostic_unavailable", str(payload["cells"]))
+
+    def test_phase7_diagnostic_profile_keeps_underscored_status(self):
+        setting = capacity_setting()
+        context = phase7_capacity_context(setting)
+        args = phase7_capacity_args(context)
+        server = SimpleNamespace(
+            command=["python3", "-m", "sglang.launch_server"],
+            plugin_env={},
+        )
+        calls: list = []
+        with (
+            patch.object(run_p6_4_capacity_pilot, "launch_server", return_value=server),
+            patch.object(run_p6_4_capacity_pilot, "wait_ready"),
+            patch.object(run_p6_4_capacity_pilot, "stop_server"),
+            patch.object(
+                run_p6_4_capacity_pilot,
+                "metric_snapshot",
+                return_value={"sglang:max_total_num_tokens": 11392},
+            ),
+            patch.object(run_p6_4_capacity_pilot, "metric_text", return_value=""),
+            patch.object(run_p6_4_capacity_pilot, "machine_manifest", return_value={}),
+            patch.object(
+                run_p6_4_capacity_pilot,
+                "run_round",
+                side_effect=diagnostic_recording_run_round(
+                    calls,
+                    "diagnostic_unavailable",
+                ),
+            ),
+        ):
+            payload = run_p6_4_capacity_pilot.execute(
+                args,
+                "p7-capacity-diagnostic-test",
+            )
+
+        self.assertEqual(payload["status"], "inconclusive")
+        self.assertEqual(payload["cells"][0]["status"], "diagnostic_unavailable")
+        self.assertNotIn("diagnostic-unavailable", str(payload["cells"]))
 
     def test_labeled_metric_delta_preserves_provenance(self):
         before = (

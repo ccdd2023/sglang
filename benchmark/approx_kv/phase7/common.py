@@ -41,6 +41,19 @@ from benchmark.approx_kv.phase6.schema import (
     payload_sha256,
     validate_phase6_artifact,
 )
+from benchmark.approx_kv.phase7.correction import (
+    CAPACITY_CORRECTION_ARTIFACT,
+    CAPACITY_RUNNER_PATH,
+    CAPACITY_TERMINAL_REASON_CORRECTION_SCOPE,
+    correction_artifact_templates,
+    validate_base_manifest,
+    validate_capacity_correction_manifest,
+    verify_capacity_correction_files,
+)
+from benchmark.approx_kv.phase7.correction_review import (
+    validate_correction_review,
+    validate_correction_review_binding,
+)
 from benchmark.approx_kv.phase7.evidence import validate_runner_test_evidence
 from benchmark.approx_kv.phase7.review import (
     validate_final_review,
@@ -164,6 +177,9 @@ class Phase7ExecutionContext:
     runner_sha256: str
     source: dict[str, str]
     envelope: dict[str, Any]
+    manifest_self_sha256: str
+    runtime_staging_root: str
+    is_correction: bool
 
 
 def manifest_self_sha256(manifest: Mapping[str, Any]) -> str:
@@ -516,7 +532,11 @@ def validate_runner_binding(
 
 def post_pin_envelope_allowlist(manifest: Mapping[str, Any]) -> tuple[str, ...]:
     """Repo-relative paths that may legally change after the code pin."""
-    raw = manifest.get("implementation", {}).get("post_pin_envelope_allowlist")
+    raw = (
+        manifest.get("post_pin_allowlist")
+        if manifest.get("artifact") == CAPACITY_CORRECTION_ARTIFACT
+        else manifest.get("implementation", {}).get("post_pin_envelope_allowlist")
+    )
     if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)) or not raw:
         raise Phase7ContractError(
             "manifest does not declare a post-pin envelope allowlist"
@@ -587,6 +607,7 @@ def execution_envelope(
     *,
     pinned_sha: str,
     pinned_tree: str,
+    execution_kind: str = "primary",
 ) -> dict[str, Any]:
     """Bind the pinned code commit to the current execution envelope.
 
@@ -595,6 +616,8 @@ def execution_envelope(
     of HEAD, the worktree must be clean and every path changed between the
     pin and HEAD must be declared in the manifest allowlist.
     """
+    if execution_kind not in {"primary", "capacity_correction"}:
+        raise Phase7ContractError(f"unsupported execution kind: {execution_kind}")
     status = _git_text("status", "--porcelain", "--untracked-files=all")
     if status:
         raise Phase7ContractError("execution worktree must be clean before execution")
@@ -630,7 +653,7 @@ def execution_envelope(
     envelope_hashes = {
         path: _verify_envelope_path(path, head_sha=head_sha) for path in allowlist
     }
-    return {
+    envelope = {
         "pinned_source_git_sha": pinned_sha,
         "pinned_source_tree_sha": pinned_tree,
         "execution_head_git_sha": head_sha,
@@ -640,7 +663,19 @@ def execution_envelope(
         "post_pin_envelope_allowlist": list(allowlist),
         "post_pin_changed_paths": sorted(changed),
         "post_pin_envelope_sha256": envelope_hashes,
+        "execution_kind": execution_kind,
     }
+    if execution_kind == "capacity_correction":
+        envelope.update(
+            {
+                "evidence_correction_scope": (
+                    CAPACITY_TERMINAL_REASON_CORRECTION_SCOPE
+                ),
+                "primary_execution_envelope": False,
+                "worktree_status_entries": [],
+            }
+        )
+    return envelope
 
 
 def require_envelope_path(
@@ -810,50 +845,209 @@ def load_execution_context(
     runner_key: str,
     runner_module: str,
     runner_file: Path,
+    correction_of_raw_sha256: str | None = None,
 ) -> Phase7ExecutionContext:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    validate_manifest_envelope(manifest, require_authorized=True)
+    artifact = manifest.get("artifact")
+    if artifact == "phase7-primary-manifest":
+        if correction_of_raw_sha256 is not None:
+            raise Phase7ContractError(
+                "capacity correction requires the dedicated correction manifest"
+            )
+        validate_manifest_envelope(manifest, require_authorized=True)
+        require_read_only_implementation_worktree()
+        setting = select_setting(
+            manifest,
+            setting_id=setting_id,
+            restart_index=restart_index,
+            runner_module=runner_module,
+        )
+        runner_path = str(runner_file.resolve().relative_to(REPO_ROOT))
+        current_runner_sha = file_sha256(runner_file)
+        implementation = manifest["implementation"]
+        pinned_sha = implementation["phase7_pinned_implementation_sha"]
+        pinned_tree = implementation["phase7_pinned_tree_sha"]
+        envelope = execution_envelope(
+            manifest,
+            pinned_sha=pinned_sha,
+            pinned_tree=pinned_tree,
+        )
+        require_envelope_path(manifest_path, manifest=manifest, field="manifest")
+        validate_final_review_binding(manifest=manifest, envelope=envelope)
+        pinned_runner_sha = hashlib.sha256(
+            _git_blob(pinned_sha, runner_path)
+        ).hexdigest()
+        validate_runner_binding(
+            manifest,
+            runner_key=runner_key,
+            runner_module=runner_module,
+            runner_path=runner_path,
+            current_runner_sha256=current_runner_sha,
+            pinned_runner_sha256=pinned_runner_sha,
+            observed_pinned_sha=envelope["pinned_source_git_sha"],
+            observed_pinned_tree=envelope["pinned_source_tree_sha"],
+        )
+        validate_runner_test_evidence_binding(
+            manifest=manifest,
+            envelope=envelope,
+            runner_key=runner_key,
+        )
+        source = {
+            "source_git_sha": pinned_sha,
+            "source_tree_sha": pinned_tree,
+            "execution_head_git_sha": envelope["execution_head_git_sha"],
+            "execution_head_tree_sha": envelope["execution_head_tree_sha"],
+            "source_binding": "pinned_code_sha_with_post_pin_result_envelope",
+        }
+        return Phase7ExecutionContext(
+            manifest_path=manifest_path,
+            manifest_file_sha256=file_sha256(manifest_path),
+            manifest=manifest,
+            setting=setting,
+            restart_index=restart_index,
+            runner_key=runner_key,
+            runner_module=runner_module,
+            runner_path=runner_path,
+            runner_sha256=current_runner_sha,
+            source=source,
+            envelope=envelope,
+            manifest_self_sha256=manifest["preregistered_manifest_sha256"],
+            runtime_staging_root=manifest["artifact_templates"]["runtime_staging_root"],
+            is_correction=False,
+        )
+
+    if artifact != CAPACITY_CORRECTION_ARTIFACT:
+        raise Phase7ContractError(
+            f"unsupported Phase 7 manifest artifact: {artifact!r}"
+        )
+    if correction_of_raw_sha256 is None:
+        raise Phase7ContractError(
+            "capacity correction manifest requires " "--phase7-correction-of-raw-sha256"
+        )
+    if runner_key != "capacity_pilot" or runner_module != CAPACITY_RUNNER:
+        raise Phase7ContractError(
+            "capacity correction manifest only authorizes CAPACITY_RUNNER"
+        )
+    if correction_of_raw_sha256 != manifest.get("original_raw_sha256"):
+        raise Phase7ContractError("capacity correction original raw SHA-256 mismatch")
+    if setting_id != manifest.get("allowed_setting") or restart_index != manifest.get(
+        "restart"
+    ):
+        raise Phase7ContractError(
+            "capacity correction only authorizes the pinned S0 setting/restart"
+        )
+    try:
+        base_path = REPO_ROOT / manifest["base_manifest_path"]
+        base_manifest = json.loads(base_path.read_text(encoding="utf-8"))
+        validate_base_manifest(base_manifest)
+        validate_manifest_envelope(base_manifest, require_authorized=True)
+        validate_capacity_correction_manifest(
+            manifest,
+            base_manifest=base_manifest,
+            require_authorized=True,
+        )
+        verify_capacity_correction_files(
+            manifest,
+            base_manifest=base_manifest,
+            manifest_path=manifest_path,
+            repo_root=REPO_ROOT,
+            verify_git=True,
+        )
+    except (
+        KeyError,
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+        subprocess.CalledProcessError,
+    ) as error:
+        raise Phase7ContractError(
+            f"capacity correction manifest is not valid: {error}"
+        ) from error
     require_read_only_implementation_worktree()
     setting = select_setting(
-        manifest,
+        base_manifest,
         setting_id=setting_id,
         restart_index=restart_index,
         runner_module=runner_module,
     )
+    correction_setting = next(
+        row for row in manifest["settings"] if row["setting_id"] == setting_id
+    )
+    if correction_setting != setting:
+        raise Phase7ContractError("capacity correction setting differs from rev12")
     runner_path = str(runner_file.resolve().relative_to(REPO_ROOT))
+    if runner_path != CAPACITY_RUNNER_PATH:
+        raise Phase7ContractError("capacity correction runner path mismatch")
     current_runner_sha = file_sha256(runner_file)
-    implementation = manifest["implementation"]
-    pinned_sha = implementation["phase7_pinned_implementation_sha"]
-    pinned_tree = implementation["phase7_pinned_tree_sha"]
+    expected_runner_sha = manifest["capacity_runner_sha256"]
+    if current_runner_sha != expected_runner_sha:
+        raise Phase7ContractError("capacity correction current runner hash mismatch")
+    pinned_sha = manifest["correction_pinned_implementation_sha"]
+    pinned_tree = manifest["correction_pinned_tree_sha"]
     envelope = execution_envelope(
         manifest,
         pinned_sha=pinned_sha,
         pinned_tree=pinned_tree,
+        execution_kind="capacity_correction",
     )
-    require_envelope_path(manifest_path, manifest=manifest, field="manifest")
-    validate_final_review_binding(manifest=manifest, envelope=envelope)
-    pinned_runner_sha = hashlib.sha256(_git_blob(pinned_sha, runner_path)).hexdigest()
-    validate_runner_binding(
-        manifest,
-        runner_key=runner_key,
-        runner_module=runner_module,
-        runner_path=runner_path,
-        current_runner_sha256=current_runner_sha,
-        pinned_runner_sha256=pinned_runner_sha,
-        observed_pinned_sha=envelope["pinned_source_git_sha"],
-        observed_pinned_tree=envelope["pinned_source_tree_sha"],
+    manifest_relative = require_envelope_path(
+        manifest_path,
+        manifest=manifest,
+        field="correction manifest",
     )
-    validate_runner_test_evidence_binding(
+    if envelope["post_pin_envelope_sha256"].get(manifest_relative) != file_sha256(
+        manifest_path
+    ):
+        raise Phase7ContractError(
+            "correction manifest execution HEAD blob hash mismatch"
+        )
+    base_blob_sha = hashlib.sha256(
+        _git_blob(pinned_sha, manifest["base_manifest_path"])
+    ).hexdigest()
+    if base_blob_sha != manifest["base_manifest_file_sha256"]:
+        raise Phase7ContractError("correction pin contains a different base manifest")
+    review_evidence = manifest["review_evidence"]
+    validate_evidence_artifact_binding(
         manifest=manifest,
         envelope=envelope,
-        runner_key=runner_key,
+        artifact_path=review_evidence["artifact_path"],
+        artifact_sha256=review_evidence["file_sha256"],
+        field="correction_review",
+    )
+    cpu_evidence = manifest["capacity_cpu_evidence"]
+    validate_evidence_artifact_binding(
+        manifest=manifest,
+        envelope=envelope,
+        artifact_path=cpu_evidence["path"],
+        artifact_sha256=cpu_evidence["file_sha256"],
+        field="capacity_correction_cpu_evidence",
+    )
+    review = json.loads(
+        (REPO_ROOT / review_evidence["artifact_path"]).read_text(encoding="utf-8")
+    )
+    try:
+        validate_correction_review(review)
+        validate_correction_review_binding(review, activating_manifest=manifest)
+    except ValueError as error:
+        raise Phase7ContractError(
+            f"capacity correction review is not bound: {error}"
+        ) from error
+    pinned_runner_sha = hashlib.sha256(_git_blob(pinned_sha, runner_path)).hexdigest()
+    if pinned_runner_sha != expected_runner_sha:
+        raise Phase7ContractError("capacity correction pinned runner hash mismatch")
+    envelope.update(
+        {
+            "correction_runner_path": runner_path,
+            "correction_runner_sha256": current_runner_sha,
+            "pinned_runner_sha256": pinned_runner_sha,
+        }
     )
     source = {
         "source_git_sha": pinned_sha,
         "source_tree_sha": pinned_tree,
         "execution_head_git_sha": envelope["execution_head_git_sha"],
         "execution_head_tree_sha": envelope["execution_head_tree_sha"],
-        "source_binding": "pinned_code_sha_with_post_pin_result_envelope",
+        "source_binding": "dedicated_capacity_correction_pin",
     }
     return Phase7ExecutionContext(
         manifest_path=manifest_path,
@@ -867,6 +1061,9 @@ def load_execution_context(
         runner_sha256=current_runner_sha,
         source=source,
         envelope=envelope,
+        manifest_self_sha256=manifest["correction_manifest_sha256"],
+        runtime_staging_root=correction_artifact_templates()["runtime_staging_root"],
+        is_correction=True,
     )
 
 
@@ -1896,9 +2093,7 @@ def validate_phase7_artifact(
     manifest: Mapping[str, Any],
 ) -> None:
     validate_phase6_artifact(payload)
-    required = (
-        "manifest_revision",
-        "preregistered_manifest_sha256",
+    common_required = (
         "manifest_file_sha256",
         "plan",
         "setting_id",
@@ -1911,17 +2106,64 @@ def validate_phase7_artifact(
         "server_log_sha256",
         "inactive_counter_assertion",
     )
-    missing = [field for field in required if field not in payload]
+    if manifest.get("artifact") == CAPACITY_CORRECTION_ARTIFACT:
+        manifest_required = (
+            "base_manifest_revision",
+            "base_manifest_self_sha256",
+            "base_manifest_design_sha256",
+            "correction_manifest_revision",
+            "correction_manifest_sha256",
+            "correction_manifest_file_sha256",
+            "correction",
+        )
+    else:
+        manifest_required = (
+            "manifest_revision",
+            "preregistered_manifest_sha256",
+            "manifest_file_sha256",
+        )
+    missing = [
+        field
+        for field in (*common_required, *manifest_required)
+        if field not in payload
+    ]
     if missing:
         raise Phase7ContractError(f"missing Phase 7 artifact fields: {missing}")
-    if payload["preregistered_manifest_sha256"] is None:
-        raise Phase7ContractError("artifact does not bind the manifest")
-    if payload["preregistered_manifest_sha256"] != manifest.get(
-        "preregistered_manifest_sha256"
-    ):
-        raise Phase7ContractError("artifact binds a different manifest")
-    if payload["manifest_revision"] != manifest.get("manifest_revision"):
-        raise Phase7ContractError("artifact manifest revision mismatch")
+    if manifest.get("artifact") == CAPACITY_CORRECTION_ARTIFACT:
+        expected = {
+            "base_manifest_revision": manifest["base_manifest_revision"],
+            "base_manifest_self_sha256": manifest["base_manifest_self_sha256"],
+            "base_manifest_design_sha256": manifest["base_manifest_design_sha256"],
+            "correction_manifest_revision": manifest["correction_manifest_revision"],
+            "correction_manifest_sha256": manifest["correction_manifest_sha256"],
+            "correction_manifest_file_sha256": payload["manifest_file_sha256"],
+        }
+        drifted = {
+            field: (payload.get(field), value)
+            for field, value in expected.items()
+            if payload.get(field) != value
+        }
+        if drifted:
+            raise Phase7ContractError(
+                f"correction artifact manifest binding mismatch: {drifted}"
+            )
+        expected_correction = {
+            "scope": manifest["scope"],
+            "original_raw_sha256": manifest["original_raw_sha256"],
+            "setting_id": manifest["allowed_setting"],
+            "restart_index": manifest["restart"],
+        }
+        if payload.get("correction") != expected_correction:
+            raise Phase7ContractError("correction artifact raw binding mismatch")
+    else:
+        if payload["preregistered_manifest_sha256"] is None:
+            raise Phase7ContractError("artifact does not bind the manifest")
+        if payload["preregistered_manifest_sha256"] != manifest.get(
+            "preregistered_manifest_sha256"
+        ):
+            raise Phase7ContractError("artifact binds a different manifest")
+        if payload["manifest_revision"] != manifest.get("manifest_revision"):
+            raise Phase7ContractError("artifact manifest revision mismatch")
     stored_raw_sha = payload.get("raw_sha256")
     canonical = dict(payload)
     canonical.pop("raw_sha256", None)
@@ -1949,10 +2191,13 @@ def ensure_artifact_path_layout(
     staging_root: str | Path,
 ) -> None:
     root = Path(staging_root).resolve()
-    frozen_root = Path("/results/phase7")
-    if root != frozen_root:
+    frozen_roots = {
+        Path("/results/phase7"),
+        Path(correction_artifact_templates()["runtime_staging_root"]),
+    }
+    if root not in frozen_roots:
         raise ValueError(
-            f"runtime staging root must resolve to {frozen_root}, got {root}"
+            "runtime staging root must resolve to a frozen Phase7 root, " f"got {root}"
         )
     resolved = (output.resolve(), log.resolve(), central_log.resolve())
     labels = ("output", "server log", "central log")
@@ -1967,4 +2212,16 @@ def ensure_artifact_path_layout(
         )
     if len(set(resolved)) != len(resolved):
         raise ValueError("output, server log, and central log must be distinct")
+    correction_root = Path(
+        correction_artifact_templates()["runtime_staging_root"]
+    ).resolve()
+    if root == correction_root and (
+        resolved[0].parent != root / "raw"
+        or resolved[1].parent != root / "logs"
+        or resolved[2] != root / "phase7-runs.jsonl"
+    ):
+        raise ValueError(
+            "capacity correction artifacts must use the dedicated raw/logs/"
+            "phase7-runs.jsonl layout"
+        )
     ensure_new_artifact_paths(output, log)

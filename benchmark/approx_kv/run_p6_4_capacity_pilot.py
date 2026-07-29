@@ -42,6 +42,7 @@ from benchmark.approx_kv.phase6.schema import (
 )
 from benchmark.approx_kv.phase7.common import (
     CAPACITY_RUNNER,
+    CAPACITY_TERMINAL_REASON_CORRECTION_SCOPE,
     Phase7ContractError,
     build_inactive_counter_assertion,
     capacity_error_tolerance,
@@ -51,6 +52,7 @@ from benchmark.approx_kv.phase7.common import (
     inactive_counter_observations,
     load_execution_context,
     pending_result_provenance,
+    terminal_reason_observations,
     validate_phase7_artifact,
 )
 
@@ -60,6 +62,7 @@ _SAMPLE_RE = re.compile(
     r"(?P<value>[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)"
 )
 _LABEL_RE = re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*)="((?:\\.|[^"])*)"')
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 PROFILE_KINDS = {
     name: tuple(profile["representation_kinds"])
@@ -110,17 +113,112 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--phase7-manifest", type=Path)
     parser.add_argument("--phase7-setting-id")
     parser.add_argument("--phase7-restart-index", type=int)
+    parser.add_argument("--phase7-correction-of-raw-sha256")
     return parser.parse_args()
 
 
 def phase7_mode_requested(args: argparse.Namespace) -> bool:
     present = [getattr(args, field, None) is not None for field in PHASE7_MODE_FIELDS]
+    correction_sha = getattr(args, "phase7_correction_of_raw_sha256", None)
     if any(present) and not all(present):
         raise Phase7ContractError(
             "--phase7-manifest, --phase7-setting-id, and "
             "--phase7-restart-index must be provided together"
         )
-    return all(present)
+    phase7_mode = all(present)
+    if correction_sha is not None:
+        if not phase7_mode:
+            raise Phase7ContractError(
+                "--phase7-correction-of-raw-sha256 is only valid in Phase7 mode"
+            )
+        if (
+            not isinstance(correction_sha, str)
+            or _SHA256_RE.fullmatch(correction_sha) is None
+        ):
+            raise Phase7ContractError(
+                "--phase7-correction-of-raw-sha256 must be a lowercase SHA-256"
+            )
+    return phase7_mode
+
+
+def phase7_correction_binding(
+    args: argparse.Namespace,
+    *,
+    setting_id: str,
+    restart_index: int,
+) -> dict[str, Any] | None:
+    original_raw_sha256 = getattr(args, "phase7_correction_of_raw_sha256", None)
+    if original_raw_sha256 is None:
+        return None
+    return {
+        "scope": CAPACITY_TERMINAL_REASON_CORRECTION_SCOPE,
+        "original_raw_sha256": original_raw_sha256,
+        "setting_id": setting_id,
+        "restart_index": restart_index,
+    }
+
+
+def phase7_manifest_binding(context) -> dict[str, Any]:
+    manifest = context.manifest
+    if getattr(context, "is_correction", False):
+        return {
+            "base_manifest_revision": manifest["base_manifest_revision"],
+            "base_manifest_self_sha256": manifest["base_manifest_self_sha256"],
+            "base_manifest_design_sha256": manifest["base_manifest_design_sha256"],
+            "correction_manifest_revision": manifest["correction_manifest_revision"],
+            "correction_manifest_sha256": manifest["correction_manifest_sha256"],
+            "correction_manifest_file_sha256": context.manifest_file_sha256,
+            "manifest_file_sha256": context.manifest_file_sha256,
+            "design_payload_sha256": manifest["base_manifest_design_sha256"],
+        }
+    return {
+        "manifest_revision": manifest["manifest_revision"],
+        "preregistered_manifest_sha256": manifest["preregistered_manifest_sha256"],
+        "manifest_file_sha256": context.manifest_file_sha256,
+    }
+
+
+def phase7_implementation_binding(context) -> dict[str, Any]:
+    manifest = context.manifest
+    if getattr(context, "is_correction", False):
+        return {
+            "correction_pinned_implementation_sha": manifest[
+                "correction_pinned_implementation_sha"
+            ],
+            "correction_pinned_tree_sha": manifest["correction_pinned_tree_sha"],
+            "capacity_runner_sha256": manifest["capacity_runner_sha256"],
+            "post_pin_allowlist": list(manifest["post_pin_allowlist"]),
+        }
+    return dict(manifest["implementation"])
+
+
+def phase7_terminal_reason_result(
+    outcome: str,
+    observations: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if outcome != "dense_fallback":
+        return {
+            "terminal_reason": None,
+            "terminal_reason_verification": "not_applicable",
+            "terminal_reason_valid": True,
+        }
+    mapped = observations.get("mapped", {}) if observations is not None else {}
+    positives = {
+        reason: float(value)
+        for reason, value in mapped.items()
+        if value is not None and float(value) > 0
+    }
+    direct = (
+        observations is not None
+        and observations.get("verification") == "direct"
+        and not observations.get("unmapped_raw_reasons")
+    )
+    valid = direct and len(positives) == 1
+    return {
+        "terminal_reason": next(iter(positives), None) if valid else None,
+        "terminal_reason_verification": "direct" if valid else "unknown",
+        "terminal_reason_valid": valid,
+    }
 
 
 def configure_phase7_args(
@@ -362,6 +460,7 @@ def run_round(
     representation_kinds: tuple[str, ...],
     round_index: int,
 ) -> dict[str, Any]:
+    phase7_mode = hasattr(args, "phase7_context")
     flush_cache(args.port)
     before_metrics = metric_snapshot(args.port)
     before_text = metric_text(args.port)
@@ -492,6 +591,14 @@ def run_round(
             )
             after_replay_text = metric_text(args.port)
             after_replay_metrics = metric_snapshot(args.port)
+            terminal_observations = (
+                terminal_reason_observations(
+                    before_replay_text,
+                    after_replay_text,
+                )
+                if phase7_mode and representation_kinds
+                else None
+            )
             expected_cached = 64 + int(item["logical_tokens"])
             if representation_kinds:
                 request_outcomes = {
@@ -534,26 +641,33 @@ def run_round(
                 outcome in {"dense_fallback", "exact_cache_miss", "unknown"}
                 or recovered["cached_tokens"] >= expected_cached
             )
-            replay_rows.append(
-                {
-                    "object_id": item["object_id"],
-                    "cached_tokens": recovered["cached_tokens"],
-                    "expected_cached_tokens": expected_cached,
-                    "outcome": outcome,
-                    "request_outcomes": request_outcomes,
-                    "telemetry_consistent": telemetry_consistent,
-                    "seed_head_ms": (None if seed is None else seed["elapsed_ms"]),
-                    "reservation_failures": (
-                        counter_delta(
-                            before_replay_metrics,
-                            after_replay_metrics,
-                            "sglang:cross_store_reservation_failures_total",
-                        )
-                        or 0
-                    ),
-                    "elapsed_ms": recovered["elapsed_ms"],
-                }
-            )
+            replay_row = {
+                "object_id": item["object_id"],
+                "cached_tokens": recovered["cached_tokens"],
+                "expected_cached_tokens": expected_cached,
+                "outcome": outcome,
+                "request_outcomes": request_outcomes,
+                "telemetry_consistent": telemetry_consistent,
+                "seed_head_ms": (None if seed is None else seed["elapsed_ms"]),
+                "reservation_failures": (
+                    counter_delta(
+                        before_replay_metrics,
+                        after_replay_metrics,
+                        "sglang:cross_store_reservation_failures_total",
+                    )
+                    or 0
+                ),
+                "elapsed_ms": recovered["elapsed_ms"],
+            }
+            if terminal_observations is not None:
+                replay_row.update(
+                    phase7_terminal_reason_result(
+                        outcome,
+                        terminal_observations,
+                    )
+                )
+                replay_row["terminal_reason_observations"] = terminal_observations
+            replay_rows.append(replay_row)
     except requests.HTTPError as exc:
         response_text = exc.response.text if exc.response is not None else str(exc)
         if "failed to register approximate KV source segments" in response_text:
@@ -630,6 +744,7 @@ def run_round(
         and metrics["orphan_count"] in (0, 0.0)
         and all(row["telemetry_consistent"] for row in replay_rows)
         and all(row["outcome"] != "unknown" for row in replay_rows)
+        and all(row.get("terminal_reason_valid", True) for row in replay_rows)
     )
     outcomes = {
         outcome: sum(row["outcome"] == outcome for row in replay_rows)
@@ -649,11 +764,14 @@ def run_round(
         )
         and request_error is None
     )
+    diagnostic_unavailable = (
+        "diagnostic_unavailable" if phase7_mode else "diagnostic-unavailable"
+    )
     reachability = (
         "invalid"
         if not valid
         else (
-            "diagnostic-unavailable"
+            diagnostic_unavailable
             if expected_capacity_error is not None
             else "reachable"
         )
@@ -745,9 +863,9 @@ def profile_summary(
             "invalid"
             if any(row["reachability"] == "invalid" for row in formal)
             else (
-                "diagnostic-unavailable"
+                "diagnostic_unavailable"
                 if any(
-                    row["reachability"] == "diagnostic-unavailable" for row in formal
+                    row["reachability"] == "diagnostic_unavailable" for row in formal
                 )
                 else "reachable"
             )
@@ -849,6 +967,11 @@ def launch_cells(rhos: tuple[float, ...]) -> list[tuple[str, float]]:
 
 def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
     phase7_context = getattr(args, "phase7_context", None)
+    diagnostic_token = (
+        "diagnostic_unavailable"
+        if phase7_context is not None
+        else "diagnostic-unavailable"
+    )
     rhos = (
         (args.phase7_rho,)
         if phase7_context is not None
@@ -986,10 +1109,9 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
             ):
                 cell_status = "invalid"
             elif any(
-                row["reachability"] == "diagnostic-unavailable"
-                for row in profile_results
+                row["reachability"] == diagnostic_token for row in profile_results
             ):
-                cell_status = "diagnostic-unavailable"
+                cell_status = diagnostic_token
             elif (
                 exact_evicted <= 0
                 or approx_evicted <= 0
@@ -997,7 +1119,7 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                 or approx_to_exact <= 0
                 or approx_recoveries <= 0
             ):
-                cell_status = "diagnostic-unavailable"
+                cell_status = diagnostic_token
             else:
                 cell_status = "valid"
             cell_results.append(
@@ -1085,7 +1207,7 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                         else {}
                     ),
                     "evidence": {},
-                    "status": "diagnostic-unavailable",
+                    "status": diagnostic_token,
                     "unreachable_reason": f"{type(exc).__name__}: {exc}",
                     "server_log": str(log_path),
                 }
@@ -1129,6 +1251,8 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
     statuses = {cell["status"] for cell in cell_results}
     if "invalid" in statuses:
         overall_status = "invalid"
+    elif diagnostic_token in statuses:
+        overall_status = "inconclusive"
     elif (
         statuses == {"valid"}
         and exact_evicted > 0
@@ -1296,16 +1420,25 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                 target_outcome = outcome_mapping.get(source_outcome)
                 if target_outcome is not None:
                     outcome_counts[target_outcome] += int(count)
+        terminal_reason_counts = {
+            reason: sum(
+                replay.get("terminal_reason") == reason
+                for row in all_formal
+                for replay in row.get("replay", [])
+            )
+            for reason in manifest_payload["exclusive_terminal_reasons"]
+        }
+        correction = phase7_correction_binding(
+            args,
+            setting_id=setting["setting_id"],
+            restart_index=phase7_context.restart_index,
+        )
         payload.update(
             {
                 "phase": "Phase7-capacity",
                 "phase7_mode": True,
                 "execution_envelope": phase7_context.envelope,
-                "manifest_revision": manifest_payload["manifest_revision"],
-                "preregistered_manifest_sha256": manifest_payload[
-                    "preregistered_manifest_sha256"
-                ],
-                "manifest_file_sha256": phase7_context.manifest_file_sha256,
+                **phase7_manifest_binding(phase7_context),
                 "plan": manifest_payload["plan"],
                 "setting_id": setting["setting_id"],
                 "setting": setting,
@@ -1323,7 +1456,7 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                     "exclusive_terminal_reasons": manifest_payload[
                         "exclusive_terminal_reasons"
                     ],
-                    "terminal_reason_counts": {},
+                    "terminal_reason_counts": terminal_reason_counts,
                 },
                 "reset": {
                     str(cell_index): {
@@ -1342,7 +1475,7 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                 "provenance": {
                     "manifest_path": str(phase7_context.manifest_path.resolve()),
                     "manifest_file_sha256": phase7_context.manifest_file_sha256,
-                    "implementation": manifest_payload["implementation"],
+                    "implementation": phase7_implementation_binding(phase7_context),
                     "runner_sha256": phase7_context.runner_sha256,
                     "source": phase7_context.source,
                 },
@@ -1363,6 +1496,8 @@ def execute(args: argparse.Namespace, run_id: str) -> dict[str, Any]:
                 },
             }
         )
+        if correction is not None:
+            payload["correction"] = correction
         if not inactive_assertion["passed"]:
             payload["status"] = "invalid"
     payload["raw_sha256"] = payload_sha256(payload)
@@ -1433,9 +1568,7 @@ def phase7_failure_artifact(
             "logical_values": [float(setting["rho_logical_demand"])],
         },
         "status": "invalid",
-        "manifest_revision": manifest["manifest_revision"],
-        "preregistered_manifest_sha256": manifest["preregistered_manifest_sha256"],
-        "manifest_file_sha256": context.manifest_file_sha256,
+        **phase7_manifest_binding(context),
         "plan": manifest["plan"],
         "setting_id": setting["setting_id"],
         "setting": setting,
@@ -1458,7 +1591,7 @@ def phase7_failure_artifact(
         "provenance": {
             "manifest_path": str(context.manifest_path.resolve()),
             "manifest_file_sha256": context.manifest_file_sha256,
-            "implementation": manifest["implementation"],
+            "implementation": phase7_implementation_binding(context),
             "runner_sha256": context.runner_sha256,
             "source": context.source,
         },
@@ -1480,6 +1613,13 @@ def phase7_failure_artifact(
         "execution_status": execution_status(error),
         "error": f"{type(error).__name__}: {error}",
     }
+    correction = phase7_correction_binding(
+        args,
+        setting_id=setting["setting_id"],
+        restart_index=context.restart_index,
+    )
+    if correction is not None:
+        payload["correction"] = correction
     finalize_artifact_hash(payload)
     validate_phase7_artifact(payload, manifest=manifest)
     return payload
@@ -1489,6 +1629,7 @@ def main() -> int:
     args = parse_args()
     phase7_mode = phase7_mode_requested(args)
     context = None
+    correction = None
     if phase7_mode:
         context = load_execution_context(
             manifest_path=args.phase7_manifest,
@@ -1497,16 +1638,31 @@ def main() -> int:
             runner_key=RUNNER_KEY,
             runner_module=CAPACITY_RUNNER,
             runner_file=Path(__file__),
+            correction_of_raw_sha256=getattr(
+                args,
+                "phase7_correction_of_raw_sha256",
+                None,
+            ),
         )
         configure_phase7_args(args, context)
+        correction = phase7_correction_binding(
+            args,
+            setting_id=context.setting["setting_id"],
+            restart_index=context.restart_index,
+        )
         ensure_artifact_path_layout(
             output=args.output,
             log=args.log,
             central_log=args.central_log,
-            staging_root=context.manifest["artifact_templates"]["runtime_staging_root"],
+            staging_root=getattr(
+                context,
+                "runtime_staging_root",
+                context.manifest["artifact_templates"]["runtime_staging_root"],
+            ),
         )
+        run_kind = "capacity-correction" if correction is not None else "capacity"
         run_id = (
-            f"p7-capacity-{args.phase7_setting_id}-"
+            f"p7-{run_kind}-{args.phase7_setting_id}-"
             f"r{args.phase7_restart_index}-"
             f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}"
         )
@@ -1529,8 +1685,13 @@ def main() -> int:
                     "setting_id": context.setting["setting_id"],
                     "restart_index": context.restart_index,
                     "manifest_sha256": context.manifest[
-                        "preregistered_manifest_sha256"
+                        (
+                            "correction_manifest_sha256"
+                            if getattr(context, "is_correction", False)
+                            else "preregistered_manifest_sha256"
+                        )
                     ],
+                    **({"correction": correction} if correction is not None else {}),
                 }
                 if context is not None
                 else {}
@@ -1563,6 +1724,9 @@ def main() -> int:
                     {
                         "setting_id": context.setting["setting_id"],
                         "restart_index": context.restart_index,
+                        **(
+                            {"correction": correction} if correction is not None else {}
+                        ),
                     }
                     if context is not None
                     else {}
@@ -1610,6 +1774,17 @@ def main() -> int:
                 "error": failure["error"],
                 "raw_sha256": failure["raw_sha256"],
                 "output": str(args.output.resolve()),
+                **(
+                    {
+                        "setting_id": context.setting["setting_id"],
+                        "restart_index": context.restart_index,
+                        **(
+                            {"correction": correction} if correction is not None else {}
+                        ),
+                    }
+                    if context is not None
+                    else {}
+                ),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )
