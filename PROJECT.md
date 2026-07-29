@@ -2,14 +2,14 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-29T01:35:14-07:00
+最后更新：2026-07-29T05:46:31-07:00
 
 ## 项目概况
 
 | 项目 | 当前值 |
 | --- | --- |
 | 名称 | `code-agent-kvcache` |
-| 阶段 | Phase4–7详尽报告与总报告已完成审阅；下一步审查合作者coding-aware v40 prefetch分支 |
+| 阶段 | V40分支技术审查报告已完成；分支`NOT APPROVED AS-IS`，任何修复/实验待用户授权 |
 | 业务目标 | 在 SGLang 上比较多种跨 context 近似 KV 恢复与 workflow-aware cache scheduling，降低 Coding Agent TTFT |
 | 技术栈 | SGLang、HiCache、Docker、KVFlow、KVCOMM、CacheBlend、Cache-Craft、EPIC、CacheTune |
 | 默认分支 | `main` |
@@ -3107,3 +3107,162 @@ vs S4 + HiCache demand load
 
 该分支审查不得改写已冻结的Phase4–7历史artifact，也不得把新方法追写成
 旧阶段已完成能力。
+
+## 2026-07-29T02:18:08-07:00 V40分支审查发现阻断性失效漏洞
+
+审查对象：
+
+- branch=`review/coding-aware-v40-prefetch-20260729`
+- pin=`13671eb708da689137a654946b0d34ba924efb29`
+- merge-base=`3343a79466aa714d34a14d08d3929f7953a47212`
+
+初步机制结论：
+
+- V40选择一个来自真实前序agent请求的successful read-only tool observation；
+- 要求token-identical、target中唯一、strict middle、未被后续同路径write失效；
+- 执行时copy V，对K做source→target RoPE delta，岛外dense；
+- 恢复primitive最接近R0 Raw+RoPE；不是prefetch、KVCOMM reconstruction或
+  CacheBlend selective repair。
+
+阻断性finding：
+
+- V40的失效路径依赖命令文本正则；
+- Docker对抗测试证明以下later same-path write均未被识别，candidate仍为
+  `eligible=1`、`invalidated=0`：
+  - `cat > pkg/a.py`
+  - `echo x > pkg/a.py`
+  - `perl -pi ... pkg/a.py`
+  - `dd ... of=pkg/a.py`
+  - `truncate -s 0 pkg/a.py`
+  - `git mv pkg/a.py pkg/b.py`
+  - `rsync ... pkg/a.py`
+- mixed group `cat pkg/a.py; echo x > pkg/a.py`、`sed ...; perl -pi ...`、
+  `head ...; truncate ...`甚至被
+  `is_successful_readonly_evidence=True`直接接受。
+- server端只验证token/model/generation，不理解repository path，因此没有
+  第二道file-version防线。
+
+该问题违反分支review request自己的硬不变量：
+
+- mutating interaction不得成为reusable observation；
+- later write必须使同路径read失效。
+
+当前处置：
+
+```text
+branch_approval = NOT APPROVED AS-IS
+integration = BLOCKED
+```
+
+推荐根修不是继续扩充deny-list正则，而是由tool wrapper提供结构化
+`read_paths/write_paths`、repo/worktree generation和path content hash；
+未知effect必须fail closed，并增加对抗/property tests。
+
+其它已确认缺口：
+
+- `coding_aware/policy.py::build_coding_reuse_plan`没有生产调用者；
+- `SGLANG_CODING_AWARE_LOSSY`当前不是实际runtime gate；
+- lease TTL需要显式调用无人接线的GC，异常漏`unpin`可能永久阻止驱逐；
+-详细raw/result与integration-v2证据只在作者绝对路径或不可获得commit中，
+  当前无法独立复现；
+- 分支与当前cross-store底座严重分叉，不能直接merge旧store/manager/scheduler。
+
+Docker只读验证：
+
+- policy/selector/KV core/radix：`66 passed`；
+- bridge adapter：`8 passed`，但依赖需临时安装且resolver报告冲突；
+- branch scope：`OK`，scope tests=`3 passed`；
+- self-contained campaign/schema tests：`12 passed`；
+- V40A2/V40A3两个test因硬编码、缺失的`/home/gfy/...` artifact失败。
+
+完整技术报告、实验可行性和集成计划正在撰写。
+
+## 2026-07-29T05:46:31-07:00 V40完整技术报告封版
+
+正式报告：
+
+`research/CODING_AWARE_V40_BRANCH_TECHNICAL_REPORT.md`
+
+报告共2266行，完整回答：
+
+1. V40如何做有损KV恢复；
+2. 与R0、Prompt Cache/PIC、EPIC、CacheBlend、KVCOMM、KVFlow的关系；
+3. selector、tensor、correctness、quality、latency、pressure、scheduler、
+   prefetch与provenance测试可行性；
+4. 如何以`C40 = G40 selector × R0 executor`纳入未来版本化实验设计。
+
+最终方法定位：
+
+> V40的恢复primitive是R0 Raw+RoPE：从真实近期agent请求选择一个
+> token-identical的read-only tool observation岛，copy V、对K做RoPE
+> relocation，岛外dense。其主要新增点是grounded selection/invalidation
+> policy，不是新的恢复公式，也不是prefetch、KVCOMM reconstruction或
+> CacheBlend selective repair。
+
+分支判定：
+
+```text
+branch_approval = NOT APPROVED AS-IS
+integration = BLOCKED
+```
+
+两个阻断类别均已在固定Docker image中复现：
+
+- 常见same-path write漏检；
+- 同一group的mixed read/write被当成readonly evidence。
+
+影响边界：
+
+- 这不是old-KV配new-token或data corruption；target仍包含同一历史文本，
+  token identity与机械校验可通过；
+- 真正违反的是freshness/abstention policy：本应放弃的语义过时historical
+  observation被送入lossy reuse路径。
+
+其它重要发现：
+
+- active链路是selector→bridge→sidecar→`kvcomm_exact`→transfer backend；
+- `coding_aware/policy.py`是未接线seam；
+- `SGLANG_CODING_AWARE_LOSSY`不是实际runtime gate；
+- lease TTL没有生产GC调用；
+-历史end-to-end raw、integration-v2 refs与113-test证据当前不可复现；
+- 当前cross-store只支持从exact boundary连续恢复；C40严格middle island需要
+  新的`DENSE_PREFIX→COPY_READY→DENSE_SUFFIX`controller；
+- rolling request必须同时维护consume/produce双角色、approx provenance和
+  request-lifetime状态；不得在每轮`init_next_round_input`清空。
+
+Docker验证：
+
+- policy/selector/KV core/radix=`66 passed`；
+- bridge adapter=`8 passed`；
+- branch scope=`OK`，scope tests=`3 passed`；
+- self-contained campaign/schema=`12 passed`；
+- three-method/RepoBench summarizer=`8 passed`；
+- `kvcomm_exact` runtime=`23 passed`；
+- V40A2/V40A3=`2 failed`，原因是缺失硬编码external artifact。
+
+报告review：
+
+- GPT-5.6 Sol Max首轮发现`0 P0 / 8 P1 / 5 P2`；
+- closure review继续发现middle-span lifecycle、完整workload estimand、
+  task repeat聚合与依赖baseline问题；
+- 全部修复后最终为
+  `PASS WITH CAVEATS / READY WITH CAVEATS`，open report
+  P0/P1/P2=`0/0/0`。
+
+建议集成方式：
+
+- 不merge整个82-commit/52k-line research branch；
+- 不带入旧`kvcomm store/manager/scheduler`；
+- 在当前`approx_kv/cross_store`底座重实现结构化selector/provenance；
+- 复用现有copy/RoPE与cross-store核心语义，新增middle-span request seam；
+- 新candidate ID=`C40 = G40 × R0`；scheduler与prefetch分别为正交轴；
+- 不改写Phase4–7，创建新的versioned plan/manifest。
+
+建议执行Tracks：
+
+- Track A：zero-GPU code/provenance/middle-span修复；
+- Track B：小规模Docker GPU pilot，建议hard cap估计`≤8 starts / ≤2 GPUh`；
+- Track C：只有pilot后另行授权才进入confirmatory/workflow/quality；
+- Track D：获取并版本化external raw与prefetch/integration refs。
+
+**所有Track均为建议，当前`PENDING USER AUTHORIZATION`。**

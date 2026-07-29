@@ -1,7 +1,7 @@
 CODE-AGENT KVCACHE LOCAL TODO LIST
 ==================================
 
-Last updated: 2026-07-29T01:35:14-07:00
+Last updated: 2026-07-29T05:46:31-07:00
 Authority: PROJECT.md and IMPLEMENTATION_PLAN_LATEST.md
 Current boundary: do not enter Phase 7 without reporting to the user.
 
@@ -366,14 +366,25 @@ The caveat is permanent:
       PASS_WITH_CAVEATS / READY_WITH_CAVEATS
       open P0/P1/P2 = 0/0/0
 
-[ ] Fetch and inspect:
+[x] Fetch and inspect:
       review/coding-aware-v40-prefetch-20260729
-[ ] Diff the branch against its merge base and inventory recovery, prefetch,
+[x] Diff the branch against its merge base and inventory recovery, prefetch,
     scheduling, telemetry, tests and artifacts.
-[ ] Determine the exact lossy-KV recovery mechanism and its closest prior-art
+[x] Determine the exact lossy-KV recovery mechanism and its closest prior-art
     lineage or composition.
-[ ] Produce a Docker-only feasibility and experiment matrix.
-[ ] Define how to integrate the method into future experiments without
+[x] Produce a Docker-only feasibility and experiment matrix.
+[x] Define how to integrate the method into future experiments without
     rewriting frozen Phase4-7 evidence.
-[ ] Independently review, finalize, commit and push the collaborator-branch
-    technical report.
+[x] Independently review and finalize the collaborator-branch technical report.
+[ ] Commit and push the collaborator-branch technical report and authority
+    updates.
+
+Current blocker:
+    V40-P0-1: common writes and mixed read/write commands bypass repository
+    path invalidation. Branch is NOT APPROVED AS-IS until structured
+    read/write provenance replaces or independently verifies command regexes.
+
+Next execution boundary:
+    No Track or Gate is authorized. Recommended Track A is zero-GPU code,
+    provenance and middle-span lifecycle repair, but requires explicit user
+    authorization before implementation.

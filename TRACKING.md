@@ -3236,3 +3236,53 @@ technical_exit = PASS WITH CAVEATS
   `review/coding-aware-v40-prefetch-20260729`，形成有损恢复方法、
   prior-art映射、实验可行性与集成计划的完整技术报告。
 - 新分支研究不得改写Phase4–7冻结证据；应作为新的版本化研究输入。
+
+## 2026-07-29T02:18:08-07:00 — V40审查发现path invalidation阻断
+
+- 分支固定在`13671eb708da`，与当前cross-store共同祖先为`3343a79466aa`。
+- 方法定义：真实历史tool observation单岛复用；V不变、K按RoPE delta旋转、
+  岛外dense；最接近R0 Raw+RoPE，不是prefetch或KVCOMM。
+- Docker focused验证：
+  - policy/selector/KV core/radix=`66 passed`；
+  - bridge adapter=`8 passed`，但依赖安装存在resolver冲突；
+  - branch scope=`OK`，scope tests=`3 passed`；
+  - self-contained campaign/schema tests=`12 passed`；
+  - V40A2/V40A3因缺失硬编码`/home/gfy/...` artifact失败。
+- Docker对抗测试证明`cat/echo >`、`perl -pi`、`dd of=`、`truncate`、
+  `git mv`、`rsync`等same-path write不会使read candidate失效。
+- mixed read/write group也可被`is_successful_readonly_evidence`接受。
+- 代码复核确认没有第二道防线：bridge只做token位置/唯一性，server只做
+  token/model/generation校验。
+- 该finding违反分支自述required invariant，当前判定
+  `NOT APPROVED AS-IS / integration BLOCKED`。
+- 推荐改为结构化read/write path与repo/worktree generation/content hash，
+  未知effect fail closed；不得继续依赖不可穷举的mutation deny-list。
+- 另发现dead feature flag、未接线policy seam、lease TTL GC无人调用、
+  external-only evidence与旧底座直接merge风险。
+- 完整技术报告与实验/集成计划正在撰写。
+
+## 2026-07-29T05:46:31-07:00 — V40完整技术报告通过最终审阅
+
+- 新增`research/CODING_AWARE_V40_BRANCH_TECHNICAL_REPORT.md`，2266行。
+- 报告完整回答方法、prior-art组合、实验可行性与集成plan。
+- 方法定位冻结为`C40 = G40 grounded selector × R0 Raw+RoPE executor`。
+- 分支判定仍为`NOT APPROVED AS-IS / integration BLOCKED`。
+- P0影响严格限定为freshness/abstention policy违反，不是token mismatch或
+  data corruption。
+- 新增current substrate middle-span缺口分析与
+  `DENSE_PREFIX→COPY_READY→DENSE_SUFFIX`状态机。
+- 明确rolling请求同时是consume/produce角色，request-lifetime状态跨chunk
+  保留；copied slot在suffix forward前进入`req_to_token`。
+- 合法性能estimand改为Dense-full/C40-full完整有状态trace的ratio-of-sums；
+  禁止eligible-only与另一Dense trace事后拼接。
+- task accuracy冻结为3个paired seed的`majority_resolved`，McNemar按聚合后
+  task pair计算，secondary采用task-clustered分析。
+- 依赖验收改为相对固定image既有5项`pip check` baseline无新增冲突；
+  clean base才要求零输出。
+- 报告review首轮为`FAIL / NOT READY`，findings=`0 P0 / 8 P1 / 5 P2`。
+- 多轮closure补齐remote provenance、external证据等级、middle-span双角色
+  lifecycle、统计、预算授权与Docker-only复现命令。
+- 最终review=`PASS WITH CAVEATS / READY WITH CAVEATS`，
+  open report P0/P1/P2=`0/0/0`。
+- 这只表示报告可发布，不表示V40分支已批准。
+- Track A/B/C/D均为建议；当前没有任何Gate获得用户授权。

@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-29T01:35:14-07:00
+最后更新：2026-07-29T05:46:31-07:00
 
 ## 新会话启动顺序
 
@@ -13,7 +13,7 @@
 
 ## 当前快照
 
-### 2026-07-29T01:35:14-07:00 Phase4–7报告集完成 / 合作者分支审查待开始
+### 2026-07-29T05:46:31-07:00 V40技术报告完成 / 分支仍未获批准
 
 - Phase7 final status仍为VALID / NEGATIVE / INCONCLUSIVE-DESCRIPTIVE。
 - publication=`READY WITH CAVEATS`；Phase7 RESULT_MANIFEST=`88/88`。
@@ -22,8 +22,14 @@
 - 报告初审0 P0 / 9 P1 / 12 P2；全部修复后open P0/P1/P2=`0/0/0`。
 - 报告完整覆盖实验、fix、lesson、结论、预测、限制与provenance。
 - 本轮仅整理既有证据，未运行GPU或server；历史实验仍全部来自Docker。
-- 下一步审查`review/coding-aware-v40-prefetch-20260729`，先做merge-base diff与机制归因。
-- 后续报告需给出有损恢复方法、prior-art映射、可行实验矩阵和集成计划。
+- V40已pin=`13671eb708da`；概念上是grounded selector × R0 Raw+RoPE，不是prefetch。
+- 当前`NOT APPROVED AS-IS`：常见write与mixed read-write可绕过path invalidation。
+- 完整报告：`research/CODING_AWARE_V40_BRANCH_TECHNICAL_REPORT.md`。
+- GPT-5.6 Sol Max最终报告review=`PASS WITH CAVEATS / READY WITH CAVEATS`，
+  open report P0/P1/P2=`0/0/0`。
+- 分支自身仍有2类P0 freshness/abstention blocker；报告通过不等于分支通过。
+- 建议下一步为Track A zero-GPU修复，但当前
+  `PENDING USER AUTHORIZATION`，没有任何Gate已授权。
 
 ### 2026-07-28T19:37:55-07:00 correction/reconsolidation完成
 
