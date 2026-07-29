@@ -1,7 +1,7 @@
 CODE-AGENT KVCACHE LOCAL TODO LIST
 ==================================
 
-Last updated: 2026-07-27T17:45:00-07:00
+Last updated: 2026-07-29T01:35:14-07:00
 Authority: PROJECT.md and IMPLEMENTATION_PLAN_LATEST.md
 Current boundary: do not enter Phase 7 without reporting to the user.
 
@@ -351,3 +351,29 @@ The caveat is permanent:
 [ ] Before GitHub writes, verify explicit ccdd2023 identity.
 [ ] Push the implementation/result branch and compare local/remote SHA.
 [ ] Push the authority docs branch and compare local/remote SHA.
+
+
+8. PHASE 4-7 REPORT SET AND COLLABORATOR BRANCH
+-----------------------------------------------
+
+[x] Create four standalone detailed phase reports and one cross-phase summary.
+[x] Cover experiments, fixes, lessons, conclusions, predictions, limitations
+    and provenance for every phase.
+[x] Use Claude Opus 5 Max Thinking as the available writer substitute.
+[x] Use GPT-5.6 Sol Max as the available final-review substitute.
+[x] Close the initial 0 P0 / 9 P1 / 12 P2 review findings.
+[x] Final report review:
+      PASS_WITH_CAVEATS / READY_WITH_CAVEATS
+      open P0/P1/P2 = 0/0/0
+
+[ ] Fetch and inspect:
+      review/coding-aware-v40-prefetch-20260729
+[ ] Diff the branch against its merge base and inventory recovery, prefetch,
+    scheduling, telemetry, tests and artifacts.
+[ ] Determine the exact lossy-KV recovery mechanism and its closest prior-art
+    lineage or composition.
+[ ] Produce a Docker-only feasibility and experiment matrix.
+[ ] Define how to integrate the method into future experiments without
+    rewriting frozen Phase4-7 evidence.
+[ ] Independently review, finalize, commit and push the collaborator-branch
+    technical report.

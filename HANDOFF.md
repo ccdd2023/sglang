@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-28T20:37:22-07:00
+最后更新：2026-07-29T01:35:14-07:00
 
 ## 新会话启动顺序
 
@@ -13,17 +13,17 @@
 
 ## 当前快照
 
-### 2026-07-28T20:25:48-07:00 Phase7 complete / publication ready
+### 2026-07-29T01:35:14-07:00 Phase4–7报告集完成 / 合作者分支审查待开始
 
-- final status：VALID / NEGATIVE / INCONCLUSIVE-DESCRIPTIVE。
-- publication=`READY WITH CAVEATS`，open P0/P1=`0/0`。
-- summary canonical=`9d0aafcd...`，file=`05acb52d...`。
-- publication HEAD=`0206f17b...`。
-- RESULT_MANIFEST=`88/88`，file=`6b6b0af1...`，known_gaps=[]。
-- final disposition file=`731ace74...`，self=`4013f054...`。
-- primary execution=22 starts/1.31014h；correction=1 start/0.09833h。
-- 无剩余GPU/offline blocker。
-- Phase8不自动触发；继续研究必须新版计划与授权。
+- Phase7 final status仍为VALID / NEGATIVE / INCONCLUSIVE-DESCRIPTIVE。
+- publication=`READY WITH CAVEATS`；Phase7 RESULT_MANIFEST=`88/88`。
+- `research/phase_reports/`新增Phase4、5、6、7四份详尽报告与跨阶段总报告。
+- Opus 5 Max Thinking完成执笔；GPT-5.6 Sol Max完成全文与closure review。
+- 报告初审0 P0 / 9 P1 / 12 P2；全部修复后open P0/P1/P2=`0/0/0`。
+- 报告完整覆盖实验、fix、lesson、结论、预测、限制与provenance。
+- 本轮仅整理既有证据，未运行GPU或server；历史实验仍全部来自Docker。
+- 下一步审查`review/coding-aware-v40-prefetch-20260729`，先做merge-base diff与机制归因。
+- 后续报告需给出有损恢复方法、prior-art映射、可行实验矩阵和集成计划。
 
 ### 2026-07-28T19:37:55-07:00 correction/reconsolidation完成
 

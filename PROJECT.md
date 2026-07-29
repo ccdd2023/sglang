@@ -2,14 +2,14 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-28T20:37:22-07:00
+最后更新：2026-07-29T01:35:14-07:00
 
 ## 项目概况
 
 | 项目 | 当前值 |
 | --- | --- |
 | 名称 | `code-agent-kvcache` |
-| 阶段 | Phase7执行与结果review完成；publication=`READY WITH CAVEATS` |
+| 阶段 | Phase4–7详尽报告与总报告已完成审阅；下一步审查合作者coding-aware v40 prefetch分支 |
 | 业务目标 | 在 SGLang 上比较多种跨 context 近似 KV 恢复与 workflow-aware cache scheduling，降低 Coding Agent TTFT |
 | 技术栈 | SGLang、HiCache、Docker、KVFlow、KVCOMM、CacheBlend、Cache-Craft、EPIC、CacheTune |
 | 默认分支 | `main` |
@@ -3057,3 +3057,53 @@ vs S4 + HiCache demand load
   - review mapping和分阶段GPU预算。
 - generic host canary命名为`P6-H`，避免复用历史V3的`P6-5` HiCache标签。
 - 当前CL0尚未完成，因此Phase6 Entry继续blocked；未创建Phase6实现分支。
+
+## 2026-07-29T01:35:14-07:00 Phase4–7正式报告集完成
+
+已新增五份自包含、可审计的正式文档：
+
+- `research/phase_reports/PHASE4_RECOVERY_METHODS_REPORT.md`
+- `research/phase_reports/PHASE5_WORKFLOW_SCHEDULING_REPORT.md`
+- `research/phase_reports/PHASE6_CROSS_STORE_SUBSTRATE_REPORT.md`
+- `research/phase_reports/PHASE7_INTEGRATED_EVALUATION_REPORT.md`
+- `research/phase_reports/PHASE4_TO_PHASE7_SUMMARY.md`
+
+报告统一覆盖实验、矩阵、执行顺序、问题修复、lesson、最终结论、可证伪
+预测、限制与artifact/provenance。总报告额外覆盖整体动机、最初问题、架构
+演化和跨阶段方法论反转。
+
+写作与审阅：
+
+- 用户指定的Opus 3.5 Thinking当前不可用，使用最接近的
+  Claude Opus 5 Max Thinking执笔；
+- 用户指定的GPT-4o Max当前不可用，使用GPT-5.6 Sol Max全文审阅；
+- 初审为`FAIL / NOT_READY`，findings=`0 P0 / 9 P1 / 12 P2`；
+- 完成两轮closure后最终为
+  `PASS_WITH_CAVEATS / READY_WITH_CAVEATS`，open P0/P1/P2=`0/0/0`。
+
+关键修正包括：
+
+- Phase6 Exit gate汇总改为3项`satisfied`，总数闭合为10；
+- Phase5删除S2/S4排序与prefetch普遍无收益表述；
+- Phase7 R0 NEGATIVE严格限定于R0/chunk4096，不外推未测机制；
+- CL2只声明coupled chunk/max-prefill effect，不宣布全局主导变量；
+- Phase6 host使用独立limit，不与device对象共用同一GPU预算；
+- 无数据支撑的定向预测改为条件预测或预注册研究问题；
+- Phase7说明89个physical files与88个manifest entries的self-exclusion；
+- source pin、summary-binding commit与publication HEAD分层陈述。
+
+本轮只整理和审查既有证据，没有运行GPU或server。被引用的Phase4–7实验
+仍全部在固定Docker环境中执行。
+
+用户指定的下一项工作：
+
+- 审查合作者分支
+  `review/coding-aware-v40-prefetch-20260729`；
+- 解释其有损KV恢复方法；
+- 映射最接近的既有研究或组合来源；
+- 设计Docker-only正确性、性能、质量、压力、chunk、fallback、
+  scheduling与prefetch实验；
+- 给出如何纳入当前实验taxonomy与未来版本化计划的完整集成方案。
+
+该分支审查不得改写已冻结的Phase4–7历史artifact，也不得把新方法追写成
+旧阶段已完成能力。

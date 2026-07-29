@@ -3215,3 +3215,24 @@ technical_exit = PASS WITH CAVEATS
 - RESULT_MANIFEST递归验证`88/88`，file SHA=`6b6b0af1...`，
   `known_gaps=[]`。
 - Phase7无剩余GPU、offline或authority blocker。
+
+## 2026-07-29T01:35:14-07:00 — Phase4–7正式报告集完成并通过最终审阅
+
+- 新增四份独立阶段报告与一份跨阶段总报告，位于
+  `research/phase_reports/`。
+- 每份Phase报告完整覆盖实验、fix、lesson、结论、预测、限制与
+  artifact/provenance；总报告覆盖整体动机、最初问题、架构演化与整体总结。
+- Claude Opus 5 Max Thinking作为当前可用的执笔模型。
+- GPT-5.6 Sol Max作为当前可用的最终审阅模型。
+- 初审为`FAIL / NOT_READY`，发现`0 P0 / 9 P1 / 12 P2`。
+- 修复内容包括Gate计数、S2/S4排序、prefetch canary作用域、R0外推、
+  chunk双变量因果、profile可达范围、fallback口径、Phase6非目标、
+  CL2 estimator、p95范围、manifest self-exclusion、source/config差异和
+  多项过强预测。
+- 两轮closure review后最终为
+  `PASS_WITH_CAVEATS / READY_WITH_CAVEATS`，open P0/P1/P2=`0/0/0`。
+- 本轮未运行GPU或server；只读取和审查既有Docker实验artifact。
+- 用户指定下一任务：审查
+  `review/coding-aware-v40-prefetch-20260729`，形成有损恢复方法、
+  prior-art映射、实验可行性与集成计划的完整技术报告。
+- 新分支研究不得改写Phase4–7冻结证据；应作为新的版本化研究输入。
