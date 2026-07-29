@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-29T05:46:31-07:00
+最后更新：2026-07-29T14:45:40-07:00
 
 ## 项目概况
 
@@ -3266,3 +3266,43 @@ Docker验证：
 - Track D：获取并版本化external raw与prefetch/integration refs。
 
 **所有Track均为建议，当前`PENDING USER AUTHORIZATION`。**
+
+## 2026-07-29T14:45:40-07:00 V40实现成熟度与功效评价
+
+针对用户对实现状态、speedup和工程复杂度的追问，当前评价如下：
+
+1. **实现成熟度：机制链路可运行，但不可直接采用。**
+   - active链路已经覆盖selector、bridge、sidecar、middle-KV controller与
+     copy/RoPE backend；
+   - focused/unit Docker测试可复现并通过；
+   - 但selector存在两类P0 freshness/abstention漏洞，历史end-to-end raw与
+     composition refs不可复现，feature gate、lease GC和依赖锁也未闭合；
+   - 因此它是research prototype，不是production-ready implementation。
+2. **现有speedup只属于作者外部、未验证的诊断性声称。**
+   - V44 cohort声称Dense `357.6ms`→V40 `327.5ms`，约`1.092x`；
+   - another three-method cohort声称`295.5ms`→`258.3ms`，约`1.144x`；
+   - RepoBench声称cache-ready `1.089x`；
+   - 三组数字来自不同protocol，raw不在Git，chunk/max-prefill未披露，
+     不能合并或作为headline；
+   - 本项目已验证的同primitive R0在chunk4096为`0.772–0.936x`，
+     所以C40只有不利先验，实际功效必须以完整workload pilot重新判断。
+3. **工程复杂度分为“可复用底座”和“必须新写的C40层”。**
+   - 可直接复用：copy V/K RoPE relocation、segment identity/store、
+     cross-store allocator/budget/object graph、prefix protection、
+     provisional lifecycle、fallback taxonomy/accounting、telemetry与manifest；
+   - 必须新写：结构化read/write provenance selector、C40 adapter/metadata、
+     strict-middle request controller、consume/produce双角色生命周期、
+     approx provenance/chain-depth和真实feature gate；
+   - 当前底座只支持从exact boundary连续恢复，不能直接执行V40的strict
+     middle island。
+4. **估计工作量：约6–9人周，不需要重写恢复数学或cache基座。**
+   - selector/provenance约2–3人周；
+   - middle-span controller与异常路径约2–3人周；
+   - adapter、telemetry、tests与独立review约2–3人周。
+5. **外部依赖。**
+   - coding-only C40不需要prefetch；
+   - 需要agent/tool wrapper提供结构化`read_paths/write_paths`、worktree
+     generation与content hash；
+   - 需要当前cross-store substrate承担生命周期与压力管理；
+   - 需要RepoBench/SWE-bench质量harness和锁定的Docker依赖层；
+   - prefetch只在后续Combined正交实验中需要，且当前相关ref尚不可获得。

@@ -3286,3 +3286,22 @@ technical_exit = PASS WITH CAVEATS
   open report P0/P1/P2=`0/0/0`。
 - 这只表示报告可发布，不表示V40分支已批准。
 - Track A/B/C/D均为建议；当前没有任何Gate获得用户授权。
+
+## 2026-07-29T14:45:40-07:00 — 向用户解释V40实现成熟度、speedup与复用边界
+
+- 当前实现不是空壳：selector→bridge→sidecar→controller→copy/RoPE链路存在，
+  focused/unit Docker测试可运行。
+- 但分支仍为research prototype：两类P0 selector失效漏洞未修，历史raw、
+  integration refs、依赖锁、feature gate和lease GC未闭合。
+- 作者文档中的speedup均为external unverified claim：
+  - `357.6→327.5ms`，约`1.092x`；
+  - `295.5→258.3ms`，约`1.144x`；
+  - RepoBench cache-ready `1.089x`。
+- 这些数字来自不同cohort/protocol，raw不在Git，且未披露chunk/max-prefill，
+  不得合并或发布为机制headline。
+- 本项目Phase7对相同R0数据面在chunk4096的实测为`0.772–0.936x`，
+  因此C40只有不利先验，必须通过完整workload pilot验证。
+- 不需要重写copy/RoPE、store或cross-store底座；必须新写结构化selector、
+  C40 adapter和strict-middle controller，并补consume/produce双角色生命周期。
+- 预计重实现工作量约6–9人周；coding-only不依赖prefetch，但依赖tool wrapper
+  provenance、current cross-store、质量harness和锁定Docker环境。
