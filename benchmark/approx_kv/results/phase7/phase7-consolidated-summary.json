@@ -791,11 +791,11 @@
           "log_path": "logs/p6delta-s0-rho2-chunk4096-r0-terminal-reason.log",
           "log_sha256": "438a5e44a49618da0739085e6ed4e332c8619ec9d563e2084c49ae3caef84786",
           "manifest_file_sha256": "f976ef49402f5d1b365d61d3ff00d22ee0781bbd4c460b147808f8548083c117",
-          "manifest_path": "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/benchmark/approx_kv/results/phase7/phase7-capacity-correction-manifest.json",
+          "manifest_path": "benchmark/approx_kv/results/phase7/phase7-capacity-correction-manifest.json",
           "path": "raw/p6delta-s0-rho2-chunk4096-r0-terminal-reason.json",
           "raw_sha256": "59049306019351d2100565be3653d74e4ebe60a1fb49d1e03016e20c9cce7534",
           "review_file_sha256": "36558d71228a64bc923183e4199d6c0e151e1dab92e25b2755c0622ab8286eb4",
-          "review_path": "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/benchmark/approx_kv/results/phase7/phase7-capacity-correction-opus-review.json",
+          "review_path": "benchmark/approx_kv/results/phase7/phase7-capacity-correction-opus-review.json",
           "terminal_reason_counts": {
             "cross_store_reservation_failed": 0,
             "device_allocation_failed": 0,
@@ -1300,8 +1300,7 @@
     ],
     "result_manifest": {
       "authority": "This manifest, not the result_git_sha field inside an artifact, is the authoritative mapping. Regenerate and re-check it in the same commit that adds or changes an artifact, otherwise entries rot into pending or stale-blob states.",
-      "entry_count": 76,
-      "file_sha256": "072fedd7160d6cfbe41b7d891c4a666a0cea80350f87c38d8d9ee7df902a6161",
+      "hash_omitted_to_avoid_summary_result_manifest_cycle": true,
       "path": "RESULT_MANIFEST.json",
       "publication_inputs_validated": [
         "benchmark/approx_kv/results/phase7/evidence/capacity-pilot-cpu.json",
@@ -5485,11 +5484,11 @@
         "log_path": "logs/p6delta-s0-rho2-chunk4096-r0-terminal-reason.log",
         "log_sha256": "438a5e44a49618da0739085e6ed4e332c8619ec9d563e2084c49ae3caef84786",
         "manifest_file_sha256": "f976ef49402f5d1b365d61d3ff00d22ee0781bbd4c460b147808f8548083c117",
-        "manifest_path": "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/benchmark/approx_kv/results/phase7/phase7-capacity-correction-manifest.json",
+        "manifest_path": "benchmark/approx_kv/results/phase7/phase7-capacity-correction-manifest.json",
         "path": "raw/p6delta-s0-rho2-chunk4096-r0-terminal-reason.json",
         "raw_sha256": "59049306019351d2100565be3653d74e4ebe60a1fb49d1e03016e20c9cce7534",
         "review_file_sha256": "36558d71228a64bc923183e4199d6c0e151e1dab92e25b2755c0622ab8286eb4",
-        "review_path": "/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate/benchmark/approx_kv/results/phase7/phase7-capacity-correction-opus-review.json",
+        "review_path": "benchmark/approx_kv/results/phase7/phase7-capacity-correction-opus-review.json",
         "terminal_reason_counts": {
           "cross_store_reservation_failed": 0,
           "device_allocation_failed": 0,
@@ -5811,7 +5810,7 @@
     "r4_status": "S0 available/valid; S4 diagnostic_unavailable; both are synthetic 5x footprint proxies and neither executes KVCOMM",
     "w_system_behaviour_status": "INCONCLUSIVE/DESCRIPTIVE"
   },
-  "summary_sha256": "e2deec5afbbfffb7b22de84d7218e3ca1aac0ba7327abcad5b1ae402753e4134",
+  "summary_sha256": "9d0aafcd776305c7ac679b14845e4a5c79e44c04bb696ecf2d83644fca4c2c69",
   "system_behaviour_status": "INCONCLUSIVE/DESCRIPTIVE",
   "w_scheduler": {
     "cross_policy_s4_vs_s0": {
