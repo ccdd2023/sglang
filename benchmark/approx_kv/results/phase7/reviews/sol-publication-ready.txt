@@ -1,0 +1,7 @@
+最终确认：
+
+- **Verdict：PASS_WITH_CAVEATS**
+- **Publication：READY_WITH_CAVEATS**
+- **Open：P0=0 / P1=0 / P2=0**
+
+上一轮唯一P1已关闭；authority与implementation最终SHA绑定一致。

@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "artifact": "phase7-final-disposition",
+  "timestamp": "2026-07-28T20:25:48-07:00",
+  "phase7_execution": "complete",
+  "main_session_disposition": "PASS_WITH_CAVEATS",
+  "publication_disposition": "READY_WITH_CAVEATS",
+  "open_findings": {
+    "P0": 0,
+    "P1": 0
+  },
+  "statuses": {
+    "engineering": "VALID",
+    "r0_mechanism": "NEGATIVE",
+    "w_system_behaviour": "INCONCLUSIVE/DESCRIPTIVE"
+  },
+  "execution": {
+    "primary_starts": 22,
+    "primary_gpu_equivalent_hours": 1.310141803888889,
+    "primary_wall_clock_span_hours": 1.528835326388889,
+    "a8_supplement_starts_skipped": 8,
+    "rho3_conditional_starts_skipped": 1,
+    "evidence_correction_starts": 1,
+    "evidence_correction_gpu_equivalent_hours": 0.09833181611111111,
+    "within_hard_cap": true
+  },
+  "bindings": {
+    "authorized_manifest_revision": 12,
+    "authorized_manifest_self_sha256": "2d66a1bcdb6dc92a72c59fefc581212fcd541accbc8ededa221495d30d039bef",
+    "design_payload_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+    "primary_execution_code_pin": "81405f4278b034911bc613c4ee17c79d15ee8f35",
+    "correction_manifest_revision": 2,
+    "correction_manifest_self_sha256": "0c57df5b75c48d53a11c1355d37f24fd360f15d2f2fb89afa88dfa6923b68283",
+    "correction_code_pin": "a950ab914e6b029f86d8ef666a3f770fc42980a7",
+    "summary_canonical_sha256": "9d0aafcd776305c7ac679b14845e4a5c79e44c04bb696ecf2d83644fca4c2c69",
+    "summary_file_sha256": "05acb52d51ea68bcff95c392e13348f73292dad0921b154efaf1e02e150eb135",
+    "result_manifest_file_sha256_before_final_disposition": "8a1f32db032c894eabd9d148626ade26439024ff72fba7926046f66b588b73ad",
+    "publication_package_head": "107f6bfd39f25506929327a146377dafd964db6b"
+  },
+  "conclusions": {
+    "r0_chunk4096_request_path_speedup_range": [
+      0.7723084788319753,
+      0.9361732730155323
+    ],
+    "r0_chunk4096_n8_full_setup_speedup_range": [
+      0.6086457910880934,
+      0.6418893640462963
+    ],
+    "chunk1024_sensitivity_request_path_median": 1.7370152775837997,
+    "chunk1024_sensitivity_n8_full_setup_median": 1.1889604660811057,
+    "w_rho1_5": {
+      "all_reusable_mean_s0_over_s4": 1.0020817511131008,
+      "workflow_only_mean_s0_over_s4": 1.0275736602204162,
+      "all_reusable_miss_delta_s4_minus_s0": -14,
+      "peak_ratio_s4_over_s0": 1.01122824527478
+    },
+    "w_rho2_0": {
+      "all_reusable_mean_s0_over_s4": 1.0250294118270489,
+      "workflow_only_mean_s0_over_s4": 1.044182842048327,
+      "all_reusable_miss_delta_s4_minus_s0": 2,
+      "peak_ratio_s4_over_s0": 0.9980643600290346
+    },
+    "capacity_s0_terminal_reason_correction": {
+      "fallback_requests": 40,
+      "terminal_reason": "unsupported",
+      "raw_reason": "store_miss",
+      "verification": "direct"
+    },
+    "r4_like_s0_recovery_requests": 12,
+    "r4_like_s0_total_requests": 122,
+    "r4_like_s4_status": "diagnostic_unavailable"
+  },
+  "reviews": {
+    "sol": {
+      "verdict": "PASS_WITH_CAVEATS",
+      "publication": "READY_WITH_CAVEATS",
+      "open_P0": 0,
+      "open_P1": 0,
+      "original_report_sha256": "f3cb83b8c3fa5ed51341f11258f78993299fda9b46141a5b2da5a342e022962f",
+      "cross_consolidation_sha256": "fcccb4de33ae0127f7546052fb00b67f1544758a8d94ae5e5a7532f14d7bac0f",
+      "final_confirmation_sha256": "ea65a6b15919259758537f4b2855f1ff65ab94798a25a42fbad21074bf71ce33"
+    },
+    "opus": {
+      "verdict": "PASS_WITH_CAVEATS",
+      "publication": "READY",
+      "open_P0": 0,
+      "open_P1": 0,
+      "original_report_sha256": "46d52e7de0a95bd246f6e7e2d84747fe92a9bf3a482e9e350bdfeaaaf281bbfe",
+      "cross_consolidation_sha256": "3cc01d25e81d99bbf3cc9390f088ef396d52c60afe4bca7010e7b1f238eb9012",
+      "targeted_delta_sha256": "8d983ead9dd30334479269b5da4657c86bceb5640875fff9a8774095fa149ef8",
+      "final_verify_sha256": "20a03d99b32e3203de3dac9b93922dae94374b6102fdbed631aed1852c1a353d"
+    }
+  },
+  "required_caveats": [
+    "practical=NONE is scoped to the tested implementation and chunk1024 qualification",
+    "R0 is a ceiling path and not a promoted practical candidate",
+    "R2 is disabled_not_comparable and was not executed in Phase7",
+    "r2_like and R4-like are synthetic footprint profiles and not R2 or KVCOMM execution",
+    "chunk1024 sensitivity is chunk-coupled and is not a mechanism-intrinsic headline",
+    "natural-pressure reservation-failure fallback reachability remains unproven",
+    "wave0 registration reachability is not approximate-recovery success",
+    "W comparisons are seed-matched but not adjacent launch blocks and include substantial dense fallback",
+    "the independent timing replicate is the server restart",
+    "A8 primary has one independent process-level restart per setting",
+    "body1024 same-context canary has limited discriminative power",
+    "host, prefetch, async and HiCache tracks were not generated"
+  ],
+  "phase8": {
+    "automatically_triggered": false,
+    "requires_new_plan_and_authorization": true
+  },
+  "disposition_sha256": "4013f054751f44e222ab698d0d232bc6fe516feb29111fb4c64f53b75f797d66"
+}
