@@ -276,12 +276,18 @@ The caveat is permanent:
        exactly one S0/rho2/chunk4096 restart0 correction.
        DONE: 40/40 direct unsupported <- store_miss; elapsed=0.09833h.
 
-[ ] 21. Re-consolidate and close publication review.
+[x] 21. Re-consolidate and close publication review.
        Keep original 22 raw/log immutable. Rebuild all compact+summary with
        correction evidence, update RESULT_MANIFEST, then run Sol/Opus targeted
        delta closure and final main-session disposition.
        Reconsolidation DONE: summary=e2deec5a..., RESULT_MANIFEST=79/79.
        Waiting for Sol/Opus targeted delta closure.
+       FINAL: summary=9d0aafcd..., RESULT_MANIFEST=79/79.
+       Opus READY; all P0/P1 closed; no additional GPU/offline work.
+
+[x] 22. Complete Phase7 main-session disposition.
+       engineering=VALID; R0=NEGATIVE; W=INCONCLUSIVE/DESCRIPTIVE;
+       publication=READY WITH CAVEATS.
 
 
 3.3 CONDITIONAL - ONLY IF TRIGGERED

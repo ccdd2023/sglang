@@ -2,14 +2,14 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-28T19:37:55-07:00
+最后更新：2026-07-28T20:25:48-07:00
 
 ## 项目概况
 
 | 项目 | 当前值 |
 | --- | --- |
 | 名称 | `code-agent-kvcache` |
-| 阶段 | Phase6=`PASS WITH CAVEATS`；Phase7原22 starts已完成；等待1个S0 terminal-reason correction |
+| 阶段 | Phase7执行与结果review完成；publication=`READY WITH CAVEATS` |
 | 业务目标 | 在 SGLang 上比较多种跨 context 近似 KV 恢复与 workflow-aware cache scheduling，降低 Coding Agent TTFT |
 | 技术栈 | SGLang、HiCache、Docker、KVFlow、KVCOMM、CacheBlend、Cache-Craft、EPIC、CacheTune |
 | 默认分支 | `main` |
@@ -26,6 +26,68 @@
 - 重要状态不得只保留在聊天上下文中。
 
 ## 当前状态
+
+### 2026-07-28T20:25:48-07:00 Phase7 final disposition
+
+```text
+phase7_execution = COMPLETE
+engineering_status = VALID
+r0_mechanism_status = NEGATIVE
+w_system_behaviour = INCONCLUSIVE / DESCRIPTIVE
+publication = READY WITH CAVEATS
+```
+
+- 原authorized执行：
+  - 22 starts；
+  - 1.310141804 GPU-equivalent hours；
+  - 8个A8 supplements按ES-R0-MDE跳过；
+  - rho3 conditional未执行。
+- supplementary evidence correction：
+  - 1个S0 start；
+  - 0.098331816h；
+  - 40/40 direct `unsupported <- store_miss`；
+  - 单独计账，不改变原22-start execution set。
+- final summary：
+  - canonical SHA=`9d0aafcd776305c7ac679b14845e4a5c79e44c04bb696ecf2d83644fca4c2c69`；
+  - file SHA=`05acb52d51ea68bcff95c392e13348f73292dad0921b154efaf1e02e150eb135`；
+  - implementation HEAD=`107f6bfd39f25506929327a146377dafd964db6b`。
+- RESULT_MANIFEST：
+  - `79/79`；
+  - file SHA=`8a1f32db032c894eabd9d148626ade26439024ff72fba7926046f66b588b73ad`。
+- final dual review：
+  - Opus=`PASS_WITH_CAVEATS / READY`，open P0/P1=`0/0`；
+  - Sol所有实验性P0/P1已关闭，最后authority SHA同步项现已闭合；
+  - 无额外GPU或offline work。
+
+核心结论：
+
+1. chunk4096下R0 request-path=`0.7723–0.9362x`，N8 full-setup=
+   `0.6086–0.6419x`，mechanism=`NEGATIVE`，不得发布speedup headline。
+2. chunk1024 sensitivity request-path median=`1.7370x`、N8 full=`1.1890x`，
+   仅证明chunk coupling，不是机制固有收益。
+3. W S4 vs S0仅描述性：
+   - rho1.5 all=`1.0021x`，workflow=`1.0276x`；
+   - rho2 all=`1.0250x`，workflow=`1.0442x`；
+   - 比较为seed-matched但非相邻launch block；
+   - R0臂45.9%–72.1%请求走dense fallback。
+4. R4-like是synthetic 5x footprint proxy，不执行KVCOMM：
+   - S0真实recovery仅12/122；
+   - S4 registration diagnostic-unavailable。
+5. natural-pressure reservation-failure fallback仍未证明；Phase7观察到0次自然
+   reservation failure。
+
+必须随结果保留的caveats：
+
+- `practical=NONE`严格限定于被测scope；
+- R0是ceiling，不是practical candidate；
+- R2=`disabled_not_comparable`且未执行；
+- `r2_like`/R4-like均为synthetic footprint profile；
+- 独立复制单元是server restart，A8 primary每setting仅n=1；
+- body1024 canary只有1个distinct output token，判别力有限；
+- host/prefetch/async/HiCache未生成；
+- P6-4 rho1.1/1.5/3仍限定chunk1024。
+
+Phase8不会自动触发。若未来继续，必须另行版本化与授权。
 
 ### 2026-07-28T19:37:55-07:00 S0 correction与reconsolidation完成
 

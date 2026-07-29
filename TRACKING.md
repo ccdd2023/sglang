@@ -3183,3 +3183,20 @@ technical_exit = PASS WITH CAVEATS
 - cross-consolidated publication findings已进入新summary/compact。
 - RESULT_MANIFEST递归验证`79/79`。
 - Sol/Opus targeted delta review已启动。
+
+## 2026-07-28T20:25:48-07:00 — Phase7 final disposition
+
+- final summary canonical SHA=`9d0aafcd...`，file SHA=`05acb52d...`。
+- implementation HEAD=`107f6bfd...`。
+- RESULT_MANIFEST=`79/79`，file SHA=`8a1f32db...`。
+- Opus final targeted verify：
+  `PASS_WITH_CAVEATS / READY`，open P0/P1=`0/0`。
+- Sol所有实验性P0/P1已关闭；最后authority旧SHA项在本记录中闭合。
+- 最终：
+  - engineering=VALID；
+  - R0 mechanism=NEGATIVE；
+  - W system behaviour=INCONCLUSIVE/DESCRIPTIVE；
+  - publication=READY WITH CAVEATS。
+- primary=22 starts/1.31014h；correction=1 start/0.09833h。
+- 不需要额外GPU或offline工作。
+- Phase8不自动触发。
