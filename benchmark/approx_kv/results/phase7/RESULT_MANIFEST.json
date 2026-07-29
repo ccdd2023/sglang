@@ -153,6 +153,12 @@
       "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
     },
     {
+      "file": "benchmark/approx_kv/results/phase7/evidence/capacity-correction-cpu.json",
+      "sha256": "c3c609e8b3ed28d55e015ee4b057b48d4027834ce3e06ce14b9f3f2e2e43e590",
+      "bytes": 795,
+      "containing_commit": "7b92f02ae78ac9e241cd25ef42ed4ac1bad36b1b"
+    },
+    {
       "file": "benchmark/approx_kv/results/phase7/evidence/capacity-pilot-cpu.json",
       "sha256": "cdd75f6d9af29d885cbf0a8d8b3a645c94dbd5822c000949f5da0332acd075ad",
       "bytes": 795,
@@ -301,6 +307,12 @@
       "sha256": "bce9f1acda6eed43fe5caaae0b070915b4ace6ecda2aae23831ab7b7f8e4955b",
       "bytes": 1470,
       "containing_commit": "fc752a6e9558c164f5fc48c46d574d7bb1865fdc"
+    },
+    {
+      "file": "benchmark/approx_kv/results/phase7/phase7-capacity-correction-manifest.json",
+      "sha256": "4fc9a481372e679a2acfc76a18d0209880da824da9e99bb7ae76c81da336832a",
+      "bytes": 95318,
+      "containing_commit": "b334033046797e9c998e67f40ed92602120535af"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/phase7-consolidated-summary.json",
