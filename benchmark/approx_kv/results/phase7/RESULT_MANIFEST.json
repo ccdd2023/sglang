@@ -340,9 +340,9 @@
     },
     {
       "file": "benchmark/approx_kv/results/phase7/phase7-consolidated-summary.json",
-      "sha256": "70361d746c243b52f772f1a91d3ca8336ddd942d5a0255e262f92dee6d15d300",
-      "bytes": 881628,
-      "containing_commit": "3c1a0e13f580807da2d99a88f9747685dd55b9ff"
+      "sha256": "05acb52d51ea68bcff95c392e13348f73292dad0921b154efaf1e02e150eb135",
+      "bytes": 881293,
+      "containing_commit": "e6ae4fae65d2c8f1a22fa5bae1bc92d92e7a33f3"
     },
     {
       "file": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
