@@ -1,0 +1,2811 @@
+{
+  "schema_version": 1,
+  "artifact": "phase7-capacity-correction-manifest",
+  "correction_manifest_revision": 1,
+  "supersedes_correction_manifest_sha256": null,
+  "status": "pinned_blocked",
+  "phase7_execution_authorized": false,
+  "execution_blockers": [
+    "correction_opus_review_pending"
+  ],
+  "base_manifest_revision": 12,
+  "base_manifest_self_sha256": "2d66a1bcdb6dc92a72c59fefc581212fcd541accbc8ededa221495d30d039bef",
+  "base_manifest_design_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+  "base_manifest_path": "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
+  "base_manifest_file_sha256": "c0a14e3a8127db4ad7fba20920a156b9b731e7ea36711c8c104a49bca3a8667d",
+  "design_keys": [
+    "plan",
+    "environment",
+    "server_template",
+    "workloads",
+    "arms",
+    "footprint_profiles",
+    "arm_execution",
+    "statistics",
+    "outcome_taxonomy",
+    "exclusive_terminal_reasons",
+    "conditional_rules",
+    "settings",
+    "early_stops",
+    "budget",
+    "artifact_templates",
+    "skipped_tracks",
+    "required_inactive_counters",
+    "inactive_counter_pins",
+    "scope_caveats",
+    "review_contract"
+  ],
+  "base_design_key_value_sha256": {
+    "plan": "064bdbf04722d60b3195b6265c685ec1c7f8b5648125797460c1630fa8abeb06",
+    "environment": "32258cc84d1300bc6656cc8661c4374d1d3ef4a1458fe7e678941b804ea76727",
+    "server_template": "6e8c7628a88aa466c955ea31a722d0447b5a49b9a0267a6194112a7a73733e1a",
+    "workloads": "5cd39a01f71605387a07289337bd4e4e1fb8c8625229c09a58d2e17d889b3885",
+    "arms": "3b2552932512272a89e1db718b90eb49f606d0c39f7549f3e97f6a6976ed049d",
+    "footprint_profiles": "94b059ab3f3288cc352531dc8f68ed6325a4fd5600b485d660a283850e4b2501",
+    "arm_execution": "ee430351efdfb7d3bc92413b069aa0e638e88124c959d93419561eeb189e7d18",
+    "statistics": "42a86fec5540c481dce4f061c24f6aabb8c24ce7daa8ebadbaf767511147a60f",
+    "outcome_taxonomy": "ff06360025827724ab6ea1c93e9cf043f07305f5ab4f5fe27d4243efb4b586c6",
+    "exclusive_terminal_reasons": "b4f58340bb7762ca0c072514a020a2593cc203ca47d93791327068968bfb97c1",
+    "conditional_rules": "4cbdc6499859757f42f6c7f69d5e2e6ba68c62d1fc4cc81165c76bd29bcd805e",
+    "settings": "e02bd5b286459539dff2b7c29f118d4b1d35952f94f666fedbf65ad10b454ef0",
+    "early_stops": "81044e5c22c540e77646521636bf68b8f603144294655966a1543e142461c8a0",
+    "budget": "828c51a405dcf3d41dda28d2067c464c0fed3124961dfa4f3fac35a3c149cfea",
+    "artifact_templates": "2279ed6b6cc64a82edd6ecd2a8989fadbb5da53c1e2f1b29dcc8e5d2d3cac7b7",
+    "skipped_tracks": "726ebaf8aa1f15bcc5f99c4f8d3f4432faacf9146bbe6dc9d7adcb6dc951f65d",
+    "required_inactive_counters": "6f4edd9c7d82e9495e614e20e98dc95eb022a1a31b9c76a47965623c1bc7dfea",
+    "inactive_counter_pins": "9d8dd20e2c18b93e5ab31b49fba0cef2f3c3d05e94621e864932950e681c154a",
+    "scope_caveats": "3d129131c9ec0a59994b6bdf466c9c34e0bb49a3e1d4d7b49a31cb442f40a0c4",
+    "review_contract": "91a7dbe0870f3a514b50168ad8d3d81bce183403f7da84c6e830714acae63fc1"
+  },
+  "design_payload_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+  "scope": "capacity_terminal_reason",
+  "allowed_setting": "p6delta-s0-rho2-chunk4096",
+  "restart": 0,
+  "original_raw_path": "benchmark/approx_kv/results/phase7/raw/p6delta-s0-rho2-chunk4096-r0.json",
+  "original_raw_sha256": "80e8e83d7b587b1ed566889e1603eead82eb2618b58a2f9a1816fb8eae741ff3",
+  "original_raw_file_sha256": "1e5c0da07b32beb5a063a5d4f6810139e50f6eb22c0698fee1616176c9da4432",
+  "correction_pinned_implementation_sha": "a950ab914e6b029f86d8ef666a3f770fc42980a7",
+  "correction_pinned_tree_sha": "481339f31105bd3530c6b90399cada076ecdf510",
+  "manifest_generation_sha": "7b92f02ae78ac9e241cd25ef42ed4ac1bad36b1b",
+  "manifest_generation_tree_sha": "6ffdfa01a6e631807536f4021f1303a50a51d50f",
+  "capacity_runner": {
+    "key": "capacity_pilot",
+    "module": "benchmark.approx_kv.run_p6_4_capacity_pilot",
+    "path": "benchmark/approx_kv/run_p6_4_capacity_pilot.py",
+    "sha256": "c92225d4644c0960ff537fa2d8759a2745750beff04be2662085e118d549867f",
+    "required_cpu_test": "python3 -m pytest -q test/registered/unit/bench/test_phase6_manifest.py"
+  },
+  "capacity_runner_sha256": "c92225d4644c0960ff537fa2d8759a2745750beff04be2662085e118d549867f",
+  "capacity_cpu_evidence": {
+    "status": "passed",
+    "path": "benchmark/approx_kv/results/phase7/evidence/capacity-correction-cpu.json",
+    "file_sha256": "c3c609e8b3ed28d55e015ee4b057b48d4027834ce3e06ce14b9f3f2e2e43e590",
+    "artifact_sha256": "ee7d8b965db7490fe27bc546adb1dc474e92f0e173d2fee8410c622ec1c29c59",
+    "runner_sha256": "c92225d4644c0960ff537fa2d8759a2745750beff04be2662085e118d549867f",
+    "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+    "command": "python3 -m pytest -q test/registered/unit/bench/test_phase6_manifest.py",
+    "exit_code": 0,
+    "summary_line": "36 passed, 3 warnings in 6.80s",
+    "passed_count": 36,
+    "subtests": {
+      "passed_count": 0,
+      "names": []
+    },
+    "timestamp": "2026-07-28T17:53:49-07:00"
+  },
+  "post_pin_allowlist": [
+    "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json",
+    "benchmark/approx_kv/results/phase7/phase7-capacity-correction-manifest.json",
+    "benchmark/approx_kv/results/phase7/phase7-capacity-correction-opus-review.json",
+    "benchmark/approx_kv/results/phase7/evidence/capacity-correction-cpu.json"
+  ],
+  "post_pin_rule": "the correction pin must be an ancestor of the execution HEAD; the worktree must be clean and read-only; every post-pin change must be an exact member of post_pin_allowlist",
+  "correction_artifact_templates": {
+    "runtime_staging_root": "/results/phase7-capacity-correction",
+    "staging_raw_json": "/results/phase7-capacity-correction/raw/{run_id}.json",
+    "staging_server_log": "/results/phase7-capacity-correction/logs/{run_id}.log",
+    "staging_central_log": "/results/phase7-capacity-correction/phase7-runs.jsonl",
+    "versioned_destination_root": "benchmark/approx_kv/results/phase7/capacity-correction",
+    "versioned_destination_raw_json": "benchmark/approx_kv/results/phase7/capacity-correction/raw/{run_id}.json",
+    "versioned_destination_server_log": "benchmark/approx_kv/results/phase7/capacity-correction/logs/{run_id}.log",
+    "versioned_destination_central_log": "benchmark/approx_kv/results/phase7/capacity-correction/phase7-runs.jsonl"
+  },
+  "correction_review_contract": {
+    "correction_opus_required": true,
+    "reviewed_status": "pinned_blocked",
+    "artifact_path": "benchmark/approx_kv/results/phase7/phase7-capacity-correction-opus-review.json",
+    "pass_condition": "zero open P0/P1 findings",
+    "authorization_activation": "an authorized_correction manifest must supersede the reviewed pinned_blocked correction manifest"
+  },
+  "review_evidence": {
+    "status": "pending",
+    "artifact_path": "benchmark/approx_kv/results/phase7/phase7-capacity-correction-opus-review.json",
+    "file_sha256": null,
+    "artifact_sha256": null,
+    "verdict": null,
+    "open_p0": null,
+    "open_p1": null,
+    "reviewed_correction_manifest_status": null,
+    "reviewed_correction_manifest_revision": null,
+    "reviewed_correction_manifest_sha256": null
+  },
+  "plan": {
+    "version": "V7",
+    "plan_commit": "c80ec165713772c533e17ef4c50f083c36dc9d72",
+    "plan_file": "IMPLEMENTATION_PLAN_LATEST.md",
+    "plan_sha256": "95cfbb3114a3708d52e80e9ea90825031a660e5b800939cbdc29a43bf6286d8c"
+  },
+  "environment": {
+    "image_digest": "sha256:0be6e16e2eb288dfd5fa8b0b41015f61731a139fb961d3366ccedf834289d781",
+    "model": "Qwen/Qwen3-0.6B",
+    "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+    "tokenizer_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+    "chat_template_revision": "model-revision-bound",
+    "gpu": "NVIDIA GeForce RTX 2080 SUPER, SM75, 8192 MiB",
+    "driver": "580.173.02"
+  },
+  "server_template": {
+    "tp_size": 1,
+    "default_mem_fraction_static": 0.35,
+    "max_running_requests": 2,
+    "attention_backend": "torch_native",
+    "sampling_backend": "pytorch",
+    "cuda_graph_decode": "disabled",
+    "cuda_graph_prefill": "disabled",
+    "enable_cache_report": true,
+    "enable_metrics": true,
+    "restart_seeds": [
+      17,
+      18,
+      19
+    ],
+    "test_only_injection_flags": {
+      "SGLANG_APPROX_KV_TEST_ONLY": "0",
+      "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE": "0"
+    },
+    "plugin_env": {
+      "SGLANG_APPROX_KV_CORE": "1",
+      "SGLANG_APPROX_KV_CROSS_STORE": "1",
+      "SGLANG_APPROX_KV_BYTES_PER_TOKEN": "114688",
+      "SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+      "SGLANG_APPROX_KV_REGISTER_EVICTS_EXACT": "1",
+      "SGLANG_APPROX_KV_ALLOW_PERSISTENT_PINS": "1",
+      "SGLANG_APPROX_KV_MAX_PERSISTENT_PINS": "16",
+      "SGLANG_APPROX_KV_TEST_ONLY": "0",
+      "SGLANG_APPROX_KV_TEST_RESERVATION_FAILURE": "0"
+    }
+  },
+  "workloads": {
+    "A8": {
+      "schema_version": 1,
+      "prompt_family_version": "p7-a8-v1",
+      "targets_per_setup": 8,
+      "segment_tokens_max": 512,
+      "source_pin_until_reset": true,
+      "source_pin_mechanism": "persistent_registration_lease_until_reset",
+      "workloads": [
+        {
+          "workload_id": "A8-body1024",
+          "body_tokens": 1024,
+          "source_header_token_sha256": "225343a494d3ecd5a3fb314a8740288a2da67e2f7911ec3e9375ed65318a6e93",
+          "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
+          "source_object_pinned_for_sequence": true,
+          "dense_source_materialization": "same_source_register_false",
+          "targets": [
+            {
+              "target_id": "a8-b1024-target-0",
+              "order": 0,
+              "extra_key": "p7-a8-b1024-target-0",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-0-D0",
+                "E0": "p7-a8-b1024-target-0-E0",
+                "R0": "p7-a8-b1024-target-0-R0"
+              },
+              "header_token_sha256": "df8729a5daa56729daf61209371d69f524d2b5c3312c341292da42484de6acac",
+              "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
+              "suffix_token_sha256": "a43c12d79de62b8c9d364db2233e0a0939c086b939a0eec0f18a17b0dc2fe20c",
+              "prompt_token_sha256": "6487871506cf3fbdd6f2eecad6f2e36714d90b2e1dab195af74de00289e5b4b6",
+              "prompt_tokens": 1089
+            },
+            {
+              "target_id": "a8-b1024-target-1",
+              "order": 1,
+              "extra_key": "p7-a8-b1024-target-1",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-1-D0",
+                "E0": "p7-a8-b1024-target-1-E0",
+                "R0": "p7-a8-b1024-target-1-R0"
+              },
+              "header_token_sha256": "4c6f03ec1493aded46e7ce05f7a556d0176eb4ef24ff9041e8731725797e94a1",
+              "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
+              "suffix_token_sha256": "6ea33133f2eb8c10a338b179024eeecb7c6fe889eb3eef577422ef595019828c",
+              "prompt_token_sha256": "dde938b0fac74dd2ba9193aba23f584ea3285727d623c0dc36e9ccf25407a14c",
+              "prompt_tokens": 1089
+            },
+            {
+              "target_id": "a8-b1024-target-2",
+              "order": 2,
+              "extra_key": "p7-a8-b1024-target-2",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-2-D0",
+                "E0": "p7-a8-b1024-target-2-E0",
+                "R0": "p7-a8-b1024-target-2-R0"
+              },
+              "header_token_sha256": "652eb6d75f86611ab822d1fc704c9e94312440eb76f92d025ad65c1f9758eecf",
+              "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
+              "suffix_token_sha256": "fe93999bc9deb2c9f57d235b40dab92d2af7ab5bac283e58bc9366e9103b3341",
+              "prompt_token_sha256": "96d5b9e2de463a2588c876924cc40c6051cd99809b0ceb8b03ab54a4671ea3fb",
+              "prompt_tokens": 1089
+            },
+            {
+              "target_id": "a8-b1024-target-3",
+              "order": 3,
+              "extra_key": "p7-a8-b1024-target-3",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-3-D0",
+                "E0": "p7-a8-b1024-target-3-E0",
+                "R0": "p7-a8-b1024-target-3-R0"
+              },
+              "header_token_sha256": "5902f21ddd87647a66bb3419917d953cc64a1d90cbe152d49681109333d21194",
+              "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
+              "suffix_token_sha256": "dce9f66598d61a56850e7bfc417f49357fba4116887c3cc5b377f76c80442018",
+              "prompt_token_sha256": "2fb4508fd41d36f450bf5942821a4dd6cd2dd1acc0da6143c0b6ea86ef9b114e",
+              "prompt_tokens": 1089
+            },
+            {
+              "target_id": "a8-b1024-target-4",
+              "order": 4,
+              "extra_key": "p7-a8-b1024-target-4",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-4-D0",
+                "E0": "p7-a8-b1024-target-4-E0",
+                "R0": "p7-a8-b1024-target-4-R0"
+              },
+              "header_token_sha256": "331723b85e10b27cf4dbb5e7429048814e65910b60a761cf3dab3d7f26e83c2e",
+              "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
+              "suffix_token_sha256": "d5365e5cedd93cdd21181f5b392209a7301c75646d5ceea2590fbc35c43e23ef",
+              "prompt_token_sha256": "162894727150ac602908b28412d50a0942186747a956aff3f8c1fb05633bf8be",
+              "prompt_tokens": 1089
+            },
+            {
+              "target_id": "a8-b1024-target-5",
+              "order": 5,
+              "extra_key": "p7-a8-b1024-target-5",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-5-D0",
+                "E0": "p7-a8-b1024-target-5-E0",
+                "R0": "p7-a8-b1024-target-5-R0"
+              },
+              "header_token_sha256": "b62fc6302ee70ffbdb4c8c0287c9916ab1685a1d9b9d38f8b13ee5d3c32475b9",
+              "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
+              "suffix_token_sha256": "83c66207e56090a900cbecdc0b4e93869da14bc022cd63b4e5368a9d0c2cc615",
+              "prompt_token_sha256": "28e2327b24fa8d2c6fbb71f1191c060964ec57536970db3721154f5502f3de2f",
+              "prompt_tokens": 1089
+            },
+            {
+              "target_id": "a8-b1024-target-6",
+              "order": 6,
+              "extra_key": "p7-a8-b1024-target-6",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-6-D0",
+                "E0": "p7-a8-b1024-target-6-E0",
+                "R0": "p7-a8-b1024-target-6-R0"
+              },
+              "header_token_sha256": "aee69b27a9347eabb2459c605ee1facbf56d4728931d4934971868efa7f03973",
+              "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
+              "suffix_token_sha256": "85cefd3373840b62f5b9253cb05297ecf965e30239f187b12d6f2a184a5347c4",
+              "prompt_token_sha256": "dfee1ba4e589b8d3be3fef387d96a6cf3660bf1396f3a3b00a59ba893915f1f5",
+              "prompt_tokens": 1089
+            },
+            {
+              "target_id": "a8-b1024-target-7",
+              "order": 7,
+              "extra_key": "p7-a8-b1024-target-7",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b1024-target-7-D0",
+                "E0": "p7-a8-b1024-target-7-E0",
+                "R0": "p7-a8-b1024-target-7-R0"
+              },
+              "header_token_sha256": "63ed7d2966f9b9f4ece383dd77e81615b96ebe0007a8a79d8369cb100d21c659",
+              "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
+              "suffix_token_sha256": "7e8785543ef6fb1240a8c45b0b8507344bc0ce2157bae447981ee0ec45c282b8",
+              "prompt_token_sha256": "14bc5183df967f85d5162cf61aeb6236620c024cfb47ee5a180a7a013947d9a2",
+              "prompt_tokens": 1089
+            }
+          ],
+          "same_context_canary": {
+            "target_id": "a8-b1024-same-context-canary",
+            "header_token_sha256": "225343a494d3ecd5a3fb314a8740288a2da67e2f7911ec3e9375ed65318a6e93",
+            "body_token_sha256": "c84eb031130007a7e61e19a587216cbc4e372b2b90618e3d7dd8a662bff92823",
+            "extra_key": "p7-a8-b1024-same-context-canary",
+            "max_new_tokens": 8,
+            "placement": "after_target_8_before_reset",
+            "arms": [
+              "R0"
+            ],
+            "included_in_amortization": false,
+            "any_token_mismatch_is_invalid": true
+          }
+        },
+        {
+          "workload_id": "A8-body2048",
+          "body_tokens": 2048,
+          "source_header_token_sha256": "225343a494d3ecd5a3fb314a8740288a2da67e2f7911ec3e9375ed65318a6e93",
+          "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
+          "source_object_pinned_for_sequence": true,
+          "dense_source_materialization": "same_source_register_false",
+          "targets": [
+            {
+              "target_id": "a8-b2048-target-0",
+              "order": 0,
+              "extra_key": "p7-a8-b2048-target-0",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-0-D0",
+                "E0": "p7-a8-b2048-target-0-E0",
+                "R0": "p7-a8-b2048-target-0-R0"
+              },
+              "header_token_sha256": "df8729a5daa56729daf61209371d69f524d2b5c3312c341292da42484de6acac",
+              "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
+              "suffix_token_sha256": "a43c12d79de62b8c9d364db2233e0a0939c086b939a0eec0f18a17b0dc2fe20c",
+              "prompt_token_sha256": "3a5507bb8ecc824b03e2e250f029241297a883ff3760626e04004a910e0157ec",
+              "prompt_tokens": 2113
+            },
+            {
+              "target_id": "a8-b2048-target-1",
+              "order": 1,
+              "extra_key": "p7-a8-b2048-target-1",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-1-D0",
+                "E0": "p7-a8-b2048-target-1-E0",
+                "R0": "p7-a8-b2048-target-1-R0"
+              },
+              "header_token_sha256": "4c6f03ec1493aded46e7ce05f7a556d0176eb4ef24ff9041e8731725797e94a1",
+              "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
+              "suffix_token_sha256": "6ea33133f2eb8c10a338b179024eeecb7c6fe889eb3eef577422ef595019828c",
+              "prompt_token_sha256": "8611b881456030afe258ff1fae3cfc3cadd87cb47cf36b2129d0cc9b1393a9b9",
+              "prompt_tokens": 2113
+            },
+            {
+              "target_id": "a8-b2048-target-2",
+              "order": 2,
+              "extra_key": "p7-a8-b2048-target-2",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-2-D0",
+                "E0": "p7-a8-b2048-target-2-E0",
+                "R0": "p7-a8-b2048-target-2-R0"
+              },
+              "header_token_sha256": "652eb6d75f86611ab822d1fc704c9e94312440eb76f92d025ad65c1f9758eecf",
+              "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
+              "suffix_token_sha256": "fe93999bc9deb2c9f57d235b40dab92d2af7ab5bac283e58bc9366e9103b3341",
+              "prompt_token_sha256": "9bfb6d7d41d1044e95aeb7460cfba580f36855b7df85903946f1a4d7b1dcaa6e",
+              "prompt_tokens": 2113
+            },
+            {
+              "target_id": "a8-b2048-target-3",
+              "order": 3,
+              "extra_key": "p7-a8-b2048-target-3",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-3-D0",
+                "E0": "p7-a8-b2048-target-3-E0",
+                "R0": "p7-a8-b2048-target-3-R0"
+              },
+              "header_token_sha256": "5902f21ddd87647a66bb3419917d953cc64a1d90cbe152d49681109333d21194",
+              "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
+              "suffix_token_sha256": "dce9f66598d61a56850e7bfc417f49357fba4116887c3cc5b377f76c80442018",
+              "prompt_token_sha256": "bb223e85e728d9b28c11597d2cb9e45d403603ad92b746503e08969fc447cb51",
+              "prompt_tokens": 2113
+            },
+            {
+              "target_id": "a8-b2048-target-4",
+              "order": 4,
+              "extra_key": "p7-a8-b2048-target-4",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-4-D0",
+                "E0": "p7-a8-b2048-target-4-E0",
+                "R0": "p7-a8-b2048-target-4-R0"
+              },
+              "header_token_sha256": "331723b85e10b27cf4dbb5e7429048814e65910b60a761cf3dab3d7f26e83c2e",
+              "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
+              "suffix_token_sha256": "d5365e5cedd93cdd21181f5b392209a7301c75646d5ceea2590fbc35c43e23ef",
+              "prompt_token_sha256": "f684d1e50e115922227849c919b966af6bd788b621ac5aee08adc3875def9deb",
+              "prompt_tokens": 2113
+            },
+            {
+              "target_id": "a8-b2048-target-5",
+              "order": 5,
+              "extra_key": "p7-a8-b2048-target-5",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-5-D0",
+                "E0": "p7-a8-b2048-target-5-E0",
+                "R0": "p7-a8-b2048-target-5-R0"
+              },
+              "header_token_sha256": "b62fc6302ee70ffbdb4c8c0287c9916ab1685a1d9b9d38f8b13ee5d3c32475b9",
+              "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
+              "suffix_token_sha256": "83c66207e56090a900cbecdc0b4e93869da14bc022cd63b4e5368a9d0c2cc615",
+              "prompt_token_sha256": "60b8c328e0e1fab46b5bb9071e8232937ddf90bafb945c0ba0229cd13f0859da",
+              "prompt_tokens": 2113
+            },
+            {
+              "target_id": "a8-b2048-target-6",
+              "order": 6,
+              "extra_key": "p7-a8-b2048-target-6",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-6-D0",
+                "E0": "p7-a8-b2048-target-6-E0",
+                "R0": "p7-a8-b2048-target-6-R0"
+              },
+              "header_token_sha256": "aee69b27a9347eabb2459c605ee1facbf56d4728931d4934971868efa7f03973",
+              "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
+              "suffix_token_sha256": "85cefd3373840b62f5b9253cb05297ecf965e30239f187b12d6f2a184a5347c4",
+              "prompt_token_sha256": "ea365a1099549185206fb6d1804425ee732f0bb5d1f7d398c256ed27946ad71e",
+              "prompt_tokens": 2113
+            },
+            {
+              "target_id": "a8-b2048-target-7",
+              "order": 7,
+              "extra_key": "p7-a8-b2048-target-7",
+              "extra_keys_by_arm": {
+                "D0": "p7-a8-b2048-target-7-D0",
+                "E0": "p7-a8-b2048-target-7-E0",
+                "R0": "p7-a8-b2048-target-7-R0"
+              },
+              "header_token_sha256": "63ed7d2966f9b9f4ece383dd77e81615b96ebe0007a8a79d8369cb100d21c659",
+              "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
+              "suffix_token_sha256": "7e8785543ef6fb1240a8c45b0b8507344bc0ce2157bae447981ee0ec45c282b8",
+              "prompt_token_sha256": "f81fe2e450a15887f4e5240c9f1816aadc6c30caeacd2195ebd605f6c30445d9",
+              "prompt_tokens": 2113
+            }
+          ],
+          "same_context_canary": {
+            "target_id": "a8-b2048-same-context-canary",
+            "header_token_sha256": "225343a494d3ecd5a3fb314a8740288a2da67e2f7911ec3e9375ed65318a6e93",
+            "body_token_sha256": "e1d2027e5a6ce08cd3608a8eb3902103ee680a845d1410adc64f174fa24081ed",
+            "extra_key": "p7-a8-b2048-same-context-canary",
+            "max_new_tokens": 8,
+            "placement": "after_target_8_before_reset",
+            "arms": [
+              "R0"
+            ],
+            "included_in_amortization": false,
+            "any_token_mismatch_is_invalid": true
+          }
+        }
+      ],
+      "manifest_sha256": "600b507f5443a529a12193395700928d115be6a3155cc7f85e5b46d7416796b5"
+    },
+    "W": {
+      "schema_version": 1,
+      "workload_id": "W-fixed40-v1",
+      "source_workload_sha256": "30c9ae8de429a6389e58bbdcdf096101cf6296ff14d4e6fcf5c2b87c6b1f0749",
+      "segment_tokens_max": 512,
+      "objects": [
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 12.0,
+          "logical_tokens": 1024,
+          "object_id": "workflow-00",
+          "order": 0,
+          "recovery_cost_ms": 2.0,
+          "retired": false,
+          "role": "architect",
+          "segment_count": 2,
+          "token_ids_sha256": "2095a2c4afe87f25a57b84627258bcbcf2044a8d7f9f83dc294fc9e554439dea"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": true,
+          "dense_cost_ms": 24.0,
+          "logical_tokens": 2048,
+          "object_id": "workflow-01",
+          "order": 1,
+          "recovery_cost_ms": 2.0,
+          "retired": false,
+          "role": "coder",
+          "segment_count": 4,
+          "token_ids_sha256": "86e11bd9d63383b4614bf638e3a5bb3809fd86f649339232b216075d14110322"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 12.0,
+          "logical_tokens": 1024,
+          "object_id": "workflow-02",
+          "order": 2,
+          "recovery_cost_ms": 2.0,
+          "retired": false,
+          "role": "debugger",
+          "segment_count": 2,
+          "token_ids_sha256": "e4a9bb2c75b030593e81bdabec4abe1c40078bf9593a59d5c1cc92a5d67e49e0"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": true,
+          "dense_cost_ms": 24.0,
+          "logical_tokens": 2048,
+          "object_id": "workflow-03",
+          "order": 3,
+          "recovery_cost_ms": 2.0,
+          "retired": false,
+          "role": "coder",
+          "segment_count": 4,
+          "token_ids_sha256": "480d9559ca117451b2129a227f9c4c413c9bf403cd806fa3b734c707e1f7e903"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 12.0,
+          "logical_tokens": 1024,
+          "object_id": "workflow-04",
+          "order": 4,
+          "recovery_cost_ms": 2.0,
+          "retired": false,
+          "role": "debugger",
+          "segment_count": 2,
+          "token_ids_sha256": "55335a1ca90bb1447704d150c0a7ccc83f1251becb27d55ae5fce25e4d597f3d"
+        },
+        {
+          "active": false,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-00",
+          "order": 5,
+          "recovery_cost_ms": 1.5,
+          "retired": true,
+          "role": "dead_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "674a44f87e5b376cdaf646e4b1de58a714602172e2c1a4f85ff7d0ad4eca9a33"
+        },
+        {
+          "active": false,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-01",
+          "order": 6,
+          "recovery_cost_ms": 1.5,
+          "retired": true,
+          "role": "dead_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "59abc66765f0228b92bad89062f0b3444819a4242685df0c6f355531b8e61a7d"
+        },
+        {
+          "active": false,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-02",
+          "order": 7,
+          "recovery_cost_ms": 1.5,
+          "retired": true,
+          "role": "dead_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "8374fbbcf60a17b3bc5ffd1486d401cf1502d839799a0942b789123f9ec15093"
+        },
+        {
+          "active": false,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-03",
+          "order": 8,
+          "recovery_cost_ms": 1.5,
+          "retired": true,
+          "role": "dead_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "a848bd4d2a0663040ac42f3329c2a85dca944c758496ed97adc8c9b84228bb86"
+        },
+        {
+          "active": false,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-04",
+          "order": 9,
+          "recovery_cost_ms": 1.5,
+          "retired": true,
+          "role": "dead_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "32a1269a61d19f5868a5da8f93c486e5cfb73e0459f1c3a66adc9318e8f0ecae"
+        },
+        {
+          "active": false,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-05",
+          "order": 10,
+          "recovery_cost_ms": 1.5,
+          "retired": true,
+          "role": "dead_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "b4575be558d23b0c72d7e7ee1ef247f05380888650451116ffe6b7ee650d19d7"
+        },
+        {
+          "active": false,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-06",
+          "order": 11,
+          "recovery_cost_ms": 1.5,
+          "retired": true,
+          "role": "dead_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "b4e16b48b9e404c9eeeb19b162f5fb22da76efd96e305fcdcdc0b88d29574f22"
+        },
+        {
+          "active": false,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-07",
+          "order": 12,
+          "recovery_cost_ms": 1.5,
+          "retired": true,
+          "role": "dead_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "b27024df5769fd010132825d4b3836a038325fcbe7e8098c005c8a4c5ca2fbf4"
+        },
+        {
+          "active": false,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-08",
+          "order": 13,
+          "recovery_cost_ms": 1.5,
+          "retired": true,
+          "role": "dead_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "0a5a80a8f90a1c6347478ea9d0a9763238e8b446eb303222563c701fd26de078"
+        },
+        {
+          "active": false,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-09",
+          "order": 14,
+          "recovery_cost_ms": 1.5,
+          "retired": true,
+          "role": "dead_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "f05c9bb9c9ded849a4c6450226853fb31b6170558b6fcd8cee3113e486dc0d90"
+        },
+        {
+          "active": false,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-10",
+          "order": 15,
+          "recovery_cost_ms": 1.5,
+          "retired": true,
+          "role": "dead_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "3bcd58349dbddf8bd5b7a3236fd35028e4ddf69c6045f33d086dd3fc4e7e306b"
+        },
+        {
+          "active": false,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-11",
+          "order": 16,
+          "recovery_cost_ms": 1.5,
+          "retired": true,
+          "role": "dead_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "bc1fd7714000fdaef238488e8faae1a996758ecc773c57d35c55e36a615a2629"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-12",
+          "order": 17,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "e1d548b40124741c19733c680246377d158e95853b795f1f89308fcb5774394d"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-13",
+          "order": 18,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "84a5753f33aec5006d6c2a803425cde6767eabde23c8b2105cc4fa6098ead9cf"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-14",
+          "order": 19,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "302a673b933e4125c586aec38b03a80b94467f3162067d7c805a380a6c613652"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-15",
+          "order": 20,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "20131a12e0383b3b2096fc6e85093c28dbc830a4279f9b0cbd1fbcba0c1bc7cb"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-16",
+          "order": 21,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "19613ba23bab42c22e9f90d4f43fa11ff79cbd53f9d6764e174d75bfc5783159"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-17",
+          "order": 22,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "517eadf45619ce42864cd40369af254acae50f146bea94be066a4a02b198d73f"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-18",
+          "order": 23,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "bb0b3ced7ec11fa304346f7060238aa06252044511e2e01f37e1c5a8741655b6"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-19",
+          "order": 24,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "b3f3bec5135fd85a8e9b5b472824fbb99f4d5c2f2b03f9ae46a740db3e4f865b"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-20",
+          "order": 25,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "57f70f79447e31f39c3bf57a3351ebd9200b0dc93720fea823e13617efec3d26"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-21",
+          "order": 26,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "00406d2e277bbff961f0aee8d8f307d7157b94c7988255c9591f4867e0743b6f"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-22",
+          "order": 27,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "41a583a37dccf5f7c6f02f4d09c0e26a5ae411ae36a1d84539102a3a873a2cef"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-23",
+          "order": 28,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "c7fe46430b02624cb6c9983ad8e27d871a861ece456a931213aa78f26fad472b"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-24",
+          "order": 29,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "fee2a93e7805a58a4e69bdf2b2068a4951510efc73207187a1bfc884b61b867b"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-25",
+          "order": 30,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "85f602ca48b5c97cbe05918f31f594b95b9e1e21017eed43254b3bfcdbbb47cd"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-26",
+          "order": 31,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "9d4510d422a5f2965a59b2b1c8732915c3e07a3a39c244cd847ea31cc4e65f0e"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-27",
+          "order": 32,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "146440d494979b338925662129447a09a0588362b13ea1a48b1b1f4ca08ee375"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-28",
+          "order": 33,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "0d32666af8ed5d560a7297417044c5b9f148ee08a79aabdc817783806da51bc7"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-29",
+          "order": 34,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "135ac6d612f279f2eb1abdd10822387293081ce854f98a4fb71222b549fdb86f"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-30",
+          "order": 35,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "1010b9192c9d7012bbfaae27f600301bbcd57709d4442b6bba5d6b815463183c"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-31",
+          "order": 36,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "362e58ce2534459666c30b5cb1985c451a54d24f7da2622b1e6299be73773581"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-32",
+          "order": 37,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "189751952fe307427beafee72dbbaf8d265165a04a608b415901adcb9a8d80b9"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 4.0,
+          "logical_tokens": 512,
+          "object_id": "filler-33",
+          "order": 38,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "1442ddb582d3a1f0b23fd7061d4efa8bd1f932879ffdaad1d5d98d194cd402c3"
+        },
+        {
+          "active": true,
+          "crosses_chunk_boundary": false,
+          "dense_cost_ms": 3.0,
+          "logical_tokens": 384,
+          "object_id": "filler-34",
+          "order": 39,
+          "recovery_cost_ms": 1.5,
+          "retired": false,
+          "role": "live_filler",
+          "segment_count": 1,
+          "token_ids_sha256": "bd1fd515c417901b72e0516f6b46d152e5327cbbaf6e4bd3aef3ab9a22befe01"
+        }
+      ],
+      "workflow_sequence": [
+        "architect",
+        "coder",
+        "debugger",
+        "coder",
+        "debugger"
+      ],
+      "fill_order": [
+        "workflow-00",
+        "workflow-01",
+        "workflow-02",
+        "workflow-03",
+        "workflow-04",
+        "filler-00",
+        "filler-01",
+        "filler-02",
+        "filler-03",
+        "filler-04",
+        "filler-05",
+        "filler-06",
+        "filler-07",
+        "filler-08",
+        "filler-09",
+        "filler-10",
+        "filler-11",
+        "filler-12",
+        "filler-13",
+        "filler-14",
+        "filler-15",
+        "filler-16",
+        "filler-17",
+        "filler-18",
+        "filler-19",
+        "filler-20",
+        "filler-21",
+        "filler-22",
+        "filler-23",
+        "filler-24",
+        "filler-25",
+        "filler-26",
+        "filler-27",
+        "filler-28",
+        "filler-29",
+        "filler-30",
+        "filler-31",
+        "filler-32",
+        "filler-33",
+        "filler-34"
+      ],
+      "request_order": [
+        {
+          "request_index": 0,
+          "phase": "workflow",
+          "role": "architect",
+          "object_id": "workflow-00",
+          "next_use_request_index": 5
+        },
+        {
+          "request_index": 1,
+          "phase": "workflow",
+          "role": "coder",
+          "object_id": "workflow-01",
+          "next_use_request_index": 6
+        },
+        {
+          "request_index": 2,
+          "phase": "workflow",
+          "role": "debugger",
+          "object_id": "workflow-02",
+          "next_use_request_index": 7
+        },
+        {
+          "request_index": 3,
+          "phase": "workflow",
+          "role": "coder",
+          "object_id": "workflow-03",
+          "next_use_request_index": 8
+        },
+        {
+          "request_index": 4,
+          "phase": "workflow",
+          "role": "debugger",
+          "object_id": "workflow-04",
+          "next_use_request_index": 9
+        },
+        {
+          "request_index": 5,
+          "phase": "replay",
+          "role": "architect",
+          "object_id": "workflow-00",
+          "next_use_request_index": 33
+        },
+        {
+          "request_index": 6,
+          "phase": "replay",
+          "role": "coder",
+          "object_id": "workflow-01",
+          "next_use_request_index": 34
+        },
+        {
+          "request_index": 7,
+          "phase": "replay",
+          "role": "debugger",
+          "object_id": "workflow-02",
+          "next_use_request_index": 35
+        },
+        {
+          "request_index": 8,
+          "phase": "replay",
+          "role": "coder",
+          "object_id": "workflow-03",
+          "next_use_request_index": 36
+        },
+        {
+          "request_index": 9,
+          "phase": "replay",
+          "role": "debugger",
+          "object_id": "workflow-04",
+          "next_use_request_index": 37
+        },
+        {
+          "request_index": 10,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-12",
+          "next_use_request_index": 38
+        },
+        {
+          "request_index": 11,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-13",
+          "next_use_request_index": 39
+        },
+        {
+          "request_index": 12,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-14",
+          "next_use_request_index": 40
+        },
+        {
+          "request_index": 13,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-15",
+          "next_use_request_index": 41
+        },
+        {
+          "request_index": 14,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-16",
+          "next_use_request_index": 42
+        },
+        {
+          "request_index": 15,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-17",
+          "next_use_request_index": 43
+        },
+        {
+          "request_index": 16,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-18",
+          "next_use_request_index": 44
+        },
+        {
+          "request_index": 17,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-19",
+          "next_use_request_index": 45
+        },
+        {
+          "request_index": 18,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-20",
+          "next_use_request_index": 46
+        },
+        {
+          "request_index": 19,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-21",
+          "next_use_request_index": 47
+        },
+        {
+          "request_index": 20,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-22",
+          "next_use_request_index": 48
+        },
+        {
+          "request_index": 21,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-23",
+          "next_use_request_index": 49
+        },
+        {
+          "request_index": 22,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-24",
+          "next_use_request_index": 50
+        },
+        {
+          "request_index": 23,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-25",
+          "next_use_request_index": 51
+        },
+        {
+          "request_index": 24,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-26",
+          "next_use_request_index": 52
+        },
+        {
+          "request_index": 25,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-27",
+          "next_use_request_index": 53
+        },
+        {
+          "request_index": 26,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-28",
+          "next_use_request_index": 54
+        },
+        {
+          "request_index": 27,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-29",
+          "next_use_request_index": 55
+        },
+        {
+          "request_index": 28,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-30",
+          "next_use_request_index": 56
+        },
+        {
+          "request_index": 29,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-31",
+          "next_use_request_index": 57
+        },
+        {
+          "request_index": 30,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-32",
+          "next_use_request_index": 58
+        },
+        {
+          "request_index": 31,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-33",
+          "next_use_request_index": 59
+        },
+        {
+          "request_index": 32,
+          "phase": "replay",
+          "role": "live_filler",
+          "object_id": "filler-34",
+          "next_use_request_index": 60
+        },
+        {
+          "request_index": 33,
+          "phase": "replay-2",
+          "role": "architect",
+          "object_id": "workflow-00",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 34,
+          "phase": "replay-2",
+          "role": "coder",
+          "object_id": "workflow-01",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 35,
+          "phase": "replay-2",
+          "role": "debugger",
+          "object_id": "workflow-02",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 36,
+          "phase": "replay-2",
+          "role": "coder",
+          "object_id": "workflow-03",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 37,
+          "phase": "replay-2",
+          "role": "debugger",
+          "object_id": "workflow-04",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 38,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-12",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 39,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-13",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 40,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-14",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 41,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-15",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 42,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-16",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 43,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-17",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 44,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-18",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 45,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-19",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 46,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-20",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 47,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-21",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 48,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-22",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 49,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-23",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 50,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-24",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 51,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-25",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 52,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-26",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 53,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-27",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 54,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-28",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 55,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-29",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 56,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-30",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 57,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-31",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 58,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-32",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 59,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-33",
+          "next_use_request_index": null
+        },
+        {
+          "request_index": 60,
+          "phase": "replay-2",
+          "role": "live_filler",
+          "object_id": "filler-34",
+          "next_use_request_index": null
+        }
+      ],
+      "manifest_sha256": "2d02daa2f5f2b4f11e65158cf5bf1b863ff46c7abe19150495df4887efe54851"
+    },
+    "filler_pool": {
+      "schema_version": 1,
+      "selection_rule": "select the shortest deterministic prefix whose logical token sum reaches the pre-registered rho target after subtracting setup used+evictable; record the selected IDs at runtime",
+      "pool": [
+        {
+          "filler_id": "p7-filler-00",
+          "tokens": 512,
+          "token_sha256": "160f5f5c7c44e56283c07728f8d01b625879e31d1f776432211a8b2be19c013a",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-01",
+          "tokens": 512,
+          "token_sha256": "f4ecab99d80feacf1903fdff4c0928dc655d7ce75fcbaa8a0b94eb654d36bcd8",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-02",
+          "tokens": 512,
+          "token_sha256": "26a4f9e4caa79a12cb6cfbc181c481cea17e5d5a4ae8a39c63f0f49b537d527a",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-03",
+          "tokens": 512,
+          "token_sha256": "792ad49b42f5845da5396db4b31b62207ff5ae2e282637967d9f3ba1103b2441",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-04",
+          "tokens": 512,
+          "token_sha256": "7ebb85c72f6a2534a819c9f9feb57796830b526316ceed490942976aa46a262b",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-05",
+          "tokens": 512,
+          "token_sha256": "fbccab71b19a5e4b93649267251950a0d42e3305517ddc1e04f126a2c621315d",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-06",
+          "tokens": 512,
+          "token_sha256": "53e1776181bf09b1fbedd5946ccac11575e59e1f7f6629bdcc3d796cbc6cadfe",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-07",
+          "tokens": 512,
+          "token_sha256": "8fde74049b044670c8c8ad0cc249777cfd99c93206b255c1c727e1667f8f3073",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-08",
+          "tokens": 512,
+          "token_sha256": "93b20d992a5adf1e2da46302fcbaafb43069b82146d46cdbd1f6082e8c0f46c3",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-09",
+          "tokens": 512,
+          "token_sha256": "338d964e6e505512b218b53c9e285b2a889d8597a2671c96990f6a331dfc27a5",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-10",
+          "tokens": 512,
+          "token_sha256": "c85d76379f0a212f1ce22724836b9c52b82d5299c87b19ae8d33bd5b2511090e",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-11",
+          "tokens": 512,
+          "token_sha256": "85bcc94cdc84ba97e7f30b62fe473a2b727bab04173bab3319896784ac91f009",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-12",
+          "tokens": 512,
+          "token_sha256": "b444e2b6f7760ba26c1bb6d5dcc296811c98759014d7821850cac2cf01fc633c",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-13",
+          "tokens": 512,
+          "token_sha256": "fa3d3838c838fb74b94208cd4903193b99f34e2318050c677ab8b33f674b4c13",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-14",
+          "tokens": 512,
+          "token_sha256": "b830511e5bc615bb429a68ce83bff124f01cbab48fa5db6ea5e588e7d832f9f8",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-15",
+          "tokens": 512,
+          "token_sha256": "75707d792ab5c4154c949b7c992b99d7b3fc42c176f8920d8d4a52e431a0ba13",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-16",
+          "tokens": 512,
+          "token_sha256": "bcc50ce79eba9e6bfebbfa1c091a9e15b426df7a71a4a7ba20904c8102a4464d",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-17",
+          "tokens": 512,
+          "token_sha256": "9a0efbdce0d188998475e1c9df4dbccaa3727e491bc577da2881158632051dac",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-18",
+          "tokens": 512,
+          "token_sha256": "5bdcb8ca6624fc3a44b0fcf6352d4d5a168c327e7fe700741b2375d9c62b9ada",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-19",
+          "tokens": 512,
+          "token_sha256": "422e9354cc1bc497bedca2aff05c05d91389c8c0660655cfc6dd5e82cb6e0c10",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-20",
+          "tokens": 512,
+          "token_sha256": "9ed781fe21b2224f6300fac710072f354e1f8bae5966b69d07f66c1e8c041912",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-21",
+          "tokens": 512,
+          "token_sha256": "c6c0d2d9d62b18ea68a9ec53f5d0581a07006711dbce0f3668e94ca7a8e0608c",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-22",
+          "tokens": 512,
+          "token_sha256": "7f4e0643496f1e78c92b6859f39f9dc8143d3e6c282691dd571f9f4937e3378a",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-23",
+          "tokens": 512,
+          "token_sha256": "0b2cd1df69430e09ee9bbf73bd919936aabdcf594965580b9850c8d3bf1ee16a",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-24",
+          "tokens": 512,
+          "token_sha256": "f95020b6f74262b0f0437b70b8b02f82e1643311982a6c242206c0a7d21b476c",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-25",
+          "tokens": 512,
+          "token_sha256": "53fb27d1245e4ec65471722075e46d0ff43ee01c49fa234e3a2c4b0b164e50df",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-26",
+          "tokens": 512,
+          "token_sha256": "89d5459fe7307ec1c7d646084365af6800c0da3f7a30c22a3736bf345cb80603",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-27",
+          "tokens": 512,
+          "token_sha256": "9b9e27e40499a040ae476531e542ee0eee3e73e7d8bc774b919609c00b8fa6a4",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-28",
+          "tokens": 512,
+          "token_sha256": "02f70f298ebf79c779fcd6c88bf6802367767feef27ea49835af0075ec1d7f5e",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-29",
+          "tokens": 512,
+          "token_sha256": "be43afd262afafdf84f9b4a1a18d18c96c8e3fe8a2fadb8635c2b3c1bb206ba0",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-30",
+          "tokens": 512,
+          "token_sha256": "84a60f69176a86963c120dcb10ae7bc21cbee555a0da9faa6e218422c457d977",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-31",
+          "tokens": 512,
+          "token_sha256": "d3883490240dc9b3886e25c3af9cf5e2b69dbf9570d15c770d695b5fb33d709c",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-32",
+          "tokens": 512,
+          "token_sha256": "b4269d99f3550d80f1e90fe030a0f58b2b8fbd1ab4aa02636edf0460e81e2670",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-33",
+          "tokens": 512,
+          "token_sha256": "48127fe8506aa68783b6303ea5a08ce51e1b21189f9b8ac37cb40fe800b5c7d9",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-34",
+          "tokens": 512,
+          "token_sha256": "7be19642d39b2005ab358fa89884d8011e27c02d8ce8ab3782ab9d9d2a1abd2b",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-35",
+          "tokens": 512,
+          "token_sha256": "634c996ee16acc99f4e42c1ab0a57241355d4b470544eebae689bd1379384bbb",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-36",
+          "tokens": 512,
+          "token_sha256": "0084270a28003344a72ed36960b66b9dcb99d1fdbe35f410d2f0adbae85d4d7e",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-37",
+          "tokens": 512,
+          "token_sha256": "8d55f229c3b22d5c1f470c93cd90d6ca764a6fffd6c17ab1c9218984dd73abe4",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-38",
+          "tokens": 512,
+          "token_sha256": "928237e34cc8a7ed91ba7ce03c2d36d8ef479bb22399897c1241c1d20ae2f150",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-39",
+          "tokens": 512,
+          "token_sha256": "f7c68e9fb4757cb228e3d5d6c9cfd96e812bbf18148866c58106395ab24c0f7f",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-40",
+          "tokens": 512,
+          "token_sha256": "0a706ddc648dd7d2d6ec39d3c026084556445d0212bb632f0ea500f0ab328c30",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-41",
+          "tokens": 512,
+          "token_sha256": "b8d75b4e6b69cd56a767299c52ab32fed91511a3bdf7fb4452df2975ee9c1955",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-42",
+          "tokens": 512,
+          "token_sha256": "bc1f1fdaccfa5eb9b4da51da131e378ff2953916cdf3d78b7c1e2e6b36b33f03",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-43",
+          "tokens": 512,
+          "token_sha256": "7af38ee39b1b23d79b03f42b0ac605a1cfdebd948b2bf8ddea9908bbba3d7819",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-44",
+          "tokens": 512,
+          "token_sha256": "4b74d0f1b4426aaaeb909650bf68038a03e23b2f67de709251906bf2aa2f6903",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-45",
+          "tokens": 512,
+          "token_sha256": "86a9901b2a48fe7f4e9fa29929f142211e5578824bbd86061012fedc81c55c38",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-46",
+          "tokens": 512,
+          "token_sha256": "602f0590dcfb7debaf363fb9e7bced18fa2b9e74a5f9dd0e3a3ea733fec919c1",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-47",
+          "tokens": 512,
+          "token_sha256": "bee0d708742d1bd20e697e41a5df805890faae176fd6cc19e6379b0862aaf24b",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-48",
+          "tokens": 512,
+          "token_sha256": "a76e27497a548587cc5648a893b97627414dcdf7c995500360c0615ee0b3ad99",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-49",
+          "tokens": 512,
+          "token_sha256": "94fbe13c08ae9f51d853aaefc81a4e80e060c99be2759d5390d77c0404b175d6",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-50",
+          "tokens": 512,
+          "token_sha256": "0fca5ecf7c0ceecf0febd7cff977a05ec008c8a7c05fe325dfa512b320fc2b9d",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-51",
+          "tokens": 512,
+          "token_sha256": "3629705993b4f8674ecf11143ee04db266ea73648df465bbcd1a60ad438c7037",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-52",
+          "tokens": 512,
+          "token_sha256": "0c632495760a619d3a25750590578ac69e843febbf5dcfeb9d2179afcfba0c40",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-53",
+          "tokens": 512,
+          "token_sha256": "e6620217257aa88e0a8be2f51b8e81b6d747683cff7c555a3549dd790f314613",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-54",
+          "tokens": 512,
+          "token_sha256": "c2ec9fa5d2fddca931bfdcc26defa92747c498e74dc626292879630210d73746",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-55",
+          "tokens": 512,
+          "token_sha256": "afa9ba91fe42c243cf25238b2f5e96fe36c69ba3f3c018a3e9e8d84c727e713e",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-56",
+          "tokens": 512,
+          "token_sha256": "08da2b9284d4b5781aa1ad76caba66c993cbb7d0fa693b8c7ed53698f3c34eba",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-57",
+          "tokens": 512,
+          "token_sha256": "43740c91f578fd02c22410bc0e2df4ba42e4bd50d5fd0e9f4b74421b5675236c",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-58",
+          "tokens": 512,
+          "token_sha256": "14bd09a9ff8ba1c3dd56b6e3bea7d68181c0fbb7df8d90a1357c805d3b814bb3",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-59",
+          "tokens": 512,
+          "token_sha256": "2df2f70b1e93a9c20aa7dcbb18f42d6dd5a4358185d022945ee9f4eb4edbf64f",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-60",
+          "tokens": 512,
+          "token_sha256": "9fa6d3dcfbb92c0b550e33b7b13c4c54708be41128e7b06d92595518b0f278bd",
+          "retired": true
+        },
+        {
+          "filler_id": "p7-filler-61",
+          "tokens": 512,
+          "token_sha256": "3d4062293dc1aac01468c0dafd393b0a8aa0d3ce89e259174173e9c0773c1911",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-62",
+          "tokens": 512,
+          "token_sha256": "dac6fe64128acdeb3b7e364865b02ae547e8c9fe1baf8263c1935369363ad75c",
+          "retired": false
+        },
+        {
+          "filler_id": "p7-filler-63",
+          "tokens": 512,
+          "token_sha256": "bb96f48e63e7ca027229a421e22901813f83850dc2aec29d9f804bc4c9ed1944",
+          "retired": true
+        }
+      ],
+      "manifest_sha256": "faa29c4ffcba2d094eda7a9e6282b9a81bab3f77d8df9992de91fd9bc92c93fa"
+    }
+  },
+  "arms": {
+    "D0": "dense_no_reuse_baseline",
+    "E0": "exact_cache",
+    "R0": "raw_copy_ceiling",
+    "R2": "disabled_not_comparable_historical_only",
+    "R4-like-5x": "synthetic_footprint_proxy_not_kvcomm"
+  },
+  "footprint_profiles": {
+    "exact_only": "phase6 exact-only footprint profile",
+    "r0_like": "one approximate representation",
+    "r1_like_k32": "worst-case repair/temporary footprint",
+    "r2_like": "2x synthetic representation multiplicity",
+    "r4_like": "5x synthetic representation multiplicity",
+    "relation_to_R4-like-5x_arm": "same synthetic 5x footprint concept; different runner-specific identifier; neither executes KVCOMM"
+  },
+  "arm_execution": {
+    "formal_0": [
+      "D0",
+      "E0",
+      "R0"
+    ],
+    "formal_1": [
+      "R0",
+      "E0",
+      "D0"
+    ],
+    "reset_between_arms": true,
+    "A8_reset_between_targets": false,
+    "A8_reset_after_target_8": true
+  },
+  "statistics": {
+    "process_level_timing_replicates": [
+      0,
+      1,
+      2
+    ],
+    "primary_estimator": "per_restart_paired_target_median",
+    "range": "report_all_three_values_and_min_max",
+    "p95": "per_restart_then_median_across_restarts",
+    "pooled_p95_name": "ratio_of_marginal_p95s",
+    "request_level_bootstrap_forbidden": true,
+    "mde": {
+      "source": "CL2 body768 chunk4096 boundary-free control",
+      "speedups": [
+        1.005757470603157,
+        1.0043539446596337,
+        1.0100547151467836,
+        1.0027735443627668
+      ],
+      "mean": 1.0057349186930853,
+      "sample_sd": 0.003127191348764852,
+      "two_sample_sd": 0.006254382697529704,
+      "mde_fraction": 0.05
+    },
+    "amortization_N": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "break_even": [
+      "full_setup_break_even_observed_N",
+      "incremental_setup_break_even_observed_N"
+    ],
+    "not_observed_value": ">8/not_observed",
+    "per_role_requests_per_formal": {
+      "architect": 3,
+      "coder": 6,
+      "debugger": 6,
+      "live_filler": 46
+    },
+    "per_role_ttft_reporting": "descriptive_only_list_all_values"
+  },
+  "outcome_taxonomy": [
+    "dense_no_reuse_baseline",
+    "exact_gpu_hit",
+    "ordinary_exact_cache_miss",
+    "approximate_gpu_recovery",
+    "host_demand_load",
+    "approximate_recovery_failed_dense"
+  ],
+  "exclusive_terminal_reasons": [
+    "cross_store_reservation_failed",
+    "device_allocation_failed",
+    "unsupported",
+    "registration_failed",
+    "prefix_gap"
+  ],
+  "conditional_rules": {
+    "CR-P6DELTA-RHO3": "enable only if the final report will make a chunk4096/rho3 claim; otherwise resolve disabled and keep rho3 feasibility scoped to chunk1024",
+    "CR-R2-ADAPTER": "resolved disabled_not_comparable after bounded feasibility showed that restoring R2 would change frozen core dispatch"
+  },
+  "settings": [
+    {
+      "setting_id": "p6delta-s4-rho2-chunk4096",
+      "wave": "wave-0",
+      "runner": "benchmark.approx_kv.run_p6_4_capacity_pilot",
+      "workload": "W-fixed40-v1",
+      "body_tokens": 2048,
+      "rho_logical_demand": 2.0,
+      "chunked_prefill_size": 4096,
+      "max_prefill_tokens": 4096,
+      "policy": "hierarchical",
+      "restart_indices": [
+        0
+      ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [],
+      "supplement_gate": null,
+      "warmup_repeats": 1,
+      "formal_repeats": 2,
+      "arms": [
+        "exact_only",
+        "r0_like",
+        "r1_like_k32",
+        "r2_like",
+        "r4_like"
+      ],
+      "conditional": false,
+      "activation_rule_id": null,
+      "max_total_tokens": 11392,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
+      "arm_order_by_repeat": {
+        "0": [
+          "exact_only",
+          "r0_like",
+          "r1_like_k32",
+          "r2_like",
+          "r4_like"
+        ],
+        "1": [
+          "r4_like",
+          "r2_like",
+          "r1_like_k32",
+          "r0_like",
+          "exact_only"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
+    },
+    {
+      "setting_id": "p6delta-s0-rho2-chunk4096",
+      "wave": "wave-0",
+      "runner": "benchmark.approx_kv.run_p6_4_capacity_pilot",
+      "workload": "W-fixed40-v1",
+      "body_tokens": 2048,
+      "rho_logical_demand": 2.0,
+      "chunked_prefill_size": 4096,
+      "max_prefill_tokens": 4096,
+      "policy": "lru",
+      "restart_indices": [
+        0
+      ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [],
+      "supplement_gate": null,
+      "warmup_repeats": 1,
+      "formal_repeats": 2,
+      "arms": [
+        "exact_only",
+        "r0_like",
+        "r1_like_k32",
+        "r2_like",
+        "r4_like"
+      ],
+      "conditional": false,
+      "activation_rule_id": null,
+      "max_total_tokens": 11392,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
+      "arm_order_by_repeat": {
+        "0": [
+          "exact_only",
+          "r0_like",
+          "r1_like_k32",
+          "r2_like",
+          "r4_like"
+        ],
+        "1": [
+          "r4_like",
+          "r2_like",
+          "r1_like_k32",
+          "r0_like",
+          "exact_only"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
+    },
+    {
+      "setting_id": "p6delta-s4-rho3-chunk4096",
+      "wave": "conditional",
+      "runner": "benchmark.approx_kv.run_p6_4_capacity_pilot",
+      "workload": "W-fixed40-v1",
+      "body_tokens": 2048,
+      "rho_logical_demand": 3.0,
+      "chunked_prefill_size": 4096,
+      "max_prefill_tokens": 4096,
+      "policy": "hierarchical",
+      "restart_indices": [
+        0
+      ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [],
+      "supplement_gate": null,
+      "warmup_repeats": 1,
+      "formal_repeats": 2,
+      "arms": [
+        "exact_only",
+        "r0_like",
+        "r1_like_k32",
+        "r2_like",
+        "r4_like"
+      ],
+      "conditional": true,
+      "activation_rule_id": "CR-P6DELTA-RHO3",
+      "max_total_tokens": 7595,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
+      "arm_order_by_repeat": {
+        "0": [
+          "exact_only",
+          "r0_like",
+          "r1_like_k32",
+          "r2_like",
+          "r4_like"
+        ],
+        "1": [
+          "r4_like",
+          "r2_like",
+          "r1_like_k32",
+          "r0_like",
+          "exact_only"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
+    },
+    {
+      "setting_id": "p7-a8-r0-body1024-rho1.5",
+      "wave": "wave-1/wave-2",
+      "runner": "benchmark.approx_kv.run_p7_ceiling",
+      "workload": "A8-body1024",
+      "body_tokens": 1024,
+      "rho_logical_demand": 1.5,
+      "chunked_prefill_size": 4096,
+      "max_prefill_tokens": 4096,
+      "policy": "lru",
+      "restart_indices": [
+        0,
+        1,
+        2
+      ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-R0-MDE",
+      "warmup_repeats": 1,
+      "formal_repeats": 2,
+      "arms": [
+        "D0",
+        "E0",
+        "R0"
+      ],
+      "conditional": false,
+      "activation_rule_id": null,
+      "max_total_tokens": null,
+      "mem_fraction_static": 0.35,
+      "capacity_mode": "natural_capacity",
+      "rho_realization": "filler_pool",
+      "known_capacity_ceiling_tokens": 13130,
+      "capacity_relative_error_tolerance": null,
+      "arm_order_by_repeat": {
+        "0": [
+          "D0",
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0",
+          "D0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
+    },
+    {
+      "setting_id": "p7-a8-r0-body1024-rho2.0",
+      "wave": "wave-1/wave-2",
+      "runner": "benchmark.approx_kv.run_p7_ceiling",
+      "workload": "A8-body1024",
+      "body_tokens": 1024,
+      "rho_logical_demand": 2.0,
+      "chunked_prefill_size": 4096,
+      "max_prefill_tokens": 4096,
+      "policy": "lru",
+      "restart_indices": [
+        0,
+        1,
+        2
+      ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-R0-MDE",
+      "warmup_repeats": 1,
+      "formal_repeats": 2,
+      "arms": [
+        "D0",
+        "E0",
+        "R0"
+      ],
+      "conditional": false,
+      "activation_rule_id": null,
+      "max_total_tokens": null,
+      "mem_fraction_static": 0.35,
+      "capacity_mode": "natural_capacity",
+      "rho_realization": "filler_pool",
+      "known_capacity_ceiling_tokens": 13130,
+      "capacity_relative_error_tolerance": null,
+      "arm_order_by_repeat": {
+        "0": [
+          "D0",
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0",
+          "D0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
+    },
+    {
+      "setting_id": "p7-a8-r0-body2048-rho1.5",
+      "wave": "wave-1/wave-2",
+      "runner": "benchmark.approx_kv.run_p7_ceiling",
+      "workload": "A8-body2048",
+      "body_tokens": 2048,
+      "rho_logical_demand": 1.5,
+      "chunked_prefill_size": 4096,
+      "max_prefill_tokens": 4096,
+      "policy": "lru",
+      "restart_indices": [
+        0,
+        1,
+        2
+      ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-R0-MDE",
+      "warmup_repeats": 1,
+      "formal_repeats": 2,
+      "arms": [
+        "D0",
+        "E0",
+        "R0"
+      ],
+      "conditional": false,
+      "activation_rule_id": null,
+      "max_total_tokens": null,
+      "mem_fraction_static": 0.35,
+      "capacity_mode": "natural_capacity",
+      "rho_realization": "filler_pool",
+      "known_capacity_ceiling_tokens": 13130,
+      "capacity_relative_error_tolerance": null,
+      "arm_order_by_repeat": {
+        "0": [
+          "D0",
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0",
+          "D0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
+    },
+    {
+      "setting_id": "p7-a8-r0-body2048-rho2.0",
+      "wave": "wave-1/wave-2",
+      "runner": "benchmark.approx_kv.run_p7_ceiling",
+      "workload": "A8-body2048",
+      "body_tokens": 2048,
+      "rho_logical_demand": 2.0,
+      "chunked_prefill_size": 4096,
+      "max_prefill_tokens": 4096,
+      "policy": "lru",
+      "restart_indices": [
+        0,
+        1,
+        2
+      ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-R0-MDE",
+      "warmup_repeats": 1,
+      "formal_repeats": 2,
+      "arms": [
+        "D0",
+        "E0",
+        "R0"
+      ],
+      "conditional": false,
+      "activation_rule_id": null,
+      "max_total_tokens": null,
+      "mem_fraction_static": 0.35,
+      "capacity_mode": "natural_capacity",
+      "rho_realization": "filler_pool",
+      "known_capacity_ceiling_tokens": 13130,
+      "capacity_relative_error_tolerance": null,
+      "arm_order_by_repeat": {
+        "0": [
+          "D0",
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0",
+          "D0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
+    },
+    {
+      "setting_id": "p7-a8-r0-body2048-rho2-chunk1024-sensitivity",
+      "wave": "wave-2",
+      "runner": "benchmark.approx_kv.run_p7_ceiling",
+      "workload": "A8-body2048",
+      "body_tokens": 2048,
+      "rho_logical_demand": 2.0,
+      "chunked_prefill_size": 1024,
+      "max_prefill_tokens": 1024,
+      "policy": "lru",
+      "restart_indices": [
+        0,
+        1
+      ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1
+      ],
+      "supplement_gate": "ES-W-UNCONDITIONAL",
+      "warmup_repeats": 1,
+      "formal_repeats": 2,
+      "arms": [
+        "D0",
+        "E0",
+        "R0"
+      ],
+      "conditional": false,
+      "activation_rule_id": null,
+      "max_total_tokens": null,
+      "mem_fraction_static": 0.35,
+      "capacity_mode": "natural_capacity",
+      "rho_realization": "filler_pool",
+      "known_capacity_ceiling_tokens": 13130,
+      "capacity_relative_error_tolerance": null,
+      "arm_order_by_repeat": {
+        "0": [
+          "D0",
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0",
+          "D0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
+    },
+    {
+      "setting_id": "p7-w-r0-lru-rho1.5",
+      "wave": "wave-2",
+      "runner": "benchmark.approx_kv.run_p7_scheduler",
+      "workload": "W-fixed40-v1",
+      "body_tokens": 2048,
+      "rho_logical_demand": 1.5,
+      "chunked_prefill_size": 4096,
+      "max_prefill_tokens": 4096,
+      "policy": "lru",
+      "restart_indices": [
+        0,
+        1,
+        2
+      ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-W-UNCONDITIONAL",
+      "warmup_repeats": 1,
+      "formal_repeats": 2,
+      "arms": [
+        "E0",
+        "R0"
+      ],
+      "conditional": false,
+      "activation_rule_id": null,
+      "max_total_tokens": 15190,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
+      "arm_order_by_repeat": {
+        "0": [
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
+    },
+    {
+      "setting_id": "p7-w-r0-hierarchical-rho1.5",
+      "wave": "wave-2",
+      "runner": "benchmark.approx_kv.run_p7_scheduler",
+      "workload": "W-fixed40-v1",
+      "body_tokens": 2048,
+      "rho_logical_demand": 1.5,
+      "chunked_prefill_size": 4096,
+      "max_prefill_tokens": 4096,
+      "policy": "hierarchical",
+      "restart_indices": [
+        0,
+        1,
+        2
+      ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-W-UNCONDITIONAL",
+      "warmup_repeats": 1,
+      "formal_repeats": 2,
+      "arms": [
+        "E0",
+        "R0"
+      ],
+      "conditional": false,
+      "activation_rule_id": null,
+      "max_total_tokens": 15190,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
+      "arm_order_by_repeat": {
+        "0": [
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
+    },
+    {
+      "setting_id": "p7-w-r0-lru-rho2.0",
+      "wave": "wave-2",
+      "runner": "benchmark.approx_kv.run_p7_scheduler",
+      "workload": "W-fixed40-v1",
+      "body_tokens": 2048,
+      "rho_logical_demand": 2.0,
+      "chunked_prefill_size": 4096,
+      "max_prefill_tokens": 4096,
+      "policy": "lru",
+      "restart_indices": [
+        0,
+        1,
+        2
+      ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-W-UNCONDITIONAL",
+      "warmup_repeats": 1,
+      "formal_repeats": 2,
+      "arms": [
+        "E0",
+        "R0"
+      ],
+      "conditional": false,
+      "activation_rule_id": null,
+      "max_total_tokens": 11392,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
+      "arm_order_by_repeat": {
+        "0": [
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
+    },
+    {
+      "setting_id": "p7-w-r0-hierarchical-rho2.0",
+      "wave": "wave-2",
+      "runner": "benchmark.approx_kv.run_p7_scheduler",
+      "workload": "W-fixed40-v1",
+      "body_tokens": 2048,
+      "rho_logical_demand": 2.0,
+      "chunked_prefill_size": 4096,
+      "max_prefill_tokens": 4096,
+      "policy": "hierarchical",
+      "restart_indices": [
+        0,
+        1,
+        2
+      ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [
+        1,
+        2
+      ],
+      "supplement_gate": "ES-W-UNCONDITIONAL",
+      "warmup_repeats": 1,
+      "formal_repeats": 2,
+      "arms": [
+        "E0",
+        "R0"
+      ],
+      "conditional": false,
+      "activation_rule_id": null,
+      "max_total_tokens": 11392,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
+      "arm_order_by_repeat": {
+        "0": [
+          "E0",
+          "R0"
+        ],
+        "1": [
+          "R0",
+          "E0"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
+    },
+    {
+      "setting_id": "p7-w-r4like-lru-rho2",
+      "wave": "wave-2",
+      "runner": "benchmark.approx_kv.run_p7_scheduler",
+      "workload": "W-fixed40-v1",
+      "body_tokens": 2048,
+      "rho_logical_demand": 2.0,
+      "chunked_prefill_size": 4096,
+      "max_prefill_tokens": 4096,
+      "policy": "lru",
+      "restart_indices": [
+        0
+      ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [],
+      "supplement_gate": null,
+      "warmup_repeats": 1,
+      "formal_repeats": 2,
+      "arms": [
+        "R4-like-5x"
+      ],
+      "conditional": false,
+      "activation_rule_id": null,
+      "max_total_tokens": 11392,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
+      "arm_order_by_repeat": {
+        "0": [
+          "R4-like-5x"
+        ],
+        "1": [
+          "R4-like-5x"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
+    },
+    {
+      "setting_id": "p7-w-r4like-hierarchical-rho2",
+      "wave": "wave-2",
+      "runner": "benchmark.approx_kv.run_p7_scheduler",
+      "workload": "W-fixed40-v1",
+      "body_tokens": 2048,
+      "rho_logical_demand": 2.0,
+      "chunked_prefill_size": 4096,
+      "max_prefill_tokens": 4096,
+      "policy": "hierarchical",
+      "restart_indices": [
+        0
+      ],
+      "screening_restarts": [
+        0
+      ],
+      "supplement_restarts": [],
+      "supplement_gate": null,
+      "warmup_repeats": 1,
+      "formal_repeats": 2,
+      "arms": [
+        "R4-like-5x"
+      ],
+      "conditional": false,
+      "activation_rule_id": null,
+      "max_total_tokens": 11392,
+      "mem_fraction_static": 0.65,
+      "capacity_mode": "explicit_max_total_tokens",
+      "rho_realization": "capacity_pinning",
+      "known_capacity_ceiling_tokens": 20713,
+      "capacity_relative_error_tolerance": 0.05,
+      "arm_order_by_repeat": {
+        "0": [
+          "R4-like-5x"
+        ],
+        "1": [
+          "R4-like-5x"
+        ]
+      },
+      "reset_boundary": "full exact/approx/metadata reset between arms; A8 sequence has no reset between targets and resets after target 8"
+    }
+  ],
+  "early_stops": [
+    {
+      "rule_id": "ES-ENGINEERING",
+      "checkpoint": "immediate",
+      "rule": "unexpected primary OOM, incomplete request, stale handle, double free, accounting/reset/orphan failure => INVALID"
+    },
+    {
+      "rule_id": "ES-CAPACITY",
+      "checkpoint": "cell completion",
+      "rule": "R4/P6-4Delta OOM with <=0.05s death-state snapshot and empty reclaimable store => DIAGNOSTIC_UNAVAILABLE"
+    },
+    {
+      "rule_id": "ES-R0-MDE",
+      "checkpoint": "complete restart-0 A8 matrix",
+      "rule": "if paired median improvement <5% or does not exceed the frozen MDE, record NEGATIVE/INCONCLUSIVE and skip restart1-2 supplements"
+    },
+    {
+      "rule_id": "ES-W-UNCONDITIONAL",
+      "checkpoint": "none",
+      "rule": "W and chunk1024 sensitivity supplements are unconditional per V7; only ES-ENGINEERING can stop them. ES-R0-MDE governs A8 supplements only."
+    },
+    {
+      "rule_id": "ES-CHUNK-HEADLINE",
+      "checkpoint": "predeclared from CL2",
+      "rule": "do not publish mechanism-intrinsic speedup; all speedup reporting is chunk-coupled"
+    },
+    {
+      "rule_id": "ES-S4",
+      "checkpoint": "complete restart-0 W matrix",
+      "rule": "only if BOTH rho1.5 and rho2.0 have all-reusable mean gain <5% and miss_S4>=miss_S0 and peak_S4>=peak_S0, stop scheduler benefit claim"
+    },
+    {
+      "rule_id": "ES-NATURAL-FALLBACK",
+      "checkpoint": "any natural approximate reservation failure",
+      "rule": "failure to complete dense fallback after entering approximate recovery => INVALID"
+    }
+  ],
+  "budget": {
+    "committed_gpu_settings": 13,
+    "committed_server_starts": 30,
+    "conditional_gpu_settings": 1,
+    "conditional_server_starts": 1,
+    "all_gpu_settings": 14,
+    "all_server_starts": 31,
+    "expected_gpu_hours": {
+      "wave-0": 0.3,
+      "wave-1": 0.4,
+      "wave-2": 2.9,
+      "conditional": 0.2
+    },
+    "expected_gpu_hours_total": 3.8,
+    "expected_minutes_per_start_by_runner": {
+      "run_p6_4_capacity_pilot": 9,
+      "run_p7_ceiling_A8": 6,
+      "run_p7_ceiling_sensitivity": 6,
+      "run_p7_scheduler_W": 8,
+      "run_p7_scheduler_R4_like": 8
+    },
+    "hard_cap_server_starts": 36,
+    "hard_cap_gpu_hours": 6,
+    "gpu_hour_headroom": 2.2,
+    "minimum_headroom_fraction": 0.15,
+    "retries_count_against_cap": true
+  },
+  "artifact_templates": {
+    "runtime_staging_root": "/results/phase7",
+    "staging_raw_json": "/results/phase7/raw/{run_id}.json",
+    "staging_compact_json": "/results/phase7/compact/{run_id}.json",
+    "staging_server_log": "/results/phase7/logs/{run_id}.log",
+    "staging_central_log": "/results/phase7/phase7-runs.jsonl",
+    "versioned_destination_raw_json": "benchmark/approx_kv/results/phase7/raw/{run_id}.json",
+    "versioned_destination_compact_json": "benchmark/approx_kv/results/phase7/compact/{run_id}.json",
+    "versioned_destination_server_log": "benchmark/approx_kv/results/phase7/logs/{run_id}.log",
+    "versioned_destination_central_log": "benchmark/approx_kv/results/phase7/phase7-runs.jsonl",
+    "versioned_copy_policy": "copy from runtime staging and commit once after an experiment wave; runners never write the implementation worktree",
+    "implementation_worktree_mount": "read_only",
+    "hash_timing": "after server stop and file close",
+    "result_manifest": "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json"
+  },
+  "skipped_tracks": [
+    "practical_recovery",
+    "practical_scheduler_revalidation",
+    "r2_phase7_adapter",
+    "hicache_adapter",
+    "host_matrix",
+    "prefetch_functionality",
+    "prefetch_performance",
+    "async_h2d_performance"
+  ],
+  "required_inactive_counters": [
+    "host_load",
+    "prefetch_request",
+    "prefetch_loaded_tokens",
+    "async_load"
+  ],
+  "inactive_counter_pins": {
+    "host_load": {
+      "disabled": true,
+      "manifest_pins": {
+        "plugin_env.SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+        "skipped_track": "host_matrix"
+      }
+    },
+    "prefetch_request": {
+      "disabled": true,
+      "manifest_pins": {
+        "skipped_tracks": [
+          "prefetch_functionality",
+          "prefetch_performance"
+        ]
+      }
+    },
+    "prefetch_loaded_tokens": {
+      "disabled": true,
+      "manifest_pins": {
+        "skipped_tracks": [
+          "prefetch_functionality",
+          "prefetch_performance"
+        ]
+      }
+    },
+    "async_load": {
+      "disabled": true,
+      "manifest_pins": {
+        "plugin_env.SGLANG_APPROX_KV_HOST_BUDGET_BYTES": "0",
+        "skipped_track": "async_h2d_performance"
+      }
+    }
+  },
+  "scope_caveats": [
+    "practical=NONE is scoped to the tested implementation and chunk1024 qualification",
+    "R0 is a ceiling, not a practical candidate",
+    "R2 is disabled_not_comparable and retained only as historical evidence",
+    "R4-like is a synthetic footprint proxy, not KVCOMM execution",
+    "P6-F verifies fault-injected fallback only; natural pressure reachability is unproven",
+    "P6-4 rho1.1/rho1.5/rho3 feasibility remains chunk1024 unless separately revalidated",
+    "host/prefetch/async tracks are not generated in V7"
+  ],
+  "review_contract": {
+    "final_opus_required": true,
+    "reviewer": "Claude Opus 5 / Max Thinking / long context",
+    "scope": "final V7 plan, manifest, runners, Docker CPU evidence, R2 disposition, implementation binding, budget and early-stop",
+    "pass_condition": "no open P0/P1 after accepted-feedback closure",
+    "artifact_path": "benchmark/approx_kv/results/phase7/phase7-final-opus-review.json",
+    "authorization_activation": "the recorded conditional user authorization becomes active only after this review passes"
+  },
+  "correction_manifest_sha256": "2a907feec24f07d8601be0b48a21fc98cc6bdc08b6499031e2d284cf8b00a3f1"
+}
