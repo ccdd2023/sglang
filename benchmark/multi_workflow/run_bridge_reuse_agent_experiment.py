@@ -33,22 +33,53 @@ from benchmark.multi_workflow.prepare_minisweagent_swebench import (
 PROJECT = Path(__file__).resolve().parents[2]
 ARTIFACTS = Path("/home/gfy/CodeMAS_Project/kvflow-artifacts")
 DEFAULT_OUTPUT = ARTIFACTS / "impactkv_bridge_agent_accuracy_speed_20260726"
-DATASET = (
-    ARTIFACTS
-    / "swebench_verified_bridge_v1_20260724/minisweagent_dataset"
+DATASET = Path(
+    os.environ.get(
+        "IMPACTKV_DATASET_ROOT",
+        str(
+            ARTIFACTS
+            / "swebench_verified_bridge_v1_20260724/minisweagent_dataset"
+        ),
+    )
 )
-SNAPSHOT = (
-    ARTIFACTS / "swebench_verified_bridge_v1_20260724/frozen_subset.json"
+SNAPSHOT = Path(
+    os.environ.get(
+        "IMPACTKV_EVAL_SNAPSHOT",
+        str(
+            ARTIFACTS
+            / "swebench_verified_bridge_v1_20260724/frozen_subset.json"
+        ),
+    )
 )
-REGISTRATION = (
-    PROJECT / "benchmark/multi_workflow/swebench_verified_bridge_v1.json"
+REGISTRATION = Path(
+    os.environ.get(
+        "IMPACTKV_EVAL_REGISTRATION",
+        str(PROJECT / "benchmark/multi_workflow/swebench_verified_bridge_v1.json"),
+    )
 )
 CONFIG = PROJECT / "benchmark/multi_workflow/swebench_bridge_agent_reuse_v1.yaml"
 CHAT_TEMPLATE = (
     PROJECT / "benchmark/multi_workflow/qwen3_coder_tool_chat_template.jinja"
 )
-MODEL = "/home/gfy/models/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit"
+MODEL = os.environ.get(
+    "IMPACTKV_MODEL",
+    "/home/gfy/models/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit",
+)
+TOKENIZER_JSON = os.environ.get(
+    "IMPACTKV_TOKENIZER_JSON",
+    str(Path(MODEL) / "tokenizer.json"),
+)
+AGENT_STEP_LIMIT = int(os.environ.get("IMPACTKV_AGENT_STEP_LIMIT", "20"))
+ROPE_BASE = float(os.environ.get("IMPACTKV_ROPE_BASE", "10000000"))
 MINI = Path("/home/gfy/.venvs/mini-swe-agent-v2.3.0/bin/mini-extra")
+MINI_PYTHON = Path("/home/gfy/.venvs/mini-swe-agent-v2.3.0/bin/python")
+LIMIT_CAPTURE_RUNNER = (
+    PROJECT
+    / "benchmark/multi_workflow/run_swebench_with_limit_patch_capture.py"
+)
+CAPTURE_LIMIT_PATCH = (
+    os.environ.get("IMPACTKV_CAPTURE_LIMIT_PATCH", "0") == "1"
+)
 EVAL_PYTHON = Path("/home/gfy/.conda/envs/sglang-kvflow/bin/python")
 SERVER_PYTHON = EVAL_PYTHON
 ARMS = (
@@ -78,6 +109,7 @@ ARMS = (
     "coding_state_transition_target_v33b",
     "coding_critical_current_target_v34",
     "coding_version_validation_target_v35b",
+    "coding_grounded_observation_island_v40",
 )
 DENSE_ARMS = ("dense", "coding_memory_dense_v5")
 HOST_OVERFLOW_ARMS = (
@@ -243,7 +275,7 @@ def prepare(output: Path) -> dict[str, Any]:
         },
         "frozen_protocol": {
             "model": MODEL,
-            "agent_step_limit": 20,
+            "agent_step_limit": AGENT_STEP_LIMIT,
             "prompt_token_limit": 28_000,
             "server_context_length": 32_768,
             "rolling_history_groups": 6,
@@ -395,7 +427,7 @@ def init_manifest(run_dir: Path, arm: str) -> Path:
             "ledger_path": str(run_dir / "SERVER_LEDGER.jsonl"),
             "rope": {
                 "rotary_dim": 128,
-                "base": 10_000_000,
+                "base": ROPE_BASE,
                 "is_neox_style": True,
             },
             "sources": [],
@@ -545,8 +577,11 @@ def mini_command(
     instance_filter: str | None,
 ) -> list[str]:
     command = [
-        str(MINI),
-        "swebench",
+        *(
+            [str(MINI_PYTHON), str(LIMIT_CAPTURE_RUNNER)]
+            if CAPTURE_LIMIT_PATCH
+            else [str(MINI), "swebench"]
+        ),
         "--subset",
         str(DATASET),
         "--split",
@@ -563,6 +598,12 @@ def mini_command(
         f"model.reuse_arm={arm}",
         "--config",
         f"model.model_kwargs.api_base=http://127.0.0.1:{port}/v1",
+        "--config",
+        f"model.model_name=hosted_vllm/{MODEL}",
+        "--config",
+        f"model.tokenizer_json_path={TOKENIZER_JSON}",
+        "--config",
+        f"agent.step_limit={AGENT_STEP_LIMIT}",
         "--config",
         (
             "model.reuse_client_ledger_path="
