@@ -29,6 +29,11 @@ def _write_json(path: Path, value: Any) -> None:
     )
 
 
+def execution_status_root(plan_path: Path) -> Path:
+    lane = "static" if "STATIC" in plan_path.name.upper() else "canary"
+    return plan_path.parent / lane / "execution"
+
+
 def expected_output(command: dict[str, Any]) -> Path:
     argv = list(command["argv"])
     if "--metrics" in argv:
@@ -158,7 +163,7 @@ def main() -> None:
         selected = [
             clone_for_retry(command, args.retry_tag) for command in selected
         ]
-    status_root = args.plan.parent / "canary/execution"
+    status_root = execution_status_root(args.plan)
     results = [
         execute_command(command, status_root=status_root)
         for command in selected

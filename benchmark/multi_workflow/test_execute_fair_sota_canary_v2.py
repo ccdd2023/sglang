@@ -5,6 +5,7 @@ import pytest
 from benchmark.multi_workflow.execute_fair_sota_canary_v2 import (
     clone_for_retry,
     execute_command,
+    execution_status_root,
     expected_output,
     select_commands,
 )
@@ -75,3 +76,12 @@ def test_retry_clone_changes_all_outputs_without_mutating_original(tmp_path):
     assert command["command_id"] == "ok"
     with pytest.raises(ValueError, match="path-safe"):
         clone_for_retry(command, "bad tag")
+
+
+def test_status_root_separates_canary_and_static_logs(tmp_path):
+    assert execution_status_root(
+        tmp_path / "CANARY_COMMAND_PLAN.json"
+    ) == tmp_path / "canary/execution"
+    assert execution_status_root(
+        tmp_path / "STATIC_COMMAND_PLAN.json"
+    ) == tmp_path / "static/execution"
