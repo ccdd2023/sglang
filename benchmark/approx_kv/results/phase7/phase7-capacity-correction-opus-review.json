@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "artifact": "phase7-capacity-correction-opus-review",
+  "reviewer": "Claude Opus 5 / Max Thinking / long context",
+  "model": "claude-opus-5",
+  "verdict": "PASS_WITH_CAVEATS",
+  "open_p0": 0,
+  "open_p1": 0,
+  "reviewed_correction_manifest_status": "pinned_blocked",
+  "reviewed_correction_manifest_revision": 1,
+  "reviewed_correction_manifest_sha256": "2a907feec24f07d8601be0b48a21fc98cc6bdc08b6499031e2d284cf8b00a3f1",
+  "base_manifest_revision": 12,
+  "base_manifest_self_sha256": "2d66a1bcdb6dc92a72c59fefc581212fcd541accbc8ededa221495d30d039bef",
+  "base_manifest_design_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+  "base_manifest_path": "benchmark/approx_kv/results/phase7/phase7-primary-manifest.json",
+  "reviewed_correction_pinned_implementation_sha": "a950ab914e6b029f86d8ef666a3f770fc42980a7",
+  "reviewed_correction_pinned_tree_sha": "481339f31105bd3530c6b90399cada076ecdf510",
+  "capacity_runner_sha256": "c92225d4644c0960ff537fa2d8759a2745750beff04be2662085e118d549867f",
+  "original_raw_sha256": "80e8e83d7b587b1ed566889e1603eead82eb2618b58a2f9a1816fb8eae741ff3",
+  "scope": "capacity_terminal_reason",
+  "allowed_setting": "p6delta-s0-rho2-chunk4096",
+  "restart": 0,
+  "findings": [
+    {
+      "finding_id": "P1-1",
+      "severity": "P1",
+      "summary": "correction manifest and CPU evidence are included in recursive RESULT_MANIFEST 75/75",
+      "disposition": "closed"
+    },
+    {
+      "finding_id": "P1-2",
+      "severity": "P1",
+      "summary": "publication schema changes are disclosed and all 22 compact plus summary will be regenerated after correction while raw/log remain immutable",
+      "disposition": "closed"
+    },
+    {
+      "finding_id": "P2-1",
+      "severity": "P2",
+      "summary": "correction GPU time is supplementary and will be reported separately from the original 22-start total",
+      "disposition": "accepted_no_change"
+    }
+  ],
+  "disposition": "PASS WITH CAVEATS: authorize exactly one S0 capacity terminal-reason correction; preserve original 22 raw/log artifacts and reconsolidate all compact/summary after correction.",
+  "timestamp": "2026-07-28T19:22:45-07:00",
+  "artifact_sha256": "c949a59e9269632188b5497c5876014ed7da17994041b7940208f511fa94a380"
+}
