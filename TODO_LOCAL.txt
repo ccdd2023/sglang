@@ -24,10 +24,10 @@ Current boundary: do not enter Phase 7 without reporting to the user.
     implementation:
       /home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate
       branch research/cross-store-substrate
-      current implementation/manifest HEAD
-      5966983236599bd07bf3e582474e41bc01a22f6b
-      Phase7 runner implementation will create a new pinned HEAD in the
-      primary manifest; update HANDOFF/TODO/manifest atomically then.
+      current publication package HEAD
+      0206f17b4255e4b248dafaaeb943be57428dae2f
+      primary execution pin remains
+      81405f4278b034911bc613c4ee17c79d15ee8f35
 
 [ ] Confirm local and remote implementation SHA are identical.
 
@@ -282,12 +282,13 @@ The caveat is permanent:
        delta closure and final main-session disposition.
        Reconsolidation DONE: summary=e2deec5a..., RESULT_MANIFEST=79/79.
        Waiting for Sol/Opus targeted delta closure.
-       FINAL: summary=9d0aafcd..., RESULT_MANIFEST=79/79.
-       Opus READY; all P0/P1 closed; no additional GPU/offline work.
+       FINAL: summary=9d0aafcd..., RESULT_MANIFEST=88/88.
+       Sol/Opus READY; all P0/P1 closed; no additional GPU/offline work.
 
 [x] 22. Complete Phase7 main-session disposition.
        engineering=VALID; R0=NEGATIVE; W=INCONCLUSIVE/DESCRIPTIVE;
        publication=READY WITH CAVEATS.
+       final disposition file SHA=731ace74...
 
 
 3.3 CONDITIONAL - ONLY IF TRIGGERED

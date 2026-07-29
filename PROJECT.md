@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-28T20:25:48-07:00
+最后更新：2026-07-28T20:37:22-07:00
 
 ## 项目概况
 
@@ -50,13 +50,20 @@ publication = READY WITH CAVEATS
 - final summary：
   - canonical SHA=`9d0aafcd776305c7ac679b14845e4a5c79e44c04bb696ecf2d83644fca4c2c69`；
   - file SHA=`05acb52d51ea68bcff95c392e13348f73292dad0921b154efaf1e02e150eb135`；
-  - implementation HEAD=`107f6bfd39f25506929327a146377dafd964db6b`。
+  - publication package HEAD=`0206f17b4255e4b248dafaaeb943be57428dae2f`。
 - RESULT_MANIFEST：
-  - `79/79`；
-  - file SHA=`8a1f32db032c894eabd9d148626ade26439024ff72fba7926046f66b588b73ad`。
+  - `88/88`；
+  - file SHA=`6b6b0af19b70b9958866dc9674102026b348b1d5a4254e7f2f9d732a77548a65`；
+  - `known_gaps=[]`。
+- final disposition：
+  - path=`benchmark/approx_kv/results/phase7/PHASE7_FINAL_DISPOSITION.json`；
+  - file SHA=`731ace74108bc6ec0b6beb160bb3a55fcdbaae2fd2959c1a3f3d0b7aff466af5`；
+  - self SHA=`4013f054...`。
 - final dual review：
   - Opus=`PASS_WITH_CAVEATS / READY`，open P0/P1=`0/0`；
-  - Sol所有实验性P0/P1已关闭，最后authority SHA同步项现已闭合；
+  - Sol=`PASS_WITH_CAVEATS / READY_WITH_CAVEATS`，open P0/P1/P2=`0/0/0`；
+  - authority SHA同步已闭合；
+  - 完整original/exchange/cross/delta/final reports均已版本化；
   - 无额外GPU或offline work。
 
 核心结论：
