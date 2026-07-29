@@ -1,0 +1,300 @@
+已完成最终 targeted delta review（只读，未改 repo，未用 GPU）。
+
+---
+
+# Phase 7 最终 Targeted Delta Review（Opus，交叉上下文续）
+
+**Verdict**：**FAIL**（唯一阻断项为 1 条 offline 可修的 provenance 自洽缺陷）
+**Publication**：**NOT_READY**
+**Open**：**P0 = 0 / P1 = 1 / P2 = 5**
+**需要额外 GPU**：**否**
+**需要额外 offline 工作**：**是**（1 次 reconsolidation + 1 次 RESULT_MANIFEST 重建）
+
+修复落地后预期转 **PASS_WITH_CAVEATS / READY**。
+
+---
+
+## 1. CP1-1 关闭确认：GPU correction 完全达标，且我撤回自己的「最小 2 starts」判断
+
+### 1.1 correction 产物验证
+
+| 检查 | 结果 |
+|---|---|
+| correction raw 内部 `raw_sha256` | `59049306019351d2100565be3653d74e4ebe60a1fb49d1e03016e20c9cce7534` —— 重算匹配，**与你声明一致** ✓ |
+| correction raw 文件 sha256 | `b4ea8eb0f5c2c335d476f8a8a6125fe575e793a807dd62a9011ac4491c3bc157` |
+| `outcome.counts` | `approximate_recovery_failed_dense: 40`、`approximate_gpu_recovery: 0`、`ordinary_exact_cache_miss: 10` —— **与原 artifact 逐字段相同** ✓ |
+| `outcome.terminal_reason_counts` | `{unsupported: 40, 其余 4 项: 0}`，**求和 = 40 = fallback 数** ✓ |
+| 逐请求证据 | 40/40 `terminal_reason="unsupported"`、`terminal_reason_verification="direct"`、`terminal_reason_valid=true`、`raw={"store_miss": 1024.0}`、`unmapped_raw_reasons={}`、`excluded_raw_reasons={}` ✓ |
+| 非 approximate 请求 | 10 个 `exact_only` 请求 `terminal_reason=None` —— **无义务处正确留空，未伪造 reason** ✓ |
+| reset / inactive | 全部通过（`reset_invariant.passed`、store gauges 全零、4 个 inactive counter 保持 `manifest_pinned_disabled` + direct 0 / indirect null）✓ |
+| elapsed | `353.994538 s = 0.098331816 h` —— **与你声明逐位一致** ✓ |
+| 独立计账 | `evidence_corrections.excluded_from_executed_starts=true`、`excluded_from_primary_elapsed_gpu_equivalent_hours=true`；primary 仍为 **22 starts / 1.310141803888889 h** 未变 ✓ |
+| 原 22 raw/log 不可变 | git blob 比对 `fc752a6e9..HEAD` 对 `raw/`、`logs/` **零提交**；`p6delta-s0` raw 文件 sha、内部 sha、log sha 与我 review #1 记录**逐位相同**；22/22 内部自哈希通过 ✓ |
+| 原 `phase7-runs.jsonl` / `phase7-primary-manifest.json` | `3655a374…` / `c0a14e3a…` **未变** ✓ |
+
+### 1.2 我撤回「最小 2 starts」的判断 —— Sol 的「1 start」在此架构下是正确的
+
+我在 cross-consolidation 中主张最少 2 starts，理由是「修 runner ⇒ 主 manifest 升 rev13 ⇒ 旧 S4 artifact 触发 `runner SHA-256 mismatch`」。
+
+实际采用的架构**绕开了该约束且更优**：
+- 独立 **`phase7-capacity-correction-manifest`**（`correction_manifest_revision: 2`，`status: authorized_correction`，自哈希 `0c57df5b…` 重算匹配），绑定 base rev12 的 self/design/file 三重哈希，`design_payload_sha256 = 50003145…` **保持不变**；
+- 独立 staging root `/results/phase7-capacity-correction`、独立 `capacity-correction/` 版本化目录、**独立 central JSONL**；
+- 显式记录 `original_raw_sha256 = 80e8e83d…` / `original_raw_file_sha256 = 1e5c0da0…` 作为不可变性绑定；
+- 主 manifest rev12 与原 22 artifact **完全未动**，原有 provenance 契约零损伤。
+
+因此我先前预警的「central JSONL 重复 (setting_id, restart) 会直接 fail」也被结构性规避（分离 JSONL）。**Sol 的最小范围判定成立，我的判定基于一个未被采用的实现路径。予以更正记录。**
+
+### 1.3 机制层歧义已消除
+
+correction 复现了与原 run **完全相同**的 outcome 计数，并证明 S0 的 0/40 异常是 **`store_miss`（approximate store 中无该记录）**，而非 `registration_failed`（注册全部 `success`）、非 `prefix_gap`、非 `cross_store_reservation_failed`。我在 cross-consolidation 中提出的「无法区分合法 miss 与 S0 注册未生效」这一实质担忧**已被数据直接排除**。
+
+### 1.4 consolidator 已加入我建议的强制校验
+
+`consolidate_phase7_results.py` 新增并接入主流程：
+`_positive_terminal_reasons()`(:107)、`capacity_terminal_reason_correction_required()`(:540)、`validate_capacity_terminal_reason_correction()`(:556)、`validate_capacity_terminal_reason_contract()`(:933)，在 :1058 对每个 capacity artifact 强制执行 `sum(terminal_reason_counts) == approximate_recovery_failed_dense` 且逐 replay 要求 `verification=="direct"`。**根因（认证超出证据）已闭合。**
+
+---
+
+## 2. 原 findings 逐项关闭裁定
+
+### 2.1 Cross-consolidated P1（7 条）
+
+| ID | 状态 | 验证证据 |
+|---|---|---|
+| **CP1-1** capacity terminal reason | **CLOSED** | 见 §1；`wave0.S0.formal_outcomes.terminal_reason_counts = {unsupported: 40}`，`artifact_status = "accepted_with_evidence_correction"` |
+| **CP1-2** W victim/footprint 缺失 | **CLOSED** | 新增 `w_scheduler.victim_footprint`，含 `primary_axis_after_a8_negative: true` 与显式理由；summary 内 `object_kind` 656 次、`victim_sequence` 50 次、`victim_evict_bytes`/`wasted_bytes`/`churn_bytes` 各 26 次；W compact 已恢复 `victim_evict_bytes`/`victim_sequence`/`wasted_bytes`/`churn_bytes`/`reservation_failures`/`memory_footprint_after`（原为 0 次） |
+| **CP1-3** R4 footprint/victim/fallback | **CLOSED** | `r4_diagnostic.policies.S0` 新增 `outcome_counts`(12/110)、`recovery_success_fraction {12, 0.09836}`、`outcomes.dense_fallback {110, 0.90164}`、`terminal_reason_counts {unsupported:110}`、`memory_footprint_after`、`peak_device_bytes`、`representation_metadata` |
+| **CP1-4** wave0 S0 零恢复 + cell/profile 状态 | **CLOSED** | 新增 `cell_status: "diagnostic_unavailable"`、`artifact_status`、`raw_status`、`status_reason`、`formal_outcomes`(逐 profile `dense_fallback:10`、`approximate_gpu_recovery:0`)、`fallback_reachability {passed:false, rounds:0, semantics:…}`，并把 `profiles` 更名为 **`profile_registration_reachability`** + 显式布尔 `registration_reachability_is_not_recovery_success` —— 比我要求的更强 |
+| **CP1-5** A8 n=1 replicate 声明 | **CLOSED** | `a8_ceiling` 新增 `independent_replicate_unit: "server_restart"`、`independent_restarts_per_setting: 1`、`n_per_setting: 1`、`targets_are_not_independent_replicates: true`、`formal_repeats_are_not_independent_replicates: true`、`three_restart_range {available: false, reason: "ES-R0-MDE"}` |
+| **CP1-6** W R0 fallback 率未标注 | **CLOSED** | 每个 `per_restart` 行新增 `r0_outcomes{counts, requests:122, recovery{count,rate}, dense_fallback{count,rate}, terminal_reason_counts}`；`interpretation.latency_ratio_fallback_mix` 明示 45.9%–72.1% |
+| **CP1-7** "paired-restart" 过声明 | **CLOSED** | `comparison_design: "seed-matched_non_adjacent_restart_comparison"`（顶层 + 每 rho + 每 statement）、`not_a_paired_launch_block: true` |
+
+### 2.2 Sol findings（4 条）
+
+| Sol ID | 状态 | 证据 |
+|---|---|---|
+| **Sol P1-1** | **CLOSED** | 同 CP1-1 |
+| **Sol P2-1** marginal p95 命名 | **CLOSED（命名）/ 残留（附录位置）** | `ratio_of_marginal_p95s` 出现 192 次；旧名 `p95_ratio_s4_over_s0`、`r0_over_e0_p95_ratio` **各 0 次**；新增 `ratio_of_marginal_p95s_direction` 与 `p95_pairing: "nonpaired"`。plan `:417` 另要求「只作附录」，当前仍与 paired 量同层 → 残留 P2 |
+| **Sol P2-2** 非相邻 launch block | **CLOSED（披露）/ 结转（manifest 编码）** | 见 CP1-7。manifest rev12 已冻结且不再有 primary GPU run，未编码相邻性约束结转 Phase 8 |
+| **Sol P2-3** cell/profile 状态分列 | **CLOSED** | 见 CP1-4 |
+
+### 2.3 P2 register（13 条）
+
+**CLOSED（11）**：CP2-3（`statement` 现由 `_w_interpretation()` f-string **派生**，:2673）、CP2-4（miss delta 现同时给 `all_reusable` 与 `workflow_only`，两 rho workflow 均为 −10）、CP2-5（compact path 已为 `compact/…` 且 22/22 可解析）、CP2-6（`wall_clock_span_hours: 1.528835326` + `sum_of_run_intervals_exclusion_note`）、CP2-7（`distinct_output_tokens: 1` + `discriminative_power: "limited"` + `limitation`）、CP2-8（新增 `a8_ceiling.table[].primary_views` 含 `request_path` 定义/`target_only`/`full_lifecycle`/`cached_tokens`/`cold_start`；W 侧 `ttft_p50_ms` 764 次、`per_role` 248 次、`paired_delta_median_ms` 360 次）、CP2-9（`diagnostic-unavailable` 0 次，统一为 `diagnostic_unavailable`）、CP2-11（新增 `status_derivation` 三条 rule）、CP2-12（新增 `provenance` 含 code_pin/runner sha/cpu_evidence/entry_review —— 但引入新 P1，见 §3）、CP2-13（`entry_review.design_preserving_rev11_to_rev12: true` + explanation）、CP2-1 命名部分。
+
+**残留 / 结转（2 + 1）**：
+- **P2-R1**：CP2-1 的「p95 只作附录」未实现（命名已达标）。
+- **P2-R2**：CP2-10 未闭合 —— `peak_ratio_s4_over_s0`、`miss_delta_s4_minus_s0` 三个 restart 值仍完全相同，summary 无 `deterministic` / `zero_variance` 类标注（`deterministic` 出现 0 次）；不过 `cross_policy.per_restart` 现已给出三行，读者可自行看出零离散。
+- **P2-C1（结转）**：CP2-2，manifest 未编码 §5.3 相邻性；rev12 已冻结，转 Phase 8 设计项。
+
+---
+
+## 3. 唯一阻断项：NEW-P1 —— `provenance.result_manifest` 自指哈希失效且结构上不可满足
+
+**File/field**：`benchmark/approx_kv/results/phase7/phase7-consolidated-summary.json#/provenance/result_manifest`
+
+| 字段 | summary 声明 | 盘上/HEAD 实际 | 结果 |
+|---|---|---|---|
+| `entry_count` | **76** | **79** | **不符** |
+| `file_sha256` | `072fedd7160d6cfbe41b7d891c4a666a0cea80350f87c38d8d9ee7df902a6161` | `abbb8136649371df2bfd99f480f9acc831fe8d8074d838908e7b98fd28ea2b79` | **不符** |
+
+**成因（git 层精确定位）**：
+- `3c1a0e13f`（re-consolidate）时 `RESULT_MANIFEST.json` 为 **76** 条 → summary 写入 76 与 `072fedd7…`；
+- `2978371f1`（bind the corrected publication package）把 RESULT_MANIFEST 重建为 **79** 条（+`capacity-correction` 的 raw/log/jsonl，且更新 summary 的 sha 为 `70361d74…`），文件哈希变为 `abbb8136…`；
+- summary 此后未再生成 → 该块永久陈旧。
+
+**这不是排序失误，而是设计上的循环**：
+`summary ⊃ sha256(RESULT_MANIFEST)`，而 `RESULT_MANIFEST ⊃ sha256(summary)`（已确认 summary 是 RESULT_MANIFEST 的一条 entry，记录值 `70361d74…`）。二者互为输入，**不存在不动点**，无论以何顺序重跑都无法同时自洽。
+
+**影响**：
+1. 发布产物对外做出一条**可机器验证且为假**的 provenance 断言；
+2. 破坏了 review #1 确认过的**逐字节可复现**性质 —— 我本轮 in-memory 重跑得到 `721c3033…`，与盘上 `e2deec5a…` 不同，**差异恰为且仅为**上述 2 个叶子 + 派生自哈希（22 个 compact **全部逐字节相同**）；
+3. 讽刺地由闭合 CP2-12 的修复引入。
+
+**修复（offline，无 GPU）**：
+- 从 `provenance.result_manifest` 移除 `file_sha256`（保留 `path` + `authority`），并把 `entry_count` 改为由 consolidator 自身的文件清单推导的 *expected* 条数，或一并移除 —— 打破循环；
+- `--force` 重新 consolidate（产生新 `summary_sha256`）→ 重建 `RESULT_MANIFEST`（79 条，更新 summary sha）→ 此时收敛，可再次验证逐字节可复现；
+- 建议同批处理 P2-R1、P2-R2、NEW-P2-1、NEW-P2-2。
+
+---
+
+## 4. 新增 P2（2 条）
+
+| ID | File/field | 问题 | Fix |
+|---|---|---|---|
+| **NEW-P2-1** | `summary#/manifest/path`、`#/source_hashes/evidence_corrections[0]/manifest_path`、`/review_path` | 3 处写入**绝对宿主路径** `/home/chris/Workspaces/...`，与其余全部 artifact-relative 路径不一致，不可移植并泄露本地目录布局 | 改为 repo-relative |
+| **NEW-P2-2** | `summary#/r4_diagnostic/policies/S0` | 同一组数字重复 4 处（`outcome_counts`、`outcomes.counts`、`fallback_fraction`、`outcomes.dense_fallback`、`recovery_success_fraction`、`outcomes.recovery`），存在未来分叉风险 | 收敛为单一 `outcomes` 块 |
+
+---
+
+## 5. 对我自己 review #1 产物的更正（reporting-integrity 自查）
+
+本轮全精度重算暴露：我在 **review #1 的 machine-readable JSON** 中给出的 A8 值
+
+`[0.7723084788319753, 0.7750646549196568, 0.9333841300150884, 0.9361730384560383]`
+`[0.6086457910880934, 0.6100962154686245, 0.6397911306400723, 0.6418890486640437]`
+
+其中第 2–4 项在**第 7 位有效数字之后为臆造尾数** —— 当时控制台只以 `:.6f` 打印，我未持有全精度值。经从不可变 raw 逐条重算，**权威全精度值**为：
+
+- request-path：`0.7723084788319753`、`0.7750652993475325`、`0.9333835627802327`、`0.9361732730155323`
+- N=8 full-setup：`0.6086457910880934`、`0.6100955039216343`、`0.6397908630435616`、`0.6418893640462963`
+
+三方（新 summary / raw.summary / 我的独立重算）**逐位一致**；与两份旧报告在 **6 位小数**（0.772308 / 0.775065 / 0.933384 / 0.936173；0.608646 / 0.610096 / 0.639791 / 0.641889）**完全一致**。Sol 报告仅引用 6 位小数，不受影响。
+
+→ **任何科学结论均不改变**；这是我方产物的精度伪造缺陷，在此登记更正，请一并同步给 Sol。
+
+---
+
+## 6. 数值非回归与完整性复核
+
+| 项 | 结果 |
+|---|---|
+| 22 raw / 22 log **不可变** | ✓ git blob 与文件哈希双重确认，`raw/`、`logs/` 自 `fc752a6e9` 起零提交 |
+| 22 compact 自哈希 | **22/22 通过**，且 in-memory 重跑**逐字节相同** |
+| summary 自哈希 | `e2deec5a…` 重算匹配；文件字节 == canonical writer form ✓ |
+| summary 可复现性 | **仅 3 个叶子不可复现**（NEW-P1），其余全部一致 |
+| correction manifest 自哈希 | `0c57df5b…` 重算匹配；design `50003145…` 保持；`supersedes` rev1 `2a907fee…` |
+| correction review | `PASS_WITH_CAVEATS`，`open_p0=0`、`open_p1=0`，审阅对象为 rev1 `pinned_blocked` → rev2 `authorized_correction` 激活，链路合规 |
+| 除 RESULT_MANIFEST 外全部 8 项哈希绑定 | **全部 OK**（correction manifest/review/cpu evidence/raw/log、primary manifest、central jsonl） |
+| `RESULT_MANIFEST` | **79/79 全部通过**（file 存在 + sha256 + bytes + `containing_commit` 内 blob 四重匹配），0 pending，10 个 commit **全部为 HEAD 祖先**，worktree clean |
+| A8 / chunk1024 / W 数值 | 与 raw 独立重算**逐位一致**；chunk1024（`1.7370152775837997` / `1.1889604660811057`）与 W（rho1.5 `1.0020817511131008`/`1.0275736602204162`/−14/`1.01122824527478`；rho2.0 `1.0250294118270489`/`1.044182842048327`/+2/`0.9980643600290346`）**与前两轮完全相同** |
+| 执行计账 | executed_starts **22** 未变；primary elapsed **1.310141803888889 h** 未变；correction **0.098331816 h** 单列；`within_hard_cap: true` |
+
+---
+
+## 7. 最终结论（修复 NEW-P1 后即可发布的文本）
+
+1. **Engineering: VALID.** 22 个已授权 primary start 全部通过 hash/provenance/reset/inactive 校验；wave-0 S0 的 40 次 approximate 失败经一次定向 evidence correction 补齐了 plan §5.8 强制的 exclusive terminal reason，全部为 direct `unsupported ← store_miss`。全 Phase 7 未观察到任何自然 cross-store reservation failure。
+2. **Mechanism (A8 R0 ceiling): NEGATIVE.** chunk4096 下四个 restart-0 setting 的 paired-target request-path median 为 `0.7723 / 0.7751 / 0.9334 / 0.9362`（R0 比 dense 慢 6–23%，方向与 +5% MDE 相反）；N=8 full-setup 摊销为 `0.6086 / 0.6101 / 0.6398 / 0.6419`，`break_even_observed_N` 全部 `>8/not_observed`。**不发布任何机制固有 speedup headline。** 每 setting 仅 **1 个进程级 replicate**；ES-R0-MDE 正确跳过 8 个 supplement，故预注册的三点区间不可得。
+3. **chunk1024 sensitivity 为 chunk-coupled，非 headline.** restart 中位 request-path `1.7370`、N=8 full-setup `1.1890`，对同 body/rho 的 chunk4096 值（`0.9362` / `0.6419`）呈约 1.85× 摆动，归因于 `chunked_prefill_size`/`max_prefill_tokens` 的耦合变更，而非恢复机制本身。
+4. **System behaviour (W, S4 vs S0): INCONCLUSIVE / DESCRIPTIVE.** 三个独立 restart 的中位数：rho=1.5 时 all-reusable `1.0021`、workflow-only `1.0276`、miss delta（all/workflow）`−14 / −10`、R0 peak 比 `1.0112`；rho=2.0 时 `1.0250`、`1.0442`、`+2 / −10`、`0.9981`。**不选 winner、不发布任何 scheduler 性能 claim。** A8 NEGATIVE 后，W 的 primary 轴为 cross-store victim/footprint accounting，延迟视图为次要描述性证据。
+5. **R4-like 为 synthetic 5x footprint proxy，不执行 KVCOMM.** S0 两个 repeat 均完成 61 请求（`available`/`valid`），但仅 **12/122（9.8%）** 为真实 approximate recovery，**110/122（90.2%）** 为 dense fallback（`unsupported`）；S4 两个 repeat 均注册失败（`diagnostic_unavailable`/`inconclusive`）。性能排名禁用。
+6. **Budget.** 30 个 committed start 中执行 22 个，耗时 **1.31014 GPU-equivalent 小时**（wall-clock 跨度 1.52884 h），为 3.8 h 预期的 34.5%、6.0 h 硬上限的 21.8%。另有 1 次 evidence-correction start（**0.09833 h**），单独计账，不计入 22 starts 与 primary 预算。
+
+## 8. 最终 caveats（必须与结论同时出现）
+
+1. `practical=NONE` 限定于本模型、合成 prompt 族、exact-output 不变量、本 GPU 与 `chunk=1024`，非普遍不可行性 claim。
+2. R0 是 ceiling 路径，非被提升的 practical 候选。
+3. R2 为 `disabled_not_comparable` 且未执行；Phase 4 chunk1024 的 R2 数值**不得**与 Phase 7 chunk4096 结果同表排名或合并统计。
+4. `r2_like` 是 2x synthetic representation-multiplicity footprint profile，非 R2 执行；`R4-like-5x` 是 synthetic footprint proxy，非 KVCOMM。
+5. P6-F 只证明 fault-injected fallback。**自然压力下的 fallback 可达性仍未证明**：两个 wave-0 cell 均为 `fallback_reachability {passed: false, rounds: 0}`，且 22 个 start 中零次自然 reservation failure。
+6. wave-0 的 "reachable" 仅指 profile **注册成功且该轮通过 validity/reset 校验**，**不代表 approximate recovery 成功**。S0 在四个 approximate profile、两个 formal repeat 中均为 `approximate_gpu_recovery = 0` / `dense_fallback = 5`（合计 40，全部 `unsupported ← store_miss`），这正是其 cell 为 `diagnostic_unavailable`、artifact 为 `inconclusive` 的原因；S4 在四个非 R4 profile 上为 5/5 恢复。
+7. W 矩阵中 R0 臂有 **45.9%–72.1%** 的请求回退为 dense（terminal reason `unsupported ← store_miss`），故 S4-vs-S0 的延迟比是在**混合了大量 dense-fallback 路径**的两臂之间比较。
+8. 独立复制单元是 **server restart**。同 trace 内请求与同进程内 formal repeat 均**不是**独立计时复制；禁止请求级 bootstrap。所报 p95 为 `ratio_of_marginal_p95s`（边际 p95 之比，`p95_pairing: nonpaired`），非配对统计量。W 用 3 个 restart，A8 primary 与 R4-like 用 1 个，chunk1024 sensitivity 用 2 个。
+9. **W 的 S0/S4 比较为 seed-matched **非相邻** restart 比较**：每个 `(rho, restart)` 配对的两次 server 启动相隔 3 个位置（约 14 分钟），不满足 plan §5.3 的 paired launch block 相邻性定义（`not_a_paired_launch_block: true`）。该偏离仅作描述性披露，无 claim 依赖其配对性质。
+10. host / prefetch / async / HiCache 轨道在 V7 中未生成，仅做零成本 inactive 断言。
+11. P6-4 的 rho1.1 / rho1.5 / rho3 feasibility 仍限定 chunk1024，不得发布任何 chunk4096/rho3 claim。
+12. body=1024 的 8-token same-context canary 参考输出仅含 **1 个 distinct token**，虽 `matched=true` 但判别力有限（`discriminative_power: "limited"`）。
+
+---
+
+## 9. 剩余工作（无 GPU）
+
+| # | 步骤 | 类型 |
+|---|---|---|
+| 1 | 打破 `summary ↔ RESULT_MANIFEST` 循环：移除 `provenance.result_manifest.file_sha256`，`entry_count` 改为 consolidator 自身推导或移除 | 代码 |
+| 2 | 同批修 NEW-P2-1（3 处绝对路径 → repo-relative）、NEW-P2-2（r4 数字四处重复收敛）、P2-R1（p95 降为附录）、P2-R2（peak/miss 标注 deterministic across restarts） | 代码 |
+| 3 | `--force` reconsolidate → 新 `summary_sha256` | offline |
+| 4 | 重建 `RESULT_MANIFEST`（79 条），并**验证本次达到不动点**（重跑 consolidator 应逐字节复现 summary） | offline |
+| 5 | 更新 `HANDOFF.md` / `PROJECT.md`，向 `TRACKING.md` **追加**本轮 delta review 记录（含我方 review #1 精度更正） | 文档 |
+| 6 | Sol / Opus 最终互换确认（预期 0 open P0/P1）→ 主会话 disposition → 发布 | 流程 |
+| — | **CP2-2 结转 Phase 8**：在未来 manifest 中把 §5.3 launch adjacency 编码为可校验约束，并让 `expected_execution_plan()` 按 `(rho, restart)` 交错生成 | 结转 |
+
+---
+
+## 10. Machine-readable summary
+
+```json
+{
+  "artifact": "phase7-final-targeted-delta-review",
+  "schema_version": 1,
+  "reviewer": "Claude Opus 5 / Max Thinking",
+  "review_mode": "read_only_offline_no_gpu_no_mutation",
+  "timestamp": "2026-07-28T19:37:41-07:00",
+  "context": "post cross-consolidation (Opus x GPT-5.6 Sol), after S0 terminal-reason GPU correction and full --force reconsolidation",
+  "verdict": "FAIL",
+  "verdict_basis": "single open P1: self-referential provenance.result_manifest is stale (76 vs 79) and structurally circular; scientific package fully verified",
+  "publication_disposition": "NOT_READY",
+  "expected_verdict_after_fix": "PASS_WITH_CAVEATS / READY",
+  "open_counts": { "P0": 0, "P1": 1, "P2": 5 },
+  "additional_gpu_required": false,
+  "additional_offline_work_required": true,
+  "offline_work": ["break summary<->RESULT_MANIFEST hash cycle", "one --force reconsolidation", "one RESULT_MANIFEST rebuild", "authority doc sync"],
+  "closed_findings": {
+    "cross_consolidated_p1": ["CP1-1","CP1-2","CP1-3","CP1-4","CP1-5","CP1-6","CP1-7"],
+    "sol_findings": ["SOL-P1-1","SOL-P2-1(naming)","SOL-P2-2(disclosure)","SOL-P2-3"],
+    "p2_closed": ["CP2-3","CP2-4","CP2-5","CP2-6","CP2-7","CP2-8","CP2-9","CP2-11","CP2-12","CP2-13","CP2-1-naming"]
+  },
+  "open_findings": [
+    {"id":"NEW-P1-1","severity":"P1","file":"phase7-consolidated-summary.json#/provenance/result_manifest","claimed_entry_count":76,"actual_entry_count":79,"claimed_file_sha256":"072fedd7160d6cfbe41b7d891c4a666a0cea80350f87c38d8d9ee7df902a6161","actual_file_sha256":"abbb8136649371df2bfd99f480f9acc831fe8d8074d838908e7b98fd28ea2b79","root_cause":"circular dependency: summary embeds sha256(RESULT_MANIFEST) while RESULT_MANIFEST embeds sha256(summary); no fixed point exists","introduced_by":"CP2-12 provenance fix","fix":"remove file_sha256 and derive entry_count internally, then reconsolidate and rebuild"},
+    {"id":"NEW-P2-1","severity":"P2","file":"summary#/manifest/path and #/source_hashes/evidence_corrections[0]/{manifest_path,review_path}","issue":"three absolute host paths /home/chris/..."},
+    {"id":"NEW-P2-2","severity":"P2","file":"summary#/r4_diagnostic/policies/S0","issue":"same figures duplicated in four sibling fields"},
+    {"id":"P2-R1","severity":"P2","issue":"plan :417 appendix-only placement for ratio_of_marginal_p95s not implemented (naming done)"},
+    {"id":"P2-R2","severity":"P2","issue":"peak_ratio/miss_delta identical across all 3 restarts, not labelled deterministic"},
+    {"id":"P2-C1","severity":"P2","status":"carried_forward_to_phase8","issue":"manifest does not encode plan 5.3 launch-block adjacency"}
+  ],
+  "self_correction": {
+    "target": "opus review #1 machine-readable block",
+    "issue": "A8 settings 2-4 request-path and N8 values carried fabricated digits beyond the 6th decimal",
+    "authoritative_a8_request_path": [0.7723084788319753, 0.7750652993475325, 0.9333835627802327, 0.9361732730155323],
+    "authoritative_a8_n8_full_setup": [0.6086457910880934, 0.6100955039216343, 0.6397908630435616, 0.6418893640462963],
+    "scientific_impact": "none; agrees with both prior reports to 6 decimal places"
+  },
+  "correction_verification": {
+    "correction_raw_internal_sha256": "59049306019351d2100565be3653d74e4ebe60a1fb49d1e03016e20c9cce7534",
+    "correction_raw_internal_sha256_matches_declared": true,
+    "correction_raw_file_sha256": "b4ea8eb0f5c2c335d476f8a8a6125fe575e793a807dd62a9011ac4491c3bc157",
+    "correction_manifest_revision": 2,
+    "correction_manifest_status": "authorized_correction",
+    "correction_manifest_self_sha256": "0c57df5b75c48d53a11c1355d37f24fd360f15d2f2fb89afa88dfa6923b68283",
+    "correction_manifest_file_sha256": "f976ef49402f5d1b365d61d3ff00d22ee0781bbd4c460b147808f8548083c117",
+    "correction_runner_sha256": "c92225d4644c0960ff537fa2d8759a2745750beff04be2662085e118d549867f",
+    "correction_pinned_implementation_sha": "a950ab914e6b029f86d8ef666a3f770fc42980a7",
+    "design_payload_preserved": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+    "terminal_reason_counts": {"unsupported": 40, "cross_store_reservation_failed": 0, "device_allocation_failed": 0, "prefix_gap": 0, "registration_failed": 0},
+    "per_request_direct_verification": "40/40 direct, raw store_miss, zero unmapped or excluded reasons",
+    "outcome_counts_reproduce_original": true,
+    "elapsed_seconds": 353.994538,
+    "elapsed_gpu_equivalent_hours": 0.098331816,
+    "separately_accounted": true,
+    "starts_used": 1,
+    "opus_prior_minimum_2_starts_withdrawn": "separate correction-manifest namespace avoids the runner-SHA invalidation of the S4 artifact; Sol's minimum of 1 is correct"
+  },
+  "immutability": {
+    "original_22_raw_unchanged": true,
+    "original_22_logs_unchanged": true,
+    "original_central_jsonl_sha256": "3655a374a554161a1c52a2ac1ce23a3cc2fc321c9d92772b2193aae60697ea67",
+    "primary_manifest_file_sha256": "c0a14e3a8127db4ad7fba20920a156b9b731e7ea36711c8c104a49bca3a8667d",
+    "primary_manifest_self_sha256": "2d66a1bcdb6dc92a72c59fefc581212fcd541accbc8ededa221495d30d039bef",
+    "git_commits_touching_raw_or_logs_since_fc752a6e9": 0
+  },
+  "reviewed_summary": {
+    "summary_sha256": "e2deec5afbbfffb7b22de84d7218e3ca1aac0ba7327abcad5b1ae402753e4134",
+    "summary_sha256_matches_declared": true,
+    "file_sha256": "70361d746c243b52f772f1a91d3ca8336ddd942d5a0255e262f92dee6d15d300",
+    "self_hash_verified": true,
+    "byte_reproducible": false,
+    "non_reproducible_leaves": ["/provenance/result_manifest/entry_count","/provenance/result_manifest/file_sha256","/summary_sha256"],
+    "recomputed_summary_sha256_if_rerun_now": "721c303319d46bfb0632b004e14b215e89007ea5b27d496782e4f53740aca379",
+    "compacts_byte_reproducible": 22
+  },
+  "result_manifest": {"declared": 79, "verified": 79, "pending": 0, "actual_file_sha256": "abbb8136649371df2bfd99f480f9acc831fe8d8074d838908e7b98fd28ea2b79", "all_commits_ancestors_of_head": true},
+  "execution": {
+    "executed_starts": 22,
+    "primary_elapsed_gpu_equivalent_hours": 1.310141803888889,
+    "primary_wall_clock_span_hours": 1.528835326388889,
+    "evidence_correction_hours": 0.09833181611111111,
+    "within_hard_cap": true
+  },
+  "statuses": {"engineering": "VALID", "mechanism": "NEGATIVE", "system_behaviour": "INCONCLUSIVE/DESCRIPTIVE"},
+  "head_git_sha": "2978371f1",
+  "worktree_clean": true,
+  "blocking_for_publication": ["NEW-P1-1"]
+}
+```
+
+---
+
+**一句话**：CP1-1..CP1-7 与 Sol 全部 4 条 findings **均已实证关闭**，GPU correction 达标且 1 start 即足（我撤回「最小 2 starts」），22 个原始 artifact 严格不可变，全部科学数值与 raw 逐位一致；**唯一阻断项**是闭合 CP2-12 时引入的 `provenance.result_manifest` 自指循环导致的陈旧断言（76 vs 79 + 哈希不符），**纯 offline 可修、不需要任何 GPU**，修好并重跑一次 consolidation + RESULT_MANIFEST 后即可发布。
+
+本次 review 全程只读，未修改任何文件、未运行 GPU。

@@ -1,0 +1,376 @@
+Agent is idle (waiting for messages). agent_id: phase7-opus-result-review, agent_type: general-purpose, status: idle, description: Opus审阅 Phase7结果, elapsed: 2053s, total_turns: 1, model: claude-opus-5
+
+[Turn 0]
+已完成完整只读独立复核（无文件改动、无 GPU 调用）。以下为完整报告。
+
+---
+
+# Phase 7 Final Result — Independent Read-Only Review
+
+**Reviewer**: Claude Opus 5 / Max Thinking（按本次调用指定）
+**Mode**: read-only, offline, zero GPU, zero file mutation
+**Implementation**: `/home/chris/Workspaces/kvcache-research/worktrees/cross-store-substrate` @ HEAD `f8231bf60988fd1a3e9fb472393a223ae2081aaa`（worktree clean）
+**Authority**: `/home/chris/Workspaces/code-agent-kvcache`（`IMPLEMENTATION_PLAN_LATEST.md` = V7）
+**Date**: 2026-07-28T12:10-07:00
+
+## 0. 判定
+
+| 项目 | 结论 |
+|---|---|
+| **Verdict** | **PASS_WITH_CAVEATS** |
+| **Publication disposition** | **NOT_READY** |
+| Open P0 | **0** |
+| Open P1 | **5** |
+| Open P2 | **12** |
+
+**理由**：正确性、确定性、provenance、哈希链、执行集合、预算、跳过逻辑、三条 headline status 全部独立复算通过且**逐字节可复现**，无任何 P0，**不需要重跑 GPU**。但发布层（consolidated summary + compact 层）遗漏了 V7 plan 指定的 W primary 结论轴，并且三处 reachability/availability 标签在不附带底层 outcome 数据时会被读成能力性 claim。需要一次 **offline reconsolidation**（`--force`）+ 重新生成 `RESULT_MANIFEST` 后方可发布。
+
+---
+
+## 1. 复算与自哈希验证（第 1 项 review scope）
+
+### 1.1 哈希与确定性
+
+| 检查 | 结果 |
+|---|---|
+| `summary_sha256` 规范自哈希 | `115f593e74300b462ab93970ea88daae9a5c1af82d18411f25788f5e830d7134` **匹配** |
+| summary 文件字节 == canonical writer form (`indent=2, sort_keys`) | **True** |
+| 22 个 compact 自哈希 | **22/22 匹配**，0 失败 |
+| 22 个 raw `raw_sha256` 内部自哈希 | **22/22 匹配**，0 失败 |
+| `source_hashes.raw` / `.logs` / `.central_jsonl` 对盘上文件 | **全部匹配** |
+| `source_hashes.compact` 对盘上文件（加 `compact/` 前缀后） | **22/22 匹配**（见 P2-3） |
+| **全量 in-memory 重跑 consolidator**（raw + manifest + JSONL → summary） | **无异常，payload 与盘上 summary 完全相同；22 个 compact 逐字节相同** |
+
+> 重跑方式：`import consolidate_phase7_results`，monkeypatch `_write_json`/`_ensure_output_paths` 为 no-op，调用 `consolidate(...)`。**零写盘**。所有内建 validator（manifest 授权、execution envelope、runner/phase/hash、reset、inactive-counter、A8/W/R4 contract、central JSONL 配对）全部通过。
+
+### 1.2 从 raw 逐级重算关键数值（不信任 summary 字段）
+
+**A8（16 组 paired target ratio = D0.request_path_ms / R0.request_path_ms）**
+
+| setting | request-path median（重算 = 存储） | N=8 full-setup（重算 = 存储） |
+|---|---|---|
+| body1024/rho1.5 | **0.772308** | **0.608646** |
+| body1024/rho2.0 | **0.775065** | **0.610096** |
+| body2048/rho1.5 | **0.933384** | **0.639791** |
+| body2048/rho2.0 | **0.936173** | **0.641889** |
+
+偏差 = `0.00e+00`。冻结事实 **“request-path 0.772–0.936x、N8 full 0.609–0.642x” 成立**。全部 `break_even = ">8/not_observed"`。
+
+**chunk1024 sensitivity**：r0 = 1.738871，r1 = 1.735160 → median **1.7370152775837997**（≈1.737 ✓）；N8 full median **1.1889604660811057**（≈1.189 ✓）；`headline=false` ✓。
+
+**W scheduler**：12 个 start × 2 arm × 2 denominator，从 122 条 record 逐条重算 `ttft_mean/p95/wall_clock/miss` → **与 `arm_statistics` 零偏差**。cross-policy median 重算：
+
+| | all_reusable | workflow_only | miss delta (S4−S0) | peak ratio S4/S0 |
+|---|---|---|---|---|
+| rho1.5 | **1.002082** | **1.027574** | **−14** | **1.011228** |
+| rho2.0 | **1.025029** | **1.044183** | **+2** | **0.998064** |
+
+与冻结事实 1.0021 / 1.0276 / −14 / 1.0112 与 1.0250 / 1.0442 / +2 / 0.9981 **全部一致**。per-restart 值：rho1.5 all `[1.0021, 1.0201, 1.0009]`，rho2.0 all `[1.0250, 1.0192, 1.0355]`。
+
+---
+
+## 2. Manifest / 执行集合 / 跳过逻辑 / 预算 / 实际耗时（第 2 项）
+
+| 检查 | 结果 |
+|---|---|
+| manifest rev / status / 授权 / blockers | `12` / `authorized` / `true` / `[]` ✓ |
+| manifest 自哈希 | `2d66a1bc…d039bef` 重算匹配 ✓ |
+| design payload | `50003145…1f7b987`，与 rev11 final Opus review 的 design hash **相同** → rev12 为 design-preserving ✓ |
+| manifest file sha | `c0a14e3a…a3a8667d`，与全部 22 个 raw 的 `manifest_file_sha256` 及 `execution_envelope.post_pin_envelope_sha256` 一致 ✓ |
+| 4 个 runner sha256 | worktree == manifest == pinned commit `81405f42…` ✓ |
+| 执行集合 | raw 文件集 ≡ central JSONL 集 ≡ `summary.execution.executed` = **同一 22 组** `(setting_id, restart)` ✓ |
+| 22 starts 组成 | wave0 `2` + A8 restart-0 `4` + sensitivity `2` + W main `12` + R4 `2` ✓ |
+| 跳过 | A8 supplement `8`（`ES-R0-MDE`，restart 1/2 × 4 settings，逐条列出）+ rho3 `1`（`disabled_scoped_chunk1024`）✓ |
+| 预算闭合 | 22 executed + 8 skipped = **30 = committed_server_starts**；conditional = 1（rho3）✓ |
+| ES-R0-MDE 触发正确性 | 4 个 restart-0 median 全部 < 1.0，远低于 +5% MDE → 跳过 supplement 正确 ✓ |
+| 实际耗时 | 22 段 running→completed 求和 = **4716.510494 s = 1.3101418039 h** ✓（冻结值 1.31014h） |
+| 预算对比 | 1.31014 / 3.8 expected = 34.5%；/ 6.0 hard cap = 21.8%；`within_hard_cap = true` ✓ |
+| central JSONL 完整性 | 44 事件 = 22 running + 22 completed，**无 failed**；严格 running/completed 交替；时间戳单调；`run_id` 内嵌时间戳与 running 时间戳最大漂移 **0.907 s**；无重叠运行（严格串行）✓ |
+
+**wall-clock 补充**：首启到末止跨度 = 5503.8 s = **1.52884 h**，21 个 run 间隙合计 787.3 s。见 P2-4。
+
+---
+
+## 3. outcome / fallback / reset / provenance 误分类审查（第 3 项）
+
+**无误分类。** 独立扫描 22 个 raw：
+
+- 全部 fallback 的原始理由**统一为 `store_miss`** → 映射到 `unsupported`；`unmapped_raw_reasons` 与 `excluded_raw_reasons` **全为空**；`verification = direct`。**没有把 `cross_store_error` / `stale_handle` 混入。**
+- `ambiguity` 记录数 **0**；`taxonomy_valid` 全 True；`expected_outcome` 全 True。
+- **自然 reservation failure 全局为 0**（`reservation_failures` 全零，`cross_store_reservation_failed=0`，`device_allocation_failed=0`）→ plan §8.7 规则 6（进入 approximate recovery 后自然失败未完成 dense fallback ⇒ 整体 INVALID）**未触发**，engineering VALID 成立；同时**正面证实**“natural-pressure fallback reachability 未证明”这条 caveat。
+- 带 `outcome="error"` 标签的 Prometheus series **全部为 null/0**（11079 条标签观测中零非零 error）。3 条非零 `partial` 全部来自 S4 R4-like 的 `operation=register`，正是其 `registration_failed=true → diagnostic_unavailable` 的直接证据，分类正确。
+- reset：22/22 startup + 每 repeat 每 arm 的 pre/post reset `passed=true`，`RESET_ZERO_GAUGES` 全零，capacity 的 `store_reset_gauges` 全零。
+- inactive counters：4 个 pin 项在 22 个 run 中均 `manifest_pinned_disabled=true`；`direct` 项值为 0，`indirectly_verified` 项值为 `null`（**未伪造显式 0**，符合 plan §15.2-2）。
+- A8 canary：12/12 `complete_8_tokens && matched && engineering_status=valid`。
+- provenance：`pinned_is_ancestor_of_execution_head=true`、`worktree_clean=true`、`post_pin_changed_paths ⊆ allowlist`（4 ⊆ 6）；`RESULT_MANIFEST` **73/73**，每条 entry 的文件存在性、sha256、字节数、以及 `containing_commit` 中的 blob 三重匹配，**零 pending**；5 个 containing commit 全部是 HEAD 的祖先。
+
+---
+
+## 4. 统计口径审查（第 4 项）
+
+**合规部分**：
+- summary 中 `confidence` / `p-value` / `significan` / `std` / `stderr` / `variance` / `within noise` 出现次数 **全部为 0**——**无伪 CI、无未经检验的统计判断**（符合 plan §15.2-9 禁令）。
+- `w_scheduler.independent_replicate_unit = "server_restart"`、`requests_are_not_independent_replicates = true`，且在每个 rho 块内重复声明 ✓
+- `additional_caveats` 含 “request rows within W traces are not independent timing replicates” ✓
+- `a8_ceiling.headline_speedup_allowed = false`、`chunk1024_sensitivity.headline = false` ✓
+- p95 采用 `per_restart_then_median_across_restarts`，与 manifest `statistics.p95` 预注册一致 ✓
+
+**不合规部分**：见 **P1-4**（A8 缺 replicate 声明、n=1）、**P2-6**（pooled p95 未使用预注册披露名）、**P2-9**（peak/miss 的“median across restarts”其实是确定量）。
+
+---
+
+## 5. 结论与 caveat 对 plan 的符合性（第 5 项）
+
+plan §8.8 要求 final validation 必须汇总 8 项：
+
+| plan 要求 | summary 状态 |
+|---|---|
+| R0 speed ceiling 与 chunk sensitivity | ✓ `a8_ceiling` + `chunk1024_sensitivity` |
+| `practical=NONE` | ✓ `scope_caveats[0]` |
+| R2 = `disabled_not_comparable` 历史引用 | ✓ `scope_caveats[2]` + `additional_caveats[0]`（`r2_like` 明确不等于 R2 执行） |
+| R4 diagnostic | ⚠ 仅状态，缺 footprint/victim（**P1-2**） |
+| S0/S4 ceiling 差异 | ⚠ 仅延迟/miss/peak，缺 victim/footprint（**P1-1**） |
+| 明确跳过的 host/prefetch 轨道 | ✓ `scope_caveats[6]` |
+| fault-injected fallback 与 natural-pressure 边界 | ✓ `scope_caveats[4]` |
+| per-restart、raw/log/hash/commit/test provenance | ⚠ per-restart/raw/log/hash ✓；commit/test 委托给 RESULT_MANIFEST，summary 无交叉引用（**P2-11**） |
+
+plan §8.7 规则 5（停止 scheduler 收益 claim 的充分条件）**并未触发**：rho1.5 满足 `<5%` 但 `miss_S4 < miss_S0`；rho2.0 满足 `<5%` 且 `miss_S4 ≥ miss_S0` 但 `peak_S4 < peak_S0`。summary 的 `claim_rule` 措辞“the preregistered rules do not permit a practical benefit claim”结论正确（依据是 §8.5“P7 不宣称 practical 收益”+ `practical=NONE` 分支），但**归因来源不精确**，见 P2-2 延伸。
+
+---
+
+## 6. findings（第 6 项，atomic）
+
+### P0 — 无
+
+### P1（发布前必须闭合，需 offline reconsolidation，**不需要重跑 GPU**）
+
+---
+
+**P1-1｜W victim/evict accounting by object kind 在 summary 与 compact 双层缺失**
+
+- **File/field**:
+  - `benchmark/approx_kv/results/phase7/phase7-consolidated-summary.json` → `#/w_scheduler`（无任何 victim/footprint 字段）
+  - `benchmark/approx_kv/results/phase7/compact/p7-w-r0-*.compact.json` (12 个) → `#/key_metrics` 仅含 `workload, performance_contract, arm_statistics, paired_E0_R0, paired_per_repeat, peak_device_bytes`
+  - 根因：`benchmark/approx_kv/consolidate_phase7_results.py:1207-1252` `_compact_scheduler()` 非 R4 分支未保留 `raw.formal[*].arms[*].metrics`（含 `victim_evict_bytes`、`wasted_bytes`、`churn_bytes`、`reservation_failures`、`store_gauges_after`）与 `raw.formal[*].arms[*].victim_sequence`、`.memory_footprint_after`
+- **实测**：W raw 中 `victim_evict_bytes` 出现 632 次、`victim_sequence` 12 次、`wasted_bytes` 1224 次；对应 compact 中**全部为 0 次**。
+- **为何是 P1**：V7 plan §8.5 把 “physical peak；victim/evict accounting by object kind” 列入 W primary 视图，并明确 “即使 R0 A8 ceiling 判 NEGATIVE，W 矩阵仍执行；其 primary 结论改为 cross-store victim/footprint behaviour，延迟视图降为次要”（`TRACKING.md:2759` 同）。当前发布层**只保留了被降级的延迟视图，丢掉了被指定为 primary 的那一轴**。
+- **Fix**: `_compact_scheduler` 非 R4 分支加入 per-arm `metrics` + `victim_sequence`；`build_summary` 新增 `w_scheduler.victim_footprint`（按 policy×rho×restart 给出 `victim_evict_bytes` 的 `object_kind × provenance × requester` 分解、`wasted_bytes`、`churn_bytes`）；`--force` 重跑 consolidator；重生成 `RESULT_MANIFEST`。
+
+---
+
+**P1-2｜`r4_diagnostic` 缺 plan 唯一授权的三项输出，且 “S0 available/valid” 未披露 90.2% dense fallback**
+
+- **File/field**: `phase7-consolidated-summary.json#/r4_diagnostic/policies/S0`（现有键仅 `status, diagnostic_statuses, registration_failed, representation_multiplicity, representation_kinds, completed_request_records`）
+- **实测**（`raw/p7-w-r4like-lru-rho2-r0.json#/outcome/counts`）：`approximate_gpu_recovery = 12`、`approximate_recovery_failed_dense = 110`（terminal `unsupported` ← `store_miss`），即 **12/122 = 9.8% 实际恢复**。summary 仅呈现 `completed_request_records: [61, 61]` 与 `available/valid`。
+- plan §8.5 R4 段落：“仅输出 5x resident footprint、victim sequence/class/accounting；不做性能排名，不归因 KVCOMM”。summary 中 **footprint 与 victim 两项皆无**；R4 compact 保留了 `victim_evict_bytes` 但**丢失 `victim_sequence`、`memory_footprint_after`、`representation_metadata`**。
+- **Fix**: `summarize_r4()` 增加 `outcome_counts`、`recovery_success_fraction`、`arm_interval_peak_device_bytes` / `memory_footprint_after`、`victim_evict_bytes` by object_kind；`_compact_scheduler` R4 分支保留 `victim_sequence` 与 `memory_footprint_after`。
+
+---
+
+**P1-3｜wave0 “S0 五个 profile 全部 reachable” 未披露 S0 的 approximate recovery 为 0**
+
+- **File/field**: `phase7-consolidated-summary.json#/wave0_profile_reachability/S0/profiles/*`（键仅 `reachability, representation_kinds, valid`）
+- **实测**（`raw/p6delta-s0-rho2-chunk4096-r0.json#/cells/0/profiles/*/formal/*/cache_outcomes`）：S0 的 `r0_like` / `r1_like_k32` / `r2_like` / `r4_like` 在**两个 formal repeat 中均为 `approximate_gpu_recovery: 0, dense_fallback: 5`**；S4 的同名 profile 均为 `approximate_gpu_recovery: 5, dense_fallback: 0`。S0 整格 `cell.status = "diagnostic-unavailable"` 的**直接原因**就是 `approx_recoveries <= 0`（`run_p6_4_capacity_pilot.py:1132-1145`）。`reachability="reachable"` 的定义仅为 `valid==True and expected_capacity_error is None`（同文件 652-659），**不含 recovery 成功**。
+- 另：两格 `fallback_reachability = {"passed": false, "rounds": 0}`，summary **完全未呈现**。
+- **风险**：“S4 四个可达 / S0 五个全可达”会被读成 S0 更强；实际机制层面完全相反（S0 0/40，S4 40/40）。同一措辞已进入 `HANDOFF.md`（2026-07-28T09:45:04 条目）。
+- **Fix**: `summarize_wave0()` 传播 `formal_cache_outcomes`（`_compact_capacity` 已保留）与 `fallback_reachability`，并加 `status_reason`（S0 = `no_approximate_recovery_observed`，S4 = `r4_like_registration_partial`）；同步修正 `HANDOFF.md` / `PROJECT.md` 措辞。
+
+---
+
+**P1-4｜A8 的独立复制单元未声明；NEGATIVE 建立在每 setting **n=1** 个 process-level replicate 上**
+
+- **File/field**: `phase7-consolidated-summary.json#/a8_ceiling`（键仅 `mechanism_status, mde_fraction, primary_supplement_disposition, table, headline_speedup_allowed`；**无** `independent_replicate_unit`）
+- 对照：`#/w_scheduler` 同时声明 `independent_replicate_unit="server_restart"` 与 `requests_are_not_independent_replicates=true`。
+- manifest 预注册 `statistics.process_level_timing_replicates = [0,1,2]` 与 `range = "report_all_three_values_and_min_max"`；ES-R0-MDE 跳过 8 个 supplement 后该契约**不可满足**，summary 未记录此不可满足性。每 setting 的 16 个 paired target ratio 来自**同一 start 内的 2 个 formal repeat**，不是独立复制（plan §15.2-9：“同一 trace 内的请求不得当作独立重复”）。
+- **注意**：结论本身不受威胁——效应量大且方向单一（request-path 0.772–0.936x，N=8 full-setup 0.609–0.642x，与 +5% MDE 反向）。
+- **Fix**: `aggregate_a8()` 输出增加 `independent_replicate_unit: "server_restart"`、`independent_replicates_per_setting: 1`、`target_ratios_are_not_independent_replicates: true`、`preregistered_range_unavailable_reason: "ES-R0-MDE skipped restarts 1-2"`。
+
+---
+
+**P1-5｜W 的 R0 臂 dense-fallback 率（45.9%–72.1%）未被识别，recovery 成功率从未陈述**
+
+- **File/field**: `phase7-consolidated-summary.json#/w_scheduler/**/denominators/*/r0/partial_or_full_miss_requests`
+- **实测**：该字段数值与 `raw#/outcome/counts.approximate_recovery_failed_dense` **逐一相等**（70/56/86/88 of 122），但 summary 从未说明这些 “miss” 就是 **dense fallback（terminal `unsupported` ← `store_miss`）**，也从未给出 recovery 成功率：
+
+| | R0 recovery | R0 dense fallback | E0 exact hit |
+|---|---|---|---|
+| S0 (lru) rho1.5 | 52/122 (42.6%) | 70/122 (57.4%) | 10/122 |
+| S0 rho2.0 | 36/122 (29.5%) | 86/122 (70.5%) | 10/122 |
+| S4 (hier) rho1.5 | 66/122 (54.1%) | 56/122 (45.9%) | 82/122 |
+| S4 rho2.0 | 34/122 (27.9%) | 88/122 (72.1%) | 50/122 |
+
+- **风险**：读者会认为 S0/S4 的 ~1.002 / ~1.025 延迟比是在比较两条 approximate recovery 路径，实际上其中 46%–72% 是 dense fallback 路径。plan §8.4 要求 “fallback 按 exclusive terminal reason 分组”。
+- **Fix**: `_restart_w_metrics()` 增加 `r0_recovery_success_requests` / `r0_dense_fallback_requests` / `r0_terminal_reason_counts`，并在 `w_scheduler.interpretation` 中明示。
+
+### P2（发布质量，建议同批修）
+
+| ID | File/field | 问题 | Fix |
+|---|---|---|---|
+| **P2-1** | `consolidate_phase7_results.py:1440-1455` → `#/w_scheduler/interpretation/rho1.5`、`rho2.0` | 两段叙述数字（1.0021/1.0276/−14/1.0112；1.0250/1.0442/+2/0.9981）是**硬编码字符串**，非从 `cross_policy_s4_vs_s0` 派生。当前**已核对四位小数完全吻合**，但数据变动时会产生“自哈希自洽却叙述错误”的产物 | 由计算值生成叙述，或加相等断言 |
+| **P2-2** | 同上 | “miss delta S4-S0 is −14 / +2” 未标注分母；实为 `all_reusable`。`workflow_only` 的 miss delta 在**两个 rho 均为 −10**（rho2.0 下 S4 减少 10 个 workflow miss，却只报了 +2） | 叙述中标注分母并同时给出两个分母 |
+| **P2-3** | `#/source_hashes/compact[*].path` | 只有 basename（`p6delta-...compact.json`），而 `raw`/`logs` 用 staging 相对路径（`raw/...`、`logs/...`），导致 compact 路径**无法从 artifact 根解析** | `consolidate_phase7_results.py:1679` 改为 `str(compact_path.relative_to(staging_dir))` |
+| **P2-4** | `#/execution/elapsed/actual_elapsed_gpu_equivalent_hours` | `1.3101418039 h` 是 22 段 runner 区间之**和**；首启→末止 wall-clock 为 **5503.8 s = 1.52884 h**（21 个间隙共 787.3 s）。两者均远低于 6.0 h hard cap，但排除项未声明 | 增加 `wall_clock_span_hours` 与 `exclusion_note` |
+| **P2-5** | `raw/p7-a8-r0-body1024-*.json#/formal/*/arms/R0/same_context_canary` | body=1024 的两个 setting，dense 参考输出为 `[198]×8`（**1 个 distinct token**），canary 虽 `matched=true` 但判别力近似为零；body=2048 为 7 个 distinct token | canary 增加 `distinct_output_tokens`，并对 body1024 行加 caveat |
+| **P2-6** | `#/w_scheduler/**/r0_over_e0_p95_ratio`、`p95_ratio_s4_over_s0` | manifest 预注册 `statistics.pooled_p95_name = "ratio_of_marginal_p95s"`（plan §15.2-9 要求如实标注 pooled 口径），summary 未使用该名称也无说明，且与 paired 量并列 | 改名或加 `p95_semantics` 说明 |
+| **P2-7** | `#/w_scheduler`、`#/a8_ceiling` | plan §8.5 primary 视图的 `ttft_p50`(median)、`per_role` TTFT、`paired_delta_median_ms` 在 compact 有、summary 无；plan §8.4 的 `target_only_ms`/`full_lifecycle_ms`/`cached_tokens` 在 compact 有、summary 无；`server_cold_start_ms` 仅在 raw（`_compact_ceiling` 丢弃 `raw.ledger.setup`） | summary 补齐；`_compact_ceiling` 保留 `ledger.setup` |
+| **P2-8** | `#/wave0_profile_reachability/S4/profiles/r4_like/reachability` = `diagnostic-unavailable`（连字符） vs `#/r4_diagnostic/policies/S4/diagnostic_statuses` = `diagnostic_unavailable`（下划线） | 同一概念两种词形并存于同一 summary | 统一词表 |
+| **P2-9** | `#/w_scheduler/cross_policy_s4_vs_s0/*/median_across_restarts/{peak_ratio_s4_over_s0, miss_delta_s4_minus_s0}` | 三个 restart 的 per-restart 值**完全相同**（1.011228×3、0.998064×3；−14×3、+2×3）。称其为“median across independent restarts”暗示了不存在的 restart 级变异 | 标注为 deterministic across restarts |
+| **P2-10** | `build_summary()` 的 `engineering_status`/`mechanism_status`/`system_behaviour_status`、`aggregate_a8()` 的 `outcome:"NEGATIVE"`/`reset_passed:true`、`build_compact_artifact()` 的 `reset_validation:{passed:true}` | 均为**字面常量**，靠 validator 抛异常兜底（当前逻辑成立），但 JSON 读者无法区分“派生”与“断言” | 加 `derivation` 字段说明其由哪条 validator 保证 |
+| **P2-11** | summary 顶层无 `provenance`/`environment` | plan §8.8 要求汇总 commit/test provenance；image digest、model+revision、GPU、pinned SHA `81405f42…`、execution HEAD `d42a5d15…`、`evidence/*.json` 均不在 summary（在 raw/compact/RESULT_MANIFEST 中） | 增加 `provenance` 交叉引用块 |
+| **P2-12** | `phase7-final-opus-review.json` | 该 review 覆盖的是 **rev11**（`48c86bf0…`），而执行/consolidate 用的是 **rev12**（`2d66a1bc…`）。design hash 相同 → 合法的 design-preserving supersede，但 summary 未记录 “final entry review 覆盖 rev11、rev12 为 design-preserving” 的绑定说明 | summary `manifest` 块增加 `entry_review_revision: 11` + `design_preserving: true` |
+
+---
+
+## 7. 已验证声明清单（checklist）
+
+| # | 声明 | 状态 | 证据 |
+|---|---|---|---|
+| 1 | 22 个实际 start | ✅ | raw 22 ≡ logs 22 ≡ compact 22 ≡ central 22 run_id ≡ `execution.executed` 22 |
+| 2 | 8 个 A8 supplement 被 ES-R0-MDE 跳过 | ✅ | `execution.skips.a8_primary_supplements`，逐条列出 restart 1/2 × 4 settings；22+8=30=committed |
+| 3 | rho3 disabled | ✅ | `conditional_resolution.CR-P6DELTA-RHO3 = disabled_scoped_chunk1024`；无对应 raw |
+| 4 | 实际耗时 1.31014 h | ✅ | 4716.510494 s / 3600 = 1.3101418039 h（22 段求和） |
+| 5 | wave0 S4 四个 non-R4 profile reachable，R4-like diagnostic-unavailable | ✅ | `raw/p6delta-s4-…#/cells/0/profiles`；根因 `expected_capacity_error="registration outcome partial for workflow-03 representation 4"` |
+| 6 | wave0 S0 五个 profile 全 reachable | ✅（措辞误导，见 P1-3） | S0 五个 `reachability="reachable"`，但 `approximate_gpu_recovery=0`、`dense_fallback=5/5`，cell = `diagnostic-unavailable` |
+| 7 | A8 chunk4096 全部 valid | ✅ | 4/4 `status=valid`，outcome counts 冻结 16/16/16，fallback=0 |
+| 8 | A8 request-path 0.772–0.936x | ✅ | 0.772308 / 0.775065 / 0.933384 / 0.936173（从 raw 重算，零偏差） |
+| 9 | A8 N8 full 0.609–0.642x | ✅ | 0.608646 / 0.610096 / 0.639791 / 0.641889 |
+| 10 | R0 mechanism NEGATIVE | ✅ | 全部 < 1.05 MDE 门限且 < 1.0；`headline_speedup_allowed=false` |
+| 11 | chunk1024 request-path median ≈1.737x | ✅ | 1.7370152775837997（1.738871 / 1.735160） |
+| 12 | chunk1024 N8 full ≈1.189x | ✅ | 1.1889604660811057 |
+| 13 | chunk1024 为 chunk-coupled、非 headline | ✅ | `headline=false`、`interpretation` 明示；`chunked_prefill_size=1024` 与 `max_prefill_tokens=1024` 同时记录 |
+| 14 | W rho1.5 all≈1.0021 / workflow≈1.0276 / miss −14 / peak 1.0112 | ✅ | 全部从 122 条 record 重算，零偏差 |
+| 15 | W rho2.0 all≈1.0250 / workflow≈1.0442 / miss +2 / peak 0.9981 | ✅ | 同上 |
+| 16 | W system behaviour = INCONCLUSIVE/DESCRIPTIVE，无 practical claim | ✅ | `claim_rule` 明示；plan §8.7 规则 5 实际未触发（依据为 §8.5 + `practical=NONE`，见 §5） |
+| 17 | R4-like S0 available、S4 unavailable | ✅ | S0 records `[61,61]` / `registration_failed=[false,false]`；S4 `[0,0]` / `[true,true]`（缺 fallback 率披露，见 P1-2） |
+| 18 | R4-like 为 synthetic 5x、非 KVCOMM | ✅ | `not_kvcomm=true`、`performance_ranking_enabled=false`、`claim="synthetic_footprint_and_victim_diagnostic_only_not_kvcomm"`、`representation_kinds=[canonical_base, anchor, delta, anchor, delta]` |
+| 19 | engineering VALID | ✅ | 22/22 status ∈ {valid, inconclusive}；无 `error` 键；无 reset/inactive/canary 失败；无自然 reservation failure |
+| 20 | reset / inactive / canary / provenance 全部有效 | ✅ | 独立重算，0 issue |
+| 21 | RESULT_MANIFEST 73/73 | ✅ | 73 条全部 file+sha256+bytes+blob 四重匹配，0 pending，5 个 containing commit 均为 HEAD 祖先 |
+| 22 | consolidator 正确性与确定性 | ✅ | 完整重跑 byte-identical；22 compact byte-identical |
+| 23 | `r2_like` 未被写成 R2 执行 | ✅ | `r2_like_semantics` + `additional_caveats[0]`；`r2_strategy=disabled_not_comparable` |
+| 24 | 无伪 CI / 无 headline 滥用 | ✅ | summary 中 confidence/p-value/std/variance/“within noise” 出现次数均为 0 |
+
+---
+
+## 8. 最终结论与 caveat（建议写入产物的准确措辞）
+
+**Conclusions**
+
+1. **Engineering: VALID.** Across all 22 authorized Phase 7 starts there is no invalid/error artifact, no reset-invariant failure, no orphan/lease residue, no fabricated inactive-counter zero, and no natural cross-store reservation failure. All A8 same-context canaries matched.
+2. **Mechanism (A8 R0 ceiling): NEGATIVE.** At the primary configuration `chunked_prefill_size=4096 / max_prefill_tokens=4096`, the paired-target request-path median speedup is 0.7723, 0.7751, 0.9334 and 0.9362 across the four restart-0 settings — R0 is 6–23% *slower* than dense, i.e. opposite in sign to the preregistered +5% MDE. The N=8 full-setup amortized speedup is 0.6086–0.6419 and `break_even_observed_N` is `>8/not_observed` in every repeat. **No mechanism-intrinsic speedup headline is published.** The result rests on **one process-level replicate per setting**; ES-R0-MDE correctly skipped the 8 supplement starts, so the preregistered 3-replicate range could not be reported.
+3. **chunk1024 sensitivity is chunk-coupled and is not a headline.** The restart-median request-path speedup is 1.7370 and the N=8 full-setup median is 1.1890, versus 0.9362 and 0.6419 for the same body/rho at chunk4096. The ~1.85x swing is attributable to the coupled `chunked_prefill_size`/`max_prefill_tokens` change, not to the recovery mechanism.
+4. **System behaviour (W, S4 vs S0): INCONCLUSIVE / DESCRIPTIVE.** Median over three independent server restarts: at rho=1.5, S0/S4 all-reusable TTFT mean ratio 1.0021, workflow-only 1.0276, S4−S0 all-reusable miss delta −14, R0 peak ratio S4/S0 1.0112; at rho=2.0, 1.0250, 1.0442, +2 and 0.9981. The preregistered stop rule (§8.7-5) did not fire, but §8.5 forbids a practical-benefit claim regardless, and latency is secondary after A8 NEGATIVE. **No winner is selected and no scheduler performance claim is published.**
+5. **R4-like is a synthetic 5x footprint proxy and executes no KVCOMM.** S0 completed the 61-request trace in both repeats (`available`, artifact `valid`); S4 failed registration in both repeats (`diagnostic_unavailable`, artifact `inconclusive`). Performance ranking is disabled.
+6. **Budget.** 22 of 30 committed starts executed in 1.31014 GPU-equivalent hours (34.5% of the 3.8 h expectation, 21.8% of the 6.0 h hard cap); wall-clock span 1.52884 h. Zero retries.
+
+**Caveats（必须与结论同时出现）**
+
+1. `practical=NONE` is scoped to this model, synthetic prompt family, exact-output invariant, this GPU and `chunk=1024`; it is not a general infeasibility claim.
+2. R0 is a ceiling path, not a promoted practical candidate.
+3. R2 is `disabled_not_comparable`; Phase 4 chunk1024 R2 numbers must never be ranked or pooled with Phase 7 chunk4096 results.
+4. `r2_like` is a 2x synthetic representation-multiplicity footprint profile, not R2 execution. `R4-like-5x` is a synthetic footprint proxy, not KVCOMM.
+5. P6-F proves fault-injected fallback only. Natural-pressure fallback reachability remains **unproven**: both wave-0 cells report `fallback_reachability {passed:false, rounds:0}` and zero natural reservation failures were observed in any of the 22 starts.
+6. In wave-0, "reachable" means the profile registered and the round passed its validity/reset checks; it does **not** mean approximate recovery succeeded. S0 recorded `approximate_gpu_recovery=0` and `dense_fallback=5/5` in every approximate profile and both repeats — the reason its cell is `diagnostic-unavailable` and the artifact is `inconclusive`. S4 recorded 5/5 recoveries in the four non-R4 profiles.
+7. In the W matrix the R0 arm falls back to dense on 45.9%–72.1% of requests (terminal reason `unsupported` ← raw `store_miss`); the S4-vs-S0 latency ratios therefore compare arms that are substantially dense-fallback. The R4-like S0 diagnostic recovered only 12/122 requests (9.8%).
+8. The independent replicate unit is the server restart. Requests within a trace are **not** independent timing replicates; request-level bootstrap is forbidden. Reported p95 quantities are ratios of marginal p95s, not paired statistics. W uses 3 restarts; A8 primary and R4-like use 1; chunk1024 sensitivity uses 2.
+9. host / prefetch / async / HiCache tracks were not generated in V7 and their counters were asserted inactive only.
+10. P6-4 rho1.1 / rho1.5 / rho3 feasibility remains chunk1024-scoped unless separately revalidated; no chunk4096/rho3 claim is permitted.
+
+---
+
+## 9. Machine-readable summary
+
+```json
+{
+  "artifact": "phase7-final-independent-review",
+  "schema_version": 1,
+  "reviewer": "Claude Opus 5 / Max Thinking",
+  "review_mode": "read_only_offline_no_gpu_no_mutation",
+  "timestamp": "2026-07-28T12:10:07-07:00",
+  "verdict": "PASS_WITH_CAVEATS",
+  "publication_disposition": "NOT_READY",
+  "requires_gpu_rerun": false,
+  "requires_reconsolidation": true,
+  "open_counts": { "P0": 0, "P1": 5, "P2": 12 },
+  "open_findings": {
+    "P1": ["P1-1-w-victim-accounting-missing", "P1-2-r4-footprint-victim-and-fallback-rate-missing", "P1-3-wave0-s0-zero-recovery-undisclosed", "P1-4-a8-replicate-unit-undeclared-n1", "P1-5-w-r0-dense-fallback-rate-unlabelled"],
+    "P2": ["P2-1-hardcoded-interpretation-prose", "P2-2-miss-delta-denominator-unlabelled", "P2-3-compact-source-path-basename", "P2-4-gpu-equivalent-vs-wallclock", "P2-5-degenerate-body1024-canary", "P2-6-pooled-p95-disclosure-name", "P2-7-plan-primary-view-fields-missing-from-summary", "P2-8-diagnostic-unavailable-vocabulary-drift", "P2-9-deterministic-median-labelled-as-across-restarts", "P2-10-hardcoded-status-constants", "P2-11-summary-lacks-commit-env-test-provenance", "P2-12-entry-review-covers-rev11-binding-unstated"]
+  },
+  "reviewed_summary": {
+    "path": "benchmark/approx_kv/results/phase7/phase7-consolidated-summary.json",
+    "summary_sha256_canonical": "115f593e74300b462ab93970ea88daae9a5c1af82d18411f25788f5e830d7134",
+    "file_sha256": "98bf536068cecfbb4dfe9fe54fbc725a6c6a1b762894573ae58d5048b397ab4f",
+    "self_hash_verified": true,
+    "byte_reproducible_from_inputs": true
+  },
+  "manifest": {
+    "revision": 12,
+    "status": "authorized",
+    "preregistered_manifest_sha256": "2d66a1bcdb6dc92a72c59fefc581212fcd541accbc8ededa221495d30d039bef",
+    "file_sha256": "c0a14e3a8127db4ad7fba20920a156b9b731e7ea36711c8c104a49bca3a8667d",
+    "design_payload_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+    "self_hash_verified": true,
+    "entry_review_revision": 11,
+    "entry_review_artifact_sha256": "2c83f7ddec41d65a937a6b71cab851230c0fb06ff725f09cb36dd596e81e8649",
+    "design_preserving_supersede": true
+  },
+  "result_manifest": {
+    "path": "benchmark/approx_kv/results/phase7/RESULT_MANIFEST.json",
+    "file_sha256": "eb9ccf6c9aa5d18fdc953a60e44a8bf27bcbe34d096d69f52104786f00d64a44",
+    "entries_declared": 73,
+    "entries_verified": 73,
+    "pending_entries": 0,
+    "blob_commit_matches": 73
+  },
+  "provenance": {
+    "execution_head_git_sha": "d42a5d1546680de458122f605f8a486b8faf5564",
+    "pinned_implementation_sha": "81405f4278b034911bc613c4ee17c79d15ee8f35",
+    "pinned_tree_sha": "4a8bf0f6cd72ec09859f8301dc92b6aabb25d2bf",
+    "review_head_git_sha": "f8231bf60988fd1a3e9fb472393a223ae2081aaa",
+    "worktree_clean": true,
+    "central_jsonl_sha256": "3655a374a554161a1c52a2ac1ce23a3cc2fc321c9d92772b2193aae60697ea67",
+    "runner_sha256_verified_against_pinned_commit": true
+  },
+  "recomputation": {
+    "raw_artifacts": 22, "compact_artifacts": 22, "server_logs": 22,
+    "raw_internal_hash_failures": 0, "compact_self_hash_failures": 0,
+    "summary_payload_identical_on_reconsolidation": true,
+    "compact_payloads_identical_on_reconsolidation": 22,
+    "a8_request_path_medians": [0.7723084788319753, 0.7750646549196568, 0.9333841300150884, 0.9361730384560383],
+    "a8_n8_full_setup": [0.6086457910880934, 0.6100962154686245, 0.6397911306400723, 0.6418890486640437],
+    "chunk1024_request_path_median": 1.7370152775837997,
+    "chunk1024_n8_full_setup_median": 1.1889604660811057,
+    "w_rho1_5": { "all_reusable_mean_s0_over_s4": 1.0020816, "workflow_only_mean_s0_over_s4": 1.0275737, "miss_delta_s4_minus_s0": -14, "peak_ratio_s4_over_s0": 1.0112283 },
+    "w_rho2_0": { "all_reusable_mean_s0_over_s4": 1.0250294, "workflow_only_mean_s0_over_s4": 1.0441829, "miss_delta_s4_minus_s0": 2, "peak_ratio_s4_over_s0": 0.9980641 },
+    "all_recomputed_values_match_published": true
+  },
+  "execution": {
+    "executed_starts": 22, "committed_starts": 30,
+    "skipped_a8_supplements_es_r0_mde": 8, "skipped_rho3_conditional": 1,
+    "central_failed_events": 0,
+    "actual_elapsed_seconds": 4716.510494,
+    "actual_elapsed_gpu_equivalent_hours": 1.3101418038888892,
+    "wall_clock_span_hours": 1.5288319,
+    "hard_cap_gpu_hours": 6.0, "within_hard_cap": true
+  },
+  "status_separation_verified": {
+    "engineering_status": "VALID",
+    "a8_mechanism_status": "NEGATIVE",
+    "w_system_behaviour_status": "INCONCLUSIVE/DESCRIPTIVE",
+    "r4_status": "S0 available/valid (12/122 recoveries); S4 diagnostic_unavailable; synthetic 5x proxies, not KVCOMM"
+  },
+  "blocking_for_publication": ["P1-1", "P1-2", "P1-3", "P1-4", "P1-5"]
+}
+```
+
+---
+
+## 10. 给下一步的建议顺序
+
+1. 修 `_compact_scheduler`（保留 per-arm `metrics` + `victim_sequence` + `memory_footprint_after`）与 `_compact_ceiling`（保留 `ledger.setup`）。
+2. 修 `build_summary` / `summarize_wave0` / `summarize_r4` / `aggregate_a8` / `_restart_w_metrics`，闭合 P1-1..P1-5 与可同批处理的 P2。
+3. `--force` 重跑 consolidator → 新 `summary_sha256` → 重生成 `RESULT_MANIFEST`（条数不变，73；哈希更新）。
+4. 修正 `HANDOFF.md` / `PROJECT.md` 中 “S0 五个 profile 全部可达” 的框架性措辞，并向 `TRACKING.md` 追加带 ISO 8601 时间戳的本次 review 记录（不改写旧记录）。
+5. 与 Sol 互换本报告，做 targeted delta closure，再进主会话 disposition。
+
+> 注：本次 review **未修改任何文件、未运行 GPU**；所有重算均在内存中完成（`_write_json` 与 `_ensure_output_paths` 被 monkeypatch 为 no-op）。

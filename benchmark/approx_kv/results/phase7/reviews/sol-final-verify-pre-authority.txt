@@ -1,0 +1,46 @@
+## 最终验证
+
+- **Verdict：PASS_WITH_CAVEATS**
+- **Publication：NOT_READY**
+- Open：**P0=0 / P1=1 / P2=0**
+- 额外GPU：**不需要**
+- 额外reconsolidation/compact/RM工作：**不需要**
+- 仅需authority文档同步。
+
+### 已验证关闭
+
+- summary自哈希=`9d0aafcd…`，匹配。
+- summary↔RESULT_MANIFEST哈希循环已消除。
+- correction manifest/review路径已repo-relative。
+- 22 compact自哈希通过，且与`3c1a0e13f`逐字节相同。
+- RESULT_MANIFEST 79/79：文件集、SHA、大小、containing commit全部通过。
+- implementation HEAD=`107f6bfd…`，worktree clean。
+- 所有实验性P0/P1均已关闭。
+
+### 唯一开放P1
+
+Authority仍绑定旧summary：
+
+- `HANDOFF.md`、`PROJECT.md`、`TRACKING.md`仍写`e2deec5a…`
+- 最终summary为`9d0aafcd…`
+
+需更新`PROJECT.md`、`HANDOFF.md`，并向`TRACKING.md`追加纠正记录，绑定：
+
+- HEAD：`107f6bfd…`
+- summary file SHA：`05acb52d…`
+- RESULT_MANIFEST file SHA：`8a1f32db…`
+
+完成后即为 **READY**。
+
+```json
+{
+  "verdict": "PASS_WITH_CAVEATS",
+  "publication": "NOT_READY",
+  "open": {"P0": 0, "P1": 1, "P2": 0},
+  "requires_gpu": false,
+  "requires_reconsolidation": false,
+  "requires_authority_doc_sync": true,
+  "summary_sha256": "9d0aafcd776305c7ac679b14845e4a5c79e44c04bb696ecf2d83644fca4c2c69",
+  "result_manifest_verified": "79/79"
+}
+```

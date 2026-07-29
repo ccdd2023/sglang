@@ -1,0 +1,149 @@
+# Phase7 只读独立审阅
+
+- 模型：GPT-5.6 Sol，`max`
+- 未修改文件，未运行 GPU
+- **Verdict：FAIL（证据合同问题；核心数值复算通过）**
+- **Publication：NOT_READY**
+- Findings：P0=`0`，P1=`1`，P2=`3`
+
+## 1. 原子 Findings
+
+### P1-1：wave0 S0 fallback 缺失强制 terminal reason
+
+- `raw/p6delta-s0-rho2-chunk4096-r0.json:16724`：
+  `approximate_recovery_failed_dense=40`
+- 同文件 `:16745`：`terminal_reason_counts={}`
+- 四个 approximate profile 各有10次直接观测的 `dense_fallback`，但均未保存原因；`reservation_failures=0`。
+- 违反 V7 `IMPLEMENTATION_PLAN_LATEST.md:364-383`：每次 approximate failure 必须且只能有一个 exclusive terminal reason。
+- consolidator 未检查该约束，却输出无条件 `engineering_status=VALID`。
+
+**影响：** A8、W数值和R0 NEGATIVE不受影响，但不能认证“全部 outcome/fallback 分类完整”及无条件 engineering VALID。
+
+**修复：** capacity runner逐请求保存并验证 terminal reason；新manifest/review后定向重跑 `p6delta-s0-rho2-chunk4096-r0`，再reconsolidate。现有raw无法可靠离线恢复原因。
+
+### P2-1：marginal p95 ratio命名违反冻结统计合同
+
+`phase7-consolidated-summary.json`使用：
+
+- `p95_ratio_s4_over_s0`
+- `r0_over_e0_p95_ratio`
+
+它们实际是两个边际p95之比，不是paired统计量。V7 `:417`要求命名为 `ratio_of_marginal_p95s`，且仅作附录。
+
+**修复：** reconsolidate并改名/明确注释；无需重跑。
+
+### P2-2：S0/S4未按相邻launch block执行
+
+V7 `:208-216`要求同一`(body,rho,restart)`比较进程相邻启动。  
+`phase7-runs.jsonl:17-39`显示每个rho均先连续执行全部S0 restart，再执行全部S4 restart；summary却称为paired-restart comparison。
+
+**修复：** 若保留当前数据，改称“seed-matched、non-adjacent restart comparison”，仅作描述；若需要严格paired claim，应按相邻S0/S4顺序重跑W。
+
+### P2-3：wave0未分列cell级与profile级状态
+
+两个raw的`cells[0].status`均为`diagnostic-unavailable`：
+
+- S0 raw `:16571`
+- S4 raw `:16571`
+
+summary只写raw顶层`inconclusive`及profile reachability。V7 `:1350`明确要求两级状态分别陈述。
+
+**修复：** reconsolidate增加`cell_status`，不得把profile reachable写成cell reachable。
+
+## 2. 独立复算结果
+
+### 执行与预算
+
+- 22个实际start；44条central事件，每run恰好一条running/completed。
+- 无failed事件、重复run或时间重叠。
+- A8 supplement缺少8个start，四个restart-0结果均未达到5% MDE，符合`ES-R0-MDE`。
+- rho3未执行，manifest disposition为`disabled_scoped_chunk1024`。
+- 实际GPU-equivalent时间：`4716.510494s = 1.3101418039h`。
+- 低于expected `3.8h`及hard cap `6h`。
+
+### A8 chunk4096
+
+| body/rho | request-path | N8 full |
+|---|---:|---:|
+| 1024/1.5 | 0.772308x | 0.608646x |
+| 1024/2.0 | 0.775065x | 0.610096x |
+| 2048/1.5 | 0.933384x | 0.639791x |
+| 2048/2.0 | 0.936173x | 0.641889x |
+
+全部16个R0 target/setting均为`approximate_gpu_recovery`；8-token canary全部匹配。  
+结论：**R0 ceiling NEGATIVE；禁止speedup headline。**
+
+### chunk1024 sensitivity
+
+- restart request-path：`1.738871x`、`1.735160x`
+- median：`1.737015x`
+- N8 full：`1.191450x`、`1.186471x`
+- median：`1.188960x`
+
+只能称为**chunk-coupled sensitivity**，不能称为机制固有收益。
+
+### W：S4/S0
+
+| rho | all-reusable | workflow-only | miss Δ | peak ratio |
+|---|---:|---:|---:|---:|
+| 1.5 | 1.002082x | 1.027574x | -14 | 1.011228 |
+| 2.0 | 1.025029x | 1.044183x | +2 | 0.998064 |
+
+三点均已复算。方向混合、幅度小，且比较非相邻执行：  
+**system behaviour仅INCONCLUSIVE/DESCRIPTIVE；无practical benefit claim。**
+
+### wave0与R4
+
+- S4：四个non-R4 profile reachable；R4-like profile diagnostic-unavailable。
+- S0：五个profile reachable。
+- 两个cell顶层均为diagnostic-unavailable，raw顶层均为inconclusive。
+- R4 W：S0 available/valid；S4 diagnostic_unavailable。
+- R4-like只是5x synthetic footprint，不是KVCOMM。
+- `r2_like`只是2x synthetic footprint，不是R2执行。
+
+## 3. 完整性检查
+
+已验证：
+
+- 22/22 raw、compact、log及其内部/文件hash。
+- summary、manifest、final-entry-review自哈希。
+- manifest design hash和V7 plan blob。
+- execution envelope、runner hash、source SHA/tree、ancestor及allowlist。
+- 22个run的reset、orphan、inactive counter。
+- A8/W逐请求outcome计数；W fallback均带`unsupported`原因。
+- `RESULT_MANIFEST.json`为`73/73`，全部当前文件hash、大小及containing commit正确。
+- 未发现请求级bootstrap、伪CI或speedup headline；但p95字段命名需修正。
+- W独立单元是3个server restart；trace内请求及同进程formal repeat不是独立样本。
+- A8 primary每setting仅一个进程级restart，负结论依赖预注册screening规则。
+
+## 4. 可发布的精确结论
+
+1. chunk4096下，R0 ceiling在所有A8 primary cell均慢于dense，机制结论NEGATIVE。
+2. chunk1024出现正值，但高度chunk-coupled，不支持机制固有或可迁移speedup。
+3. S4/S0仅支持小幅、混合的描述性system-behaviour观察。
+4. R4-like与r2_like仅为synthetic footprint proxy。
+5. R2未执行；rho3、host、prefetch、async均未评测。
+6. natural reservation-failure fallback仍未被Phase7证明。
+7. 结论仅适用于当前SM75、Qwen3-0.6B、合成workload与固定chunk配置。
+8. 在P1关闭及Sol/Opus结果review互换、delta closure、主会话disposition完成前不得发布。
+
+## 5. Machine-readable summary
+
+```json
+{
+  "review_model": "GPT-5.6 Sol",
+  "reasoning_effort": "max",
+  "verdict": "FAIL",
+  "publication_disposition": "NOT_READY",
+  "open_findings": {"P0": 0, "P1": 1, "P2": 3},
+  "core_numeric_recomputation": "PASS",
+  "reviewed_summary_sha256": "115f593e74300b462ab93970ea88daae9a5c1af82d18411f25788f5e830d7134",
+  "reviewed_summary_file_sha256": "98bf536068cecfbb4dfe9fe54fbc725a6c6a1b762894573ae58d5048b397ab4f",
+  "manifest_sha256": "2d66a1bcdb6dc92a72c59fefc581212fcd541accbc8ededa221495d30d039bef",
+  "manifest_file_sha256": "c0a14e3a8127db4ad7fba20920a156b9b731e7ea36711c8c104a49bca3a8667d",
+  "design_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+  "result_manifest": {"verified": 73, "expected": 73},
+  "executed_starts": 22,
+  "actual_gpu_equivalent_hours": 1.310141803888889
+}
+```

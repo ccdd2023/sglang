@@ -1,0 +1,268 @@
+已完成 Sol 报告全文阅读 + 独立复核。以下为交叉 consolidation 结果（全程只读，未改 repo，未用 GPU）。
+
+---
+
+# Phase 7 交叉 Consolidated Review（Opus × Sol）
+
+**Opus 侧**：PASS_WITH_CAVEATS / P0=0 P1=5 P2=12 / 无需 GPU
+**Sol 侧**：FAIL / P0=0 P1=1 P2=3 / 需 ≥1 个 S0 correction start
+**交叉后**：**FAIL / NOT_READY / P0=0 P1=7 P2=13 / 需要最小 2 个 GPU correction start + 全量 offline reconsolidation**
+
+我**下调自己的 verdict 至 FAIL 并采纳 Sol 的判定**：Sol 发现的是「证据合同被违反且离线不可恢复」，其阻断性强于我发现的 5 条报告层 P1（后者只需 reconsolidation）。我的 PASS_WITH_CAVEATS 建立在「不需要新 GPU 数据」这一前提上，该前提已被推翻。
+
+---
+
+## 1. 对 Sol P1-1 的独立复核：**接受 GPU correction，但最小范围是 2 个 start，不是 1 个**
+
+### 1.1 事实复核（全部成立，且我给出比 Sol 更强的不可恢复性证明）
+
+| 检查项 | 结果 |
+|---|---|
+| `raw/p6delta-s0-rho2-chunk4096-r0.json` `outcome.counts.approximate_recovery_failed_dense` | **40** ✓ |
+| 同文件 `outcome.terminal_reason_counts` | **`{}`** ✓ |
+| 同文件 `outcome.exclusive_terminal_reasons` | 五项齐全 —— **artifact 自己声明了合同，然后未满足它** |
+| 四个 approximate profile × 2 formal × 5 请求 | `dense_fallback: 5, approximate_gpu_recovery: 0`，**共 40 次**，全部无 reason ✓ |
+| 该 40 次的 registration | **全部 `outcome: "success"`** —— 注册成功却 100% 回退，异常本身正需 reason 解释 |
+| plan 依据 | `IMPLEMENTATION_PLAN_LATEST.md:364-380` §5.8：「approximate失败**另有且只有一个** exclusive terminal reason」。该条位于 **§5 共同实验合同**，无 runner 豁免 ✓ |
+
+**根因（我定位到确切行号）**：
+- `run_p6_4_capacity_pilot.py:1326` 与 `:1454` **硬编码** `"terminal_reason_counts": {}`；
+- 该 runner 从未调用 `terminal_reason_observations()` / `parse_labeled_samples()`（W/A8 runner 经 `phase7/common.py:1188` 调用，因此它们的 `terminal_reason_counts` 正常填充为 `{"unsupported": N}`）；
+- 它只保存 `metrics.dense_fallback_tokens = counter_delta(..., "sglang:approx_kv_dense_fallback_total")`。
+
+**不可恢复性的决定性证据（Sol 未给出）**：
+`benchmark/approx_kv/metrics.py:63-77` 的 `parse_prometheus_text()` 实现为
+`totals[name] = totals.get(name, 0.0) + value`，其中 `name` **不含 label**。
+即 **label 在解析瞬间就被求和折叠销毁**，且原始 Prometheus 文本从未持久化。
+交叉验证：capacity raw 中 `store_miss` 出现 **0** 次、`labels` **0** 次、`dense_fallback_total` **0** 次；server log 仅 1470 B（启动/关闭行）。
+→ **该 reason 在离线层面被证明不可恢复**，不是「难以恢复」。Sol 结论成立。
+
+### 1.2 为什么这不只是记账瑕疵（我支持 GPU correction 的实质理由）
+
+1. `phase7-consolidated-summary.json` 输出**无条件** `engineering_status: "VALID"`，basis 为「no invalid/error artifact, reset failure, or inactive-counter failure across the 22 executed starts」。consolidator 从未校验 §5.8 的 reason 完备性 → **认证范围超出证据**。
+2. plan `§15.2-16` 明确记载：**这个 runner 的这条路径曾把普通 miss 误标为 `dense_fallback`，直接导致错误的 Exit 证据**。S0 的 0/40 恰是该路径最异常的输出。缺 reason 时，无法区分「approximate store 合法 miss（`unsupported`←store_miss）」与「S0 下注册未生效 / `prefix_gap` / `registration_failed`」。这是**机制层的实质歧义**，不是记账层的形式瑕疵。
+3. 成本极低：两次 wave-0 实测各 **368.9 s / 365.9 s**，合计 **0.2041 GPUh**；修正后总计 ≈ **1.51424 GPUh = 6.0 h hard cap 的 25.2%**，starts 24/36。
+
+### 1.3 为什么最小范围是 **2** 而不是 **1**（对 Sol 的定量修正）
+
+- `consolidate_phase7_results.py:` `validate_raw_artifact()` 对每个 raw 强制
+  `runner.sha256 == manifest["runners"][*].sha256`，且 `manifest.runners` **每个 module 只有一条 entry**。
+- 修 runner ⇒ `capacity_pilot.sha256` 变更 ⇒ 必须出 **manifest rev13**。
+- 此时**旧的 S4 wave-0 artifact 会直接触发 `runner SHA-256 mismatch` 而无法 consolidate**。
+- 因此「只重跑 S0」在当前 provenance 合同下**不可行**，除非放宽 consolidator 允许 per-artifact runner 版本 —— 那会削弱刚刚通过审阅的 provenance 契约，审阅成本高于多跑 6 分钟。
+
+**补充**：S4 的 `terminal_reason_counts: {}` 是 **vacuously 合规**（0 次 approximate failure ⇒ 0 条 reason 义务），所以 S4 本身**不是**合同违反；重跑 S4 纯粹出于 runner-SHA 一致性与两 cell 可比性。这一点需在 rev13 revision_reason 中如实写明，不得把 S4 也描述成违规。
+
+**结论：ACCEPT GPU correction，scope = `p6delta-s4-rho2-chunk4096-r0` + `p6delta-s0-rho2-chunk4096-r0`，共 2 starts，≈0.204 GPUh。**
+
+---
+
+## 2. Sol findings 逐项裁决
+
+| Sol ID | 内容 | 裁决 | 说明 |
+|---|---|---|---|
+| **Sol P1-1** | capacity terminal reason 缺失 | **ACCEPT（升为 CP1-1，最高优先）** | 事实全部复核成立；我补强不可恢复性证明；**修正范围 1 → 2 starts** |
+| **Sol P2-1** | marginal p95 命名违反冻结统计合同 | **MERGE + 保持 P2**（= 我的 P2-6 → **CP2-1**） | 双方独立发现同一问题。plan `:417` 原文：「pooled `p95(A)/p95(B)` 命名为 `ratio_of_marginal_p95s`，**只作附录**」。Sol 只提了命名，我补一条：**还要求降为附录位置**，当前它与 paired 量平级并列，两处都要改 |
+| **Sol P2-2** | S0/S4 未按相邻 launch block 执行 | **ACCEPT 事实 + SPLIT + 升级** | 事实经我独立验证成立（见下）。拆为 **CP1-7（P1，措辞过声明）** 与 **CP2-2（P2，manifest 未编码该约束）** |
+| **Sol P2-3** | wave0 未分列 cell 级与 profile 级状态 | **MERGE 进我的 P1-3 → CP1-4，整体维持 P1** | Sol 的依据 plan `§15.2-17` 我确认逐字成立：「写成『三个cell可达』是过声明」。我的 P1-3 是同一问题的更强形式（还缺 `cache_outcomes` 与 `fallback_reachability`）。合并后按 P1 处理 |
+
+### 2.1 对 Sol P2-2 的独立验证与再定级
+
+实测执行顺序（`phase7-runs.jsonl`，位置 9–20）：
+
+```
+ 9. p7-w-r0-lru-rho1.5          r0     15. p7-w-r0-lru-rho2.0          r0
+10. p7-w-r0-lru-rho1.5          r1     16. p7-w-r0-lru-rho2.0          r1
+11. p7-w-r0-lru-rho1.5          r2     17. p7-w-r0-lru-rho2.0          r2
+12. p7-w-r0-hierarchical-rho1.5 r0     18. p7-w-r0-hierarchical-rho2.0 r0
+13. p7-w-r0-hierarchical-rho1.5 r1     19. p7-w-r0-hierarchical-rho2.0 r1
+14. p7-w-r0-hierarchical-rho1.5 r2     20. p7-w-r0-hierarchical-rho2.0 r2
+```
+
+**6 个 (rho, restart) 配对全部 |gap| = 3，无一相邻**（S0-r0 与 S4-r0 相隔约 14 分钟、两次其它 server 生命周期）。plan `:208-216` 定义 paired launch block 为「同一 `(body, rho, restart)` 下……**连续启动的一组相邻 server 进程**」，且「配对发生在 launch block 级」。→ Sol 事实成立。
+
+但我做了 Sol 未做的一步核查，结果改变定级：
+
+- **authorized manifest rev12 中 `adjacent` / `paired_launch` / `launch_block` / `execution_order` 出现次数均为 0**，且 settings 无任何顺序字段；
+- `consolidate_phase7_results.py:expected_execution_plan()` 的 `w_main` 构造为 `for setting_id in (...) for restart in (0,1,2)`，**恰好把这个非相邻顺序编码为「预期执行计划」**。
+
+所以执行**符合授权 manifest 与 consolidator 预期，但违反 plan §5.3 的设计定义**。因此拆成两条：
+
+- **CP1-7（P1，offline 可修）**：`w_scheduler.interpretation` 使用「**paired-restart** S0/S4」表述，断言了一个执行未满足的配对性质，属**未披露的协议偏离 + 过声明**。W 已是 INCONCLUSIVE/DESCRIPTIVE 且无 claim，因此**改称 "seed-matched, non-adjacent restart comparison" 并显式登记 protocol deviation 即为完整补救，无需重跑 W**。
+- **CP2-2（P2）**：manifest rev12 未把 plan §5.3 的相邻性编码为可校验约束，consolidator 反而固化了分组顺序 → 在 rev13 中补 `paired_launch_block_adjacency` 约束并让 `expected_execution_plan()` 按 (rho, restart) 交错生成。
+
+---
+
+## 3. 合并后的 finding register
+
+### P0 — **0**
+
+### P1 — **7 条**（全部 accepted）
+
+| ID | 来源 | File/field | 摘要 | 修复方式 |
+|---|---|---|---|---|
+| **CP1-1** | Sol P1-1（Opus 补强） | `raw/p6delta-s0-…json#/outcome/terminal_reason_counts` = `{}` 对 40 次失败；根因 `run_p6_4_capacity_pilot.py:1326,1454` + `metrics.py:63-77` label 折叠 | 违反 plan §5.8 exclusive terminal reason；离线**证明不可恢复**；consolidator 未校验却输出无条件 `engineering_status=VALID` | **GPU：2 starts** + runner 修复 + rev13 + reconsolidate |
+| **CP1-2** | Opus P1-1 | `summary#/w_scheduler`；`compact/p7-w-r0-*.json#/key_metrics`；`consolidate_phase7_results.py:1207-1252` | plan §8.5 指定的 W **primary 轴**（victim/evict accounting by object kind）在 summary 与 12 个 W compact 中双层缺失（raw 中 `victim_evict_bytes` 632 次 → compact **0** 次） | offline reconsolidation |
+| **CP1-3** | Opus P1-2 | `summary#/r4_diagnostic/policies/S0` | 缺 plan §8.5 授权的全部三项输出（5x footprint / victim sequence / accounting）；且 "available/valid" 未披露 **110/122 dense fallback**（实际恢复仅 9.8%） | offline reconsolidation |
+| **CP1-4** | Opus P1-3 **⊕ Sol P2-3** | `summary#/wave0_profile_reachability/*` | ①「S0 五个 profile 全 reachable」未披露 S0 **0 次 approximate recovery / 5-5 全 dense_fallback**；② 未分列 `cells[0].status = diagnostic-unavailable`（plan §15.2-17 明令）；③ 未呈现 `fallback_reachability {passed:false, rounds:0}` | offline reconsolidation（CP1-1 重跑后同批） |
+| **CP1-5** | Opus P1-4 | `summary#/a8_ceiling` | 无 `independent_replicate_unit` 声明；NEGATIVE 建立在每 setting **n=1** process replicate；manifest 预注册的 `range="report_all_three_values_and_min_max"` 因 ES-R0-MDE 不可满足且未记录 | offline reconsolidation |
+| **CP1-6** | Opus P1-5 | `summary#/w_scheduler/**/r0/partial_or_full_miss_requests` | 该值与 `approximate_recovery_failed_dense` 逐一相等（70/56/86/88 of 122）却从未标注为 dense fallback；recovery 成功率（S0 42.6%/29.5%，S4 54.1%/27.9%）从未陈述 | offline reconsolidation |
+| **CP1-7** | Sol P2-2（拆分升级） | `summary#/w_scheduler/interpretation/*` | 称 "paired-restart S0/S4"，但 6 个配对全部 |gap|=3 非相邻，违反 plan §5.3；属未披露协议偏离 | offline：改称 non-adjacent + 登记 deviation（**不需重跑 W**） |
+
+### P2 — **13 条**
+
+| ID | 来源 | 摘要 |
+|---|---|---|
+| **CP2-1** | Sol P2-1 **⊕** Opus P2-6 | pooled p95 必须命名 `ratio_of_marginal_p95s` **且只作附录**（plan `:417`）；当前 `p95_ratio_s4_over_s0` / `r0_over_e0_p95_ratio` 与 paired 量平级 |
+| **CP2-2** | Sol P2-2 拆分 | manifest rev12 未编码 §5.3 launch adjacency；`expected_execution_plan()` 固化了分组顺序 |
+| CP2-3 | Opus P2-1 | `w_scheduler.interpretation` 数值为硬编码字符串，非派生（当前四位小数吻合，但存在「自哈希自洽却叙述错误」风险） |
+| CP2-4 | Opus P2-2 | "miss delta −14/+2" 未标注分母（实为 `all_reusable`）；`workflow_only` 在两个 rho 均为 **−10**，未报 |
+| CP2-5 | Opus P2-3 | `source_hashes.compact[].path` 为裸 basename，与 `raw/`、`logs/` 基准不一致 |
+| CP2-6 | Opus P2-4 | `1.31014 h` 为 22 段区间之和；wall-clock 跨度 **1.52884 h**，排除项未声明 |
+| CP2-7 | Opus P2-5 | body1024 的 8-token canary 参考输出为 `[198]×8`（1 个 distinct token），判别力近零 |
+| CP2-8 | Opus P2-7 | plan §8.5/§8.4 的 `ttft_p50`、`per_role`、`paired_delta_median_ms`、`target_only_ms`、`full_lifecycle_ms`、`cached_tokens` 未进 summary；`server_cold_start_ms` 仅存于 raw |
+| CP2-9 | Opus P2-8 | `diagnostic-unavailable`（capacity，连字符） vs `diagnostic_unavailable`（scheduler，下划线）词形漂移 |
+| CP2-10 | Opus P2-9 | `peak_ratio` / `miss_delta` 的三个 restart 值完全相同，标为 "median across restarts" 暗示不存在的变异 |
+| CP2-11 | Opus P2-10 | `engineering_status` 等为字面常量而非派生值，读者无法区分派生与断言 |
+| CP2-12 | Opus P2-11 | summary 缺 commit/environment/test provenance 交叉引用（plan §8.8 汇总项） |
+| CP2-13 | Opus P2-12 | final entry review 覆盖 **rev11**，执行用 **rev12**（design-preserving，合法），但 summary 未记录该绑定 |
+
+---
+
+## 4. GPU rerun 与 offline reconsolidation 决议
+
+### 4.1 GPU rerun：**需要，最小 2 starts**
+
+| 项 | 值 |
+|---|---|
+| Settings | `p6delta-s4-rho2-chunk4096` r0、`p6delta-s0-rho2-chunk4096` r0 |
+| Starts | **2**（占 hard cap 36 的 2；修正后累计 **24/36**） |
+| 预计 GPU 时间 | **0.2041 h**（按实测 368.9 s + 365.9 s） |
+| 修正后总计 | **≈1.51424 GPUh = 6.0 h cap 的 25.2%** |
+| 前置条件 | runner 修复 → rev13 manifest（含新 `capacity_pilot.sha256` + CP2-2 相邻性约束）→ Sol/Opus 对 rev13 的 delta review 无开放 P0/P1 → `status=authorized` |
+| **不需要重跑** | A8（6 starts）、W（12 starts）、R4（2 starts）—— 其数值与 taxonomy 已全部独立复算通过，`terminal_reason_counts` 均正确填充 |
+
+### 4.2 三个必须先解决的实施阻碍（双方报告均未涉及，我在此提出）
+
+1. **central JSONL 会因重复 (setting_id, restart) 直接 fail。**
+   `central_run_durations()` 有 `if pair in seen_pairs: raise ConsolidationError("central JSONL duplicates setting/restart")`。补跑会为同一对产生第 2 个 `run_id`。必须先设计 supersede 机制（如 `superseded: true` 事件字段 + 消费端只取最新，或原 JSONL 归档为 `phase7-runs.superseded.jsonl`），否则重跑数据无法 consolidate。
+2. **`expected_execution_plan()` 仍写死 `len(executed) != 22` 断言**，补跑后需同步更新为 22（替换语义）或 24（追加语义）。建议**替换语义**并保留 superseded 原件。
+3. **raw 不得改写。** 依项目既有先例（`HANDOFF.md`：「P6-4 旧误标签已用独立 correction artifact 更正，raw 不改写」），原 2 个 wave-0 raw/log/compact 应移入 `superseded/` 并在 `RESULT_MANIFEST` 中以 superseded 条目保留 → 条数 **73 → 79**，同时新增一份 correction artifact 说明 supersede 依据。
+
+### 4.3 Offline reconsolidation：**需要，覆盖 CP1-2 ~ CP1-7 与全部 13 条 P2**
+
+与 GPU 重跑**合并为一次** reconsolidation（`--force`），避免产生两个中间态 summary hash。
+
+---
+
+## 5. 修复顺序（严格串行）
+
+| # | 步骤 | GPU | 产出 |
+|---|---|---|---|
+| 1 | 修 `run_p6_4_capacity_pilot.py`：逐 replay 请求经 `parse_labeled_samples` 捕获 `sglang:approx_kv_dense_fallback_total` 的 reason label，映射到 5 个 exclusive reason，填充 `terminal_reason_counts`，并在 `dense_fallback` 计数 > 0 而 reason 总数不等时**主动置 `INVALID`** | 否 | 新 `capacity_pilot.sha256` |
+| 2 | 在 `consolidate_phase7_results.py` 增加**强制校验**：`sum(terminal_reason_counts.values()) == counts["approximate_recovery_failed_dense"]`，对全部 phase 生效（闭合「认证超出证据」根因） | 否 | — |
+| 3 | 修 `_compact_scheduler`（保留 per-arm `metrics` + `victim_sequence` + `memory_footprint_after`）与 `_compact_ceiling`（保留 `ledger.setup`） → **CP1-2 / CP1-3** | 否 | — |
+| 4 | 修 `build_summary` / `summarize_wave0` / `summarize_r4` / `aggregate_a8` / `_restart_w_metrics` → **CP1-3~CP1-7 + P2 全量**（含 `ratio_of_marginal_p95s` 改名并降为附录、`cell_status` 分列、`cache_outcomes`、`fallback_reachability`、fallback 率、replicate 声明、protocol deviation 登记） | 否 | — |
+| 5 | 设计并实现 central JSONL supersede 机制 + 放宽 22-start 硬断言 | 否 | — |
+| 6 | 生成 **manifest rev13**（design-preserving：新 runner sha + `paired_launch_block_adjacency` 约束 + `revision_reason` 如实写明 S4 属 SHA 一致性重跑而非违规），`supersedes_manifest_sha256 = 2d66a1bc…` | 否 | rev13 |
+| 7 | CPU tests + isort/ruff/black + `build_phase7_manifest.py --check` | 否 | — |
+| 8 | **Sol / Opus 对 rev13 + runner + consolidator 做 delta review**，闭合全部 P0/P1 后转 `authorized` | 否 | review artifact |
+| 9 | 执行 **2 个 correction start**（Docker SM75，只写 `/results/phase7` staging） | **是（0.204 h）** | 2 raw + 2 log |
+| 10 | `--force` reconsolidate 全部 22 个 start（20 原 + 2 新） | 否 | 新 summary_sha256 + 22 compact |
+| 11 | 归档 superseded 原件 + correction artifact，重生成 `RESULT_MANIFEST`（预计 **79** 条） | 否 | — |
+| 12 | 更新 `HANDOFF.md` / `PROJECT.md`（修正「S0 五个 profile 全部可达」框架性措辞），向 `TRACKING.md` **追加**带 ISO 8601 时间戳记录（不改写旧记录） | 否 | — |
+| 13 | Sol / Opus 结果层二次互换 + delta closure + 主会话 disposition | 否 | 发布许可 |
+
+---
+
+## 6. 交叉后仍然成立的结论（不受本轮 finding 影响）
+
+CP1-1 只影响 **wave-0 capacity cell 的 outcome 分类完整性与无条件 engineering VALID 认证**，不影响任何数值结论。以下经**双方各自独立复算、结果完全一致**，予以确认：
+
+1. **A8 R0 ceiling = NEGATIVE**：chunk4096 下 request-path median `0.772308 / 0.775065 / 0.933384 / 0.936173`，N=8 full-setup `0.608646 / 0.610096 / 0.639791 / 0.641889`，`break_even` 全为 `>8/not_observed`。禁止 speedup headline。
+2. **chunk1024 sensitivity = chunk-coupled**：request-path median `1.737015`，N8 full median `1.188960`；非机制固有收益。
+3. **W system behaviour = INCONCLUSIVE/DESCRIPTIVE**：rho1.5 `1.002082 / 1.027574 / −14 / 1.011228`；rho2.0 `1.025029 / 1.044183 / +2 / 0.998064`。无 practical benefit claim（现须追加 non-adjacent 披露）。
+4. **R4-like 与 r2_like 均为 synthetic footprint proxy，均非 KVCOMM / 非 R2 执行**。
+5. **执行与预算**：22 starts，8 个 supplement 由 ES-R0-MDE 跳过，rho3 disabled，`1.3101418039 h` GPU-equivalent，远低于 cap。
+6. **哈希链完整**：summary/manifest/22 raw/22 compact 自哈希、`RESULT_MANIFEST` 73/73、runner sha 对 pinned commit、execution envelope、consolidator **逐字节可复现** —— 双方独立确认。
+7. **natural reservation-failure fallback 在 Phase7 仍未被证明**（全局 0 次自然失败，wave-0 两 cell `fallback_reachability.passed = false`）。
+
+---
+
+## 7. Machine-readable cross-consolidated summary
+
+```json
+{
+  "artifact": "phase7-cross-consolidated-review",
+  "schema_version": 1,
+  "reviewers": ["Claude Opus 5 / Max Thinking", "GPT-5.6 Sol / max"],
+  "exchange": "full_report_bidirectional",
+  "timestamp": "2026-07-28T12:58:14-07:00",
+  "verdict": "FAIL",
+  "publication_disposition": "NOT_READY",
+  "opus_original_verdict": "PASS_WITH_CAVEATS",
+  "sol_original_verdict": "FAIL",
+  "verdict_reconciliation": "Opus adopts FAIL; Sol P1-1 is an evidence-contract violation that is provably unrecoverable offline and therefore strictly stronger than reconsolidation-only findings",
+  "accepted_counts": { "P0": 0, "P1": 7, "P2": 13 },
+  "gpu_rerun_required": true,
+  "gpu_rerun_scope": {
+    "settings": ["p6delta-s4-rho2-chunk4096:r0", "p6delta-s0-rho2-chunk4096:r0"],
+    "starts": 2,
+    "sol_proposed_starts": 1,
+    "opus_correction": "runner SHA pin in validate_raw_artifact makes a single-cell rerun non-consolidatable; both wave-0 cells must run under one runner sha",
+    "estimated_gpu_hours": 0.2041,
+    "projected_total_gpu_hours": 1.51424,
+    "projected_total_starts": 24,
+    "hard_cap_gpu_hours": 6.0,
+    "hard_cap_starts": 36
+  },
+  "offline_reconsolidation_required": true,
+  "no_rerun_needed_for": ["a8 (6 starts)", "w (12 starts)", "r4like (2 starts)"],
+  "p1_register": [
+    {"id":"CP1-1","origin":"sol","file":"raw/p6delta-s0-rho2-chunk4096-r0.json#/outcome/terminal_reason_counts","root_cause":"run_p6_4_capacity_pilot.py:1326,1454 + metrics.py:63-77 label collapse","remedy":"gpu_correction"},
+    {"id":"CP1-2","origin":"opus","file":"summary#/w_scheduler + compact/p7-w-r0-*#/key_metrics","remedy":"reconsolidation"},
+    {"id":"CP1-3","origin":"opus","file":"summary#/r4_diagnostic/policies/S0","remedy":"reconsolidation"},
+    {"id":"CP1-4","origin":"opus+sol_merged","file":"summary#/wave0_profile_reachability","remedy":"reconsolidation"},
+    {"id":"CP1-5","origin":"opus","file":"summary#/a8_ceiling","remedy":"reconsolidation"},
+    {"id":"CP1-6","origin":"opus","file":"summary#/w_scheduler/**/r0/partial_or_full_miss_requests","remedy":"reconsolidation"},
+    {"id":"CP1-7","origin":"sol_split_promoted","file":"summary#/w_scheduler/interpretation","remedy":"relabel_and_disclose_deviation"}
+  ],
+  "sol_finding_dispositions": {
+    "SOL-P1-1": "ACCEPT_AND_STRENGTHEN_scope_1_to_2_starts",
+    "SOL-P2-1": "MERGE_with_OPUS-P2-6_as_CP2-1_plus_appendix_placement",
+    "SOL-P2-2": "ACCEPT_FACT_SPLIT_into_CP1-7_promoted_and_CP2-2_new",
+    "SOL-P2-3": "MERGE_into_CP1-4_severity_P1"
+  },
+  "implementation_blockers_identified": [
+    "central_run_durations raises on duplicate (setting_id, restart) - supersede mechanism required",
+    "expected_execution_plan hardcodes len(executed)==22",
+    "raw must not be rewritten - use superseded/ archive + correction artifact per P6-4 precedent; RESULT_MANIFEST 73 -> 79"
+  ],
+  "unaffected_verified_results": {
+    "a8_mechanism_status": "NEGATIVE",
+    "a8_request_path_medians": [0.7723084788319753, 0.7750646549196568, 0.9333841300150884, 0.9361730384560383],
+    "a8_n8_full_setup": [0.6086457910880934, 0.6100962154686245, 0.6397911306400723, 0.6418890486640437],
+    "chunk1024_request_path_median": 1.7370152775837997,
+    "chunk1024_n8_full_setup_median": 1.1889604660811057,
+    "w_rho1_5": {"all": 1.0020816, "workflow": 1.0275737, "miss_delta": -14, "peak_ratio": 1.0112283},
+    "w_rho2_0": {"all": 1.0250294, "workflow": 1.0441829, "miss_delta": 2, "peak_ratio": 0.9980641},
+    "actual_gpu_equivalent_hours": 1.3101418038888892,
+    "executed_starts": 22,
+    "byte_reproducible_consolidation": true
+  },
+  "reviewed_summary_sha256": "115f593e74300b462ab93970ea88daae9a5c1af82d18411f25788f5e830d7134",
+  "reviewed_summary_file_sha256": "98bf536068cecfbb4dfe9fe54fbc725a6c6a1b762894573ae58d5048b397ab4f",
+  "manifest_sha256": "2d66a1bcdb6dc92a72c59fefc581212fcd541accbc8ededa221495d30d039bef",
+  "manifest_file_sha256": "c0a14e3a8127db4ad7fba20920a156b9b731e7ea36711c8c104a49bca3a8667d",
+  "design_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+  "result_manifest": {"verified": 73, "expected": 73, "projected_after_correction": 79},
+  "next_manifest_revision": 13,
+  "blocking_for_publication": ["CP1-1","CP1-2","CP1-3","CP1-4","CP1-5","CP1-6","CP1-7"]
+}
+```
+
+---
+
+**一句话结论**：数值层双方完全一致且逐字节可复现，但 wave-0 capacity 的 40 次 approximate failure 缺少 plan §5.8 强制的 exclusive terminal reason，且因 `parse_prometheus_text` 在解析时折叠 label 而**离线不可恢复** —— 故交叉判定 **FAIL / NOT_READY**，需 **2 个 GPU correction start（0.204 GPUh）+ 一次覆盖 7 条 P1 与 13 条 P2 的 offline reconsolidation**；A8、W、R4 共 20 个 start 无需重跑。
+
+本次 review 全程只读，未修改任何文件、未运行 GPU。

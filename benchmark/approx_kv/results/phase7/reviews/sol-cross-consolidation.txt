@@ -1,0 +1,242 @@
+# Phase7 全文互换与交叉 Consolidation
+
+已完成：
+
+- Sol原始报告已逐字保存至指定路径。
+- 文件SHA-256：`f3cb83b8c3fa5ed51341f11258f78993299fda9b46141a5b2da5a342e022962f`
+- 已阅读全文核查Opus报告。
+- 未修改任何repo，未运行GPU。
+
+## 1. Cross-consolidated verdict
+
+| 项目 | 结论 |
+|---|---|
+| 核心数值、hash、执行集合 | **PASS** |
+| 当前发布包 | **FAIL** |
+| Publication | **NOT_READY** |
+| P0 / P1 / P2 | **0 / 6 / 9** |
+| Offline reconsolidation | **必须** |
+| GPU rerun | **必须，最少1个定向correction start** |
+| 全矩阵重跑 | **不需要** |
+
+A8 NEGATIVE、chunk1024 sensitivity、W描述性数值均保持不变。
+
+## 2. 关键分歧裁决：capacity fallback reason
+
+### 直接证据
+
+`p6delta-s0-rho2-chunk4096-r0.json`的40次fallback仅保存：
+
+```text
+request_outcomes.dense_fallback = 1
+reservation_failures = 0
+cached_tokens = 64
+outcome = dense_fallback
+```
+
+顶层为：
+
+```text
+approximate_recovery_failed_dense = 40
+terminal_reason_counts = {}
+```
+
+capacity raw及两个capacity server log中均不存在：
+
+- `store_miss`
+- `terminal_reason_observations`
+- reason-labelled Prometheus样本
+
+runner行为：
+
+1. `run_p6_4_capacity_pilot.py:484-493`临时获取完整Prometheus文本；
+2. `:497-519`只提取`approx_kv_requests_total`的outcome；
+3. `:543`只持久化`request_outcomes`；
+4. `:605-610`通过`metric_snapshot`仅保存合并后的fallback token数；
+5. `metrics.py:63`按metric name聚合，丢弃`reason` label；
+6. 可保留reason的`terminal_reason_observations()`并未被capacity runner调用。
+
+相比之下，W/R4 raw确实保存：
+
+```json
+{
+  "raw": {"store_miss": 1024},
+  "mapped_from": {"unsupported": ["store_miss"]},
+  "verification": "direct"
+}
+```
+
+### 裁决
+
+- **拒绝**Opus的“所有fallback raw reason均为store_miss”作为全局结论。
+- 准确说法是：**所有已持久化的W/R4 fallback reasons均为store_miss；capacity S0的40次reason未持久化。**
+- 根据注册成功、approx eviction、零reservation failure及runtime路径，`store_miss`是高度可信推断，但不是raw中的直接证据。
+- 无法通过现有raw/log精确离线恢复每请求reason。
+
+### GPU结论
+
+为严格满足V7“每次approximate failure恰有一个exclusive reason”的合同，需要：
+
+- capacity runner保存reason-labelled observation；
+- 最少执行1个`p6delta-s0-rho2-chunk4096` correction start。
+
+若治理要求新code pin下wave0保持完整配对，则运行S0/S4共2 starts。无需重跑A8、W或R4。
+
+唯一免GPU方案是主会话明确接受post-hoc waiver，并将capacity reason标记为`inferred/not_directly_recorded`，同时撤回“terminal taxonomy完整”的claim；这不满足原冻结合同。
+
+## 3. Opus P1 disposition
+
+| Opus finding | 裁决 | Cross finding |
+|---|---|---|
+| W victim/footprint缺失 | **ACCEPT** | P1-2 |
+| R4 footprint/victim/fallback率缺失 | **ACCEPT** | P1-3 |
+| wave0 reachable措辞误导 | **ACCEPT+MERGE** Sol cell-status finding | P1-4 |
+| A8独立replicate未声明、n=1 | **ACCEPT** | P1-5 |
+| W dense-fallback率未披露 | **ACCEPT** | P1-6 |
+
+## 4. Opus P2 disposition
+
+| Opus P2 | 裁决 |
+|---|---|
+| 1 hardcoded interpretation | **ACCEPT+MERGE** |
+| 2 miss delta分母缺失 | **ACCEPT** |
+| 3 compact path仅basename | **ACCEPT** |
+| 4 GPU-equivalent未附wall span | **REJECT**：字段及source已明确；wall span仅可选增强 |
+| 5 body1024 canary仅1种token | **ACCEPT为caveat** |
+| 6 marginal p95命名错误 | **ACCEPT+MERGE Sol finding** |
+| 7 plan字段未进入发布层 | **PARTIAL ACCEPT**；primary遗漏升为P1，其余为P2 |
+| 8 diagnostic词形漂移 | **ACCEPT** |
+| 9 identical值仍取median | **REJECT**：数学口径正确且已列出三点 |
+| 10 hardcoded status | **ACCEPT+MERGE** |
+| 11 summary缺环境/commit/test | **ACCEPT** |
+| 12 rev11→rev12关系未说明 | **ACCEPT+MERGE provenance finding** |
+
+Sol的W非相邻launch-block finding继续接受为P2。
+
+## 5. 最终 accepted P1
+
+### P1-1 Capacity terminal reason证据缺失
+
+**位置：**
+
+- `raw/p6delta-s0-rho2-chunk4096-r0.json`
+- `outcome.counts.approximate_recovery_failed_dense=40`
+- `outcome.terminal_reason_counts={}`
+
+**修复：** 保存逐请求raw/mapped reason；定向GPU correction；summary引用correction证据。
+
+### P1-2 W primary victim/footprint轴被发布层丢弃
+
+12个W compact未保留：
+
+- `metrics.victim_evict_bytes`
+- `victim_sequence`
+- `memory_footprint_after`
+- `wasted_bytes/churn_bytes`
+
+这正是A8 NEGATIVE后计划指定的W primary轴。
+
+**修复：** 扩展`_compact_scheduler()`及`w_scheduler.victim_footprint`，按policy/rho/restart/object-kind汇总。
+
+### P1-3 R4授权输出及fallback组成缺失
+
+S0 R4实际：
+
+- recovery `12/122 = 9.8%`
+- dense fallback `110/122 = 90.2%`
+- reason=`unsupported ← store_miss`
+
+summary却只写available/valid。
+
+**修复：** 加入outcome counts、success fraction、5x footprint、victim sequence/class/accounting及memory footprint。
+
+### P1-4 Wave0 reachable语义与cell状态披露不足
+
+S0四个approximate profiles虽然`reachability=reachable`，但实际：
+
+```text
+approximate_gpu_recovery = 0/40
+dense_fallback = 40/40
+cell.status = diagnostic-unavailable
+fallback_reachability = false
+```
+
+S4四个non-R4 profile为`40/40` recovery。
+
+**修复：** 分列`artifact_status`、`cell_status`、`profile_registration_reachability`及`request_outcomes`；禁止把reachable解释为recovery成功。
+
+### P1-5 A8 NEGATIVE的独立复制单位未明确
+
+每primary setting仅：
+
+```text
+process-level restart n = 1
+formal repeats = 2（非独立）
+targets = 16 ratios（非独立）
+```
+
+**修复：** 明示independent unit、`n=1`、补充restart被ES-R0-MDE跳过，因此预注册三点range不可用。
+
+### P1-6 W latency比较的fallback组成未披露
+
+R0 dense-fallback率：
+
+- S0 rho1.5：57.4%
+- S0 rho2：70.5%
+- S4 rho1.5：45.9%
+- S4 rho2：72.1%
+
+**修复：** 每restart输出recovery/fallback counts、rate、terminal reason；解释延迟比包含大量dense fallback。
+
+## 6. 最终 accepted P2
+
+1. 硬编码interpretation/status改为计算派生或加入等值断言。
+2. miss delta明确`all_reusable`分母，并同时报告workflow-only `-10/-10`。
+3. compact source path改为`compact/<file>`。
+4. body1024 canary披露`distinct_output_tokens=1`及有限判别力。
+5. p95统一命名为`ratio_of_marginal_p95s`，不得暗示paired p95。
+6. 补充per-role/p50/paired-delta、A8 target-only/full-lifecycle/cached-token/cold-start等发布视图。
+7. 统一`diagnostic-unavailable`/`diagnostic_unavailable`词表。
+8. summary增加environment、code pin、execution HEAD、CPU evidence、RESULT_MANIFEST及rev11→rev12 design-preserving链。
+9. W S0/S4执行顺序非相邻：当前结果改称`seed-matched non-adjacent restart comparison`；若保留严格paired-launch-block claim才需重跑W。
+
+## 7. Offline reconsolidation要求
+
+GPU correction之外，必须离线完成：
+
+1. 扩展compact的W/R4 metrics、victim和memory字段。
+2. 扩展wave0、A8、W、R4 summary。
+3. 修正p95、状态层级、replicate、fallback及provenance措辞。
+4. 重新生成compact与summary自哈希。
+5. 重建`RESULT_MANIFEST`；若新增不可变correction artifact，条目数应相应增加，不应强行维持73。
+6. 完成Sol/Opus targeted delta closure及authority文档同步。
+
+## 8. 最终结论
+
+- **数值不变：** R0 chunk4096 NEGATIVE；chunk1024仅chunk-coupled；W仅INCONCLUSIVE/DESCRIPTIVE；R4-like非KVCOMM。
+- **当前不能发布：** publication layer遗漏主要实验轴并对reachable/fallback/replicate披露不足。
+- **GPU：** 不需要全矩阵重跑；严格合同下需要最少1个capacity S0定向correction start。
+- **Offline：** 必须reconsolidate。
+
+```json
+{
+  "verdict": "FAIL",
+  "publication_disposition": "NOT_READY",
+  "core_numeric_results": "PASS",
+  "requires_gpu_rerun": true,
+  "minimum_gpu_rerun_scope": "one p6delta-s0-rho2-chunk4096 correction start",
+  "requires_full_matrix_rerun": false,
+  "requires_offline_reconsolidation": true,
+  "accepted_open_counts": {
+    "P0": 0,
+    "P1": 6,
+    "P2": 9
+  },
+  "capacity_terminal_reason": {
+    "w_and_r4_persisted_reason": "store_miss -> unsupported",
+    "capacity_s0_persisted_reason": null,
+    "offline_direct_recovery_possible": false,
+    "likely_inferred_reason": "store_miss"
+  }
+}
+```

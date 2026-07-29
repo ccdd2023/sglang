@@ -1,0 +1,186 @@
+全部验证完成。
+
+---
+
+# Phase 7 最终 Targeted Verify（Opus，只读 / 无 GPU / 无改动）
+
+## 判定
+
+| 项目 | 结论 |
+|---|---|
+| **Verdict** | **PASS_WITH_CAVEATS** |
+| **Publication** | **READY** |
+| **Open P0 / P1 / P2** | **0 / 0 / 5**（5 条均为非阻断性外观项或结转项） |
+| **需要额外 GPU** | **否** |
+| **发布前需要额外 offline work** | **否** |
+
+---
+
+## 1. 决定性验证：逐字节可复现已恢复
+
+```
+in-memory 重跑 consolidate(staging + primary manifest + JSONL + correction)
+  → 无任何异常，全部 validator 通过
+  → recomputed summary_sha256 = 9d0aafcd776305c7ac679b14845e4a5c79e44c04bb696ecf2d83644fca4c2c69
+  → on-disk    summary_sha256 = 9d0aafcd776305c7ac679b14845e4a5c79e44c04bb696ecf2d83644fca4c2c69
+  → *** BYTE-REPRODUCIBLE PAYLOAD: True ***
+  → 22 compact 逐字节复现，0 mismatch
+```
+
+上一轮唯一阻断项（`summary ↔ RESULT_MANIFEST` 哈希循环）**已从根因消除**：`provenance.result_manifest` 现仅保留 `path` + `authority` + `publication_inputs_validated`，新增显式标记 `hash_omitted_to_avoid_summary_result_manifest_cycle: true`；`file_sha256` 与 `entry_count` **均已移除**（实测 `present: False`）。不动点已达成 —— 这是本轮最关键的性质，也是整个 review 链条中最强的完整性保证。
+
+---
+
+## 2. 所有 P0 / P1 关闭确认（回归复核）
+
+| ID | 来源 | 状态 | 验证依据 |
+|---|---|---|---|
+| **CP1-1** capacity terminal reason | Sol P1-1 + Opus 补强 | **CLOSED** | `wave0.S0.formal_outcomes.terminal_reason_counts = {unsupported: 40, 其余 4 项 0}`；correction raw 逐请求 **40/40 `unsupported` + `direct`**；`evidence_corrections.count = 1` |
+| **CP1-2** W victim/footprint | Opus | **CLOSED** | `w_scheduler.victim_footprint` 存在，`primary_axis_after_a8_negative: true`，`object_kind` 656 次 |
+| **CP1-3** R4 outcomes/footprint | Opus | **CLOSED** | `outcomes.counts.approximate_recovery_failed_dense = 110`、`recovery.rate = 12/122`、`memory_footprint_after` 齐备 |
+| **CP1-4** wave0 cell/profile + 零恢复 | Opus ⊕ Sol P2-3 | **CLOSED** | `cell_status = "diagnostic_unavailable"`、`registration_reachability_is_not_recovery_success: true`、`formal_outcomes.approximate_gpu_recovery = 0`、`fallback_reachability.passed = false` |
+| **CP1-5** A8 n=1 声明 | Opus | **CLOSED** | `independent_restarts_per_setting: 1`、`targets_are_not_independent_replicates: true`、`three_restart_range.available: false` |
+| **CP1-6** W fallback 率 | Opus | **CLOSED** | 每 restart `r0_outcomes{recovery, dense_fallback, terminal_reason_counts}`；`interpretation.latency_ratio_fallback_mix` |
+| **CP1-7** 非相邻 launch block 过声明 | Sol P2-2 拆分升级 | **CLOSED** | `not_a_paired_launch_block: true`、`comparison_design: "seed-matched_non_adjacent_restart_comparison"` |
+| **SOL-P2-1** marginal p95 命名 | Sol | **CLOSED** | `ratio_of_marginal_p95s` 广泛使用；旧名 `p95_ratio_s4_over_s0` / `r0_over_e0_p95_ratio` **各 0 次**；附 `p95_pairing: "nonpaired"` |
+| **NEW-P1-1** provenance 哈希循环 | Opus（上一轮） | **CLOSED** | 见 §1 |
+
+→ **两位 reviewer 全历史提出的 P0/P1 现已全部关闭，open P0 = 0，open P1 = 0。**
+
+---
+
+## 3. 完整性与不可变性最终复核
+
+| 检查 | 结果 |
+|---|---|
+| summary 自哈希 | `9d0aafcd…` 重算匹配，**与你声明一致**；文件 sha `05acb52d51ea68bcff95c392e13348f73292dad0921b154efaf1e02e150eb135`；字节 == canonical writer form ✓ |
+| 22 compact | 自哈希 **22/22** 通过；`p6delta-s0` compact 文件/规范哈希与上一轮**逐位相同**；`git diff` 显示 compact 目录**零变更** ✓ |
+| 22 primary raw 内部自哈希 | **22/22 OK** ✓ |
+| 原始输入不可变 | `raw/`、`logs/`、`phase7-runs.jsonl`、`phase7-primary-manifest.json` 全部与首轮记录**逐位相同**；`fc752a6e9..HEAD` 对 `raw/`、`logs/` **零提交** ✓ |
+| correction 产物 | raw 自哈希 `59049306…` 匹配声明；per-request **40/40 `unsupported`/`direct`**；manifest rev2 `authorized_correction` 自哈希匹配；review `PASS_WITH_CAVEATS` 0/0 自哈希匹配 ✓ |
+| entry review | `PASS_WITH_CAVEATS` 0/0，自哈希匹配 ✓ |
+| summary 声明哈希 vs 盘上 | **7/7 全部匹配**（correction manifest/review/cpu-evidence/raw/log、primary manifest、central JSONL）✓ |
+| `source_hashes` raw/logs/compact | 22/22/22，**0 mismatch** ✓ |
+| `RESULT_MANIFEST` | **79/79 全通过**（file + sha256 + bytes + `containing_commit` blob 四重匹配），0 pending，全部 commit 为 HEAD 祖先；summary entry sha `05acb52d…` 与实际一致 ✓ |
+| HEAD / worktree | `107f6bfd39f25506929327a146377dafd964db6b`（与你声明一致），worktree **clean** ✓ |
+
+---
+
+## 4. 数值非回归
+
+全部与上一轮**逐位一致**，修复未触碰任何科学数值：
+
+- A8 request-path：`0.7723084788319753 / 0.7750652993475325 / 0.9333835627802327 / 0.9361732730155323`
+- A8 N=8 full-setup：`0.6086457910880934 / 0.6100955039216343 / 0.6397908630435616 / 0.6418893640462963`
+- chunk1024：median `1.7370152775837997`，N8 full `1.1889604660811057`
+- W rho1.5：`1.0020817511131008 / 1.0275736602204162 / −14 / 1.01122824527478`
+- W rho2.0：`1.0250294118270489 / 1.044182842048327 / +2 / 0.9980643600290346`
+- 计账：executed_starts **22**、primary elapsed **1.310141803888889 h**、correction **0.09833181611111111 h**（单列）、`within_hard_cap: true`
+- 状态：`VALID` / `NEGATIVE` / `INCONCLUSIVE/DESCRIPTIVE`
+
+---
+
+## 5. 剩余 5 条 P2（全部非阻断，不影响发布）
+
+| ID | 内容 | 建议时机 |
+|---|---|---|
+| **P2-R1** | plan `:417` 要求 `ratio_of_marginal_p95s`「只作附录」；命名已达标，位置仍与 paired 量同层（`appendix` 0 次） | 下次任意 reconsolidation 顺带 |
+| **P2-R2** | `peak_ratio_s4_over_s0` / `miss_delta_s4_minus_s0` 三个 restart 值完全相同，未标注 deterministic（`per_restart` 三行已可见零离散） | 同上 |
+| **NEW-P2-1（部分）** | `summary#/manifest/path` 仍为绝对宿主路径 `/home/chris/...`（correction 的 manifest_path / review_path **已改为 repo-relative** ✓，3 处减为 1 处） | 同上 |
+| **NEW-P2-2** | `r4_diagnostic.policies.S0` 中同组数字重复 4 处（`outcome_counts` / `outcomes.counts` / `fallback_fraction` / `recovery_success_fraction`），存在未来分叉风险 | 同上 |
+| **P2-C1（结转）** | manifest 未把 plan §5.3 launch-block 相邻性编码为可校验约束（rev12 已冻结） | **Phase 8 设计项** |
+
+---
+
+## 6. 最终结论与 caveats
+
+结论与 caveat 文本与上一轮 §7 / §8 完全一致，无需修改，可直接作为发布文本：
+
+- **Engineering VALID**（22 primary + 1 evidence correction，全部 hash/provenance/reset/inactive/terminal-reason 校验通过）
+- **Mechanism NEGATIVE**（chunk4096 下 R0 比 dense 慢 6–23%，N=8 摊销 0.609–0.642x，`break_even >8/not_observed`，禁止 speedup headline；每 setting n=1 process replicate，三点区间因 ES-R0-MDE 不可得）
+- **chunk1024 为 chunk-coupled sensitivity，非机制固有收益**
+- **W system behaviour INCONCLUSIVE/DESCRIPTIVE**（primary 轴为 victim/footprint，延迟为次要；S0/S4 为 seed-matched **非相邻** restart 比较；R0 臂 45.9%–72.1% 为 dense fallback）
+- **R4-like / r2_like 均为 synthetic footprint proxy，非 KVCOMM、非 R2 执行**（R4-like S0 实际恢复仅 12/122 = 9.8%）
+- **wave-0 "reachable" 仅指注册可达，不代表恢复成功**（S0 40/40 全部 `unsupported ← store_miss`）
+- **自然压力 fallback 可达性仍未证明**（两 cell `fallback_reachability.passed = false`，全 Phase 7 零自然 reservation failure）
+- **独立复制单元为 server restart；trace 内请求与同进程 formal repeat 均非独立；p95 为边际比非配对量**
+- **`practical=NONE` 限定作用域**；host / prefetch / async / HiCache 未生成；P6-4 rho1.1/1.5/3 仍限定 chunk1024
+- **body=1024 canary 判别力有限**（1 个 distinct token）
+
+（另：我在 review #1 machine-readable 块中对 A8 setting 2–4 给出的 6 位小数之后的尾数为臆造，权威全精度值以本轮为准；6 位小数与两份旧报告一致，科学结论不变。此更正已记录，请同步 Sol。）
+
+---
+
+## 7. Machine summary
+
+```json
+{
+  "artifact": "phase7-final-targeted-verify",
+  "reviewer": "Claude Opus 5 / Max Thinking",
+  "review_mode": "read_only_offline_no_gpu_no_mutation",
+  "timestamp": "2026-07-28T20:04:47-07:00",
+  "verdict": "PASS_WITH_CAVEATS",
+  "publication_disposition": "READY",
+  "open_counts": { "P0": 0, "P1": 0, "P2": 5 },
+  "additional_gpu_required": false,
+  "additional_offline_work_required_for_publication": false,
+  "summary_sha256": "9d0aafcd776305c7ac679b14845e4a5c79e44c04bb696ecf2d83644fca4c2c69",
+  "summary_sha256_matches_declared": true,
+  "summary_file_sha256": "05acb52d51ea68bcff95c392e13348f73292dad0921b154efaf1e02e150eb135",
+  "byte_reproducible_payload": true,
+  "compacts_byte_reproducible": 22,
+  "provenance_cycle_broken": true,
+  "head_git_sha": "107f6bfd39f25506929327a146377dafd964db6b",
+  "worktree_clean": true,
+  "result_manifest": { "declared": 79, "verified": 79, "pending": 0 },
+  "manifest": {
+    "primary_revision": 12,
+    "primary_self_sha256": "2d66a1bcdb6dc92a72c59fefc581212fcd541accbc8ededa221495d30d039bef",
+    "primary_file_sha256": "c0a14e3a8127db4ad7fba20920a156b9b731e7ea36711c8c104a49bca3a8667d",
+    "design_payload_sha256": "50003145f2e7f0e866613dbd420e73ba3983a6c182a360d6918098b1d1f7b987",
+    "correction_revision": 2,
+    "correction_status": "authorized_correction",
+    "correction_self_sha256": "0c57df5b75c48d53a11c1355d37f24fd360f15d2f2fb89afa88dfa6923b68283"
+  },
+  "correction": {
+    "raw_sha256": "59049306019351d2100565be3653d74e4ebe60a1fb49d1e03016e20c9cce7534",
+    "terminal_reasons": { "unsupported": 40 },
+    "verification": "40/40 direct",
+    "elapsed_gpu_equivalent_hours": 0.09833181611111111,
+    "separately_accounted": true,
+    "starts": 1
+  },
+  "closed_findings": {
+    "opus_cross_p1": ["CP1-1","CP1-2","CP1-3","CP1-4","CP1-5","CP1-6","CP1-7"],
+    "sol": ["SOL-P1-1","SOL-P2-1","SOL-P2-2","SOL-P2-3"],
+    "prior_round_new": ["NEW-P1-1"],
+    "total_p0_p1_closed": 9
+  },
+  "open_p2": ["P2-R1 p95 appendix placement","P2-R2 deterministic median labelling","NEW-P2-1 summary.manifest.path still absolute","NEW-P2-2 r4_diagnostic figure duplication","P2-C1 launch adjacency not encoded (carried to Phase 8)"],
+  "immutability": {
+    "original_22_raw_unchanged": true,
+    "original_22_logs_unchanged": true,
+    "central_jsonl_unchanged": true,
+    "primary_manifest_unchanged": true,
+    "compacts_unchanged_vs_prior_round": true
+  },
+  "execution": {
+    "executed_starts": 22,
+    "primary_elapsed_gpu_equivalent_hours": 1.310141803888889,
+    "primary_wall_clock_span_hours": 1.528835326388889,
+    "evidence_correction_hours": 0.09833181611111111,
+    "within_hard_cap": true
+  },
+  "statuses": { "engineering": "VALID", "mechanism": "NEGATIVE", "system_behaviour": "INCONCLUSIVE/DESCRIPTIVE" },
+  "numeric_non_regression": true,
+  "blocking_for_publication": []
+}
+```
+
+---
+
+**结论**：`9d0aafcd…` 版 summary **逐字节可复现**，provenance 循环已从根因消除，79/79 result manifest 与全部哈希绑定通过，22 个原始 artifact 严格不可变，所有数值零回归。**两位 reviewer 的全部 P0/P1（9 条）现已关闭，剩余 5 条 P2 均不阻断发布。**
+
+判定：**PASS_WITH_CAVEATS / READY**，**不需要任何额外 GPU 或 offline 工作**。剩余步骤仅为流程性：与 Sol 交换本轮结论确认、更新 `HANDOFF.md`/`PROJECT.md`、向 `TRACKING.md` 追加带时间戳记录，然后主会话 disposition。
+
+本次 verify 全程只读，未修改任何文件、未运行 GPU。
