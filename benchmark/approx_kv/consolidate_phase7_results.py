@@ -21,6 +21,7 @@ from benchmark.approx_kv.phase7.correction import (
 )
 from benchmark.approx_kv.phase7.correction import (
     CAPACITY_CORRECTION_MANIFEST_PATH,
+    CAPACITY_CORRECTION_REVIEW_PATH,
     CAPACITY_CORRECTION_RESTART,
     CAPACITY_CORRECTION_SETTING_ID,
     CAPACITY_TERMINAL_REASON_CORRECTION_SCOPE,
@@ -1287,9 +1288,9 @@ def load_evidence_correction(
         "manifest": correction_manifest,
         "source": {
             "path": str(path.relative_to(correction_dir)),
-            "manifest_path": str(correction_manifest_path),
+            "manifest_path": CAPACITY_CORRECTION_MANIFEST_PATH,
             "manifest_file_sha256": correction_manifest_file_hash,
-            "review_path": str(review_path),
+            "review_path": CAPACITY_CORRECTION_REVIEW_PATH,
             "review_file_sha256": file_sha256(review_path),
             "cpu_evidence_path": correction_manifest["capacity_cpu_evidence"]["path"],
             "cpu_evidence_file_sha256": correction_manifest["capacity_cpu_evidence"][
@@ -2630,8 +2631,7 @@ def publication_provenance(
         "cpu_evidence": cpu_evidence,
         "result_manifest": {
             "path": "RESULT_MANIFEST.json",
-            "file_sha256": file_sha256(result_manifest_path),
-            "entry_count": len(entries),
+            "hash_omitted_to_avoid_summary_result_manifest_cycle": True,
             "publication_inputs_validated": sorted(publication_inputs),
             "authority": result_manifest.get("authority"),
         },
