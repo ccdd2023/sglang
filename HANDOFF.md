@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-29T05:46:31-07:00
+最后更新：2026-07-30T11:07:48-07:00
 
 ## 新会话启动顺序
 
@@ -13,7 +13,507 @@
 
 ## 当前快照
 
-### 2026-07-29T05:46:31-07:00 V40技术报告完成 / 分支仍未获批准
+### 2026-07-30T11:07:48-07:00 Phase7.5计划已reviewed，等待用户授权
+
+- Plan=`IMPLEMENTATION_PLAN_PHASE7_5_C40.md@V1-r13`；
+  status=`Reviewed Candidate / PENDING USER AUTHORIZATION`。
+- 最终plan SHA=`b894e276960b72c1cf7963ca7f5957f89f62471b11eb006548fc867d7f28bedf`。
+- 最终review=`PASS / READY_FOR_PLAN_FREEZE`，open P0/P1/P2=`0/0/0`，
+  F-01..F-11全部CLOSED。
+- review artifact：
+  `evidence/review/plan-review-phase7_5-c40-v1-r13.json`，
+  self=`63bf3b83...`，绑定最终plan SHA。
+- G0q artifact：
+  `evidence/review/c40-quarantine-manifest.json`，
+  status=`AVAILABLE`，contains_source_text=false，self=`a0fe94ae...`。
+- Phase7状态不变：engineering VALID、R0 NEGATIVE、W
+  INCONCLUSIVE/DESCRIPTIVE、publication READY WITH CAVEATS。
+- 未创建Phase7.5 branch，未修改implementation repo，未运行Docker测试或GPU。
+- 下一步：等待用户显式授权branch creation；之后严格按
+  `G1a→G0b→G1b→G2...`推进，每个Gate/Track独立授权。
+
+### 2026-07-30T10:32:19-07:00 Phase7.5 C40计划第十二轮review = PASS（0/0/0）
+
+- 计划文件：`IMPLEMENTATION_PLAN_PHASE7_5_C40.md`，版本表 `V1-r13`，5743行，
+  sha256 `25cbac98c65c6b67e6d2de23c0cc33e28d7c6f6b3ca60b13cd49a6a3b3770a42`。
+- 第十二轮只读全文件逐API + 跨章节 closure review 完成；**未改计划文件、
+  未建branch、未跑测试/GPU**。底座固定 `worktrees/cross-store-substrate@0206f17b`（clean）。
+- Verdict = **`PASS / READY_FOR_PLAN_FREEZE`**；open = **`0 P0 / 0 P1 / 0 P2`**。
+  §23.1 的 review closure 硬条件（open P0/P1 = 0/0）已满足，且 P2 亦归零。
+- 第十一轮唯一 P2 与三项观察全部 CLOSED：
+  (a) §19.5 模板 `:4818` 新增 `ci_method=<bootstrap|t|conservative_of_both>`，
+  与 §19.2b `:4718-4719`/`:4749` 闭合，新增 `TC-97` `:2294` 断言；
+  (b) §8.6.3 步骤1 `:1904-1905` 的 B-2 行显式分 `clip flag=0/1`（后者转 CL-I）；
+  (c) §18.6b `:4453-4458` 冻结 `c40_effective_task_rate` 与 `copy_coverage(task)`
+  并规定与 `w_quality` 分列不互换，新增 `TC-99` `:2296`；
+  (d) §14.1 拆出 `collector_capabilities`/`collector_security_opts` 并新增
+  `ebpf_authority`（`BPF`+`PERFMON`，security_opts 空），新增 `TC-98` `:2295`。
+- 全文件核验：TC-1..TC-99 共 99 条定义，无缺号/重号/悬空引用，§7.1 `:864`、
+  WP5 `:3756`、G3 Exit `:5033` 口径统一；§19.5 已覆盖 §19.2b 全部强制字段；
+  四态判定互斥穷尽；统计复算（`2856.9`/`2473.0`/`124-248-495`/`90`+`8` cells/
+  `12+4` starts/Track B `6<=8`/人周 `8.25–12.25`、`4.00–8.00`）一致；
+  126 个 `c40_*` 与 3 个 `p75_*` 标识符均有定义；全部 §x.y 引用可解析；
+  底座行号抽样（`schedule_policy.py:435-438/1073/1126-1174/1158-1166`、
+  `scheduler.py:2630/2745-2756/3017-3018/3025-3058/3068`、
+  `schedule_batch.py:1080/1184`、`memory_pool.py:273`、`common.py:103-107/198-202`）
+  全部属实。
+- F 矩阵：**F-01..F-11 全部 CLOSED**（F-05 由 PARTIAL 转 CLOSED）。
+- 非阻断观察（不计入 open）：§19.5 `:4823`/`:4829` 的 `E_work_pooled` 槽重复且
+  `CI95` 续行现排在 `ci_method` 之下；`w_quality`/`eligible_task_rate` 只有名字
+  无独立公式；TC-97/98/99 归在 WP5/G3 而对象属 WP8/WP0b/WP12（WP8 早于 G3，
+  无循环）；§24.2 交付索引少列 4 个文件（已声明"见 §7.1"）；
+  §14.2 绑定句未点名 security opts。
+- **下一步**：(1) 产出 versioned `evidence/review/plan-review-*.json`
+  （自哈希 + 绑定文档 sha256、记载 `open P0/P1 = 0/0`）；
+  (2) 产出 G0q 的 `evidence/review/c40-quarantine-manifest.json`（隔离 reviewer）；
+  **两份 artifact 齐备后**才可由主会话把状态升级为
+  `Reviewed Candidate / PENDING USER AUTHORIZATION`，再申请 branch 授权。
+- 授权边界不变：只授权计划编制/审阅/文档同步；branch、实现、Docker与GPU
+  仍为`PENDING USER AUTHORIZATION`。
+
+### 2026-07-30T10:01:48-07:00 Phase7.5 C40计划第十一轮review = PASS_WITH_P2
+
+- 计划文件：`IMPLEMENTATION_PLAN_PHASE7_5_C40.md`，版本表 `V1-r12`，5730行，
+  sha256 `a1a461b0ccec1b59787c26ade72ac772000d7df32301e5fed1dea7a2ef0c6b26`。
+- 第十一轮只读全文件逐API + 跨章节 closure review 完成；**未改计划文件、
+  未建branch、未跑测试/GPU**。底座固定 `worktrees/cross-store-substrate@0206f17b`（clean）。
+- Verdict = `PASS_WITH_P2`；open = **`0 P0 / 0 P1 / 1 P2`**。
+  §23.1 的 review closure 硬条件（open P0/P1 = 0/0）**已满足**；
+  因仍有 1 项 P2，**不**宣告无条件 `0/0/0 READY_FOR_PLAN_FREEZE`。
+- 第十轮 **1 P1 + 3 P2 全部 CLOSED**：
+  (a) `CONTINUE + not-added` 已彻底清除——§7.4 `:1133` 改"保持底座
+  `OTHER`/not-added 路径并 defer"，TC-37 `:2233` 改写为跨轮 owner 场景并与
+  TC-45 `:2241` 统一，`:1839` 明令禁止自造 `CONTINUE+not-added`，
+  底座 `scheduler.py:3025-3058` 的 not-added 清理与 `assert self.chunked_req
+  is None` 均恢复可达；
+  (b) CL-I 已完整复用 B-3 零 dense-prefix admission/copy 生命周期
+  （`:1559-1565`/`:1660`/`:1763-1764`/`:1928-1931`/`:1938`/`:1957`/`:2082`，
+  TC-89/TC-95）；
+  (c) §19.5 模板 `:4820-4823` 已含 exact-hit / insert-suppressed /
+  stash-suppressed / `final_radix_insert_policy`（TC-96）；
+  (d) `rollback_for_deferral` `:1961-1966` 已复位
+  `lifecycle_ever_entered`/`recovery_attempted`/`radix_insert_suppressed`
+  并清 pending reason，与 §8.1.2 cleanup domain、§12.4 族1/族2、TC-46/90/92 一致。
+- **唯一 open 项（P2-1，非阻断）**：§19.2b `:4736-4737` 把 "CI 方法" 列为
+  四态判定强制同现项且"缺任一项判 `INVALID`"，并要求 n 小时同时报
+  bootstrap 与 t 的 90% CI 取更保守者；但 §19.5 强制模板 `:4808` 只有单一
+  `CI90 [L90,U90] (decision CI)` 槽、无 `ci_method`（`:4806` 的 `method=`
+  属 `n_confirmatory` 样本量校正方法，`:4816` 的 `E_cond` 行反而写明了
+  `cluster-bootstrap`）。默认 `n_min=4` 即小样本路径，逐字遵循模板会缺该必报项。
+  最小修复：`mu_theta` 行补 `ci_method=<bootstrap|t|conservative_of_both>`
+  并在 TC-96 断言。
+- 非阻断观察（不计入 open）：步骤1 `:2121` 的 B-2 行未带 `CLIP=1 ⇒ CL-I` 旁注
+  （已由"按 §8.6.2 分类"委派 `:1760-1764` 解决）；§18.6b `:4468` 的
+  `c40_effective_task_rate` 未在 §13/§18 定义；§19.5 `:4811`/`:4817`
+  的 `E_work_pooled` 槽重复。
+- F 矩阵：F-01/F-02/**F-03**/F-04/**F-06**/F-07/F-08/F-09/**F-10**/F-11 = CLOSED；
+  F-05 = PARTIAL（本轮 P2-1）。
+- **下一步**：(1) 可选地补 `ci_method` 槽位清零 P2；(2) 产出 versioned
+  `evidence/review/plan-review-*.json`（自哈希 + 绑定文档 sha256、记载
+  `open P0/P1 = 0/0`）与 G0q 的 `c40-quarantine-manifest.json`；
+  **两份 artifact 齐备后**才可由主会话把状态升级为
+  `Reviewed Candidate / PENDING USER AUTHORIZATION`，再申请 branch 授权。
+- 授权边界不变：只授权计划编制/审阅/文档同步；branch、实现、Docker与GPU
+  仍为`PENDING USER AUTHORIZATION`。
+
+### 2026-07-30T09:30:55-07:00 Phase7.5 C40计划第十轮review = FAIL
+
+- 计划文件：`IMPLEMENTATION_PLAN_PHASE7_5_C40.md`，版本表 `V1-r11`，5723行，
+  sha256 `8d824a3170427ab1b0f4b8a7304bbf5a9a129d595ecb194dd030154de48aa010`。
+- 第十轮只读全文件逐API + 跨章节 closure review 完成；**未改计划文件、
+  未建branch、未跑测试/GPU**。底座固定 `worktrees/cross-store-substrate@0206f17b`（clean）。
+- Verdict = `FAIL / NOT READY`；open = `0 P0 / 1 P1 / 3 P2`。
+- 第九轮 **2 P1 + 5 P2 全部 CLOSED**：admission 顺序已由零资源 PRE-FLIGHT
+  （owner/gate/预计算 `AdmissionPlan` 全在 `STAGED` 完成，§8.6.3 步骤2 `:1916-1927`）
+  + "commit 后到 append 禁止普通 return" `:1961-1963` + 步骤3 `:1990-1993`
+  执行冻结 plan 闭合，§8.2 矩阵已删 `DENSE_PREFIX --admit_deferred-->` 边（TC-91）；
+  两条 rollback 分支 `:1964-1978` 完整复位 skip/live/recovery_attempted/pending
+  reason 并给出 postcondition（TC-92）；G0q 只产 reference signatures、
+  branch-match 裁决在 G1b Exit（`:4941`/`:4952`/`:4993`，TC-94）；
+  中间 stash 抑制新增 `p75_radix_stash_suppressed_chunks_total{arm,outcome}`
+  与 §13.5.1 日志字段、§19.6 `INVALID` 判据（TC-93）；
+  §12.4 族2 归属改看 sticky audit `:2891-2893`（TC-90）。
+- **新 P1（阻断）**：**`CONTINUE + not-added` 语义只改了三分之二**。
+  §8.6.2a `:1830`/`:1837`、§8.6.3 步骤2 `:1922-1925` 与 TC-45 `:2238` 已冻结
+  "owner conflict 保持底座 `AddReqResult.OTHER`、不自造 CONTINUE"，但
+  §7.4 `:1133` 与 TC-37 `:2230` 仍写"返回 `CONTINUE` 且 `added=false`"。
+  后果：(a) TC-37 与 TC-45 对同一 owner-conflict 场景断言互斥，
+  §20 G3 Exit 的"TC-1..TC-94 全绿"永不可达；
+  (b) 底座 `scheduler.py:3025-3058` 的 not-added 清理只在 `res != CONTINUE`
+  分支执行，返回 `CONTINUE` 会跳过 §8.6.2a 强制的 `cleanup_not_added_req(req)`
+  且让 waiting 循环继续加请求（`assert self.chunked_req is None` `:3074` 风险）；
+  (c) TC-37 的"同轮两个 forced-middle C40"在 r11 下不可复现——首个 owner 的
+  `reserve_exclusive_chunked_owner()` 把 `rem_chunk_tokens=0` ⇒
+  `budget_state()` 返回 `OTHER` ⇒ scheduler 立即 `break`，第二个请求本轮
+  根本不会 staging；owner-conflict guard 只在 `has_chunked_req == True`
+  （跨轮 owner）时可达。最小修复：§7.4 `:1133` 改"保持底座 `OTHER`"；
+  TC-37 改写为跨轮 owner 场景并与 TC-45 统一口径。
+- P2（3项）：(1) §8.6.1 `:1559` 冻结 `staging_case ∈ {B-3,B-4,CL-I}`，但步骤2 的
+  `needs_forced_middle`/`projected_prefix_len`、步骤5 copy-hook 映射、
+  `scheduling_prefix_len` `:1697` 与 §8.6.2 B 表均只覆盖 B-3/B-4，
+  T23-6 `:4260` 要求的零 dense-prefix CL-I admission 路径无规格；
+  (2) §19.5 强制汇报模板 `:4812-4814` 缺 stash-suppression 槽位，
+  而 §19.6 `:4830` 把该字段缺失判 `INVALID`、§19.9 `:4877-4879` 要求按 arm 披露
+  ⇒ 逐字遵循模板即自动 INVALID；
+  (3) `rollback_for_deferral` `:1968-1972` 复位 `recovery_attempted` 却不复位
+  sticky `lifecycle_ever_entered`（§8.6.1 `:1580`、TC-92 同样省略），
+  在 "B-3 commit → 同轮 gate 拒绝 → 下轮判 `dense_ineligible`" 序列上
+  §8.1.2 `:1339` 的 cleanup domain 与 TC-46 `:2239`"ineligible 不写 cleanup"冲突。
+- F-01 由 PARTIAL 转 **CLOSED**；F-02/F-04/F-05/F-07/F-08/F-09/F-11 = CLOSED；
+  F-03 = PARTIAL（P1）；F-06 = PARTIAL（P2-1）；F-10 = PARTIAL（P2-2、P2-3）。
+- **下一步**：修订 1 P1（并清 3 P2）后做第十一轮 closure review；
+  open P0/P1归零并产出versioned `plan-review-*.json`之前，
+  **不得**升级状态、**不得**plan freeze、**不得**申请branch授权。
+- 授权边界不变：只授权计划编制/审阅/文档同步；branch、实现、Docker与GPU
+  仍为`PENDING USER AUTHORIZATION`。
+
+### 2026-07-30T08:47:42-07:00 Phase7.5 C40计划第九轮review = FAIL
+
+- 计划文件：`IMPLEMENTATION_PLAN_PHASE7_5_C40.md`，版本表 `V1-r10`，5702行，
+  sha256 `d3e4610bb1203d5dd73b509f8dad2eb15014d4a070f9cf12456da668a4e4940b`。
+- 第九轮只读全文件逐API + 跨章节 closure review 完成；**未改计划文件、
+  未建branch、未跑测试/GPU**。底座固定 `worktrees/cross-store-substrate@0206f17b`（clean）。
+- Verdict = `FAIL / NOT READY`；open = `0 P0 / 2 P1 / 5 P2`。
+- 第八轮 **1 P1 + 5 P2 全部 CLOSED**：每臂 exact-Radix 插入策略已由
+  §8.2.1 规则6 `:1397-1416` / §15.1 `:3403-3412` 冻结，并新增
+  `p75_exact_prefix_hit_tokens_total{arm}` 与
+  `p75_radix_insert_suppressed_requests_total{arm,outcome}`
+  （§13.1 `:2977-2979`、§19.5 `:4796-4798`、§19.9 `:4859-4866`、TC-85/86/87）；
+  approx-metadata 前提（§7.4 `:1129-1133`）、audit sticky schema（§8.6.1 `:1573-1578`）、
+  `outcome_geometry` 映射（`:1556-1562`）、collector profiles（§14.1 含
+  `ebpf_v1` 的 `BPF`/`PERFMON`）、族1/族2 的 `recovery_attempted` 判据均已落地。
+- **新 P1-1（阻断）**：**admission-commit 与 forced-middle 钳制的顺序自相矛盾，
+  两种读法都不可执行**。§8.6.3 步骤3 的 `needs_forced_middle` `:1977` 与
+  owner-exclusion `:1982-1987` 都要求 `c40_state == DENSE_PREFIX`，而该状态只由
+  步骤2 的 `c40_on_admission_commit` `:1928-1949` 建立（r10 把 lifecycle 入口
+  移到 admission 成功之后）。底座 `schedule_policy.py:1123-1180` 中
+  `set_extend_range` 与 `can_run_list.append` 相邻，因此：
+  (a) commit 放在钳制**之后** ⇒ B-4 首轮谓词恒假 ⇒ 不钳制、不设 `new_chunked_req`
+  ⇒ 必然越过 `target_start` ⇒ 恒触发 `c40_boundary_overrun` + 族4
+  `engineering_valid=false`，primary 路径整体作废；
+  (b) commit 放在钳制**之前**（与 §7.4 `:1138`、步骤5 `:2072` 的
+  "B-3 → add_one_req pre-range hook" 一致）⇒ owner-exclusion 的
+  `return AddReqResult.CONTINUE` `:1987` 正是步骤2 `:1950` 明令禁止的普通 return，
+  且此时 consume lease 已 pin，违反步骤2 postcondition `:1953-1957`
+  （`consume_lease is None`）与 §8.1.2 / §8.2 的 ADMISSION_DEFERRED 不变量。
+  最小修复：冻结 commit 相对 `set_extend_range` 的位置；owner-exclusion 改为
+  commit **之前**的 gate 并把谓词改用 `STAGED` + staging plan；
+  §8.2 删除 `DENSE_PREFIX --admit_deferred--> ADMISSION_DEFERRED` 边；补 TC。
+- **新 P1-2（阻断）**：**post-commit deferral / rollback 未复位
+  `skip_radix_cache_insert`、`lifecycle_live`、`recovery_attempted`**。
+  步骤2 `:1951-1957`、步骤3 `:1986`、步骤7 `:2160-2163` 只列资源，不含标志位；
+  §8.2.1 规则5 `:1409` 只覆盖"pre-admission 失败 / `state=NONE` / pure retract"，
+  不覆盖"已进入 lifecycle 后转 ADMISSION_DEFERRED"。后果：
+  (1) flag 保持 True ⇒ `common.py:200` → `cache_finished_req(is_insert=False)`
+  使该请求即使最终全 dense 也永不写 exact Radix，违反 §7.5 与 §15.1 冻结臂策略；
+  (2) 下一次 commit `:1942-1943` 把泄漏值 latch 进
+  `original_skip_radix_cache_insert`，污染永久化；
+  (3) `radix_insert_suppressed` 只在 copy commit `:2131` 置位 ⇒
+  `p75_radix_insert_suppressed_requests_total` 不记录该泄漏 ⇒
+  §15.1/§19.9 的"臂策略漂移 ⇒ engineering invalid"判据检测不到；
+  (4) `recovery_attempted` `:1929` 泄漏后若该请求终判 `dense_ineligible`，
+  与 §12.4 族1 的 `recovery_attempted=false` 定义冲突，TC-90 两条规则互斥。
+- P2（5项）：G0q Exit `:4915` / G1a Entry `:4933` / §20.1 `:5104` 要求裁决的
+  alert 只能由 G1b 的 CR-3/CR-3b 在 branch diff 上产生（Exit 空洞或阻断链）；
+  `reserve_exclusive_chunked_owner()` `:2003` 使 owner-conflict 的 `CONTINUE`
+  分支不可达（底座先返回 `OTHER`），与 §8.6.2a `:1823-1830` 与 TC-37/TC-45 冲突；
+  中间 chunk 抑制 `cache_unfinished_req`（`common.py:104` ← `scheduler.py:2630`）
+  形成**第二类臂间系统差异**且无度量/披露，§8.2 `:1386` 的"最终 exact Radix 状态
+  与 never-eligible 一致"与 `radix_cache.py:551-605` 的分块建树不符；
+  §12.4 族2 `:2879` 仍把 attempted fallback 绑定 `DENSE_ISLAND_FALLBACK`，
+  与步骤2 `:1960-1962` 的 `state=NONE` 路径冲突；新 per-arm Radix 指标缺
+  §13.5.1 `:3101-3120` 日志字段与 §19.2b/§19.6 `:4804-4813` 的 `INVALID` 判据。
+- F-02/F-03/F-05/F-06/F-07/F-08/F-09/F-11 = CLOSED；F-01 = PARTIAL（P1-1）；
+  F-04 = PARTIAL（P2-1）；F-10 = PARTIAL（P1-2、P2-4）。
+- **下一步**：修订 2 P1（并清 5 P2）后做第十轮 closure review；
+  open P0/P1归零并产出versioned `plan-review-*.json`之前，
+  **不得**升级状态、**不得**plan freeze、**不得**申请branch授权。
+- 授权边界不变：只授权计划编制/审阅/文档同步；branch、实现、Docker与GPU
+  仍为`PENDING USER AUTHORIZATION`。
+
+### 2026-07-30T07:58:28-07:00 Phase7.5 C40计划第八轮review = FAIL
+
+- 计划文件：`IMPLEMENTATION_PLAN_PHASE7_5_C40.md`，版本表 `V1-r8`，5622行，
+  sha256 `f1feb6de2851cd63aa16004f9e117ea275d9f7dad6de3298b6afed5feca1aa9a`。
+- 第八轮只读全文件逐API + 跨章节 closure review 完成；**未改计划文件、
+  未建branch、未跑测试/GPU**。底座固定 `worktrees/cross-store-substrate@0206f17b`（clean）。
+- Verdict = `FAIL / NOT READY`；open = `0 P0 / 1 P1 / 5 P2`。
+- 第七轮 **2 P1 + 4 P2 全部 CLOSED**：pre-admission fallback 同轮 admit 已由
+  §8.1.1 `:1300-1303` / §8.5 `:1486` / §8.6.3 步骤2 `:1937` / §8.2 矩阵 /
+  TC-81 的 `c40_state=NONE` 规则闭合；skip-Radix seam 已由 §7.4 `:1129` /
+  §8.6.3 步骤1 `:1890` / §8.6.4 `:2142` / TC-82 显式置位闭合；
+  ToolEvent 层级、矩阵 defer 边、`geometry`/`suppress_produce_once` 字段、
+  collector `collector_profiles` + `selected_profile_by_gate` 亦全部闭合。
+- **新 P1（阻断）**：**exact Radix 插入抑制的臂间不对称未冻结、未度量，
+  且证伪两条既有不变量**。§8.6.3 步骤1 对每个 B-3/B-4 请求置
+  `skip_radix_cache_insert := true`，§8.2.1 规则2（`:1404-1406`）要求整个
+  lifecycle（含 `DENSE_ISLAND_FALLBACK` 后的纯 dense 重算）不得解除；
+  底座 `common.py:103-107` / `common.py:198` → `radix_cache.py:496-551` 表明
+  该 flag 为真时请求 KV **永不进入 exact Radix**。后果：
+  (1) §8.2 `:1386`“`DENSE_ISLAND_FALLBACK` 其后行为与‘从未 eligible’逐字段一致
+  （可用差分测试断言）”为假，§7.5 `:1157`“exact 命中路径与 C40 关闭时逐位一致”
+  同样被证伪；(2) 计划未冻结 `D0`/`E0`/`C40-D` 是否同样抑制插入
+  （§15.1 `:3338-3341`、§19.4 Step 3 只说“仍执行完整 source lifecycle”），
+  若对照臂正常插树而 C40 臂的全部 staged 请求（`c40_copied` 与
+  `dense_attempted_fallback`）不插树，则 C40 臂在 W4a 滚动轨迹上逐请求丢失
+  exact 前缀命中，该臂间系统性差异被静默折进 primary estimand
+  `theta_j`/`E_cond`，§13 无 metric、§19.5/§19.6 无披露与 INVALID 判据、
+  §19.4 臂C/臂D 差分无法分离；(3) 该 flag 无任何复位路径
+  （`clear_target_staging()`+`state=NONE` 与底座 `reset_for_retract`
+  `schedule_batch.py:1567-1601` 均不复位）。最小修复：限定 §8.2/§7.5 的等价性
+  断言范围；在 §15.1/§19.4 冻结每臂 exact-Radix 插入策略；新增 per-arm
+  `exact_prefix_hit_tokens` 与 `c40_radix_insert_suppressed_requests_total`
+  并写入 §19.5/§19.9；定义复位语义并补 TC。
+- P2（5项）：§7.4 约束4 `:1116` 与 §8.2.1 规则1 `:1404` 仍以“带 approx metadata
+  恒为 True”为前提（对 C40 为假）；§8.6.1 `:1556-1558` 的 `req.c40_audit`
+  未声明 fallback reason/outcome 字段（§8.1.1/§8.5/§8.6.3 均要求其在
+  `state=NONE` 后存活，TC-83 自称 schema 完整）；`geometry` 两套冲突值域
+  （§8.6.1 `:1552` vs §12.3 `:2798-2800`/§13.1 `:2964`）；collector capability
+  manifest 漂移（§9.2.3 `:2385`、§17.1.4 `:3925` 引用已不存在的顶层
+  `docker_capabilities`；`collector_capabilities` 混入 security-opt；
+  `ebpf_v1` 因 `allowed_max` 不含 `BPF`/`PERFMON` 而不可达）；
+  §12.4 族1“从未构造 plan”与 deferred 重验后判 `dense_ineligible` 冲突。
+- F-01..F-07 / F-09 / F-11 = CLOSED；F-08 = PARTIAL（P2-4）；
+  F-10 = PARTIAL（P2-2、P2-5）。
+- **下一步**：修订 1 P1（并清 5 P2）后做第九轮 closure review；
+  open P0/P1归零并产出versioned `plan-review-*.json`之前，
+  **不得**升级状态、**不得**plan freeze、**不得**申请branch授权。
+- 授权边界不变：只授权计划编制/审阅/文档同步；branch、实现、Docker与GPU
+  仍为`PENDING USER AUTHORIZATION`。
+
+### 2026-07-30T06:47:22-07:00 Phase7.5 C40计划第七轮review = FAIL
+
+- 计划文件：`IMPLEMENTATION_PLAN_PHASE7_5_C40.md`，版本表 `V1-r7`，5592行，
+  sha256 `9067dd9bc5c3351652296ebcfe5053e949a63792de04012c5b26c522469e049c`。
+- 第七轮只读全文件逐API + 跨章节 closure review 完成；**未改计划文件、
+  未建branch、未跑测试/GPU**。底座固定 `worktrees/cross-store-substrate@0206f17b`（clean）。
+- Verdict = `FAIL / NOT READY`；open = `0 P0 / 2 P1 / 4 P2`。
+- 第六轮 **7 项 P2 全部 CLOSED**（§14.1 provenance 四字段+TC-72；§7.2 三分支守卫；
+  §13.3 `c40_admission_guard_ms`+§19.9 豁免；§8.2 矩阵 defer 边+TC-77；
+  §8.6.1a `:1101`/`:1160-1163` 统一 `scheduling_prefix_len`+TC-78；
+  B-4 `c40_copy_budget_insufficient`+TC-79；logprob sentinel `-1`+TC-80）。
+  第六轮 1 P1 = **PARTIAL**：helper 按 `req_pool_idx is None` 退化、
+  §8.1.1 `clear_target_staging()`、TC-75 均已落地，但只覆盖"未 admit"分支。
+- **P1-1（新，阻断）**：pre-admission 转 `DENSE_ISLAND_FALLBACK`/`dense_ineligible`
+  的请求会在**同一调度轮**被 `add_one_req` 接纳（`scheduler.py:3017→:3018`），
+  首次 `alloc_for_extend`（`allocation.py:333`）分配 `req_pool_idx` 后 helper 的
+  退化条件立即失效，`effective_prefix_len()` 返回已被清空的 `middle_cursor=0`、
+  `effective_prefix_indices()` 返回空 tensor ⇒ §8.6.3 步骤4B 的
+  `assert snapshot.extend_start == middle_cursor` 必然失败（族4，整块作废）；
+  放宽断言则 `set_extend_range` 起点回 0、`allocation.py:316` 收到空 prefix
+  tensor，borrowed exact 段从 `req_to_token` 消失。与 §8.1（fallback 时
+  `middle_cursor = exact_length`）及 §8.2"与从未 eligible 逐字段一致"矛盾；
+  TC-75 只断言"未 admit"分支。最小修复：pre-admission 的
+  `clear_target_staging()` 同时置 `c40_state := NONE`，或在 admission-commit
+  seam 以当前 `prefix_indices` 重建 borrowed/effective/cursor，并补配对 TC。
+- **P1-2（新，阻断）**：C40 请求的 `skip_radix_cache_insert` **没有任何 seam
+  会置 `True`**。底座 `schedule_batch.py:1080-1082` 仅在
+  `bootstrap_host == FAKE_BOOTSTRAP_HOST or approx_kv_metadata is not None`
+  时为真且在 `Req.__init__` 内求值；C40 span 决策禁止走 HTTP 字段（§14.2b 规则5），
+  §7.4 的 staging hook 又是 `if approx_kv_metadata is not None:`（底座 `:1315`）
+  的 `elif` 旁路 ⇒ 该 flag 实为 `False`。后果：`stash_chunked_request` →
+  `maybe_cache_unfinished_req`（`common.py:103-107`）不再早退，
+  `cache_unfinished_req` 每轮改写 `prefix_indices`/`cache_protected_len`
+  （破坏 INV-6 与 `radix_cache.py:496-551` 的 free 分界），并在 cursor 越过
+  `target_end` 后把近似 copied island 插入 exact Radix ⇒ 触发 SR-4。
+  §7.4 约束4 / §8.6 / §8.6.1a / §8.2.1 / TC-10 / TC-62 全部依赖该前提，
+  §8.6.4 也未把 `:1080` 列入最小修改清单。
+- P2（4项）：§9.1 ToolEvent 仍内嵌 `collector_impl`/`collector_capabilities`
+  与 TC-76"不嵌入 ToolEvent"冲突；§8.2 缺"deferred/staged 重验后判
+  `dense_ineligible`（→NONE）"转移边；§8.6.1 容器字段表未声明 `geometry`
+  与 `suppress_produce_once`（却在 `:1633`/`:1388`/`:2102`/`:2136` 被规范引用）；
+  TC-66/TC-72 的"`docker_capabilities` 与命令逐字段一致"与 §9.2.3
+  （SYS_PTRACE）/§17.1.4（+SYS_ADMIN）/§14.1（超集）不可同时成立。
+- F-01 / F-02 = **PARTIAL**（分别受 P1-1、P1-2 影响）；F-03..F-11 = CLOSED。
+- **下一步**：修订 2 P1（并清 4 P2）后做第八轮 closure review；
+  open P0/P1归零并产出versioned `plan-review-*.json`之前，
+  **不得**升级状态、**不得**plan freeze、**不得**申请branch授权。
+- 授权边界不变：只授权计划编制/审阅/文档同步；branch、实现、Docker与GPU
+  仍为`PENDING USER AUTHORIZATION`。
+
+### 2026-07-30T06:29:17-07:00 Phase7.5 C40计划第六轮review = FAIL
+
+- 计划文件：`IMPLEMENTATION_PLAN_PHASE7_5_C40.md`，版本表 `V1-r6`，5576行，
+  sha256 `51fda84c6ae04bda6f5aefb3d03c24f16363fa89500c2b05e5317c1e6e448e62`。
+- 第六轮只读全文件逐API + 跨章节 closure review 完成；**未改计划文件、
+  未建branch、未跑测试/GPU**。底座固定 `worktrees/cross-store-substrate@0206f17b`（clean）。
+- Verdict = `FAIL / NOT READY`；open = `0 P0 / 1 P1 / 7 P2`。
+- 第五轮 1 P1 **CLOSED**（§8.6.3步骤4B 已加 `c40_state == DENSE_PREFIX` 守卫，
+  `DENSE_SUFFIX`/`DENSE_ISLAND_FALLBACK` 只推进 cursor，配 TC-70）；
+  5 P2 中 3 项 CLOSED（B-3 加 `target_end < len(prompt)` + B-5 穷尽；
+  §13.5.0 双 mount 措辞；`_update_prefill_budget(prefix_len=)` 首轮 borrowed
+  exact / 后续轮字面 `0` + TC-74），1 项 PARTIAL（`scheduling_prefix_len` 已加，
+  `:1160-1163` 行未同步），1 项 NOT CLOSED（provenance 字段加进 §9.1 而非 §14.1）。
+- **P1（新，阻断）**：**pre-admission 的 `DENSE_ISLAND_FALLBACK` /
+  `dense_ineligible` 缺 target-side reset**。§8.5 阶段2 允许 deferred 请求
+  重验 source 失败后转这两个状态，此时 `req_pool_idx is None`、零 owned KV；
+  但 §8.6.1a helper 只在 `state is NONE` 时退化、§7.4 要求跨轮保留
+  `middle_cursor`、§8.2 的 fallback 清理只覆盖 provisional/lease、
+  admission final `torch.equal` guard 只对 `STAGED` 执行。若该请求本轮未被
+  admit（capacity 场景常见），下一轮 `match_prefix` 重建 `prefix_indices` /
+  `cache_protected_len` 后，陈旧 `borrowed_exact_indices` 与 `middle_cursor`
+  会经 `allocation.py:316` → `write_cache_indices` 写回 `req_to_token`
+  ⇒ 静默跨请求 KV 污染，teardown 还可能对 Radix 所有 index 二次 free。
+  与第三轮已闭合的 P0-2 同类。最小修复：helper 改以"未 admit"
+  （`req.req_pool_idx is None`）为退化判据；admission 前进入 fallback/ineligible
+  时按 `ADMISSION_DEFERRED` 规则清空 target-side；补一条对照 TC-58 的新 TC。
+- P2（7项）：§14.1 缺 `provenance.{collector_impl,primary_oracle_impl,
+  supplemental_oracle_impl,collector_capabilities}`（被误加到 §9.1）；
+  §7.2 data-flow 仍是无守卫三分支；`c40_admission_guard_ms` 未进 §13.3；
+  §8.2 矩阵缺 `DENSE_PREFIX/DENSE_ISLAND_FALLBACK --admit_deferred-->
+  ADMISSION_DEFERRED`；§8.6.1a `:1160-1163` 行与步骤2/TC-71 冲突且未列 `:1101`
+  （page_size=1 下为精确 no-op）；B-4 pre-copy capacity gate 拒绝无 terminal
+  reason；logprob fail-close 把 sentinel `-1` 误判（常见路径已被
+  `scheduler.py:2336-2353` 归一化，影响仅限 `token_ids_logprob` 窄路径）。
+- F-01..F-11 = 全部 CLOSED。
+- **下一步**：修订 1 P1（并清 7 P2）后做第七轮 closure review；
+  open P0/P1归零并产出versioned `plan-review-*.json`之前，
+  **不得**升级状态、**不得**plan freeze、**不得**申请branch授权。
+- 授权边界不变：只授权计划编制/审阅/文档同步；branch、实现、Docker与GPU
+  仍为`PENDING USER AUTHORIZATION`。
+
+### 2026-07-30T05:44:53-07:00 Phase7.5 C40计划第五轮review = FAIL
+
+- 计划文件：`IMPLEMENTATION_PLAN_PHASE7_5_C40.md`，版本表 `V1-r5`，5557行。
+- 第五轮只读全文件逐API + 跨章节 closure review 完成；**未改计划文件、
+  未建branch、未跑测试/GPU**。底座固定 `worktrees/cross-store-substrate@0206f17b`（clean）。
+- Verdict = `FAIL / NOT READY`；open = `0 P0 / 1 P1 / 5 P2`。
+- 第四轮全部 open（2 P1 + 7 P2）**均已 CLOSED**，逐条经底座核实：
+  `already_computed += island_len` 在 copy commit 上闭合 exact/copy telemetry
+  （B-3 `new_cached=exact`、B-4 suffix 轮 `0`）；两处最小 rw mount 与
+  capability/security-opt 已落进 §13.5.0 与 §14.1；membership assert 限定
+  `lifecycle_live`；INV-3 限定 admission 后 lifecycle；TC-51 明确
+  validation=0 仍跑 `torch.equal` guard；§7.3.1 覆盖 `[0,target_start)`；
+  staging 增 dynamic-chunking / deterministic / multimodal fail-close；
+  新增 `c40_logprob_range_unsupported`；版本升 `V1-r5`。
+- **P1（新，阻断）**：§8.6.3 步骤4B / §7.2 的 enqueued-range commit hook
+  三分支状态判定缺 `c40_state == DENSE_PREFIX` 守卫。§8.6.3 步骤6、§8.6.1b、
+  TC-6/TC-27/TC-50、INV-3 都要求 `middle_cursor` 在 `DENSE_SUFFIX` 继续推进
+  到 `prompt_end` 且无第二套机制 ⇒ 每个 copy 成功的请求在 suffix 提交时
+  `middle_cursor > target_start`，被误判 `c40_boundary_overrun`，outcome
+  退化为 `dense_attempted_fallback`，族4 使整块 `engineering_valid=false`
+  ⇒ primary confirmatory 无有效数据；并与 §8.2 转移矩阵、§12.2 reason 定义
+  矛盾。最小修复：把三分支判定包进 `if c40_state == DENSE_PREFIX:`，
+  `DENSE_SUFFIX`/`DENSE_ISLAND_FALLBACK` 只推进 cursor 与 owned 集合。
+- P2（5项）：§8.6.1a 的 `cand_extend_input_len`/`:1160-1163` 与 §8.6.3 步骤2
+  的 `projected_prefix_len`（B-3=`target_end`）冲突；B-3 判据缺
+  `target_end < len(prompt)` 遮蔽 B-5 兜底使 TC-69 不可满足；§14.1 manifest
+  缺 `provenance.collector_impl` 等字段（与 §9.2.3/§17.1.4/FD-7/TC-66 冲突）；
+  §13.5.0 残留"唯一允许的宿主可写挂载点"与"恰好两处"冲突；
+  `_update_prefill_budget(prefix_len=)` 行未限定只适用 `add_one_req`。
+- F-01..F-11 = 全部 CLOSED（F-11 附残留 P2-4 文本冲突）。
+- **下一步**：修订 1 P1（并清 5 P2）后做第六轮 closure review；
+  open P0/P1归零并产出versioned `plan-review-*.json`之前，
+  **不得**升级状态、**不得**plan freeze、**不得**申请branch授权。
+- 授权边界不变：只授权计划编制/审阅/文档同步；branch、实现、Docker与GPU
+  仍为`PENDING USER AUTHORIZATION`。
+
+### 2026-07-30T04:23:18-07:00 Phase7.5 C40计划第四轮review = FAIL
+
+- 计划文件：`IMPLEMENTATION_PLAN_PHASE7_5_C40.md`，版本表仍标 `V1-r3`，5494行。
+- 第四轮只读逐API closure review完成；**未改计划文件、未建branch、
+  未跑测试/GPU**。底座固定 `worktrees/cross-store-substrate@0206f17b`（clean）。
+- Verdict = `FAIL / NOT READY`；open = `0 P0 / 2 P1 / 7 P2`。
+- 第三轮4项阻断findings（P0-1 B-4 parked、P0-2 deferral快照、
+  P1-1 copy双计、P1-2 dense契约）**全部 CLOSED**，并经底座逐API核实；
+  全部 `verified-code` 行号抽查属实。
+- **P1-1**：§8.6.1a 把 `prefix_lens` 改 effective 后，
+  `schedule_batch.py:2317-2318` 的
+  `new_cached = pre_len - already_computed` 会在 copy 提交轮把 `island_len`
+  加进 `req.cached_tokens`（经 `output_streamer.py:85-87/198` 用户可见），
+  违反计划自订的 exact/copy 分离与 TC-60；计划只改了 2337。
+  最小修复：copy commit 处 `req.already_computed = max(.., target_end)`
+  + 把 2314-2318 列入 §8.6.1a + 扩 TC-60 断言。
+- **P1-2**：§13.5.0/§14.1 的 `mounts` 仍把宿主 `results/` 根目录整体 rw
+  挂载（与同段"禁止整体 rw"、CR-7/CR-8 矛盾），且缺
+  `/results/phase7_5_c40` 条目 ⇒ 按"未列明则不得挂载" runner 无处写。
+  F-11 由 CLOSED 回归 PARTIAL。
+- P2（7项）：`inflight++` 前 membership assert 未排除底座 hybrid-SWA parked
+  分支；INV-3 单调性与 deferred target-side 重建矛盾；TC-51 零 D2H sync 与
+  强制 `torch.equal` admission guard 冲突；§7.3.1 未声明 dense rule 须覆盖
+  `[0,target_start)`（否则 `_validate_bounds` 必抛 unowned gap）；staging
+  fail-closed 缺 `enable_dynamic_chunking`/multimodal-encoder/
+  `truncation_align_size`；TC-29 logprob 对齐在 island 上不可达且无
+  fail-closed；版本号仍 `V1-r3` 但该变更行已被就地改写（违反 §28.1）。
+- F-01..F-10 = CLOSED；F-11 = PARTIAL。
+- **下一步**：修订 2 P1（并顺带清 7 P2）后做第五轮 closure review；
+  open P0/P1归零并产出versioned `plan-review-*.json`之前，
+  **不得**升级状态、**不得**plan freeze、**不得**申请branch授权。
+- 授权边界不变：只授权计划编制/审阅/文档同步；branch、实现、Docker与GPU
+  仍为`PENDING USER AUTHORIZATION`。
+
+### 2026-07-30T03:29:27-07:00 Phase7.5 C40计划第三轮review = FAIL
+
+- 计划文件：`IMPLEMENTATION_PLAN_PHASE7_5_C40.md`，版本表标 `V1-r3`，5455行。
+- 第三轮只读逐API closure review完成；**未改计划文件、未建branch、
+  未跑测试/GPU**。底座固定
+  `worktrees/cross-store-substrate@0206f17b`（clean）。
+- Verdict = `FAIL / NOT READY`；open = `2 P0 / 2 P1 / 6 P2`。
+- 第二轮4项阻断findings（P0-A/P0-B/P1-A/P1-B）**全部 CLOSED**；
+  第三轮自称9项修复中6项经底座核实成立。
+- **P0-1**：§8.6.3步骤7新引入的 **B-4 parked continuation**
+  （`add_chunked_req`返回原req但不入`can_run_list`）与
+  `scheduler.py:3073-3079`冲突——`assert self.chunked_req is None`
+  可被非C40长请求触发崩溃；`inflight_middle_chunks += 1`无membership判据，
+  递减只在`batch_result_processor.py:283/336`遍历`batch.reqs`时发生，
+  计数器只增不减 ⇒ 最终chunk被判为middle chunk、不采样、空`output_ids`
+  进decode。底座`schedule_policy.py:841-842`要求chunked owner必须入list。
+- **P0-2**：§8.5/§8.1.1/TC-8要求`ADMISSION_DEFERRED`时
+  `borrowed_exact_indices`逐字段保持，但deferred请求不持有任何lock，
+  其matched prefix可被驱逐重分配；等长不等值时INV-6仍通过，陈旧index
+  经`effective_prefix_indices`→`allocation.py:316`→`write_cache_indices`
+  写回`req_to_token` ⇒ 静默跨请求KV污染；与步骤1"重新staging"自相矛盾。
+- **P1-1**：`charge_c40_copy_allocation`在island物理分配后再加
+  `rem_total/cur_rem` offsets，而二者是读`available_size()`的live property
+  （`schedule_policy.py:585-620`）⇒ 双计。
+- **P1-2**：§7.3.1的dense disposition契约与底座API不符
+  （`transfer.py:120-140`是`dense_prefill(target_start=,length=,reason=)`，
+  且先回调fallback chunk reason、再用`_contiguous_ranges`重切range），
+  三元组精确查表在普通fallback下必miss ⇒ 具体reason被吞成
+  `c40_copy_exception`，违反§12.1规则4。
+- P2：island计入`log_hit_tokens`/`cached_tokens`；forced-middle轮变单请求
+  batch未披露；§8.2.1规则3与`cache_unfinished_req`冲突；
+  §7.4 `scheduler.py:2966/2967`应为`2967/2968`；`enable_mixed_chunk`
+  未fail-closed；`process_pending_chunked_abort`未列入五条final hook。
+- F-01/F-10 = PARTIAL，其余 F-02..F-09 / F-11 = CLOSED。
+- **下一步**：修订2 P0 + 2 P1（并顺带清6 P2）后做第四轮closure review；
+  open P0/P1归零并产出versioned `plan-review-*.json`之前，
+  **不得**升级状态、**不得**plan freeze、**不得**申请branch授权。
+- 授权边界不变：只授权计划编制/审阅/文档同步；branch、实现、Docker与GPU
+  仍为`PENDING USER AUTHORIZATION`。
+
+### 2026-07-29T23:58:44-07:00 Phase7.5 C40计划第二轮review = FAIL
+
+- 计划文件：`IMPLEMENTATION_PLAN_PHASE7_5_C40.md`，版本表标 `V1-r2`。
+- 第二轮只读targeted closure review完成；**未改计划文件、未建branch、
+  未跑测试/GPU**。
+- Verdict = `FAIL / NOT READY`；open = `2 P0 / 2 P1 / 6 P2`。
+- 上一轮13项：9 CLOSED / 3 PARTIAL（P0-01、P2-01、P2-05）/ 1 OPEN（P2-07）。
+- **P0-A**：底座同时只允许一个chunked请求
+  （`scheduler.py:3075 assert self.chunked_req is None`、`:3079`单点
+  `inflight_middle_chunks += 1`），而§8.6.3步骤3要求每个被钳制的C40请求
+  都设`new_chunked_req`；钳制还少消耗chunk预算，解除了原有隐式互斥。
+- **P0-B**：全文0处提及retraction/preemption；
+  `release_kv_cache + reset_for_retract`（`schedule_batch.py:1567,1790,1795`）
+  会清零`cache_protected_len/kv_committed_len`但不清`req.c40`，
+  破坏五路cleanup恒等式与INV-1/6/7，并可能把已释放index写回`req_to_token`。
+- **P1-A**：B-3的`req_to_token_pool.alloc([req])`缺`None`失败分支。
+- **P1-B**：`needs_host_load_back()`在staging后改写`prefix_indices`与
+  `cache_protected_len`，使staged快照/INV-4/INV-6失效。
+- P2：族4 kind域缺2项+族3 cleanup失败双计；§25.1仍允许host构建manifest；
+  `req_to_token`是int32而Triton硬转int64指针；`add_one_req_ignore_eos`/
+  `_add_dllm_req`两个extend起点未覆盖；§28.2版本号与版本表不一致且§0.4
+  未列G0q；F-04/06/07/08/10/11无锚点。
+- 已确认属实的修订：effective-prefix行号、`prefix_lens`/`prefix_tensors`
+  成对、底座单一free ledger、identity membership、adapter-local dense
+  disposition、collector authority分层、primary estimand、最小rw mount。
+- **下一步**：修订2 P0 + 2 P1（并顺带清P2）后做第三轮closure review；
+  open P0/P1归零并产出versioned `plan-review-*.json`之前，
+  **不得**升级状态、**不得**plan freeze、**不得**申请branch授权。
+- 授权边界不变：只授权计划编制/审阅/文档同步；branch、实现、Docker与GPU
+  仍为`PENDING USER AUTHORIZATION`。
+
+### 2026-07-29T17:42:31-07:00 Phase7.5 C40 clean-room计划编制中
 
 - Phase7 final status仍为VALID / NEGATIVE / INCONCLUSIVE-DESCRIPTIVE。
 - publication=`READY WITH CAVEATS`；Phase7 RESULT_MANIFEST=`88/88`。
@@ -28,8 +528,10 @@
 - GPT-5.6 Sol Max最终报告review=`PASS WITH CAVEATS / READY WITH CAVEATS`，
   open report P0/P1/P2=`0/0/0`。
 - 分支自身仍有2类P0 freshness/abstention blocker；报告通过不等于分支通过。
-- 建议下一步为Track A zero-GPU修复，但当前
-  `PENDING USER AUTHORIZATION`，没有任何Gate已授权。
+- 用户决定把clean-room C40 reproduction定义为Phase7.5，只复用思路、
+  **不复用合作者代码**，并尽量实现原分支尚未实现的能力。
+- 当前只授权编制和审阅完整执行计划；新branch、代码、Docker实验和GPU
+  Gate仍为`PENDING USER AUTHORIZATION`。
 
 ### 2026-07-28T19:37:55-07:00 correction/reconsolidation完成
 

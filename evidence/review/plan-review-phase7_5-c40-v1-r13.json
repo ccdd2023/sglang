@@ -1,0 +1,80 @@
+{
+  "administrative_delta_review": {
+    "model": "claude-opus-5",
+    "open_findings": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0
+    },
+    "reasoning_effort": "high",
+    "result": "FINAL_SHA_BINDING_APPROVED",
+    "verdict": "PASS"
+  },
+  "artifact_type": "phase7_5_c40_plan_review",
+  "artifact_version": 1,
+  "authorization_boundary": {
+    "branch_creation_authorized": false,
+    "budget_authorized": false,
+    "docker_test_execution_authorized": false,
+    "gpu_execution_authorized": false,
+    "implementation_authorized": false,
+    "plan_drafting_authorized": true,
+    "plan_review_authorized": true,
+    "quality_campaign_authorized": false
+  },
+  "created_at": "2026-07-30T10:57:49-07:00",
+  "design_review_basis_sha256": "25cbac98c65c6b67e6d2de23c0cc33e28d7c6f6b3ca60b13cd49a6a3b3770a42",
+  "execution_performed": {
+    "branch_created": false,
+    "docker_tests_run": false,
+    "gpu_runs_started": false,
+    "implementation_changed": false
+  },
+  "f_closure": {
+    "F-01": "CLOSED",
+    "F-02": "CLOSED",
+    "F-03": "CLOSED",
+    "F-04": "CLOSED",
+    "F-05": "CLOSED",
+    "F-06": "CLOSED",
+    "F-07": "CLOSED",
+    "F-08": "CLOSED",
+    "F-09": "CLOSED",
+    "F-10": "CLOSED",
+    "F-11": "CLOSED"
+  },
+  "final_plan": {
+    "path": "IMPLEMENTATION_PLAN_PHASE7_5_C40.md",
+    "plan_id": "P7.5-C40-V1",
+    "sha256": "b894e276960b72c1cf7963ca7f5957f89f62471b11eb006548fc867d7f28bedf",
+    "status": "Reviewed Candidate / PENDING USER AUTHORIZATION",
+    "version": "V1-r13"
+  },
+  "quarantine_manifest": {
+    "file_sha256": "cbc873faf2b3d3683dc755ea261b93b30e96c454ca4af6b4c78fa2094b59da61",
+    "path": "evidence/review/c40-quarantine-manifest.json",
+    "quarantine_status": "AVAILABLE",
+    "self_sha256": "a0fe94ae5a1122edea36580356b8c8b608e11b32729a8056dffd9fb91ff440be"
+  },
+  "review": {
+    "closure_rounds": 12,
+    "final_model": "claude-opus-5",
+    "final_reasoning_effort": "max",
+    "open_findings": {
+      "P0": 0,
+      "P1": 0,
+      "P2": 0
+    },
+    "readiness": "READY_FOR_PLAN_FREEZE",
+    "scope": [
+      "full_plan",
+      "pinned_substrate_api",
+      "cross_section_consistency",
+      "statistics_and_quality",
+      "cleanroom_and_authorization"
+    ],
+    "verdict": "PASS"
+  },
+  "self_hash_definition": "Set the top-level self_sha256 to an empty string, then serialize with json.dumps(sort_keys=True,separators=(',',':'),ensure_ascii=False) and hash the UTF-8 bytes with SHA-256.",
+  "self_sha256": "63bf3b83c040504ac731f8ab413fbd59557dff0d50a26bb514368fd38e51d1b0"
+}

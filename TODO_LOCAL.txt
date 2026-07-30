@@ -1,7 +1,7 @@
 CODE-AGENT KVCACHE LOCAL TODO LIST
 ==================================
 
-Last updated: 2026-07-29T05:46:31-07:00
+Last updated: 2026-07-29T17:42:31-07:00
 Authority: PROJECT.md and IMPLEMENTATION_PLAN_LATEST.md
 Current boundary: do not enter Phase 7 without reporting to the user.
 
@@ -376,7 +376,7 @@ The caveat is permanent:
 [x] Define how to integrate the method into future experiments without
     rewriting frozen Phase4-7 evidence.
 [x] Independently review and finalize the collaborator-branch technical report.
-[ ] Commit and push the collaborator-branch technical report and authority
+[x] Commit and push the collaborator-branch technical report and authority
     updates.
 
 Current blocker:
@@ -388,3 +388,32 @@ Next execution boundary:
     No Track or Gate is authorized. Recommended Track A is zero-GPU code,
     provenance and middle-span lifecycle repair, but requires explicit user
     authorization before implementation.
+
+
+9. PHASE 7.5 C40 CLEAN-ROOM PLAN
+-------------------------------
+
+[x] User selected Phase7.5 as the name and scope.
+[x] Freeze clean-room rule: use the idea/spec, not collaborator code.
+[x] Freeze base:
+      origin/research/cross-store-substrate
+      0206f17b4255e4b248dafaaeb943be57428dae2f
+[x] Proposed new branch:
+      research/phase7.5-c40-cleanroom
+[x] Draft `IMPLEMENTATION_PLAN_PHASE7_5_C40.md`.
+[x] Include parity implementation plus structured provenance, middle-span
+    lifecycle, multi-island, optional repair, host/prefetch interfaces,
+    concurrency and source-version extensions.
+[x] Include Docker-only CPU/GPU gates, workloads, metrics, statistical plan,
+    stop rules, budgets, result manifest and dual review.
+[x] Run independent plan review and close accepted findings:
+      PASS / READY_FOR_PLAN_FREEZE; open P0/P1/P2 = 0/0/0.
+[x] Version review + G0q artifacts:
+      evidence/review/plan-review-phase7_5-c40-v1-r13.json
+      evidence/review/c40-quarantine-manifest.json
+[x] Publish the reviewed plan and wait for explicit implementation
+    authorization.
+
+Authorization:
+    plan drafting/review = authorized
+    branch creation/code/tests/GPU = NOT AUTHORIZED
