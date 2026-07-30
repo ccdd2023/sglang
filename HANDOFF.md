@@ -1,6 +1,6 @@
 # 会话交接
 
-最后更新：2026-07-30T11:07:48-07:00
+最后更新：2026-07-30T11:17:00-07:00
 
 ## 新会话启动顺序
 
@@ -26,6 +26,8 @@
 - G0q artifact：
   `evidence/review/c40-quarantine-manifest.json`，
   status=`AVAILABLE`，contains_source_text=false，self=`a0fe94ae...`。
+- 主发布commit=`ce3f786699cf813cfb84d8191752a0dbf236cd48`，
+  已推送至`origin/project/code-agent-kvcache-docs`。
 - Phase7状态不变：engineering VALID、R0 NEGATIVE、W
   INCONCLUSIVE/DESCRIPTIVE、publication READY WITH CAVEATS。
 - 未创建Phase7.5 branch，未修改implementation repo，未运行Docker测试或GPU。

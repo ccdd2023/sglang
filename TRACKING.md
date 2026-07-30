@@ -3798,6 +3798,16 @@ technical_exit = PASS WITH CAVEATS
 - 下一步等待用户明确授权branch creation；其后按Gate顺序逐项申请，
   不因plan ready自动进入实现。
 
+## 2026-07-30T11:17:00-07:00 — Phase7.5计划发布完成
+
+- 主发布commit：
+  `ce3f786699cf813cfb84d8191752a0dbf236cd48`。
+- 已通过明确核实的SSH身份`ccdd2023`推送至
+  `origin/project/code-agent-kvcache-docs`。
+- 发布内容包括V1-r13计划、最终review artifact、G0q quarantine artifact
+  及authority文档。
+- branch creation、implementation、Docker tests、GPU与budget授权仍全部为false。
+
 ## 2026-07-30T08:47:42-07:00 — Phase7.5 C40 计划第九轮只读 closure review
 
 ### 用户诉求

@@ -413,6 +413,8 @@ Next execution boundary:
       evidence/review/c40-quarantine-manifest.json
 [x] Publish the reviewed plan and wait for explicit implementation
     authorization.
+    Main publication commit:
+      ce3f786699cf813cfb84d8191752a0dbf236cd48
 
 Authorization:
     plan drafting/review = authorized

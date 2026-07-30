@@ -2,7 +2,7 @@
 
 > 本文件是项目更新、可共享思路、讨论结论、进度、计划和决策的固定事实来源。
 
-最后更新：2026-07-30T11:07:48-07:00
+最后更新：2026-07-30T11:17:00-07:00
 
 ## 项目概况
 
@@ -4557,5 +4557,8 @@ sha256、记载 `open P0/P1 = 0/0`）与 `evidence/review/c40-quarantine-manifes
   match与人工裁决仍属于G1b，不得提前视为已通过。
 - 本轮没有创建Phase7.5 branch，没有修改implementation repo，没有运行
   Docker/CPU测试/GPU。执行授权仍全部为false。
+- 计划、artifact与authority更新已发布到
+  `project/code-agent-kvcache-docs`，主发布commit：
+  `ce3f786699cf813cfb84d8191752a0dbf236cd48`。
 - 下一执行边界：等待用户明确授权`branch_creation_authorized`及后续逐Gate/
   逐Track预算；不得因plan ready自动启动实现。
