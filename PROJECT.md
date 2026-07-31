@@ -4562,3 +4562,22 @@ sha256、记载 `open P0/P1 = 0/0`）与 `evidence/review/c40-quarantine-manifes
   `ce3f786699cf813cfb84d8191752a0dbf236cd48`。
 - 下一执行边界：等待用户明确授权`branch_creation_authorized`及后续逐Gate/
   逐Track预算；不得因plan ready自动启动实现。
+
+## 2026-07-31T13:37:59-07:00 Phase8及后续阶段状态澄清
+
+- 当前**没有**正式、已评审或已授权的Phase8执行计划，也没有已编号的Phase9+
+  计划。
+- Phase8目前仅为`Potential Scope`，不会由Phase7或Phase7.5结果自动触发。
+- 创建Phase8计划的硬前置：
+  1. Phase7.5实际执行完成G11；
+  2. engineering/mechanism/system/quality/publication五类disposition齐备；
+  3. 用户明确授权创建Phase8计划；
+  4. 使用独立plan、manifest、branch/结果目录与review链。
+- 可能的Phase8方向只能由Phase7.5结果决定，当前均为候选而非项目事实：
+  - 若C40正确、覆盖充分且有性能收益：做生产级规模化、并发workflow、
+    host/prefetch与source-version integration；
+  - 若质量安全但性能不足：优先优化selector coverage、调度/复制开销与
+    hardware/model scale；
+  - 若出现质量损伤：转向calibrated repair/KVCOMM-style reconstruction，
+    不直接扩大部署规模。
+- Phase9及以后只可在Phase8完成后另行定义；当前不预注册、不分配预算。

@@ -3808,6 +3808,16 @@ technical_exit = PASS WITH CAVEATS
   及authority文档。
 - branch creation、implementation、Docker tests、GPU与budget授权仍全部为false。
 
+## 2026-07-31T13:37:59-07:00 — Phase8及更后阶段澄清
+
+- 用户询问当前是否已有Phase8或更多后续阶段。
+- 结论：没有正式Phase8/Phase9+计划；Phase8仅保留Potential Scope。
+- Phase8不会自动触发，必须等待Phase7.5完成G11、五类disposition齐备，并由
+  用户明确授权创建独立计划。
+- 后续方向将由Phase7.5证据选择：正向则规模化集成，性能不足则优化覆盖和
+  overhead，质量受损则优先repair/reconstruction。
+- 当前执行边界不变：仍等待Phase7.5 branch creation授权。
+
 ## 2026-07-30T08:47:42-07:00 — Phase7.5 C40 计划第九轮只读 closure review
 
 ### 用户诉求
