@@ -172,7 +172,13 @@ def prepare_case(tokenizer: Any, case: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def prepare(workload_path: Path, output: Path, limit: int) -> dict[str, Any]:
+def prepare(
+    workload_path: Path,
+    output: Path,
+    limit: int,
+    *,
+    reuse_arm: str = ARM,
+) -> dict[str, Any]:
     workload = json.loads(workload_path.read_text(encoding="utf-8"))
     tokenizer = AutoTokenizer.from_pretrained(MODEL, local_files_only=True)
     source_cases = workload["cases"]
@@ -183,7 +189,7 @@ def prepare(workload_path: Path, output: Path, limit: int) -> dict[str, Any]:
     for case in cases:
         row = manifest_case(
             case_id=case["case_id"],
-            policy_label=ARM,
+            policy_label=reuse_arm,
             source_ids=case["source_input_ids"],
             target_ids=case["target_input_ids"],
             span={
@@ -197,13 +203,13 @@ def prepare(workload_path: Path, output: Path, limit: int) -> dict[str, Any]:
     output.mkdir(parents=True, exist_ok=True)
     write_json(output / "CASES.json", {"cases": cases})
     write_json(
-        output / "manifests" / f"{ARM}.json",
+        output / "manifests" / f"{reuse_arm}.json",
         {
             "cache_dtype": "bfloat16",
             "cases": manifest_rows,
             "lease_ttl_s": 900,
             "ledger_path": str(
-                output / "server" / ARM / "EXACT_LEDGER.jsonl"
+                output / "server" / reuse_arm / "EXACT_LEDGER.jsonl"
             ),
             "model_id": MODEL,
             "ordinary_prefix_reuse_enabled": False,
@@ -216,8 +222,8 @@ def prepare(workload_path: Path, output: Path, limit: int) -> dict[str, Any]:
         },
     )
     registration = {
-        "status": "PREPARED_BEFORE_V40_REPOBENCH_GPU",
-        "arm": ARM,
+        "status": "PREPARED_BEFORE_REPOBENCH_GPU",
+        "arm": reuse_arm,
         "cases": len(cases),
         "dataset": "RepoBench-P",
         "model": MODEL,
@@ -237,8 +243,14 @@ def prepare(workload_path: Path, output: Path, limit: int) -> dict[str, Any]:
     return registration
 
 
-def run_arm(output: Path, arm: str, port: int) -> dict[str, Any]:
-    if arm not in {"dense", ARM}:
+def run_arm(
+    output: Path,
+    arm: str,
+    port: int,
+    *,
+    reuse_arm: str = ARM,
+) -> dict[str, Any]:
+    if arm not in {"dense", reuse_arm}:
         raise ValueError(arm)
     cases = json.loads((output / "CASES.json").read_text())["cases"]
     result_path = output / f"{arm}.json"
@@ -321,16 +333,23 @@ def _prediction_line(text: str) -> str:
     return ""
 
 
-def summarize(output: Path) -> dict[str, Any]:
+def summarize(
+    output: Path,
+    *,
+    reuse_arm: str = ARM,
+    dense_result: Path | None = None,
+) -> dict[str, Any]:
     cases = {
         case["case_id"]: case
         for case in json.loads((output / "CASES.json").read_text())["cases"]
     }
     dense = {
         row["case_id"]: row
-        for row in json.loads((output / "dense.json").read_text())["targets"]
+        for row in json.loads(
+            (dense_result or (output / "dense.json")).read_text()
+        )["targets"]
     }
-    reuse_value = json.loads((output / f"{ARM}.json").read_text())
+    reuse_value = json.loads((output / f"{reuse_arm}.json").read_text())
     reuse = {row["case_id"]: row for row in reuse_value["targets"]}
     sources = {
         row["case_id"]: row for row in reuse_value["sources"]
@@ -386,7 +405,7 @@ def summarize(output: Path) -> dict[str, Any]:
             if len(copies) == count and not fallbacks
             else "MECHANISM_FAILURE"
         ),
-        "method": ARM,
+        "method": reuse_arm,
         "dataset": "RepoBench-P",
         "samples": count,
         "quality": {
@@ -425,19 +444,37 @@ def main() -> None:
     prepare_parser.add_argument("--workload", type=Path, default=DEFAULT_WORKLOAD)
     prepare_parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     prepare_parser.add_argument("--limit", type=int, default=0)
+    prepare_parser.add_argument("--reuse-arm", default=ARM)
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    run_parser.add_argument("--arm", choices=("dense", ARM), required=True)
+    run_parser.add_argument("--arm", required=True)
+    run_parser.add_argument("--reuse-arm", default=ARM)
     run_parser.add_argument("--port", type=int, default=31100)
     summary_parser = subparsers.add_parser("summarize")
     summary_parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    summary_parser.add_argument("--reuse-arm", default=ARM)
+    summary_parser.add_argument("--dense-result", type=Path)
     args = parser.parse_args()
     if args.command == "prepare":
-        value = prepare(args.workload, args.output, args.limit)
+        value = prepare(
+            args.workload,
+            args.output,
+            args.limit,
+            reuse_arm=args.reuse_arm,
+        )
     elif args.command == "run":
-        value = run_arm(args.output, args.arm, args.port)
+        value = run_arm(
+            args.output,
+            args.arm,
+            args.port,
+            reuse_arm=args.reuse_arm,
+        )
     else:
-        value = summarize(args.output)
+        value = summarize(
+            args.output,
+            reuse_arm=args.reuse_arm,
+            dense_result=args.dense_result,
+        )
     print(json.dumps(value, indent=2, sort_keys=True))
 
 

@@ -29,10 +29,11 @@ V45 is therefore a strict V40 continuation, not a CacheBlend variant:
    unlocalized write. Even an explicitly different symbol does not bypass the
    active guard.
 
-No V45 GPU speed or accuracy claim is made yet. The combined symbol-and-guard
-proposal failed its promotion gate and was narrowed. A second, production
-planner audit shows that the guard-only V45 is eligible for a separately
-registered Dense/V40/V45 GPU canary.
+No V45 agent-task speed or accuracy claim is made yet. The combined
+symbol-and-guard proposal failed its promotion gate and was narrowed. A
+second, production planner audit shows that the guard-only V45 is eligible for
+a separately registered Dense/V40/V45 agent canary. A later three-case static
+GPU control measured the unchanged KV mechanism only, as described below.
 
 ## The V40 gap in a concrete example
 
@@ -153,6 +154,32 @@ V40, and every prompt hash was identical. The initial exact-planner audit had
 one different shared segment because pathless observations were filtered
 before ranking; that confound was recorded, corrected by strict V40-first
 selection, and rerun under an explicit amendment rather than overwritten.
+
+### Quick static speed control
+
+A three-case RepoBench-P canary then ran only the missing V45 SGLang lane and
+reused the registered Dense, CacheBlend, and KVCOMM baseline results. V45
+completed all three physical copies with no fallback and copied 512 tokens per
+case.
+
+| Method | Cache-ready speedup vs native Dense | N=4 including source build |
+|---|---:|---:|
+| V45 | 1.091x | 0.912x |
+| CacheBlend | 1.306x | 0.593x |
+| KVCOMM | 14.234x | 7.987x |
+
+V45's cache-ready result is effectively unchanged from V40's 1.089x. This is
+expected: static RepoBench-P contains no file mutation, so V45 and V40 select
+the same span and the new target-time guard never activates. CacheBlend shares
+the controlled target token IDs; KVCOMM uses its native multi-agent prompt and
+different token IDs, so only its speedup relative to its own Dense arm is
+descriptive. The existing SGLang Dense timing was not rerun, and three cases
+cannot support an accuracy or superiority claim.
+
+Static result:
+
+- `/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_v45_sota_speed_canary_20260803/V45_SPEED_COMPARISON.json`
+- `/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_v45_sota_speed_canary_20260803/V45_SPEED_COMPARISON.md`
 
 Frozen artifacts:
 

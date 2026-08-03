@@ -40,8 +40,10 @@ test_summarize_v44_schema_compat.py
 
 The V45 audits are policy/planner results, not latency or accuracy results.
 The combined symbol proposal failed; the narrowed guard-only planner passed
-its amended gates and is eligible for a separately registered GPU canary. No
-V45 GPU result exists yet. See
+its amended gates. A three-case static RepoBench-P GPU canary measured 1.091x
+cache-ready speedup versus the existing SGLang Dense lane, but static code has
+no mutation and therefore does not exercise the V45 guard. No V45 agent-task
+accuracy result exists yet. See
 `docs/kvflow/CODING_AWARE_V45_DEVELOPMENT_20260803.md`.
 
 ## Active three-method coding comparison
