@@ -366,6 +366,227 @@ def test_v40_future_source_contains_only_grounded_tool_observation() -> None:
     ).ids
 
 
+def _v45_read_group(path: str, symbol: str) -> list[dict]:
+    return [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {
+                            "command": f"sed -n '1,240p' {path}"
+                        },
+                    }
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": (
+                "<returncode>0</returncode><output>"
+                f"def {symbol}():\n    return 1\n"
+                + ("# source context\n" * 40)
+                + "</output>"
+            ),
+        },
+    ]
+
+
+def _v45_patch_group(symbol: str) -> list[dict]:
+    return [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {
+                            "command": (
+                                "apply_patch <<'PATCH'\n"
+                                "*** Begin Patch\n"
+                                "*** Update File: pkg/latest.py\n"
+                                f"@@ def {symbol}():\n"
+                                "-    return 1\n"
+                                "+    return 2\n"
+                                "*** End Patch\n"
+                                "PATCH"
+                            )
+                        },
+                    }
+                }
+            ],
+        },
+        {"role": "tool", "content": "<returncode>0</returncode>"},
+    ]
+
+
+def test_v45_future_source_binds_file_version_evidence() -> None:
+    groups = [
+        _v45_read_group(f"/testbed/pkg/{index}.py", f"symbol_{index}")
+        for index in range(5)
+    ] + [_v45_read_group("/testbed/pkg/latest.py", "stable_symbol")]
+    model = object.__new__(bridge.BridgeReuseLitellmModel)
+    model.config = SimpleNamespace(
+        reuse_arm="coding_versioned_evidence_guard_v45",
+        rolling_history_groups=6,
+        reuse_min_tokens=128,
+        reuse_copy_cap=4096,
+    )
+    model._tokenizer = _CharacterTokenizer()
+    model._instance_nonce = "v45"
+    model._session_index = 1
+    model._request_index = 7
+    literal = "".join(
+        model._render_message_literal(message)
+        for group in groups
+        for message in group
+    )
+    prompt_ids = [1, *model._tokenizer.encode(literal).ids, 2]
+
+    source, pending, decision = model._future_source(
+        prompt_ids=prompt_ids,
+        selected_groups=groups,
+    )
+
+    assert source is not None
+    assert pending is not None
+    assert decision["mode"] == "versioned_grounded_observation_guard_v45"
+    assert decision["symbol_relaxation_enabled"] is False
+    assert pending["source_paths"] == ["pkg/latest.py"]
+    assert pending["source_symbols"] == ["stable_symbol"]
+    assert len(pending["source_observation_sha256"]) == 64
+
+
+def test_v45_abstains_on_v40_selected_pathless_source_without_runner_up() -> None:
+    groups = [
+        _v45_read_group(f"/testbed/pkg/{index}.py", f"symbol_{index}")
+        for index in range(5)
+    ]
+    groups.append(
+        [
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "function": {
+                            "name": "bash",
+                            "arguments": {"command": "rg stable /testbed/pkg"},
+                        }
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "content": (
+                    "<returncode>0</returncode><output>"
+                    + ("unlocalized large observation\n" * 80)
+                    + "</output>"
+                ),
+            },
+        ]
+    )
+    literal = "".join(
+        bridge.BridgeReuseLitellmModel._render_message_literal(message)
+        for group in groups
+        for message in group
+    )
+    prompt_ids = [
+        1,
+        *[ord(character) for character in literal],
+        2,
+    ]
+
+    def planner(arm: str):
+        model = object.__new__(bridge.BridgeReuseLitellmModel)
+        model.config = SimpleNamespace(
+            reuse_arm=arm,
+            rolling_history_groups=6,
+            reuse_min_tokens=128,
+            reuse_copy_cap=4096,
+        )
+        model._tokenizer = _CharacterTokenizer()
+        model._instance_nonce = arm
+        model._session_index = 1
+        model._request_index = 7
+        return model
+
+    v40_source, _, v40_decision = planner(
+        "coding_grounded_observation_island_v40"
+    )._future_source(prompt_ids=prompt_ids, selected_groups=groups)
+    v45_source, v45_pending, v45_decision = planner(
+        "coding_versioned_evidence_guard_v45"
+    )._future_source(prompt_ids=prompt_ids, selected_groups=groups)
+
+    assert v40_source is not None
+    assert v40_decision["selected_group_index"] == 4
+    assert v45_source is None
+    assert v45_pending is None
+    assert v45_decision["selected_group_index"] == 4
+    assert v45_decision["skip_reason"] == "selected_observation_unlocalized"
+
+
+def test_v45_target_rejects_every_new_same_file_write() -> None:
+    source_group = _v45_read_group("/testbed/pkg/latest.py", "stable")
+    segment_ids = [10, 11, 12]
+    pending = {
+        "source_id": "v45-source",
+        "content_hash": "content",
+        "length": len(segment_ids),
+        "segment_token_hash": bridge.token_ids_hash(segment_ids),
+        "source_prefix_token_hash": "source-prefix",
+        "source_prompt_hash": "source-prompt",
+        "source_start": 3,
+        "segment_ids": segment_ids,
+        "source_observation_sha256": (
+            bridge.versioned_grounded_observation_candidates([source_group])[1][
+                "candidate_evidence"
+            ][0]["observation_sha256"]
+        ),
+        "source_paths": ["pkg/latest.py"],
+        "source_symbols": ["stable"],
+    }
+    target_ids = [1, *segment_ids, 2]
+
+    invalid_model = object.__new__(bridge.BridgeReuseLitellmModel)
+    invalid_model.config = SimpleNamespace(
+        reuse_arm="coding_versioned_evidence_guard_v45"
+    )
+    invalid_model._pending_source = dict(pending)
+    invalid_model._record_client = lambda row: None
+    invalid, releases = invalid_model._target_case(
+        target_ids,
+        selected_groups=[source_group, _v45_patch_group("stable")],
+    )
+
+    assert invalid is None
+    assert releases == ["v45-source"]
+    assert invalid_model._last_target_evidence_guard["reason"] == (
+        "same_file_symbol_overlap"
+    )
+
+    valid_model = object.__new__(bridge.BridgeReuseLitellmModel)
+    valid_model.config = invalid_model.config
+    valid_model._pending_source = dict(pending)
+    valid_model._instance_nonce = "v45"
+    valid_model._session_index = 1
+    valid_model._request_index = 8
+    valid_model._record_client = lambda row: None
+    valid, releases = valid_model._target_case(
+        target_ids,
+        selected_groups=[source_group, _v45_patch_group("other")],
+    )
+
+    assert valid is None
+    assert releases == ["v45-source"]
+    assert valid_model._last_target_evidence_guard[
+        "target_evidence_valid"
+    ] is False
+    assert valid_model._last_target_evidence_guard["reason"] == (
+        "same_file_symbol_disjoint_not_enabled"
+    )
+
+
 def test_query_closes_underlying_sync_stream(monkeypatch) -> None:
     chunk = SimpleNamespace(
         choices=[

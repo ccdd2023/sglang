@@ -15,6 +15,10 @@ from benchmark.multi_workflow.coding_reuse_policy import (
     select_failure_memory_groups,
     select_reuse_groups,
     select_version_graph_groups,
+    tool_observation_sha256,
+    versioned_evidence_target_guard,
+    versioned_grounded_observation_candidates,
+    versioned_symbol_observation_candidates,
 )
 
 
@@ -73,6 +77,159 @@ def test_grounded_observation_rejects_validation_and_diff() -> None:
 
     assert candidates == []
     assert decision["read_only_observations"] == 0
+
+
+def _python_read(symbol: str = "stable") -> list[dict]:
+    return _command_group(
+        "sed -n '1,240p' /testbed/pkg/module.py",
+        f"def {symbol}():\n    return 1\n" + ("# context\n" * 60),
+    )
+
+
+def _symbol_patch(symbol: str | None) -> list[dict]:
+    hunk = f"@@ def {symbol}():" if symbol else "@@"
+    return _command_group(
+        "apply_patch <<'PATCH'\n"
+        "*** Begin Patch\n"
+        "*** Update File: pkg/module.py\n"
+        f"{hunk}\n"
+        "-    return 1\n"
+        "+    return 2\n"
+        "*** End Patch\n"
+        "PATCH"
+    )
+
+
+def test_v45_preserves_only_explicit_same_file_symbol_disjoint_read() -> None:
+    source = _python_read("stable")
+    disjoint_mutation = _symbol_patch("other")
+
+    v40, _ = grounded_observation_candidates([source, disjoint_mutation])
+    v45, decision = versioned_symbol_observation_candidates(
+        [source, disjoint_mutation]
+    )
+
+    assert v40 == []
+    assert v45 == [[source[1]]]
+    assert decision["symbol_disjoint_preservations"] == 1
+    assert decision["candidate_evidence"] == [
+        {
+            "group_index": 0,
+            "paths": ["pkg/module.py"],
+            "symbols": ["stable"],
+            "observation_sha256": tool_observation_sha256(source),
+            "later_mutation_groups": 1,
+            "symbol_disjoint_mutations": 1,
+        }
+    ]
+
+
+def test_v45_same_symbol_or_ambiguous_same_file_write_fails_closed() -> None:
+    source = _python_read("stable")
+
+    same_symbol, same_decision = versioned_symbol_observation_candidates(
+        [source, _symbol_patch("stable")]
+    )
+    ambiguous, ambiguous_decision = versioned_symbol_observation_candidates(
+        [source, _symbol_patch(None)]
+    )
+
+    assert same_symbol == []
+    assert same_decision["version_invalidation_reasons"] == {
+        "same_file_symbol_overlap": 1
+    }
+    assert ambiguous == []
+    assert ambiguous_decision["version_invalidation_reasons"] == {
+        "same_file_symbol_ambiguous": 1
+    }
+
+
+def test_v45_target_guard_closes_cross_request_invalidation_window() -> None:
+    source = _python_read("stable")
+    pending = {
+        "source_observation_sha256": tool_observation_sha256(source),
+        "source_paths": ["pkg/module.py"],
+        "source_symbols": ["stable"],
+    }
+
+    invalid = versioned_evidence_target_guard(
+        pending, [source, _symbol_patch("stable")]
+    )
+    preserved = versioned_evidence_target_guard(
+        pending, [source, _symbol_patch("other")]
+    )
+
+    assert invalid["target_evidence_valid"] is False
+    assert invalid["reason"] == "same_file_symbol_overlap"
+    assert invalid["invalidating_group_index"] == 1
+    assert preserved["target_evidence_valid"] is True
+    assert preserved["symbol_disjoint_mutations"] == 1
+
+
+def test_v45_target_guard_requires_unique_visible_source() -> None:
+    source = _python_read("stable")
+    pending = {
+        "source_observation_sha256": tool_observation_sha256(source),
+        "source_paths": ["pkg/module.py"],
+        "source_symbols": ["stable"],
+    }
+
+    missing = versioned_evidence_target_guard(pending, [])
+    duplicate = versioned_evidence_target_guard(pending, [source, source])
+
+    assert missing["reason"] == "source_observation_not_unique"
+    assert duplicate["reason"] == "source_observation_not_unique"
+    assert duplicate["source_group_matches"] == 2
+
+
+def test_active_v45_does_not_relax_v40_source_admission() -> None:
+    source = _python_read("stable")
+    disjoint_mutation = _symbol_patch("other")
+
+    v40, v40_decision = grounded_observation_candidates(
+        [source, disjoint_mutation]
+    )
+    active_v45, v45_decision = versioned_grounded_observation_candidates(
+        [source, disjoint_mutation]
+    )
+
+    assert active_v45 == v40 == []
+    assert v45_decision["candidate_group_indices"] == v40_decision[
+        "candidate_group_indices"
+    ]
+    assert v45_decision["symbol_relaxation_enabled"] is False
+
+
+def test_active_v45_marks_unlocalized_candidate_without_reordering() -> None:
+    source = _command_group(
+        "rg stable /testbed/pkg",
+        "match without a concrete path " * 30,
+    )
+
+    v40, _ = grounded_observation_candidates([source])
+    active_v45, decision = versioned_grounded_observation_candidates([source])
+
+    assert v40 == [[source[1]]]
+    assert active_v45 == v40 == [[source[1]]]
+    assert decision["unlocalized_candidate_observations"] == 1
+    assert decision["candidate_evidence"][0]["paths"] == []
+
+
+def test_v45_target_guard_detects_shell_redirection_write() -> None:
+    source = _python_read("stable")
+    pending = {
+        "source_observation_sha256": tool_observation_sha256(source),
+        "source_paths": ["pkg/module.py"],
+        "source_symbols": ["stable"],
+    }
+    shell_write = _command_group(
+        "cat > /testbed/pkg/module.py <<'PY'\ndef stable():\n    return 2\nPY"
+    )
+
+    guard = versioned_evidence_target_guard(pending, [source, shell_write])
+
+    assert guard["target_evidence_valid"] is False
+    assert guard["reason"] == "same_file_symbol_overlap"
 
 
 def test_version_graph_removes_stale_file_observation() -> None:

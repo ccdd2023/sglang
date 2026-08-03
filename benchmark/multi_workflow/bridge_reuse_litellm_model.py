@@ -37,6 +37,8 @@ from benchmark.multi_workflow.coding_reuse_policy import (
     repository_commit_phase_event,
     select_failure_memory_groups,
     select_reuse_groups,
+    versioned_evidence_target_guard,
+    versioned_grounded_observation_candidates,
 )
 from benchmark.multi_workflow.context_bounded_litellm_model import (
     ContextBoundedLitellmModel,
@@ -101,6 +103,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_patch_lifecycle_target_v37",
         "coding_commit_phase_dense_v38",
         "coding_grounded_observation_island_v40",
+        "coding_versioned_evidence_guard_v45",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
@@ -387,11 +390,35 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         self._last_message_count = len(messages)
 
     def _target_case(
-        self, target_ids: list[int]
+        self,
+        target_ids: list[int],
+        selected_groups: list[list[dict[str, Any]]] | None = None,
     ) -> tuple[dict[str, Any] | None, list[str]]:
         pending = self._pending_source
+        self._last_target_evidence_guard = {
+            "applied": False,
+            "target_evidence_valid": None,
+            "reason": "not_v45_or_no_pending_source",
+        }
         if pending is None:
             return None, []
+        if self.config.reuse_arm == "coding_versioned_evidence_guard_v45":
+            self._last_target_evidence_guard = versioned_evidence_target_guard(
+                pending,
+                selected_groups or [],
+                allow_symbol_disjoint=False,
+            )
+            if not self._last_target_evidence_guard[
+                "target_evidence_valid"
+            ]:
+                self._record_client(
+                    {
+                        "event": "pending_source_version_invalidated",
+                        "source_id": pending["source_id"],
+                        "evidence_guard": self._last_target_evidence_guard,
+                    }
+                )
+                return None, [str(pending["source_id"])]
         positions = find_sublist(target_ids, pending["segment_ids"])
         if len(positions) != 1:
             self._record_client(
@@ -469,6 +496,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 ),
             }
         grounded_encoded: tuple[list[int], list[int]] | None = None
+        selected_candidate_evidence: dict[str, Any] | None = None
 
         def encoded_groups(
             groups: list[list[dict[str, Any]]],
@@ -483,13 +511,23 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             ).ids
             return ids, find_sublist(prompt_ids, ids)
 
-        if (
-            self.config.reuse_arm
-            == "coding_grounded_observation_island_v40"
+        if self.config.reuse_arm in (
+            "coding_grounded_observation_island_v40",
+            "coding_versioned_evidence_guard_v45",
         ):
-            candidates, decision = grounded_observation_candidates(
-                selected_groups[1:]
-            )
+            if (
+                self.config.reuse_arm
+                == "coding_versioned_evidence_guard_v45"
+            ):
+                candidates, decision = (
+                    versioned_grounded_observation_candidates(
+                        selected_groups[1:]
+                    )
+                )
+            else:
+                candidates, decision = grounded_observation_candidates(
+                    selected_groups[1:]
+                )
             encoded_candidates = [
                 (index, candidate, *encoded_groups([candidate]))
                 for index, candidate in enumerate(candidates)
@@ -524,6 +562,21 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 ][selected[0]],
                 selected_uncapped_tokens=len(selected[2]),
             )
+            if self.config.reuse_arm == (
+                "coding_versioned_evidence_guard_v45"
+            ):
+                selected_candidate_evidence = decision[
+                    "candidate_evidence"
+                ][selected[0]]
+                decision["selected_candidate_evidence"] = (
+                    selected_candidate_evidence
+                )
+                if not selected_candidate_evidence["paths"]:
+                    return None, None, {
+                        **decision,
+                        "source_registered": False,
+                        "skip_reason": "selected_observation_unlocalized",
+                    }
         else:
             eligible, decision = select_reuse_groups(
                 self.config.reuse_arm,
@@ -639,6 +692,14 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             "source_start": source_start,
         }
         pending = {**source, "segment_ids": segment_ids}
+        if selected_candidate_evidence is not None:
+            pending.update(
+                source_observation_sha256=selected_candidate_evidence[
+                    "observation_sha256"
+                ],
+                source_paths=selected_candidate_evidence["paths"],
+                source_symbols=selected_candidate_evidence["symbols"],
+            )
         return (
             source,
             pending,
@@ -764,7 +825,10 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             "risk_reasons": [],
         }
         if self.config.reuse_arm not in DENSE_REUSE_ARMS:
-            target, releases = self._target_case(prompt_ids)
+            target, releases = self._target_case(
+                prompt_ids,
+                selected_groups=selected_groups,
+            )
             target, releases, target_guard = apply_current_target_veto(
                 arm=self.config.reuse_arm,
                 selected_groups=selected_groups,
@@ -776,6 +840,13 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 prompt_ids=prompt_ids,
                 selected_groups=selected_groups,
             )
+            if (
+                self.config.reuse_arm
+                == "coding_versioned_evidence_guard_v45"
+            ):
+                policy_decision["target_evidence_guard"] = (
+                    self._last_target_evidence_guard
+                )
             if self.config.reuse_arm in TARGET_VETO_ARMS:
                 dense_veto_mode = (
                     "commit_phase_target_dense_veto"

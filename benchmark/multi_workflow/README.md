@@ -8,8 +8,18 @@ Use this index instead of treating all `run_v*.py` files as active.
 
 ## Active implementation and latest campaign
 
-- `coding_reuse_policy.py`: policy definitions; V40 candidate classification.
-- `bridge_reuse_litellm_model.py`: rolling-history source/target adapter.
+- `coding_reuse_policy.py`: V40 source classification and the experimental
+  V45 target-time file-version guard.
+- `bridge_reuse_litellm_model.py`: rolling-history source/target adapter;
+  `coding_versioned_evidence_guard_v45` is the active V45 development arm.
+- `motivate_v45_versioned_evidence.py`: answer-blind audit of V45's two
+  proposed mechanisms on frozen V40 trajectories. The audit found a real
+  cross-request invalidation gap but no symbol-disjoint reuse opportunity, so
+  the active arm keeps the guard and does not enable symbol relaxation.
+- `audit_v45_selected_target_guard.py`: production-tokenizer replay through
+  the real V40/V45 planners. The strict rerun verified identical prompts and
+  shared token segments, 203 V40 targets versus 183 V45 targets, and eight
+  runtime-eligible V40 targets removed after a newly visible same-file write.
 - `motivate_v40_grounded_observation_island.py`: V40 motivation analysis.
 - `run_v44_dense_sensitive_v40_campaign.py`: latest frozen campaign.
 - `summarize_v44_schema_compat.py`: narrowly scoped post-treatment summary
@@ -27,6 +37,12 @@ test_audit_v43_call_budget_collapse.py
 test_v44_dense_sensitive_v40_campaign.py
 test_summarize_v44_schema_compat.py
 ```
+
+The V45 audits are policy/planner results, not latency or accuracy results.
+The combined symbol proposal failed; the narrowed guard-only planner passed
+its amended gates and is eligible for a separately registered GPU canary. No
+V45 GPU result exists yet. See
+`docs/kvflow/CODING_AWARE_V45_DEVELOPMENT_20260803.md`.
 
 ## Active three-method coding comparison
 

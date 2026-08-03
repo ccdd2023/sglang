@@ -8,6 +8,7 @@ concrete software-engineering risk signal.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from typing import Any, Sequence, TypeVar
@@ -91,6 +92,19 @@ _PATCH_PATH = re.compile(
     r"(?m)^\*\*\* (?:Update|Add|Delete) File:\s*(\S+)"
     r"|^diff --git a/(\S+) b/(\S+)"
 )
+_PYTHON_DECLARATION = re.compile(
+    r"(?m)(?:^|<output>)\s*"
+    r"(?:async\s+def|def|class)\s+([A-Za-z_]\w*)\b"
+)
+_PATCH_HUNK_SYMBOL = re.compile(
+    r"(?m)^@@[^\n]*\b(?:async\s+def|def|class)\s+([A-Za-z_]\w*)\b"
+)
+_READ_QUERY_SYMBOL = re.compile(
+    r"(?:^|&&\s*|;\s*|\|\|\s*)"
+    r"(?:rg|grep)\b(?:\s+--?[^\s]+)*\s+"
+    r"[\"']?([A-Za-z_]\w*)[\"']?",
+    re.I,
+)
 
 
 def _tool_command(message: dict[str, Any]) -> str:
@@ -105,6 +119,127 @@ def _tool_command(message: dict[str, Any]) -> str:
         if isinstance(arguments, dict) and arguments.get("command") is not None:
             return str(arguments["command"])
     return ""
+
+
+def tool_observation_sha256(group: Sequence[dict[str, Any]]) -> str:
+    """Return a stable identity for the tool-only evidence in one turn."""
+
+    tool_messages = [
+        {
+            "role": str(message.get("role") or ""),
+            "content": str(message.get("content") or ""),
+        }
+        for message in group
+        if message.get("role") == "tool"
+    ]
+    payload = json.dumps(
+        tool_messages,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _declared_symbols(value: str) -> set[str]:
+    return {
+        *(_PYTHON_DECLARATION.findall(value)),
+        *(_PATCH_HUNK_SYMBOL.findall(value)),
+    }
+
+
+def repository_observation_symbols(
+    group: Sequence[dict[str, Any]],
+) -> set[str]:
+    """Extract answer-blind symbol provenance from a read observation.
+
+    Full or partial Python reads contribute visible ``def``/``class`` names.
+    Focused ``rg``/``grep`` commands contribute their identifier query.  The
+    extractor deliberately does not infer call graphs or consult repository
+    state that was not already visible to the agent.
+    """
+
+    commands = "\n".join(
+        command
+        for message in group
+        if (command := _tool_command(message))
+    )
+    observations = "\n".join(
+        str(message.get("content") or "")
+        for message in group
+        if message.get("role") == "tool"
+    )
+    symbols = _declared_symbols(observations)
+    symbols.update(_READ_QUERY_SYMBOL.findall(commands))
+    return symbols
+
+
+def repository_mutation_symbols(
+    group: Sequence[dict[str, Any]],
+) -> set[str]:
+    """Extract only explicit symbol names from an online-visible mutation."""
+
+    commands = "\n".join(
+        command
+        for message in group
+        if (command := _tool_command(message))
+    )
+    return _declared_symbols(commands)
+
+
+def _mutation_effect_on_evidence(
+    *,
+    source_paths: set[str],
+    source_symbols: set[str],
+    mutation: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    """Classify one later mutation against an earlier observation.
+
+    A symbol-disjoint exception is allowed only for one localized source file
+    and explicit symbols on both sides.  Every ambiguity preserves V40's
+    file-level fail-closed behavior.
+    """
+
+    changed_paths = repository_paths(mutation)
+    changed_symbols = repository_mutation_symbols(mutation)
+    if not source_paths or not changed_paths:
+        return {
+            "invalidates": True,
+            "reason": "unlocalized_repository_mutation",
+            "changed_paths": sorted(changed_paths),
+            "changed_symbols": sorted(changed_symbols),
+        }
+    overlap = source_paths & changed_paths
+    if not overlap:
+        return {
+            "invalidates": False,
+            "reason": "path_disjoint_mutation",
+            "changed_paths": sorted(changed_paths),
+            "changed_symbols": sorted(changed_symbols),
+        }
+    if (
+        len(source_paths) == 1
+        and len(overlap) == 1
+        and source_symbols
+        and changed_symbols
+        and source_symbols.isdisjoint(changed_symbols)
+    ):
+        return {
+            "invalidates": False,
+            "reason": "same_file_symbol_disjoint_mutation",
+            "changed_paths": sorted(changed_paths),
+            "changed_symbols": sorted(changed_symbols),
+        }
+    return {
+        "invalidates": True,
+        "reason": (
+            "same_file_symbol_overlap"
+            if source_symbols & changed_symbols
+            else "same_file_symbol_ambiguous"
+        ),
+        "changed_paths": sorted(changed_paths),
+        "changed_symbols": sorted(changed_symbols),
+    }
 
 
 def repository_paths(group: Sequence[dict[str, Any]]) -> set[str]:
@@ -438,6 +573,213 @@ def grounded_observation_candidates(
         "latest_group_protected": False,
         "risk_reasons": [],
     }
+
+
+def versioned_symbol_observation_candidates(
+    retained_groups: Sequence[Sequence[dict[str, Any]]],
+) -> tuple[list[list[dict[str, Any]]], dict[str, Any]]:
+    """Return V45 read observations with explicit versioned provenance.
+
+    V45 retains V40's file-level fail-closed rule, except when both the read
+    and a later same-file mutation name explicit, disjoint Python symbols.
+    Candidate evidence is emitted in the same order as ``candidates`` so the
+    bridge can bind a cached token span to its file-version evidence.
+    """
+
+    candidates: list[list[dict[str, Any]]] = []
+    evidence: list[dict[str, Any]] = []
+    read_only = 0
+    invalidated = 0
+    invalidation_reasons: dict[str, int] = {}
+    symbol_disjoint_preservations = 0
+    for index, group in enumerate(retained_groups):
+        if not is_successful_readonly_evidence(group):
+            continue
+        read_only += 1
+        source_paths = repository_paths(group)
+        source_symbols = repository_observation_symbols(group)
+        invalidating_effect: dict[str, Any] | None = None
+        candidate_symbol_disjoint = 0
+        later_mutations = 0
+        for later in retained_groups[index + 1 :]:
+            if (
+                "repository_mutation_command"
+                not in critical_coding_event_reasons(later)
+            ):
+                continue
+            later_mutations += 1
+            effect = _mutation_effect_on_evidence(
+                source_paths=source_paths,
+                source_symbols=source_symbols,
+                mutation=later,
+            )
+            if effect["invalidates"]:
+                invalidating_effect = effect
+                break
+            if effect["reason"] == "same_file_symbol_disjoint_mutation":
+                candidate_symbol_disjoint += 1
+        if invalidating_effect is not None:
+            invalidated += 1
+            reason = str(invalidating_effect["reason"])
+            invalidation_reasons[reason] = (
+                invalidation_reasons.get(reason, 0) + 1
+            )
+            continue
+        tool_messages = [
+            message for message in group if message.get("role") == "tool"
+        ]
+        if not tool_messages:
+            continue
+        candidates.append(tool_messages)
+        evidence.append(
+            {
+                "group_index": index,
+                "paths": sorted(source_paths),
+                "symbols": sorted(source_symbols),
+                "observation_sha256": tool_observation_sha256(group),
+                "later_mutation_groups": later_mutations,
+                "symbol_disjoint_mutations": candidate_symbol_disjoint,
+            }
+        )
+        symbol_disjoint_preservations += candidate_symbol_disjoint
+    return candidates, {
+        "mode": "versioned_symbol_observation_island_v45",
+        "retained_groups_after_roll": len(retained_groups),
+        "read_only_observations": read_only,
+        "version_invalidated_observations": invalidated,
+        "version_invalidation_reasons": invalidation_reasons,
+        "symbol_disjoint_preservations": symbol_disjoint_preservations,
+        "eligible_observations": len(candidates),
+        "candidate_group_indices": [item["group_index"] for item in evidence],
+        "candidate_evidence": evidence,
+        "assistant_tokens_selected": 0,
+        "latest_group_protected": False,
+        "risk_reasons": [],
+    }
+
+
+def versioned_grounded_observation_candidates(
+    retained_groups: Sequence[Sequence[dict[str, Any]]],
+) -> tuple[list[list[dict[str, Any]]], dict[str, Any]]:
+    """Bind V40's unchanged candidates to evidence for V45 target checks.
+
+    The offline V45 motivation audit found no same-file, symbol-disjoint
+    opportunity in the frozen V40 trajectories.  The active V45 arm therefore
+    preserves V40's candidate order and adds target-time version validation.
+    Path localization is attached to every candidate so the bridge can
+    abstain after making the same selection as V40; it must not silently pick
+    a different runner-up. Symbol extraction remains telemetry, not an
+    admission rule.
+    """
+
+    candidates, decision = grounded_observation_candidates(retained_groups)
+    evidence = []
+    unlocalized = 0
+    for candidate, index in zip(
+        candidates, decision["candidate_group_indices"], strict=True
+    ):
+        del candidate
+        group = retained_groups[index]
+        paths = sorted(repository_paths(group))
+        if not paths:
+            unlocalized += 1
+        evidence.append(
+            {
+                "group_index": index,
+                "paths": paths,
+                "symbols": sorted(repository_observation_symbols(group)),
+                "observation_sha256": tool_observation_sha256(group),
+            }
+        )
+    return candidates, {
+        **decision,
+        "mode": "versioned_grounded_observation_guard_v45",
+        "candidate_evidence": evidence,
+        "unlocalized_candidate_observations": unlocalized,
+        "symbol_relaxation_enabled": False,
+    }
+
+
+def versioned_evidence_target_guard(
+    pending: dict[str, Any],
+    retained_groups: Sequence[Sequence[dict[str, Any]]],
+    *,
+    allow_symbol_disjoint: bool = True,
+) -> dict[str, Any]:
+    """Revalidate pending V45 evidence against newly completed mutations.
+
+    Source selection validates only the groups visible on that request.  This
+    target-time guard closes the next-request window: it finds the original
+    observation in the current rolling context and checks every later write.
+    Missing, duplicated, or unlocalized evidence fails closed.
+    """
+
+    expected_hash = str(pending.get("source_observation_sha256") or "")
+    source_paths = {str(value) for value in pending.get("source_paths") or ()}
+    source_symbols = {
+        str(value) for value in pending.get("source_symbols") or ()
+    }
+    matches = [
+        index
+        for index, group in enumerate(retained_groups)
+        if expected_hash and tool_observation_sha256(group) == expected_hash
+    ]
+    result: dict[str, Any] = {
+        "applied": True,
+        "target_evidence_valid": False,
+        "reason": "source_observation_not_unique",
+        "source_group_matches": len(matches),
+        "source_group_index": matches[0] if len(matches) == 1 else None,
+        "later_mutation_groups": 0,
+        "symbol_disjoint_mutations": 0,
+        "source_paths": sorted(source_paths),
+        "source_symbols": sorted(source_symbols),
+    }
+    if len(matches) != 1 or not source_paths:
+        return result
+
+    source_index = matches[0]
+    for later_index, later in enumerate(
+        retained_groups[source_index + 1 :], start=source_index + 1
+    ):
+        if not repository_commit_phase_event(later):
+            continue
+        result["later_mutation_groups"] += 1
+        effect = _mutation_effect_on_evidence(
+            source_paths=source_paths,
+            source_symbols=source_symbols,
+            mutation=later,
+        )
+        if effect["reason"] == "same_file_symbol_disjoint_mutation":
+            result["symbol_disjoint_mutations"] += 1
+            if not allow_symbol_disjoint:
+                result.update(
+                    {
+                        "reason": "same_file_symbol_disjoint_not_enabled",
+                        "invalidating_group_index": later_index,
+                        "changed_paths": effect["changed_paths"],
+                        "changed_symbols": effect["changed_symbols"],
+                    }
+                )
+                return result
+        if effect["invalidates"]:
+            result.update(
+                {
+                    "reason": effect["reason"],
+                    "invalidating_group_index": later_index,
+                    "changed_paths": effect["changed_paths"],
+                    "changed_symbols": effect["changed_symbols"],
+                }
+            )
+            return result
+
+    result.update(
+        {
+            "target_evidence_valid": True,
+            "reason": "version_evidence_valid",
+        }
+    )
+    return result
 
 
 def is_successful_executable_evidence(
