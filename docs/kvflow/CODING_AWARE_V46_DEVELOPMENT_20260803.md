@@ -88,6 +88,30 @@ KVCOMM copies roughly 18K tokens per target in a different native graph and
 prompt protocol, so its much larger speedup is descriptive until a common
 prompt/backend comparison exists.
 
+## Full speed and accuracy follow-up
+
+The subsequent 50-case RepoBench-P run completed 150/150 physical copies with
+zero fallback. V46 measured 1.326x cache-ready speedup, 1.050x at N=4 including
+source construction, and 1.244x at N=16. CacheBlend remained faster when
+cache-ready (1.501x), was slower at N=4 including build (0.827x), and tied by
+N=16 (1.247x). Both V46 and CacheBlend produced 4/50 exact lines, one below
+their native Dense lanes. V46 code similarity rose from 49.99% to 52.54%; that
+average hides one Dense exact-pass loss.
+
+The official Dense-pass preservation characterization is negative. Of the
+three frozen V44 tasks solved by Dense and V40, V46 resolves two. It resolves
+`astropy__astropy-7671` without an actual target copy and resolves
+`scikit-learn__scikit-learn-10297` after 33 copies, but fails
+`pytest-dev__pytest-10051` after 54 copies. All runs have zero target fallback
+and nonempty patches. Therefore the damage is not a missing-source or
+submission artifact.
+
+The planned full-12 promotion run was not started because its registered
+combined canary failed official accuracy. The appropriate next experiment is
+an answer-blind quality guard that reduces simultaneous islands or total copy
+budget on risky coding states, followed by the same Dense-pass preservation
+gate.
+
 ## Next admissible experiment
 
 Run a frozen multi-task SWE-bench cohort with paired Dense and V46 under the

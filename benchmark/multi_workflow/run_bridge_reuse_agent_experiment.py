@@ -165,6 +165,7 @@ def prepare(output: Path) -> dict[str, Any]:
     if (output / "RUN_REGISTRATION.json").exists():
         return read_json(output / "RUN_REGISTRATION.json")
     frozen = read_json(REGISTRATION)
+    instance_count = len(frozen["instances"])
     value = {
         "registration_id": output.name,
         "registered_at_utc": utc_now(),
@@ -283,7 +284,7 @@ def prepare(output: Path) -> dict[str, Any]:
             "instances": [
                 row["instance_id"] for row in frozen["instances"]
             ],
-            "count": len(frozen["instances"]),
+            "count": instance_count,
             "snapshot_sha256": sha256(SNAPSHOT),
         },
         "frozen_protocol": {
@@ -339,7 +340,9 @@ def prepare(output: Path) -> dict[str, Any]:
             "ordinary_radix_prefix_reuse": False,
         },
         "metrics": {
-            "primary_accuracy": "official SWE-bench resolved / 18",
+            "primary_accuracy": (
+                f"official SWE-bench resolved / {instance_count}"
+            ),
             "primary_speed": (
                 "streaming TTFT and request wall time relative to rolling Dense"
             ),
@@ -380,8 +383,8 @@ def prepare(output: Path) -> dict[str, Any]:
             ),
         },
         "reporting_rule": (
-            "No SOTA claim until all three 18-task arms have official final "
-            "accuracy and directly comparable speed telemetry."
+            "No SOTA claim until every registered comparison arm has official "
+            "final accuracy and directly comparable speed telemetry."
         ),
         "source_sha256": {
             str(path.relative_to(PROJECT)): sha256(path)
