@@ -105,6 +105,17 @@ _READ_QUERY_SYMBOL = re.compile(
     r"[\"']?([A-Za-z_]\w*)[\"']?",
     re.I,
 )
+_OBSERVED_REPOSITORY_FILE = re.compile(
+    r"(?<![A-Za-z0-9_.-])"
+    r"((?:/testbed/|\./|a/|b/)?"
+    r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*"
+    r"\.(?:py|pyi|toml|yaml|yml|json|rst|md|cfg|ini|txt))\b"
+)
+_REPOSITORY_SCOPE_SEARCH = re.compile(
+    r"(?:^|&&\s*|;\s*|\|\|\s*)find\s+"
+    r"|\bgrep\b[^\n;&|]*(?:\s-[A-Za-z]*[rR][A-Za-z]*\b|--recursive\b)",
+    re.I,
+)
 
 
 def _tool_command(message: dict[str, Any]) -> str:
@@ -139,6 +150,69 @@ def tool_observation_sha256(group: Sequence[dict[str, Any]]) -> str:
         sort_keys=True,
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def coding_group_sha256(group: Sequence[dict[str, Any]]) -> str:
+    """Return an identity for one online-visible assistant/tool turn."""
+
+    payload = json.dumps(
+        list(group),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _normalize_observed_repository_path(value: str) -> str:
+    value = value.strip()
+    if value.startswith("/testbed/"):
+        return value[len("/testbed/") :]
+    if value.startswith("./"):
+        return value[2:]
+    if value.startswith(("a/", "b/")):
+        return value[2:]
+    return value
+
+
+def observed_repository_path_provenance(
+    group: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    """Extract literal path dependencies from one visible coding turn.
+
+    V45 originally localized evidence from the command alone.  V46 also uses
+    paths printed by that command, for example ``find`` results or diff
+    headers.  Recursive searches depend on the repository scope rather than
+    only on files that happened to match, so any subsequent repository write
+    invalidates them.
+    """
+
+    commands = "\n".join(
+        command
+        for message in group
+        if (command := _tool_command(message))
+    )
+    observations = "\n".join(
+        str(message.get("content") or "")
+        for message in group
+        if message.get("role") == "tool"
+    )
+    command_paths = repository_paths(group)
+    literal_paths = {
+        _normalize_observed_repository_path(match.group(1))
+        for match in _OBSERVED_REPOSITORY_FILE.finditer(
+            commands + "\n" + observations
+        )
+    }
+    paths = {value for value in command_paths | literal_paths if value}
+    return {
+        "paths": sorted(paths),
+        "command_paths": sorted(command_paths),
+        "observation_added_paths": sorted(paths - command_paths),
+        "repository_scope_dependency": bool(
+            _REPOSITORY_SCOPE_SEARCH.search(commands)
+        ),
+    }
 
 
 def _declared_symbols(value: str) -> set[str]:
@@ -777,6 +851,185 @@ def versioned_evidence_target_guard(
         {
             "target_evidence_valid": True,
             "reason": "version_evidence_valid",
+        }
+    )
+    return result
+
+
+def versioned_observed_path_candidates(
+    retained_groups: Sequence[Sequence[dict[str, Any]]],
+) -> tuple[list[list[dict[str, Any]]], dict[str, Any]]:
+    """Return read-only observations with online-visible path provenance.
+
+    Direct reads retain V45's file-version check. Directory-wide ``find`` or
+    recursive ``grep`` results are treated as repository-scope evidence and
+    fail closed after any later repository mutation. Assistant reasoning and
+    future groups are never selected.
+    """
+
+    candidates: list[list[dict[str, Any]]] = []
+    evidence: list[dict[str, Any]] = []
+    read_only = 0
+    invalidated = 0
+    unlocalized = 0
+    observed_path_candidates = 0
+    repository_scope_candidates = 0
+    for index, group in enumerate(retained_groups):
+        if not is_successful_readonly_evidence(group):
+            continue
+        read_only += 1
+        provenance = observed_repository_path_provenance(group)
+        source_paths = set(provenance["paths"])
+        if not source_paths:
+            unlocalized += 1
+            continue
+        source_symbols = repository_observation_symbols(group)
+        invalidating_reason: str | None = None
+        for later in retained_groups[index + 1 :]:
+            if not repository_commit_phase_event(later):
+                continue
+            if provenance["repository_scope_dependency"]:
+                invalidating_reason = "repository_scope_mutated"
+                break
+            effect = _mutation_effect_on_evidence(
+                source_paths=source_paths,
+                source_symbols=source_symbols,
+                mutation=later,
+            )
+            if effect["invalidates"] or effect["reason"] == (
+                "same_file_symbol_disjoint_mutation"
+            ):
+                invalidating_reason = str(effect["reason"])
+                break
+        if invalidating_reason is not None:
+            invalidated += 1
+            continue
+        tool_messages = [
+            message for message in group if message.get("role") == "tool"
+        ]
+        if not tool_messages:
+            continue
+        candidates.append(tool_messages)
+        evidence.append(
+            {
+                "group_index": index,
+                "group_sha256": coding_group_sha256(group),
+                "paths": sorted(source_paths),
+                "symbols": sorted(source_symbols),
+                "observation_sha256": tool_observation_sha256(group),
+                "path_provenance": provenance,
+            }
+        )
+        if provenance["observation_added_paths"]:
+            observed_path_candidates += 1
+        if provenance["repository_scope_dependency"]:
+            repository_scope_candidates += 1
+    return candidates, {
+        "mode": "observed_path_version_guard_v46",
+        "retained_groups_after_roll": len(retained_groups),
+        "read_only_observations": read_only,
+        "version_invalidated_observations": invalidated,
+        "unlocalized_candidate_observations": unlocalized,
+        "eligible_observations": len(candidates),
+        "candidate_group_indices": [item["group_index"] for item in evidence],
+        "candidate_evidence": evidence,
+        "observation_path_candidates": observed_path_candidates,
+        "repository_scope_candidates": repository_scope_candidates,
+        "assistant_tokens_selected": 0,
+        "latest_group_protected": False,
+        "risk_reasons": [],
+        "symbol_relaxation_enabled": False,
+    }
+
+
+def observed_path_target_guard(
+    pending: dict[str, Any],
+    retained_groups: Sequence[Sequence[dict[str, Any]]],
+) -> dict[str, Any]:
+    """Revalidate one V46 observation by group identity and path version."""
+
+    expected_group = str(pending.get("source_group_sha256") or "")
+    expected_observation = str(
+        pending.get("source_observation_sha256") or ""
+    )
+    source_paths = {
+        str(value) for value in pending.get("source_paths") or ()
+    }
+    source_symbols = {
+        str(value) for value in pending.get("source_symbols") or ()
+    }
+    group_matches = [
+        index
+        for index, group in enumerate(retained_groups)
+        if expected_group and coding_group_sha256(group) == expected_group
+    ]
+    result: dict[str, Any] = {
+        "applied": True,
+        "target_evidence_valid": False,
+        "reason": "source_group_identity_not_unique",
+        "source_group_matches": len(group_matches),
+        "source_group_index": (
+            group_matches[0] if len(group_matches) == 1 else None
+        ),
+        "later_mutation_groups": 0,
+        "source_paths": sorted(source_paths),
+        "source_symbols": sorted(source_symbols),
+        "repository_scope_dependency": bool(
+            pending.get("repository_scope_dependency", False)
+        ),
+    }
+    if len(group_matches) != 1 or not source_paths:
+        return result
+
+    source_index = group_matches[0]
+    if tool_observation_sha256(retained_groups[source_index]) != (
+        expected_observation
+    ):
+        result["reason"] = "source_group_observation_mismatch"
+        return result
+    for later_index, later in enumerate(
+        retained_groups[source_index + 1 :], start=source_index + 1
+    ):
+        if not repository_commit_phase_event(later):
+            continue
+        result["later_mutation_groups"] += 1
+        if result["repository_scope_dependency"]:
+            result.update(
+                {
+                    "reason": "repository_scope_mutated",
+                    "invalidating_group_index": later_index,
+                }
+            )
+            return result
+        effect = _mutation_effect_on_evidence(
+            source_paths=source_paths,
+            source_symbols=source_symbols,
+            mutation=later,
+        )
+        if effect["reason"] == "same_file_symbol_disjoint_mutation":
+            result.update(
+                {
+                    "reason": "same_file_symbol_disjoint_not_enabled",
+                    "invalidating_group_index": later_index,
+                    "changed_paths": effect["changed_paths"],
+                    "changed_symbols": effect["changed_symbols"],
+                }
+            )
+            return result
+        if effect["invalidates"]:
+            result.update(
+                {
+                    "reason": effect["reason"],
+                    "invalidating_group_index": later_index,
+                    "changed_paths": effect["changed_paths"],
+                    "changed_symbols": effect["changed_symbols"],
+                }
+            )
+            return result
+    result.update(
+        {
+            "target_evidence_valid": True,
+            "reason": "observed_path_version_evidence_valid",
         }
     )
     return result

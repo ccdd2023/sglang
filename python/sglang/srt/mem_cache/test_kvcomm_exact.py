@@ -178,6 +178,95 @@ def test_shifted_controller_materializes_and_commits_middle_span():
         allocator.cache.values[0][owned_source],
     )
     controller.finish_request(target_req)
+
+
+def test_target_bundle_copies_three_dense_regions_in_order():
+    source_a = (1, 11, 12, 2)
+    source_b = (3, 21, 22, 4)
+    target = (9, 8, 11, 12, 7, 6, 21, 22, 5)
+
+    def bundled_case(
+        *,
+        case_id: str,
+        source: tuple[int, ...],
+        target_start: int,
+        content_hash: str,
+    ) -> ExactMiddleCase:
+        return ExactMiddleCase(
+            case_id=case_id,
+            source_id=case_id,
+            source_prompt_hash=token_ids_hash(source),
+            target_prompt_hash=token_ids_hash(target),
+            segment_token_hash=token_ids_hash(source[1:3]),
+            source_prefix_token_hash=token_ids_hash(source[:1]),
+            target_prefix_token_hash=token_ids_hash(target[:target_start]),
+            source_start=1,
+            target_start=target_start,
+            length=2,
+            content_hash=content_hash,
+            allow_shifted_copy=True,
+            policy_label="coding_observed_path_pool_v46",
+            target_uses=1,
+            target_group_id="target-bundle",
+        )
+
+    manager = KVCommManager(KVCommFeatureConfig(core_enabled=True))
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source_a)] = torch.arange(len(source_a))
+    pool.req_to_token[1, : len(source_b)] = torch.arange(4, 8)
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=(
+            bundled_case(
+                case_id="source-a",
+                source=source_a,
+                target_start=2,
+                content_hash="segment-a",
+            ),
+            bundled_case(
+                case_id="source-b",
+                source=source_b,
+                target_start=6,
+                content_hash="segment-b",
+            ),
+        ),
+    )
+    first = controller.maybe_materialize_source(_req(source_a, pool_index=0))
+    second = controller.maybe_materialize_source(_req(source_b, pool_index=1))
+    assert first is not None and second is not None
+
+    request = _req(target, pool_index=2)
+    state = controller.maybe_attach_target(request)
+    assert state is not None and len(state.cases) == 2
+    assert controller.stage_prefix_length(request) == 2
+    request.prefix_indices = torch.tensor((30, 31))
+    assert controller.stage_prefix_length(request) == 0
+    assert controller.copy_into_request(request) is not None
+    assert state.phase == ExactMiddlePhase.DENSE_PREFIX
+    assert state.island_index == 1
+    assert controller.stage_prefix_length(request) == 2
+    request.prefix_indices = torch.cat(
+        (request.prefix_indices, torch.tensor((32, 33)))
+    )
+    assert controller.stage_prefix_length(request) == 0
+    assert controller.copy_into_request(request) is not None
+    assert state.phase == ExactMiddlePhase.DENSE_SUFFIX
+    assert len(request.prefix_indices) == 8
+    assert torch.equal(
+        allocator.cache.values[0][pool.req_to_token[2, 2:4].long()],
+        allocator.cache.values[0][first.backend_ref.indices],
+    )
+    assert torch.equal(
+        allocator.cache.values[0][pool.req_to_token[2, 6:8].long()],
+        allocator.cache.values[0][second.backend_ref.indices],
+    )
+    controller.finish_request(request)
     assert controller.manager.store.lease_count == 0
 
 

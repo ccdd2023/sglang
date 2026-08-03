@@ -11,6 +11,8 @@ from benchmark.multi_workflow.coding_reuse_policy import (
     is_low_value_search_miss,
     is_successful_readonly_evidence,
     latest_group_risk_reasons,
+    observed_path_target_guard,
+    observed_repository_path_provenance,
     post_mutation_payoff_guard,
     select_failure_memory_groups,
     select_reuse_groups,
@@ -18,8 +20,52 @@ from benchmark.multi_workflow.coding_reuse_policy import (
     tool_observation_sha256,
     versioned_evidence_target_guard,
     versioned_grounded_observation_candidates,
+    versioned_observed_path_candidates,
     versioned_symbol_observation_candidates,
 )
+
+
+def test_v46_observed_search_paths_are_repository_scoped() -> None:
+    search = _command_group(
+        'find /testbed -name "*.py" | head -20',
+        "/testbed/pkg/module.py\n" * 40,
+    )
+
+    provenance = observed_repository_path_provenance(search)
+    candidates, decision = versioned_observed_path_candidates([search])
+
+    assert provenance["paths"] == ["pkg/module.py"]
+    assert provenance["observation_added_paths"] == ["pkg/module.py"]
+    assert provenance["repository_scope_dependency"] is True
+    assert candidates == [[search[1]]]
+    assert decision["observation_path_candidates"] == 1
+    assert decision["repository_scope_candidates"] == 1
+
+
+def test_v46_repository_scope_guard_rejects_disjoint_later_write() -> None:
+    search = _command_group(
+        'grep -r "needle" /testbed/pkg',
+        "/testbed/pkg/module.py:needle\n" * 40,
+    )
+    mutation = _command_group(
+        "python -c \"open('/testbed/other/file.py', 'w').write('x')\""
+    )
+    _, decision = versioned_observed_path_candidates([search])
+    evidence = decision["candidate_evidence"][0]
+
+    guard = observed_path_target_guard(
+        {
+            "source_group_sha256": evidence["group_sha256"],
+            "source_observation_sha256": evidence["observation_sha256"],
+            "source_paths": evidence["paths"],
+            "source_symbols": evidence["symbols"],
+            "repository_scope_dependency": True,
+        },
+        [search, mutation],
+    )
+
+    assert guard["target_evidence_valid"] is False
+    assert guard["reason"] == "repository_scope_mutated"
 
 
 def _command_group(command: str, output: str = "") -> list[dict]:

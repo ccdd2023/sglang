@@ -27,18 +27,21 @@ from minisweagent.models.utils.actions_toolcall import BASH_TOOL
 from pydantic import Field, model_validator
 
 from benchmark.multi_workflow.coding_reuse_policy import (
+    coding_group_sha256,
     coding_patch_lifecycle_target_reasons,
     coding_state_transition_target_reasons,
     coding_version_validation_target_reasons,
     critical_coding_event_reasons,
     effective_copy_cap,
     grounded_observation_candidates,
+    observed_path_target_guard,
     post_mutation_payoff_guard,
     repository_commit_phase_event,
     select_failure_memory_groups,
     select_reuse_groups,
     versioned_evidence_target_guard,
     versioned_grounded_observation_candidates,
+    versioned_observed_path_candidates,
 )
 from benchmark.multi_workflow.context_bounded_litellm_model import (
     ContextBoundedLitellmModel,
@@ -104,6 +107,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_commit_phase_dense_v38",
         "coding_grounded_observation_island_v40",
         "coding_versioned_evidence_guard_v45",
+        "coding_observed_path_pool_v46",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
@@ -218,6 +222,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         self._session_index = 0
         self._last_message_count = 0
         self._pending_source: dict[str, Any] | None = None
+        self._pending_sources: dict[str, dict[str, Any]] = {}
         self._commit_phase_latched = False
         self._last_stream_stats: dict[str, Any] = {}
         if self.config.reuse_arm not in DENSE_REUSE_ARMS:
@@ -375,7 +380,10 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
 
     def _new_session_if_needed(self, messages: list[dict[str, Any]]) -> None:
         if len(messages) <= 2 or len(messages) < self._last_message_count:
-            release = []
+            release = [
+                str(source["source_id"])
+                for source in getattr(self, "_pending_sources", {}).values()
+            ]
             if self._pending_source is not None:
                 release.append(str(self._pending_source["source_id"]))
             if (
@@ -384,6 +392,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             ):
                 self._atomic_sidecar_update(release_source_ids=release)
             self._pending_source = None
+            self._pending_sources = {}
             self._commit_phase_latched = False
             self._session_index += 1
             self._request_index = 0
@@ -455,6 +464,338 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             "target_start": target_start,
             "target_uses": 1,
         }, []
+
+    def _group_token_span(
+        self,
+        prompt_ids: list[int],
+        group: list[dict[str, Any]],
+    ) -> tuple[int, int] | None:
+        literal = "".join(
+            self._render_message_literal(message) for message in group
+        )
+        group_ids = self._tokenizer.encode(
+            literal, add_special_tokens=False
+        ).ids
+        positions = find_sublist(prompt_ids, group_ids)
+        if len(positions) != 1:
+            return None
+        return positions[0], positions[0] + len(group_ids)
+
+    @staticmethod
+    def _v46_pool_key(row: dict[str, Any]) -> str:
+        return ":".join(
+            (
+                str(row["source_group_sha256"]),
+                ",".join(row["source_paths"]),
+                str(row["segment_token_hash"]),
+            )
+        )
+
+    def _v46_target_cases(
+        self,
+        *,
+        prompt_ids: list[int],
+        selected_groups: list[list[dict[str, Any]]],
+    ) -> tuple[
+        list[dict[str, Any]],
+        list[str],
+        list[dict[str, Any]],
+        dict[str, dict[str, Any]],
+    ]:
+        pool = dict(getattr(self, "_pending_sources", {}))
+        target_rows: list[dict[str, Any]] = []
+        releases: list[str] = []
+        guards: list[dict[str, Any]] = []
+        for key, handle in list(pool.items()):
+            guard = observed_path_target_guard(handle, selected_groups)
+            guards.append(
+                {
+                    "pool_key": key,
+                    "source_id": handle["source_id"],
+                    **guard,
+                }
+            )
+            if not guard["target_evidence_valid"]:
+                releases.append(str(handle["source_id"]))
+                pool.pop(key, None)
+                continue
+            group = selected_groups[int(guard["source_group_index"])]
+            group_span = self._group_token_span(prompt_ids, group)
+            if group_span is None:
+                releases.append(str(handle["source_id"]))
+                pool.pop(key, None)
+                guard.update(
+                    target_evidence_valid=False,
+                    reason="target_group_token_span_not_unique",
+                )
+                continue
+            positions = find_sublist(prompt_ids, handle["segment_ids"])
+            left, right = group_span
+            inside = [
+                start
+                for start in positions
+                if start >= left
+                and start + len(handle["segment_ids"]) <= right
+            ]
+            if len(inside) != 1:
+                releases.append(str(handle["source_id"]))
+                pool.pop(key, None)
+                guard.update(
+                    target_evidence_valid=False,
+                    reason="target_segment_not_unique_inside_group",
+                )
+                continue
+            target_start = inside[0]
+            if (
+                target_start <= 0
+                or target_start + len(handle["segment_ids"])
+                >= len(prompt_ids)
+            ):
+                releases.append(str(handle["source_id"]))
+                pool.pop(key, None)
+                guard.update(
+                    target_evidence_valid=False,
+                    reason="target_segment_not_strictly_middle",
+                )
+                continue
+            target_rows.append({**handle, "target_start": target_start})
+
+        selected: list[dict[str, Any]] = []
+        intervals: list[tuple[int, int]] = []
+        for row in sorted(
+            target_rows,
+            key=lambda value: (
+                len(value["segment_ids"]),
+                value["source_request_index"],
+            ),
+            reverse=True,
+        ):
+            start = int(row["target_start"])
+            end = start + len(row["segment_ids"])
+            if any(start < right and left < end for left, right in intervals):
+                continue
+            selected.append(row)
+            intervals.append((start, end))
+            if len(selected) >= 3:
+                break
+        selected.sort(key=lambda row: row["target_start"])
+
+        target_prompt_hash = token_ids_hash(prompt_ids)
+        target_group_id = (
+            f"{self._instance_nonce}-s{self._session_index}-"
+            f"q{self._request_index}-v46-{target_prompt_hash[:12]}"
+        )
+        cases = []
+        for island_index, pending in enumerate(selected):
+            target_start = int(pending["target_start"])
+            cases.append(
+                {
+                    "case_id": f"{target_group_id}-i{island_index}",
+                    "target_group_id": target_group_id,
+                    "source_id": pending["source_id"],
+                    "content_hash": pending["content_hash"],
+                    "length": len(pending["segment_ids"]),
+                    "policy_label": self.config.reuse_arm,
+                    "segment_token_hash": pending["segment_token_hash"],
+                    "source_prefix_token_hash": pending[
+                        "source_prefix_token_hash"
+                    ],
+                    "source_prompt_hash": pending["source_prompt_hash"],
+                    "source_start": pending["source_start"],
+                    "target_prefix_token_hash": token_ids_hash(
+                        prompt_ids[:target_start]
+                    ),
+                    "target_prompt_hash": target_prompt_hash,
+                    "target_start": target_start,
+                    "target_uses": 1,
+                }
+            )
+        return cases, list(dict.fromkeys(releases)), guards, pool
+
+    def _v46_future_sources(
+        self,
+        *,
+        prompt_ids: list[int],
+        selected_groups: list[list[dict[str, Any]]],
+        pool: dict[str, dict[str, Any]],
+        protected_source_ids: set[str] | None = None,
+    ) -> tuple[
+        list[dict[str, Any]],
+        dict[str, dict[str, Any]],
+        list[str],
+        dict[str, Any],
+    ]:
+        retained = (
+            selected_groups
+            if len(selected_groups) < self.config.rolling_history_groups
+            else selected_groups[1:]
+        )
+        candidates, decision = versioned_observed_path_candidates(retained)
+        group_hashes = [coding_group_sha256(group) for group in retained]
+        proposed: dict[str, dict[str, Any]] = {}
+        skipped: dict[str, int] = {}
+
+        def skip(reason: str) -> None:
+            skipped[reason] = skipped.get(reason, 0) + 1
+
+        source_prompt_hash = token_ids_hash(prompt_ids)
+        for candidate_index, (candidate, evidence) in enumerate(
+            zip(candidates, decision["candidate_evidence"], strict=True)
+        ):
+            group = retained[int(evidence["group_index"])]
+            group_hash = str(evidence["group_sha256"])
+            if group_hashes.count(group_hash) != 1:
+                skip("source_group_identity_not_unique")
+                continue
+            group_span = self._group_token_span(prompt_ids, group)
+            if group_span is None:
+                skip("source_group_token_span_not_unique")
+                continue
+            literal = "".join(
+                self._render_message_literal(message)
+                for message in candidate
+            )
+            segment_ids = self._tokenizer.encode(
+                literal, add_special_tokens=False
+            ).ids
+            if len(segment_ids) < self.config.reuse_min_tokens:
+                skip("source_below_minimum_tokens")
+                continue
+            positions = find_sublist(prompt_ids, segment_ids)
+            left, right = group_span
+            inside = [
+                start
+                for start in positions
+                if start >= left and start + len(segment_ids) <= right
+            ]
+            if len(inside) != 1:
+                skip("source_segment_not_unique_inside_group")
+                continue
+            segment_ids, source_start = capped_tail(
+                segment_ids,
+                inside[0],
+                self.config.reuse_copy_cap,
+            )
+            if (
+                source_start <= 0
+                or source_start + len(segment_ids) >= len(prompt_ids)
+            ):
+                skip("source_segment_not_strictly_middle")
+                continue
+            segment_token_hash = token_ids_hash(segment_ids)
+            source_id = (
+                f"{self._instance_nonce}-s{self._session_index}-"
+                f"q{self._request_index}-{self.config.reuse_arm}-"
+                f"i{candidate_index}-{source_prompt_hash[:12]}"
+            )
+            content_hash = hashlib.sha256(
+                (
+                    self.config.reuse_arm
+                    + ":"
+                    + source_prompt_hash
+                    + ":"
+                    + segment_token_hash
+                    + ":"
+                    + group_hash
+                ).encode()
+            ).hexdigest()
+            source = {
+                "source_id": source_id,
+                "content_hash": content_hash,
+                "length": len(segment_ids),
+                "persistent": True,
+                "policy_label": self.config.reuse_arm,
+                "segment_token_hash": segment_token_hash,
+                "source_prefix_token_hash": token_ids_hash(
+                    prompt_ids[:source_start]
+                ),
+                "source_prompt_hash": source_prompt_hash,
+                "source_start": source_start,
+            }
+            pending = {
+                **source,
+                "segment_ids": segment_ids,
+                "source_group_sha256": group_hash,
+                "source_observation_sha256": evidence[
+                    "observation_sha256"
+                ],
+                "source_paths": evidence["paths"],
+                "source_symbols": evidence["symbols"],
+                "repository_scope_dependency": evidence[
+                    "path_provenance"
+                ]["repository_scope_dependency"],
+                "source_request_index": self._request_index,
+            }
+            key = self._v46_pool_key(pending)
+            pending["pool_key"] = key
+            if key not in pool:
+                proposed[key] = pending
+
+        protected_source_ids = protected_source_ids or set()
+        protected_keys = [
+            key
+            for key, handle in pool.items()
+            if str(handle["source_id"]) in protected_source_ids
+        ]
+        if len(protected_keys) > 3:
+            raise ValueError("target references more than three V46 sources")
+        combined = {**pool, **proposed}
+        ranked_unprotected = [
+            key
+            for key, _ in sorted(
+                (
+                    (key, handle)
+                    for key, handle in combined.items()
+                    if key not in protected_keys
+                ),
+                key=lambda item: (
+                    len(item[1]["segment_ids"]),
+                    item[1]["source_request_index"],
+                ),
+                reverse=True,
+            )
+        ]
+        ranked_keys = [
+            *protected_keys,
+            *ranked_unprotected[: 3 - len(protected_keys)],
+        ]
+        keep = set(ranked_keys)
+        releases = [
+            str(handle["source_id"])
+            for key, handle in pool.items()
+            if key not in keep
+        ]
+        next_pool = {key: combined[key] for key in ranked_keys}
+        added = [
+            {
+                key: value
+                for key, value in proposed[pool_key].items()
+                if key
+                not in {
+                    "pool_key",
+                    "repository_scope_dependency",
+                    "segment_ids",
+                    "source_group_sha256",
+                    "source_observation_sha256",
+                    "source_paths",
+                    "source_request_index",
+                    "source_symbols",
+                }
+            }
+            for pool_key in ranked_keys
+            if pool_key in proposed
+        ]
+        return added, next_pool, releases, {
+            **decision,
+            "source_registered": bool(added),
+            "sources_registered": len(added),
+            "pool_size": len(next_pool),
+            "pool_evictions": len(releases),
+            "target_protected_sources": len(protected_keys),
+            "source_skip_reasons": skipped,
+            "max_live_sources": 3,
+            "max_target_islands": 3,
+        }
 
     def _future_source(
         self,
@@ -815,8 +1156,10 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         prompt_ids = self._render_prompt_ids(compacted_messages)
 
         target = None
+        targets: list[dict[str, Any]] = []
         releases: list[str] = []
         source = None
+        sources: list[dict[str, Any]] = []
         next_pending = None
         policy_decision = {
             "arm": self.config.reuse_arm,
@@ -824,7 +1167,44 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             "latest_group_protected": False,
             "risk_reasons": [],
         }
-        if self.config.reuse_arm not in DENSE_REUSE_ARMS:
+        if self.config.reuse_arm == "coding_observed_path_pool_v46":
+            targets, releases, target_guards, live_pool = (
+                self._v46_target_cases(
+                    prompt_ids=prompt_ids,
+                    selected_groups=selected_groups,
+                )
+            )
+            sources, live_pool, source_releases, policy_decision = (
+                self._v46_future_sources(
+                    prompt_ids=prompt_ids,
+                    selected_groups=selected_groups,
+                    pool=live_pool,
+                    protected_source_ids={
+                        str(case["source_id"]) for case in targets
+                    },
+                )
+            )
+            releases = list(
+                dict.fromkeys([*releases, *source_releases])
+            )
+            policy_decision.update(
+                arm=self.config.reuse_arm,
+                target_evidence_guards=target_guards,
+                target_islands=len(targets),
+                copied_tokens_planned=sum(
+                    int(case["length"]) for case in targets
+                ),
+            )
+            if write_sidecar:
+                self._atomic_sidecar_update(
+                    sources=sources,
+                    cases=targets,
+                    release_source_ids=releases,
+                )
+            self._pending_sources = live_pool
+            source = sources[0] if sources else None
+            target = targets[0] if targets else None
+        elif self.config.reuse_arm not in DENSE_REUSE_ARMS:
             target, releases = self._target_case(
                 prompt_ids,
                 selected_groups=selected_groups,
@@ -916,7 +1296,9 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             "releases": releases,
             "rolling": rolling,
             "source": source,
+            "sources": sources or ([source] if source else []),
             "target": target,
+            "targets": targets or ([target] if target else []),
         }
 
     def execute_prepared_reuse_query(
@@ -933,6 +1315,8 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         rolling = prepared["rolling"]
         source = prepared["source"]
         target = prepared["target"]
+        sources = prepared.get("sources") or ([source] if source else [])
+        targets = prepared.get("targets") or ([target] if target else [])
         started = time.perf_counter()
         # Call the mini-SWE-agent base directly: compacting a second time would
         # change the registered prompt identity and double-increment the local
@@ -961,9 +1345,13 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             "arm": self.config.reuse_arm,
             "request_index": self._request_index,
             "prompt_tokens": len(prompt_ids),
-            "target_registered": target is not None,
-            "source_registered": source is not None,
-            "copied_tokens_planned": target["length"] if target else 0,
+            "target_registered": bool(targets),
+            "target_islands": len(targets),
+            "source_registered": bool(sources),
+            "sources_registered": len(sources),
+            "copied_tokens_planned": sum(
+                int(case["length"]) for case in targets
+            ),
             "reuse_policy_decision": policy_decision,
             "request_elapsed_seconds": elapsed,
             **self._last_stream_stats,

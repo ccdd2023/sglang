@@ -1500,7 +1500,7 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
             ):
                 req.req_pool_idx = req_pool_idx
             for req in reqs:
-                if exact_controller.copy_ready(req):
+                while exact_controller.copy_ready(req):
                     exact_controller.copy_into_request(req)
 
         input_ids = [r.fill_ids[len(r.prefix_indices) :] for r in reqs]

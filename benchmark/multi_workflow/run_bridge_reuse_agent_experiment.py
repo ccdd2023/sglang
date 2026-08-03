@@ -110,6 +110,8 @@ ARMS = (
     "coding_critical_current_target_v34",
     "coding_version_validation_target_v35b",
     "coding_grounded_observation_island_v40",
+    "coding_versioned_evidence_guard_v45",
+    "coding_observed_path_pool_v46",
 )
 DENSE_ARMS = ("dense", "coding_memory_dense_v5")
 HOST_OVERFLOW_ARMS = (
@@ -126,6 +128,7 @@ HOST_OVERFLOW_ARMS = (
     "coding_post_mutation_target_prefix_v23",
     "coding_post_mutation_payoff_guard_v28",
     "coding_post_mutation_payoff_guard_v29",
+    "coding_observed_path_pool_v46",
 )
 DUAL_ISLAND_ARMS = (
     "general_dual_4k",
@@ -242,6 +245,16 @@ def prepare(output: Path) -> dict[str, Any]:
                 "versions; exclude observations invalidated by later edits, "
                 "keep the latest risky event dense, and copy the largest "
                 "remaining contiguous valid island with a 4096-token cap"
+            ),
+            "coding_versioned_evidence_guard_v45": (
+                "V40 grounded observation selection plus target-time "
+                "file-version validation; one shifted island and no prefetch"
+            ),
+            "coding_observed_path_pool_v46": (
+                "up to three persistent grounded tool-observation islands; "
+                "paths may come from current tool output, directory searches "
+                "invalidate after any repository write, and no assistant "
+                "reasoning, ordinary prefix reuse, or prefetch is selected"
             ),
             "coding_post_mutation_v19": (
                 "use General-4K when there is no online file-version boundary; "

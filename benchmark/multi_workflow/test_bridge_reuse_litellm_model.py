@@ -587,6 +587,168 @@ def test_v45_target_rejects_every_new_same_file_write() -> None:
     )
 
 
+def test_v46_pool_registers_observed_path_and_invalidates_scope_write() -> None:
+    read = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {
+                            "command": 'find /testbed -name "*.py" | head'
+                        },
+                    }
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": (
+                "<returncode>0</returncode><output>"
+                + "/testbed/pkg/module.py\n" * 30
+                + "</output>"
+            ),
+        },
+    ]
+    mutation = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {
+                            "command": (
+                                "python -c \"open('/testbed/other/new.py', "
+                                "'w').write('x')\""
+                            )
+                        },
+                    }
+                }
+            ],
+        },
+        {"role": "tool", "content": "<returncode>0</returncode>"},
+    ]
+    model = object.__new__(bridge.BridgeReuseLitellmModel)
+    model.config = SimpleNamespace(
+        reuse_arm="coding_observed_path_pool_v46",
+        rolling_history_groups=6,
+        reuse_min_tokens=128,
+        reuse_copy_cap=4096,
+    )
+    model._tokenizer = _CharacterTokenizer()
+    model._instance_nonce = "v46"
+    model._session_index = 1
+    model._request_index = 2
+
+    read_literal = "".join(
+        model._render_message_literal(message) for message in read
+    )
+    source_prompt = [ord(value) for value in "P" + read_literal + "S"]
+    sources, pool, releases, decision = model._v46_future_sources(
+        prompt_ids=source_prompt,
+        selected_groups=[read],
+        pool={},
+    )
+
+    assert releases == []
+    assert len(sources) == len(pool) == 1
+    assert sources[0]["persistent"] is True
+    assert decision["observation_path_candidates"] == 1
+
+    model._request_index = 3
+    target_prompt = [ord(value) for value in "Q" + read_literal + "T"]
+    model._pending_sources = pool
+    cases, releases, guards, retained = model._v46_target_cases(
+        prompt_ids=target_prompt,
+        selected_groups=[read],
+    )
+    assert len(cases) == 1
+    assert releases == []
+    assert len(retained) == 1
+    assert cases[0]["target_group_id"]
+    assert guards[0]["target_evidence_valid"] is True
+
+    mutation_literal = "".join(
+        model._render_message_literal(message) for message in mutation
+    )
+    invalid_prompt = [
+        ord(value) for value in "Q" + read_literal + mutation_literal + "T"
+    ]
+    cases, releases, guards, retained = model._v46_target_cases(
+        prompt_ids=invalid_prompt,
+        selected_groups=[read, mutation],
+    )
+    assert cases == []
+    assert releases == [sources[0]["source_id"]]
+    assert retained == {}
+    assert guards[0]["reason"] == "repository_scope_mutated"
+
+
+def test_v46_does_not_evict_sources_referenced_by_current_target() -> None:
+    read = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {"command": "cat /testbed/pkg/new.py"},
+                    }
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": (
+                "<returncode>0</returncode><output>"
+                + "def new_value():\n    return 1\n" * 20
+                + "</output>"
+            ),
+        },
+    ]
+    model = object.__new__(bridge.BridgeReuseLitellmModel)
+    model.config = SimpleNamespace(
+        reuse_arm="coding_observed_path_pool_v46",
+        rolling_history_groups=6,
+        reuse_min_tokens=128,
+        reuse_copy_cap=4096,
+    )
+    model._tokenizer = _CharacterTokenizer()
+    model._instance_nonce = "v46"
+    model._session_index = 1
+    model._request_index = 7
+    literal = "".join(
+        model._render_message_literal(message) for message in read
+    )
+    prompt_ids = [ord(value) for value in "P" + literal + "S"]
+    pool = {
+        f"old-{index}": {
+            "source_id": f"source-{index}",
+            "segment_ids": [index + 1] * (256 + index),
+            "source_request_index": index + 1,
+        }
+        for index in range(3)
+    }
+
+    sources, retained, releases, decision = model._v46_future_sources(
+        prompt_ids=prompt_ids,
+        selected_groups=[read],
+        pool=pool,
+        protected_source_ids={
+            "source-0",
+            "source-1",
+            "source-2",
+        },
+    )
+
+    assert sources == []
+    assert retained == pool
+    assert releases == []
+    assert decision["target_protected_sources"] == 3
+
+
 def test_query_closes_underlying_sync_stream(monkeypatch) -> None:
     chunk = SimpleNamespace(
         choices=[

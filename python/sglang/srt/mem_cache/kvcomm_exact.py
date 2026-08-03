@@ -73,6 +73,7 @@ class ExactMiddleCase:
     source_id: str | None = None
     ordinary_prefix_reuse: bool | None = None
     reuse_enabled: bool = True
+    target_group_id: str | None = None
 
     def __post_init__(self) -> None:
         hashes = (
@@ -101,6 +102,8 @@ class ExactMiddleCase:
             raise ValueError("policy_label must be non-empty")
         if self.target_uses is not None and self.target_uses <= 0:
             raise ValueError("target_uses must be positive when configured")
+        if self.target_group_id is not None and not self.target_group_id:
+            raise ValueError("target_group_id must be non-empty when configured")
 
     def key(self, *, model_id: str, cache_dtype: str) -> KVSegmentKey:
         return KVSegmentKey(
@@ -123,6 +126,7 @@ class ExactMiddleSource:
     length: int
     content_hash: str
     policy_label: str = "general"
+    persistent: bool = False
 
     def __post_init__(self) -> None:
         hashes = (
@@ -151,14 +155,29 @@ class ExactMiddleSource:
 
 @dataclass
 class ExactMiddleRequestState:
-    case: ExactMiddleCase
-    source: KVSegmentHandle
-    lease: Any
+    cases: tuple[ExactMiddleCase, ...]
+    sources: tuple[KVSegmentHandle, ...]
+    leases: tuple[Any, ...]
+    island_index: int = 0
     phase: ExactMiddlePhase = ExactMiddlePhase.DENSE_PREFIX
     fallback_reason: str | None = None
     transfer_stats: KVTransferStats | None = None
     copied_indices: torch.Tensor | None = None
     ordinary_prefix_tokens: int | None = None
+
+    def __post_init__(self) -> None:
+        if not self.cases or len(self.cases) != len(self.sources):
+            raise ValueError("exact-middle target bundle is incomplete")
+        if len(self.cases) != len(self.leases):
+            raise ValueError("exact-middle target leases are incomplete")
+
+    @property
+    def case(self) -> ExactMiddleCase:
+        return self.cases[self.island_index]
+
+    @property
+    def source(self) -> KVSegmentHandle:
+        return self.sources[self.island_index]
 
 
 class ExactMiddleCanaryController:
@@ -253,6 +272,7 @@ class ExactMiddleCanaryController:
         self._manifest_signature: tuple[int, int, int] | None = None
         self._materialized_sources: dict[str, KVSegmentHandle] = {}
         self._persistent_source_leases: dict[str, Any] = {}
+        self._released_source_ids: set[str] = set()
 
     @property
     def owned_device_tokens(self) -> int:
@@ -316,6 +336,11 @@ class ExactMiddleCanaryController:
                         else None
                     ),
                     reuse_enabled=bool(row.get("reuse_enabled", True)),
+                    target_group_id=(
+                        str(row["target_group_id"])
+                        if row.get("target_group_id") is not None
+                        else None
+                    ),
                 )
             )
         sources = [
@@ -328,6 +353,7 @@ class ExactMiddleCanaryController:
                 length=int(row["length"]),
                 content_hash=str(row["content_hash"]),
                 policy_label=str(row.get("policy_label") or "general"),
+                persistent=bool(row.get("persistent", False)),
             )
             for row in value.get("sources", ())
         ]
@@ -386,6 +412,26 @@ class ExactMiddleCanaryController:
                 raise ValueError(f"duplicate reuse case_id: {case.case_id}")
             case_ids.add(case.case_id)
             output.setdefault(case.target_prompt_hash, []).append(case)
+        for prompt_cases in output.values():
+            grouped: dict[str, list[int]] = {}
+            for index, case in enumerate(prompt_cases):
+                if case.target_group_id is not None:
+                    grouped.setdefault(case.target_group_id, []).append(index)
+            for group_id, indices in grouped.items():
+                if indices != list(range(indices[0], indices[-1] + 1)):
+                    raise ValueError(
+                        f"target bundle is not contiguous: {group_id}"
+                    )
+                bundle = [prompt_cases[index] for index in indices]
+                if bundle != sorted(bundle, key=lambda value: value.target_start):
+                    raise ValueError(
+                        f"target bundle is not ordered: {group_id}"
+                    )
+                for left, right in zip(bundle, bundle[1:]):
+                    if left.target_start + left.length > right.target_start:
+                        raise ValueError(
+                            f"target bundle overlaps: {group_id}"
+                        )
         return output
 
     @staticmethod
@@ -415,6 +461,7 @@ class ExactMiddleCanaryController:
             length=int(row["length"]),
             content_hash=str(row["content_hash"]),
             policy_label=str(row.get("policy_label") or "general"),
+            persistent=bool(row.get("persistent", False)),
         )
 
     @staticmethod
@@ -458,6 +505,11 @@ class ExactMiddleCanaryController:
                 else None
             ),
             reuse_enabled=bool(row.get("reuse_enabled", True)),
+            target_group_id=(
+                str(row["target_group_id"])
+                if row.get("target_group_id") is not None
+                else None
+            ),
         )
 
     def _refresh_manifest(self) -> None:
@@ -554,9 +606,20 @@ class ExactMiddleCanaryController:
                 if case.target_uses is not None:
                     self._remaining_target_uses[case.case_id] = case.target_uses
                 added_targets += 1
+            # Re-run bundle validation after the atomic sidecar append. This
+            # catches non-contiguous, unordered, or overlapping dynamic
+            # islands before any request can attach them.
+            self._group_targets(
+                [
+                    case
+                    for cases in self._targets.values()
+                    for case in cases
+                ]
+            )
 
             released_sources = 0
             for source_id in value.get("release_source_ids", ()):
+                self._released_source_ids.add(str(source_id))
                 persistent_lease = self._persistent_source_leases.pop(
                     str(source_id), None
                 )
@@ -588,6 +651,7 @@ class ExactMiddleCanaryController:
         handles = [
             handle
             for source in sources
+            if source.source_id not in self._released_source_ids
             if (handle := self._materialize_source(req, tokens, source))
             is not None
         ]
@@ -754,7 +818,7 @@ class ExactMiddleCanaryController:
         source: ExactMiddleSource,
         handle: KVSegmentHandle,
     ) -> None:
-        repeated = any(
+        repeated = source.persistent or any(
             (case.source_id or case.case_id) == source.source_id
             and (case.target_uses or 0) > 1
             for cases in self._targets.values()
@@ -775,10 +839,17 @@ class ExactMiddleCanaryController:
             ),
         }
 
-    def _next_target_case(
+    def _source_is_persistent(self, source_id: str) -> bool:
+        return any(
+            source.source_id == source_id and source.persistent
+            for sources in self._sources.values()
+            for source in sources
+        )
+
+    def _next_target_bundle(
         self,
         prompt_hash: str,
-    ) -> tuple[int, ExactMiddleCase] | None:
+    ) -> tuple[int, tuple[ExactMiddleCase, ...]] | None:
         cases = self._targets.get(prompt_hash)
         if not cases:
             return None
@@ -786,10 +857,28 @@ class ExactMiddleCanaryController:
         while cursor < len(cases):
             case = cases[cursor]
             remaining = self._remaining_target_uses.get(case.case_id)
-            if remaining is None or remaining > 0:
-                self._target_case_cursor[prompt_hash] = cursor
-                return cursor, case
-            cursor += 1
+            if remaining is not None and remaining <= 0:
+                cursor += 1
+                continue
+            group_id = case.target_group_id
+            if group_id is None:
+                bundle = (case,)
+            else:
+                end = cursor + 1
+                while (
+                    end < len(cases)
+                    and cases[end].target_group_id == group_id
+                ):
+                    end += 1
+                bundle = tuple(cases[cursor:end])
+                if any(
+                    self._remaining_target_uses.get(item.case_id, 1) <= 0
+                    for item in bundle
+                ):
+                    cursor = end
+                    continue
+            self._target_case_cursor[prompt_hash] = cursor
+            return cursor, bundle
         self._target_case_cursor[prompt_hash] = cursor
         return None
 
@@ -798,15 +887,16 @@ class ExactMiddleCanaryController:
         *,
         prompt_hash: str,
         cursor: int,
-        case: ExactMiddleCase,
+        cases: Sequence[ExactMiddleCase],
     ) -> None:
-        remaining = self._remaining_target_uses.get(case.case_id)
-        if remaining is not None:
-            self._remaining_target_uses[case.case_id] = max(
-                0,
-                remaining - 1,
-            )
-        self._target_case_cursor[prompt_hash] = cursor + 1
+        for case in cases:
+            remaining = self._remaining_target_uses.get(case.case_id)
+            if remaining is not None:
+                self._remaining_target_uses[case.case_id] = max(
+                    0,
+                    remaining - 1,
+                )
+        self._target_case_cursor[prompt_hash] = cursor + len(cases)
 
     def maybe_attach_target(self, req: Any) -> ExactMiddleRequestState | None:
         self._refresh_manifest()
@@ -817,62 +907,82 @@ class ExactMiddleCanaryController:
             return existing
         tokens = self._prompt_tokens(req)
         prompt_hash = token_ids_hash(tokens)
-        selected = self._next_target_case(prompt_hash)
+        selected = self._next_target_bundle(prompt_hash)
         if selected is None:
             return None
-        cursor, case = selected
-        end = case.target_start + case.length
-        if end >= len(tokens):
-            raise ValueError("target span is not strictly middle")
-        if token_ids_hash(tokens[: case.target_start]) != (
-            case.target_prefix_token_hash
-        ):
-            raise ValueError("target prefix differs from manifest")
-        if token_ids_hash(tokens[case.target_start:end]) != case.segment_token_hash:
-            raise ValueError("target segment differs from manifest")
-        if not case.reuse_enabled:
+        cursor, cases = selected
+        for case in cases:
+            end = case.target_start + case.length
+            if end >= len(tokens):
+                raise ValueError("target span is not strictly middle")
+            if token_ids_hash(tokens[: case.target_start]) != (
+                case.target_prefix_token_hash
+            ):
+                raise ValueError("target prefix differs from manifest")
+            if token_ids_hash(tokens[case.target_start:end]) != (
+                case.segment_token_hash
+            ):
+                raise ValueError("target segment differs from manifest")
+        if not all(case.reuse_enabled for case in cases):
+            if any(case.reuse_enabled for case in cases):
+                raise ValueError("target bundle mixes reuse and dense cases")
             req.kvcomm_exact_dense_control = True
             req.kvcomm_exact_dispatch_complete = True
             self._consume_target_without_state(
                 prompt_hash=prompt_hash,
                 cursor=cursor,
-                case=case,
+                cases=cases,
             )
             self._record(
                 {
-                    "case_id": case.case_id,
+                    "case_id": cases[0].case_id,
+                    "target_group_id": cases[0].target_group_id,
+                    "target_islands": len(cases),
                     "event": "target_dense_control",
-                    "policy_label": case.policy_label,
+                    "policy_label": cases[0].policy_label,
                     **self._lifecycle_counts(),
                 }
             )
             return None
-        handle = self.manager.store.lookup(
-            case.key(model_id=self.model_id, cache_dtype=self.cache_dtype)
+        handles = tuple(
+            self.manager.store.lookup(
+                case.key(model_id=self.model_id, cache_dtype=self.cache_dtype)
+            )
+            for case in cases
         )
-        if handle is None:
+        if any(handle is None for handle in handles):
             req.kvcomm_exact_dispatch_complete = True
             self._consume_target_without_state(
                 prompt_hash=prompt_hash,
                 cursor=cursor,
-                case=case,
+                cases=cases,
             )
             self._record(
                 {
-                    "case_id": case.case_id,
+                    "case_id": cases[0].case_id,
+                    "target_group_id": cases[0].target_group_id,
+                    "target_islands": len(cases),
                     "event": "target_fallback",
-                    "policy_label": case.policy_label,
+                    "policy_label": cases[0].policy_label,
                     "reason": "missing_source",
                     **self._lifecycle_counts(),
                 }
             )
             return None
-        lease = self.manager.store.pin(handle, ttl_s=self.lease_ttl_s)
-        state = ExactMiddleRequestState(case=case, source=handle, lease=lease)
+        typed_handles = tuple(handle for handle in handles if handle is not None)
+        leases = tuple(
+            self.manager.store.pin(handle, ttl_s=self.lease_ttl_s)
+            for handle in typed_handles
+        )
+        state = ExactMiddleRequestState(
+            cases=cases,
+            sources=typed_handles,
+            leases=leases,
+        )
         req.kvcomm_exact_state = state
-        cases = self._targets[prompt_hash]
-        if cursor < len(cases) - 1:
-            self._target_case_cursor[prompt_hash] = cursor + 1
+        prompt_cases = self._targets[prompt_hash]
+        if cursor + len(cases) < len(prompt_cases):
+            self._target_case_cursor[prompt_hash] = cursor + len(cases)
         return state
 
     def is_target_request(self, req: Any) -> bool:
@@ -880,7 +990,7 @@ class ExactMiddleCanaryController:
         if getattr(req, "kvcomm_exact_dispatch_complete", False):
             return False
         return (
-            self._next_target_case(
+            self._next_target_bundle(
                 token_ids_hash(self._prompt_tokens(req))
             )
             is not None
@@ -908,10 +1018,11 @@ class ExactMiddleCanaryController:
         if state is not None:
             case = state.case
         else:
-            selected = self._next_target_case(prompt_hash)
+            selected = self._next_target_bundle(prompt_hash)
             if selected is None:
                 return 0 if self.ordinary_prefix_target_only else None
-            _, case = selected
+            _, bundle = selected
+            case = bundle[0]
         if case.ordinary_prefix_reuse is False:
             return 0
         if case.allow_target_prefix_bypass:
@@ -922,7 +1033,13 @@ class ExactMiddleCanaryController:
 
     def is_source_request(self, req: Any) -> bool:
         self._refresh_manifest()
-        return token_ids_hash(self._prompt_tokens(req)) in self._sources
+        sources = self._sources.get(
+            token_ids_hash(self._prompt_tokens(req)), ()
+        )
+        return any(
+            source.source_id not in self._released_source_ids
+            for source in sources
+        )
 
     def stage_prefix_length(self, req: Any) -> int | None:
         state = self.maybe_attach_target(req)
@@ -993,6 +1110,7 @@ class ExactMiddleCanaryController:
             self._fallback(req, "missing_request_pool_slot")
             return None
         case = state.case
+        source_handle = state.source
         suffix_start = case.target_start + case.length
         copy_start = (
             len(req.prefix_indices)
@@ -1019,7 +1137,7 @@ class ExactMiddleCanaryController:
             target_token_ids=self._prompt_tokens(req),
             copied_spans=(
                 TransferSpan(
-                    source=state.source,
+                    source=source_handle,
                     source_offset=source_offset,
                     target_start=copy_start,
                     length=copy_length,
@@ -1080,12 +1198,20 @@ class ExactMiddleCanaryController:
             (req.prefix_indices, committed.to(req.prefix_indices.device))
         )
         req.set_extend_input_len(len(req.fill_ids) - len(req.prefix_indices))
-        state.phase = ExactMiddlePhase.DENSE_SUFFIX
+        copied_island_index = state.island_index
+        if copied_island_index + 1 < len(state.cases):
+            state.island_index += 1
+            state.phase = ExactMiddlePhase.DENSE_PREFIX
+        else:
+            state.phase = ExactMiddlePhase.DENSE_SUFFIX
         state.transfer_stats = stats
         state.copied_indices = committed
         self._record(
             {
                 "case_id": case.case_id,
+                "target_group_id": case.target_group_id,
+                "target_island_index": copied_island_index,
+                "target_islands": len(state.cases),
                 "copy_ms": (time.perf_counter() - started) * 1000,
                 "copied_k_tokens": stats.copied_k_tokens,
                 "copied_v_tokens": stats.copied_v_tokens,
@@ -1102,7 +1228,7 @@ class ExactMiddleCanaryController:
                 "rope_delta": case.target_start - case.source_start,
                 "rotated_k_tokens": stats.rotated_k_tokens,
                 "source_offset": source_offset,
-                "source_residency": state.source.residency.value,
+                "source_residency": source_handle.residency.value,
                 "target_copy_start": copy_start,
             }
         )
@@ -1112,31 +1238,39 @@ class ExactMiddleCanaryController:
         state = getattr(req, "kvcomm_exact_state", None)
         if state is None or state.phase == ExactMiddlePhase.COMPLETE:
             return
-        self.manager.store.unpin(state.lease)
+        for lease in state.leases:
+            self.manager.store.unpin(lease)
         state.phase = ExactMiddlePhase.COMPLETE
-        remaining_uses = self._remaining_target_uses.get(state.case.case_id)
-        source_released = False
-        if remaining_uses is not None:
-            remaining_uses -= 1
-            self._remaining_target_uses[state.case.case_id] = remaining_uses
-            if remaining_uses == 0:
-                source_id = state.case.source_id or state.case.case_id
+        remaining_uses: dict[str, int | None] = {}
+        released_sources: list[str] = []
+        for case, handle in zip(state.cases, state.sources, strict=True):
+            remaining = self._remaining_target_uses.get(case.case_id)
+            remaining_uses[case.case_id] = remaining
+            if remaining is not None:
+                remaining -= 1
+                remaining_uses[case.case_id] = remaining
+                self._remaining_target_uses[case.case_id] = remaining
+            source_id = case.source_id or case.case_id
+            if remaining == 0 and not self._source_is_persistent(source_id):
                 persistent_lease = self._persistent_source_leases.pop(
                     source_id, None
                 )
                 if persistent_lease is not None:
                     self.manager.store.unpin(persistent_lease)
-                source_released = self.manager.store.release(state.source)
-                if source_released:
+                if self.manager.store.release(handle):
                     self._materialized_sources.pop(source_id, None)
+                    released_sources.append(source_id)
         self._record(
             {
-                "case_id": state.case.case_id,
+                "case_id": state.cases[0].case_id,
+                "target_group_id": state.cases[0].target_group_id,
+                "target_islands": len(state.cases),
                 "event": "target_complete",
                 "fallback_reason": state.fallback_reason,
-                "policy_label": state.case.policy_label,
+                "policy_label": state.cases[0].policy_label,
                 "remaining_target_uses": remaining_uses,
-                "source_released": source_released,
+                "source_released": bool(released_sources),
+                "released_source_ids": released_sources,
                 **self._lifecycle_counts(),
             }
         )

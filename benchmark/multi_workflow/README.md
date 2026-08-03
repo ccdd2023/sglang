@@ -8,10 +8,13 @@ Use this index instead of treating all `run_v*.py` files as active.
 
 ## Active implementation and latest campaign
 
-- `coding_reuse_policy.py`: V40 source classification and the experimental
-  V45 target-time file-version guard.
+- `coding_reuse_policy.py`: V40 source classification, V45 target-time
+  file-version validation, and V46 online-observed path provenance.
 - `bridge_reuse_litellm_model.py`: rolling-history source/target adapter;
-  `coding_versioned_evidence_guard_v45` is the active V45 development arm.
+  `coding_observed_path_pool_v46` is the active development arm. It keeps at
+  most three persistent grounded tool-observation sources and selects at most
+  three non-overlapping shifted islands per target. Sources referenced by the
+  current target are protected from same-request eviction.
 - `motivate_v45_versioned_evidence.py`: answer-blind audit of V45's two
   proposed mechanisms on frozen V40 trajectories. The audit found a real
   cross-request invalidation gap but no symbol-disjoint reuse opportunity, so
@@ -20,6 +23,16 @@ Use this index instead of treating all `run_v*.py` files as active.
   the real V40/V45 planners. The strict rerun verified identical prompts and
   shared token segments, 203 V40 targets versus 183 V45 targets, and eight
   runtime-eligible V40 targets removed after a newly visible same-file write.
+- `audit_v451_multi_observation_pool.py`: tests whether multiple independent
+  grounded observations create useful extra islands without using answers.
+- `audit_v453_observed_path_pool.py`: adds literal repository paths observed
+  in the current tool output; repository-wide search observations invalidate
+  after any later repository write.
+- `audit_v46_runtime_parity.py`: replays the production V46 bridge and checks
+  prompt identity, coverage, pool/island bounds, and the source-lifetime
+  invariant before GPU execution.
+- `run_v46_repobench_control.py`: three-island static RepoBench-P mechanism
+  control with physical copy/fallback telemetry and source-build accounting.
 - `motivate_v40_grounded_observation_island.py`: V40 motivation analysis.
 - `run_v44_dense_sensitive_v40_campaign.py`: latest frozen campaign.
 - `summarize_v44_schema_compat.py`: narrowly scoped post-treatment summary
@@ -38,13 +51,15 @@ test_v44_dense_sensitive_v40_campaign.py
 test_summarize_v44_schema_compat.py
 ```
 
-The V45 audits are policy/planner results, not latency or accuracy results.
-The combined symbol proposal failed; the narrowed guard-only planner passed
-its amended gates. A three-case static RepoBench-P GPU canary measured 1.091x
-cache-ready speedup versus the existing SGLang Dense lane, but static code has
-no mutation and therefore does not exercise the V45 guard. No V45 agent-task
-accuracy result exists yet. See
-`docs/kvflow/CODING_AWARE_V45_DEVELOPMENT_20260803.md`.
+V46's lifecycle-safe offline replay covers 236/331 requests and 28.51% of
+prompt tokens with zero prompt mismatch or target/source-release conflict.
+On the same three RepoBench-P targets used by the prior SOTA canary, it makes
+9/9 physical island copies, preserves all three Dense output lines, and
+measures 1.309x cache-ready speedup (1.059x at N=4 including source build).
+This is effectively tied with CacheBlend's 1.306x cache-ready result on only
+three cases, not a superiority claim. The repaired one-task SWE-bench canary
+made 15 physical copies with zero fallback and was officially resolved 1/1.
+See `docs/kvflow/CODING_AWARE_V46_DEVELOPMENT_20260803.md`.
 
 ## Active three-method coding comparison
 

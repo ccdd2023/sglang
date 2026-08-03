@@ -608,7 +608,7 @@ class PrefillAdder:
             self.tree_cache, "kvcomm_exact_controller", None
         )
         if exact_controller is not None:
-            if exact_controller.copy_ready(req):
+            while exact_controller.copy_ready(req):
                 exact_controller.copy_into_request(req)
             exact_stage_len = exact_controller.stage_prefix_length(req)
             if exact_stage_len is not None and exact_stage_len > 0:
