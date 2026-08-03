@@ -17,7 +17,8 @@ not obtain hidden warming in coding-only experiments.
 | Branch | Owner responsibility |
 |---|---|
 | `kvflow/shared-core` | Segment identity, leases, transfer and fail-closed validation |
-| `research/coding-aware-lossy` | Coding evidence, invalidation and `KVReusePlan` construction |
+| `research/coding-aware-lossy` | Frozen V40 coding-aware reference |
+| `research/coding-aware-v45-multi-observation-20260803` | Current V46 coding evidence, persistent source pool, multi-island plan, and review branch |
 | `research/prefetch-p8-async-20260722` | `KVPrefetchHint`, queueing, deadlines and residency |
 | `integration/coding-aware-prefetch-v2` | Thin composition adapters and four-mode tests |
 
@@ -26,22 +27,36 @@ Merge both owners only in the integration branch.
 
 ## Current coding-aware method
 
-V40 reuses one successful, read-only repository observation from recent agent
-history. It rejects reasoning text, failed commands, mutable or subsequently
-modified files, duplicate text, short spans and prompt prefix/suffix spans.
-The target copies V, rotates K by the RoPE position delta, and densely
-recomputes everything outside the selected island.
+V46 is the current review candidate. It extends V40's one transient,
+read-only repository observation into a bounded pool of at most three
+persistent observations. It extracts path provenance from both commands and
+tool outputs, revalidates file versions at target time, and can copy at most
+three ordered, non-overlapping islands. The target copies V, rotates K by the
+RoPE position delta, and densely recomputes everything before, between, and
+after the islands.
+
+This remains lossy reuse: visible island tokens are identical, but their KV
+was computed under a different prefix context. V46 does not use prefetch or
+ordinary exact-prefix reuse in its controlled experiments.
 
 The current evidence is intentionally modest:
 
-- RepoBench-P static control: 1.089x cache-ready TTFT, exact-line 10% to 8%.
-- Twelve-task SWE-bench development cohort: Dense 6/12, V40 4/12; median
-  TTFT 295.5 ms to 258.3 ms.
-- The two observed Dense-pass/V40-fail tasks did not reproduce as stable
-  regressions: both Dense repeats failed. Treat the accuracy difference as a
-  single-run point estimate, not a causal loss estimate.
+- RepoBench-P 50-case mechanism control: V46 reaches 1.326x cache-ready TTFT
+  and 1.050x at four target uses including source construction, versus V40 at
+  1.089x and 0.897x respectively.
+- RepoBench-P exact-line accuracy is Dense 5/50, V40 4/50, and V46 4/50.
+- On three prior Dense/V40 SWE-bench passes, V46 preserves 2/3. One task uses
+  no copied KV; among two active-copy tasks, one passes and one fails.
+- An initial full-12 launch was abandoned after one task exposed submission
+  bookkeeping; after the fix, the combined accuracy canary failed and the
+  campaign was not restarted. V46 is not yet accuracy-ready.
 - Native KVCOMM uses a different multi-agent prompt topology. Cross-system
   absolute accuracy is not a prompt-controlled comparison.
+
+Read `docs/kvflow/CODING_AWARE_V46_DEVELOPMENT_20260803.md` before reviewing
+or composing the branch. It contains the algorithm, V40 comparison,
+implementation map, complete result table, metric definitions, and claim
+limits.
 
 Machine-readable and human-readable evidence lives outside Git under:
 
@@ -101,14 +116,17 @@ the three values explicitly.
 ## Start here
 
 ```bash
-cd /home/gfy/CodeMAS_Project/sglang-kvflow-worktrees/integration-v2
+cd /home/gfy/CodeMAS_Project/sglang-kvflow-worktrees/coding-aware
 git status --short
-git log --graph --oneline --decorate -12
+git log --graph --oneline --decorate -6
+git show --stat f940fe76e
 ```
 
-The integration branch already contains the collaborator's async prefetch
-branch and the earlier V40 merge rehearsal. After the coding owner commits a
-new batch, merge that commit into integration; do not merge integration back
+Review V46 on its research branch first; do not merge it directly into the
+prefetch owner branch. The integration branch already contains the
+collaborator's async prefetch branch and the earlier V40 merge rehearsal. Once
+V46 is approved, merge the V46 research branch into the integration branch and
+resolve only the composition boundary there. Do not merge integration back
 into either research owner branch.
 
 Run the shared and composition suites:

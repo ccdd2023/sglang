@@ -53,13 +53,14 @@ test_summarize_v44_schema_compat.py
 
 V46's lifecycle-safe offline replay covers 236/331 requests and 28.51% of
 prompt tokens with zero prompt mismatch or target/source-release conflict.
-On the same three RepoBench-P targets used by the prior SOTA canary, it makes
-9/9 physical island copies, preserves all three Dense output lines, and
-measures 1.309x cache-ready speedup (1.059x at N=4 including source build).
-This is effectively tied with CacheBlend's 1.306x cache-ready result on only
-three cases, not a superiority claim. The repaired one-task SWE-bench canary
-made 15 physical copies with zero fallback and was officially resolved 1/1.
-See `docs/kvflow/CODING_AWARE_V46_DEVELOPMENT_20260803.md`.
+The completed 50-case RepoBench-P mechanism control makes 150/150 physical
+island copies with zero fallback and measures 1.326x cache-ready speedup
+(1.050x at N=4 including source build). Exact next-line accuracy is Dense 5/50
+and V46 4/50. On three prior Dense/V40 SWE-bench passes, V46 preserves 2/3;
+one of the two tasks with active copied KV fails official evaluation. The
+full-12 campaign was therefore not restarted after its combined canary. These
+results establish speed opportunity but do not support an accuracy or SOTA
+claim. See `docs/kvflow/CODING_AWARE_V46_DEVELOPMENT_20260803.md`.
 
 ## Active three-method coding comparison
 
