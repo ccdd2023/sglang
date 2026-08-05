@@ -1,0 +1,146 @@
+{
+  "report_date": "2026-08-05",
+  "capacity_route": [
+    {"version": "V9", "eligible_capacity_pct": 0.33, "capacity_gate_pct": 20.0, "verdict": "reject: capacity"},
+    {"version": "V10", "eligible_capacity_pct": 9.12, "cost_positive_pct": 9.59, "capacity_gate_pct": 20.0, "cost_gate_pct": 15.0, "verdict": "reject: capacity after schema correction"},
+    {"version": "V11", "eligible_capacity_pct": 21.43, "cost_positive_pct": 21.43, "capacity_gate_pct": 20.0, "cost_gate_pct": 15.0, "verdict": "keep file-version scope; reject static risk signal"},
+    {"version": "V12 near-capacity", "eligible_capacity_pct": 19.12, "harm_reduction_pct": 24.14, "capacity_gate_pct": 15.0, "harm_gate_pct": 30.0, "verdict": "reject: harm gate"},
+    {"version": "V12 harm-safe", "eligible_capacity_pct": 7.53, "harm_reduction_pct": 30.0, "capacity_gate_pct": 15.0, "harm_gate_pct": 30.0, "verdict": "reject: capacity gate"}
+  ],
+  "p_series_tail_delta": [
+    {"version": "P12 raw rank5", "mean_nll_advantage_vs_tail": -0.00046, "cases": 8, "note": "coding beat random but not tail"},
+    {"version": "P13B tail80/code20", "mean_nll_advantage_vs_tail": 0.00197, "cases": 8, "note": "4/8 wins; below gate"},
+    {"version": "P17 V-only", "mean_nll_advantage_vs_tail": 0.00033, "cases": 8, "note": "component split too small"},
+    {"version": "P18 middle layer", "mean_nll_advantage_vs_tail": -0.00037, "cases": 8, "note": "middle layer not enough"},
+    {"version": "P19 identifiers", "mean_nll_advantage_vs_tail": -0.00254, "cases": 16, "note": "6/16 wins; one severe loss"},
+    {"version": "P20 additive insurance", "mean_nll_advantage_vs_tail": 0.00043, "cases": 16, "note": "7/16 wins"},
+    {"version": "P21 syntax relay", "mean_nll_advantage_vs_tail": -0.00032, "cases": 8, "note": "2/8 wins"},
+    {"version": "P22 symbol island", "mean_nll_advantage_vs_tail": -0.00073, "cases": 8, "note": "1/8 wins"},
+    {"version": "P23 oracle ceiling", "mean_nll_advantage_vs_tail": 0.00321, "cases": 8, "note": "best of five ranks; below 0.005 ceiling gate"},
+    {"version": "P26 shallow bridge", "mean_nll_advantage_vs_tail": -0.001073, "cases": 8, "note": "1/8 wins; three ties"}
+  ],
+  "p27_generalization": [
+    {"split": "development (P27C r=20%)", "pipeline_vs_full_tail_nll": 0.02393, "capsule_dense_vs_full_dense_nll": 0.01980, "stale_kv_loss": 0.00333, "prefill_reduction_pct": 23.88, "wins": 7, "cases": 8, "severe_losses": 1},
+    {"split": "independent (P27E)", "pipeline_vs_full_tail_nll": -0.00707, "capsule_dense_vs_full_dense_nll": -0.01052, "stale_kv_loss": 0.00417, "prefill_reduction_pct": 23.08, "wins": 5, "cases": 17, "severe_losses": 3}
+  ],
+  "bridge_formal_18": [
+    {"method": "Dense", "resolved": 7, "cases": 18, "median_ttft_ms": 268.6, "median_request_elapsed_ms": 4754.9, "copied_tokens": 0},
+    {"method": "General", "resolved": 8, "cases": 18, "median_ttft_ms": 187.4, "median_request_elapsed_ms": 4850.9, "copied_tokens": 378923},
+    {"method": "Coding", "resolved": 7, "cases": 18, "median_ttft_ms": 190.6, "median_request_elapsed_ms": 4889.2, "copied_tokens": 307690}
+  ],
+  "v44_official_12": [
+    {"method": "Dense", "resolved": 3, "cases": 12, "median_ttft_ms": 357.6, "copied_tokens": 0},
+    {"method": "General", "resolved": 3, "cases": 12, "median_ttft_ms": 335.7, "copied_tokens": 487144},
+    {"method": "V40", "resolved": 4, "cases": 12, "median_ttft_ms": 327.5, "copied_tokens": 171139}
+  ],
+  "trajectory_official_progression": [
+    {"cohort": "V23 full18", "cases": 18, "dense": null, "general": 5, "candidate": 4, "candidate_name": "V23"},
+    {"cohort": "V27D valid5", "cases": 5, "dense": 3, "general": 3, "candidate": 3, "candidate_name": "V23 audited"},
+    {"cohort": "V36 dev6", "cases": 6, "dense": 4, "general": 3, "candidate": 3, "candidate_name": "V35B"},
+    {"cohort": "V39 dev6", "cases": 6, "dense": 2, "general": 3, "candidate": 3, "candidate_name": "V38"},
+    {"cohort": "V44 dev12", "cases": 12, "dense": 3, "general": 3, "candidate": 4, "candidate_name": "V40"}
+  ],
+  "controlled_dev50": [
+    {"method": "Dense", "passes": 12, "cases": 50, "speedup": 1.0},
+    {"method": "CacheBlend L1 r=.75", "passes": 12, "cases": 50, "speedup": 1.09924},
+    {"method": "V80 L24 r=.75", "passes": 11, "cases": 50, "speedup": 1.03246},
+    {"method": "V85 contract route", "passes": 14, "cases": 50, "speedup": 1.06765},
+    {"method": "V86 API guard", "passes": 15, "cases": 50, "speedup": 1.06743},
+    {"method": "V87 sparse route", "passes": 14, "cases": 50, "speedup": 1.13585},
+    {"method": "V88 random-state guard", "passes": 15, "cases": 50, "speedup": 1.13126}
+  ],
+  "sealed_v90_100": [
+    {"method": "Dense", "passes": 34, "cases": 100, "normalized_cache_ready_speedup": 1.0, "engine": "vLLM-blend"},
+    {"method": "CacheBlend", "passes": 28, "cases": 100, "normalized_cache_ready_speedup": 1.03638, "engine": "vLLM-blend"},
+    {"method": "V88", "passes": 31, "cases": 100, "normalized_cache_ready_speedup": 1.07476, "engine": "vLLM-blend"},
+    {"method": "V90", "passes": 32, "cases": 100, "normalized_cache_ready_speedup": 1.05550, "engine": "vLLM-blend"},
+    {"method": "KVCOMM", "passes": 31, "cases": 100, "normalized_cache_ready_speedup": 0.44292, "engine": "native Transformers eager"}
+  ],
+  "fresh_v92_100": [
+    {"method": "Dense", "passes": 26, "cases": 100, "normalized_cache_ready_speedup": 1.0},
+    {"method": "V90", "passes": 29, "cases": 100, "normalized_cache_ready_speedup": 1.06371},
+    {"method": "V92", "passes": 32, "cases": 100, "normalized_cache_ready_speedup": 1.06776}
+  ],
+  "v88_three_split_aggregate": [
+    {"method": "V88", "passes": 77, "cases": 300, "mean_normalized_cache_ready_speedup": 1.13404},
+    {"method": "CacheBlend", "passes": 69, "cases": 300, "mean_normalized_cache_ready_speedup": 1.08040},
+    {"method": "KVCOMM", "passes": 68, "cases": 300, "mean_normalized_cache_ready_speedup": 0.48268}
+  ],
+  "build_break_even": [
+    {"method": "CacheBlend", "minimum_reuses": 368, "source": "V90 fresh sealed split"},
+    {"method": "V88", "minimum_reuses": 187, "source": "V90 fresh sealed split"},
+    {"method": "V90", "minimum_reuses": 247, "source": "V90 fresh sealed split"},
+    {"method": "V92", "minimum_reuses": 195, "source": "V92 fresh split"}
+  ],
+  "sglang_static50": [
+    {"method": "SGLang Dense", "cache_ready_speedup": 1.0, "n4_build_speedup": 1.0, "exact_lines": 5, "cases": 50, "code_similarity_pct": 49.99},
+    {"method": "V40", "cache_ready_speedup": 1.089, "n4_build_speedup": 0.897, "exact_lines": 4, "cases": 50, "code_similarity_pct": 52.32},
+    {"method": "V46", "cache_ready_speedup": 1.326, "n4_build_speedup": 1.050, "exact_lines": 4, "cases": 50, "code_similarity_pct": 52.54},
+    {"method": "CacheBlend*", "cache_ready_speedup": 1.501, "n4_build_speedup": 0.827, "exact_lines": 4, "cases": 50, "code_similarity_pct": 55.66}
+  ],
+  "v46_official_preservation": [
+    {"method": "Dense", "resolved": 3, "cases": 3},
+    {"method": "V40", "resolved": 3, "cases": 3},
+    {"method": "General", "resolved": 2, "cases": 3},
+    {"method": "V46", "resolved": 2, "cases": 3}
+  ],
+  "coding_motivation_gates": [
+    {"experiment": "M50 grounded\nlower JS", "observed_pct": 50.0, "gate_pct": 65.0, "passed": false},
+    {"experiment": "M51 mutation\nhigher JS", "observed_pct": 44.44, "gate_pct": 65.0, "passed": false},
+    {"experiment": "M52 path\nhigher attention", "observed_pct": 70.0, "gate_pct": 60.0, "passed": true},
+    {"experiment": "M53 path\nhigher attention", "observed_pct": 89.47, "gate_pct": 60.0, "passed": true},
+    {"experiment": "M54 hybrid\npair ranking", "observed_pct": 42.86, "gate_pct": 60.0, "passed": false}
+  ],
+  "path_dependency": [
+    {"cohort": "M52 development", "relevant_attention_mean": 0.0325051, "disjoint_attention_mean": 0.0123119, "attention_adjusted_ratio": 1.62321, "drift_adjusted_ratio": 0.38071, "js_adjusted_ratio": 0.39110},
+    {"cohort": "M53 request holdout", "relevant_attention_mean": 0.0233432, "disjoint_attention_mean": 0.0142901, "attention_adjusted_ratio": 1.41325, "drift_adjusted_ratio": 0.96869, "js_adjusted_ratio": 0.40793}
+  ],
+  "dependency_drift_hybrid": [
+    {"method": "16-token probe", "global_js_spearman": 0.50629, "pair_ranking_accuracy_pct": 42.86},
+    {"method": "Path-weighted probe", "global_js_spearman": 0.47674, "pair_ranking_accuracy_pct": 42.86}
+  ],
+  "m55_fresh13": [
+    {"method": "Dense", "resolved": 0, "cases": 13, "copied_tokens": 0, "copy_requests": 0},
+    {"method": "General", "resolved": 0, "cases": 13, "copied_tokens": 645741, "copy_requests": 292},
+    {"method": "V40", "resolved": 0, "cases": 13, "copied_tokens": 196704, "copy_requests": 253}
+  ],
+  "m55_selector_capacity": {
+    "pairs_before_version_guard": 31,
+    "version_valid_pairs": 29,
+    "cases": 24,
+    "tasks": 5,
+    "minimum_cases": 16,
+    "minimum_tasks": 8
+  },
+  "m56_same_prompt": {
+    "requests": 383,
+    "target_requests": 244,
+    "target_tasks": 13,
+    "copied_tokens": 226101,
+    "fallback_events": 0,
+    "dense_median_ttft_ms": 316.17905711755157,
+    "v40_median_ttft_ms": 286.7393563501537,
+    "v40_median_n4_including_build_ms": 286.87108727172017,
+    "cache_ready_speedup": 1.102670596538019,
+    "n4_speedup": 1.1021642512829162,
+    "p95_speedup": 1.5500851541373635,
+    "per_request_win_fraction": 0.7950819672131147,
+    "first_token_agreement": 0.9754098360655737,
+    "cache_ready_gate": 1.05,
+    "first_token_agreement_gate": 0.90
+  },
+  "sources": {
+    "capacity_route": "/home/gfy/CodeMAS_Project/kvflow-reports/weekly_reports_20260718/2026-07-21_IMPACTKV_KVFLOW_WEEKLY_RESEARCH_AUDIT_REVISION.md and frozen V11/V12 artifacts cited there",
+    "p_series": "/home/gfy/CodeMAS_Project/kvflow-reports/weekly_reports_20260722/2026-07-22_IMPACTKV_CODING_AWARE_WEEKLY_FAILURE_ANALYSIS.md and impactkv_*_p3...p27 artifact roots",
+    "p30_p33": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_algorithm_matrix_p30_20260723 and impactkv_code_drift_oracle_p33_20260724",
+    "bridge": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_bridge_agent_accuracy_speed_20260726 and weekly_reports_20260726 audit",
+    "v40": "/home/gfy/CodeMAS_Project/kvflow-reports/weekly_reports_20260728/2026-07-28_IMPACTKV_V40_AND_MERGE_READINESS.md",
+    "controlled_route": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_codemas_v2_controlled_sota_20260729/v40...v92",
+    "v45_v46": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_v45_versioned_evidence_20260803 and impactkv_v46_accuracy_speed_20260803",
+    "m50_m54": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_m50_coding_provenance_20260805 through impactkv_m54_dependency_drift_hybrid_20260805",
+    "m55_fresh_accuracy": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_m55_v40_task_disjoint_20260805/M55_TASK_RESULT.json",
+    "m55_two_stage": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_m55_two_stage_20260805/fresh13/RESULT.json",
+    "m56_same_prompt": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_m56_v40_same_prompt_20260805/fresh13/RESULT.json",
+    "evidence_matrix": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_algorithm_evidence_matrix_20260805_final"
+  }
+}
