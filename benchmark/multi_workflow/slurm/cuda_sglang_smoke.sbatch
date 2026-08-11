@@ -2,6 +2,7 @@
 #SBATCH --job-name=impactkv-cuda-smoke
 #SBATCH --partition=long
 #SBATCH --exclude=gpu[10-13]
+#SBATCH --nodelist=gpu[14-19]
 #SBATCH --gres=gpu:rtx4090:1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=64G

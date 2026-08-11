@@ -12,8 +12,10 @@ artifacts, paper, prefetch behavior, or registered experimental thresholds.
   the cluster.  Nodes `gpu10` through `gpu13` have known severe interference
   and are forbidden for migration validation.  Because `debug` contains only
   those four nodes, bounded validation jobs use `long` with
-  `--exclude=gpu[10-13]`; GPU jobs additionally request RTX 4090 and therefore
-  resolve only to `gpu14` through `gpu19`.  The shared environment script also
+  `--exclude=gpu[10-13]` and `--nodelist=gpu[14-19]`.  GPU jobs additionally
+  request RTX 4090.  This explicit allowlist also prevents CPU-only Enroot jobs
+  from landing on `gpu23` or `gpu24`, where Enroot is unavailable.  The shared
+  environment script also
   fails closed if a Slurm override nevertheless places a job on a forbidden
   node.
 - Persistent and host-temporary storage: `$HOME` only.
