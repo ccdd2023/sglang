@@ -28,10 +28,12 @@ import requests
 from benchmark.multi_workflow.prepare_minisweagent_swebench import (
     normalize_predictions,
 )
+from benchmark.multi_workflow.runtime_paths import RuntimePaths
 
 
 PROJECT = Path(__file__).resolve().parents[2]
-ARTIFACTS = Path("/home/gfy/CodeMAS_Project/kvflow-artifacts")
+PATHS = RuntimePaths.from_project(PROJECT)
+ARTIFACTS = PATHS.artifacts
 DEFAULT_OUTPUT = ARTIFACTS / "impactkv_bridge_agent_accuracy_speed_20260726"
 DATASET = Path(
     os.environ.get(
@@ -63,7 +65,7 @@ CHAT_TEMPLATE = (
 )
 MODEL = os.environ.get(
     "IMPACTKV_MODEL",
-    "/home/gfy/models/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit",
+    str(PATHS.model),
 )
 TOKENIZER_JSON = os.environ.get(
     "IMPACTKV_TOKENIZER_JSON",
@@ -71,8 +73,11 @@ TOKENIZER_JSON = os.environ.get(
 )
 AGENT_STEP_LIMIT = int(os.environ.get("IMPACTKV_AGENT_STEP_LIMIT", "20"))
 ROPE_BASE = float(os.environ.get("IMPACTKV_ROPE_BASE", "10000000"))
-MINI = Path("/home/gfy/.venvs/mini-swe-agent-v2.3.0/bin/mini-extra")
-MINI_PYTHON = Path("/home/gfy/.venvs/mini-swe-agent-v2.3.0/bin/python")
+MINI = PATHS.mini_executable
+MINI_PYTHON = PATHS.mini_python
+ENROOT_AGENT_RUNNER = (
+    PROJECT / "benchmark/multi_workflow/run_minisweagent_enroot.py"
+)
 LIMIT_CAPTURE_RUNNER = (
     PROJECT
     / "benchmark/multi_workflow/run_swebench_with_limit_patch_capture.py"
@@ -80,7 +85,7 @@ LIMIT_CAPTURE_RUNNER = (
 CAPTURE_LIMIT_PATCH = (
     os.environ.get("IMPACTKV_CAPTURE_LIMIT_PATCH", "0") == "1"
 )
-EVAL_PYTHON = Path("/home/gfy/.conda/envs/sglang-kvflow/bin/python")
+EVAL_PYTHON = PATHS.eval_python
 SERVER_PYTHON = EVAL_PYTHON
 ARMS = (
     "dense",
@@ -112,6 +117,9 @@ ARMS = (
     "coding_grounded_observation_island_v40",
     "coding_versioned_evidence_guard_v45",
     "coding_observed_path_pool_v46",
+    "coding_natural_code_cost",
+    "coding_dependency_cold_cost",
+    "coding_dependency_graph_cold_lcb",
 )
 DENSE_ARMS = ("dense", "coding_memory_dense_v5")
 HOST_OVERFLOW_ARMS = (
@@ -129,6 +137,9 @@ HOST_OVERFLOW_ARMS = (
     "coding_post_mutation_payoff_guard_v28",
     "coding_post_mutation_payoff_guard_v29",
     "coding_observed_path_pool_v46",
+    "coding_natural_code_cost",
+    "coding_dependency_cold_cost",
+    "coding_dependency_graph_cold_lcb",
 )
 DUAL_ISLAND_ARMS = (
     "general_dual_4k",
@@ -257,6 +268,25 @@ def prepare(output: Path) -> dict[str, Any]:
                 "invalidate after any repository write, and no assistant "
                 "reasoning, ordinary prefix reuse, or prefetch is selected"
             ),
+            "coding_natural_code_cost": (
+                "up to three version-valid single-file direct-read tool "
+                "results; searches, assistant interpretation, test output, "
+                "and mutation feedback stay Dense; each target island is "
+                "admitted only when the frozen prompt-length by module-length "
+                "cost model predicts positive cache-ready TTFT saving"
+            ),
+            "coding_dependency_cold_cost": (
+                "the same version-valid natural-code and positive-cost "
+                "admission, but online-visible later path or symbol consumers "
+                "protect dependency-hot code for Dense recomputation; only "
+                "dependency-cold code enters the lossy KV pool"
+            ),
+            "coding_dependency_graph_cold_lcb": (
+                "one version-valid direct-read Python-code island selected "
+                "only when no visible exact-path, qualified-symbol, import, "
+                "or direct-call edge consumes it; admission additionally "
+                "requires a positive frozen task-grouped TTFT lower bound"
+            ),
             "coding_post_mutation_v19": (
                 "use General-4K when there is no online file-version boundary; "
                 "after a retained file observation is followed by a mutation "
@@ -333,6 +363,29 @@ def prepare(output: Path) -> dict[str, Any]:
             "coding_post_mutation_target_prefix_v23_copy_cap_tokens": 4_096,
             "coding_post_mutation_target_prefix_v23_host_overflow": True,
             "coding_post_mutation_target_prefix_v23_target_only_prefix": True,
+            "coding_natural_code_cost_model": {
+                "formula": (
+                    "0.13169242 * (island_tokens * prompt_tokens / 10000) "
+                    "- 14.66811245 ms"
+                ),
+                "calibration_cases": 24,
+                "calibration_r2": 0.8750207389619562,
+                "admission": "predicted_cache_ready_saving_ms > 0",
+                "source_build_included": False,
+            },
+            "coding_dependency_graph_lcb_model": {
+                "formula": (
+                    "0.15728623490986118 * "
+                    "(island_tokens * prompt_tokens / 10000) "
+                    "+ 0.25435619580085245 - 78.79832246051551 ms"
+                ),
+                "calibration_targets": 56,
+                "calibration_tasks": 7,
+                "task_grouped_folds": 5,
+                "admission": "lower_bound_cache_ready_saving_ms > 0",
+                "max_target_islands": 1,
+                "source_build_included": False,
+            },
             "min_copy_tokens": 128,
             "temperature": 0,
             "workers": 1,
@@ -591,12 +644,23 @@ def mini_command(
     manifest: Path,
     port: int,
     instance_filter: str | None,
+    container_backend: str = "docker",
 ) -> list[str]:
+    if container_backend not in ("docker", "enroot"):
+        raise ValueError(f"unsupported agent container backend: {container_backend}")
+    if container_backend == "enroot" and CAPTURE_LIMIT_PATCH:
+        raise ValueError(
+            "IMPACTKV_CAPTURE_LIMIT_PATCH is not supported by the Enroot runner"
+        )
     command = [
         *(
             [str(MINI_PYTHON), str(LIMIT_CAPTURE_RUNNER)]
             if CAPTURE_LIMIT_PATCH
-            else [str(MINI), "swebench"]
+            else (
+                [str(MINI_PYTHON), str(ENROOT_AGENT_RUNNER)]
+                if container_backend == "enroot"
+                else [str(MINI), "swebench"]
+            )
         ),
         "--subset",
         str(DATASET),
@@ -747,6 +811,7 @@ def run_official_evaluation(
     instance_ids: list[str] | None = None,
     registration: Path = REGISTRATION,
     snapshot: Path = SNAPSHOT,
+    container_backend: str = "docker",
 ) -> dict[str, Any]:
     predictions = run_dir / "predictions.jsonl"
     telemetry = run_dir / "TELEMETRY.json"
@@ -768,6 +833,38 @@ def run_official_evaluation(
             "\n".join(instance_ids).encode()
         ).hexdigest()[:10]
         run_id += f"-canary-{subset_hash}"
+    if container_backend == "enroot":
+        from benchmark.multi_workflow.enroot_swebench_evaluator import (
+            run_enroot_evaluation,
+        )
+
+        value = run_enroot_evaluation(
+            dataset_path=snapshot,
+            predictions_path=predictions,
+            output_dir=run_dir / "reports" / "enroot",
+            run_id=run_id,
+            instance_ids=instance_ids,
+            timeout=3600,
+        )
+        write_json(
+            run_dir / "OFFICIAL_EVALUATION_COMMAND.json",
+            {
+                "backend": "enroot",
+                "dataset": str(snapshot),
+                "predictions": str(predictions),
+                "instance_ids": instance_ids,
+                "run_id": run_id,
+            },
+        )
+        write_json(run_dir / "OFFICIAL_EVALUATION_ENV.json", {"backend": "enroot"})
+        write_json(run_dir / "OFFICIAL_RESULT.json", value)
+        if value["returncode"] != 0:
+            raise RuntimeError("Enroot SWE-bench evaluation failed")
+        return value
+    if container_backend != "docker":
+        raise ValueError(
+            f"unsupported evaluation container backend: {container_backend}"
+        )
     command = [
         str(EVAL_PYTHON),
         "-m",
@@ -835,9 +932,12 @@ def run_official_evaluation(
 
 
 def evaluate_existing(
-    *, output: Path, arm: str, scope: str
+    *, output: Path, arm: str, scope: str, container_backend: str = "docker"
 ) -> dict[str, Any]:
-    suffix = "full_18" if scope == "full" else scope
+    frozen = read_json(REGISTRATION)
+    suffix = (
+        f"full_{len(frozen['instances'])}" if scope == "full" else scope
+    )
     run_dir = output / arm / suffix
     if not (run_dir / "RUNTIME_SUMMARY.json").exists():
         raise FileNotFoundError(
@@ -848,7 +948,10 @@ def evaluate_existing(
     write_json(run_dir / "PIPELINE_STATUS.json", status)
     try:
         official_result = run_official_evaluation(
-            output=output, run_dir=run_dir, arm=arm
+            output=output,
+            run_dir=run_dir,
+            arm=arm,
+            container_backend=container_backend,
         )
     except Exception:
         status["state"] = "official_failed"
@@ -870,11 +973,18 @@ def run_arm(
     port: int,
     instance_filter: str | None,
     official: bool,
+    agent_container_backend: str = "docker",
+    evaluation_container_backend: str = "docker",
 ) -> dict[str, Any]:
     prepare(output)
     if arm not in ARMS:
         raise ValueError(f"unsupported arm: {arm}")
-    suffix = "full_18" if scope == "full" else f"canary_{instance_filter}"
+    frozen = read_json(REGISTRATION)
+    suffix = (
+        f"full_{len(frozen['instances'])}"
+        if scope == "full"
+        else f"canary_{instance_filter}"
+    )
     run_dir = output / arm / suffix
     if run_dir.exists() and any(run_dir.iterdir()):
         raise FileExistsError(f"refusing to overwrite non-empty run: {run_dir}")
@@ -886,6 +996,7 @@ def run_arm(
         manifest=manifest,
         port=port,
         instance_filter=instance_filter,
+        container_backend=agent_container_backend,
     )
     write_json(run_dir / "MINI_COMMAND.json", command)
     status = {
@@ -894,6 +1005,8 @@ def run_arm(
         "scope": scope,
         "started_at_utc": utc_now(),
         "prefetch": False,
+        "agent_container_backend": agent_container_backend,
+        "evaluation_container_backend": evaluation_container_backend,
     }
     write_json(run_dir / "PIPELINE_STATUS.json", status)
     process, server_log = launch_server(
@@ -971,6 +1084,7 @@ def run_arm(
             run_dir=run_dir,
             arm=arm,
             instance_ids=evaluation_ids,
+            container_backend=evaluation_container_backend,
         )
     status["state"] = "complete"
     status["finished_at_utc"] = utc_now()
@@ -991,9 +1105,28 @@ def main() -> None:
     run.add_argument("--port", type=int, default=30000)
     run.add_argument("--instance-filter")
     run.add_argument("--official", action="store_true")
+    run.add_argument(
+        "--agent-container-backend",
+        choices=("docker", "enroot"),
+        default=os.environ.get("IMPACTKV_AGENT_CONTAINER_BACKEND", "docker"),
+    )
+    run.add_argument(
+        "--evaluation-container-backend",
+        choices=("docker", "enroot"),
+        default=os.environ.get(
+            "IMPACTKV_EVALUATION_CONTAINER_BACKEND", "docker"
+        ),
+    )
     evaluate = sub.add_parser("evaluate-existing")
     evaluate.add_argument("--arm", choices=ARMS, required=True)
     evaluate.add_argument("--scope", choices=("full",), default="full")
+    evaluate.add_argument(
+        "--evaluation-container-backend",
+        choices=("docker", "enroot"),
+        default=os.environ.get(
+            "IMPACTKV_EVALUATION_CONTAINER_BACKEND", "docker"
+        ),
+    )
     args = parser.parse_args()
 
     output = args.output.resolve()
@@ -1004,6 +1137,7 @@ def main() -> None:
             output=output,
             arm=args.arm,
             scope=args.scope,
+            container_backend=args.evaluation_container_backend,
         )
     else:
         if args.scope == "canary" and not args.instance_filter:
@@ -1017,6 +1151,8 @@ def main() -> None:
             port=args.port,
             instance_filter=args.instance_filter,
             official=args.official,
+            agent_container_backend=args.agent_container_backend,
+            evaluation_container_backend=args.evaluation_container_backend,
         )
     print(json.dumps(value, ensure_ascii=False, indent=2))
 

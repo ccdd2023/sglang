@@ -8,6 +8,7 @@ concrete software-engineering risk signal.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 import re
@@ -111,11 +112,105 @@ _OBSERVED_REPOSITORY_FILE = re.compile(
     r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*"
     r"\.(?:py|pyi|toml|yaml|yml|json|rst|md|cfg|ini|txt))\b"
 )
+_EXPLICIT_CODING_SYMBOL = re.compile(
+    r"`([A-Za-z_]\w*)`|\b(?:class|def|function|method)\s+([A-Za-z_]\w*)\b"
+)
 _REPOSITORY_SCOPE_SEARCH = re.compile(
     r"(?:^|&&\s*|;\s*|\|\|\s*)find\s+"
     r"|\bgrep\b[^\n;&|]*(?:\s-[A-Za-z]*[rR][A-Za-z]*\b|--recursive\b)",
     re.I,
 )
+
+# Frozen from the 24-case SGLang natural repository-code stage experiment in
+# ``impactkv_natural_module_attention_20260808/.../stage_overhead_code_only_r2``.
+# The response variable is paired median Dense TTFT minus reuse TTFT.  The
+# predictor approximates prefill attention work rather than using one fixed
+# island-token threshold:
+#
+#   saving_ms = slope * (island_tokens * target_prompt_tokens / 10_000)
+#               - fixed_overhead_ms
+#
+# This is an exploratory engineering model (24 observations, R^2=0.8750), not
+# an accuracy proxy and not an independently confirmed speed claim.
+NATURAL_CODE_COST_FIXED_OVERHEAD_MS = 14.66811245
+NATURAL_CODE_COST_WORK_SLOPE_MS = 0.13169242
+NATURAL_CODE_COST_CALIBRATION_CASES = 24
+NATURAL_CODE_COST_CALIBRATION_R2 = 0.8750207389619562
+
+# Frozen before running any new dependency-graph accuracy experiment.  These
+# values come from ``calibrate_dependency_graph_lcb.py`` over all 56 completed
+# exact-prompt targets.  Five folds keep whole agent tasks together.  The
+# online score adds the cross-validated residual 10th percentile, making the
+# admission threshold deliberately more conservative than a positive mean.
+DEPENDENCY_GRAPH_LCB_WORK_SLOPE_MS = 0.15728623490986118
+DEPENDENCY_GRAPH_LCB_INTERCEPT_MS = 0.25435619580085245
+DEPENDENCY_GRAPH_LCB_RESIDUAL_Q10_MS = -78.79832246051551
+DEPENDENCY_GRAPH_LCB_CALIBRATION_TARGETS = 56
+DEPENDENCY_GRAPH_LCB_CALIBRATION_TASKS = 7
+DEPENDENCY_GRAPH_LCB_CALIBRATION_R2 = 0.8745374212745528
+
+_OUTPUT_BLOCK = re.compile(r"<output>(.*?)</output>", re.I | re.S)
+_AMBIGUOUS_UNQUALIFIED_SYMBOL = re.compile(r"^__\w+__$")
+
+
+def natural_code_reuse_cost_estimate(
+    *, island_tokens: int, target_prompt_tokens: int
+) -> dict[str, Any]:
+    """Estimate cache-ready TTFT benefit for one natural code module.
+
+    The policy admits any strictly positive prediction.  Source build is
+    intentionally excluded because online sources are materialized by the
+    preceding real agent request; no synthetic prefetch request is allowed.
+    """
+
+    if island_tokens <= 0 or target_prompt_tokens <= 0:
+        raise ValueError("token counts must be positive")
+    attention_work_10k = island_tokens * target_prompt_tokens / 10_000
+    saving_ms = (
+        NATURAL_CODE_COST_WORK_SLOPE_MS * attention_work_10k
+        - NATURAL_CODE_COST_FIXED_OVERHEAD_MS
+    )
+    return {
+        "model": "natural_code_attention_work_linear_v1",
+        "island_tokens": island_tokens,
+        "target_prompt_tokens": target_prompt_tokens,
+        "attention_work_token2": island_tokens * target_prompt_tokens,
+        "predicted_cache_ready_saving_ms": saving_ms,
+        "reuse_admitted": saving_ms > 0,
+        "calibration_cases": NATURAL_CODE_COST_CALIBRATION_CASES,
+        "calibration_r2": NATURAL_CODE_COST_CALIBRATION_R2,
+        "source_build_included": False,
+    }
+
+
+def dependency_graph_lcb_cost_estimate(
+    *, island_tokens: int, target_prompt_tokens: int
+) -> dict[str, Any]:
+    """Return the frozen conservative TTFT admission score for one island."""
+
+    if island_tokens <= 0 or target_prompt_tokens <= 0:
+        raise ValueError("token counts must be positive")
+    attention_work_10k = island_tokens * target_prompt_tokens / 10_000
+    predicted = (
+        DEPENDENCY_GRAPH_LCB_WORK_SLOPE_MS * attention_work_10k
+        + DEPENDENCY_GRAPH_LCB_INTERCEPT_MS
+    )
+    lower_bound = predicted + DEPENDENCY_GRAPH_LCB_RESIDUAL_Q10_MS
+    return {
+        "model": "dependency_graph_attention_work_lcb_v1",
+        "island_tokens": island_tokens,
+        "target_prompt_tokens": target_prompt_tokens,
+        "attention_work_token2": island_tokens * target_prompt_tokens,
+        "predicted_cache_ready_saving_ms": predicted,
+        "residual_q10_ms": DEPENDENCY_GRAPH_LCB_RESIDUAL_Q10_MS,
+        "lower_bound_cache_ready_saving_ms": lower_bound,
+        "reuse_admitted": lower_bound > 0,
+        "calibration_targets": DEPENDENCY_GRAPH_LCB_CALIBRATION_TARGETS,
+        "calibration_tasks": DEPENDENCY_GRAPH_LCB_CALIBRATION_TASKS,
+        "calibration_r2": DEPENDENCY_GRAPH_LCB_CALIBRATION_R2,
+        "task_grouped_folds": 5,
+        "source_build_included": False,
+    }
 
 
 def _tool_command(message: dict[str, Any]) -> str:
@@ -246,6 +341,178 @@ def repository_observation_symbols(
     symbols = _declared_symbols(observations)
     symbols.update(_READ_QUERY_SYMBOL.findall(commands))
     return symbols
+
+
+def _tool_observation_output(
+    group: Sequence[dict[str, Any]],
+) -> str:
+    """Return only command output already present in the serialized prompt."""
+
+    outputs: list[str] = []
+    for message in group:
+        if message.get("role") != "tool":
+            continue
+        content = str(message.get("content") or "")
+        matches = _OUTPUT_BLOCK.findall(content)
+        outputs.extend(matches if matches else [content])
+    return "\n".join(outputs)
+
+
+def _python_module_for_path(path: str) -> str:
+    normalized = _normalize_observed_repository_path(path)
+    if normalized.endswith(".pyi"):
+        normalized = normalized[:-4]
+    elif normalized.endswith(".py"):
+        normalized = normalized[:-3]
+    else:
+        return ""
+    parts = [part for part in normalized.split("/") if part]
+    if parts and parts[-1] == "__init__":
+        parts.pop()
+    return ".".join(parts)
+
+
+def _dotted_ast_name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        prefix = _dotted_ast_name(node.value)
+        return f"{prefix}.{node.attr}" if prefix else node.attr
+    return ""
+
+
+class _VisiblePythonGraph(ast.NodeVisitor):
+    """Collect a small answer-blind dependency graph from visible Python."""
+
+    def __init__(self) -> None:
+        self.scope: list[str] = []
+        self.declared_qualified: set[str] = set()
+        self.declared_symbols: set[str] = set()
+        self.import_aliases: dict[str, str] = {}
+        self.import_targets: set[str] = set()
+        self.referenced_names: set[str] = set()
+        self.called_symbols: set[str] = set()
+
+    def _visit_declaration(self, node: ast.AST, name: str) -> None:
+        self.declared_symbols.add(name)
+        self.declared_qualified.add(".".join([*self.scope, name]))
+        self.scope.append(name)
+        self.generic_visit(node)
+        self.scope.pop()
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
+        self._visit_declaration(node, node.name)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:  # noqa: N802
+        self._visit_declaration(node, node.name)
+
+    def visit_AsyncFunctionDef(  # noqa: N802
+        self, node: ast.AsyncFunctionDef
+    ) -> None:
+        self._visit_declaration(node, node.name)
+
+    def visit_Import(self, node: ast.Import) -> None:  # noqa: N802
+        for alias in node.names:
+            local = alias.asname or alias.name.split(".")[0]
+            self.import_aliases[local] = alias.name
+            self.import_targets.add(alias.name)
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:  # noqa: N802
+        prefix = "." * node.level + (node.module or "")
+        for alias in node.names:
+            target = f"{prefix}.{alias.name}" if prefix else alias.name
+            local = alias.asname or alias.name
+            self.import_aliases[local] = target
+            self.import_targets.add(target)
+
+    def visit_Name(self, node: ast.Name) -> None:  # noqa: N802
+        if isinstance(node.ctx, ast.Load):
+            self.referenced_names.add(node.id)
+
+    def visit_Attribute(self, node: ast.Attribute) -> None:  # noqa: N802
+        dotted = _dotted_ast_name(node)
+        if dotted:
+            self.referenced_names.add(dotted)
+        self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call) -> None:  # noqa: N802
+        dotted = _dotted_ast_name(node.func)
+        if dotted:
+            self.called_symbols.add(dotted)
+        self.generic_visit(node)
+
+
+def _resolve_visible_alias(value: str, aliases: dict[str, str]) -> str:
+    first, separator, rest = value.partition(".")
+    target = aliases.get(first)
+    if target is None:
+        return value
+    return target + (separator + rest if separator else "")
+
+
+def visible_python_dependency_graph(
+    *, path: str, group: Sequence[dict[str, Any]]
+) -> dict[str, Any]:
+    """Build a one-file graph solely from code already shown to the agent.
+
+    Partial ``sed`` windows are common and may not parse as a module.  Such
+    observations retain lexical/path guards rather than consulting the hidden
+    checkout or pretending the missing syntax is known.
+    """
+
+    module = _python_module_for_path(path)
+    result: dict[str, Any] = {
+        "path": _normalize_observed_repository_path(path),
+        "module": module,
+        "parse_status": "non_python",
+        "declared_symbols": [],
+        "qualified_symbols": [],
+        "import_aliases": {},
+        "import_targets": [],
+        "referenced_names": [],
+        "called_symbols": [],
+    }
+    if not module:
+        return result
+    code = _tool_observation_output(group)
+    try:
+        tree = ast.parse(code)
+    except (SyntaxError, ValueError, TypeError) as error:
+        result.update(
+            parse_status="lexical_fallback",
+            parse_error=type(error).__name__,
+            declared_symbols=sorted(repository_observation_symbols(group)),
+        )
+        return result
+
+    visitor = _VisiblePythonGraph()
+    visitor.visit(tree)
+    resolved_references = {
+        _resolve_visible_alias(value, visitor.import_aliases)
+        for value in visitor.referenced_names
+    }
+    resolved_calls = {
+        _resolve_visible_alias(value, visitor.import_aliases)
+        for value in visitor.called_symbols
+    }
+    qualified = set(visitor.declared_qualified)
+    qualified.update(
+        f"{module}.{value}" for value in visitor.declared_qualified if module
+    )
+    result.update(
+        parse_status="parsed",
+        declared_symbols=sorted(visitor.declared_symbols),
+        qualified_symbols=sorted(qualified),
+        import_aliases=dict(sorted(visitor.import_aliases.items())),
+        import_targets=sorted(visitor.import_targets),
+        referenced_names=sorted(resolved_references),
+        called_symbols=sorted(resolved_calls),
+    )
+    return result
+
+
+def _usable_unqualified_symbol(symbol: str) -> bool:
+    return bool(symbol) and not _AMBIGUOUS_UNQUALIFIED_SYMBOL.fullmatch(symbol)
 
 
 def repository_mutation_symbols(
@@ -940,6 +1207,427 @@ def versioned_observed_path_candidates(
         "risk_reasons": [],
         "symbol_relaxation_enabled": False,
     }
+
+
+def natural_repository_code_candidates(
+    retained_groups: Sequence[Sequence[dict[str, Any]]],
+) -> tuple[list[list[dict[str, Any]]], dict[str, Any]]:
+    """Return version-valid, single-file direct-read code observations.
+
+    This is the online counterpart of the natural-module motivation study.
+    Repository searches are excluded because their module boundary and
+    dependency scope are qualitatively different; assistant interpretation,
+    commands, test output, and mutation feedback are never candidates.  A
+    direct result naming more than one repository file is rejected rather
+    than inventing a fixed token split inside an ambiguous tool payload.
+    """
+
+    broad_candidates, broad = versioned_observed_path_candidates(
+        retained_groups
+    )
+    candidates: list[list[dict[str, Any]]] = []
+    evidence: list[dict[str, Any]] = []
+    excluded_search = 0
+    excluded_ambiguous_files = 0
+    for candidate, item in zip(
+        broad_candidates, broad["candidate_evidence"], strict=True
+    ):
+        group = retained_groups[int(item["group_index"])]
+        commands = "\n".join(
+            command
+            for message in group
+            if (command := _tool_command(message))
+        )
+        if _SEARCH_COMMAND.search(commands) or item["path_provenance"][
+            "repository_scope_dependency"
+        ]:
+            excluded_search += 1
+            continue
+        if len(item["paths"]) != 1:
+            excluded_ambiguous_files += 1
+            continue
+        candidates.append(candidate)
+        evidence.append({**item, "module_type": "repository_code"})
+    return candidates, {
+        **broad,
+        "mode": "natural_repository_code_version_guard_cost_v1",
+        "eligible_observations_before_module_filter": broad[
+            "eligible_observations"
+        ],
+        "eligible_observations": len(candidates),
+        "candidate_group_indices": [item["group_index"] for item in evidence],
+        "candidate_evidence": evidence,
+        "excluded_repository_searches": excluded_search,
+        "excluded_ambiguous_multifile_results": excluded_ambiguous_files,
+        "selected_module_type": "repository_code",
+    }
+
+
+def coding_dependency_relations(
+    *,
+    source_paths: set[str],
+    source_symbols: set[str],
+    later_groups: Sequence[Sequence[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    """Find online-visible consumers of one earlier code observation.
+
+    This is intentionally a protection signal.  A later turn that names the
+    same file or an explicit symbol from the observed code makes the source
+    dependency-hot, so its old K/V must not be copied into the current prompt.
+    The detector uses only text and tool calls already visible before the
+    target generation; it never consults Attention, a Dense answer, or task
+    outcomes.
+    """
+
+    relations: list[dict[str, Any]] = []
+    for later_index, group in enumerate(later_groups):
+        assistant_text = "\n".join(
+            str(message.get("content") or "")
+            for message in group
+            if message.get("role") == "assistant"
+        )
+        visible_text = "\n".join(
+            str(message.get("content") or "")
+            for message in group
+        )
+        later_paths = set(observed_repository_path_provenance(group)["paths"])
+        later_paths.update(
+            _normalize_observed_repository_path(match.group(1))
+            for match in _OBSERVED_REPOSITORY_FILE.finditer(assistant_text)
+        )
+        later_symbols = repository_observation_symbols(group)
+        later_symbols.update(
+            next(part for part in match.groups() if part)
+            for match in _EXPLICIT_CODING_SYMBOL.finditer(visible_text)
+        )
+        # A focused command often names a symbol without a ``def`` or
+        # backticks.  Match only symbols actually declared in the source to
+        # avoid treating arbitrary identifier-like words as dependencies.
+        for symbol in source_symbols:
+            if re.search(rf"(?<!\w){re.escape(symbol)}(?!\w)", visible_text):
+                later_symbols.add(symbol)
+        path_overlap = sorted(source_paths & later_paths)
+        symbol_overlap = sorted(source_symbols & later_symbols)
+        if not path_overlap and not symbol_overlap:
+            continue
+        relations.append(
+            {
+                "later_group_offset": later_index,
+                "exact_paths": path_overlap,
+                "shared_symbols": symbol_overlap,
+                "assistant_interpretation_grounding": bool(
+                    assistant_text and (path_overlap or symbol_overlap)
+                ),
+            }
+        )
+    return relations
+
+
+def cold_natural_repository_code_candidates(
+    retained_groups: Sequence[Sequence[dict[str, Any]]],
+) -> tuple[list[list[dict[str, Any]]], dict[str, Any]]:
+    """Keep only version-valid code observations with no visible consumer.
+
+    ``natural_repository_code_candidates`` establishes module validity.  This
+    second stage changes the ranking direction justified by the Hot/Cold
+    physical-splice study: dependency-hot code is protected (recomputed), and
+    only dependency-cold code can enter the lossy KV pool.
+    """
+
+    broad_candidates, broad = natural_repository_code_candidates(retained_groups)
+    candidates: list[list[dict[str, Any]]] = []
+    evidence: list[dict[str, Any]] = []
+    hot = 0
+    for candidate, item in zip(
+        broad_candidates, broad["candidate_evidence"], strict=True
+    ):
+        source_index = int(item["group_index"])
+        relations = coding_dependency_relations(
+            source_paths=set(item["paths"]),
+            source_symbols=set(item["symbols"]),
+            later_groups=retained_groups[source_index + 1 :],
+        )
+        if relations:
+            hot += 1
+            continue
+        candidates.append(candidate)
+        evidence.append(
+            {
+                **item,
+                "dependency_hot": False,
+                "dependency_relations": [],
+            }
+        )
+    return candidates, {
+        **broad,
+        "mode": "natural_repository_code_dependency_cold_cost_v1",
+        "eligible_observations_before_dependency_guard": broad[
+            "eligible_observations"
+        ],
+        "eligible_observations": len(candidates),
+        "candidate_group_indices": [item["group_index"] for item in evidence],
+        "candidate_evidence": evidence,
+        "dependency_hot_observations_protected": hot,
+        "dependency_cold_observations": len(candidates),
+        "dependency_direction": "hot_recompute_cold_lossy_copy",
+    }
+
+
+def coding_dependency_target_guard(
+    pending: dict[str, Any],
+    retained_groups: Sequence[Sequence[dict[str, Any]]],
+) -> dict[str, Any]:
+    """Revalidate version evidence, then veto dependency-hot KV copies."""
+
+    result = observed_path_target_guard(pending, retained_groups)
+    result.update(
+        dependency_guard_applied=True,
+        dependency_direction="hot_recompute_cold_lossy_copy",
+        dependency_hot=None,
+        dependency_relations=[],
+    )
+    if not result["target_evidence_valid"]:
+        return result
+    source_index = int(result["source_group_index"])
+    relations = coding_dependency_relations(
+        source_paths=set(pending.get("source_paths") or ()),
+        source_symbols=set(pending.get("source_symbols") or ()),
+        later_groups=retained_groups[source_index + 1 :],
+    )
+    hot = bool(relations)
+    result.update(
+        dependency_hot=hot,
+        dependency_relations=relations,
+        target_evidence_valid=not hot,
+        reason=(
+            "coding_dependency_hot_protected"
+            if hot
+            else "coding_dependency_cold_version_valid"
+        ),
+    )
+    return result
+
+
+def coding_dependency_graph_relations(
+    *,
+    source_paths: set[str],
+    source_symbols: set[str],
+    source_graph: dict[str, Any],
+    later_groups: Sequence[Sequence[dict[str, Any]]],
+) -> list[dict[str, Any]]:
+    """Find visible one-hop path/import/call consumers of source code.
+
+    Unlike the earlier flat-symbol detector, cross-file dunder names such as
+    ``__init__`` and ``__call__`` cannot independently make an observation
+    hot.  Qualified names and import aliases are resolved from visible Python
+    ASTs.  Syntax-incomplete windows fall back to conservative lexical
+    matching, and the hidden repository is never scanned.
+    """
+
+    source_module = str(source_graph.get("module") or "")
+    source_qualified = {
+        str(value) for value in source_graph.get("qualified_symbols") or ()
+    }
+    usable_symbols = {
+        symbol for symbol in source_symbols if _usable_unqualified_symbol(symbol)
+    }
+    relations: list[dict[str, Any]] = []
+    for later_index, group in enumerate(later_groups):
+        provenance = observed_repository_path_provenance(group)
+        later_paths = set(provenance["paths"])
+        exact_paths = sorted(source_paths & later_paths)
+
+        later_graphs = [
+            visible_python_dependency_graph(path=path, group=group)
+            for path in sorted(later_paths)
+            if _python_module_for_path(path)
+        ]
+        references = {
+            str(value)
+            for graph in later_graphs
+            for value in graph.get("referenced_names") or ()
+        }
+        calls = {
+            str(value)
+            for graph in later_graphs
+            for value in graph.get("called_symbols") or ()
+        }
+        import_targets = {
+            str(value)
+            for graph in later_graphs
+            for value in graph.get("import_targets") or ()
+        }
+        qualified_matches = sorted(source_qualified & (references | calls))
+        import_matches = sorted(
+            target
+            for target in import_targets
+            if source_module
+            and (target == source_module or target.startswith(source_module + "."))
+        )
+        direct_call_matches = sorted(
+            usable_symbols
+            & {value.rsplit(".", 1)[-1] for value in calls}
+        )
+
+        commands = "\n".join(
+            command
+            for message in group
+            if (command := _tool_command(message))
+        )
+        assistant_text = "\n".join(
+            str(message.get("content") or "")
+            for message in group
+            if message.get("role") == "assistant"
+        )
+        lexical_text = "\n".join(
+            (commands, assistant_text, _tool_observation_output(group))
+        )
+        lexical_matches = sorted(
+            symbol
+            for symbol in usable_symbols
+            if re.search(rf"(?<!\w){re.escape(symbol)}(?!\w)", lexical_text)
+        )
+
+        relation_kinds: list[str] = []
+        if exact_paths:
+            relation_kinds.append("exact_path")
+        if qualified_matches:
+            relation_kinds.append("qualified_symbol")
+        if import_matches:
+            relation_kinds.append("one_hop_import")
+        if direct_call_matches:
+            relation_kinds.append("direct_call")
+        if lexical_matches and not (
+            qualified_matches or import_matches or direct_call_matches
+        ):
+            relation_kinds.append("lexical_fallback")
+        if not relation_kinds:
+            continue
+        relations.append(
+            {
+                "later_group_offset": later_index,
+                "relation_kinds": relation_kinds,
+                "exact_paths": exact_paths,
+                "qualified_symbol_matches": qualified_matches,
+                "import_matches": import_matches,
+                "direct_call_matches": direct_call_matches,
+                "lexical_symbol_matches": lexical_matches,
+                "later_parse_statuses": [
+                    str(graph["parse_status"]) for graph in later_graphs
+                ],
+            }
+        )
+    return relations
+
+
+def dependency_graph_cold_repository_code_candidates(
+    retained_groups: Sequence[Sequence[dict[str, Any]]],
+) -> tuple[list[list[dict[str, Any]]], dict[str, Any]]:
+    """Select version-valid code with no visible one-hop consumer."""
+
+    broad_candidates, broad = natural_repository_code_candidates(retained_groups)
+    candidates: list[list[dict[str, Any]]] = []
+    evidence: list[dict[str, Any]] = []
+    hot = 0
+    relation_kind_counts: dict[str, int] = {}
+    parse_status_counts: dict[str, int] = {}
+    for candidate, item in zip(
+        broad_candidates, broad["candidate_evidence"], strict=True
+    ):
+        source_index = int(item["group_index"])
+        source_path = str(item["paths"][0])
+        graph = visible_python_dependency_graph(
+            path=source_path,
+            group=retained_groups[source_index],
+        )
+        status = str(graph["parse_status"])
+        parse_status_counts[status] = parse_status_counts.get(status, 0) + 1
+        source_symbols = set(item["symbols"]) | set(
+            graph.get("declared_symbols") or ()
+        )
+        relations = coding_dependency_graph_relations(
+            source_paths=set(item["paths"]),
+            source_symbols=source_symbols,
+            source_graph=graph,
+            later_groups=retained_groups[source_index + 1 :],
+        )
+        if relations:
+            hot += 1
+            for relation in relations:
+                for kind in relation["relation_kinds"]:
+                    relation_kind_counts[kind] = (
+                        relation_kind_counts.get(kind, 0) + 1
+                    )
+            continue
+        candidates.append(candidate)
+        evidence.append(
+            {
+                **item,
+                "symbols": sorted(source_symbols),
+                "dependency_graph": graph,
+                "dependency_hot": False,
+                "dependency_relations": [],
+            }
+        )
+    return candidates, {
+        **broad,
+        "mode": "dependency_graph_cold_lcb_single_island_v1",
+        "eligible_observations_before_dependency_guard": broad[
+            "eligible_observations"
+        ],
+        "eligible_observations": len(candidates),
+        "candidate_group_indices": [item["group_index"] for item in evidence],
+        "candidate_evidence": evidence,
+        "dependency_hot_observations_protected": hot,
+        "dependency_cold_observations": len(candidates),
+        "dependency_relation_kind_counts": relation_kind_counts,
+        "source_parse_status_counts": parse_status_counts,
+        "dependency_direction": "graph_hot_recompute_graph_cold_lossy_copy",
+        "hidden_repository_scan": False,
+    }
+
+
+def coding_dependency_graph_target_guard(
+    pending: dict[str, Any],
+    retained_groups: Sequence[Sequence[dict[str, Any]]],
+) -> dict[str, Any]:
+    """Revalidate file version and the visible graph before physical copy."""
+
+    result = observed_path_target_guard(pending, retained_groups)
+    result.update(
+        dependency_graph_guard_applied=True,
+        dependency_direction="graph_hot_recompute_graph_cold_lossy_copy",
+        dependency_hot=None,
+        dependency_relations=[],
+    )
+    if not result["target_evidence_valid"]:
+        return result
+    source_graph = pending.get("source_dependency_graph")
+    if not isinstance(source_graph, dict):
+        result.update(
+            target_evidence_valid=False,
+            reason="source_dependency_graph_missing",
+        )
+        return result
+    source_index = int(result["source_group_index"])
+    relations = coding_dependency_graph_relations(
+        source_paths=set(pending.get("source_paths") or ()),
+        source_symbols=set(pending.get("source_symbols") or ()),
+        source_graph=source_graph,
+        later_groups=retained_groups[source_index + 1 :],
+    )
+    hot = bool(relations)
+    result.update(
+        dependency_hot=hot,
+        dependency_relations=relations,
+        target_evidence_valid=not hot,
+        reason=(
+            "coding_dependency_graph_hot_protected"
+            if hot
+            else "coding_dependency_graph_cold_version_valid"
+        ),
+    )
+    return result
 
 
 def observed_path_target_guard(

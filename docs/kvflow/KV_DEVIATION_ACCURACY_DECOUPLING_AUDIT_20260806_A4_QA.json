@@ -1,0 +1,13 @@
+{
+  "pages": 24,
+  "blank_pages": [],
+  "image_failures": [],
+  "passed": true,
+  "source": "/home/gfy/CodeMAS_Project/sglang-kvflow-worktrees/coding-aware/docs/kvflow/KV_DEVIATION_ACCURACY_DECOUPLING_AUDIT_20260806.md",
+  "html": "/home/gfy/CodeMAS_Project/sglang-kvflow-worktrees/coding-aware/docs/kvflow/KV_DEVIATION_ACCURACY_DECOUPLING_AUDIT_20260806_A4.html",
+  "pdf": "/home/gfy/CodeMAS_Project/sglang-kvflow-worktrees/coding-aware/docs/kvflow/KV_DEVIATION_ACCURACY_DECOUPLING_AUDIT_20260806_A4.pdf",
+  "source_sha256": "6fdd979702f315715bea58bcfbb6a50fd6ac9a01a36b909020d498d70aec4bff",
+  "html_sha256": "6fd9cc508d3dc3461f26951a3e3bfaaed0e0934b6f675c2744882a63cbeb7e25",
+  "pdf_sha256": "1862ec03cd18d7c58ac260877a5b6732132932627ace462b547371836c83612b",
+  "pdf_bytes": 3672575
+}

@@ -1,0 +1,554 @@
+{
+  "analysis_type": "post_hoc_read_only_module_diagnostic",
+  "cases": 26,
+  "comparison_contract": {
+    "dense": "full current-prompt computation",
+    "full_heatmap_query_rows": "all query modules executed in both arms; copied-island target rows are excluded because reuse does not execute them",
+    "key_columns": "all prompt modules, including copied repository evidence",
+    "reuse": "runtime-faithful single-island lossy K/V splice",
+    "suffix_heatmap_query_rows": "only query blocks at or after the copied island end; these can be causally affected by the lossy cache"
+  },
+  "dense_full_matrix": {
+    "assistant_action": {
+      "assistant_action": 0.6030243349292397,
+      "compaction_notice": 0.013379704683393357,
+      "copied_observation_island": 0.049668219640848686,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.030876636516456762,
+      "read_observation_path_disjoint": 0.02169089630856782,
+      "read_observation_path_relevant": 0.037976699322260506,
+      "system_instruction": 0.13993999308581936,
+      "user_task": 0.1034435169766505
+    },
+    "compaction_notice": {
+      "assistant_action": 0.0,
+      "compaction_notice": 0.51797390001025,
+      "copied_observation_island": 0.0,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.0,
+      "read_observation_path_disjoint": 0.0,
+      "read_observation_path_relevant": 0.0,
+      "system_instruction": 0.19159228587382868,
+      "user_task": 0.2904338198071354
+    },
+    "generation_marker": {
+      "assistant_action": 0.29187253536747915,
+      "compaction_notice": 0.009431301640758578,
+      "copied_observation_island": 0.04489300728489,
+      "generation_marker": 0.21651711200292295,
+      "other_tool_result": 0.09304638731763333,
+      "read_observation_path_disjoint": 0.07344827123841895,
+      "read_observation_path_relevant": 0.11021372099171575,
+      "system_instruction": 0.0857222804465355,
+      "user_task": 0.07485538700846239
+    },
+    "other_tool_result": {
+      "assistant_action": 0.11080207852162734,
+      "compaction_notice": 0.012628872014503472,
+      "copied_observation_island": 0.01924377688300991,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.5924838631465036,
+      "read_observation_path_disjoint": 0.007160761784398909,
+      "read_observation_path_relevant": 0.02053949774323803,
+      "system_instruction": 0.14176991853229065,
+      "user_task": 0.09537123076843142
+    },
+    "read_observation_path_disjoint": {
+      "assistant_action": 0.039946399555791844,
+      "compaction_notice": 0.004164800936458885,
+      "copied_observation_island": 0.07042529026553455,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.009506592980562788,
+      "read_observation_path_disjoint": 0.6987315772849543,
+      "read_observation_path_relevant": 0.0014867223388909173,
+      "system_instruction": 0.12966651130370357,
+      "user_task": 0.046072105666717045
+    },
+    "read_observation_path_relevant": {
+      "assistant_action": 0.08763924812451324,
+      "compaction_notice": 0.006248647007414045,
+      "copied_observation_island": 0.05722473904415981,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.02232919151292675,
+      "read_observation_path_disjoint": 0.0076586652853193014,
+      "read_observation_path_relevant": 0.624644398757032,
+      "system_instruction": 0.12552265580269525,
+      "user_task": 0.06873245536434096
+    },
+    "system_instruction": {
+      "assistant_action": 0.0,
+      "compaction_notice": 0.0,
+      "copied_observation_island": 0.0,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.0,
+      "read_observation_path_disjoint": 0.0,
+      "read_observation_path_relevant": 0.0,
+      "system_instruction": 0.9999999985685939,
+      "user_task": 0.0
+    },
+    "user_task": {
+      "assistant_action": 0.0,
+      "compaction_notice": 0.0,
+      "copied_observation_island": 0.0,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.0,
+      "read_observation_path_disjoint": 0.0,
+      "read_observation_path_relevant": 0.0,
+      "system_instruction": 0.22056258139725382,
+      "user_task": 0.7794374193376674
+    }
+  },
+  "dense_suffix_matrix": {
+    "assistant_action": {
+      "assistant_action": 0.5806337869605863,
+      "compaction_notice": 0.005103555150423379,
+      "copied_observation_island": 0.11828821803423584,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.02903513525133979,
+      "read_observation_path_disjoint": 0.03220229260434177,
+      "read_observation_path_relevant": 0.039761369047232306,
+      "system_instruction": 0.12661465687346193,
+      "user_task": 0.06836098736026426
+    },
+    "generation_marker": {
+      "assistant_action": 0.29187253536747915,
+      "compaction_notice": 0.009431301640758578,
+      "copied_observation_island": 0.04489300728489,
+      "generation_marker": 0.21651711200292295,
+      "other_tool_result": 0.09304638731763333,
+      "read_observation_path_disjoint": 0.07344827123841895,
+      "read_observation_path_relevant": 0.11021372099171575,
+      "system_instruction": 0.0857222804465355,
+      "user_task": 0.07485538700846239
+    },
+    "other_tool_result": {
+      "assistant_action": 0.1480498244514701,
+      "compaction_notice": 0.006765910899562473,
+      "copied_observation_island": 0.06822658478530241,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.5267672170320582,
+      "read_observation_path_disjoint": 0.01190704865702714,
+      "read_observation_path_relevant": 0.010179812548334602,
+      "system_instruction": 0.1419328022911546,
+      "user_task": 0.08617079813281461
+    },
+    "read_observation_path_disjoint": {
+      "assistant_action": 0.03806645523307606,
+      "compaction_notice": 0.0022947458781591786,
+      "copied_observation_island": 0.09901064856646045,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.009806406293964471,
+      "read_observation_path_disjoint": 0.6950183131842085,
+      "read_observation_path_relevant": 0.0020901772993312546,
+      "system_instruction": 0.12093253106635082,
+      "user_task": 0.0327807229017912
+    },
+    "read_observation_path_relevant": {
+      "assistant_action": 0.11370846251179735,
+      "compaction_notice": 0.004074383038518411,
+      "copied_observation_island": 0.1537187319562471,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.01685512948815933,
+      "read_observation_path_disjoint": 0.00762634135413878,
+      "read_observation_path_relevant": 0.5334636118995658,
+      "system_instruction": 0.11889130335529172,
+      "user_task": 0.05166203843364299
+    }
+  },
+  "largest_full_matrix_changes": [
+    {
+      "delta_percentage_points": -0.20241578458090603,
+      "dense_attention_mass": 0.05722473904415981,
+      "key_module": "copied_observation_island",
+      "query_module": "read_observation_path_relevant",
+      "reuse_attention_mass": 0.05520058119835075
+    },
+    {
+      "delta_percentage_points": -0.11544381475780546,
+      "dense_attention_mass": 0.04489300728489,
+      "key_module": "copied_observation_island",
+      "query_module": "generation_marker",
+      "reuse_attention_mass": 0.043738569137311945
+    },
+    {
+      "delta_percentage_points": 0.0678244983812859,
+      "dense_attention_mass": 0.624644398757032,
+      "key_module": "read_observation_path_relevant",
+      "query_module": "read_observation_path_relevant",
+      "reuse_attention_mass": 0.6253226437408449
+    },
+    {
+      "delta_percentage_points": 0.06583960437148567,
+      "dense_attention_mass": 0.08763924812451324,
+      "key_module": "assistant_action",
+      "query_module": "read_observation_path_relevant",
+      "reuse_attention_mass": 0.08829764416822809
+    },
+    {
+      "delta_percentage_points": -0.06046650588702358,
+      "dense_attention_mass": 0.01924377688300991,
+      "key_module": "copied_observation_island",
+      "query_module": "other_tool_result",
+      "reuse_attention_mass": 0.018639111824139673
+    },
+    {
+      "delta_percentage_points": 0.05241254384880101,
+      "dense_attention_mass": 0.11021372099171575,
+      "key_module": "read_observation_path_relevant",
+      "query_module": "generation_marker",
+      "reuse_attention_mass": 0.11073784643020376
+    },
+    {
+      "delta_percentage_points": -0.046386857607601945,
+      "dense_attention_mass": 0.049668219640848686,
+      "key_module": "copied_observation_island",
+      "query_module": "assistant_action",
+      "reuse_attention_mass": 0.04920435106477267
+    },
+    {
+      "delta_percentage_points": 0.03096765173743188,
+      "dense_attention_mass": 0.06873245536434096,
+      "key_module": "user_task",
+      "query_module": "read_observation_path_relevant",
+      "reuse_attention_mass": 0.06904213188171528
+    },
+    {
+      "delta_percentage_points": -0.030868397309230522,
+      "dense_attention_mass": 0.21651711200292295,
+      "key_module": "generation_marker",
+      "query_module": "generation_marker",
+      "reuse_attention_mass": 0.21620842802983065
+    },
+    {
+      "delta_percentage_points": 0.029275390731456352,
+      "dense_attention_mass": 0.07485538700846239,
+      "key_module": "user_task",
+      "query_module": "generation_marker",
+      "reuse_attention_mass": 0.07514814091577696
+    },
+    {
+      "delta_percentage_points": 0.02611840251274533,
+      "dense_attention_mass": 0.12552265580269525,
+      "key_module": "system_instruction",
+      "query_module": "read_observation_path_relevant",
+      "reuse_attention_mass": 0.1257838398278227
+    },
+    {
+      "delta_percentage_points": 0.02425363409341852,
+      "dense_attention_mass": 0.29187253536747915,
+      "key_module": "assistant_action",
+      "query_module": "generation_marker",
+      "reuse_attention_mass": 0.29211507170841333
+    }
+  ],
+  "largest_suffix_matrix_changes": [
+    {
+      "delta_percentage_points": -0.5437350742603569,
+      "dense_attention_mass": 0.1537187319562471,
+      "key_module": "copied_observation_island",
+      "query_module": "read_observation_path_relevant",
+      "reuse_attention_mass": 0.14828138121364354
+    },
+    {
+      "delta_percentage_points": -0.21437700175240965,
+      "dense_attention_mass": 0.06822658478530241,
+      "key_module": "copied_observation_island",
+      "query_module": "other_tool_result",
+      "reuse_attention_mass": 0.06608281476777832
+    },
+    {
+      "delta_percentage_points": 0.18219210888308357,
+      "dense_attention_mass": 0.5334636118995658,
+      "key_module": "read_observation_path_relevant",
+      "query_module": "read_observation_path_relevant",
+      "reuse_attention_mass": 0.5352855329883967
+    },
+    {
+      "delta_percentage_points": 0.17686022978061627,
+      "dense_attention_mass": 0.11370846251179735,
+      "key_module": "assistant_action",
+      "query_module": "read_observation_path_relevant",
+      "reuse_attention_mass": 0.11547706480960351
+    },
+    {
+      "delta_percentage_points": -0.11544381475780546,
+      "dense_attention_mass": 0.04489300728489,
+      "key_module": "copied_observation_island",
+      "query_module": "generation_marker",
+      "reuse_attention_mass": 0.043738569137311945
+    },
+    {
+      "delta_percentage_points": -0.11047343283668576,
+      "dense_attention_mass": 0.11828821803423584,
+      "key_module": "copied_observation_island",
+      "query_module": "assistant_action",
+      "reuse_attention_mass": 0.11718348370586898
+    },
+    {
+      "delta_percentage_points": 0.08318619247992057,
+      "dense_attention_mass": 0.05166203843364299,
+      "key_module": "user_task",
+      "query_module": "read_observation_path_relevant",
+      "reuse_attention_mass": 0.052493900358442196
+    },
+    {
+      "delta_percentage_points": 0.07401000752721432,
+      "dense_attention_mass": 0.5267672170320582,
+      "key_module": "other_tool_result",
+      "query_module": "other_tool_result",
+      "reuse_attention_mass": 0.5275073171073303
+    },
+    {
+      "delta_percentage_points": 0.07016000041317333,
+      "dense_attention_mass": 0.11889130335529172,
+      "key_module": "system_instruction",
+      "query_module": "read_observation_path_relevant",
+      "reuse_attention_mass": 0.11959290335942345
+    },
+    {
+      "delta_percentage_points": 0.057251887925580114,
+      "dense_attention_mass": 0.08617079813281461,
+      "key_module": "user_task",
+      "query_module": "other_tool_result",
+      "reuse_attention_mass": 0.08674331701207041
+    },
+    {
+      "delta_percentage_points": 0.05241254384880101,
+      "dense_attention_mass": 0.11021372099171575,
+      "key_module": "read_observation_path_relevant",
+      "query_module": "generation_marker",
+      "reuse_attention_mass": 0.11073784643020376
+    },
+    {
+      "delta_percentage_points": 0.04530818786151192,
+      "dense_attention_mass": 0.1419328022911546,
+      "key_module": "system_instruction",
+      "query_module": "other_tool_result",
+      "reuse_attention_mass": 0.14238588416976972
+    }
+  ],
+  "layers_zero_based": [
+    0,
+    8,
+    17,
+    26,
+    35
+  ],
+  "mechanical_checks": {
+    "case_module_rows": 86,
+    "copied_query_rows_compared": false,
+    "matching_case_ids": true,
+    "matrix_row_sum_abs_error_max": 5.691214166603231e-09,
+    "post_copy_block_layer_rows": 750,
+    "prefix_negative_control_abs_delta_max": 0.0
+  },
+  "module_labels": {
+    "assistant_action": "Agent action",
+    "compaction_notice": "Context control",
+    "copied_observation_island": "Copied repo evidence",
+    "generation_marker": "Next action",
+    "other_tool_result": "Tool / runtime feedback",
+    "read_observation_path_disjoint": "Other repo evidence",
+    "read_observation_path_relevant": "Path-relevant repo evidence",
+    "system_instruction": "System prompt",
+    "user_task": "Coding task"
+  },
+  "module_statistics": {
+    "assistant_action": {
+      "attention_times_drift_vs_row_tv_spearman": 0.8926495726495726,
+      "cases": 26,
+      "median_abs_copied_mass_delta": 0.0008886718667515531,
+      "median_dense_copied_mass": 0.11265880149205455,
+      "median_row_tv": 0.0033916372784790353,
+      "raw_drift_vs_row_tv_spearman": 0.894017094017094
+    },
+    "generation_marker": {
+      "attention_times_drift_vs_row_tv_spearman": 0.5076923076923077,
+      "cases": 26,
+      "median_abs_copied_mass_delta": 0.0010753618475670631,
+      "median_dense_copied_mass": 0.04381340829034647,
+      "median_row_tv": 0.004629919651051757,
+      "raw_drift_vs_row_tv_spearman": 0.3907692307692307
+    },
+    "other_tool_result": {
+      "attention_times_drift_vs_row_tv_spearman": 0.5804195804195805,
+      "cases": 12,
+      "median_abs_copied_mass_delta": 0.001142186008746225,
+      "median_dense_copied_mass": 0.06950109667543854,
+      "median_row_tv": 0.004327331444704876,
+      "raw_drift_vs_row_tv_spearman": 0.25874125874125875
+    },
+    "read_observation_path_disjoint": {
+      "attention_times_drift_vs_row_tv_spearman": 0.9523809523809524,
+      "cases": 8,
+      "median_abs_copied_mass_delta": 0.0006891004681364235,
+      "median_dense_copied_mass": 0.09329317410470944,
+      "median_row_tv": 0.0015416798573276956,
+      "raw_drift_vs_row_tv_spearman": 0.880952380952381
+    },
+    "read_observation_path_relevant": {
+      "attention_times_drift_vs_row_tv_spearman": 0.9780219780219781,
+      "cases": 14,
+      "median_abs_copied_mass_delta": 0.0018041087268822488,
+      "median_dense_copied_mass": 0.16243132094133889,
+      "median_row_tv": 0.00463465743804964,
+      "raw_drift_vs_row_tv_spearman": 0.9296703296703297
+    }
+  },
+  "pooled_statistics": {
+    "attention_times_drift_vs_row_tv_spearman": 0.5158639558469739,
+    "case_module_points": 86,
+    "raw_drift_vs_row_tv_spearman": 0.6799382490840797,
+    "warning": "Pooled correlations mix module identities; module-conditional values are the primary interpretation."
+  },
+  "reuse_full_matrix": {
+    "assistant_action": {
+      "assistant_action": 0.6031367875921849,
+      "compaction_notice": 0.013402459203832155,
+      "copied_observation_island": 0.04920435106477267,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.03089504326007139,
+      "read_observation_path_disjoint": 0.021687750446714373,
+      "read_observation_path_relevant": 0.038028367419244924,
+      "system_instruction": 0.1400446819275372,
+      "user_task": 0.10360056039044903
+    },
+    "compaction_notice": {
+      "assistant_action": 0.0,
+      "compaction_notice": 0.51797390001025,
+      "copied_observation_island": 0.0,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.0,
+      "read_observation_path_disjoint": 0.0,
+      "read_observation_path_relevant": 0.0,
+      "system_instruction": 0.19159228587382868,
+      "user_task": 0.2904338198071354
+    },
+    "generation_marker": {
+      "assistant_action": 0.29211507170841333,
+      "compaction_notice": 0.00952931824946203,
+      "copied_observation_island": 0.043738569137311945,
+      "generation_marker": 0.21620842802983065,
+      "other_tool_result": 0.0931424694525282,
+      "read_observation_path_disjoint": 0.07352290501478889,
+      "read_observation_path_relevant": 0.11073784643020376,
+      "system_instruction": 0.08585725530313376,
+      "user_task": 0.07514814091577696
+    },
+    "other_tool_result": {
+      "assistant_action": 0.11087033858916244,
+      "compaction_notice": 0.012654683230965696,
+      "copied_observation_island": 0.018639111824139673,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.5926926134564372,
+      "read_observation_path_disjoint": 0.007156733883948014,
+      "read_observation_path_relevant": 0.020556092164783074,
+      "system_instruction": 0.14189771338834625,
+      "user_task": 0.09553271365092333
+    },
+    "read_observation_path_disjoint": {
+      "assistant_action": 0.04001500073252906,
+      "compaction_notice": 0.004165575361997495,
+      "copied_observation_island": 0.07045151824357605,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.00953490178427606,
+      "read_observation_path_disjoint": 0.6986263030903804,
+      "read_observation_path_relevant": 0.0014755541961130744,
+      "system_instruction": 0.12965367716409773,
+      "user_task": 0.04607746838786532
+    },
+    "read_observation_path_relevant": {
+      "assistant_action": 0.08829764416822809,
+      "compaction_notice": 0.006275480268582545,
+      "copied_observation_island": 0.05520058119835075,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.022416660736000453,
+      "read_observation_path_disjoint": 0.007661018992958056,
+      "read_observation_path_relevant": 0.6253226437408449,
+      "system_instruction": 0.1257838398278227,
+      "user_task": 0.06904213188171528
+    },
+    "system_instruction": {
+      "assistant_action": 0.0,
+      "compaction_notice": 0.0,
+      "copied_observation_island": 0.0,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.0,
+      "read_observation_path_disjoint": 0.0,
+      "read_observation_path_relevant": 0.0,
+      "system_instruction": 0.9999999985685939,
+      "user_task": 0.0
+    },
+    "user_task": {
+      "assistant_action": 0.0,
+      "compaction_notice": 0.0,
+      "copied_observation_island": 0.0,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.0,
+      "read_observation_path_disjoint": 0.0,
+      "read_observation_path_relevant": 0.0,
+      "system_instruction": 0.22056258139725382,
+      "user_task": 0.7794374193376674
+    }
+  },
+  "reuse_suffix_matrix": {
+    "assistant_action": {
+      "assistant_action": 0.5809016005687484,
+      "compaction_notice": 0.0051577465769410205,
+      "copied_observation_island": 0.11718348370586898,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.029078972153844685,
+      "read_observation_path_disjoint": 0.032194800521969644,
+      "read_observation_path_relevant": 0.03988442010816625,
+      "system_instruction": 0.12686398041725747,
+      "user_task": 0.0687349968517775
+    },
+    "generation_marker": {
+      "assistant_action": 0.29211507170841333,
+      "compaction_notice": 0.00952931824946203,
+      "copied_observation_island": 0.043738569137311945,
+      "generation_marker": 0.21620842802983065,
+      "other_tool_result": 0.0931424694525282,
+      "read_observation_path_disjoint": 0.07352290501478889,
+      "read_observation_path_relevant": 0.11073784643020376,
+      "system_instruction": 0.08585725530313376,
+      "user_task": 0.07514814091577696
+    },
+    "other_tool_result": {
+      "assistant_action": 0.1482918326244731,
+      "compaction_notice": 0.006857421581643102,
+      "copied_observation_island": 0.06608281476777832,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.5275073171073303,
+      "read_observation_path_disjoint": 0.011892768201932984,
+      "read_observation_path_relevant": 0.010238646150251161,
+      "system_instruction": 0.14238588416976972,
+      "user_task": 0.08674331701207041
+    },
+    "read_observation_path_disjoint": {
+      "assistant_action": 0.038162901367349206,
+      "compaction_notice": 0.0022958346400876717,
+      "copied_observation_island": 0.09904752238134548,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.009846205533771983,
+      "read_observation_path_disjoint": 0.6948703085932049,
+      "read_observation_path_relevant": 0.002074476049743957,
+      "system_instruction": 0.12091448759813965,
+      "user_task": 0.032788262331120775
+    },
+    "read_observation_path_relevant": {
+      "assistant_action": 0.11547706480960351,
+      "compaction_notice": 0.004146463312713975,
+      "copied_observation_island": 0.14828138121364354,
+      "generation_marker": 0.0,
+      "other_tool_result": 0.017090091818799436,
+      "read_observation_path_disjoint": 0.007632663950967853,
+      "read_observation_path_relevant": 0.5352855329883967,
+      "system_instruction": 0.11959290335942345,
+      "user_task": 0.052493900358442196
+    }
+  },
+  "scope": "Qwen2.5-Coder-3B BF16 mechanism proxy over unchanged real current-method prompts; attention is token-weighted over five layers. K/V deviation uses the matching copied island. This is not task accuracy, native-30B attention, an online selector, or an independent cohort.",
+  "status": "COMPLETE",
+  "tasks": 13
+}

@@ -27,13 +27,20 @@ from minisweagent.models.utils.actions_toolcall import BASH_TOOL
 from pydantic import Field, model_validator
 
 from benchmark.multi_workflow.coding_reuse_policy import (
+    coding_dependency_graph_target_guard,
+    coding_dependency_target_guard,
     coding_group_sha256,
     coding_patch_lifecycle_target_reasons,
     coding_state_transition_target_reasons,
     coding_version_validation_target_reasons,
+    cold_natural_repository_code_candidates,
     critical_coding_event_reasons,
+    dependency_graph_cold_repository_code_candidates,
+    dependency_graph_lcb_cost_estimate,
     effective_copy_cap,
     grounded_observation_candidates,
+    natural_code_reuse_cost_estimate,
+    natural_repository_code_candidates,
     observed_path_target_guard,
     post_mutation_payoff_guard,
     repository_commit_phase_event,
@@ -63,6 +70,11 @@ TARGET_VETO_ARMS = (
     "coding_version_validation_target_v35b",
     "coding_patch_lifecycle_target_v37",
     "coding_commit_phase_dense_v38",
+)
+NATURAL_CODE_COST_ARMS = (
+    "coding_natural_code_cost",
+    "coding_dependency_cold_cost",
+    "coding_dependency_graph_cold_lcb",
 )
 
 
@@ -108,6 +120,9 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_grounded_observation_island_v40",
         "coding_versioned_evidence_guard_v45",
         "coding_observed_path_pool_v46",
+        "coding_natural_code_cost",
+        "coding_dependency_cold_cost",
+        "coding_dependency_graph_cold_lcb",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
@@ -507,14 +522,26 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         releases: list[str] = []
         guards: list[dict[str, Any]] = []
         for key, handle in list(pool.items()):
-            guard = observed_path_target_guard(handle, selected_groups)
-            guards.append(
-                {
-                    "pool_key": key,
-                    "source_id": handle["source_id"],
-                    **guard,
-                }
-            )
+            if self.config.reuse_arm == "coding_dependency_graph_cold_lcb":
+                base_guard = coding_dependency_graph_target_guard(
+                    handle, selected_groups
+                )
+            elif self.config.reuse_arm == "coding_dependency_cold_cost":
+                base_guard = coding_dependency_target_guard(
+                    handle, selected_groups
+                )
+            else:
+                base_guard = observed_path_target_guard(
+                    handle, selected_groups
+                )
+            guard = {
+                "pool_key": key,
+                "source_id": handle["source_id"],
+                **base_guard,
+            }
+            # Keep the same object in telemetry so later span/cost admission
+            # updates are visible to the caller.
+            guards.append(guard)
             if not guard["target_evidence_valid"]:
                 releases.append(str(handle["source_id"]))
                 pool.pop(key, None)
@@ -558,14 +585,56 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                     reason="target_segment_not_strictly_middle",
                 )
                 continue
-            target_rows.append({**handle, "target_start": target_start})
+            cost = (
+                dependency_graph_lcb_cost_estimate(
+                    island_tokens=len(handle["segment_ids"]),
+                    target_prompt_tokens=len(prompt_ids),
+                )
+                if self.config.reuse_arm
+                == "coding_dependency_graph_cold_lcb"
+                else natural_code_reuse_cost_estimate(
+                    island_tokens=len(handle["segment_ids"]),
+                    target_prompt_tokens=len(prompt_ids),
+                )
+            )
+            if self.config.reuse_arm in NATURAL_CODE_COST_ARMS:
+                guard.update(
+                    reuse_admitted=cost["reuse_admitted"],
+                    admission_reason=(
+                        "lower_bound_cache_ready_saving_positive"
+                        if cost["reuse_admitted"]
+                        and self.config.reuse_arm
+                        == "coding_dependency_graph_cold_lcb"
+                        else "predicted_cache_ready_saving_positive"
+                        if cost["reuse_admitted"]
+                        else "lower_bound_cache_ready_saving_nonpositive"
+                        if self.config.reuse_arm
+                        == "coding_dependency_graph_cold_lcb"
+                        else "predicted_cache_ready_saving_nonpositive"
+                    ),
+                    cost_estimate=cost,
+                )
+                if not cost["reuse_admitted"]:
+                    # Keep a valid source in the small pool: a later, longer
+                    # prompt can cross the measured break-even point.
+                    continue
+            target_rows.append(
+                {**handle, "target_start": target_start, "cost_estimate": cost}
+            )
 
         selected: list[dict[str, Any]] = []
         intervals: list[tuple[int, int]] = []
         for row in sorted(
             target_rows,
             key=lambda value: (
-                len(value["segment_ids"]),
+                float(
+                    value["cost_estimate"].get(
+                        "lower_bound_cache_ready_saving_ms",
+                        value["cost_estimate"][
+                            "predicted_cache_ready_saving_ms"
+                        ],
+                    )
+                ),
                 value["source_request_index"],
             ),
             reverse=True,
@@ -576,7 +645,13 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 continue
             selected.append(row)
             intervals.append((start, end))
-            if len(selected) >= 3:
+            max_target_islands = (
+                1
+                if self.config.reuse_arm
+                == "coding_dependency_graph_cold_lcb"
+                else 3
+            )
+            if len(selected) >= max_target_islands:
                 break
         selected.sort(key=lambda row: row["target_start"])
 
@@ -608,6 +683,11 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                     "target_prompt_hash": target_prompt_hash,
                     "target_start": target_start,
                     "target_uses": 1,
+                    **(
+                        {"cost_estimate": pending["cost_estimate"]}
+                        if self.config.reuse_arm in NATURAL_CODE_COST_ARMS
+                        else {}
+                    ),
                 }
             )
         return cases, list(dict.fromkeys(releases)), guards, pool
@@ -630,7 +710,16 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             if len(selected_groups) < self.config.rolling_history_groups
             else selected_groups[1:]
         )
-        candidates, decision = versioned_observed_path_candidates(retained)
+        if self.config.reuse_arm == "coding_dependency_graph_cold_lcb":
+            candidates, decision = (
+                dependency_graph_cold_repository_code_candidates(retained)
+            )
+        elif self.config.reuse_arm == "coding_dependency_cold_cost":
+            candidates, decision = cold_natural_repository_code_candidates(retained)
+        elif self.config.reuse_arm == "coding_natural_code_cost":
+            candidates, decision = natural_repository_code_candidates(retained)
+        else:
+            candidates, decision = versioned_observed_path_candidates(retained)
         group_hashes = [coding_group_sha256(group) for group in retained]
         proposed: dict[str, dict[str, Any]] = {}
         skipped: dict[str, int] = {}
@@ -721,6 +810,15 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 ],
                 "source_paths": evidence["paths"],
                 "source_symbols": evidence["symbols"],
+                **(
+                    {
+                        "source_dependency_graph": evidence[
+                            "dependency_graph"
+                        ]
+                    }
+                    if "dependency_graph" in evidence
+                    else {}
+                ),
                 "repository_scope_dependency": evidence[
                     "path_provenance"
                 ]["repository_scope_dependency"],
@@ -780,6 +878,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                     "source_paths",
                     "source_request_index",
                     "source_symbols",
+                    "source_dependency_graph",
                 }
             }
             for pool_key in ranked_keys
@@ -794,7 +893,12 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             "target_protected_sources": len(protected_keys),
             "source_skip_reasons": skipped,
             "max_live_sources": 3,
-            "max_target_islands": 3,
+            "max_target_islands": (
+                1
+                if self.config.reuse_arm
+                == "coding_dependency_graph_cold_lcb"
+                else 3
+            ),
         }
 
     def _future_source(
@@ -1167,7 +1271,12 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             "latest_group_protected": False,
             "risk_reasons": [],
         }
-        if self.config.reuse_arm == "coding_observed_path_pool_v46":
+        if self.config.reuse_arm in (
+            "coding_observed_path_pool_v46",
+            "coding_natural_code_cost",
+            "coding_dependency_cold_cost",
+            "coding_dependency_graph_cold_lcb",
+        ):
             targets, releases, target_guards, live_pool = (
                 self._v46_target_cases(
                     prompt_ids=prompt_ids,

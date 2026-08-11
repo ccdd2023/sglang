@@ -1,0 +1,502 @@
+{
+  "claim": "Existing controlled evidence falsifies the claim that lower K/V-deviation or staleness proxies are sufficient, monotonic predictors of higher coding-task accuracy.",
+  "claim_limit": "The audit does not prove zero population association and does not contain a saved all-layer final-KV tensor norm. The strongest intervention guarantees lower residual check-layer V-difference by nested top-k construction and directly measures fewer stale tokens.",
+  "earlier_distance_aware_selector_counterexample": {
+    "earlier_low_deviation_gate": {
+      "configurations_evaluated": 4639,
+      "definition": "Dense-recompute H head tokens under the target prefix and copy the remaining body only when max shifted-K/V cosine deviation is below a threshold.",
+      "feasible_configurations": 0,
+      "metric_limit": "capacity and causal-JS harm gates only; task accuracy stage was closed"
+    },
+    "independent_exact_line": {
+      "cases": 200,
+      "damages": 5,
+      "dataset": "RepoBench-P independent holdout",
+      "dense": 54,
+      "distance_consensus": 55,
+      "generic_value_diff": 57,
+      "metric_limit": "exact next-line, not functional execution accuracy",
+      "rescues": 3,
+      "same_prompt_and_token_ids": true,
+      "same_recompute_ratio": 0.75
+    },
+    "method_semantics": "At the same 75-percent recomputation budget, activate the semantic mask only when at least 75 percent of its positions overlap the layer-1 current-versus-cached V-difference top-k; otherwise retain the generic value-difference selector.",
+    "transition_agreement_probe": {
+      "cases": 10,
+      "damages": 6,
+      "key": {
+        "auc": 0.4166666666666667,
+        "damage_mean": 0.8757623626373626,
+        "rescue_mean": 0.8627757352941177,
+        "rescue_minus_damage": -0.01298662734324496
+      },
+      "rescues": 4,
+      "value": {
+        "auc": 0.4583333333333333,
+        "damage_mean": 0.8791523917259211,
+        "rescue_mean": 0.8730698529411764,
+        "rescue_minus_damage": -0.006082538784744629
+      }
+    }
+  },
+  "functional_density_counterexample": {
+    "arms": [
+      {
+        "execution_passes": 11,
+        "label": "Layer 24 / repair 75%",
+        "mean_stale_fraction": 0.22999308914996544,
+        "recompute_ratio": 0.75,
+        "same_as_dense_outputs": 35
+      },
+      {
+        "execution_passes": 10,
+        "label": "Layer 24 / repair 90%",
+        "mean_stale_fraction": 0.09283575213084543,
+        "recompute_ratio": 0.9,
+        "same_as_dense_outputs": 38
+      }
+    ],
+    "dataset": "DS-1000 development50 with official execution evaluator",
+    "dense_execution_passes": 12,
+    "paired": {
+      "r090_vs_r075_damages": [
+        "ds1000/644",
+        "ds1000/163"
+      ],
+      "r090_vs_r075_rescues": [
+        "ds1000/661"
+      ],
+      "transition_matrix_rows_r075_fail_pass_cols_r090_fail_pass": [
+        [
+          38,
+          1
+        ],
+        [
+          2,
+          9
+        ]
+      ]
+    },
+    "same_prompt_token_hashes": "50/50",
+    "selector_fact": "Both arms use the same layer-24 value-difference ranking. Top-90% is a superset of top-75%, so residual check-layer V-difference mass is non-increasing."
+  },
+  "next_line_density_sweep": [
+    {
+      "exact_line_count": 36,
+      "mean_code_similarity": 0.6425216657762433,
+      "minimum_stale_tokens": 177,
+      "recompute_ratio": 0.75,
+      "speedup_vs_dense": 1.1845488171210112
+    },
+    {
+      "exact_line_count": 38,
+      "mean_code_similarity": 0.6457383731337832,
+      "minimum_stale_tokens": 142,
+      "recompute_ratio": 0.8,
+      "speedup_vs_dense": 1.137259163487729
+    },
+    {
+      "exact_line_count": 36,
+      "mean_code_similarity": 0.6327247934228765,
+      "minimum_stale_tokens": 107,
+      "recompute_ratio": 0.85,
+      "speedup_vs_dense": 1.0938713746360793
+    },
+    {
+      "exact_line_count": 40,
+      "mean_code_similarity": 0.6619742278571317,
+      "minimum_stale_tokens": 71,
+      "recompute_ratio": 0.9,
+      "speedup_vs_dense": 1.0618807885889077
+    }
+  ],
+  "nll_generalization_counterexample": {
+    "development": {
+      "cases": 8,
+      "mean_stale_kv_nll_loss": 0.003327538756716939,
+      "pipeline_nll_improvement": 0.023926713209160587,
+      "severe_losses": 1,
+      "wins": 7
+    },
+    "independent": {
+      "cases": 17,
+      "eligible_cases": 15,
+      "mean_stale_kv_nll_loss": 0.004174301103625284,
+      "pipeline_nll_improvement": -0.007068278394952964,
+      "severe_losses": 3,
+      "wins": 5
+    }
+  },
+  "online_stale_mass_predictor": {
+    "adaptive_cases": 72,
+    "definition": "Fraction of layer-1 squared current-versus-cached V-difference mass left outside the top-60-percent selected tokens.",
+    "predictor_audit": {
+      "dense": {
+        "cases": 72,
+        "failure_auc_bootstrap95": [
+          0.2074652777777778,
+          0.4846077457795432
+        ],
+        "failure_auc_using_stale_mass": 0.3403846153846154,
+        "mean_stale_mass_fail": 0.005289978705919706,
+        "mean_stale_mass_pass": 0.006116452813148499,
+        "passes": 20,
+        "spearman_stale_mass_vs_pass": 0.24768028400708023,
+        "spearman_two_sided_p": 0.0359352331003717
+      },
+      "fixed_route": {
+        "cases": 72,
+        "failure_auc_bootstrap95": [
+          0.15789473684210525,
+          0.40865384615384615
+        ],
+        "failure_auc_using_stale_mass": 0.27606752730883816,
+        "mean_stale_mass_fail": 0.005176615040257292,
+        "mean_stale_mass_pass": 0.0064761764124820105,
+        "passes": 19,
+        "spearman_stale_mass_vs_pass": 0.34192576680088044,
+        "spearman_two_sided_p": 0.0032851346966342953
+      },
+      "fixed_route_low_vs_high_quartile": {
+        "fisher_exact_two_sided_p": 0.04075235109717868,
+        "high": [
+          7,
+          11
+        ],
+        "low": [
+          1,
+          17
+        ],
+        "odds_ratio": 0.09243697478991597
+      },
+      "stale_guard": {
+        "cases": 72,
+        "failure_auc_bootstrap95": [
+          0.15905694040024912,
+          0.40636363636363637
+        ],
+        "failure_auc_using_stale_mass": 0.275,
+        "mean_stale_mass_fail": 0.005171277202092684,
+        "mean_stale_mass_pass": 0.0064250767230987545,
+        "passes": 20,
+        "spearman_stale_mass_vs_pass": 0.34913967745576374,
+        "spearman_two_sided_p": 0.0026479264722397183
+      }
+    },
+    "quartiles": [
+      {
+        "cases": 18,
+        "dense_passes": 2,
+        "dense_wilson95": [
+          0.03101952264561239,
+          0.32799765130178804
+        ],
+        "fixed_route_passes": 1,
+        "fixed_route_wilson95": [
+          0.009875190978303097,
+          0.25757300781872594
+        ],
+        "library_counts": {
+          "Numpy": 4,
+          "Pandas": 5,
+          "Pytorch": 4,
+          "Scipy": 2,
+          "Sklearn": 2,
+          "Tensorflow": 1
+        },
+        "quartile": 1,
+        "stale_guard_passes": 1,
+        "stale_guard_wilson95": [
+          0.009875190978303097,
+          0.25757300781872594
+        ],
+        "stale_mass_max": 0.004181504249572754,
+        "stale_mass_mean": 0.003548234701156616,
+        "stale_mass_min": 0.002970874309539795
+      },
+      {
+        "cases": 18,
+        "dense_passes": 4,
+        "dense_wilson95": [
+          0.09000928108601694,
+          0.45214584316212625
+        ],
+        "fixed_route_passes": 4,
+        "fixed_route_wilson95": [
+          0.09000928108601694,
+          0.45214584316212625
+        ],
+        "library_counts": {
+          "Numpy": 2,
+          "Pandas": 6,
+          "Pytorch": 5,
+          "Scipy": 2,
+          "Sklearn": 2,
+          "Tensorflow": 1
+        },
+        "quartile": 2,
+        "stale_guard_passes": 4,
+        "stale_guard_wilson95": [
+          0.09000928108601694,
+          0.45214584316212625
+        ],
+        "stale_mass_max": 0.004978358745574951,
+        "stale_mass_mean": 0.004615892966588338,
+        "stale_mass_min": 0.0041852593421936035
+      },
+      {
+        "cases": 18,
+        "dense_passes": 9,
+        "dense_wilson95": [
+          0.29031021505169974,
+          0.7096897849483003
+        ],
+        "fixed_route_passes": 7,
+        "fixed_route_wilson95": [
+          0.2030524657216362,
+          0.613809583977621
+        ],
+        "library_counts": {
+          "Numpy": 11,
+          "Pandas": 1,
+          "Scipy": 5,
+          "Sklearn": 1
+        },
+        "quartile": 3,
+        "stale_guard_passes": 9,
+        "stale_guard_wilson95": [
+          0.29031021505169974,
+          0.7096897849483003
+        ],
+        "stale_mass_max": 0.006519436836242676,
+        "stale_mass_mean": 0.005848245488272773,
+        "stale_mass_min": 0.0051215291023254395
+      },
+      {
+        "cases": 18,
+        "dense_passes": 5,
+        "dense_wilson95": [
+          0.12499753379553993,
+          0.5087265656029746
+        ],
+        "fixed_route_passes": 7,
+        "fixed_route_wilson95": [
+          0.2030524657216362,
+          0.613809583977621
+        ],
+        "library_counts": {
+          "Numpy": 9,
+          "Pandas": 4,
+          "Pytorch": 3,
+          "Scipy": 1,
+          "Sklearn": 1
+        },
+        "quartile": 4,
+        "stale_guard_passes": 6,
+        "stale_guard_wilson95": [
+          0.1627877475083369,
+          0.5625053270405489
+        ],
+        "stale_mass_max": 0.010118365287780762,
+        "stale_mass_mean": 0.008065846231248643,
+        "stale_mass_min": 0.006786465644836426
+      }
+    ],
+    "triggered_paired_changes": {
+      "cases": 25,
+      "damages": 2,
+      "exact_mcnemar_two_sided_p": 1.0,
+      "rescues": 3,
+      "unchanged": 20
+    }
+  },
+  "proxy_scope_decay": {
+    "dense_target_drift_vs_nll_repair_utility_spearman": 0.05886142347145171,
+    "request_kv_drift_vs_code_similarity_change_spearman": 0.22991140473436505,
+    "request_kv_drift_vs_composed_nll_spearman": 0.19279711884753903,
+    "short_probe_registered_gate_passed": false,
+    "short_probe_request_composed_js_spearman": 0.19279711884753903,
+    "short_probe_request_composed_nll_spearman": 0.16888355342136854,
+    "single_island_kv_drift_vs_causal_js_spearman": 0.5258567544562801
+  },
+  "related_work_evidence": {
+    "coverage": [
+      {
+        "human_check": 0,
+        "internal_proxy": 1,
+        "nll_ppl": 0,
+        "output_metric": 2,
+        "quality_summary": "KV/attention deviation for selection; F1 or ROUGE-L for final quality",
+        "source": "https://arxiv.org/html/2405.16444",
+        "systems": 2,
+        "task_success": 0,
+        "work": "CacheBlend"
+      },
+      {
+        "human_check": 0,
+        "internal_proxy": 1,
+        "nll_ppl": 0,
+        "output_metric": 0,
+        "quality_summary": "embedding/KV proximity for matching; Accuracy and HumanEval Pass@1 for final quality",
+        "source": "https://arxiv.org/html/2510.12872",
+        "systems": 2,
+        "task_success": 2,
+        "work": "KVComm"
+      },
+      {
+        "human_check": 0,
+        "internal_proxy": 0,
+        "nll_ppl": 1,
+        "output_metric": 2,
+        "quality_summary": "perplexity proxy plus LongChat accuracy and QA F1",
+        "source": "https://arxiv.org/html/2310.07240",
+        "systems": 2,
+        "task_success": 2,
+        "work": "CacheGen"
+      },
+      {
+        "human_check": 2,
+        "internal_proxy": 1,
+        "nll_ppl": 0,
+        "output_metric": 2,
+        "quality_summary": "attention-derived CCI/CFO for recomputation; ROUGE/Jaccard/accuracy and a user study",
+        "source": "https://arxiv.org/html/2502.15734",
+        "systems": 2,
+        "task_success": 2,
+        "work": "Cache-Craft"
+      },
+      {
+        "human_check": 0,
+        "internal_proxy": 1,
+        "nll_ppl": 1,
+        "output_metric": 1,
+        "quality_summary": "KV/NLL/exact diagnostics; official coding execution and TTFT for decisions",
+        "source": "local frozen artifacts listed in audit_data.json",
+        "systems": 2,
+        "task_success": 2,
+        "work": "This project audit"
+      }
+    ],
+    "evidence_scale": {
+      "0": "not used in the scoped evidence",
+      "1": "internal mechanism, selector, or language-model proxy",
+      "2": "downstream output, task, user, or system outcome"
+    },
+    "kvcomm": {
+      "matching_criterion_mmlu_4agent": [
+        {
+          "accuracy_percent": 62.1,
+          "method": "length_only",
+          "reuse_percent": 93.3
+        },
+        {
+          "accuracy_percent": 68.0,
+          "method": "length_and_embedding_distance",
+          "reuse_percent": 70.1
+        }
+      ],
+      "offset_approximation_humaneval_4agent": [
+        {
+          "accuracy_percent": 47.2,
+          "method": "nearest",
+          "reuse_percent": 78.9
+        },
+        {
+          "accuracy_percent": 83.23,
+          "method": "cosine",
+          "reuse_percent": 82.5
+        },
+        {
+          "accuracy_percent": 83.23,
+          "method": "l2_weighted",
+          "reuse_percent": 81.1
+        },
+        {
+          "accuracy_percent": 84.45,
+          "method": "dense_original",
+          "reuse_percent": null
+        }
+      ],
+      "source": "https://arxiv.org/html/2510.12872"
+    }
+  },
+  "source_artifacts": {
+    "attention_kv_risk": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_m48_attention_kv_risk_20260805/full50/RESULT.json",
+      "sha256": "347d51067decd270466a676eea35b0af667aff83e510a1776d2ede8fbc1f3a87"
+    },
+    "capsule_development": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_task_capsule_p27c_budget_grid_20260722/P27C_DEVELOPMENT_RESULT.json",
+      "sha256": "e45fee4c5d9393e53a0d52d8cc67931bf4beda14f6fa328b79b0002657aea9e8"
+    },
+    "capsule_independent": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_task_capsule_p27e_confirmatory_20260722/P27E_CONFIRMATORY_RESULT.json",
+      "sha256": "7b9ffe503ffdcfdfc898b004ef5d2416f455cd1c1422dcf089f36e18932609ce"
+    },
+    "dense_eval": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_codemas_v2_controlled_sota_20260729/v90_online_kv_risk/FINAL_DENSE_100_EVAL.json",
+      "sha256": "7237b699dcc3b03f920dc352240eece1c5f5bbcb4437fcd7ce9401bbf8dfe032"
+    },
+    "density_sweep": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_codemas_v2_controlled_sota_20260729/v75_lcc_lossy_density_frontier/RESULT.json",
+      "sha256": "e4bd31e756bfff4cacb4bec928a2ee056239c0417dfa260d6fd3ede8dd2bf8c6"
+    },
+    "distance_consensus_independent": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_codemas_v2_controlled_sota_20260729/v65_independent_repobench_holdout200/RESULT.json",
+      "sha256": "2eb649bbbadf9dce209490744e83166a5d3b3ba3b7e1a2e1eb567f44c6eab248"
+    },
+    "drift_oracle_attribution": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_code_drift_oracle_p33_20260724/P33_ATTRIBUTION.json",
+      "sha256": "1e48a3c3d1aeed770daa0c23909ac0dde34f41da194af7e21dba5da772d18475"
+    },
+    "dual_kv_transition_probe": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_codemas_v2_controlled_sota_20260729/v67_dual_kv_consensus_probe/RESULT.json",
+      "sha256": "f3eab9b20a7d4af78f15b450c2ed81a4ad9e4bbf1c9b5cd38ee316456568a055"
+    },
+    "fixed_route_eval": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_codemas_v2_controlled_sota_20260729/v90_online_kv_risk/FINAL_V88_100_EVAL.json",
+      "sha256": "6014c8aab5df00ff5a6ac9a04d26de90ef426e365a79d192f7bd71a157cff9a5"
+    },
+    "functional_dense_metrics": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_codemas_v2_controlled_sota_20260729/v80_ds1000_functional_validation/DENSE_DEVELOPMENT_50.jsonl",
+      "sha256": "86f09d58d55c626585ae237b964ef7bd5e41fbbad2fbf0bb49d76523c9649fa3"
+    },
+    "functional_r075_metrics": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_codemas_v2_controlled_sota_20260729/v80_ds1000_functional_validation/V80_LAYER24_DEVELOPMENT_50.jsonl",
+      "sha256": "7eb03a7a57f32b4036bd6c26db4cea79cc28b4e1e8a7292a39a32c7ea28c8a36"
+    },
+    "functional_r090_metrics": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_codemas_v2_controlled_sota_20260729/v81_high_density_late_lossy/V81_DEVELOPMENT_50.jsonl",
+      "sha256": "6b94919474517663ccf32ac297a2fe3553be8cf5a61562aa350632536d25244c"
+    },
+    "functional_result": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_codemas_v2_controlled_sota_20260729/v80_ds1000_functional_validation/RESULT.json",
+      "sha256": "dde483d82a6e0bddbcab0d5ff719737cd5a0416abd3489675dfaea2f0a8b6007"
+    },
+    "high_density_result": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_codemas_v2_controlled_sota_20260729/v81_high_density_late_lossy/RESULT.json",
+      "sha256": "f41f832b0b974c38a2a2bc26afdbb8ac2035d2f6ef52b28c330ad70cee207f9e"
+    },
+    "online_metrics": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_codemas_v2_controlled_sota_20260729/v90_online_kv_risk/FINAL_V90_100.jsonl",
+      "sha256": "9edc7ccf5d16ff2342d0c0a6e66d263b4224099d3e99461144cd73f2772bf32b"
+    },
+    "online_workload": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_codemas_v2_controlled_sota_20260729/v90_online_kv_risk/SEALED_VALIDATION_WORKLOAD.json",
+      "sha256": "8d8a9a8fa55baf7ead324933ae766d7d3c1d45ed6f68c969225706cefd0d6805"
+    },
+    "probe_proxy": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_m49_probe_proxy_20260805/FINAL_RESULT.json",
+      "sha256": "e15cd7e4aedb9a3d6660379608763f39ca1dfd93ab30e70b36a5b4d2b85eca87"
+    },
+    "probehead_calibration": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_probehead_v12_20260717/DEVELOPMENT_CALIBRATION_REPORT.json",
+      "sha256": "fa168dc7ade15f67a23be557d303cde6235833cce31f5e9b3d3861300694a996"
+    },
+    "stale_guard_eval": {
+      "path": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_codemas_v2_controlled_sota_20260729/v90_online_kv_risk/FINAL_V90_100_EVAL.json",
+      "sha256": "9726a3731b3bc6ad1fba4cccf250107c5195a1cc95ea9136bb955be3ecf97aba"
+    }
+  },
+  "status": "COMPLETE_EXISTING_ARTIFACT_AUDIT"
+}

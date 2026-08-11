@@ -1313,6 +1313,69 @@ M56 使用 fresh-13 Dense trajectory 重建全部 383 个请求。Dense 和 V40 
 
 Decision: `SUPPORTED_SPEED_REPLAY`。它证明 V40 的自然 resident middle-span copy 在相同 prompt 下有真实速度收益；97.54% 而非 100% 的 first-token agreement也说明这是 positive-staleness lossy reuse。它不衡量完整 patch accuracy，不能补救 M55 的全零 official cohort。该冻结 replay 采用单次 `Dense→V40` server 顺序，尚未做 reverse-order replication；因此它是强于静态测试的机制证据，但正式发表前仍应补 counterbalanced run 以排除热状态/顺序残余混杂。
 
+### 14.8 新 task-disjoint 因果实验：风险不是 KV 距离，而是“偏移 × 谁在读取”
+
+此前全局 Attention 热力图和 KV deviation 报告暴露了一个缺口：我们知道 stale KV 发生了偏移，却不知道这段偏移是否被后续 coding 计算真正读取。新的实验因此把完整 prompt 切成 assistant action、路径相关 repository evidence、其他 tool result 与 next action，并问：同样是高 KV drift，高 Attention 模块是否出现更大的局部输出变化？
+
+实验重新从 SWE-bench Verified-500 outcome-blind 冻结 20 题，排除旧机制实验的 49 题，每仓库最多两题。两道 Matplotlib 题在官方容器启动阶段失败；其余得到 18 条真实 30B Dense agent 轨迹和 487 次请求。最终 `16 tasks / 64 requests / 137 candidates` 通过候选门槛；每个候选的 source/target 128 个可见 token 完全一致、FileVersion 有效。完整 prompt 与实际复用文本逐候选保存，没有把人工标记发送给模型。
+
+物理实验在冻结的 55 个候选上分别替换旧 K、旧 V 和旧 K+V；每个后续模块比较 Dense/splice attention row 与 attention output。四类模块均满足四格每格至少 12 点、6 任务，路径无关 evidence 因仅 30 点而按原门槛排除。
+
+| Confirmatory result | Observed | Frozen gate | Outcome |
+|---|---:|---:|---|
+| Leave-one-task-out：drift + module | `0.791` | baseline | — |
+| Leave-one-task-out：module Attention×KV | **`0.942`** | improvement ≥ `0.05` | **pass, +0.151** |
+| Per-task improvement bootstrap q2.5% | **`+0.0749`** | `>0` | pass |
+| High-A/high-D ÷ low-A/high-D local change | **`2.421×`** | ≥`1.25×` | pass |
+| Paired task-module direction fraction | **`93.75%`** | ≥`60%` | pass |
+| Local output change → final-logit JS | `0.152` | diagnostic only | weak link to final output |
+
+这使 M48 的探索现象在新任务上得到更严格的解释：简单全局乘积不够；保留“哪个 coding 模块在读取 observation”后，Attention/KV 交互能在留出任务上显著改善局部风险排序。K-only、V-only、K+V 的 final-logit JS 中位数分别为 `1.96e-4 / 2.44e-4 / 2.34e-4`，说明旧 V 的 prefix-conditioned 内容表征不可忽略，K/V 影响也不是线性相加。
+
+Decision: `SUPPORTED_MODULE_CONDITIONED_LOCAL_RISK`，但不是 accuracy 或 online policy 证明。局部变化到最终 logit JS 仅 `ρ=0.152`，再次表明内部量不能代替官方 execution。协议随后尝试注册等预算三岛比较；只有 `1 request / 1 task` 同时拥有四个候选和三个 cross-fit safe 候选，低于 `24 requests / 8 tasks`，所以状态为 `STOPPED_BEFORE_MULTI_OUTCOMES`，没有运行三岛 treatment。当时只允许继续检验单岛 guard；下节记录的独立单岛迁移实验又否定了直接实现该 guard。
+
+![Task-disjoint 模块四象限热力图](assets/module_conditioned_attention_kv_20260807/02b_confirmatory_module_heatmap.png)
+
+![留一任务局部风险排序](assets/module_conditioned_attention_kv_20260807/03_held_out_risk_prediction.png)
+
+### 14.9 未开启单岛候选反证：失败在最终目标，不在便宜 probe
+
+后续实验严格隔离三岛 composition：从同一 task-disjoint 数据中排除前述 55 个已做物理 splice 的候选，只保留 `82 candidates / 57 cases / 16 tasks`。在读取这些新物理 outcome 前，实验冻结 current recency、M49 layer-17/H16 probe、只由旧 55 候选训练的 module-Attention oracle 和 seeded random；四臂都只复制一个 128-token island。
+
+| Arm | Final-JS median | Median / recency | Disagreement | Paired win vs recency |
+|---|---:|---:|---:|---:|
+| Current recency | `3.430e-4` | `1.000` | — | — |
+| Fixed 16-token probe | `2.489e-4` | `0.726` | 9 cases / 8 tasks | **`44.44%`** |
+| Module-Attention oracle | `2.290e-4` | `0.668` | 10 / 8 | **`50.00%`** |
+| Seeded random | `2.290e-4` | `0.668` | 6 / 6 | `33.33%` |
+
+probe/oracle 的 aggregate median 看似更低，但 random 得到相同 oracle median；在 arm 真正改变选择的配对 case 中，两者都没有达到冻结的 60% win gate。probe 对 final JS 的 global / mean-within-case Spearman 也只有 `0.0187 / 0.0421`，所以 decision 为 `NOT_SUPPORTED_FOR_RUNTIME_CANARY`，没有改 SGLang。
+
+后验失败归因没有调参：固定 probe 与完整 128-token drift 的 `ρ=0.810`，task-bootstrap 95% 区间 `[0.675,0.887]`；可是完整 drift、最大 qualifying-module `Attention×drift` 与 final JS 的 `ρ` 只有 `0.030 / 0.034`，区间都跨 0。也就是说，M49 probe 确实看准了 KV 偏移，失效的是“KV 偏移越小，最终 coding 输出越好”这个 target link。完整 drift 四分位的 final-JS 中位数为 `1.96e-4 / 3.41e-4 / 1.59e-4 / 3.03e-4`，明显不单调；82 个候选只有 1 个 immediate top-1 flip，单 token 行为标签也没有足够分辨率。
+
+![单岛 probe 迁移失败归因](assets/module_conditioned_attention_kv_20260807/06_single_island_probe_transfer_failure.png)
+
+因此停止调 H/layer、停止把 KV distance 或局部 Attention×KV 直接写成线上 guard。下一步先寻找多-token action / execution-level target；只有它在未开启任务上具有分辨率，并能被 online-visible coding feature 预测，才恢复 runtime selector。
+
+### 14.10 64-token action 复核：标签更敏感，但选择仍不可靠
+
+为排除 immediate top-1 标签过粗，后续在新 continuation 打开前冻结 `19 cases / 11 tasks / 36` 个 arm-selected splice。Dense、recency、fixed probe、module oracle 与 random 使用相同 prompt；每个 treatment 仍只复制 128 token，然后贪心生成最多 64 token。它不是 task accuracy，只检查候选选择是否足以改变下一段 action。
+
+| Arm | Exact Dense match | Mean normalized edit | Paired win / tie / loss vs recency |
+|---|---:|---:|---:|
+| Recency | `52.63%` | `0.1412` | — |
+| Fixed probe | `63.16%` | `0.1345` | `44.44% / 33.33% / 22.22%` |
+| Module oracle | `63.16%` | `0.1345` | `40.00% / 40.00% / 20.00%` |
+| Seeded random | **`63.16%`** | `0.1568` | `50.00% / 33.33% / 16.67%` |
+
+`18/36` splice 在 64 token 内与 Dense 分叉，远高于 immediate top-1 的 `1/82`；但是同一 case 内不同候选产生不同 continuation 的只有 `7/19 cases`，低于冻结的 8-case gate，尽管覆盖 7 tasks 已过 6-task gate。probe/oracle 的 paired win 又都低于 60%。Decision: `ACTION_TARGET_TOO_SPARSE`，不得把 case gate 从 8 降到 7救结果，也不得临时把 continuation 延长后重新定义 outcome。
+
+文本审计也解释了为什么 token 分叉不等于准确率：Requests 中“always a string”与“always treated as a string”是同一修改；Xarray 中不同候选改变了 MultiIndex/单维变量归因；Pylint 中甚至改变了计划修改的函数。只有执行 tool action、tests 和最终 patch 才能区分同义改写、无害路径变化与真实错误。
+
+![64-token action 分辨率与配对结果](assets/module_conditioned_attention_kv_20260807/08_action_divergence_resolution.png)
+
+至此形成完整的停止链：probe→完整 drift 成立；drift→final JS 不成立；延长到 64-token action 后分辨率提高，但 frozen probe/oracle 仍不胜 recency，且 action token edit 本身不判断正确性。因此不实现该 selector，不再用更长 decode 调出正结果；下一质量标签必须来自可执行 action 或 official task completion。
+
 ---
 
 ## 15. 与合作者的分支解耦：保证每个收益可归因
@@ -1345,7 +1408,7 @@ Decision: `SUPPORTED_SPEED_REPLAY`。它证明 V40 的自然 resident middle-spa
 | V40 单 observation | 当前科研基线 | 官方小样本正信号、强 provenance | 机会有限；安全动机已被 M50 降级 |
 | V46 3-entry pool | executor/lifecycle 采用，policy 未晋级 | offline 28.51% copied；static 1.326x；official 2/3 | 需要 utility/risk 二维选岛，不是只加 scalar guard |
 | Path dependency | 采用为 utility 信号 | M52 attention 70%、adjusted 1.623；M53 89.5%、1.413 | 证明模型依赖，不单独证明 splice safety |
-| M49 16-token K/V probe | 保留为单岛 risk 机制 | independent single-island JS Spearman 0.530；request composed 0.193 | 可给单岛排序，不能用 max 预测三岛请求 |
+| M49 16-token K/V probe | 保留为 drift 测量工具；放弃 final selector | 旧 holdout 单岛 JS `ρ=0.530`；新未开启 82 候选 probe→drift `0.810`，probe→JS `0.0187` | 能近似漂移，但不能稳定预测最终输出 |
 | Path-weighted drift scalar | 放弃 | M54 hybrid Spearman 0.477 < probe-only 0.506；pair 42.9% | utility 与 risk 不可粗暴相乘 |
 | M55 strict path-pair selector | 未测质量、停止 | 24 case 只覆盖 5 tasks，低于冻结 8-task gate | 失败的是 opportunity coverage；不得调门槛后补跑 |
 | M56 V40 same-prompt replay | 支持速度机制 | 244/244 copy、0 fallback、median `1.103x`、N=4 `1.102x` | one-token TTFT/fidelity，不是 task accuracy |
@@ -1367,7 +1430,7 @@ Decision: `SUPPORTED_SPEED_REPLAY`。它证明 V40 的自然 resident middle-spa
 4. Coding task 的输出契约、随机状态、side effect 与在线 V-difference 包含风险信息；V88–V92 提供了方向一致但尚不显著的点估计证据。
 5. V46 已把“机会不足”从主要瓶颈变成“多 source contextual risk”；它的 28.51% planner copy coverage 与 1.326x static cache-ready speed说明继续只扩 pool 没有研究必要。
 6. 最新 coding interaction 的 path overlap 能稳定预测模型依赖：M52/M53 的 path-relevant attention 分别在 70.0% / 89.5% 配对中更高，位置校正比为 1.623 / 1.413。
-7. 单岛 16-token K/V probe 在独立 RepoBench holdout 上能排序局部 splice risk，但现有 request aggregation 与 path 乘法组合都失败。
+7. 单岛 16-token K/V probe 能近似完整 KV drift；但在新的 task-disjoint agent 候选上，drift 与 final JS 已解耦，不能继续把它作为最终 selector。
 8. V40 的同提示速度机制已经在 244 个 target 上通过：median TTFT `316.18→286.74 ms`（1.103x）、79.5% 配对请求更快、0 fallback；N=4 含 build 后仍为 1.102x。
 9. V40 会显著收缩 lossy exposure：fresh-13 中它比 General 少复制 69.5% token，同时覆盖 13/13 题；这证明 policy 行为不同，但全零 official 结果不提供 accuracy 方向。
 
@@ -1399,13 +1462,15 @@ Decision: `SUPPORTED_SPEED_REPLAY`。它证明 V40 的自然 resident middle-spa
 5. utility 仍只来自已经复现的 online path dependency，但从二元 exact-pair 扩展成对每个独立 observation 可计算的连续 evidence，例如 exact path、同目录/调用邻域和最近 interaction 距离；不得使用最终 patch outcome；
 6. 第一阶段只计算候选容量，至少覆盖 8 个 task 和冻结比例的 V40 target；容量不够就停止，不能读取 attention/JS；
 7. 容量通过后，第二阶段才用 Dense attention验证新 utility score，并与 recency、seeded random 做等 128-token 预算比较；
-8. risk 继续使用冻结的单岛 K/V probe，与 utility 采用 lexicographic constraint，不相乘；
+8. 不再使用冻结 K/V probe 作为最终 risk constraint；它只保留为 drift 测量工具。任何新 risk target 必须先对多-token action 或 execution outcome 通过独立门槛；
 9. multi-island 必须直接测 composed intervention，不能再用 `max(single risk)` 代替；
 10. accuracy 必须换成有非零 Dense base rate 的独立 official cohort：先注册“preservation cohort”和“representative cohort”两个不同问题，前者允许使用历史 Dense-pass 题但只能回答 damage，后者不能按 treatment outcome 选题；
 11. 与 CacheBlend/KVCOMM 的最终对比必须共用 agent backend、prompt/token hash和题目，分别报告 official accuracy、cache-ready TTFT、source build、N=4/N=16；跨引擎速度只比较各自相对 native Dense 的 normalized speedup；
 12. M56 已通过的 244-target same-prompt replay作为速度回归门槛保留，并补一轮预注册的 `V40→Dense` reverse-order replication；任何新 selector 不得靠减少 copy 到近 exact-only 来虚增 fidelity。
 
-这部分由 M50–M56 共同推出：V40 speed mechanism 已成立，当前研究瓶颈是“有覆盖的 coding utility definition”和“能区分 accuracy 的 benchmark”，而不是继续证明 copy kernel 或继续扩大 pool。
+第 14.10 节又表明 64-token exact/edit target 仍混入同义改写，且 selector 配对失败。当前优先级因此进一步收紧为可执行 action 或 official task completion；在该 target 通过独立容量/分辨率 gate 前，不实现新的 risk selector。其余 equal-budget、same-prompt、positive-stale、official accuracy 与反序速度约束继续有效。
+
+这部分由 M50–M56 与 14.8–14.10 共同推出：V40 speed mechanism 已成立，当前研究瓶颈是“有覆盖的 coding utility definition”和“与最终行为有关系的 risk target”，而不是继续证明 copy kernel、扩大 pool 或调 KV-distance probe。
 
 ---
 
@@ -1599,6 +1664,85 @@ docs/kvflow/M50_M54_CODING_MOTIVATION_20260805.md
 
 最终 evidence-matrix SHA-256：JSON `f0c440ac5ba434963e273326892110c6c2a47bbacf161326b49fa2c3ec9d1873`；Markdown `ffea34bea1992b2790b3d8fbf2035ee7d7b2fbbbd4cd253bd9b4417d34bf1652`。矩阵明确把 fresh-13 的原始协议状态 `SUPPORTED_V40_RATIONALE` 降级为 `INCONCLUSIVE_ZERO_POWER`，避免把 all-zero equality 当作 accuracy 证据。
 
+### 19.9 完整 prompt 下的模块条件 Attention/KV 因果验证
+
+易读报告与完整 prompt 附件：
+
+```text
+docs/kvflow/MODULE_CONDITIONED_ATTENTION_KV_MOTIVATION_20260807.md
+docs/kvflow/MODULE_CONDITIONED_ATTENTION_KV_FULL_PROMPTS_20260807.md
+docs/kvflow/assets/module_conditioned_attention_kv_20260807/
+```
+
+代码入口：
+
+```text
+benchmark/multi_workflow/analyze_attention_kv_factorial.py
+benchmark/multi_workflow/run_attention_kv_task_disjoint_campaign.py
+benchmark/multi_workflow/motivate_module_conditioned_attention_kv.py
+benchmark/multi_workflow/build_module_conditioned_attention_kv_figures.py
+benchmark/multi_workflow/build_module_conditioned_attention_kv_prompt_appendix.py
+```
+
+原始 artifact：
+
+```text
+/home/gfy/CodeMAS_Project/kvflow-artifacts/
+  impactkv_attention_kv_factorial_20260807/exploratory_m48/
+  impactkv_attention_kv_task_disjoint_20260807_r1/
+  impactkv_module_conditioned_attention_kv_20260807/task_disjoint20/
+```
+
+关键不可变文件：`REGISTRATION.json`、`DESIGN.json`、`INTERNALS.jsonl`、`CELL_REGISTRATION.json`、`SPLICE_OBSERVATIONS.jsonl`、`RESULT.json` 与 `MULTI_REGISTRATION.json`。三岛 registration 的停止状态是正式结果，不存在 `MULTI_OBSERVATIONS.jsonl`。
+
+### 19.10 单岛 probe 迁移与失败归因
+
+代码入口：
+
+```text
+benchmark/multi_workflow/validate_single_island_probe_transfer.py
+benchmark/multi_workflow/analyze_single_island_probe_transfer_failure.py
+```
+
+原始 artifact：
+
+```text
+/home/gfy/CodeMAS_Project/kvflow-artifacts/
+  impactkv_single_island_probe_transfer_20260807/unopened82/
+    REGISTRATION.json
+    ARM_REGISTRATION.json
+    SIGNALS.jsonl
+    OUTCOMES.jsonl
+    RESULT.json
+    POSTHOC_DIAGNOSTIC.json
+```
+
+注册脚本 SHA-256 保持为 `95d24adb134184aaf32bb1f17c23064d38ddab012b293ab631886e6e04a4dd28`。后验脚本只读已完成结果，不改注册门槛或 arm。
+
+### 19.11 64-token action divergence
+
+代码入口：
+
+```text
+benchmark/multi_workflow/validate_single_island_action_divergence.py
+benchmark/multi_workflow/analyze_single_island_action_divergence.py
+```
+
+原始 artifact：
+
+```text
+/home/gfy/CodeMAS_Project/kvflow-artifacts/
+  impactkv_single_island_action_divergence_20260807/frozen19/
+    REGISTRATION.json
+    DESIGN.json
+    ACTION_OUTCOMES.jsonl
+    MEASUREMENT_STATUS.json
+    RESULT.json
+    POSTHOC_ACTION_AUDIT.json
+```
+
+注册脚本 SHA-256 为 `b068ad35e7f1d3cf44672a5c1857f1ee97682014a668bb885f83681ffec11c3e`，完整测量后保持不变。
+
 ---
 
 ## 20. 审阅时最值得质疑的七个地方
@@ -1609,6 +1753,340 @@ docs/kvflow/M50_M54_CODING_MOTIVATION_20260805.md
 4. source build 需要 187–368 次复用才摊平，cache-ready speed 是否有部署意义？目前只能证明在线机制潜力；SGLang V46 在长 prompt 上 N=4 已过 1，但短 DS-1000 上仍不成立。
 5. V46 的多 pool 是否只是扩大 copy、牺牲质量？当前证据确实如此，因此下一步必须先用 probe-risk 约束候选、再用 path dependency 排 utility；不能继续扩 pool，也不能再造一个 scalar guard。
 6. M50/M51 都失败后，V40/V45 的 coding-aware novelty 是否被推翻？没有。它们仍定义了自然 resident、版本合法的候选空间；被推翻的是“候选合法性自动等于 KV 低风险”。最终 selector 必须另有 contextual risk 证据。
-7. M52/M53 已证明 path dependency，为什么不能立刻加 path-first V55？因为 M53 没有完整复现 lower-drift/lower-JS consistency，M54 的 path-weighted probe 还弱于 probe-only。path 只能先作 utility objective，必须在独立 cohort 中受 probe-risk constraint。
+7. M52/M53 已证明 path dependency，为什么不能立刻加 path-first selector？因为它只证明模型会读取路径相关 evidence，不证明复制后任务更正确；14.9 又否定了 KV-distance probe 作为 final-risk constraint，14.10 的 action token target 也未过门槛。path 只能保留为 utility，必须等待可执行 action 或 official outcome 定义新的 risk gate。
 
 如果这七点在审阅中仍无法讲清，报告不应进入 paper 或对外 presentation。
+
+---
+
+## 21. 自然 prompt 模块：从固定 128 token 转向可变长度边界（2026-08-08）
+
+完整易读报告：
+
+```text
+docs/kvflow/NATURAL_MODULE_CODING_REUSE_DEVELOPMENT_20260808.md
+docs/kvflow/assets/natural_module_attention_20260808/
+```
+
+本轮把 system/task、assistant 解释、工具命令、代码读取、仓库搜索、测试反馈和
+mutation/diff 切成自然长度模块。切分只增加连续 token 区间，不改 prompt token；
+同时记录 path、symbol、repository epoch、grounding 和 invalidation 关系。
+
+为避免继续使用调过方法的任务，新 cohort 排除 69 个历史任务，冻结 20 题及只可在
+Attention 前因容量不足启用的 29 题上限。两张 Matplotlib 官方镜像受 rootless
+subuid 限制，在 agent 推理前失败；其余 18 题完成 476 次 Dense 请求。没有启用
+扩展题目。
+
+72 prompts / 18 tasks 的五层全局 Attention 结果为：
+
+| 证据 | 代码读取 | assistant 解释 | 决策 |
+|---|---:|---:|---|
+| raw 自然模块/跨边界 density | 1.022× | 1.150× | 正方向 |
+| 几何因素校正后比值 | 1.028× | 1.144× | 均未过 1.20 |
+| paired direction | 70.0% | 100.0% | 均过 65% |
+| task-bootstrap 下界 | 1.009 | 1.126 | 均大于 1 |
+| source→consumer / recency（描述性） | 5.159× | 2.860× | 强 relation signal |
+
+长度/位置/距离/layer 基线的 task-LOO Spearman 是 0.901；加入 module/path/symbol/
+grounding 后为 0.948，增量 +0.047，task-bootstrap 95% 区间 [+0.018,+0.076]。
+增量显著为正，但未达到冻结的 +0.10。
+
+原强门槛的正式状态仍为 `STOP_BEFORE_PHYSICAL_SPLICE`。用户随后明确接受“小但有
+优势”的独立开发门槛，因此没有修改原结果，而是另建 `minimal-reliable` 注册并
+完成 64 对真实 K/V splice。
+
+物理结果把模块明显分成两类：仓库代码相对等长跨边界块的局部扰动比为 0.826×，
+胜率 65.6%，但 task-bootstrap 区间 [0.728,1.092] 仍跨 1；assistant 解释为
+1.190×、胜率 28.1%，区间 [1.076,1.272]，明确应重算。这个反例说明 Attention
+凝聚度表示 utility，不等于 lossy K/V risk。
+
+按用户允许的方向优势，后续探索性 SGLang arm 只复制自然仓库代码，并把 source
+prompt、自然模块 ID 和 token hash 一起作为 KV pool identity。纯机制复测覆盖 24
+case / 16 tasks / 24 variable-length islands，96/96 copy、0 fallback；平均 TTFT 从
+284.27 ms 降到 276.15 ms，即 1.029× cache-ready speedup，但配对中位 saving 为
+-1.72%，胜率仅 41.7%。事后长度诊断显示 ≥512-token 的 5 个岛平均节省 11.09%、
+5/5 更快；短岛整体更慢。因该阈值是结果后观察，下一轮必须在 fresh cohort 预先
+冻结成本规则，再测完整 agent accuracy，当前不能声称超过 CacheBlend/KVCOMM。
+
+### 21.1 自然代码 + 二维成本门控的 fresh 任务验证
+
+下一轮没有把事后观察直接改写成 `512-token` 常数，而是用早期 24-case 数据冻结
+了一个只依赖自然代码长度 `L` 与当前 prompt 长度 `T` 的开销模型：
+
+```text
+predicted cache-ready saving (ms)
+  = 0.13169242 × (L × T / 10,000) - 14.66811245
+```
+
+线上候选进一步收窄为：成功、只读、单文件直接读取的完整 repository-code；搜索
+列表、assistant 解释、测试/修改反馈全部 Dense。文件版本失效则拒绝，同一 source
+可以留在三槽 pool 中，等待更长 prompt 使预计收益转正。整个过程没有 prefetch。
+
+fresh9 的同 MAS、同 prompt 模板官方结果是 Dense `3/9`，自然代码 + 成本门控
+`4/9`，包含 2 rescue、1 damage。策略臂实际发生 79 次 target copy、累计 85,335
+tokens、0 fallback；因此它不是“几乎不复用”取得的 accuracy。样本仍小，而且独立
+agent 在首次 copy 前可能分叉，所以只能说没有观察到总体 accuracy 损失并有方向
+优势，不能说 lossy reuse 因果地提升了 accuracy。
+
+![fresh agent accuracy 与完全相同 prompt 的 TTFT](assets/natural_module_attention_20260808/05_fresh_agent_accuracy_and_exact_speed.png)
+
+速度另用线上全部 56 个真实 target prompt 做 exact-token replay。Dense/reuse 的
+token ID 完全相同，1 warmup + 3 measured，得到 168 个配对：cache-ready
+ratio-of-means speedup 为 **1.359×**，配对 TTFT saving 中位数 **19.52%**，胜率
+**89.29%**，316/316 copy 且 0 fallback。若极端保守地为每个 target group 重复
+执行完整 source prompt，再只摊到 4 次 reuse，则只有 `0.926×`；真实线上 source
+来自 agent 已经执行的历史读取，不需要额外预取，21 个唯一 snapshot 的控制器
+materialization 记录合计 72.7 ms。
+
+这一步确认了成本门控的工程价值，但仍未形成 CacheBlend/KVCOMM 排名。两个现有
+原生复现使用 fixed-prompt verifier，尚不能消费同一 rolling tool-agent token 流；
+在共享 adapter 完成前，把它们的旧数字与 fresh9 拼在一起是不公平的。
+
+原始 artifact：
+
+```text
+/home/gfy/CodeMAS_Project/kvflow-artifacts/
+  impactkv_natural_prompt_modules_20260808/development64/
+  impactkv_natural_module_attention_20260808/
+    COHORT_REGISTRATION.json
+    initial20/dense/full_18/
+    attention_initial20/          # 首次 outcome-free 选择的容量失败记录
+    attention_initial20_r1/       # 结构对照优先后的冻结 confirmatory 结果
+      physical_splice_minimal_reliable/
+        stage_overhead_code_only_r2/
+  impactkv_natural_code_cost_agent_20260808/
+    CAMPAIGN_REGISTRATION.json
+    RESULT.json
+    exact_prompt_speed/RESULT.json
+```
+
+### 21.2 全新 expanded24：accuracy 方向优势复现，统计证据仍不足
+
+为检验 fresh9 的 `4/9` 对 `3/9` 是否只是偶然，下一批在任何新 outcome 产生前排除
+历史已暴露的 151 题，并冻结 24 道互不重叠的 SWE-bench Verified 任务。样本覆盖
+7 个 repository、每 repo 最多 4 题，难度配额为 9 道简单、9 道中等、6 道较难；
+Dense 与策略继续共享同一个 rolling6 mini-SWE-agent prompt、工具协议、模型、
+32-step 上限和 temperature 0。
+
+官方 evaluator 结果为 Dense `3/24`（12.50%）、自然代码 + 成本门控 `5/24`
+（20.83%），即 `+2` 题 / `+8.33` 个百分点。配对分解是 3 rescue、1 damage、
+2 题都通过、18 题都失败；exact two-sided McNemar `p=0.625`。所以独立新批次延续
+了正向结果，但没有统计显著，不能宣称 accuracy superiority 已被证明。
+
+把 outcome-disjoint 的 fresh9 与 expanded24 透明汇总后，Dense 为 `6/33`
+（18.18%），策略为 `9/33`（27.27%），包含 5 rescue、2 damage，净 `+3` 题 /
+`+9.09` 个百分点；McNemar `p=0.453125`。两批均为净正向，比单独 fresh9 更支持
+“没有观察到总体精度退化”，但 7 个 discordant pair 仍不足以形成强统计结论。
+
+策略组并未退化成 Dense：685 个真实 agent 请求中发生 207 次 source
+materialization、469 次 target K/V copy，累计复制并对 K 做位置旋转 413,128 token，
+85 次从 host-resident source 复制，0 fallback、0 prefetch。eligible 内容虽是同一
+版本的完整单文件代码，但 source/target prefix 和位置不同，所以属于 lossy reuse，
+不是 exact-prefix cache。
+
+Dense 原运行在完成 20 题后因父进程消失而中断；恢复注册封存既有轨迹 hash，只补
+跑剩余 4 题。官方 resolved outcome 可以按任务合并，自由运行 wall time/latency
+不能合并。因此 expanded24 只增强任务 accuracy 与机制覆盖证据，不新增 speedup
+点估计；速度仍引用完全相同 target prompt 的 `1.359×` cache-ready、TTFT saving
+中位 `19.52%`、胜率 `89.29%`。公平 CacheBlend/KVCOMM 排名仍须等待它们消费同一
+rolling token 流的 adapter。
+
+原始 artifact：
+
+```text
+/home/gfy/CodeMAS_Project/kvflow-artifacts/
+  impactkv_natural_code_cost_agent_expanded24_20260808/
+    CAMPAIGN_REGISTRATION.json
+    RECOVERY_REGISTRATION.json
+    DENSE_RECOVERED_OFFICIAL_RESULT.json
+    RESULT.json
+    online/coding_natural_code_cost/full_24/OFFICIAL_RESULT.json
+```
+
+### 21.3 分歧题反序稳定性审计：4/5 rescue 复现，0/2 damage 复现
+
+fresh33 的七个 discordant tasks 被完整纳入一次 outcome-selected 稳定性复跑；没有
+只挑策略成功题。为审计运行顺序影响，本轮从此前 Dense→策略反转为策略→Dense，
+其余 rolling6 prompt、模型、32-step、temperature 0 与官方 evaluator 不变。注册在
+任何复跑 outcome 前冻结，并明确禁止将这七条重复结果追加为独立确认样本。
+
+复跑结果是策略 `4/7`、Dense `0/7`。原 5 rescue 中，`astropy-14309`、
+`django-13837`、`sympy-14711`、`sympy-22914` 仍为 rescue；`sympy-17139` 变为两臂
+共同失败。原 damage `django-13343` 与 `xarray-7233` 均变为共同失败。因此转移为：
+
+| 原标签 → 复跑标签 | 数量 |
+|---|---:|
+| rescue → rescue | **4** |
+| rescue → both-unresolved | 1 |
+| damage → damage | **0** |
+| damage → both-unresolved | 2 |
+
+这说明 4/5 rescue 在 arm 顺序反转后仍存在，而先前两个 damage 不是稳定伤害。复跑
+的描述性 McNemar 为 `p=0.125`，但 cohort 按原 flip 选择，不能用于 population-level
+显著性声明。它的有效结论是稳定性：方向优势不只是“策略后跑”造成，单次 damage
+也不应再用于训练或论证所谓 KV-risk selector。
+
+策略组执行 106 次 physical copy、100,221 copied/rotated-K tokens、47 次 source
+materialization、16 次 host-source copy、0 fallback、0 prefetch。Dense 186 请求只
+产生一个非空但未通过的 patch；策略 160 请求产生五个非空 patch并通过四个。自由
+运行中位 TTFT 为策略 280.2 ms、Dense 268.2 ms，但 prompt/轨迹不同，因此没有新增
+速度结论，仍以 exact-prompt 1.359× 为准。
+
+原始 artifact：
+
+```text
+/home/gfy/CodeMAS_Project/kvflow-artifacts/
+  impactkv_natural_code_cost_discordant7_repeat_20260809/
+    CAMPAIGN_REGISTRATION.json
+    RESULT.json
+```
+
+### 21.4 首次 copy 前的因果审计：稳定 rescue 仍不能归因于 lossy KV
+
+对 discordant7 逐题对齐首次 `target_copied` 之前的 assistant 内容、工具参数与工具
+返回后，5 个实际接受 treatment 的任务中，完整交互历史一致为 `0/5`，工具动作全
+一致同样为 `0/5`。四个稳定 rescue 中：
+
+- `astropy-14309` 与 `django-13837` 在策略运行中没有任何 KV copy；
+- `sympy-14711` 有 6 次 copy、5,982 tokens，但第 1 请求就与 Dense 分叉，首次 copy
+  在第 6 请求；
+- `sympy-22914` 有 13 次 copy、18,185 tokens，同样第 1 请求已分叉，首次 copy在
+  第 5 请求。
+
+所以 causally-clean rescue 为 **0**。反序结果可以说明 arm-level 正方向并非简单的
+“策略后跑”假象，却不能说明 lossy KV 导致 accuracy 上升。两个未接受 treatment 的
+rescue 是 agent repeat variance 的直接对照；另两个在 treatment 前已经拥有不同
+prompt。此前报告中任何把自由运行 rescue 当成 KV accuracy 收益的因果措辞都应以
+这一审计为准收紧。
+
+后续 accuracy 实验必须改为同历史 fork：冻结自然产生的 workspace、source 与 target
+token IDs，在首次 eligible copy 点才分叉 Dense/reuse，然后继续各自 agent 到官方
+patch。独立从 request 1 启动的两条轨迹只适合比较部署配置的总体 outcome 分布，不
+适合识别 KV perturbation 的任务级因果效应。
+
+机器可读证据：
+
+```text
+/home/gfy/CodeMAS_Project/kvflow-artifacts/
+  impactkv_natural_code_cost_discordant7_repeat_20260809/
+    TREATMENT_ATTRIBUTION.json
+```
+
+### 21.5 同历史分叉 continuation：首个 causally-clean 官方 rescue
+
+针对 21.4 的混杂，我们没有继续独立重启双臂，而是在真实自然轨迹的首次 eligible
+copy 点冻结完整消息和官方容器状态。两个新容器逐条重放此前只读工具命令；所有工具
+返回逐字匹配原轨迹，`git status`/`git diff` 为空。Dense 与策略的 target prompt
+token hash 完全一致，从这一请求开始才分别执行全 Dense 与自然代码 lossy reuse，
+随后允许 agent 自由 continuation 并跑官方判题。
+
+| 任务 | fork | 分叉点实际 copy | Dense/策略 TTFT | 官方 Dense | 官方策略 |
+|---|---:|---:|---:|---:|---:|
+| `sympy-14711` | q6 | 997 tokens，0 fallback | 271.5 / 265.4 ms | 未通过 | **通过** |
+| `sympy-22914` | q5 | 2,840 tokens，0 fallback | 466.8 / 200.0 ms | 通过 | **通过** |
+
+因此本 canary 为 Dense `1/2`、策略 `2/2`，产生一个 rescue、零 damage；两个相同
+prompt 的 TTFT 均由复用获胜，saving 中位 `29.69%`。`sympy-14711` 的分叉具有可解释
+的最终后果：Dense 后来错误移动/破坏了 `__add__` 与 `__and__` 代码，策略最终仅加入
+正确的 `other == 0` guard 并通过官方测试。另一题两臂最终得到相同正确 patch，说明
+response 路径变化不必然造成 accuracy 变化。
+
+整个策略 continuation 共发生 13 次 physical copy、16,605 copied/rotated-K tokens、
+0 fallback。分叉前的单 token prompt replay 只用于在实验服务器重建冻结 source KV，
+输出被丢弃、没有写回历史、耗时不计入线上速度；部署算法仍无 prefetch。
+
+这一结果首次证明“既有稳定 rescue 中至少一个可以在同历史设计下由 KV treatment
+复现”，从而否定“所有正向 flip 都只是首次 copy 前 agent 方差”的最强反解释。但
+cohort 是看过 outcome 后选择的两个 SymPy rescue，不能估计总体 accuracy，也不能
+把 `2/2` 当成优于 Dense 的无偏比例。下一步需要 outcome-blind prospective fork
+cohort；56-target exact replay 的 `1.359×` 仍是主速度结论，本轮 `n=2` TTFT 只作
+accuracy 因果 canary 的伴随检查。
+
+机器结果：
+
+```text
+/home/gfy/CodeMAS_Project/kvflow-artifacts/
+  impactkv_natural_code_cost_same_history_fork_20260809/
+    CAMPAIGN_REGISTRATION.json
+    RESULT.json
+```
+
+### 21.6 显式依赖图 + 保守收益下界：速度成立，accuracy 归因仍为净零
+
+前一方法把“后续有没有同路径/同名符号”压成平面集合。本轮改成只从 prompt 已展示的
+Python 代码构造可见一跳图：规范化路径、限定函数/类/方法、import alias、直接调用与
+名称引用。当前历史若消费 source 路径或符号，则 source 为 dependency-hot、目标重新
+计算；只有图上断开的 dependency-cold 自然代码才允许有损复制。孤立的 `__init__`、
+`__call__` 等 dunder 名称不能单独制造跨文件依赖。实现不扫描隐藏 checkout，不加入
+prefetch，K 仍按目标位置做 RoPE 旋转、V 直接复制。
+
+速度准入也从“预测均值为正”收紧为冻结的第 10 百分位残差下界：
+
+```text
+predicted_saving_ms
+  = 0.157286 × (island_tokens × prompt_tokens / 10,000) + 0.254356
+lower_bound_saving_ms = predicted_saving_ms - 78.798322
+```
+
+仅当 `lower_bound_saving_ms > 0` 时复制，而且一个目标最多复制一个岛。Fresh8 旧协议
+恢复先否定了早期 `0/8 vs 1/8` 叙事：补丁捕获修复后 Dense 与旧方法均为 `2/8`，
+旧方法恰好 1 rescue、1 damage，净零。随后五题同历史 canary 三臂均为 `1/5`；新方法
+五个相同 target prompt 全部比 Dense 快，中位 saving `33.0%`、0 fallback，但相对旧
+方法中位慢 `1.72%`，因此只支持相对 Dense 的局部速度，不支持选择器全面胜过旧方法。
+
+新的 task-disjoint Fresh24 在模型结果出现前冻结 24 个未暴露任务，三臂正式结果为：
+
+| 指标 | Dense | 旧平面 dependency-cold | 图 + LCB + 单岛 |
+|---|---:|---:|---:|
+| SWE-bench resolved | 5/24 | 5/24 | **6/24** |
+| 物理 copy | 0 | 46 | 37 |
+| copied / rotated-K token | 0 | 27,158 | 64,606 |
+| fallback | 0 | 0 | 0 |
+
+全任务点估计相对 Dense 是 2 rescue、1 damage。然而 nonce-to-trajectory 处理归因显示，
+只有 7/24 题真正发生 copy。copy-exposed 子集中是 1 rescue
+(`scikit-learn-25232`) 与 1 damage (`sphinx-10449`)，净 accuracy 为零；另一个
+`sympy-12096` rescue 全程 0 copy，必须归为独立 agent 重复方差，而不是 KV 收益。
+相对旧方法，copy-exposed 子集为 1 rescue、0 damage，说明新保护方向优于旧平面选择，
+但这是事后分层，不是无偏总体估计。
+
+命中速度则有完整相同 prompt 因果证据。Fresh24 的全部 37 个真实 copy 目标做 AB/BA，
+每序列 1 warmup + 5 measured，共 370 对：
+
+| 指标 | 结果 |
+|---|---:|
+| Dense / reuse 平均 TTFT | 569.51 / 369.17 ms |
+| cache-ready ratio-of-means | **1.543×** |
+| 配对 saving 中位数 | **35.02%** |
+| 胜率 | **370/370** |
+| copy / fallback | 444/444 / 0 |
+| source 完整物化均值 | 580.14 ms |
+| N=1 / N=4 / N=16 含 build | 0.600× / **1.108×** / **1.405×** |
+
+中位盈亏平衡点为 3 次 reuse。真实 source 来自 agent 本来就会执行的代码观察而不是
+额外 prefetch，但完整 source prefill 仍作为最保守生命周期上界单列。自由 agent 的
+描述性 TTFT 不能跨臂解释，因为新方法 678 请求、Dense 654 请求，且生成路径不同。
+
+外部 native reference 仍是同一 Qwen2.5-Coder-3B RepoBench-P 50：CacheBlend exact
+line `5→4`、cache-ready `1.501×`、N=4 `0.827×`；KVCOMM `4→5`、cache-ready
+`13.849×`、N=4 `8.636×`。它们与本轮 Qwen3-30B rolling SWE-bench 的模型、prompt、
+任务指标和 KVCOMM 三代理拓扑均不同，所以只作为共同 adapter 的目标线，不能用
+`1.543× > 1.501×` 宣称当前方法超过 CacheBlend。
+
+这一轮最准确的结论是：**保守单岛方法已经可靠加速每个命中目标，并在 Fresh24 总分上
+保持正方向；但有损 copy 本身在暴露子集仍为 1 rescue / 1 damage，尚未证明提高任务
+accuracy。** 下一步应先对 `sphinx-10449` 四个 copy 点做同历史最小反事实，再用当前
+任务路径、最近写入/测试失败路径与可见调用图保护“会影响下一动作”的模块；之后才扩大
+覆盖并实现 CacheBlend/KVCOMM 的同 rolling prompt adapter。
+
+机器结果：
+
+```text
+/home/gfy/CodeMAS_Project/kvflow-artifacts/
+  impactkv_dependency_graph_lcb_20260811/CALIBRATION.json
+  impactkv_dependency_graph_same_history_canary6_20260811/RESULT.json
+  impactkv_dependency_graph_fresh24_20260811/
+    RESULT.json
+    ATTRIBUTION_AUDIT.json
+    exact_prompt_speed_abba/RESULT.json
+```

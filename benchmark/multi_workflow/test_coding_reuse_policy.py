@@ -4,6 +4,8 @@ from benchmark.multi_workflow.coding_reuse_policy import (
     critical_coding_event_reasons,
     effective_copy_cap,
     grounded_observation_candidates,
+    natural_code_reuse_cost_estimate,
+    natural_repository_code_candidates,
     is_concrete_source_read,
     is_high_value_executable_failure,
     is_successful_executable_evidence,
@@ -66,6 +68,48 @@ def test_v46_repository_scope_guard_rejects_disjoint_later_write() -> None:
 
     assert guard["target_evidence_valid"] is False
     assert guard["reason"] == "repository_scope_mutated"
+
+
+def test_natural_code_candidates_keep_direct_single_file_only() -> None:
+    direct = _command_group(
+        "sed -n '1,240p' /testbed/pkg/module.py",
+        "def value():\n    return 1\n" + "# source\n" * 80,
+    )
+    search = _command_group(
+        'rg "value" /testbed/pkg',
+        "/testbed/pkg/module.py:def value():\n" * 30,
+    )
+    multifile = _command_group(
+        "cat /testbed/pkg/a.py /testbed/pkg/b.py",
+        "/testbed/pkg/a.py\n" + "a = 1\n" * 40
+        + "/testbed/pkg/b.py\n" + "b = 2\n" * 40,
+    )
+
+    candidates, decision = natural_repository_code_candidates(
+        [direct, search, multifile]
+    )
+
+    assert candidates == [[direct[1]]]
+    assert decision["selected_module_type"] == "repository_code"
+    assert decision["excluded_repository_searches"] == 1
+    assert decision["excluded_ambiguous_multifile_results"] == 1
+    assert decision["candidate_group_indices"] == [0]
+
+
+def test_natural_code_cost_uses_prompt_times_module_work() -> None:
+    below = natural_code_reuse_cost_estimate(
+        island_tokens=200,
+        target_prompt_tokens=4_000,
+    )
+    above = natural_code_reuse_cost_estimate(
+        island_tokens=400,
+        target_prompt_tokens=4_000,
+    )
+
+    assert below["reuse_admitted"] is False
+    assert above["reuse_admitted"] is True
+    assert below["attention_work_token2"] == 800_000
+    assert above["predicted_cache_ready_saving_ms"] > 0
 
 
 def _command_group(command: str, output: str = "") -> list[dict]:

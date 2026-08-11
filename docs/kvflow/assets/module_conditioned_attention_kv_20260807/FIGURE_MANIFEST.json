@@ -1,0 +1,13 @@
+{
+  "generated": [
+    "01_exploratory_factorial.png",
+    "02_confirmatory_module_factorial.png",
+    "02b_confirmatory_module_heatmap.png",
+    "03_held_out_risk_prediction.png",
+    "04_kv_component_ablation.png",
+    "06_single_island_probe_transfer_failure.png",
+    "07_drift_quartile_final_js.png",
+    "08_action_divergence_resolution.png"
+  ],
+  "status": "COMPLETE"
+}

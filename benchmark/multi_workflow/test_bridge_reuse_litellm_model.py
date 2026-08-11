@@ -749,6 +749,164 @@ def test_v46_does_not_evict_sources_referenced_by_current_target() -> None:
     assert decision["target_protected_sources"] == 3
 
 
+def test_natural_code_cost_arm_defers_then_admits_valid_source() -> None:
+    read = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {
+                            "command": "sed -n '1,240p' /testbed/pkg/module.py"
+                        },
+                    }
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": (
+                "<returncode>0</returncode><output>"
+                + "def value():\n    return 1\n" * 30
+                + "</output>"
+            ),
+        },
+    ]
+    model = object.__new__(bridge.BridgeReuseLitellmModel)
+    model.config = SimpleNamespace(
+        reuse_arm="coding_natural_code_cost",
+        rolling_history_groups=6,
+        reuse_min_tokens=128,
+        reuse_copy_cap=4096,
+    )
+    model._tokenizer = _CharacterTokenizer()
+    model._instance_nonce = "natural-code"
+    model._session_index = 1
+    model._request_index = 2
+
+    literal = "".join(
+        model._render_message_literal(message) for message in read
+    )
+    source_prompt = [ord(value) for value in "P" + literal + "S"]
+    sources, pool, releases, decision = model._v46_future_sources(
+        prompt_ids=source_prompt,
+        selected_groups=[read],
+        pool={},
+    )
+
+    assert releases == []
+    assert len(sources) == len(pool) == 1
+    assert decision["selected_module_type"] == "repository_code"
+
+    model._pending_sources = pool
+    short_prompt = [ord(value) for value in "Q" + literal + "T"]
+    cases, releases, guards, retained = model._v46_target_cases(
+        prompt_ids=short_prompt,
+        selected_groups=[read],
+    )
+    assert cases == []
+    assert releases == []
+    assert retained == pool
+    assert guards[0]["admission_reason"] == (
+        "predicted_cache_ready_saving_nonpositive"
+    )
+
+    long_prompt = [ord("Q")] * 2_000 + [
+        ord(value) for value in literal + "T"
+    ]
+    cases, releases, guards, retained = model._v46_target_cases(
+        prompt_ids=long_prompt,
+        selected_groups=[read],
+    )
+    assert len(cases) == 1
+    assert releases == []
+    assert retained == pool
+    assert guards[0]["admission_reason"] == (
+        "predicted_cache_ready_saving_positive"
+    )
+    assert cases[0]["cost_estimate"]["reuse_admitted"] is True
+
+
+def test_dependency_graph_lcb_arm_admits_only_one_best_island() -> None:
+    def read(path: str, symbol: str) -> list[dict]:
+        return [
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "function": {
+                            "name": "bash",
+                            "arguments": {
+                                "command": f"cat /testbed/{path}"
+                            },
+                        }
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "content": (
+                    "<returncode>0</returncode><output>"
+                    + f"def {symbol}():\n    return 1\n" * 45
+                    + "</output>"
+                ),
+            },
+        ]
+
+    first = read("pkg/first.py", "first_value")
+    second = read("pkg/second.py", "second_value")
+    groups = [first, second]
+    model = object.__new__(bridge.BridgeReuseLitellmModel)
+    model.config = SimpleNamespace(
+        reuse_arm="coding_dependency_graph_cold_lcb",
+        rolling_history_groups=6,
+        reuse_min_tokens=128,
+        reuse_copy_cap=4096,
+    )
+    model._tokenizer = _CharacterTokenizer()
+    model._instance_nonce = "graph-lcb"
+    model._session_index = 1
+    model._request_index = 2
+
+    literal = "".join(
+        model._render_message_literal(message)
+        for group in groups
+        for message in group
+    )
+    source_prompt = [ord(value) for value in "P" + literal + "S"]
+    sources, pool, releases, decision = model._v46_future_sources(
+        prompt_ids=source_prompt,
+        selected_groups=groups,
+        pool={},
+    )
+    assert releases == []
+    assert len(sources) == len(pool) == 2
+    assert decision["max_target_islands"] == 1
+    assert all("source_dependency_graph" in row for row in pool.values())
+
+    model._pending_sources = pool
+    target_prompt = [ord("Q")] * 10_000 + [
+        ord(value) for value in literal + "T"
+    ]
+    cases, releases, guards, retained = model._v46_target_cases(
+        prompt_ids=target_prompt,
+        selected_groups=groups,
+    )
+    assert releases == []
+    assert retained == pool
+    assert len(cases) == 1
+    assert len(guards) == 2
+    assert cases[0]["cost_estimate"][
+        "lower_bound_cache_ready_saving_ms"
+    ] > 0
+    assert all(
+        guard["admission_reason"]
+        == "lower_bound_cache_ready_saving_positive"
+        for guard in guards
+    )
+
+
 def test_query_closes_underlying_sync_stream(monkeypatch) -> None:
     chunk = SimpleNamespace(
         choices=[

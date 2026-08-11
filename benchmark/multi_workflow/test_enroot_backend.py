@@ -1,0 +1,79 @@
+from __future__ import annotations
+
+import json
+import subprocess
+from pathlib import Path
+from types import SimpleNamespace
+
+from benchmark.multi_workflow.enroot_environment import (
+    EnrootEnvironment,
+    EnrootEnvironmentConfig,
+    resolve_enroot_image,
+)
+from benchmark.multi_workflow.prepare_enroot_images import (
+    docker_image_name,
+    enroot_uri,
+    safe_image_filename,
+)
+
+
+def test_enroot_uri_uses_registry_separator() -> None:
+    assert (
+        enroot_uri("docker.io/swebench/example:latest")
+        == "docker://docker.io#swebench/example:latest"
+    )
+
+
+def test_image_name_matches_swebench_convention() -> None:
+    row = {"instance_id": "owner__repo-123"}
+    assert docker_image_name(row) == (
+        "docker.io/swebench/sweb.eval.x86_64.owner_1776_repo-123:latest"
+    )
+    assert safe_image_filename(docker_image_name(row)).endswith(".sqsh")
+
+
+def test_resolve_image_from_index(tmp_path: Path) -> None:
+    image = tmp_path / "task.sqsh"
+    image.write_bytes(b"sqsh")
+    index = tmp_path / "IMAGE_INDEX.json"
+    index.write_text(
+        json.dumps(
+            {
+                "images": {
+                    "docker.io/swebench/task:latest": {
+                        "sqsh_path": str(image)
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert resolve_enroot_image(
+        "docker.io/swebench/task:latest", index
+    ) == image
+
+
+def test_execute_enters_namespace_and_preserves_cwd(monkeypatch, tmp_path: Path) -> None:
+    environment = EnrootEnvironment.__new__(EnrootEnvironment)
+    environment.config = EnrootEnvironmentConfig(
+        image=str(tmp_path / "task.sqsh"),
+        cwd="/testbed",
+        env={"PAGER": "cat"},
+        interpreter=["bash", "-lc"],
+    )
+    environment.process = SimpleNamespace(pid=123, poll=lambda: None)
+    environment.runtime_path = tmp_path / "runtime"
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen["command"] = command
+        seen["kwargs"] = kwargs
+        return subprocess.CompletedProcess(command, 0, "ok\n")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    result = environment.execute({"command": "git status --short"})
+    environment.process = None
+    assert result["returncode"] == 0
+    assert seen["command"][:4] == ["enroot", "exec", "123", "env"]
+    assert "PAGER=cat" in seen["command"]
+    assert seen["command"][-1] == "cd -- /testbed && git status --short"

@@ -1,0 +1,10 @@
+{
+  "case_module_rows": "/home/gfy/CodeMAS_Project/sglang-kvflow-worktrees/coding-aware/docs/kvflow/assets/prompt_module_attention_kv_20260806/CASE_MODULE_ROWS.csv",
+  "figures": [
+    "01_full_prompt_module_heatmaps.png",
+    "02_post_copy_module_heatmaps.png",
+    "03_module_dependency_and_tv.png",
+    "04_module_kv_correlations.png"
+  ],
+  "result": "/home/gfy/CodeMAS_Project/sglang-kvflow-worktrees/coding-aware/docs/kvflow/assets/prompt_module_attention_kv_20260806/RESULT.json"
+}

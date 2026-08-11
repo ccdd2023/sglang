@@ -1,0 +1,10 @@
+{
+  "bound_result": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_attention_kv_bound_20260806/frozen26_mass_aware/RESULT.json",
+  "figures": [
+    "01_local_mechanism_vs_endpoint.png",
+    "02_layerwise_local_correlations.png",
+    "03_key_value_component_js.png",
+    "04_global_block_attention_preservation.png"
+  ],
+  "global_attention_result": "/home/gfy/CodeMAS_Project/kvflow-artifacts/impactkv_global_block_attention_20260806/frozen26_r2/RESULT.json"
+}

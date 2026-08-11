@@ -1,0 +1,1222 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KV deviation 与 Coding Lossy Reuse 任务精度审计</title>
+  <style>
+    :root {
+      --ink: #182536;
+      --muted: #5b6878;
+      --navy: #153456;
+      --blue: #2b6595;
+      --cyan: #168aa1;
+      --green: #26775d;
+      --amber: #a76716;
+      --red: #a44543;
+      --line: #ccd6df;
+      --wash: #f2f6f9;
+    }
+    * { box-sizing: border-box; }
+    html { background: white; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: white;
+      font-family: "FandolSong", "Noto Serif CJK SC", "Source Han Serif SC", serif;
+      font-size: 10.3pt;
+      line-height: 1.56;
+    }
+    .cover {
+      min-height: 250mm;
+      page-break-after: always;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24mm 17mm 15mm;
+      color: white;
+      background: linear-gradient(145deg, #102740 0%, #174a70 63%, #147b83 100%);
+    }
+    .cover .eyebrow {
+      font-family: "DejaVu Sans", sans-serif;
+      font-size: 9pt;
+      letter-spacing: .13em;
+      color: #a9dce5;
+    }
+    .cover h1 {
+      margin: 15mm 0 7mm;
+      max-width: 160mm;
+      color: white;
+      font-family: "FandolHei", "Noto Sans CJK SC", sans-serif;
+      font-size: 31pt;
+      font-weight: 600;
+      line-height: 1.18;
+      border: 0;
+    }
+    .cover .subtitle {
+      max-width: 155mm;
+      margin: 0;
+      color: #d9ebf1;
+      font-family: "FandolHei", "Noto Sans CJK SC", sans-serif;
+      font-size: 15pt;
+      line-height: 1.5;
+    }
+    .cover-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5mm;
+      margin-top: 18mm;
+    }
+    .cover-grid div {
+      padding-top: 3mm;
+      border-top: 1.2pt solid #7dc6d2;
+    }
+    .cover-grid strong {
+      display: block;
+      color: white;
+      font-family: "DejaVu Sans", "FandolHei", sans-serif;
+      font-size: 15pt;
+    }
+    .cover-grid span { color: #d2e6ed; font-size: 8.5pt; }
+    .cover-meta {
+      display: flex;
+      justify-content: space-between;
+      padding-top: 4mm;
+      border-top: .6pt solid rgba(255,255,255,.45);
+      color: #d5e5eb;
+      font-size: 8.5pt;
+    }
+    main { width: 100%; }
+    article > h1:first-child { display: none; }
+    .toc {
+      margin: 0 0 10mm;
+      padding: 7mm 8mm;
+      border-left: 3pt solid var(--cyan);
+      background: var(--wash);
+      break-inside: avoid;
+    }
+    .toc h2 {
+      margin: 0 0 3mm;
+      padding: 0;
+      border: 0;
+      font-size: 15pt;
+    }
+    .toc ol {
+      columns: 2;
+      column-gap: 10mm;
+      margin: 0;
+      padding-left: 5mm;
+    }
+    .toc li { margin: 1.2mm 0; break-inside: avoid; }
+    .toc a { color: var(--ink); text-decoration: none; }
+    h1, h2, h3 {
+      font-family: "FandolHei", "Noto Sans CJK SC", sans-serif;
+      color: var(--navy);
+      font-weight: 600;
+    }
+    h2 {
+      margin: 10mm 0 4mm;
+      padding-top: 2.5mm;
+      border-top: 1.4pt solid var(--navy);
+      font-size: 18pt;
+      line-height: 1.3;
+      break-after: avoid;
+    }
+    h3 {
+      margin: 7mm 0 3mm;
+      color: var(--blue);
+      font-size: 13.2pt;
+      line-height: 1.35;
+      break-after: avoid;
+    }
+    p { margin: 2.2mm 0 3.4mm; orphans: 3; widows: 3; }
+    strong { color: #164a72; }
+    a { color: var(--blue); text-decoration: none; }
+    ul, ol { margin: 2mm 0 4mm; padding-left: 6mm; }
+    li { margin: 1mm 0; orphans: 2; widows: 2; }
+    blockquote {
+      margin: 5mm 0;
+      padding: 4mm 5mm;
+      border-left: 3pt solid var(--cyan);
+      background: #edf7f8;
+      color: #1e4356;
+      font-size: 11pt;
+      break-inside: avoid;
+    }
+    blockquote p { margin: 0; }
+    code {
+      padding: .25mm .9mm;
+      border-radius: 1mm;
+      color: #7d3150;
+      background: #edf2f5;
+      font-family: "DejaVu Sans Mono", monospace;
+      font-size: 8.4pt;
+      overflow-wrap: anywhere;
+    }
+    pre {
+      margin: 4mm 0;
+      padding: 4mm;
+      color: #e1edf3;
+      background: #132b43;
+      font-size: 8.2pt;
+      line-height: 1.42;
+      white-space: pre-wrap;
+      break-inside: avoid;
+    }
+    pre code { padding: 0; color: inherit; background: transparent; }
+    table {
+      width: 100%;
+      margin: 4mm 0 6mm;
+      border-collapse: collapse;
+      table-layout: auto;
+      font-family: "FandolSong", serif;
+      font-size: 7.7pt;
+      line-height: 1.38;
+      break-inside: avoid;
+    }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid; }
+    th {
+      padding: 2.2mm 2mm;
+      color: white;
+      background: var(--navy);
+      text-align: left;
+      vertical-align: top;
+    }
+    td {
+      padding: 2mm;
+      border-bottom: .45pt solid var(--line);
+      vertical-align: top;
+    }
+    tbody tr:nth-child(even) td { background: #f5f8fa; }
+    figure {
+      margin: 5mm 0 7mm;
+      text-align: center;
+      break-inside: avoid;
+    }
+    figure img {
+      display: block;
+      max-width: 100%;
+      max-height: 171mm;
+      margin: 0 auto;
+      object-fit: contain;
+    }
+    figcaption {
+      margin-top: 2mm;
+      color: var(--muted);
+      font-family: "FandolHei", sans-serif;
+      font-size: 8pt;
+      line-height: 1.35;
+    }
+    hr { border: 0; border-top: .5pt solid var(--line); margin: 7mm 0; }
+    @page { size: A4; margin: 14mm 14mm 17mm; }
+    @media print {
+      body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .cover { min-height: 250mm; }
+      h2, h3 { break-after: avoid-page; }
+      p, li { orphans: 3; widows: 3; }
+    }
+    </style>
+</head>
+<body>
+  <section class="cover">
+    <div>
+      <div class="eyebrow">IMPACTKV · CODING-AWARE LOSSY KV REUSE · EVIDENCE AUDIT</div>
+      <h1>KV deviation 能否代表 Coding Lossy Reuse 的任务精度？</h1>
+      <p class="subtitle">从表示接近、固定预算 selector 到官方 execution accuracy 的证据审计</p>
+      <div class="cover-grid">
+        <div><strong>23.00% → 9.28%</strong><span>stale fraction 显著下降</span></div>
+        <div><strong>11/50 → 10/50</strong><span>DS-1000 官方通过未提高</span></div>
+        <div><strong>AUROC 0.276</strong><span>residual V-mass 未校准为失败风险</span></div>
+      </div>
+    </div>
+    <div class="cover-meta">
+      <span>阶段研究备忘录</span><span>Frozen evidence · 2026-08-06</span>
+    </div>
+  </section>
+  <main>
+    <nav class="toc"><h2>目录</h2><ol><li><a href="#结论摘要-0">结论摘要</a></li><li><a href="#1-相关工作怎样做-lossy-kv-reuse-1">1. 相关工作怎样做 Lossy KV Reuse</a></li><li><a href="#2-当前工作究竟是怎样做的-2">2. 当前工作究竟是怎样做的</a></li><li><a href="#3-为什么要审计-kv-deviation-3">3. 为什么要审计 KV deviation</a></li><li><a href="#4-实验一-先确认-kv-drift-确实反映局部扰动-4">4. 实验一：先确认 KV drift 确实反映局部扰动</a></li><li><a href="#5-实验二-让-kv-明显更接近-dense-execution-accuracy-会提高吗-5">5. 实验二：让 KV 明显更接近 Dense，execution accuracy 会提高吗</a></li><li><a href="#6-实验三-固定相同-repair-预算-distance-aware-selector-会更好吗-6">6. 实验三：固定相同 repair 预算，distance-aware selector 会更好吗</a></li><li><a href="#7-实验四-residual-v-mass-能在生成前预测失败吗-7">7. 实验四：Residual V-mass 能在生成前预测失败吗</a></li><li><a href="#8-实验五-nll-更接近输出-能否替代-execution-8">8. 实验五：NLL 更接近输出，能否替代 execution</a></li><li><a href="#9-五组实验合起来说明什么-9">9. 五组实验合起来说明什么</a></li><li><a href="#10-审计以后-当前路线怎样调整-10">10. 审计以后，当前路线怎样调整</a></li><li><a href="#11-下一项能够闭合问题的实验-11">11. 下一项能够闭合问题的实验</a></li><li><a href="#12-可用于论文或汇报的严谨表述-12">12. 可用于论文或汇报的严谨表述</a></li><li><a href="#附录-a-历史标签与本文名称-13">附录 A：历史标签与本文名称</a></li><li><a href="#附录-b-可复核数据-14">附录 B：可复核数据</a></li></ol></nav>
+    <article><h1>从通用 Lossy KV Reuse 到 Coding-aware：方法、实验链与 KV Proxy 审计</h1>
+<p>日期：2026-08-06<br />
+用途：面向对项目已有大致了解、但没有跟随每轮实验的研究讨论<br />
+范围：先解释相关工作的算法和评价方式，再引出当前 SGLang 方法与冻结实验；没有补跑 GPU，没有修改旧结果或预注册门槛。</p>
+<h2 id="结论摘要-0">结论摘要</h2>
+<p>通用 lossy KV 工作已经形成一条共同路线：CacheBlend 和 Cache-Craft 在新上下文中保留大部分旧 chunk KV，只重算最受 prefix 影响的 token；KVComm 用相似 anchor 的 K/V offset 近似新 agent 上下文；CacheGen 对 KV 本身做有损编码和传输。这些工作都会用 KV、attention、embedding distance 或 PPL 指导系统动作，但最终仍用 F1、ROUGE、Accuracy、Pass@1 或人工正确性证明质量。</p>
+<p>它们没有直接解决 coding-agent 的两个特殊问题：历史 observation 可能因为 repository mutation 而在语义上过期；即使内容仍有效，不同源码、测试和文档对当前 action 的价值也不相同。因此，本项目把通用方法中的“选择哪些 token 重算”进一步拆成三层：文件版本是否有效、当前任务是否需要、旧 contextual KV 是否安全。</p>
+<p>当前 SGLang 实现已经具备完整的物理复用路径：只从成功、只读、路径可定位的工具结果建立 cache source；文件发生相关修改时让 source 失效；在后续相同文本再次出现时，把 prompt 分成 Dense gap 和 copied island 交替执行。K 做 RoPE 位置修正、V 直接复制。旧 K/V 来自旧 prefix，因此即使 island 文本相同，它仍然是 <strong>contextually lossy reuse</strong>，不是 exact-prefix cache。</p>
+<p>目前最成熟的保守策略一次只复制一个 grounded observation；多 observation 执行器可以复制最多三个 island，但“按长度和新近度多复制”尚未通过 accuracy 晋级。真正未解决的是：在版本合法的 observation 中，怎样区分“对当前任务有用”与“旧 contextual KV 足够安全”。</p>
+<p>这份报告聚焦后一个问题：<strong>KV deviation 变小，能否作为最终 coding accuracy 变好的依据？</strong> 当前答案是：不能把它当作单调替代指标或已校准的失败概率。</p>
+<p>最关键的证据是：同一批 50 道 DS-1000 题、同 prompt/token、同 selector，把 repair 从 75% 提高到 90% 后，平均 stale fraction 从 <code>23.00%</code> 降到 <code>9.28%</code>，与 Dense 完全相同的输出从 <code>35/50</code> 增到 <code>38/50</code>，官方执行通过却从 <code>11/50</code> 变为 <code>10/50</code>。这足以否定“更接近 Dense 必然提高任务正确率”，但不等于“KV deviation 完全无用”。单 island KV drift 与局部 causal logit JS 仍有 Spearman <code>0.526</code>，所以它适合做机制诊断和风险约束。</p>
+<p>报告的主线是：</p>
+<pre><code class="language-text">相关 lossy KV 工作怎样复用、修复和评价
+        ↓
+这些方法在 coding-agent 场景还缺少什么
+        ↓
+我们的 observation / FileVersion / SGLang 方法怎样补足
+        ↓
+为什么这种复用有损，以及 Validity / Utility / Risk 的区别
+        ↓
+实验先确认 KV drift 能解释局部扰动
+        ↓
+再检验它能否推广到 output、NLL 和官方 execution accuracy
+        ↓
+得到下一代两阶段 selector 与正式评价方案
+</code></pre>
+<h2 id="1-相关工作怎样做-lossy-kv-reuse-1">1. 相关工作怎样做 Lossy KV Reuse</h2>
+<h3>1.1 它们共同面对什么问题</h3>
+<p>Exact prefix cache 只在旧文本仍位于 prompt 前缀时完全安全；prefix 后面新增内容不会反向改变它的 K/V。更困难的情况是：一个文本块在新请求中换了前置上下文，或者 KV 本身经过了有损压缩。此时旧 state 与当前 Dense/full-prefill state 不再相同，系统必须在“少算一些”和“答案别变坏太多”之间取舍。</p>
+<p>下面四项工作分别从 selective recomputation、cross-agent approximation、context-aware chunk repair 和 KV compression 解决这个问题。先理解它们的算法动作，才能看出我们为什么没有直接照搬其中一个 selector。</p>
+<h3>1.2 CacheBlend：复用 chunk，大偏差 token 分层重算</h3>
+<p>以 RAG 为例，文档块 <code>A</code> 和 <code>B</code> 可以分别提前建立 KV；新请求把它们拼成 <code>A → B → question</code>。<code>B</code> 的旧 KV 没见过前面的 <code>A</code>，直接复制会遗漏 <code>A→B</code> cross-attention。</p>
+<p>CacheBlend 的处理流程是：</p>
+<ol>
+<li>复用每个 chunk 已经预计算的 KV，并修正位置；</li>
+<li>在每层只选一小部分 token 重新计算 current Q/K/V；</li>
+<li>未选 token 保留旧 K/V，选中 token 与全部 current/cached K/V 做 attention；</li>
+<li>优先修复相对 full prefill KV deviation 较大的 token，以降低 forward-attention deviation；</li>
+<li>将层间重算与下一层 KV 读取流水化，减少 TTFT。</li>
+</ol>
+<p>因此 CacheBlend 的 KV/attention deviation 是 <strong>选择 token 和解释机制</strong> 的工具。论文最终在 2WikiMQA、MuSiQue 上用 F1，在 MultiNews、SAMSum 上用 ROUGE-L，并同时报告 TTFT；“质量没有明显下降”不是由 deviation 本身证明的。</p>
+<h3>1.3 KVComm：用相似 anchor 的 offset 近似不同 agent 上下文</h3>
+<p>KVComm 面向 multi-agent system。不同 agent 的角色 prompt 不同，但其中经常出现相同或近似的 placeholder 内容。直接复制某个 agent 的 KV 会忽略角色 prefix 差异。</p>
+<p>它不是挑一段 token 做局部 repair，而是：</p>
+<ol>
+<li>找到长度结构匹配的 placeholder；</li>
+<li>再用 embedding distance 筛选相似 anchor；</li>
+<li>保存这些 anchor 在不同 agent prefix 下产生的 K/V offset；</li>
+<li>对新 placeholder 按距离对多个 anchor offset 做 soft aggregation；</li>
+<li>用聚合 offset 近似目标 agent 的 K/V，跳过完整 prefill。</li>
+</ol>
+<p>这里 embedding/L2 distance 负责 matching 和加权，最终质量则用 MMLU/GSM8K Accuracy 与 HumanEval Pass@1 判断。KVComm 还分别报告 agent-level reuse rate 与 latency。</p>
+<h3>1.4 Cache-Craft：先估计 chunk 的上下文依赖，再修复关键 token</h3>
+<p>Cache-Craft 同样复用非前缀 RAG chunk，但它重点估计一个 chunk 有多依赖旧 prefix：</p>
+<ol>
+<li>用跨 chunk attention 与 chunk 内 attention 的比值构造 Cache Context Impact（CCI）；</li>
+<li>将 CCI 与新旧 prefix mismatch 结合，得到 Cache Fix Overhead（CFO）；</li>
+<li>CFO 决定需要重算多少 token；</li>
+<li>优先重算对前序 chunk 有高 inter-attention 的 token；</li>
+<li>保存同一 chunk 的多个 prefix variant，优先选择 CFO 较低的 cache。</li>
+</ol>
+<p>CCI/CFO 负责决定修复动作，但超参数 <code>α</code> 的选择被写成一个质量约束问题：在 validation F1 不低于目标值时，最小化预期 recomputation。最终实验继续报告 ROUGE-L、Jaccard/Accuracy、TTFT，并用 250 人 user study 检查回答正确性。</p>
+<h3>1.5 CacheGen：压缩 KV，而不是跨 prefix 搬运 contextual state</h3>
+<p>CacheGen 是相邻但不同的路线。它假设上下文 KV 本来就适合复用，主要瓶颈是从远端存储或网络读取完整 tensor 太慢。它利用 KV 在 token、layer 和 channel 上的分布特征，把 cache 编码成更小的有损 bitstream，再在 GPU 附近解码和流式传输。</p>
+<p>因此它的 loss 来源主要是 <strong>表示压缩</strong>，不是 CacheBlend/Cache-Craft 那样的 prefix-context mismatch。评价时，CacheGen 在 WikiText 上用 PPL，在 LongChat 上用 Accuracy，在 TriviaQA/NarrativeQA 上用 F1，并报告 TTFT 与压缩率。论文明确说明 PPL 不等同于文本生成质量，只是 proxy。</p>
+<h3>1.6 相关工作的共同证据结构</h3>
+<p>为避免把不同层级的分数混在一起：F1/ROUGE 主要衡量生成文本与参考答案的重合；Accuracy/Pass@1 判断一道题是否答对或一次代码生成是否通过；PPL 衡量参考 next token 的概率，是语言模型 proxy；TTFT 衡量用户等到第一个生成 token 的时间，是系统指标。</p>
+<p>下图表示论文原生实验覆盖了哪一层证据，不表示跨论文分数高低。各论文的数据集、模型、prompt 和 reuse-rate 定义不同，不能直接横向排名。</p>
+<figure><img src="assets/kv_deviation_accuracy_20260806/10_related_work_evidence_matrix.png" alt="相关 lossy-KV 工作的证据层级"><figcaption>相关 lossy-KV 工作的证据层级</figcaption></figure>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>Lossy 动作</th>
+<th>内部 proxy</th>
+<th>最终质量证据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://arxiv.org/html/2405.16444">CacheBlend</a></td>
+<td>非前缀 chunk 大部复用，少量 token 分层重算</td>
+<td>KV / attention deviation</td>
+<td>F1、ROUGE-L</td>
+</tr>
+<tr>
+<td><a href="https://arxiv.org/html/2510.12872">KVComm</a></td>
+<td>用多个相似 anchor 的 offset 近似目标 agent KV</td>
+<td>length、embedding/L2 distance、KV offset error</td>
+<td>Accuracy、HumanEval Pass@1</td>
+</tr>
+<tr>
+<td><a href="https://arxiv.org/html/2502.15734">Cache-Craft</a></td>
+<td>根据 prefix 影响修复 chunk 中关键 token</td>
+<td>CCI、CFO、inter-attention</td>
+<td>ROUGE-L、Jaccard/Accuracy、人工评价</td>
+</tr>
+<tr>
+<td><a href="https://arxiv.org/html/2310.07240">CacheGen</a></td>
+<td>KV tensor 有损编码、传输和解码</td>
+<td>PPL 等压缩 proxy</td>
+<td>Accuracy、F1、PPL</td>
+</tr>
+</tbody>
+</table>
+<p>共同规律是：<strong>内部 proxy 指导动作，下游指标批准动作。</strong> 没有一项工作仅凭 KV/attention distance 下降就完成最终质量证明。</p>
+<h3>1.7 KVComm 的距离消融为什么特别重要</h3>
+<p>KVComm 附录把不同距离策略真正跑到了 HumanEval 和 MMLU 的任务指标上：</p>
+<figure><img src="assets/kv_deviation_accuracy_20260806/11_kvcomm_distance_ablations.png" alt="KVComm 距离与匹配消融"><figcaption>KVComm 距离与匹配消融</figcaption></figure>
+<table>
+<thead>
+<tr>
+<th>Offset 近似</th>
+<th style="text-align:right">HumanEval Pass@1</th>
+<th style="text-align:right">Reuse rate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>只取 L2 最近 anchor</td>
+<td style="text-align:right">47.20%</td>
+<td style="text-align:right">78.9%</td>
+</tr>
+<tr>
+<td>按 cosine 对多个 anchor 加权</td>
+<td style="text-align:right">83.23%</td>
+<td style="text-align:right">82.5%</td>
+</tr>
+<tr>
+<td>按 L2 对多个 anchor 加权</td>
+<td style="text-align:right">83.23%</td>
+<td style="text-align:right">81.1%</td>
+</tr>
+<tr>
+<td>Dense / Original</td>
+<td style="text-align:right">84.45%</td>
+<td style="text-align:right">0%</td>
+</tr>
+</tbody>
+</table>
+<p>“Nearest” 已经使用距离，却只有 <code>47.20%</code> Pass@1；多 anchor soft aggregation 达到 <code>83.23%</code>。这不说明 L2 无用，而是说明“局部最近”只是一项候选条件，组合方式和跨层误差仍需任务结果验证。</p>
+<p>另一项 MMLU matching 消融中，只要求长度一致时 Accuracy <code>62.1%</code>、reuse <code>93.3%</code>；增加 embedding-distance gate 后 Accuracy <code>68.0%</code>、reuse <code>70.1%</code>。更严格的 distance gate 可以改善质量，也会放弃复用机会；trade-off 仍由 Accuracy 判断。</p>
+<h3>1.8 为什么还需要我们的 coding-aware 路线</h3>
+<p>上述方法分别知道 RAG chunk、agent placeholder、prefix attention 或 tensor compression，却不维护 coding session 中的 repository lifecycle。例如：</p>
+<ul>
+<li>一段 <code>parser.py</code> 输出可能仍逐字出现在 prompt 中，但文件随后已被修改；</li>
+<li>两段 KV 都很稳定，其中测试文件与当前 failure path 相关，配置文档却无关；</li>
+<li>F1 或代码相似度很高，生成代码仍可能因一个 dtype、索引或副作用无法通过测试。</li>
+</ul>
+<p>这引出我们的增量：先利用 tool type、repository path、FileVersion 和 mutation provenance 确定哪些 observation 合法；再研究 path/action utility 与 contextual KV risk；最终用官方 execution 而不是词面相似度批准方法。</p>
+<h2 id="2-当前工作究竟是怎样做的-2">2. 当前工作究竟是怎样做的</h2>
+<h3>2.1 复用机会来自真实 coding-agent 历史</h3>
+<p>假设 agent 正在修复 <code>parse_config</code>，历史中出现以下事件：</p>
+<table>
+<thead>
+<tr>
+<th>时刻</th>
+<th>Agent 历史</th>
+<th>后续状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T1</td>
+<td><code>sed</code> 读取 <code>src/parser.py</code>，得到 900-token 源码</td>
+<td>T3 后同文件被修改</td>
+</tr>
+<tr>
+<td>T2</td>
+<td><code>cat</code> 读取 <code>tests/test_parser.py</code>，得到 600-token 测试</td>
+<td>文件未修改</td>
+</tr>
+<tr>
+<td>T3</td>
+<td><code>apply_patch</code> 修改 <code>src/parser.py</code></td>
+<td>T1 observation 失效</td>
+</tr>
+<tr>
+<td>T4</td>
+<td><code>cat</code> 读取 <code>docs/config.md</code>，得到 700-token 文档</td>
+<td>文件未修改，但未必与当前失败最相关</td>
+</tr>
+<tr>
+<td>T5</td>
+<td>下一次模型请求包含上述历史</td>
+<td>需要决定复制哪些旧 K/V</td>
+</tr>
+</tbody>
+</table>
+<p>Dense 会在 T5 重新计算整段历史。我们的系统则看到 T2 和 T4 的文本仍然原样存在，可考虑复用；T1 虽然文本也可能还留在 prompt 中，但它描述的是修改前的 <code>parser.py</code>，必须拒绝。</p>
+<p>这里的复用单位不是“函数签名”或任意 token，而是 agent 已经自然产生的一段 <strong>tool observation</strong>。当这段 observation 在后续 prompt 中形成一个连续 token 区间时，报告称它为一个 <strong>island</strong>。</p>
+<h3>2.2 当前 SGLang 路径分成五步</h3>
+<figure><img src="assets/kv_deviation_accuracy_20260806/00_current_method_pipeline.png" alt="当前 coding-aware lossy KV reuse 的完整路径"><figcaption>当前 coding-aware lossy KV reuse 的完整路径</figcaption></figure>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>已实现动作</th>
+<th>Coding 信息在哪里</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. 候选准入</td>
+<td>只接受成功的 <code>rg/grep/find/sed/cat/head/tail</code> 等只读工具结果；排除 reasoning、测试、diff、写操作和状态查询</td>
+<td>区分 repository evidence 与 agent 自己的推理文本</td>
+</tr>
+<tr>
+<td>2. Source 建立</td>
+<td>对 tool-result 原文做 chat-template 渲染和精确 token 定位，保存 source handle、token hash、路径、内容 hash 和 cache dtype</td>
+<td>source 必须能追溯到实际读取的 repository path</td>
+</tr>
+<tr>
+<td>3. 版本检查</td>
+<td>Source 注册时和 target 使用前都检查后续 mutation；同路径写入、repository-scoped search 后的任意写入、路径歧义都会 fail closed</td>
+<td>FileVersion 和 mutation provenance 防止复制已经过期的代码事实</td>
+</tr>
+<tr>
+<td>4. Pool 与选择</td>
+<td>保守基线一次保留一个 observation；扩展执行器维护最多三个 source，并按长度、新近度和非重叠约束选择 island</td>
+<td>当前选择仍偏系统启发式，尚未真正使用 path utility</td>
+</tr>
+<tr>
+<td>5. 物理执行</td>
+<td><code>Dense prefix → copy island → Dense gap → ... → Dense suffix</code>；K 做 source/target 位置差的 RoPE 旋转，V 直接复制</td>
+<td>SGLang 中真实减少 middle-span prefill，不删除 prompt，不使用 prefetch</td>
+</tr>
+</tbody>
+</table>
+<p>多 source 的“persistent”只表示它可以跨后续请求继续使用，不表示永久存在。文件变更、pool eviction、session reset 或 ledger 不一致都会释放 source；任何 token hash、位置、模型、dtype 或 lease 校验失败都会回退 Dense。</p>
+<h3>2.3 为什么文本完全相同，KV 仍然是有损的</h3>
+<p>设重复文本为 <code>x</code>，它第一次出现时的 prefix 为 <code>C_s</code>，当前 target 的新 prefix 为 <code>C_t</code>。Dense target 会计算：</p>
+<pre><code class="language-text">KV_dense = TransformerKV(C_t, x)
+</code></pre>
+<p>复用路径使用：</p>
+<pre><code class="language-text">KV_reuse = TransformerKV(C_s, x)
+</code></pre>
+<p>RoPE 可以把 K 从 source 位置旋转到 target 位置，但不能补回 <code>C_t</code> 带来的新 cross-attention。因此通常有 <code>KV_reuse ≠ KV_dense</code>。这正是本报告所说的 stale K/V：token 内容没变，contextual hidden state 来自旧上下文。</p>
+<p>在上面的例子里，T2 的测试文件可能既合法又与当前 parser failure 有关，但它的旧 K/V 仍然是在 T2 的旧 prefix 下形成的。FileVersion 只能证明“文件内容仍有效”，不能证明“旧隐藏状态在 T5 安全”。</p>
+<h3>2.4 当前算法状态与未完成部分</h3>
+<p>当前代码里要区分“已经工作的基础设施”和“已经晋级的策略”：</p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>当前状态</th>
+<th>证据含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>单 observation grounded reuse</td>
+<td>保守研究 baseline</td>
+<td>已有 exact-same-prompt、真实 copy、零 fallback 的速度证据</td>
+</tr>
+<tr>
+<td>Target-time FileVersion guard</td>
+<td>保留</td>
+<td>解决内容是否合法，不承诺预测模型伤害</td>
+</tr>
+<tr>
+<td>最多三 island 的 pool/executor</td>
+<td>基础设施可用</td>
+<td>增加复制机会和速度，但无约束的长度/新近度策略未通过 accuracy 晋级</td>
+</tr>
+<tr>
+<td>Path/action dependency</td>
+<td>已有 motivation，尚未成为最终线上 selector</td>
+<td>应回答哪段 observation 对当前 action 有用，即 Utility</td>
+</tr>
+<tr>
+<td>K/V/attention probe</td>
+<td>已有机制证据，便宜 request-level proxy 未通过</td>
+<td>应作为 Risk 约束，不能直接冒充 accuracy</td>
+</tr>
+</tbody>
+</table>
+<p>所以“我们的当前方法”不是一个已经完成的统一分数。现有系统负责合法 source 与物理 copy；下一代研究目标才是：<strong>先排除 contextual risk 过高的候选，再按 coding path utility 分配固定 copy budget。</strong></p>
+<h2 id="3-为什么要审计-kv-deviation-3">3. 为什么要审计 KV deviation</h2>
+<h3>3.1 Validity、Utility、Risk 是三个不同问题</h3>
+<table>
+<thead>
+<tr>
+<th>决策层</th>
+<th>问题</th>
+<th><code>parse_config</code> 例子</th>
+<th>可用信号</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Validity</td>
+<td>这段 observation 是否仍代表当前文件版本？</td>
+<td>T1 的 <code>parser.py</code> 已被修改，所以无效；T2 测试仍有效</td>
+<td>path、content hash、mutation、token identity</td>
+</tr>
+<tr>
+<td>Utility</td>
+<td>当前 action 是否需要这段信息？</td>
+<td>当前是 parser test failure，T2 测试通常比 T4 配置文档更有用</td>
+<td>command/path dependency、当前文件、action 类型、recency</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>内容虽然有效且有用，旧 K/V 搬到新 prefix 后会不会扰动模型？</td>
+<td>T2 的旧 K/V 可能缺失 T3 patch 对当前上下文的影响</td>
+<td>K/V drift、attention、causal splice、短 probe</td>
+</tr>
+</tbody>
+</table>
+<p>过去若把三个问题压成一个分数，就容易发生概念错位：同路径并不表示旧 KV 一定危险；KV 很接近也不表示这段内容对当前任务有用。KV deviation 主要属于 Risk 层，本报告只审计它能否继续承担更强的“最终 accuracy 代理”角色。</p>
+<h3>3.2 本报告会反复出现的术语</h3>
+<table>
+<thead>
+<tr>
+<th>术语</th>
+<th>通俗解释</th>
+<th>它不代表什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dense</td>
+<td>在当前完整 prompt 下重新计算所有 K/V</td>
+<td>Dense 输出不一定是正确答案</td>
+</tr>
+<tr>
+<td>Source / target</td>
+<td>Source 是旧请求中建立 cache 的位置；target 是后续尝试使用它的请求</td>
+<td>不是训练集/测试集含义</td>
+</tr>
+<tr>
+<td>Island</td>
+<td>Target prompt 中准备复制的一段连续旧 K/V</td>
+<td>不等于完整函数或 AST 节点</td>
+</tr>
+<tr>
+<td>Stale token / stale fraction</td>
+<td>仍保留旧 contextual K/V 的 token；stale fraction 是其占目标区间比例</td>
+<td>不表示文本内容过期</td>
+</tr>
+<tr>
+<td>Repair / recompute ratio</td>
+<td>在 reusable 区间内重新计算 current K/V 的比例；其余才继续复用旧 K/V</td>
+<td><code>repair 75%</code> 不是“复制 75%”</td>
+</tr>
+<tr>
+<td>Value-difference selector</td>
+<td>比较 current V 与 cached V，优先重算差异最大的 token</td>
+<td>只能给出内部差异排序</td>
+</tr>
+<tr>
+<td>Residual V-mass</td>
+<td>Selector 重算以后，未覆盖位置仍剩下多少 V-difference 能量</td>
+<td>不是失败概率，除非经过校准</td>
+</tr>
+<tr>
+<td>Causal logit JS</td>
+<td>只替换一个 island 后，next-token 概率分布相对 Dense 改变多少；0 表示分布相同</td>
+<td>不是任务正确率</td>
+</tr>
+<tr>
+<td>Exact next-line</td>
+<td>生成行与参考行逐字一致</td>
+<td>不是运行测试后的功能正确性</td>
+</tr>
+<tr>
+<td>NLL</td>
+<td>参考 token 在模型分布下的平均负对数概率，越低通常越好</td>
+<td>不运行代码，不知道程序是否正确</td>
+</tr>
+<tr>
+<td>Official execution</td>
+<td>在数据集官方容器或测试器中运行生成代码</td>
+<td>是本报告最高等级的 coding quality 证据</td>
+</tr>
+<tr>
+<td>Rescue / damage</td>
+<td>同一道题从 fail→pass / pass→fail</td>
+<td>需要成对统计，不能只比较总通过数</td>
+</tr>
+<tr>
+<td>AUROC</td>
+<td>用一个分数区分失败和通过的排序能力；0.5 约等于随机，1 最好</td>
+<td>小样本或数据混杂时不能解释因果</td>
+</tr>
+</tbody>
+</table>
+<h3>3.3 从局部机制到最终任务的假设链</h3>
+<p>实验不是同一件事反复测试，而是逐层检验下面四个假设：</p>
+<table>
+<thead>
+<tr>
+<th>假设</th>
+<th>为什么需要它</th>
+<th>对应实验</th>
+<th>当前结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>H1：KV drift 能定位局部模型扰动</td>
+<td>否则它连 Risk 特征都不应保留</td>
+<td>单 island causal splice</td>
+<td>支持：Spearman <code>0.526</code></td>
+</tr>
+<tr>
+<td>H2：减少 residual drift 会单调提高任务 accuracy</td>
+<td>若成立，可直接优化 deviation</td>
+<td>DS-1000 同题提高 repair</td>
+<td>否定单调性：stale↓，execution <code>11/50→10/50</code></td>
+</tr>
+<tr>
+<td>H3：生成前 residual V-mass 能校准失败风险</td>
+<td>若成立，可直接设在线阈值</td>
+<td>72-request frozen audit</td>
+<td>不支持：failure AUROC <code>0.276</code>，且有 task-mix 混杂</td>
+</tr>
+<tr>
+<td>H4：更接近输出层的 NLL 可以替代 execution</td>
+<td>若成立，可低成本大规模选策略</td>
+<td>Function-capsule 独立集</td>
+<td>不支持：development 优势在 independent split 反转</td>
+</tr>
+</tbody>
+</table>
+<p>后文严格按 H1→H4 展开。这样可以同时保留“KV drift 有局部机制价值”和“它不能证明最终 accuracy”这两个不矛盾的结论。</p>
+<h2 id="4-实验一-先确认-kv-drift-确实反映局部扰动-4">4. 实验一：先确认 KV drift 确实反映局部扰动</h2>
+<h3>4.1 为什么做</h3>
+<p>在讨论 accuracy 之前，先要证明内部 distance 不是任意数字。这个实验每次只把一个旧 observation island 的 K/V splice 到 target，其他部分重新计算，然后比较 Dense 与 reuse 的 next-token 概率分布。</p>
+<p>使用 causal logit JS 的原因是它紧邻干预：只改一个 island，立即观察模型分布改变多少。JS 越大，说明这个 island 的旧 contextual state 对当前输出分布扰动越大。</p>
+<h3>4.2 结果和含义</h3>
+<table>
+<thead>
+<tr>
+<th>信号与结果</th>
+<th style="text-align:right">Spearman</th>
+<th>能支持的解释</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>单 island KV drift → causal logit JS</td>
+<td style="text-align:right">0.526</td>
+<td>KV drift 能定位局部表示扰动</td>
+</tr>
+<tr>
+<td>Request KV drift → 代码相似度变化</td>
+<td style="text-align:right">0.230</td>
+<td>完整生成后关系明显变弱</td>
+</tr>
+<tr>
+<td>Request KV drift → composed NLL</td>
+<td style="text-align:right">0.193</td>
+<td>对请求级 token 质量预测较弱</td>
+</tr>
+<tr>
+<td>16-token probe → composed NLL</td>
+<td style="text-align:right">0.169</td>
+<td>很短 probe 不能代表完整请求</td>
+</tr>
+<tr>
+<td>Dense-target drift → NLL repair utility</td>
+<td style="text-align:right">0.059</td>
+<td>偏差最大的位置不等于最值得修的位置</td>
+</tr>
+</tbody>
+</table>
+<figure><img src="assets/kv_deviation_accuracy_20260806/07_proxy_scope_correlation_decay.png" alt="KV drift 从局部干预到请求级结果的关联变化"><figcaption>KV drift 从局部干预到请求级结果的关联变化</figcaption></figure>
+<p>这些点来自不同冻结 cohort，不能当作同一总体上的严格“衰减曲线”。但第一行回答了 H1：KV drift 不是无效信号，它与局部因果扰动存在中等相关性。后几行则提示，从局部 hidden state 到完整生成会经历组合、解码分支和任务判分三次信息损失。</p>
+<p>因此本轮决策不是删除 KV drift，而是把它降级为 <strong>local risk diagnostic / constraint candidate</strong>，不直接优化成最终 accuracy。</p>
+<h2 id="5-实验二-让-kv-明显更接近-dense-execution-accuracy-会提高吗-5">5. 实验二：让 KV 明显更接近 Dense，execution accuracy 会提高吗</h2>
+<h3>5.1 为什么这是主实验</h3>
+<p>H2 要检验的是单调命题：如果我们保留更少旧 K/V、重算更多 current K/V，最终代码是否至少不变差。最直接的办法是在同一题上增加 repair budget，而不是更换数据集、prompt 或 selector。</p>
+<p>这一实验使用 50 道 DS-1000 development 题。DS-1000 的官方 evaluator 会实际运行代码和测试，因此比 exact-line、NLL 或代码相似度更接近真正的任务完成率。</p>
+<h3>5.2 控制了什么，只改变了什么</h3>
+<p>两臂完全共享：</p>
+<ul>
+<li>同 50 道题、同 prompt/token hash；</li>
+<li>同模型、推理引擎和生成参数；</li>
+<li>同一个第 24 层 value-difference ranking；</li>
+<li>两臂都有正数 stale K/V，没有 Dense fallback。</li>
+</ul>
+<p>唯一核心变化是：</p>
+<ul>
+<li><code>repair 75%</code>：重算 V-difference 最大的 75% token；</li>
+<li><code>repair 90%</code>：重算同一排名的 top-90% token。</li>
+</ul>
+<p>Top-90% 是 top-75% 的超集，因此第 24 层未覆盖的 V-difference mass 按构造不会增加。这不是“平均上应该更近”，而是 selector 的集合关系保证更强 repair 留下更少检查层差异。</p>
+<h3>5.3 结果</h3>
+<table>
+<thead>
+<tr>
+<th>动作</th>
+<th style="text-align:right">Repair ratio</th>
+<th style="text-align:right">平均 stale fraction</th>
+<th style="text-align:right">与 Dense 输出完全相同</th>
+<th style="text-align:right">官方执行通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第 24 层 value-difference repair</td>
+<td style="text-align:right">75%</td>
+<td style="text-align:right">23.00%</td>
+<td style="text-align:right">35/50</td>
+<td style="text-align:right">11/50</td>
+</tr>
+<tr>
+<td>第 24 层 value-difference repair</td>
+<td style="text-align:right">90%</td>
+<td style="text-align:right">9.28%</td>
+<td style="text-align:right">38/50</td>
+<td style="text-align:right">10/50</td>
+</tr>
+<tr>
+<td>Dense</td>
+<td style="text-align:right">100%</td>
+<td style="text-align:right">0</td>
+<td style="text-align:right">50/50</td>
+<td style="text-align:right">12/50</td>
+</tr>
+</tbody>
+</table>
+<figure><img src="assets/kv_deviation_accuracy_20260806/03_functional_stale_fraction_counterexample.png" alt="更低 stale fraction 没有带来更高官方通过数"><figcaption>更低 stale fraction 没有带来更高官方通过数</figcaption></figure>
+<p>重算从 75% 提高到 90% 后：</p>
+<ul>
+<li>stale fraction 相对减少 <code>59.6%</code>；</li>
+<li>与 Dense 逐字相同的输出增加 3 道；</li>
+<li>官方 execution pass 反而减少 1 道。</li>
+</ul>
+<p>逐题配对能看出变化来自哪里：</p>
+<figure><img src="assets/kv_deviation_accuracy_20260806/06_functional_paired_transition.png" alt="同一批 DS-1000 题目的配对结果转移"><figcaption>同一批 DS-1000 题目的配对结果转移</figcaption></figure>
+<table>
+<thead>
+<tr>
+<th>变化</th>
+<th>题目</th>
+<th>类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rescue</td>
+<td><code>ds1000/661</code></td>
+<td>Matplotlib / Seaborn stripplot</td>
+</tr>
+<tr>
+<td>Damage</td>
+<td><code>ds1000/644</code></td>
+<td>Matplotlib shaded error region</td>
+</tr>
+<tr>
+<td>Damage</td>
+<td><code>ds1000/163</code></td>
+<td>Pandas MultiIndex columns</td>
+</tr>
+</tbody>
+</table>
+<p>50 题中 47 题没有翻转；3 个翻转为 1 rescue、2 damage，McNemar <code>p=1.0</code>。样本不足以宣称“更多 repair 在总体上更差”。但 H2 声称的是单调保证；一个受控的 <code>staleness↓、Dense identity↑、execution↓</code> 反例已经足以否定该保证。</p>
+<p>Dense 本身只有 <code>12/50</code> pass，也解释了为什么“更像 Dense”与“更正确”不是同一目标。一次小 hidden-state 改变可能破坏 Dense 原本正确的轨迹，也可能偶然修正 Dense 原本错误的轨迹。</p>
+<h3>5.4 证据边界</h3>
+<p>实验直接记录 stale-token fraction，并保证检查层 residual V-difference 不增；它没有保存所有层的最终完整 KV tensor norm。因此严谨结论是：</p>
+<blockquote>
+<p>降低检查层未覆盖 V-difference、减少 stale token，并不能保证提高最终执行准确率。</p>
+</blockquote>
+<p>不能扩大为“所有 KV norm 与 accuracy 完全无关”。</p>
+<h2 id="6-实验三-固定相同-repair-预算-distance-aware-selector-会更好吗-6">6. 实验三：固定相同 repair 预算，distance-aware selector 会更好吗</h2>
+<h3>6.1 为什么还需要这一组</h3>
+<p>上一组通过多重算来降低 residual difference。为了排除“只是 repair ratio 改变了解码轨迹”，这里固定所有 lossy 方法都重算 75%，只改变 <strong>哪些 token 被重算</strong>。</p>
+<p>这是一项受控的 CacheBlend-derived selector probe，不是当前 SGLang observation-pool 的线上算法。它的用途是隔离“distance-aware token selection”是否有效，不能把它写成当前方法的端到端成绩。</p>
+<h3>6.2 两个 selector 怎样工作</h3>
+<p>通用 value-difference selector：</p>
+<ol>
+<li>在检查层计算 current V 与 cached V 的逐 token 差异；</li>
+<li>重算差异最大的 75%；</li>
+<li>剩余 25% 继续使用旧 K/V。</li>
+</ol>
+<p>Semantic + distance-consensus selector：</p>
+<ol>
+<li>先由非空代码、非注释代码和结构边界提出 coding-token mask；</li>
+<li>比较该 mask 与通用 K/V-difference top-k 的重合度；</li>
+<li>重合度至少 75% 才允许 coding mask 改变选择，否则退回通用 selector；</li>
+<li>总 repair ratio 仍为 75%，所以计算预算不增加。</li>
+</ol>
+<p>它不是“从多个 cache source 中挑几何最近者”，而是让 coding mask 必须获得当前 K/V distance 的同意。</p>
+<h3>6.3 独立 200 题结果</h3>
+<p>RepoBench-P 测试 next-line completion；它比 NLL 更接近生成结果，但没有运行程序，所以证据等级低于 DS-1000 execution。</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th style="text-align:right">Exact next-line</th>
+<th style="text-align:right">相对通用 selector</th>
+<th style="text-align:right">Cache-ready speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dense</td>
+<td style="text-align:right">54/200</td>
+<td style="text-align:right">−3</td>
+<td style="text-align:right">1.000x</td>
+</tr>
+<tr>
+<td>通用 V-difference selector</td>
+<td style="text-align:right">57/200</td>
+<td style="text-align:right">0</td>
+<td style="text-align:right">1.181x</td>
+</tr>
+<tr>
+<td>Semantic + V-distance consensus</td>
+<td style="text-align:right">55/200</td>
+<td style="text-align:right">−2</td>
+<td style="text-align:right">1.178x</td>
+</tr>
+</tbody>
+</table>
+<figure><img src="assets/kv_deviation_accuracy_20260806/09_distance_selector_counterexample.png" alt="固定预算下 distance-aware selector 没有提高 exact accuracy"><figcaption>固定预算下 distance-aware selector 没有提高 exact accuracy</figcaption></figure>
+<p>Distance-consensus 在 169/200 题上实际激活，平均 coding/KV agreement 为 <code>86.87%</code>。相对通用 selector，它产生 3 个 rescue、5 个 damage，净少 2 个 exact，速度也没有补偿性提升。</p>
+<p>历史翻转样本中的 K/V agreement 也没有把 rescue 与 damage 分开：</p>
+<table>
+<thead>
+<tr>
+<th>Agreement 信号</th>
+<th style="text-align:right">Rescue 均值</th>
+<th style="text-align:right">Damage 均值</th>
+<th style="text-align:right">高 agreement 识别 rescue 的 AUROC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>K-difference top-k</td>
+<td style="text-align:right">86.28%</td>
+<td style="text-align:right">87.58%</td>
+<td style="text-align:right">0.417</td>
+</tr>
+<tr>
+<td>V-difference top-k</td>
+<td style="text-align:right">87.31%</td>
+<td style="text-align:right">87.92%</td>
+<td style="text-align:right">0.458</td>
+</tr>
+</tbody>
+</table>
+<p>翻转样本只有 10 个，不能声称“agreement 导致错误”。可以得出的决策是：在相同预算下，简单的 coding mask + K/V consensus 没有提供可泛化的安全判别力，因此没有进入当前 selector。</p>
+<h2 id="7-实验四-residual-v-mass-能在生成前预测失败吗-7">7. 实验四：Residual V-mass 能在生成前预测失败吗</h2>
+<h3>7.1 从机制分数到在线 gate</h3>
+<p>即使 deviation 不能单调决定 accuracy，它仍可能作为“高风险报警器”。这组受控支线在 72 个会触发 layer-1/top-60% 判断的 DS-1000 validation 请求上，计算：</p>
+<pre><code class="language-text">Residual V-mass
+= top-60% repair 之后未覆盖的 squared V-difference
+  / repair 之前总 squared V-difference
+</code></pre>
+<p>原假设是：数值越大，保留下来的旧 V 差异越多，任务越容易失败。实验在生成前冻结该分数，再与官方 execution outcome 对齐。</p>
+<h3>7.2 分桶结果</h3>
+<table>
+<thead>
+<tr>
+<th>分桶</th>
+<th style="text-align:right">Residual V-mass</th>
+<th style="text-align:right">固定路线通过</th>
+<th style="text-align:right">Guard 路线通过</th>
+<th style="text-align:right">Dense 通过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Q1：最低</td>
+<td style="text-align:right">0.00297–0.00418</td>
+<td style="text-align:right">1/18</td>
+<td style="text-align:right">1/18</td>
+<td style="text-align:right">2/18</td>
+</tr>
+<tr>
+<td>Q2</td>
+<td style="text-align:right">0.00419–0.00498</td>
+<td style="text-align:right">4/18</td>
+<td style="text-align:right">4/18</td>
+<td style="text-align:right">4/18</td>
+</tr>
+<tr>
+<td>Q3</td>
+<td style="text-align:right">0.00512–0.00652</td>
+<td style="text-align:right">7/18</td>
+<td style="text-align:right">9/18</td>
+<td style="text-align:right">9/18</td>
+</tr>
+<tr>
+<td>Q4：最高</td>
+<td style="text-align:right">0.00679–0.01012</td>
+<td style="text-align:right">7/18</td>
+<td style="text-align:right">6/18</td>
+<td style="text-align:right">5/18</td>
+</tr>
+</tbody>
+</table>
+<figure><img src="assets/kv_deviation_accuracy_20260806/01_v_stale_mass_accuracy_quartiles.png" alt="Residual V-mass 分桶与官方 accuracy"><figcaption>Residual V-mass 分桶与官方 accuracy</figcaption></figure>
+<p>固定路线不根据分数改变执行，最适合做纯预测审计。用“更高 residual V-mass 预测失败”的 AUROC 只有 <code>0.276</code>，bootstrap 95% CI <code>[0.158, 0.409]</code>。</p>
+<figure><img src="assets/kv_deviation_accuracy_20260806/05_failure_auc_with_ci.png" alt="Residual V-mass 预测任务失败的 AUROC"><figcaption>Residual V-mass 预测任务失败的 AUROC</figcaption></figure>
+<p>不能把低于 0.5 解释成“高 deviation 提升 accuracy”。Dense 根本不用 lossy KV，却也出现同方向 AUROC <code>0.340</code>。Q1 中有 4 道 PyTorch 且全部失败，Q3 中有 11 道 NumPy；分数同时携带 prompt 长度、库类型和题目难度信息，task mix 构成了混杂。</p>
+<p>所以 H3 当前不成立：Residual V-mass 还不是 treatment-induced failure probability，不能跨任务直接设一个固定门槛。</p>
+<h2 id="8-实验五-nll-更接近输出-能否替代-execution-8">8. 实验五：NLL 更接近输出，能否替代 execution</h2>
+<h3>8.1 NLL 怎样计算</h3>
+<p>给定参考答案 token <code>y_1...y_T</code>，平均 NLL 为：</p>
+<pre><code class="language-text">NLL = -(1/T) × Σ log p(y_t | prompt, y_&lt;t)
+</code></pre>
+<p>NLL 越低，说明模型给参考 token 的平均概率越高。它比 KV distance 更接近输出层，但仍然没有自由生成并运行代码；一个参数、shape 或副作用错误就足以让 execution fail，而平均 NLL 可能几乎不变。</p>
+<h3>8.2 为什么检查 function capsule 实验</h3>
+<p>这组实验不是当前 observation-pool 方法。它曾尝试从 repository 选择多个完整函数，组成可复用的 function capsule，再对 capsule 尾部做 Dense repair。把它放在这里，是为了检验更靠近输出层的 proxy 是否能承担方法晋级，而不是重新主张 function capsule 路线。</p>
+<p>Development 8 题上曾得到：</p>
+<ul>
+<li>stale-KV NLL loss <code>0.00333</code>；</li>
+<li>pipeline 相对 full-tail 的 NLL 优势 <code>+0.02393</code>；</li>
+<li>7/8 wins，1 个 severe loss。</li>
+</ul>
+<p>独立 17 题上：</p>
+<ul>
+<li>stale-KV NLL loss 仍很小，为 <code>0.00417</code>；</li>
+<li>pipeline 优势反转为 <code>−0.00707</code>；</li>
+<li>只有 5/17 wins，并出现 3 个 severe losses。</li>
+</ul>
+<figure><img src="assets/kv_deviation_accuracy_20260806/08_nll_generalization_reversal.png" alt="NLL 从开发集到独立集发生反转"><figcaption>NLL 从开发集到独立集发生反转</figcaption></figure>
+<p>这里主要失败的是“所选函数是否足以完成任务”，不是 stale-KV kernel 突然损坏。实验说明 NLL 可以排除明显的语言模型退化，却不能替代任务信息充分性和 execution accuracy。H4 因此不成立。</p>
+<h2 id="9-五组实验合起来说明什么-9">9. 五组实验合起来说明什么</h2>
+<h3>9.1 证据不是互相矛盾，而是作用范围不同</h3>
+<table>
+<thead>
+<tr>
+<th>现在可以说</th>
+<th>依据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>KV drift 能定位单个 copied island 对局部 logit distribution 的扰动</td>
+<td>单 island Spearman <code>0.526</code></td>
+</tr>
+<tr>
+<td>更强 repair 能减少 stale token 和检查层 residual V-difference</td>
+<td>75%→90% 的嵌套 top-k 构造</td>
+</tr>
+<tr>
+<td>更接近 Dense 不保证更高 coding execution accuracy</td>
+<td>DS-1000 <code>11/50→10/50</code></td>
+</tr>
+<tr>
+<td>简单 distance consensus 没有改善固定预算 exact accuracy</td>
+<td>RepoBench-P <code>57/200→55/200</code></td>
+</tr>
+<tr>
+<td>当前 residual V-mass 没有校准成在线失败概率</td>
+<td>AUROC <code>0.276</code> 且受 task mix 混杂</td>
+</tr>
+<tr>
+<td>NLL 不能替代独立集任务判分</td>
+<td>Development 优势在 independent split 反转</td>
+</tr>
+</tbody>
+</table>
+<p>核心原因有三层：</p>
+<ol>
+<li><strong>Island 组合：</strong> 多个旧 hidden state 按顺序进入模型，后一个 island 已受到前一个 island 影响，单岛 distance 不能简单相加或取最大值。</li>
+<li><strong>自回归分支：</strong> Greedy decoding 对 logit margin 敏感，一次很小的 token 分支变化会改变后续完整轨迹。</li>
+<li><strong>程序语义：</strong> 文本连续变化，执行结果却离散；一个 index、dtype 或状态副作用即可翻转 pass/fail。</li>
+</ol>
+<h3>9.2 辅助证据及其边界</h3>
+<table>
+<thead>
+<tr>
+<th>实验</th>
+<th>观察</th>
+<th>可以支持什么</th>
+<th>不能支持什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>固定 selector 的 75/80/85/90% sweep</td>
+<td>80%→85% 时 stale token 142→107，exact 38→36</td>
+<td>文本保真度也非单调</td>
+<td>不是功能 execution accuracy</td>
+</tr>
+<tr>
+<td>Online stronger-repair guard，25 请求</td>
+<td>3 rescue、2 damage、20 unchanged</td>
+<td>Repair 对最终结果是双向干预</td>
+<td>样本不足以证明净收益</td>
+</tr>
+<tr>
+<td>ProbeHead 低-deviation gate</td>
+<td>4,639 配置中 0 个同时满足容量和 JS-harm 门槛</td>
+<td>单一 head-distance threshold 没有容量—安全共同点</td>
+<td>未进入 task accuracy，不能声称 accuracy 降低</td>
+</tr>
+</tbody>
+</table>
+<p>对应图表：</p>
+<ul>
+<li><a href="assets/kv_deviation_accuracy_20260806/02_nested_value_diff_density_sweep.png">重算密度与 next-line 非单调曲线</a></li>
+<li><a href="assets/kv_deviation_accuracy_20260806/04_stronger_repair_paired_outcomes.png">Stronger repair 的配对结果</a></li>
+</ul>
+<h2 id="10-审计以后-当前路线怎样调整-10">10. 审计以后，当前路线怎样调整</h2>
+<h3>10.1 保留与停止</h3>
+<p>保留：</p>
+<ul>
+<li>Grounded read-only observation 作为自然 resident 的 source 类型；</li>
+<li>FileVersion、token identity 和 mutation provenance 作为硬 Validity gate；</li>
+<li>多 source lease、eviction 和 Dense/copy 交替执行器；</li>
+<li>K/V drift、attention、NLL 作为机制诊断与候选 Risk 特征；</li>
+<li>真实 positive-staleness copy，不退化成 exact reuse 或用大面积 fallback 虚构 accuracy。</li>
+</ul>
+<p>停止：</p>
+<ul>
+<li>不再把平均 KV deviation 最小化写成最终优化目标；</li>
+<li>不由单一 distance threshold 直接声称任务失败概率；</li>
+<li>不把 NLL、JS、exact-line 或 Dense-output identity 写成 coding accuracy；</li>
+<li>不通过堆叠关键词或 AST 规则去补偿一个未校准的风险分数。</li>
+</ul>
+<h3>10.2 下一代 selector 应是分层决策</h3>
+<pre><code class="language-text">FileVersion / provenance validity
+        ↓ 只保留合法 observation
+K/V contextual-risk constraint
+        ↓ 剔除明显高风险候选，不宣称概率校准
+Path/action utility ranking
+        ↓ 固定预算内选择当前任务真正需要的 observation
+SGLang middle-span lossy KV copy
+        ↓
+Official execution accuracy + TTFT 决定是否晋级
+</code></pre>
+<p>Risk 与 Utility 不应直接相乘成一个统一分数。高 utility、高 risk 的 observation 很重要，但旧 KV 危险，应 Dense 重算；低 utility、低 risk 的 observation 即使安全，也不一定值得占用 copy budget。</p>
+<h3>10.3 正式评价链</h3>
+<pre><code class="language-text">KV / attention / NLL
+  └─ 解释机制、筛选明显高风险候选、做早期淘汰
+
+Exact / F1 / ROUGE
+  └─ 检查输出保真度，不冒充 coding functional accuracy
+
+Official execution / Pass@1
+  └─ 决定 coding quality 是否晋级
+
+TTFT + copied token-layer cost + reuse rate
+  └─ 决定质量通过以后是否真的更快
+</code></pre>
+<p>最终主图应该是 <strong>execution accuracy–TTFT Pareto frontier</strong>；KV/attention/NLL 应放在机制图和消融图里解释 selector，而不是放在主结论里替代 accuracy。</p>
+<h2 id="11-下一项能够闭合问题的实验-11">11. 下一项能够闭合问题的实验</h2>
+<h3>11.1 工作负载与控制</h3>
+<ul>
+<li>选择 Dense 有非零 pass rate 的独立 coding-agent 任务；</li>
+<li>同时包含 Dense-known-pass preservation cohort 和 outcome-independent representative cohort；</li>
+<li>所有方法使用相同 MAS、消息、prompt/token hash、模型、生成参数和官方 evaluator；</li>
+<li>当前 observation pool 自然 materialize source，不加入 prefetch，也不额外改写 prompt。</li>
+</ul>
+<h3>11.2 等预算方法臂</h3>
+<table>
+<thead>
+<tr>
+<th>Arm</th>
+<th>固定 copy/recompute 预算下怎样选择</th>
+<th>回答的问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dense</td>
+<td>全量 current KV</td>
+<td>Accuracy 与 TTFT 基线</td>
+</tr>
+<tr>
+<td>General value-difference</td>
+<td>重算差异最大 token，复用其余 token</td>
+<td>通用 distance baseline</td>
+</tr>
+<tr>
+<td>Conservative grounded observation</td>
+<td>一次只复用一个合法只读 observation</td>
+<td>当前 SGLang 研究 baseline</td>
+</tr>
+<tr>
+<td>Lowest-risk reuse</td>
+<td>在合法 observation 中优先选择 probe distance 最低者</td>
+<td>距离近是否真的更安全</td>
+</tr>
+<tr>
+<td>Utility-first</td>
+<td>按 path/action dependency 选择，不读取 distance</td>
+<td>Coding utility 是否优于 risk-only</td>
+</tr>
+<tr>
+<td>Risk-constrained utility</td>
+<td>先过滤高 risk，再按 utility 排序</td>
+<td>分层策略是否优于单一 distance</td>
+</tr>
+<tr>
+<td>Seeded random matched</td>
+<td>匹配 island 数、长度和 token-layer 成本</td>
+<td>排除预算、位置和碎片数混杂</td>
+</tr>
+</tbody>
+</table>
+<h3>11.3 同时记录与晋级标准</h3>
+<p>同时记录：每层 K/V drift、attention JS、selected/copied/recomputed token、真实 positive-staleness、cache-ready TTFT、source build、N=4/N=16 amortized latency、输出 hash、NLL、官方 execution、逐题 rescue/damage 和 bootstrap confidence interval。</p>
+<p>Risk-constrained utility 只有同时满足以下条件才晋级：</p>
+<ol>
+<li>对通用 value-difference 的 paired execution delta 为正；</li>
+<li>对 Lowest-risk reuse 的 paired execution delta 为正；</li>
+<li>相对自身 Dense 保持正 cache-ready speedup；</li>
+<li>真实 copied K/V 大于 0，不能依靠大面积 fallback；</li>
+<li>结论在独立 split 保持同方向。</li>
+</ol>
+<p>这组实验会直接回答最终研究问题：<strong>在相同 prompt、相同引擎和相同计算预算下，coding path utility 能否比单纯选择 KV distance 更近的复用带来更好的 execution accuracy–TTFT trade-off。</strong></p>
+<h2 id="12-可用于论文或汇报的严谨表述-12">12. 可用于论文或汇报的严谨表述</h2>
+<p>推荐表述：</p>
+<blockquote>
+<p>当前 SGLang 方法从真实 coding-agent 历史中缓存成功、只读且路径可定位的 repository observation，经 target-time FileVersion 校验后，在后续相同文本位置执行 middle-span lossy KV copy。RoPE 仅修正 K 的位置，旧 K/V 仍来自不同 prefix。机制实验显示单 island KV drift 与局部 causal logit JS 的 Spearman 为 0.526；但在相同 DS-1000 请求、prompt/token、引擎和 value-difference selector 下，将 repair 从 75% 提高到 90%，使平均 stale fraction 从 23.00% 降到 9.28%，官方执行通过数却从 11/50 变为 10/50。独立 RepoBench-P 的同预算 distance-consensus selector 也从 57/200 降至 55/200 exact；另一批 72-request 审计中，residual V-mass 预测失败的 AUROC 为 0.276。由此，KV deviation 可作为局部风险诊断和约束候选，但不是 coding-task accuracy 的充分、单调或已校准替代指标。</p>
+</blockquote>
+<p>不应使用：</p>
+<ul>
+<li>“KV deviation 与 accuracy 完全无关”；</li>
+<li>“降低 KV deviation 会导致 accuracy 降低”；</li>
+<li>“AUROC 小于 0.5 说明高 deviation 因果提升 accuracy”；</li>
+<li>“已经直接测量所有层最终 KV tensor norm”；</li>
+<li>“RepoBench-P exact-line 等同于功能 accuracy”；</li>
+<li>“多 observation pool 已经是 accuracy-ready 的最终算法”。</li>
+</ul>
+<h2 id="附录-a-历史标签与本文名称-13">附录 A：历史标签与本文名称</h2>
+<p>本文尽量使用算法含义而不是版本号。查阅旧 artifact 时可按下表对应：</p>
+<table>
+<thead>
+<tr>
+<th>本文名称</th>
+<th>历史标签</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Conservative grounded single-observation reuse</td>
+<td>V40</td>
+</tr>
+<tr>
+<td>Target-time FileVersion guard</td>
+<td>V45</td>
+</tr>
+<tr>
+<td>Bounded three-observation pool/executor</td>
+<td>V46</td>
+</tr>
+<tr>
+<td>Function-capsule NLL experiment</td>
+<td>P27C / P27E</td>
+</tr>
+<tr>
+<td>Controlled coding-conditioned repair route</td>
+<td>V88</td>
+</tr>
+<tr>
+<td>Online residual V-mass guard</td>
+<td>V90</td>
+</tr>
+</tbody>
+</table>
+<h2 id="附录-b-可复核数据-14">附录 B：可复核数据</h2>
+<p>机器可读汇总：</p>
+<ul>
+<li><a href="assets/kv_deviation_accuracy_20260806/audit_data.json"><code>audit_data.json</code></a></li>
+<li><a href="assets/kv_deviation_accuracy_20260806/functional_stale_fraction_counterexample.csv"><code>functional_stale_fraction_counterexample.csv</code></a></li>
+<li><a href="assets/kv_deviation_accuracy_20260806/functional_accuracy_transition.csv"><code>functional_accuracy_transition.csv</code></a></li>
+<li><a href="assets/kv_deviation_accuracy_20260806/v_stale_mass_accuracy_quartiles.csv"><code>v_stale_mass_accuracy_quartiles.csv</code></a></li>
+<li><a href="assets/kv_deviation_accuracy_20260806/distance_consensus_accuracy.csv"><code>distance_consensus_accuracy.csv</code></a></li>
+<li><a href="assets/kv_deviation_accuracy_20260806/kv_agreement_transition_probe.csv"><code>kv_agreement_transition_probe.csv</code></a></li>
+<li><a href="assets/kv_deviation_accuracy_20260806/nested_value_diff_density_sweep.csv"><code>nested_value_diff_density_sweep.csv</code></a></li>
+<li><a href="assets/kv_deviation_accuracy_20260806/triggered_request_outcomes.csv"><code>triggered_request_outcomes.csv</code></a></li>
+<li><a href="assets/kv_deviation_accuracy_20260806/proxy_scope_correlations.csv"><code>proxy_scope_correlations.csv</code></a></li>
+<li><a href="assets/kv_deviation_accuracy_20260806/nll_generalization.csv"><code>nll_generalization.csv</code></a></li>
+<li><a href="assets/kv_deviation_accuracy_20260806/related_work_evidence_coverage.csv"><code>related_work_evidence_coverage.csv</code></a></li>
+<li><a href="assets/kv_deviation_accuracy_20260806/kvcomm_distance_ablations.csv"><code>kvcomm_distance_ablations.csv</code></a></li>
+</ul>
+<p>重建命令：</p>
+<pre><code class="language-bash">python3 benchmark/multi_workflow/analyze_kv_deviation_accuracy.py
+</code></pre>
+<p>脚本校验关键 cohort、case identity，并在 <code>audit_data.json</code> 中记录冻结输入的路径和 SHA-256。分析入口为 <a href="../../benchmark/multi_workflow/analyze_kv_deviation_accuracy.py"><code>analyze_kv_deviation_accuracy.py</code></a>。</p>
+</article>
+  </main>
+</body>
+</html>
