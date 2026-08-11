@@ -73,6 +73,13 @@ namespace.  Agent actions enter it with `enroot exec PID`, so edits and command
 state survive across turns.  Cleanup terminates the namespace and removes its
 home-scoped runtime mountpoint.
 
+Host evaluation files are streamed over `enroot exec` standard input rather
+than copied from a presumed host bind mount.  This keeps patch and evaluation
+script staging valid even when the host home path is not visible at the same
+location inside the namespace.  Runtime path resolution also preserves the
+mini-SWE-agent virtualenv's `bin/python` symlink: dereferencing that link would
+invoke the base SGLang interpreter and silently lose the venv packages.
+
 Images are imported before a campaign with `prepare_enroot_images.py`.  The
 resulting `IMAGE_INDEX.json` binds the original Docker reference to registry
 digest (when exposed by the registry), local `.sqsh` path, byte size, and

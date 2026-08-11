@@ -248,6 +248,61 @@ class EnrootEnvironment:
         self._check_finished(output)
         return output
 
+    def write_text(
+        self, target: str, content: str, *, timeout: int | None = None
+    ) -> dict[str, Any]:
+        """Write text through the namespace stdin without a host bind mount."""
+
+        if self.process is None or self.process.poll() is not None:
+            raise RuntimeError("Enroot namespace is not running")
+        shell_command = f"umask 077 && cat > {shlex_quote(target)}"
+        cmd = [
+            self.config.executable,
+            "exec",
+            str(self.process.pid),
+            "env",
+        ]
+        for key in self.config.forward_env:
+            if (value := os.getenv(key)) is not None:
+                cmd.append(f"{key}={value}")
+        for key, value in self.config.env.items():
+            cmd.append(f"{key}={value}")
+        cmd.extend([*self.config.interpreter, shell_command])
+        try:
+            result = subprocess.run(
+                cmd,
+                env=os.environ
+                | {"ENROOT_RUNTIME_PATH": str(self.runtime_path)},
+                input=content,
+                text=True,
+                timeout=timeout or self.config.timeout,
+                encoding="utf-8",
+                errors="replace",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+            )
+            return {
+                "output": result.stdout,
+                "returncode": result.returncode,
+                "exception_info": "",
+            }
+        except Exception as exc:
+            raw_output = getattr(exc, "output", None)
+            if isinstance(raw_output, bytes):
+                raw_output = raw_output.decode("utf-8", errors="replace")
+            return {
+                "output": raw_output or "",
+                "returncode": -1,
+                "exception_info": (
+                    f"An error occurred while writing the file: {exc}"
+                ),
+                "extra": {
+                    "exception_type": type(exc).__name__,
+                    "exception": str(exc),
+                },
+            }
+
     @staticmethod
     def _check_finished(output: dict[str, Any]) -> None:
         lines = output.get("output", "").lstrip().splitlines(keepends=True)

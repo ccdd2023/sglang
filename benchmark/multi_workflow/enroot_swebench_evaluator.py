@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import shlex
 from pathlib import Path
 from typing import Any
 
@@ -39,17 +38,12 @@ def load_predictions(path: Path) -> dict[str, dict[str, Any]]:
     return value
 
 
-def _copy_home_file(
+def _stage_text_file(
     environment: EnrootEnvironment, source: Path, target: str
 ) -> None:
-    result = environment.execute(
-        {
-            "command": (
-                f"cp -- {shlex.quote(str(source.resolve()))} "
-                f"{shlex.quote(target)}"
-            )
-        },
-        cwd="/",
+    result = environment.write_text(
+        target,
+        source.read_text(encoding="utf-8"),
     )
     if result["returncode"] != 0:
         raise RuntimeError(f"failed to stage {source} in Enroot: {result}")
@@ -89,7 +83,7 @@ def evaluate_instance(
             container_timeout=f"{max(timeout + 600, 1800)}s",
             interpreter=["bash", "-lc"],
         )
-        _copy_home_file(environment, patch_file, "/tmp/patch.diff")
+        _stage_text_file(environment, patch_file, "/tmp/patch.diff")
         apply_logs: list[dict[str, Any]] = []
         for command in GIT_APPLY_COMMANDS:
             result = environment.execute(
@@ -112,7 +106,7 @@ def evaluate_instance(
         (instance_dir / "git_diff_before.patch").write_text(
             before["output"], encoding="utf-8"
         )
-        _copy_home_file(environment, eval_file, "/eval.sh")
+        _stage_text_file(environment, eval_file, "/eval.sh")
         test_result = environment.execute(
             {"command": "/bin/bash /eval.sh"}, cwd="/testbed", timeout=timeout
         )

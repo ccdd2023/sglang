@@ -120,3 +120,29 @@ def test_execute_enters_namespace_and_preserves_cwd(monkeypatch, tmp_path: Path)
     assert seen["command"][:4] == ["enroot", "exec", "123", "env"]
     assert "PAGER=cat" in seen["command"]
     assert seen["command"][-1] == "cd -- /testbed && git status --short"
+
+
+def test_write_text_streams_into_namespace(monkeypatch, tmp_path: Path) -> None:
+    environment = EnrootEnvironment.__new__(EnrootEnvironment)
+    environment.config = EnrootEnvironmentConfig(
+        image=str(tmp_path / "task.sqsh"),
+        env={"PAGER": "cat"},
+        interpreter=["bash", "-lc"],
+    )
+    environment.process = SimpleNamespace(pid=456, poll=lambda: None)
+    environment.runtime_path = tmp_path / "runtime"
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen["command"] = command
+        seen["kwargs"] = kwargs
+        return subprocess.CompletedProcess(command, 0, "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    result = environment.write_text("/tmp/patch file.diff", "patch contents\n")
+    environment.process = None
+
+    assert result["returncode"] == 0
+    assert seen["command"][:4] == ["enroot", "exec", "456", "env"]
+    assert seen["command"][-1] == "umask 077 && cat > '/tmp/patch file.diff'"
+    assert seen["kwargs"]["input"] == "patch contents\n"

@@ -20,6 +20,14 @@ def _path_from_env(name: str, default: Path) -> Path:
     return Path(os.environ.get(name, str(default))).expanduser().resolve()
 
 
+def _executable_from_env(name: str, default: Path) -> Path:
+    """Return an absolute executable path without dereferencing venv links."""
+
+    return Path(
+        os.path.abspath(Path(os.environ.get(name, str(default))).expanduser())
+    )
+
+
 @dataclass(frozen=True)
 class RuntimePaths:
     project: Path
@@ -91,13 +99,13 @@ class RuntimePaths:
             model=_path_from_env(
                 "IMPACTKV_MODEL", user_home / "models" / MODEL_NAME
             ),
-            mini_python=_path_from_env(
+            mini_python=_executable_from_env(
                 "IMPACTKV_MINI_PYTHON", mini_root / "bin" / "python"
             ),
-            mini_executable=_path_from_env(
+            mini_executable=_executable_from_env(
                 "IMPACTKV_MINI", mini_root / "bin" / "mini-extra"
             ),
-            eval_python=_path_from_env(
+            eval_python=_executable_from_env(
                 "IMPACTKV_EVAL_PYTHON", default_eval_python
             ),
             runtime=runtime,
