@@ -23,7 +23,7 @@ from benchmark.multi_workflow.prepare_enroot_images import (
 def test_enroot_uri_uses_registry_separator() -> None:
     assert (
         enroot_uri("docker.io/swebench/example:latest")
-        == "docker://docker.io#swebench/example:latest"
+        == "docker://registry-1.docker.io#swebench/example:latest"
     )
 
 

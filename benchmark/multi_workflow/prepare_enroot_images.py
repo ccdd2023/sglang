@@ -77,6 +77,8 @@ def split_reference(reference: str) -> tuple[str, str, str]:
 
 def enroot_uri(reference: str) -> str:
     registry, repository, tag = split_reference(reference)
+    if registry == "docker.io":
+        registry = "registry-1.docker.io"
     return f"docker://{registry}#{repository}:{tag}"
 
 

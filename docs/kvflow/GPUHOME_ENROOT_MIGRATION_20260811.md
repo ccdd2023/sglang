@@ -38,7 +38,9 @@ manifest even when Enroot first asks for a manifest list; upstream 3.4 then
 fails on its mandatory `.manifests[]` lookup.  The repository prepends a
 home-owned `jq` compatibility wrapper that changes only that lookup to
 `.manifests[]?` and forwards every other query to `/usr/bin/jq`.  System Enroot
-and registry content remain unchanged.
+and registry content remain unchanged.  Docker Hub references are also
+normalized from the public name `docker.io` to Enroot 3.4's registry endpoint
+`registry-1.docker.io`; the image index retains the original reference.
 
 Enroot's container-private `/tmp` remains inside its ephemeral writable
 overlay.  It is not the host `/tmp` and disappears with the task namespace.
