@@ -4,8 +4,8 @@ set -euo pipefail
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
   slurm_node="${SLURMD_NODENAME:-$(hostname -s)}"
   case "$slurm_node" in
-    gpu10|gpu11|gpu12|gpu13)
-      echo "ImpactKV refuses known-interfered Slurm node: $slurm_node" >&2
+    gpu10|gpu11|gpu12|gpu13|gpu23|gpu24)
+      echo "ImpactKV refuses unsupported Slurm node: $slurm_node" >&2
       exit 78
       ;;
   esac
@@ -21,6 +21,7 @@ export IMPACTKV_MINI_VENV="${IMPACTKV_MINI_VENV:-$HOME/.venvs/mini-swe-agent-v2.
 export IMPACTKV_MINI_PYTHON="${IMPACTKV_MINI_PYTHON:-$IMPACTKV_MINI_VENV/bin/python}"
 export IMPACTKV_MINI="${IMPACTKV_MINI:-$IMPACTKV_MINI_VENV/bin/mini-extra}"
 export IMPACTKV_EVAL_PYTHON="${IMPACTKV_EVAL_PYTHON:-$HOME/miniconda3/envs/sglang-kvflow/bin/python}"
+export PATH="$(dirname "$IMPACTKV_EVAL_PYTHON"):$PATH"
 export IMPACTKV_DATASET_ROOT="${IMPACTKV_DATASET_ROOT:-$IMPACTKV_ARTIFACTS/swebench_verified_bridge_v1_20260724/minisweagent_dataset}"
 export IMPACTKV_EVAL_SNAPSHOT="${IMPACTKV_EVAL_SNAPSHOT:-$IMPACTKV_ARTIFACTS/swebench_verified_bridge_v1_20260724/frozen_subset.json}"
 

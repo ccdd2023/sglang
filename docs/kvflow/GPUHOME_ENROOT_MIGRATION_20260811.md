@@ -12,10 +12,10 @@ artifacts, paper, prefetch behavior, or registered experimental thresholds.
   the cluster.  Nodes `gpu10` through `gpu13` have known severe interference
   and are forbidden for migration validation.  Because `debug` contains only
   those four nodes, bounded validation jobs use `long` with
-  `--exclude=gpu[10-13]` and `--nodelist=gpu[14-19]`.  GPU jobs additionally
-  request RTX 4090.  This explicit allowlist also prevents CPU-only Enroot jobs
-  from landing on `gpu23` or `gpu24`, where Enroot is unavailable.  The shared
-  environment script also
+  `--exclude=gpu[10-13,23-24]`.  Within `long`, that leaves only
+  `gpu14` through `gpu19`; GPU jobs additionally request RTX 4090.  Excluding
+  `gpu23` and `gpu24` prevents CPU-only jobs from landing where Enroot is
+  unavailable.  The shared environment script also
   fails closed if a Slurm override nevertheless places a job on a forbidden
   node.
 - Persistent and host-temporary storage: `$HOME` only.
@@ -27,7 +27,9 @@ artifacts, paper, prefetch behavior, or registered experimental thresholds.
 Source `benchmark/multi_workflow/slurm/impactkv_home_env.sh` inside every job.
 It relocates artifacts, models, Python entry points, Hugging Face state, Enroot
 cache/data/runtime/temp paths, XDG runtime data, and Python temporary files
-under `$HOME`.  No host project file is placed in `/tmp` or `/run`.
+under `$HOME`.  It also prepends the SGLang environment's `bin` directory so
+runtime JIT compilation resolves the environment-pinned `ninja` executable on
+compute nodes.  No host project file is placed in `/tmp` or `/run`.
 
 Enroot's container-private `/tmp` remains inside its ephemeral writable
 overlay.  It is not the host `/tmp` and disappears with the task namespace.
