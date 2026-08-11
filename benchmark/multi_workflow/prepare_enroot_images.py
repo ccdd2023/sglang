@@ -113,6 +113,15 @@ def registry_digest(reference: str) -> str | None:
     return response.headers.get("Docker-Content-Digest")
 
 
+def optional_registry_digest(reference: str) -> tuple[str | None, str | None]:
+    """Return provenance when available without invalidating an imported image."""
+
+    try:
+        return registry_digest(reference), None
+    except (requests.RequestException, KeyError, ValueError) as exc:
+        return None, f"{type(exc).__name__}: {exc}"
+
+
 def safe_image_filename(reference: str) -> str:
     readable = re.sub(r"[^A-Za-z0-9_.-]+", "_", reference).strip("_")[-120:]
     suffix = hashlib.sha256(reference.encode()).hexdigest()[:12]
@@ -133,9 +142,11 @@ def import_image(reference: str, paths: RuntimePaths, force: bool) -> dict[str, 
     paths.enroot_images.mkdir(parents=True, exist_ok=True)
     output = paths.enroot_images / safe_image_filename(reference)
     if output.exists() and not force:
+        digest, digest_error = optional_registry_digest(reference)
         return {
             "reference": reference,
-            "registry_digest": registry_digest(reference),
+            "registry_digest": digest,
+            "registry_digest_error": digest_error,
             "sqsh_path": str(output),
             "sqsh_sha256": sha256(output),
             "bytes": output.stat().st_size,
@@ -149,9 +160,11 @@ def import_image(reference: str, paths: RuntimePaths, force: bool) -> dict[str, 
         check=True,
     )
     partial.replace(output)
+    digest, digest_error = optional_registry_digest(reference)
     return {
         "reference": reference,
-        "registry_digest": registry_digest(reference),
+        "registry_digest": digest,
+        "registry_digest_error": digest_error,
         "sqsh_path": str(output),
         "sqsh_sha256": sha256(output),
         "bytes": output.stat().st_size,

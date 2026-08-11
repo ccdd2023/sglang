@@ -5,6 +5,8 @@ import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
+import requests
+
 from benchmark.multi_workflow.enroot_environment import (
     EnrootEnvironment,
     EnrootEnvironmentConfig,
@@ -13,6 +15,7 @@ from benchmark.multi_workflow.enroot_environment import (
 from benchmark.multi_workflow.prepare_enroot_images import (
     docker_image_name,
     enroot_uri,
+    optional_registry_digest,
     safe_image_filename,
 )
 
@@ -30,6 +33,18 @@ def test_image_name_matches_swebench_convention() -> None:
         "docker.io/swebench/sweb.eval.x86_64.owner_1776_repo-123:latest"
     )
     assert safe_image_filename(docker_image_name(row)).endswith(".sqsh")
+
+
+def test_registry_digest_is_optional(monkeypatch) -> None:
+    def fail(_reference: str) -> str:
+        raise requests.ConnectionError("registry unavailable")
+
+    monkeypatch.setattr(
+        "benchmark.multi_workflow.prepare_enroot_images.registry_digest", fail
+    )
+    digest, error = optional_registry_digest("docker.io/swebench/task:latest")
+    assert digest is None
+    assert error == "ConnectionError: registry unavailable"
 
 
 def test_resolve_image_from_index(tmp_path: Path) -> None:
