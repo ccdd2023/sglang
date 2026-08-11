@@ -132,6 +132,13 @@ campaign until CUDA generation, five-task Docker/Enroot parity, official task
 grading, prompt identity, TTFT recording, and physical KV-copy telemetry all
 pass.
 
+For bounded migration diagnosis, the agent job accepts
+`IMPACTKV_AGENT_INSTANCE`, comma-separated `IMPACTKV_AGENT_ARMS`, and
+`IMPACTKV_AGENT_BASE_PORT`.  Its defaults remain the Dense/current-method pair.
+A legacy `coding_aware` arm may be run only as a transport canary when a known
+physical copy is needed to validate KV movement and K rotation; that evidence
+does not substitute for the current method's algorithm or accuracy results.
+
 The home bootstrap (venv creation, model download, and content hashing) is
 CPU/storage work and may be completed on the login host.  Image execution,
 CUDA checks, SGLang generation, agent inference, and official grading remain

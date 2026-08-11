@@ -15,18 +15,23 @@ source "$HOME/CodeMAS_Project/sglang/benchmark/multi_workflow/slurm/impactkv_hom
 cd "$IMPACTKV_PROJECT"
 
 output="$IMPACTKV_ARTIFACTS/gpuhome_migration_agent_smoke_$SLURM_JOB_ID"
+instance="${IMPACTKV_AGENT_INSTANCE:-astropy__astropy-7336}"
+arm_list="${IMPACTKV_AGENT_ARMS:-dense,coding_dependency_graph_cold_lcb}"
+base_port="${IMPACTKV_AGENT_BASE_PORT:-32000}"
 common=(
   --output "$output"
   run-arm
   --scope canary
-  --instance-filter 'astropy__astropy-7336'
+  --instance-filter "$instance"
   --agent-container-backend enroot
   --evaluation-container-backend enroot
   --official
 )
-"$IMPACTKV_EVAL_PYTHON" \
-  benchmark/multi_workflow/run_bridge_reuse_agent_experiment.py \
-  "${common[@]}" --arm dense --port 32000
-"$IMPACTKV_EVAL_PYTHON" \
-  benchmark/multi_workflow/run_bridge_reuse_agent_experiment.py \
-  "${common[@]}" --arm coding_dependency_graph_cold_lcb --port 32001
+IFS=',' read -r -a arms <<< "$arm_list"
+for index in "${!arms[@]}"; do
+  arm="${arms[$index]}"
+  [[ -n "$arm" ]] || continue
+  "$IMPACTKV_EVAL_PYTHON" \
+    benchmark/multi_workflow/run_bridge_reuse_agent_experiment.py \
+    "${common[@]}" --arm "$arm" --port "$((base_port + index))"
+done
