@@ -578,6 +578,8 @@ def launch_server(
         "--disable-overlap-schedule",
         "--enable-deterministic-inference",
         "--enable-request-time-stats-logging",
+        "--watchdog-timeout",
+        os.environ.get("IMPACTKV_WATCHDOG_TIMEOUT", "1200"),
         "--random-seed",
         "709609581",
     ]

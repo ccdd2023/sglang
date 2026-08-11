@@ -49,6 +49,7 @@ port="${IMPACTKV_SMOKE_PORT:-31000}"
   --disable-cuda-graph \
   --disable-overlap-schedule \
   --enable-deterministic-inference \
+  --watchdog-timeout 1200 \
   --random-seed 709609581 \
   >"$run_dir/server.log" 2>&1 &
 server_pid=$!
@@ -71,7 +72,7 @@ for _ in $(seq 1 120); do
 done
 test "$ready" = 1
 
-curl -fsS "http://127.0.0.1:$port/generate" \
+curl -fsS --max-time 1800 "http://127.0.0.1:$port/generate" \
   -H 'Content-Type: application/json' \
   -d '{"text":"Write a Python function that adds two integers.","sampling_params":{"temperature":0,"max_new_tokens":32}}' \
   >"$run_dir/generate.json"

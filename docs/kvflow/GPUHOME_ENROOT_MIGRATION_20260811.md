@@ -42,6 +42,11 @@ and registry content remain unchanged.  Docker Hub references are also
 normalized from the public name `docker.io` to Enroot 3.4's registry endpoint
 `registry-1.docker.io`; the image index retains the original reference.
 
+The first AWQ MoE request compiles a home-cached SGLang JIT kernel and can
+exceed the upstream 300-second watchdog on a cold node.  Migration runners use
+a 1200-second watchdog (and a bounded 1800-second smoke request) so a one-time
+compile is not misclassified as a CUDA or model failure.
+
 Enroot's container-private `/tmp` remains inside its ephemeral writable
 overlay.  It is not the host `/tmp` and disappears with the task namespace.
 
