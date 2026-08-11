@@ -18,9 +18,9 @@ fi
 "$IMPACTKV_MINI_PYTHON" -m pip install \
   --requirement "$stage/mini-swe-agent-pip-freeze.txt"
 
-"$HOME/miniconda3/envs/sglang-kvflow/bin/hf" download \
+"$IMPACTKV_MINI_VENV/bin/hf" download \
   cyankiwi/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit \
-  --revision 2831070b7b8c7aa6b7012333c6c4a2bd257f6cdf \
+  --revision 4bd30395b72ea6045edd04806c4fea448d4467b3 \
   --local-dir "$IMPACTKV_MODEL"
 
 STAGE="$stage" "$base_python" - <<'PY'
@@ -34,16 +34,21 @@ manifest = json.loads((stage / "MIGRATION_MANIFEST.json").read_text())
 model = Path(os.environ["IMPACTKV_MODEL"])
 for name, expected in manifest["model"]["files"].items():
     path = model / name
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    hasher = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+            hasher.update(chunk)
+    digest = hasher.hexdigest()
     if path.stat().st_size != expected["bytes"] or digest != expected["sha256"]:
         raise RuntimeError(f"model metadata mismatch: {path}")
 print("MODEL_METADATA_OK")
 PY
 
 "$IMPACTKV_MINI_PYTHON" - <<'PY'
+import importlib.metadata
 import litellm
 import minisweagent
-print("MINISWEAGENT", minisweagent.__version__)
-print("LITELLM", litellm.__version__ if hasattr(litellm, "__version__") else "installed")
+print("MINISWEAGENT", importlib.metadata.version("mini-swe-agent"))
+print("LITELLM", importlib.metadata.version("litellm"))
 PY
 quota -s || true

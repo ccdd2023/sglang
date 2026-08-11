@@ -11,6 +11,14 @@ def test_runtime_paths_follow_environment(monkeypatch, tmp_path: Path) -> None:
     home = tmp_path / "CodeMAS_Project"
     runtime = tmp_path / "impactkv-runtime"
     model = tmp_path / "models" / "model"
+    for name in (
+        "IMPACTKV_ARTIFACTS",
+        "IMPACTKV_REPORTS",
+        "IMPACTKV_POPULATION",
+        "IMPACTKV_ENROOT_IMAGE_DIR",
+        "IMPACTKV_ENROOT_IMAGE_INDEX",
+    ):
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("IMPACTKV_HOME", str(home))
     monkeypatch.setenv("IMPACTKV_RUNTIME_ROOT", str(runtime))
     monkeypatch.setenv("IMPACTKV_MODEL", str(model))

@@ -8,8 +8,9 @@ artifacts, paper, prefetch behavior, or registered experimental thresholds.
 
 - Migration branch: `migration/gpuhome-enroot-20260811`
 - Starting research commit: `45a2de40623ae3e8954f97c2e47f9dc7f68ec312`
-- Target: Slurm node `gpu11`, `debug` for validation and `long` only after
-  validation passes.
+- SSH bootstrap target: `gpuhome_gpu11`.  The home directory is shared across
+  the cluster, so validation jobs use the `debug` partition and let Slurm pick
+  an available debug node.  `long` is allowed only after validation passes.
 - Persistent and host-temporary storage: `$HOME` only.
 - Container backend: Enroot 3.4 using the original SWE-bench Docker image
   references.
@@ -36,6 +37,13 @@ Images are imported before a campaign with `prepare_enroot_images.py`.  The
 resulting `IMAGE_INDEX.json` binds the original Docker reference to registry
 digest (when exposed by the registry), local `.sqsh` path, byte size, and
 SHA-256.
+
+The model is pinned to repository revision
+`4bd30395b72ea6045edd04806c4fea448d4467b3`.  The local source snapshot was
+originally labelled `2831070b7b8c7aa6b7012333c6c4a2bd257f6cdf`, but that
+revision became unreachable after the upstream repository history changed.
+The current revision resolves to the same config, tokenizer, index, and four
+weight LFS objects; the migration manifest records their content hashes.
 
 The repository-owned Enroot evaluator applies the same prediction patch,
 executes `TestSpec.eval_script`, and calls SWE-bench 4.1.0's
