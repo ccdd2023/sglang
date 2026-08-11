@@ -29,7 +29,9 @@ It relocates artifacts, models, Python entry points, Hugging Face state, Enroot
 cache/data/runtime/temp paths, XDG runtime data, and Python temporary files
 under `$HOME`.  It also prepends the SGLang environment's `bin` directory so
 runtime JIT compilation resolves the environment-pinned `ninja` executable on
-compute nodes.  No host project file is placed in `/tmp` or `/run`.
+compute nodes.  Slurm jobs use the cluster HTTP proxy instead of node-local
+loopback proxies and bypass it for localhost SGLang traffic.  No host project
+file is placed in `/tmp` or `/run`.
 
 Enroot's container-private `/tmp` remains inside its ephemeral writable
 overlay.  It is not the host `/tmp` and disappears with the task namespace.

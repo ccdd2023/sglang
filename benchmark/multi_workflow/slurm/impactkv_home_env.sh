@@ -9,6 +9,15 @@ if [[ -n "${SLURM_JOB_ID:-}" ]]; then
       exit 78
       ;;
   esac
+
+  cluster_proxy="${IMPACTKV_CLUSTER_PROXY:-http://proxy.comp.hkbu.edu.hk:8080}"
+  export HTTP_PROXY="$cluster_proxy"
+  export HTTPS_PROXY="$cluster_proxy"
+  export http_proxy="$cluster_proxy"
+  export https_proxy="$cluster_proxy"
+  unset ALL_PROXY all_proxy
+  export NO_PROXY="localhost,127.0.0.1,::1,.local"
+  export no_proxy="$NO_PROXY"
 fi
 
 export IMPACTKV_HOME="${IMPACTKV_HOME:-$HOME/CodeMAS_Project}"
