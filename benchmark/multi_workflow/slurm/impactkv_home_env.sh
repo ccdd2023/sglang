@@ -30,7 +30,8 @@ export IMPACTKV_MINI_VENV="${IMPACTKV_MINI_VENV:-$HOME/.venvs/mini-swe-agent-v2.
 export IMPACTKV_MINI_PYTHON="${IMPACTKV_MINI_PYTHON:-$IMPACTKV_MINI_VENV/bin/python}"
 export IMPACTKV_MINI="${IMPACTKV_MINI:-$IMPACTKV_MINI_VENV/bin/mini-extra}"
 export IMPACTKV_EVAL_PYTHON="${IMPACTKV_EVAL_PYTHON:-$HOME/miniconda3/envs/sglang-kvflow/bin/python}"
-export PATH="$(dirname "$IMPACTKV_EVAL_PYTHON"):$PATH"
+export IMPACTKV_ENROOT_COMPAT_BIN="${IMPACTKV_ENROOT_COMPAT_BIN:-$IMPACTKV_PROJECT/benchmark/multi_workflow/enroot_compat_bin}"
+export PATH="$IMPACTKV_ENROOT_COMPAT_BIN:$(dirname "$IMPACTKV_EVAL_PYTHON"):$PATH"
 export IMPACTKV_DATASET_ROOT="${IMPACTKV_DATASET_ROOT:-$IMPACTKV_ARTIFACTS/swebench_verified_bridge_v1_20260724/minisweagent_dataset}"
 export IMPACTKV_EVAL_SNAPSHOT="${IMPACTKV_EVAL_SNAPSHOT:-$IMPACTKV_ARTIFACTS/swebench_verified_bridge_v1_20260724/frozen_subset.json}"
 

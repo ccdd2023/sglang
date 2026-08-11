@@ -33,6 +33,13 @@ compute nodes.  Slurm jobs use the cluster HTTP proxy instead of node-local
 loopback proxies and bypass it for localhost SGLang traffic.  No host project
 file is placed in `/tmp` or `/run`.
 
+The cluster provides Enroot 3.4.  Docker Hub can return a single-image v2
+manifest even when Enroot first asks for a manifest list; upstream 3.4 then
+fails on its mandatory `.manifests[]` lookup.  The repository prepends a
+home-owned `jq` compatibility wrapper that changes only that lookup to
+`.manifests[]?` and forwards every other query to `/usr/bin/jq`.  System Enroot
+and registry content remain unchanged.
+
 Enroot's container-private `/tmp` remains inside its ephemeral writable
 overlay.  It is not the host `/tmp` and disappears with the task namespace.
 

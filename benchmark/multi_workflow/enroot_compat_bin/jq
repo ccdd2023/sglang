@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Enroot 3.4 assumes that a registry honoring the manifest-list Accept header
+# always returns a list.  Docker Hub may legally return a single-image v2
+# manifest, in which case `.manifests[]` aborts before Enroot can fetch that
+# manifest normally.  Make only that lookup optional and pass every other jq
+# invocation through unchanged.
+args=()
+for arg in "$@"; do
+  case "$arg" in
+    *'.manifests[] | select('* )
+      arg="${arg//.manifests\[\]/.manifests[]?}"
+      ;;
+  esac
+  args+=("$arg")
+done
+
+exec /usr/bin/jq "${args[@]}"
