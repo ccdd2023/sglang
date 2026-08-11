@@ -57,10 +57,14 @@ Submit in this order:
 
 ```bash
 cd "$HOME/CodeMAS_Project/sglang"
-sbatch benchmark/multi_workflow/slurm/import_enroot_canary.sbatch
-sbatch benchmark/multi_workflow/slurm/cuda_sglang_smoke.sbatch
-sbatch benchmark/multi_workflow/slurm/enroot_docker_parity.sbatch
-sbatch benchmark/multi_workflow/slurm/agent_enroot_smoke.sbatch
+import_job=$(sbatch --parsable \
+  benchmark/multi_workflow/slurm/import_enroot_canary.sbatch)
+cuda_job=$(sbatch --parsable \
+  benchmark/multi_workflow/slurm/cuda_sglang_smoke.sbatch)
+sbatch --dependency="afterok:$import_job" \
+  benchmark/multi_workflow/slurm/enroot_docker_parity.sbatch
+sbatch --dependency="afterok:$import_job:$cuda_job" \
+  benchmark/multi_workflow/slurm/agent_enroot_smoke.sbatch
 ```
 
 The import and parity jobs require the frozen dataset and parity inputs to be
@@ -69,6 +73,12 @@ present first.  The agent smoke runs Dense and
 prefetch.  Do not submit a `long` campaign until CUDA generation, five-task
 Docker/Enroot parity, official task grading, prompt identity, TTFT recording,
 and physical KV-copy telemetry all pass.
+
+The home bootstrap (venv creation, model download, and content hashing) is
+CPU/storage work and may be completed on the login host.  Image execution,
+CUDA checks, SGLang generation, agent inference, and official grading remain
+Slurm `debug` jobs.  A pending debug canary is not a failure: inspect its
+reason and estimated start with `squeue --start -j JOB_ID`.
 
 `nvidia-smi` is diagnostic only.  The runtime gate is a real CUDA matrix
 operation followed by a real SGLang generation.
