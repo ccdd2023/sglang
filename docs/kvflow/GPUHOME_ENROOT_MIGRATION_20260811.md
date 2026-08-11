@@ -13,9 +13,11 @@ artifacts, paper, prefetch behavior, or registered experimental thresholds.
   and are forbidden for migration validation.  Because `debug` contains only
   those four nodes, bounded validation jobs use `long` with
   `--exclude=gpu[10-13,23-24]`.  Within `long`, that leaves only
-  `gpu14` through `gpu19`; GPU jobs additionally request RTX 4090.  Excluding
-  `gpu23` and `gpu24` prevents CPU-only jobs from landing where Enroot is
-  unavailable.  The shared environment script also
+  `gpu14` through `gpu19` for CPU-only work.  GPU inference canaries are pinned
+  to `gpu19`: it passed a real CUDA probe, while `gpu16` returned CUDA error 803
+  and is therefore not accepted as runtime-compatible.  Excluding `gpu23` and
+  `gpu24` prevents CPU-only jobs from landing where Enroot is unavailable.  The
+  shared environment script also
   fails closed if a Slurm override nevertheless places a job on a forbidden
   node.
 - Persistent and host-temporary storage: `$HOME` only.
