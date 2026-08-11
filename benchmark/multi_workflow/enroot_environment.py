@@ -21,10 +21,21 @@ from benchmark.multi_workflow.runtime_paths import RuntimePaths
 try:
     from minisweagent.exceptions import Submitted
     from minisweagent.utils.serialize import recursive_merge
-except ImportError as exc:  # pragma: no cover - gives a useful deployment error
-    raise RuntimeError(
-        "EnrootEnvironment must run in the mini-SWE-agent environment"
-    ) from exc
+except ImportError:  # SWE-bench evaluation intentionally uses a separate venv
+    class Submitted(RuntimeError):
+        """Fallback used only by evaluator processes without mini-SWE-agent."""
+
+    def recursive_merge(*values: dict[str, Any]) -> dict[str, Any]:
+        """Minimal merge fallback; the agent venv uses mini-SWE-agent's helper."""
+
+        merged: dict[str, Any] = {}
+        for value in values:
+            for key, item in value.items():
+                if isinstance(item, dict) and isinstance(merged.get(key), dict):
+                    merged[key] = recursive_merge(merged[key], item)
+                else:
+                    merged[key] = item
+        return merged
 
 
 class EnrootEnvironmentConfig(BaseModel):
