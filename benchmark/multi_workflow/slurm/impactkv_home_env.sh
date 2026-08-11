@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ -n "${SLURM_JOB_ID:-}" ]]; then
+  slurm_node="${SLURMD_NODENAME:-$(hostname -s)}"
+  case "$slurm_node" in
+    gpu10|gpu11|gpu12|gpu13)
+      echo "ImpactKV refuses known-interfered Slurm node: $slurm_node" >&2
+      exit 78
+      ;;
+  esac
+fi
+
 export IMPACTKV_HOME="${IMPACTKV_HOME:-$HOME/CodeMAS_Project}"
 export IMPACTKV_PROJECT="${IMPACTKV_PROJECT:-$IMPACTKV_HOME/sglang}"
 export IMPACTKV_ARTIFACTS="${IMPACTKV_ARTIFACTS:-$IMPACTKV_HOME/kvflow-artifacts}"

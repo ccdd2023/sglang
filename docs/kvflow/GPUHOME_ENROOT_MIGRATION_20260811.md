@@ -9,8 +9,13 @@ artifacts, paper, prefetch behavior, or registered experimental thresholds.
 - Migration branch: `migration/gpuhome-enroot-20260811`
 - Starting research commit: `45a2de40623ae3e8954f97c2e47f9dc7f68ec312`
 - SSH bootstrap target: `gpuhome_gpu11`.  The home directory is shared across
-  the cluster, so validation jobs use the `debug` partition and let Slurm pick
-  an available debug node.  `long` is allowed only after validation passes.
+  the cluster.  Nodes `gpu10` through `gpu13` have known severe interference
+  and are forbidden for migration validation.  Because `debug` contains only
+  those four nodes, bounded validation jobs use `long` with
+  `--exclude=gpu[10-13]`; GPU jobs additionally request RTX 4090 and therefore
+  resolve only to `gpu14` through `gpu19`.  The shared environment script also
+  fails closed if a Slurm override nevertheless places a job on a forbidden
+  node.
 - Persistent and host-temporary storage: `$HOME` only.
 - Container backend: Enroot 3.4 using the original SWE-bench Docker image
   references.
@@ -70,14 +75,16 @@ sbatch --dependency="afterok:$import_job:$cuda_job" \
 The import and parity jobs require the frozen dataset and parity inputs to be
 present first.  The agent smoke runs Dense and
 `coding_dependency_graph_cold_lcb` on the same registered task, with no
-prefetch.  Do not submit a `long` campaign until CUDA generation, five-task
-Docker/Enroot parity, official task grading, prompt identity, TTFT recording,
-and physical KV-copy telemetry all pass.
+prefetch.  The use of the `long` partition here is only a placement workaround;
+the scripts retain short canary wall-time limits.  Do not submit a formal
+campaign until CUDA generation, five-task Docker/Enroot parity, official task
+grading, prompt identity, TTFT recording, and physical KV-copy telemetry all
+pass.
 
 The home bootstrap (venv creation, model download, and content hashing) is
 CPU/storage work and may be completed on the login host.  Image execution,
 CUDA checks, SGLang generation, agent inference, and official grading remain
-Slurm `debug` jobs.  A pending debug canary is not a failure: inspect its
+bounded Slurm jobs.  A pending canary is not a failure: inspect its
 reason and estimated start with `squeue --start -j JOB_ID`.
 
 `nvidia-smi` is diagnostic only.  The runtime gate is a real CUDA matrix

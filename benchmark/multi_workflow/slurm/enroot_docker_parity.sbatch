@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=impactkv-enroot-parity
-#SBATCH --partition=debug
+#SBATCH --partition=long
+#SBATCH --exclude=gpu[10-13]
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=128G
 #SBATCH --time=20:00:00
