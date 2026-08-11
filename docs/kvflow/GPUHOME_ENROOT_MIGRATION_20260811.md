@@ -51,6 +51,12 @@ helper preserves Docker semantics without xattrs: it removes entries masked by
 unchanged Enroot squashfs builder overlay the cleaned layers.  It operates only
 inside the job's home-scoped Enroot temporary directory.
 
+Enroot 3.4 also defaults to LZO squashfs metadata on this cluster, while the
+compute-node kernel cannot mount LZO squashfs images.  Migration jobs override
+that default with `ENROOT_SQUASH_OPTIONS=-comp lz4 -noD`; LZ4 is supported by
+both importer and runtime.  Set `IMPACTKV_ENROOT_IMPORT_FORCE=1` to rebuild an
+older incompatible image from the retained home-scoped Enroot cache.
+
 The first AWQ MoE request compiles a home-cached SGLang JIT kernel and can
 exceed the upstream 300-second watchdog on a cold node.  Migration runners use
 a 1200-second watchdog (and a bounded 1800-second smoke request) so a one-time

@@ -44,6 +44,10 @@ export ENROOT_RUNTIME_PATH="$IMPACTKV_RUNTIME_ROOT/enroot/run/$job_key"
 export IMPACTKV_ENROOT_RUNTIME_BASE="$IMPACTKV_RUNTIME_ROOT/enroot/run/$job_key"
 export IMPACTKV_ENROOT_IMAGE_DIR="$IMPACTKV_RUNTIME_ROOT/enroot/images"
 export IMPACTKV_ENROOT_IMAGE_INDEX="$IMPACTKV_ENROOT_IMAGE_DIR/IMAGE_INDEX.json"
+# Enroot 3.4 defaults to LZO even when the compute-node kernel cannot mount
+# LZO squashfs images. LZ4 is supported by both cluster implementations;
+# -noD keeps canary imports fast while retaining compatible metadata.
+export ENROOT_SQUASH_OPTIONS="${ENROOT_SQUASH_OPTIONS:--comp lz4 -noD}"
 export TMPDIR="$IMPACTKV_RUNTIME_ROOT/tmp/$job_key"
 export TMP="$TMPDIR"
 export TEMP="$TMPDIR"

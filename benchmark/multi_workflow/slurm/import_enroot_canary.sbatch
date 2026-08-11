@@ -13,8 +13,13 @@ source "$HOME/CodeMAS_Project/sglang/benchmark/multi_workflow/slurm/impactkv_hom
 cd "$IMPACTKV_PROJECT"
 
 quota -s || true
+force_args=()
+if [[ "${IMPACTKV_ENROOT_IMPORT_FORCE:-0}" == "1" ]]; then
+  force_args+=(--force)
+fi
 "$IMPACTKV_EVAL_PYTHON" \
   benchmark/multi_workflow/prepare_enroot_images.py \
   --dataset "$IMPACTKV_EVAL_SNAPSHOT" \
-  --instances "astropy__astropy-7336,django__django-16899,pytest-dev__pytest-7432,scikit-learn__scikit-learn-13779,sphinx-doc__sphinx-9230"
+  --instances "astropy__astropy-7336,django__django-16899,pytest-dev__pytest-7432,scikit-learn__scikit-learn-13779,sphinx-doc__sphinx-9230" \
+  "${force_args[@]}"
 quota -s || true
