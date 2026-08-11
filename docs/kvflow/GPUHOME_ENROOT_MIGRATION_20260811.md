@@ -147,3 +147,28 @@ reason and estimated start with `squeue --start -j JOB_ID`.
 
 `nvidia-smi` is diagnostic only.  The runtime gate is a real CUDA matrix
 operation followed by a real SGLang generation.
+
+## Accepted canaries
+
+The following bounded jobs completed on 2026-08-12 UTC.  No formal campaign
+was launched.
+
+| Gate | Job | Node | Accepted evidence |
+| --- | ---: | --- | --- |
+| CUDA and SGLang | 72738 | gpu19 | RTX 4090 CUDA matrix finite; `/generate` returned 32 tokens |
+| Enroot image rebuild | 72765 | gpu16 | five indexed images rebuilt as LZ4; exit 0 |
+| Docker/Enroot parity | 72996 | gpu16 | 5/5 outcomes identical: 3 resolved, 2 empty patches, 0 errors |
+| Dense/current-method agent | 72898 | gpu19 | both arms completed with official Enroot grading and TTFT telemetry |
+| Physical KV transport | 73048 | gpu19 | one device-resident target copy; K/V 2,870 tokens; 2,870 K tokens RoPE-rotated; no fallback; official task resolved |
+
+The current `coding_dependency_graph_cold_lcb` astropy canary materialized two
+GPU sources but selected no target, so it is evidence for the current control
+and pool path, not a claim of achieved reuse on that task.  Job 73048 uses the
+legacy `coding_aware` selector solely to exercise the same physical KV-copy
+and K-rotation implementation.  These roles must remain distinct in reports.
+
+All accepted GPU jobs ran on `gpu19`; CPU/container-only validation ran on
+`gpu16`.  Every script retained `--exclude=gpu[10-13,23-24]`, and the shared
+environment fails closed on those nodes.  All persistent state, Enroot cache,
+runtime directories, temporary directories, model files, and outputs remained
+under the remote home directory.

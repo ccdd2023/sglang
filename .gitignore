@@ -225,6 +225,7 @@ work_dirs/
 # Executables
 *.exe
 *.out
+/impactkv-*.err
 *.app
 *.iml
 
