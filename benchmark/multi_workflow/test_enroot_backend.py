@@ -47,6 +47,34 @@ def test_registry_digest_is_optional(monkeypatch) -> None:
     assert error == "ConnectionError: registry unavailable"
 
 
+def test_nfs_whiteout_compatibility(tmp_path: Path) -> None:
+    newest = tmp_path / "1"
+    middle = tmp_path / "2"
+    oldest = tmp_path / "3"
+    for layer in (newest, middle, oldest):
+        (layer / "etc" / "X11").mkdir(parents=True)
+    (newest / "etc" / "X11" / ".wh..wh..opq").write_text("")
+    (newest / "etc" / "X11" / "current").write_text("current")
+    (middle / "etc" / "X11" / "middle").write_text("middle")
+    (oldest / "etc" / "X11" / "old").write_text("old")
+    (oldest / "etc" / "obsolete").write_text("old")
+    (newest / "etc" / ".wh.obsolete").write_text("")
+
+    helper = (
+        Path(__file__).parent
+        / "enroot_compat_bin"
+        / "enroot-aufs2ovlfs"
+    )
+    subprocess.run([str(helper), str(newest)], check=True)
+
+    assert (newest / "etc" / "X11" / "current").read_text() == "current"
+    assert not (newest / "etc" / "X11" / ".wh..wh..opq").exists()
+    assert not (newest / "etc" / ".wh.obsolete").exists()
+    assert not any((middle / "etc" / "X11").iterdir())
+    assert not any((oldest / "etc" / "X11").iterdir())
+    assert not (oldest / "etc" / "obsolete").exists()
+
+
 def test_resolve_image_from_index(tmp_path: Path) -> None:
     image = tmp_path / "task.sqsh"
     image.write_bytes(b"sqsh")

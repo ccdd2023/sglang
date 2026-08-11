@@ -44,6 +44,13 @@ and registry content remain unchanged.  Docker Hub references are also
 normalized from the public name `docker.io` to Enroot 3.4's registry endpoint
 `registry-1.docker.io`; the image index retains the original reference.
 
+The shared home filesystem is NFS and rejects the opaque OverlayFS xattr used
+by Enroot's native AUFS-whiteout converter.  A second home-owned compatibility
+helper preserves Docker semantics without xattrs: it removes entries masked by
+`.wh.*` markers from older extracted layers, deletes the markers, and lets the
+unchanged Enroot squashfs builder overlay the cleaned layers.  It operates only
+inside the job's home-scoped Enroot temporary directory.
+
 The first AWQ MoE request compiles a home-cached SGLang JIT kernel and can
 exceed the upstream 300-second watchdog on a cold node.  Migration runners use
 a 1200-second watchdog (and a bounded 1800-second smoke request) so a one-time

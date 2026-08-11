@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""Apply Docker whiteouts without OverlayFS xattrs on a home NFS filesystem.
+
+Enroot extracts layers into numeric sibling directories ordered newest first
+and invokes ``enroot-aufs2ovlfs LAYER`` for each one.  Its native helper turns
+opaque markers into trusted OverlayFS xattrs, which NFS rejects.  We instead
+remove the masked entries from every lower layer and delete the marker.  The
+subsequent Enroot squashfs overlay therefore observes the same final files
+without requiring filesystem xattr support.
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import sys
+from pathlib import Path
+
+
+OPAQUE = ".wh..wh..opq"
+WHITEOUT_PREFIX = ".wh."
+
+
+def remove_path(path: Path) -> None:
+    if path.is_symlink() or path.is_file():
+        path.unlink(missing_ok=True)
+    elif path.is_dir():
+        shutil.rmtree(path)
+    elif os.path.lexists(path):
+        path.unlink(missing_ok=True)
+
+
+def clear_directory(path: Path) -> None:
+    if path.is_symlink() or (os.path.lexists(path) and not path.is_dir()):
+        remove_path(path)
+        return
+    if path.is_dir():
+        for child in path.iterdir():
+            remove_path(child)
+
+
+def lower_layers(layer: Path) -> list[Path]:
+    try:
+        index = int(layer.name)
+    except ValueError as exc:
+        raise ValueError(f"expected numeric Enroot layer directory: {layer}") from exc
+    values = []
+    for sibling in layer.parent.iterdir():
+        if sibling.is_dir() and sibling.name.isdigit() and int(sibling.name) > index:
+            values.append(sibling)
+    return sorted(values, key=lambda value: int(value.name))
+
+
+def apply_whiteouts(layer: Path) -> None:
+    layer = layer.resolve()
+    lowers = lower_layers(layer)
+    markers = sorted(
+        (
+            path
+            for path in layer.rglob(".wh.*")
+            if path.is_file() or path.is_symlink()
+        ),
+        key=lambda path: (len(path.parts), str(path)),
+    )
+    for marker in markers:
+        relative_parent = marker.parent.relative_to(layer)
+        if marker.name == OPAQUE:
+            for lower in lowers:
+                clear_directory(lower / relative_parent)
+        else:
+            target_name = marker.name.removeprefix(WHITEOUT_PREFIX)
+            for lower in lowers:
+                remove_path(lower / relative_parent / target_name)
+        marker.unlink(missing_ok=True)
+
+
+def main() -> None:
+    if len(sys.argv) != 2:
+        raise SystemExit("usage: enroot-aufs2ovlfs LAYER")
+    apply_whiteouts(Path(sys.argv[1]))
+
+
+if __name__ == "__main__":
+    main()
