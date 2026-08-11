@@ -14,7 +14,7 @@ cd "$IMPACTKV_PROJECT"
 
 inputs="$IMPACTKV_HOME/migration-inputs/enroot-parity"
 output="$IMPACTKV_ARTIFACTS/gpuhome_enroot_parity_$SLURM_JOB_ID"
-instances="astropy__astropy-7336,django__django-16899,pytest-dev__pytest-7432,scikit-learn__scikit-learn-13779,sphinx-doc__sphinx-9230"
+instances="${IMPACTKV_PARITY_INSTANCES:-astropy__astropy-7336,django__django-16899,pytest-dev__pytest-7432,scikit-learn__scikit-learn-13779,sphinx-doc__sphinx-9230}"
 
 "$IMPACTKV_EVAL_PYTHON" \
   benchmark/multi_workflow/enroot_swebench_evaluator.py \

@@ -98,6 +98,13 @@ executes `TestSpec.eval_script`, and calls SWE-bench 4.1.0's
 they are accepted as Docker-equivalent only after the frozen five-task parity
 job reports an exact outcome match.
 
+The evaluator uses the same non-login `bash -c` execution mode as the
+SWE-bench Docker path.  Using `bash -lc` is not equivalent for older images:
+their login profile can prepend stale compiler wrappers from `/root/bin` and
+turn a valid patch into an infrastructure-only test failure.  For bounded
+diagnosis, `IMPACTKV_PARITY_INSTANCES` may select a subset; acceptance still
+requires the default frozen five-task run.
+
 ## Validation jobs
 
 Submit in this order:

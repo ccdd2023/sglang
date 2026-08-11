@@ -81,7 +81,10 @@ def evaluate_instance(
             cwd="/testbed",
             timeout=max(timeout, 120),
             container_timeout=f"{max(timeout + 600, 1800)}s",
-            interpreter=["bash", "-lc"],
+            # SWE-bench's Docker path runs the eval script in a non-login
+            # shell. A login shell can prepend image-specific /root/bin
+            # wrappers and change which compiler is selected.
+            interpreter=["bash", "-c"],
         )
         _stage_text_file(environment, patch_file, "/tmp/patch.diff")
         apply_logs: list[dict[str, Any]] = []
