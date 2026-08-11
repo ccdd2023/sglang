@@ -18,6 +18,12 @@ from pydantic import BaseModel, Field
 
 from benchmark.multi_workflow.runtime_paths import RuntimePaths
 
+
+DEFAULT_CONTAINER_PATH = (
+    "/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:"
+    "/usr/sbin:/usr/bin:/sbin:/bin"
+)
+
 try:
     from minisweagent.exceptions import Submitted
     from minisweagent.utils.serialize import recursive_merge
@@ -50,6 +56,11 @@ class EnrootEnvironmentConfig(BaseModel):
     container_timeout: str = "2h"
     interpreter: list[str] = Field(default_factory=lambda: ["bash", "-lc"])
     startup_timeout: int = 30
+    container_path: str = Field(
+        default_factory=lambda: os.getenv(
+            "IMPACTKV_ENROOT_CONTAINER_PATH", DEFAULT_CONTAINER_PATH
+        )
+    )
 
 
 def resolve_enroot_image(image: str, index_path: Path | None = None) -> Path:
@@ -153,6 +164,8 @@ class EnrootEnvironment:
             "start",
             "--root",
             "--rw",
+            "-e",
+            f"PATH={self.config.container_path}",
         ]
         for key in self.config.forward_env:
             if (value := os.getenv(key)) is not None:
@@ -207,6 +220,7 @@ class EnrootEnvironment:
             "exec",
             str(self.process.pid),
             "env",
+            f"PATH={self.config.container_path}",
         ]
         for key in self.config.forward_env:
             if (value := os.getenv(key)) is not None:
@@ -261,6 +275,7 @@ class EnrootEnvironment:
             "exec",
             str(self.process.pid),
             "env",
+            f"PATH={self.config.container_path}",
         ]
         for key in self.config.forward_env:
             if (value := os.getenv(key)) is not None:

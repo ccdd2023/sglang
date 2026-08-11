@@ -118,6 +118,8 @@ def test_execute_enters_namespace_and_preserves_cwd(monkeypatch, tmp_path: Path)
     environment.process = None
     assert result["returncode"] == 0
     assert seen["command"][:4] == ["enroot", "exec", "123", "env"]
+    assert "PATH=/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:" \
+        "/usr/sbin:/usr/bin:/sbin:/bin" in seen["command"]
     assert "PAGER=cat" in seen["command"]
     assert seen["command"][-1] == "cd -- /testbed && git status --short"
 
@@ -144,5 +146,7 @@ def test_write_text_streams_into_namespace(monkeypatch, tmp_path: Path) -> None:
 
     assert result["returncode"] == 0
     assert seen["command"][:4] == ["enroot", "exec", "456", "env"]
+    assert "PATH=/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:" \
+        "/usr/sbin:/usr/bin:/sbin:/bin" in seen["command"]
     assert seen["command"][-1] == "umask 077 && cat > '/tmp/patch file.diff'"
     assert seen["kwargs"]["input"] == "patch contents\n"
