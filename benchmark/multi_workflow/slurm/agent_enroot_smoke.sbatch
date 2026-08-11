@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=impactkv-agent-smoke
 #SBATCH --partition=debug
-#SBATCH --nodelist=gpu11
 #SBATCH --gres=gpu:rtx4090:1
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=96G

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=impactkv-bootstrap
 #SBATCH --partition=debug
-#SBATCH --nodelist=gpu11
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --time=06:00:00

@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=impactkv-cuda-smoke
 #SBATCH --partition=debug
-#SBATCH --nodelist=gpu11
 #SBATCH --gres=gpu:rtx4090:1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=64G
