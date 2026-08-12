@@ -16,10 +16,16 @@ repo="$HOME/CodeMAS_Project/worktrees/cacheblend-common-agent"
 python="$HOME/.venvs/cacheblend-native/bin/python"
 
 export PYTHONNOUSERSITE=1
-# The compute nodes only expose a complete CUDA 12 toolkit at 12.9.  PyTorch
-# 2.2.1 is cu121; the major version matches, and its extension checker permits
-# a newer CUDA 12 minor while warning about the minor-version difference.
-export CUDA_HOME=/usr/local/cuda-12.9
+# Compute nodes expose CUDA 12.9 headers/libraries below targets/x86_64-linux,
+# while the legacy FindCUDA bundled with torch 2.2 expects include and lib64 at
+# the toolkit root.  Build a home-scoped symlink view; no node-local /tmp or
+# system path is written.
+system_cuda=/usr/local/cuda-12.9
+export CUDA_HOME="$HOME/impactkv-runtime/toolchains/cuda-12.9-legacy-layout"
+mkdir -p "$CUDA_HOME"
+ln -sfn "$system_cuda/bin" "$CUDA_HOME/bin"
+ln -sfn "$system_cuda/targets/x86_64-linux/include" "$CUDA_HOME/include"
+ln -sfn "$system_cuda/targets/x86_64-linux/lib" "$CUDA_HOME/lib64"
 export PATH="$CUDA_HOME/bin:/usr/bin:/bin:$HOME/.venvs/cacheblend-native/bin:$PATH"
 export TORCH_CUDA_ARCH_LIST=8.9
 export MAX_JOBS="${MAX_JOBS:-16}"
