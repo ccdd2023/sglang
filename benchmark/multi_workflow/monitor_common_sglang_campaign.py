@@ -338,7 +338,20 @@ def formal_images_ready(campaign: Path) -> tuple[bool, str]:
     state = slurm_state(str(job))
     if state.startswith(("FAILED", "CANCELLED", "TIMEOUT", "NODE_FAIL")):
         raise RuntimeError(f"formal image job {job} failed: {state}")
-    return state == "COMPLETED", f"formal image job {job}: {state}"
+    if state != "COMPLETED":
+        return False, f"formal image job {job}: {state}"
+    # gpu17 has two GPUs.  Letting the independent native and SGLang monitors
+    # occupy them concurrently would retain GPU-memory isolation but introduce
+    # uncontrolled CPU/NFS/host-scheduler contention into TTFT.  The native
+    # monitor also runs its ABBA jobs before marking this state complete.
+    if value.get("state") != "complete":
+        return False, (
+            f"formal image job {job}: COMPLETED; waiting for globally serialized "
+            f"native campaign (state={value.get('state')})"
+        )
+    return True, (
+        f"formal image job {job}: COMPLETED; native formal campaign complete"
+    )
 
 
 def main() -> None:
