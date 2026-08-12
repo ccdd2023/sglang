@@ -154,6 +154,7 @@ def validate_sglang_runs(
         runtime = read_json(required[0])
         client = load_jsonl(required[1])
         official = read_json(required[2])
+        telemetry = read_json(run_dir / "TELEMETRY.json")
         requests = [row for row in client if row.get("event") == "request_complete"]
         if not requests or int(runtime.get("requests") or 0) <= 0:
             return False, f"no model requests: {run_dir}", rows
@@ -161,6 +162,15 @@ def validate_sglang_runs(
         report = official_report(official)
         if report is None:
             return False, f"official report absent: {run_dir}", rows
+        infrastructure_failures = {
+            str(instance_id): str(value.get("exit_status"))
+            for instance_id, value in (telemetry.get("instances") or {}).items()
+            if str(value.get("exit_status")) in {"HTTPError", "ConnectionError"}
+        }
+        if infrastructure_failures:
+            return False, (
+                f"backend transport failures {infrastructure_failures}: {run_dir}"
+            ), rows
         if arm != "dense" and int(runtime.get("target_copy_events") or 0) <= 0:
             return False, f"no physical coding-aware K/V copy: {run_dir}", rows
         rows[arm] = {

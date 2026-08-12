@@ -172,9 +172,10 @@ def validate_native_runs(
         run_dir = campaign / "runs" / scope / f"{backend}_{mode}" / key
         summary_path = run_dir / "RUNTIME_SUMMARY.json"
         ledger_path = run_dir / "CLIENT_LEDGER.jsonl"
+        telemetry_path = run_dir / "TELEMETRY.json"
         missing = [
             path.name
-            for path in (summary_path, ledger_path)
+            for path in (summary_path, ledger_path, telemetry_path)
             if not path.is_file()
         ]
         if missing:
@@ -188,6 +189,21 @@ def validate_native_runs(
             return False, f"input identity incomplete: {run_dir}"
         if mode == "reuse" and summary.get("physical_reuse_requests", 0) <= 0:
             return False, f"no physical K/V reuse: {run_dir}"
+        telemetry = read_json(telemetry_path)
+        infrastructure_failures = {
+            str(instance_id): str(row.get("exit_status"))
+            for instance_id, row in (telemetry.get("instances") or {}).items()
+            if str(row.get("exit_status")) in {"HTTPError", "ConnectionError"}
+        }
+        if infrastructure_failures:
+            return False, (
+                f"backend transport failures {infrastructure_failures}: {run_dir}"
+            )
+        server_log = run_dir / "BACKEND_SERVER.log"
+        if server_log.is_file() and "OutOfMemoryError" in server_log.read_text(
+            encoding="utf-8", errors="replace"
+        ):
+            return False, f"backend OOM is not a valid agent outcome: {run_dir}"
         ledgers[(backend, mode)] = [
             json.loads(line)
             for line in ledger_path.read_text(encoding="utf-8").splitlines()
