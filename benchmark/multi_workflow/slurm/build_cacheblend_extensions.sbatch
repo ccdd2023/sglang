@@ -21,18 +21,14 @@ export PYTHONNOUSERSITE=1
 # the toolkit root.  Build a home-scoped symlink view; no node-local /tmp or
 # system path is written.
 system_cuda=/usr/local/cuda-12.9
+header_snapshot="$HOME/impactkv-runtime/toolchains/cuda-12.9-login-headers"
 export CUDA_HOME="$HOME/impactkv-runtime/toolchains/cuda-12.9-legacy-layout"
+test -f "$header_snapshot/cuda_runtime.h"
 mkdir -p "$CUDA_HOME"
 ln -sfn "$system_cuda/bin" "$CUDA_HOME/bin"
-ln -sfn "$system_cuda/targets" "$CUDA_HOME/targets"
-rm -rf "$CUDA_HOME/include" "$CUDA_HOME/lib64"
-mkdir -p "$CUDA_HOME/include" "$CUDA_HOME/lib64"
-for entry in "$system_cuda"/targets/x86_64-linux/include/*; do
-  ln -sfn "$entry" "$CUDA_HOME/include/$(basename "$entry")"
-done
-# CUDA 12.9 keeps this legacy probe header below include/crt.
-ln -sfn "$system_cuda/targets/x86_64-linux/include/crt/device_functions.h" \
-  "$CUDA_HOME/include/device_functions.h"
+rm -rf "$CUDA_HOME/include" "$CUDA_HOME/lib64" "$CUDA_HOME/targets"
+ln -sfn "$header_snapshot" "$CUDA_HOME/include"
+mkdir -p "$CUDA_HOME/lib64" "$CUDA_HOME/targets/x86_64-linux"
 for entry in "$system_cuda"/targets/x86_64-linux/lib/*; do
   ln -sfn "$entry" "$CUDA_HOME/lib64/$(basename "$entry")"
 done
@@ -40,6 +36,8 @@ done
 # is present. FindCUDA searches for the unversioned name.
 ln -sfn "$system_cuda/targets/x86_64-linux/lib/libcudart.so.12" \
   "$CUDA_HOME/lib64/libcudart.so"
+ln -sfn "$header_snapshot" "$CUDA_HOME/targets/x86_64-linux/include"
+ln -sfn "$CUDA_HOME/lib64" "$CUDA_HOME/targets/x86_64-linux/lib"
 export PATH="$CUDA_HOME/bin:/usr/bin:/bin:$HOME/.venvs/cacheblend-native/bin:$PATH"
 export TORCH_CUDA_ARCH_LIST=8.9
 export MAX_JOBS="${MAX_JOBS:-16}"
