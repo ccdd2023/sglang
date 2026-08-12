@@ -980,6 +980,61 @@ def test_dependency_graph_lcb_arm_admits_only_one_best_island() -> None:
     )
 
 
+def test_dependency_graph_mean_arm_keeps_graph_guard_and_one_island() -> None:
+    group = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {"command": "cat /testbed/pkg/value.py"},
+                    }
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": "<returncode>0</returncode><output>"
+            + "def value():\n    return 1\n" * 45
+            + "</output>",
+        },
+    ]
+    model = object.__new__(bridge.BridgeReuseLitellmModel)
+    model.config = SimpleNamespace(
+        reuse_arm="coding_dependency_graph_cold_mean",
+        rolling_history_groups=6,
+        reuse_min_tokens=128,
+        reuse_copy_cap=4096,
+    )
+    model._tokenizer = _CharacterTokenizer()
+    model._instance_nonce = "graph-mean"
+    model._session_index = 1
+    model._request_index = 2
+    literal = "".join(model._render_message_literal(message) for message in group)
+    source_prompt = [ord(value) for value in "P" + literal + "S"]
+    _, pool, _, decision = model._v46_future_sources(
+        prompt_ids=source_prompt,
+        selected_groups=[group],
+        pool={},
+    )
+    assert decision["max_target_islands"] == 1
+    model._pending_sources = pool
+    target_prompt = [ord("Q")] * 2_000 + [ord(value) for value in literal + "T"]
+    cases, releases, guards, retained = model._v46_target_cases(
+        prompt_ids=target_prompt,
+        selected_groups=[group],
+    )
+    assert releases == []
+    assert retained == pool
+    assert len(cases) == 1
+    assert guards[0]["dependency_graph_guard_applied"] is True
+    assert guards[0]["admission_reason"] == "predicted_cache_ready_saving_positive"
+    assert cases[0]["cost_estimate"]["model"] == (
+        "dependency_graph_attention_work_mean_v1"
+    )
+
+
 def test_query_closes_underlying_sync_stream(monkeypatch) -> None:
     chunk = SimpleNamespace(
         choices=[

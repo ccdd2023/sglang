@@ -55,6 +55,10 @@ def main() -> None:
         home
         / "CodeMAS_Project/kvflow-artifacts/impactkv_common_agent_baselines_fresh24_20260812"
     )
+    graph_mean = (
+        home
+        / "CodeMAS_Project/kvflow-artifacts/impactkv_common_agent_graph_mean_20260812"
+    )
     campaign = (
         home
         / "CodeMAS_Project/kvflow-artifacts/impactkv_common_agent_format_guard_20260812"
@@ -79,7 +83,14 @@ def main() -> None:
         if state["state"] == "waiting_sglang_complete":
             while True:
                 sglang = read(source / "AUTOMATED_SGLANG_STATUS.json")
-                if sglang.get("state") == "blocked":
+                upstream_block_is_expected_copy_abstention = (
+                    sglang.get("state") == "blocked"
+                    and "no physical coding-aware K/V copy"
+                    in str(sglang.get("error") or "")
+                )
+                if sglang.get("state") == "blocked" and not (
+                    upstream_block_is_expected_copy_abstention
+                ):
                     raise RuntimeError(
                         f"upstream SGLang campaign blocked: {sglang.get('error')}"
                     )
@@ -88,8 +99,21 @@ def main() -> None:
                     f"{sglang.get('state')}"
                 )
                 save(status_path, state)
-                if sglang.get("state") == "complete":
+                if sglang.get("state") == "complete" or (
+                    upstream_block_is_expected_copy_abstention
+                ):
                     break
+                time.sleep(args.poll_seconds)
+            graph_status_path = graph_mean / "AUTOMATED_GRAPH_MEAN_STATUS.json"
+            while graph_status_path.is_file():
+                graph_state = read(graph_status_path)
+                if graph_state.get("state") in {"complete", "blocked"}:
+                    break
+                state["wait_reason"] = (
+                    "global GPU serialization; graph-mean state="
+                    f"{graph_state.get('state')}"
+                )
+                save(status_path, state)
                 time.sleep(args.poll_seconds)
             job_id = base.submit(
                 script=project / "benchmark/multi_workflow/slurm/common_native_agent.sbatch",

@@ -26,7 +26,7 @@ arm="${IMPACTKV_COMMON_ARM:?set IMPACTKV_COMMON_ARM=dense or coding_dependency_g
 cohort="${IMPACTKV_COMMON_SCOPE:-canary}"
 instance="${IMPACTKV_COMMON_INSTANCE:-}"
 port="${IMPACTKV_COMMON_PORT:-$((34000 + SLURM_JOB_ID % 1000))}"
-campaign="$IMPACTKV_ARTIFACTS/impactkv_common_agent_baselines_fresh24_20260812"
+campaign="${IMPACTKV_COMMON_CAMPAIGN:-$IMPACTKV_ARTIFACTS/impactkv_common_agent_baselines_fresh24_20260812}"
 
 case "$cohort" in
   canary)

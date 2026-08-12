@@ -269,7 +269,15 @@ def summarize(label: str, output: Path) -> dict[str, Any]:
 
 
 def main() -> None:
+    global CAMPAIGN, ARM
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--campaign",
+        type=Path,
+        default=CAMPAIGN,
+        help="campaign root containing the online SGLang run",
+    )
+    parser.add_argument("--arm", default=ARM)
     parser.add_argument("--label", choices=("canary4", "fresh24"), required=True)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--port", type=int, default=30000)
@@ -280,6 +288,8 @@ def main() -> None:
     sub.add_parser("run-all")
     sub.add_parser("summarize")
     args = parser.parse_args()
+    CAMPAIGN = args.campaign.resolve()
+    ARM = args.arm
     _, default_output = configure(args.label)
     output = (args.output or default_output).resolve()
     if args.command == "prepare":

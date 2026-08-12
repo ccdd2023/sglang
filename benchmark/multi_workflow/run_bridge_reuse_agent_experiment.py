@@ -134,6 +134,7 @@ ARMS = (
     "coding_natural_code_cost",
     "coding_dependency_cold_cost",
     "coding_dependency_graph_cold_lcb",
+    "coding_dependency_graph_cold_mean",
 )
 DENSE_ARMS = ("dense", "coding_memory_dense_v5")
 HOST_OVERFLOW_ARMS = (
@@ -154,6 +155,7 @@ HOST_OVERFLOW_ARMS = (
     "coding_natural_code_cost",
     "coding_dependency_cold_cost",
     "coding_dependency_graph_cold_lcb",
+    "coding_dependency_graph_cold_mean",
 )
 DUAL_ISLAND_ARMS = (
     "general_dual_4k",
@@ -301,6 +303,12 @@ def prepare(output: Path) -> dict[str, Any]:
                 "or direct-call edge consumes it; admission additionally "
                 "requires a positive frozen task-grouped TTFT lower bound"
             ),
+            "coding_dependency_graph_cold_mean": (
+                "the same one-island, version-valid dependency-graph-cold "
+                "policy, but the frozen graph TTFT model admits positive mean "
+                "predicted saving instead of subtracting the residual-Q10 "
+                "lower bound"
+            ),
             "coding_post_mutation_v19": (
                 "use General-4K when there is no online file-version boundary; "
                 "after a retained file observation is followed by a mutation "
@@ -399,6 +407,23 @@ def prepare(output: Path) -> dict[str, Any]:
                 "admission": "lower_bound_cache_ready_saving_ms > 0",
                 "max_target_islands": 1,
                 "source_build_included": False,
+            },
+            "coding_dependency_graph_mean_model": {
+                "formula": (
+                    "0.15728623490986118 * "
+                    "(island_tokens * prompt_tokens / 10000) "
+                    "+ 0.25435619580085245 ms"
+                ),
+                "calibration_targets": 56,
+                "calibration_tasks": 7,
+                "task_grouped_folds": 5,
+                "admission": "predicted_cache_ready_saving_ms > 0",
+                "max_target_islands": 1,
+                "source_build_included": False,
+                "counterfactual_to": (
+                    "coding_dependency_graph_lcb_model; only residual-Q10 "
+                    "subtraction is removed"
+                ),
             },
             "min_copy_tokens": 128,
             "temperature": 0,

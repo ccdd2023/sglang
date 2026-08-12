@@ -41,6 +41,7 @@ from benchmark.multi_workflow.coding_reuse_policy import (
     critical_coding_event_reasons,
     dependency_graph_cold_repository_code_candidates,
     dependency_graph_lcb_cost_estimate,
+    dependency_graph_mean_cost_estimate,
     effective_copy_cap,
     grounded_observation_candidates,
     natural_code_reuse_cost_estimate,
@@ -79,6 +80,11 @@ NATURAL_CODE_COST_ARMS = (
     "coding_natural_code_cost",
     "coding_dependency_cold_cost",
     "coding_dependency_graph_cold_lcb",
+    "coding_dependency_graph_cold_mean",
+)
+DEPENDENCY_GRAPH_ARMS = (
+    "coding_dependency_graph_cold_lcb",
+    "coding_dependency_graph_cold_mean",
 )
 
 
@@ -166,6 +172,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_natural_code_cost",
         "coding_dependency_cold_cost",
         "coding_dependency_graph_cold_lcb",
+        "coding_dependency_graph_cold_mean",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
@@ -823,7 +830,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         releases: list[str] = []
         guards: list[dict[str, Any]] = []
         for key, handle in list(pool.items()):
-            if self.config.reuse_arm == "coding_dependency_graph_cold_lcb":
+            if self.config.reuse_arm in DEPENDENCY_GRAPH_ARMS:
                 base_guard = coding_dependency_graph_target_guard(
                     handle, selected_groups
                 )
@@ -893,6 +900,12 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 )
                 if self.config.reuse_arm
                 == "coding_dependency_graph_cold_lcb"
+                else dependency_graph_mean_cost_estimate(
+                    island_tokens=len(handle["segment_ids"]),
+                    target_prompt_tokens=len(prompt_ids),
+                )
+                if self.config.reuse_arm
+                == "coding_dependency_graph_cold_mean"
                 else natural_code_reuse_cost_estimate(
                     island_tokens=len(handle["segment_ids"]),
                     target_prompt_tokens=len(prompt_ids),
@@ -948,8 +961,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             intervals.append((start, end))
             max_target_islands = (
                 1
-                if self.config.reuse_arm
-                == "coding_dependency_graph_cold_lcb"
+                if self.config.reuse_arm in DEPENDENCY_GRAPH_ARMS
                 else 3
             )
             if len(selected) >= max_target_islands:
@@ -1011,7 +1023,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             if len(selected_groups) < self.config.rolling_history_groups
             else selected_groups[1:]
         )
-        if self.config.reuse_arm == "coding_dependency_graph_cold_lcb":
+        if self.config.reuse_arm in DEPENDENCY_GRAPH_ARMS:
             candidates, decision = (
                 dependency_graph_cold_repository_code_candidates(retained)
             )
@@ -1197,7 +1209,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             "max_target_islands": (
                 1
                 if self.config.reuse_arm
-                == "coding_dependency_graph_cold_lcb"
+                in DEPENDENCY_GRAPH_ARMS
                 else 3
             ),
         }
@@ -1646,6 +1658,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             "coding_natural_code_cost",
             "coding_dependency_cold_cost",
             "coding_dependency_graph_cold_lcb",
+            "coding_dependency_graph_cold_mean",
         ):
             targets, releases, target_guards, live_pool = (
                 self._v46_target_cases(

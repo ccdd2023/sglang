@@ -6,6 +6,7 @@ from benchmark.multi_workflow.coding_reuse_policy import (
     cold_natural_repository_code_candidates,
     dependency_graph_cold_repository_code_candidates,
     dependency_graph_lcb_cost_estimate,
+    dependency_graph_mean_cost_estimate,
     natural_repository_code_candidates,
     visible_python_dependency_graph,
 )
@@ -192,3 +193,18 @@ def test_dependency_graph_lcb_is_stricter_than_mean_prediction() -> None:
     assert rejected["reuse_admitted"] is False
     assert admitted["lower_bound_cache_ready_saving_ms"] > 0
     assert admitted["reuse_admitted"] is True
+
+
+def test_dependency_graph_mean_counterfactual_removes_only_q10_penalty() -> None:
+    lcb = dependency_graph_lcb_cost_estimate(
+        island_tokens=643, target_prompt_tokens=2041
+    )
+    mean = dependency_graph_mean_cost_estimate(
+        island_tokens=643, target_prompt_tokens=2041
+    )
+    assert mean["predicted_cache_ready_saving_ms"] == lcb[
+        "predicted_cache_ready_saving_ms"
+    ]
+    assert mean["reuse_admitted"] is True
+    assert lcb["reuse_admitted"] is False
+    assert "lower_bound_cache_ready_saving_ms" not in mean

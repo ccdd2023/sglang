@@ -213,6 +213,41 @@ def dependency_graph_lcb_cost_estimate(
     }
 
 
+def dependency_graph_mean_cost_estimate(
+    *, island_tokens: int, target_prompt_tokens: int
+) -> dict[str, Any]:
+    """Use the same frozen graph calibration but admit positive mean benefit.
+
+    This is the single-variable counterfactual to
+    :func:`dependency_graph_lcb_cost_estimate`: candidate extraction,
+    dependency protection, regression coefficients, and one-island limit stay
+    fixed; only the deliberately conservative residual-Q10 subtraction is
+    removed from admission.  It remains a speed gate and never acts as an
+    accuracy proxy.
+    """
+
+    if island_tokens <= 0 or target_prompt_tokens <= 0:
+        raise ValueError("token counts must be positive")
+    attention_work_10k = island_tokens * target_prompt_tokens / 10_000
+    predicted = (
+        DEPENDENCY_GRAPH_LCB_WORK_SLOPE_MS * attention_work_10k
+        + DEPENDENCY_GRAPH_LCB_INTERCEPT_MS
+    )
+    return {
+        "model": "dependency_graph_attention_work_mean_v1",
+        "island_tokens": island_tokens,
+        "target_prompt_tokens": target_prompt_tokens,
+        "attention_work_token2": island_tokens * target_prompt_tokens,
+        "predicted_cache_ready_saving_ms": predicted,
+        "reuse_admitted": predicted > 0,
+        "calibration_targets": DEPENDENCY_GRAPH_LCB_CALIBRATION_TARGETS,
+        "calibration_tasks": DEPENDENCY_GRAPH_LCB_CALIBRATION_TASKS,
+        "calibration_r2": DEPENDENCY_GRAPH_LCB_CALIBRATION_R2,
+        "task_grouped_folds": 5,
+        "source_build_included": False,
+    }
+
+
 def _tool_command(message: dict[str, Any]) -> str:
     for wrapped in message.get("tool_calls") or ():
         call = wrapped.get("function", wrapped)
