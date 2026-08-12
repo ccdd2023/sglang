@@ -558,6 +558,8 @@ def launch_server(
     env.update(
         {
             "HF_HUB_OFFLINE": "1",
+            "TRANSFORMERS_OFFLINE": "1",
+            "PYTHONUNBUFFERED": "1",
             "PYTHONPATH": f"{PROJECT / 'python'}:{PROJECT}",
             "SGLANG_KVCOMM_CORE": "0" if arm in DENSE_ARMS else "1",
         }
@@ -609,7 +611,9 @@ def launch_server(
         text=True,
         start_new_session=True,
     )
-    deadline = time.monotonic() + 240
+    deadline = time.monotonic() + float(
+        os.environ.get("IMPACTKV_SERVER_READY_TIMEOUT", "240")
+    )
     try:
         while time.monotonic() < deadline:
             if process.poll() is not None:

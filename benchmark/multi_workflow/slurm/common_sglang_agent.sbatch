@@ -18,6 +18,7 @@ export IMPACTKV_TOKENIZER_JSON="$IMPACTKV_MODEL/tokenizer.json"
 export IMPACTKV_AGENT_CONFIG="$IMPACTKV_PROJECT/benchmark/multi_workflow/swebench_common_qwen25_agent.yaml"
 export IMPACTKV_CHAT_TEMPLATE="$IMPACTKV_PROJECT/benchmark/multi_workflow/qwen2_5_coder_tool_chat_template.jinja"
 export IMPACTKV_AGENT_STEP_LIMIT=32
+export IMPACTKV_SERVER_READY_TIMEOUT=900
 source "$IMPACTKV_PROJECT/benchmark/multi_workflow/slurm/impactkv_home_env.sh"
 cd "$IMPACTKV_PROJECT"
 

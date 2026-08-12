@@ -16,6 +16,7 @@ export IMPACTKV_PROJECT="$HOME/CodeMAS_Project/worktrees/sglang-common-agent"
 export IMPACTKV_MODEL="$HOME/models/Qwen2.5-Coder-7B-Instruct"
 export IMPACTKV_TOKENIZER_JSON="$IMPACTKV_MODEL/tokenizer.json"
 export IMPACTKV_CHAT_TEMPLATE="$IMPACTKV_PROJECT/benchmark/multi_workflow/qwen2_5_coder_tool_chat_template.jinja"
+export IMPACTKV_SERVER_READY_TIMEOUT=900
 source "$IMPACTKV_PROJECT/benchmark/multi_workflow/slurm/impactkv_home_env.sh"
 cd "$IMPACTKV_PROJECT"
 
