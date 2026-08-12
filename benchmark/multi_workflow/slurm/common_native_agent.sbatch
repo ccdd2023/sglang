@@ -78,7 +78,7 @@ case "$backend" in
     ;;
   kvcomm)
     backend_repo="$HOME/CodeMAS_Project/worktrees/kvcomm-common-agent"
-    backend_python="$HOME/.venvs/kvcomm-native/bin/python"
+    backend_python="${IMPACTKV_KVCOMM_PYTHON:-$HOME/.venvs/kvcomm-native/bin/python}"
     backend_command=(
       "$backend_python" "$backend_repo/experiments/common_agent_server.py"
       --model "$IMPACTKV_MODEL"
@@ -107,6 +107,7 @@ PYTHONPATH="$backend_pythonpath" \
 HF_HUB_OFFLINE=1 \
 TRANSFORMERS_OFFLINE=1 \
 KVFLOW_REPRO_DTYPE="$model_dtype" \
+KVFLOW_REPRO_ATTN_IMPLEMENTATION="${IMPACTKV_KVCOMM_ATTN_IMPLEMENTATION:-}" \
 "${backend_command[@]}" >"$runtime/backend.log" 2>&1 &
 server_pid=$!
 cleanup() {
