@@ -59,6 +59,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 
+from sglang.srt.utils.input_identity import input_ids_sha256
+
 from sglang.srt.disaggregation.utils import FAKE_BOOTSTRAP_HOST, DisaggregationMode
 from sglang.srt.entrypoints.anthropic.protocol import (
     AnthropicCountTokensRequest,
@@ -677,6 +679,7 @@ if os.environ.get("DUMPER_SERVER_PORT") == "reuse":
 )
 async def generate_request(obj: GenerateReqInput, request: Request):
     """Handle a generate request."""
+    consumed_input_ids_sha256 = input_ids_sha256(obj.input_ids)
     if obj.stream:
 
         async def stream_results() -> AsyncIterator[bytes]:
@@ -684,6 +687,8 @@ async def generate_request(obj: GenerateReqInput, request: Request):
                 async for out in _global_state.tokenizer_manager.generate_request(
                     obj, request
                 ):
+                    if consumed_input_ids_sha256 is not None:
+                        out["input_ids_sha256"] = consumed_input_ids_sha256
                     yield b"data: " + dumps_json(out) + b"\n\n"
             except ValueError as e:
                 out = {"error": {"message": str(e)}}
@@ -701,6 +706,8 @@ async def generate_request(obj: GenerateReqInput, request: Request):
             ret = await _global_state.tokenizer_manager.generate_request(
                 obj, request
             ).__anext__()
+            if consumed_input_ids_sha256 is not None:
+                ret["input_ids_sha256"] = consumed_input_ids_sha256
             return orjson_response(ret)
         except ValueError as e:
             logger.error(f"[http_server] Error: {e}")
