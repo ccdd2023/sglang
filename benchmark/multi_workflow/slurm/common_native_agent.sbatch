@@ -61,7 +61,7 @@ case "$backend" in
       --host 127.0.0.1
       --port "$port"
       --dtype float16
-      --gpu-memory-utilization 0.85
+      --gpu-memory-utilization 0.90
       --max-model-len 32768
       --recompute-ratio 0.18
       --ledger "$runtime/BACKEND_LEDGER.jsonl"

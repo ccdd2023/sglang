@@ -34,7 +34,7 @@ case "$backend" in
     command=(
       "$python" "$repo/example/common_agent_server.py"
       --model "$IMPACTKV_MODEL" --mode reuse --host 127.0.0.1 --port "$port"
-      --dtype float16 --gpu-memory-utilization 0.85 --max-model-len 32768
+      --dtype float16 --gpu-memory-utilization 0.90 --max-model-len 32768
       --recompute-ratio 0.18 --allow-benchmark-mode-override
       --ledger "$runtime/BACKEND_LEDGER.jsonl"
     )
