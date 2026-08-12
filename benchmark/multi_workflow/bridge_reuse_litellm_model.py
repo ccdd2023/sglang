@@ -90,6 +90,45 @@ def token_ids_hash(token_ids: list[int]) -> str:
     return digest.hexdigest()
 
 
+def native_generate_payload(
+    *,
+    backend: str | None,
+    session_id: str,
+    request_index: int,
+    prompt_text_sha256: str,
+    input_ids: list[int],
+    segments: list[dict[str, Any]],
+    max_new_tokens: int,
+    temperature: float,
+    repetition_penalty: float,
+) -> dict[str, Any]:
+    """Build the common request while preserving each native API's sampling schema."""
+    payload = {
+        "schema_version": 1,
+        "backend": backend,
+        "session_id": session_id,
+        "request_index": request_index,
+        "prompt_text_sha256": prompt_text_sha256,
+        "input_ids": input_ids,
+        "input_ids_sha256": token_ids_hash(input_ids),
+        "segments": segments,
+        "max_new_tokens": max_new_tokens,
+        "temperature": temperature,
+        "repetition_penalty": repetition_penalty,
+    }
+    # CacheBlend/KVCOMM expose the common fields above directly.  Stock
+    # SGLang's /generate endpoint reads generation controls only from the
+    # nested sampling_params object; without this translation it silently
+    # falls back to the model's temperature=0.7 generation config.
+    if str(backend or "").startswith("sglang-"):
+        payload["sampling_params"] = {
+            "max_new_tokens": max_new_tokens,
+            "temperature": temperature,
+            "repetition_penalty": repetition_penalty,
+        }
+    return payload
+
+
 class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
     reuse_arm: Literal[
         "dense",
@@ -1389,21 +1428,17 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             max_new_tokens = int(
                 options.get("max_tokens", options.get("max_new_tokens", 2048))
             )
-            payload = {
-                "schema_version": 1,
-                "backend": self.config.native_backend_name,
-                "session_id": f"{self._instance_nonce}-s{self._session_index}",
-                "request_index": self._request_index,
-                "prompt_text_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
-                "input_ids": prompt_ids,
-                "input_ids_sha256": token_ids_hash(prompt_ids),
-                "segments": self._native_backend_segments(messages, prompt_ids),
-                "max_new_tokens": max_new_tokens,
-                "temperature": float(options.get("temperature", 0.0)),
-                "repetition_penalty": float(
-                    options.get("repetition_penalty", 1.0)
-                ),
-            }
+            payload = native_generate_payload(
+                backend=self.config.native_backend_name,
+                session_id=f"{self._instance_nonce}-s{self._session_index}",
+                request_index=self._request_index,
+                prompt_text_sha256=hashlib.sha256(prompt.encode()).hexdigest(),
+                input_ids=prompt_ids,
+                segments=self._native_backend_segments(messages, prompt_ids),
+                max_new_tokens=max_new_tokens,
+                temperature=float(options.get("temperature", 0.0)),
+                repetition_penalty=float(options.get("repetition_penalty", 1.0)),
+            )
             started = time.perf_counter()
             response = requests.post(
                 self.config.native_backend_url.rstrip("/") + "/generate",

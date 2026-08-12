@@ -41,6 +41,29 @@ def _bare_model() -> bridge.BridgeReuseLitellmModel:
     return model
 
 
+def test_native_generate_payload_translates_sampling_for_sglang_only() -> None:
+    common = dict(
+        session_id="session-1",
+        request_index=3,
+        prompt_text_sha256="prompt-hash",
+        input_ids=[1, 2, 3],
+        segments=[],
+        max_new_tokens=2048,
+        temperature=0.0,
+        repetition_penalty=1.05,
+    )
+    sglang = bridge.native_generate_payload(backend="sglang-dense", **common)
+    kvcomm = bridge.native_generate_payload(backend="kvcomm-dense", **common)
+
+    assert sglang["sampling_params"] == {
+        "max_new_tokens": 2048,
+        "temperature": 0.0,
+        "repetition_penalty": 1.05,
+    }
+    assert "sampling_params" not in kvcomm
+    assert sglang["input_ids_sha256"] == kvcomm["input_ids_sha256"]
+
+
 def test_v33b_state_transition_releases_and_vetoes_current_target() -> None:
     mutation = [
         {
