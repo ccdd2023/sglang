@@ -22,17 +22,11 @@ from typing import Any
 
 from tokenizers import Tokenizer
 
-from benchmark.multi_workflow.bridge_reuse_litellm_model import (
-    BridgeReuseLitellmModel,
-)
 from benchmark.multi_workflow.coding_reuse_policy import (
     _tool_command,
     coding_dependency_relations,
     observed_path_target_guard,
     versioned_observed_path_candidates,
-)
-from benchmark.multi_workflow.context_bounded_litellm_model import (
-    ContextBoundedLitellmModel,
 )
 from benchmark.multi_workflow.runtime_paths import RuntimePaths
 
@@ -79,6 +73,29 @@ def normalize_path(value: str) -> str:
         if value.startswith(prefix):
             return value[len(prefix) :]
     return value
+
+
+def turn_groups(messages: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    groups: list[list[dict[str, Any]]] = []
+    current: list[dict[str, Any]] = []
+    for message in messages:
+        if message.get("role") == "assistant" and current:
+            groups.append(current)
+            current = []
+        current.append(message)
+    if current:
+        groups.append(current)
+    return groups
+
+
+def render_tool_literal(message: dict[str, Any]) -> str:
+    if message.get("role") != "tool":
+        raise ValueError("search candidate contains a non-tool message")
+    return (
+        "<|im_start|>user\n<tool_response>\n"
+        + str(message.get("content") or "")
+        + "\n</tool_response><|im_end|>\n"
+    )
 
 
 def search_sections(group: list[dict[str, Any]], tokenizer: Tokenizer) -> list[dict[str, Any]]:
@@ -134,8 +151,6 @@ def prompt_tokens_by_request(trajectory: dict[str, Any]) -> dict[int, int]:
 def audit() -> dict[str, Any]:
     tokenizer_path = MODEL / "tokenizer.json"
     tokenizer = Tokenizer.from_file(str(tokenizer_path))
-    render = object.__new__(BridgeReuseLitellmModel)
-    render._tokenizer = tokenizer
     counters: Counter[str] = Counter()
     task_sets: dict[str, set[str]] = {
         key: set()
@@ -152,9 +167,7 @@ def audit() -> dict[str, Any]:
     for path in sorted(TRAJECTORIES.glob("*/*.traj.json")):
         trajectory = read_json(path)
         instance_id = str(trajectory["instance_id"])
-        groups = ContextBoundedLitellmModel._turn_groups(
-            trajectory["messages"][2:]
-        )
+        groups = turn_groups(trajectory["messages"][2:])
         prompt_tokens = prompt_tokens_by_request(trajectory)
         # Request q has q-1 completed groups.  Source planning deliberately
         # removes the group that will roll out before q+1.
@@ -212,7 +225,7 @@ def audit() -> dict[str, Any]:
                 task_sets["dependency_cold_next_target"].add(instance_id)
                 if not eligible_sections:
                     continue
-                literal = "".join(render._render_message_literal(message) for message in candidate)
+                literal = "".join(render_tool_literal(message) for message in candidate)
                 opportunities.append(
                     {
                         "instance_id": instance_id,
