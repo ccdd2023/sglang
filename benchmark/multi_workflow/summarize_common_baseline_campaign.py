@@ -114,6 +114,9 @@ def exact_row(campaign: Path, label: str, backend: str) -> dict[str, Any] | None
         "status": result["status"],
         "targets": len(targets),
         "rounds_per_arm_per_target": targets[0]["rounds_per_arm"] if targets else 0,
+        "median_cache_build_ms": statistics.median(
+            values("median_cache_build_ms")
+        ),
         "median_cache_ready_speedup": statistics.median(values("cache_ready_speedup")),
         "median_n1_including_build_speedup": statistics.median(
             values("n1_including_build_speedup")
@@ -181,15 +184,16 @@ def markdown(summary: dict[str, Any]) -> str:
             [
                 f"## {label} exact-token TTFT",
                 "",
-                "| Backend | Frozen prompts | Cache-ready | N=1 incl. build | N=4 incl. build | N=16 incl. build | Faster prompts | Physical rounds |",
-                "|---|---:|---:|---:|---:|---:|---:|---:|",
+                "| Backend | Frozen prompts | Build (ms) | Cache-ready | N=1 incl. build | N=4 incl. build | N=16 incl. build | Faster prompts | Physical rounds |",
+                "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
             ]
         )
         for row in rows:
             lines.append(
-                "| {backend} | {targets} | {ready}× | {n1}× | {n4}× | {n16}× | {faster}/{targets} | {physical} |".format(
+                "| {backend} | {targets} | {build} | {ready}× | {n1}× | {n4}× | {n16}× | {faster}/{targets} | {physical} |".format(
                     backend=row["backend"],
                     targets=row["targets"],
+                    build=fmt(row["median_cache_build_ms"], 1),
                     ready=fmt(row["median_cache_ready_speedup"]),
                     n1=fmt(row["median_n1_including_build_speedup"]),
                     n4=fmt(row["median_n4_including_build_speedup"]),
