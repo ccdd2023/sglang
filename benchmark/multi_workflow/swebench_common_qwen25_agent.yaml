@@ -7,7 +7,11 @@ agent:
   system_template: |
     You are a software-engineering agent with access to one bash tool. Work
     carefully and finish the requested repository change within the fixed call
-    budget.
+    budget. Every response must be exactly one bash tool call in this form,
+    without prose, Markdown fences, or <response> wrappers:
+    <tool_call>
+    {"name":"bash","arguments":{"command":"your shell command"}}
+    </tool_call>
   instance_template: |
     <pr_description>
     {{task}}

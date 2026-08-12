@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -30,7 +31,9 @@ class _CharacterTokenizer:
 
 def _bare_model() -> bridge.BridgeReuseLitellmModel:
     model = object.__new__(bridge.BridgeReuseLitellmModel)
-    model.config = SimpleNamespace(model_kwargs={}, model_name="test-model")
+    model.config = SimpleNamespace(
+        model_kwargs={}, model_name="test-model", native_backend_url=None
+    )
     model._instance_nonce = "test"
     model._session_index = 0
     model._request_index = 1
@@ -956,3 +959,59 @@ def test_query_closes_underlying_sync_stream_on_iteration_error(
 
     assert underlying.close_calls == 1
     assert stream.completion_stream is None
+
+
+@pytest.mark.parametrize(
+    ("content", "expected_command"),
+    [
+        (
+            '```json\n{"name":"bash","arguments":{"command":"git diff"}}\n```',
+            "git diff",
+        ),
+        (
+            '<response>\n```bash\n{"name":"bash","arguments":'
+            '{"command":"rg SECRET_KEY django"}}\n```\n</response>',
+            "rg SECRET_KEY django",
+        ),
+        (
+            "I will inspect first.\n```bash\nsed -n '1,80p' django/core/signing.py\n```",
+            "sed -n '1,80p' django/core/signing.py",
+        ),
+        (
+            "First enter the repo.\n```bash\ncd /testbed\n```\nThen inspect."
+            "\n```bash\nrg SECRET_KEY_FALLBACKS django\n```",
+            "rg SECRET_KEY_FALLBACKS django",
+        ),
+        (
+            '<tool_call>\n{"name":"bash","arguments":'
+            '{"command":"python -m compileall django"}}\n</tool_call>',
+            "python -m compileall django",
+        ),
+    ],
+)
+def test_attach_embedded_tool_call_accepts_observed_qwen_formats(
+    content: str, expected_command: str
+) -> None:
+    message = SimpleNamespace(tool_calls=None, content=content)
+
+    bridge.BridgeReuseLitellmModel._attach_embedded_tool_call(
+        message, "call_test"
+    )
+
+    assert len(message.tool_calls) == 1
+    call = message.tool_calls[0]
+    assert call.function.name == "bash"
+    assert json.loads(call.function.arguments) == {"command": expected_command}
+
+
+def test_attach_embedded_tool_call_does_not_invent_action_from_prose() -> None:
+    message = SimpleNamespace(
+        tool_calls=None,
+        content="I should inspect the repository before changing anything.",
+    )
+
+    bridge.BridgeReuseLitellmModel._attach_embedded_tool_call(
+        message, "call_test"
+    )
+
+    assert message.tool_calls is None

@@ -304,16 +304,17 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
     def _attach_embedded_tool_call(message: Any, call_id: str) -> None:
         if message.tool_calls or not isinstance(message.content, str):
             return
+        content = message.content
         function_match = re.search(
             r"<tool_call>\s*<function=(?P<name>[^>]+)>\s*"
             r"<parameter=command>(?P<command>.*?)</parameter>\s*"
             r"</function>\s*</tool_call>",
-            message.content,
+            content,
             flags=re.DOTALL,
         )
         json_match = re.search(
             r"<tool_call>\s*(?P<call>\{.*?\})\s*</tool_call>",
-            message.content,
+            content,
             flags=re.DOTALL,
         )
         name = None
@@ -327,10 +328,66 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             try:
                 value = json.loads(json_match.group("call"))
             except json.JSONDecodeError:
-                return
-            name = value.get("name")
-            arguments = value.get("arguments")
-            start = json_match.start()
+                value = None
+            if isinstance(value, dict):
+                name = value.get("name")
+                arguments = value.get("arguments")
+                start = json_match.start()
+        if name is None:
+            # Qwen2.5-Coder sometimes emits the requested tool-call JSON in a
+            # Markdown fence (or directly in prose) instead of wrapping it in
+            # <tool_call>.  Decode balanced JSON objects rather than using a
+            # non-greedy regex, which truncates the nested ``arguments`` map.
+            decoder = json.JSONDecoder()
+            for candidate_start, character in enumerate(content):
+                if character != "{":
+                    continue
+                try:
+                    candidate, _ = decoder.raw_decode(content[candidate_start:])
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(candidate, dict):
+                    continue
+                function = candidate.get("function", candidate)
+                if not isinstance(function, dict):
+                    continue
+                candidate_name = function.get("name")
+                candidate_arguments = function.get("arguments")
+                if (
+                    candidate_name == "bash"
+                    and isinstance(candidate_arguments, dict)
+                    and isinstance(candidate_arguments.get("command"), str)
+                ):
+                    name = candidate_name
+                    arguments = candidate_arguments
+                    start = candidate_start
+                    break
+        if name is None:
+            # A second observed Qwen fallback is a literal shell fence.  It is
+            # still an unambiguous invocation of our only exposed tool.  Take
+            # one fence as one action so the common max-one-call contract is
+            # preserved even if the model narrates several future steps.  If
+            # it first emits a standalone ``cd /testbed`` plan step, prefer
+            # the first substantive fence because every tool call already
+            # starts in /testbed and shell working directories do not persist.
+            shell_matches = list(re.finditer(
+                r"```(?:bash|sh|shell)\s*\n(?P<command>.*?)```",
+                content,
+                flags=re.DOTALL | re.IGNORECASE,
+            ))
+            shell_match = next(
+                (
+                    match
+                    for match in shell_matches
+                    if match.group("command").strip()
+                    not in {"cd /testbed", "cd -- /testbed"}
+                ),
+                shell_matches[0] if shell_matches else None,
+            )
+            if shell_match is not None and shell_match.group("command").strip():
+                name = "bash"
+                arguments = {"command": shell_match.group("command").strip()}
+                start = shell_match.start()
         if not name or not isinstance(arguments, dict) or start is None:
             return
         message.tool_calls = [
@@ -340,7 +397,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 function={"name": str(name), "arguments": json.dumps(arguments)},
             )
         ]
-        reasoning = message.content[:start].strip()
+        reasoning = content[:start].strip()
         message.content = reasoning or None
 
     @staticmethod
