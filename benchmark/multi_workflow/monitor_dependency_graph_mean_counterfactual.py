@@ -271,6 +271,11 @@ def main() -> None:
             atomic_json(status_path, state)
 
         if state["state"] == "fresh24_submitted":
+            if "canary4_first_prompt_identity" not in state:
+                state["canary4_first_prompt_identity"] = (
+                    validate_first_prompt_identity(campaign, source, "canary", 4)
+                )
+                atomic_json(status_path, state)
             wait_job(state, status_path, "graph_mean_fresh24", args.poll_seconds)
             state["fresh24"] = validate_online(campaign, "formal", 24)
             state["fresh24_first_prompt_identity"] = validate_first_prompt_identity(
