@@ -243,6 +243,16 @@ def validate_native_runs(
     reference = identities[reference_arm]
     if not reference:
         return False, f"no completed task sessions: {reference_arm}"
+    expected_tasks = 1
+    if instance is None:
+        snapshot_name = "CANARY4.json" if scope == "canary" else "FROZEN_FRESH24.json"
+        expected_tasks = len(read_json(campaign / snapshot_name))
+    task_counts = {arm: len(values) for arm, values in identities.items()}
+    if any(count != expected_tasks for count in task_counts.values()):
+        return False, (
+            f"expected {expected_tasks} identity-complete task sessions per arm: "
+            f"{task_counts}"
+        )
     session_sets = {arm: set(values) for arm, values in identities.items()}
     if any(values != set(reference) for values in session_sets.values()):
         return False, f"task-session sets differ across arms: {session_sets}"
