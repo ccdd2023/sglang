@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 from collections import Counter
 from datetime import datetime, timezone
@@ -21,6 +22,21 @@ from benchmark.multi_workflow.runtime_paths import RuntimePaths
 PROJECT = Path(__file__).resolve().parents[2]
 PATHS = RuntimePaths.from_project(PROJECT)
 DEFAULT_OUTPUT = PATHS.artifacts / "impactkv_common_agent_baselines_fresh24_20260812"
+CACHEBLEND_REPO = Path(
+    os.environ.get(
+        "IMPACTKV_CACHEBLEND_REPO",
+        str(
+            PATHS.home
+            / "kvflow-reproductions/worktrees/cacheblend-common-agent"
+        ),
+    )
+).expanduser().resolve()
+KVCOMM_REPO = Path(
+    os.environ.get(
+        "IMPACTKV_KVCOMM_REPO",
+        str(PATHS.home / "kvflow-reproductions/worktrees/kvcomm-common-agent"),
+    )
+).expanduser().resolve()
 SELECTION_SALT = "common-agent-native-baselines-qwen25-7b-fresh24-20260812-v1"
 TASKS = 24
 REPO_CAP = 4
@@ -215,6 +231,8 @@ def prepare(output: Path) -> dict[str, Any]:
                 str(path.relative_to(PROJECT)): sha256(path) for path in source_paths
             },
             "sglang_commit": git_head(PROJECT),
+            "cacheblend_commit": git_head(CACHEBLEND_REPO),
+            "kvcomm_commit": git_head(KVCOMM_REPO),
         },
     }
     write_json(registration, value)
