@@ -17,6 +17,10 @@ ARMS = (
     ("kvcomm", "dense"),
     ("kvcomm", "reuse"),
 )
+SGLANG_ARMS = (
+    ("dense", "dense"),
+    ("coding_dependency_graph_cold_lcb", "coding-aware"),
+)
 
 
 def read_json(path: Path) -> Any:
@@ -59,6 +63,42 @@ def accuracy_row(campaign: Path, scope: str, backend: str, mode: str) -> dict[st
     }
 
 
+def sglang_accuracy_row(
+    campaign: Path, scope: str, arm: str, mode: str
+) -> dict[str, Any] | None:
+    tasks = 4 if scope == "canary" else 24
+    run_dir = (
+        campaign
+        / "runs"
+        / f"sglang_{scope}"
+        / arm
+        / f"full_{tasks}"
+    )
+    runtime_path = run_dir / "RUNTIME_SUMMARY.json"
+    report_path = official_report(run_dir)
+    if not runtime_path.is_file() or report_path is None:
+        return None
+    runtime = read_json(runtime_path)
+    report = read_json(report_path)
+    submitted = int(report["submitted_instances"])
+    resolved = int(report["resolved_instances"])
+    copied = int(runtime.get("copied_tokens") or 0)
+    return {
+        "backend": "sglang",
+        "mode": mode,
+        "resolved": resolved,
+        "submitted": submitted,
+        "accuracy": resolved / submitted if submitted else None,
+        "agent_requests": int(runtime["requests"]),
+        "descriptive_agent_median_ttft_ms": runtime["median_ttft_ms"],
+        "physical_reuse_requests": int(runtime.get("target_copy_events") or 0),
+        "reused_k_tokens": copied,
+        "reused_v_tokens": copied,
+        "fallback_requests": int(runtime.get("target_fallback_events") or 0),
+        "official_report": str(report_path),
+    }
+
+
 def exact_row(campaign: Path, label: str, backend: str) -> dict[str, Any] | None:
     path = campaign / "exact_prompt_replay" / label / backend / "RESULT.json"
     if not path.is_file():
@@ -87,8 +127,10 @@ def exact_row(campaign: Path, label: str, backend: str) -> dict[str, Any] | None
         "targets_cache_ready_faster": sum(
             value > 1 for value in values("cache_ready_speedup")
         ),
-        "physical_reuse_rounds": sum(
-            int(row["physical_reuse_rounds"]) for row in targets
+        "physical_reuse_rounds": (
+            sum(int(row["physical_reuse_rounds"]) for row in targets)
+            if all("physical_reuse_rounds" in row for row in targets)
+            else int((result.get("summary") or {}).get("physical_copy_events") or 0)
         ),
         "result": str(path),
     }
@@ -190,6 +232,11 @@ def main() -> None:
             for backend, mode in ARMS
             if (row := accuracy_row(campaign, scope, backend, mode)) is not None
         ]
+        rows.extend(
+            row
+            for arm, mode in SGLANG_ARMS
+            if (row := sglang_accuracy_row(campaign, scope, arm, mode)) is not None
+        )
         if rows:
             summary["accuracy"][scope] = rows
     for label in ("one_task_canary", "fresh24"):
@@ -200,6 +247,10 @@ def main() -> None:
         ]
         if rows:
             summary["exact_ttft"][label] = rows
+    for label in ("canary4", "fresh24"):
+        row = exact_row(campaign, label, "sglang_coding")
+        if row is not None:
+            summary["exact_ttft"].setdefault(label, []).append(row)
     output.mkdir(parents=True, exist_ok=True)
     write(output / "SUMMARY.json", json.dumps(summary, ensure_ascii=False, indent=2) + "\n")
     write(output / "RESULTS.md", markdown(summary))

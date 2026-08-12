@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -387,6 +388,18 @@ def main() -> None:
             names = list(state["active_jobs"])
             wait_jobs(state, status_path, names, args.poll_seconds)
             state["fresh24_exact"] = validate_exact(campaign, "fresh24")
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(
+                        project
+                        / "benchmark/multi_workflow/summarize_common_baseline_campaign.py"
+                    ),
+                    "--campaign",
+                    str(campaign),
+                ],
+                check=True,
+            )
             state["state"] = "complete"
             state["finished_at_utc"] = utc_now()
             atomic_json(status_path, state)
