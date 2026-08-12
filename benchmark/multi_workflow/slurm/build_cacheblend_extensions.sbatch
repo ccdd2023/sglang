@@ -24,6 +24,7 @@ system_cuda=/usr/local/cuda-12.9
 export CUDA_HOME="$HOME/impactkv-runtime/toolchains/cuda-12.9-legacy-layout"
 mkdir -p "$CUDA_HOME"
 ln -sfn "$system_cuda/bin" "$CUDA_HOME/bin"
+ln -sfn "$system_cuda/targets" "$CUDA_HOME/targets"
 rm -rf "$CUDA_HOME/include" "$CUDA_HOME/lib64"
 mkdir -p "$CUDA_HOME/include" "$CUDA_HOME/lib64"
 for entry in "$system_cuda"/targets/x86_64-linux/include/*; do
