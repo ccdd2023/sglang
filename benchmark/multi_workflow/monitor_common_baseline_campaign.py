@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -161,7 +162,10 @@ def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def first_request_identity_by_session(
+_MODEL_INSTANCE_INDEX = re.compile(r"-m(?P<index>[1-9][0-9]*)$")
+
+
+def first_request_identity_by_task(
     rows: list[dict[str, Any]],
 ) -> dict[int, tuple[str, str]]:
     """Return the first completed messages/token identity for every task session."""
@@ -170,14 +174,16 @@ def first_request_identity_by_session(
     for row in rows:
         if row.get("event") != "request_complete":
             continue
-        session_index = row.get("session_index")
+        nonce = row.get("model_instance_nonce")
+        match = _MODEL_INSTANCE_INDEX.search(nonce) if isinstance(nonce, str) else None
+        task_index = int(match.group("index")) if match else row.get("session_index")
         messages_hash = row.get("messages_sha256")
         input_ids_hash = row.get("input_ids_sha256")
-        if not isinstance(session_index, int):
-            raise ValueError(f"request is missing integer session_index: {row}")
+        if not isinstance(task_index, int):
+            raise ValueError(f"request is missing task identity: {row}")
         if not isinstance(messages_hash, str) or not isinstance(input_ids_hash, str):
             raise ValueError(f"request is missing input identity: {row}")
-        identities.setdefault(session_index, (messages_hash, input_ids_hash))
+        identities.setdefault(task_index, (messages_hash, input_ids_hash))
     return identities
 
 
@@ -230,7 +236,7 @@ def validate_native_runs(
             if line.strip()
         ]
     identities = {
-        arm: first_request_identity_by_session(rows)
+        arm: first_request_identity_by_task(rows)
         for arm, rows in ledgers.items()
     }
     reference_arm = ARMS[0]
