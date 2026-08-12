@@ -345,6 +345,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--poll-seconds", type=int, default=30)
     parser.add_argument("--retry-blocked", action="store_true")
+    parser.add_argument(
+        "--resume-preregistered-zero-target-canary", action="store_true"
+    )
     args = parser.parse_args()
     home = Path.home()
     project = home / "CodeMAS_Project/worktrees/sglang-common-agent"
@@ -356,6 +359,28 @@ def main() -> None:
     status_path = campaign / STATUS_NAME
     if status_path.is_file():
         state = read_json(status_path)
+        if (
+            state.get("state") == "blocked"
+            and args.resume_preregistered_zero_target_canary
+        ):
+            passed, reason, rows = validate_sglang_runs(campaign, "canary", 4)
+            coding = rows.get("coding_dependency_graph_cold_lcb") or {}
+            if not passed or coding.get("copy_gate") != "zero_target_opportunity":
+                raise RuntimeError(
+                    "cannot resume: completed Canary4 is not a validated "
+                    f"zero-target cohort ({reason})"
+                )
+            state["state"] = "canary4_submitted"
+            state["active_jobs"] = [
+                "canary_sglang_dense",
+                "canary_sglang_coding_dependency_graph_cold_lcb",
+            ]
+            state.pop("error", None)
+            state["resume_amendment"] = (
+                "SGLANG_CANARY_ZERO_TARGET_CAPACITY_AMENDMENT_BEFORE_FORMAL.json"
+            )
+            state["updated_at_utc"] = utc_now()
+            atomic_json(status_path, state)
         if state.get("state") == "blocked" and args.retry_blocked:
             prior_jobs = dict(state.get("jobs") or {})
             archive, archived_paths = archive_retry_artifacts(
