@@ -58,6 +58,41 @@ def main() -> None:
             if not passed:
                 raise RuntimeError(reason)
             state["canary4_gate"] = reason
+            name = "one_task_exact_kvcomm"
+            state["jobs"][name] = base.submit(
+                script=(
+                    project
+                    / "benchmark/multi_workflow/slurm/common_exact_prompt_replay.sbatch"
+                ),
+                logs=logs,
+                exports={
+                    "IMPACTKV_COMMON_BACKEND": "kvcomm",
+                    "IMPACTKV_COMMON_SOURCE_LEDGER": str(
+                        campaign
+                        / "runs/canary/cacheblend_dense/django__django-16631/"
+                        "BACKEND_LEDGER.jsonl"
+                    ),
+                    "IMPACTKV_COMMON_REPLAY_LABEL": "one_task_canary",
+                    "IMPACTKV_COMMON_REPLAY_LIMIT": "4",
+                    "IMPACTKV_KVCOMM_PYTHON": str(
+                        home / ".venvs/kvcomm-native-sdpa/bin/python"
+                    ),
+                    "IMPACTKV_KVCOMM_ATTN_IMPLEMENTATION": "sdpa",
+                },
+                dependency=args.replacement_job,
+            )
+            state["active_jobs"] = [name]
+            state["state"] = "one_task_exact_recovery_submitted"
+            save(status_path, state)
+
+        if state["state"] == "one_task_exact_recovery_submitted":
+            base.wait_jobs(state, list(state["active_jobs"]), args.poll_seconds)
+            exact = base.read_json(
+                campaign / "exact_prompt_replay/one_task_canary/kvcomm/RESULT.json"
+            )
+            if exact.get("status") != "PASS":
+                raise RuntimeError(f"replacement KVCOMM exact replay failed: {exact}")
+            state["one_task_exact_kvcomm_runtime"] = "torch 2.1.2 SDPA"
             name = "formal_images"
             existing_image_job = state.get("jobs", {}).get(name)
             if not existing_image_job:
