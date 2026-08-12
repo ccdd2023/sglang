@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#SBATCH --job-name=impactkv-cb-build
+#SBATCH --partition=long
+#SBATCH --exclude=gpu[10-13,23-24]
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=64G
+#SBATCH --time=03:00:00
+#SBATCH --output=%x-%j.out
+#SBATCH --error=%x-%j.err
+
+set -euo pipefail
+
+export IMPACTKV_PROJECT="$HOME/CodeMAS_Project/worktrees/sglang-common-agent"
+source "$IMPACTKV_PROJECT/benchmark/multi_workflow/slurm/impactkv_home_env.sh"
+repo="$HOME/CodeMAS_Project/worktrees/cacheblend-common-agent"
+python="$HOME/.venvs/cacheblend-native/bin/python"
+
+export PYTHONNOUSERSITE=1
+export CUDA_HOME=/usr/local/cuda-12.1
+export PATH="$CUDA_HOME/bin:$PATH"
+export TORCH_CUDA_ARCH_LIST=8.9
+export MAX_JOBS="${MAX_JOBS:-16}"
+export NVCC_THREADS="${NVCC_THREADS:-2}"
+export CMAKE_BUILD_TYPE=Release
+export PYTHONPATH="$repo/vllm_blend:$repo"
+
+cd "$repo/vllm_blend"
+"$python" setup.py build_ext --inplace
+"$python" -c 'import torch, transformers, vllm; print(torch.__version__, transformers.__version__, vllm.__version__)'
+sha256sum \
+  vllm/_C.cpython-310-x86_64-linux-gnu.so \
+  vllm/_moe_C.cpython-310-x86_64-linux-gnu.so \
+  > "$HOME/impactkv-runtime/logs/common-baselines/CACHEBLEND_EXTENSION_SHA256SUMS"
