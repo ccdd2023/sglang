@@ -25,9 +25,11 @@ export TORCH_CUDA_ARCH_LIST=8.9
 export MAX_JOBS="${MAX_JOBS:-16}"
 export NVCC_THREADS="${NVCC_THREADS:-2}"
 export CMAKE_BUILD_TYPE=Release
+export CMAKE_ARGS="${CMAKE_ARGS:-} -DCUDA_TOOLKIT_ROOT_DIR=$CUDA_HOME -DCUDA_TOOLKIT_INCLUDE=$CUDA_HOME/include -DCUDA_CUDART_LIBRARY=$CUDA_HOME/lib64/libcudart.so"
 export PYTHONPATH="$repo/vllm_blend:$repo"
 
 cd "$repo/vllm_blend"
+rm -rf build/temp.linux-x86_64-cpython-310
 "$python" setup.py build_ext --inplace
 "$python" -c 'import torch, transformers, vllm; print(torch.__version__, transformers.__version__, vllm.__version__)'
 sha256sum \
