@@ -25,6 +25,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--replacement-job", required=True)
     parser.add_argument("--replacement-dense-job")
+    parser.add_argument("--invalid-patch-regrade-job")
     parser.add_argument("--poll-seconds", type=int, default=30)
     args = parser.parse_args()
     home = Path.home()
@@ -38,6 +39,32 @@ def main() -> None:
     state = base.read_json(status_path)
 
     try:
+        regrade_name = "formal_cacheblend_dense_regrade"
+        if (
+            state.get("state") == "blocked"
+            and args.invalid_patch_regrade_job
+            and state.get("jobs", {}).get(regrade_name)
+            != args.invalid_patch_regrade_job
+        ):
+            state.setdefault("invalidated_failures", []).append(
+                {
+                    "job": state["jobs"].get("formal_cacheblend_dense_all"),
+                    "reason": state.get("error"),
+                    "classification": (
+                        "valid inference; invalid model patch was incorrectly "
+                        "escalated to evaluator infrastructure failure"
+                    ),
+                }
+            )
+            state.pop("error", None)
+            state["jobs"][regrade_name] = args.invalid_patch_regrade_job
+            state["active_jobs"] = [regrade_name]
+            state["state"] = "invalid_patch_regrade_submitted"
+            state["recovery_amendment"] = (
+                "INVALID_MODEL_PATCH_CLASSIFICATION_AMENDMENT_BEFORE_RECOVERY.json"
+            )
+            save(status_path, state)
+
         current_replacement = state.get("jobs", {}).get("canary_kvcomm_reuse_all")
         if current_replacement != args.replacement_job:
             state.pop("canary4_gate", None)
@@ -124,7 +151,37 @@ def main() -> None:
             state["state"] = "fresh24_submitted"
             save(status_path, state)
 
-        if state["state"] == "fresh24_submitted":
+        if state["state"] == "invalid_patch_regrade_submitted":
+            base.wait_jobs(state, list(state["active_jobs"]), args.poll_seconds)
+            official = base.read_json(
+                campaign
+                / "runs/formal/cacheblend_dense/all/OFFICIAL_RESULT.json"
+            )
+            report = official.get("report") or {}
+            if (
+                official.get("returncode") != 0
+                or report.get("total_instances") != 24
+                or report.get("error_instances") != 0
+                or report.get("invalid_patch_ids")
+                != ["astropy__astropy-14096"]
+            ):
+                raise RuntimeError(
+                    f"invalid-model-patch regrade gate failed: {official}"
+                )
+            names = base.submit_native_stage(
+                state,
+                project=project,
+                logs=logs,
+                scope="formal",
+                instance=None,
+                arms=base.ARMS[1:],
+                dependency=args.invalid_patch_regrade_job,
+            )
+            state["active_jobs"] = names
+            state["state"] = "fresh24_recovery_submitted"
+            save(status_path, state)
+
+        if state["state"] in {"fresh24_submitted", "fresh24_recovery_submitted"}:
             base.wait_jobs(state, list(state["active_jobs"]), args.poll_seconds)
             passed, reason = base.validate_native_runs(campaign, "formal", None)
             if not passed:

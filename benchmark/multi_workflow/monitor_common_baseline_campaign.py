@@ -296,10 +296,11 @@ def submit_native_stage(
     logs: Path,
     scope: str,
     instance: str | None,
+    arms: tuple[tuple[str, str], ...] = ARMS,
+    dependency: str | None = None,
 ) -> list[str]:
     names = []
-    dependency = None
-    for backend, mode in ARMS:
+    for backend, mode in arms:
         name = f"{scope}_{backend}_{mode}_{instance or 'all'}"
         exports = {
             "IMPACTKV_COMMON_BACKEND": backend,
