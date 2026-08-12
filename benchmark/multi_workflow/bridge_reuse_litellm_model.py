@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import litellm
+import requests
 from minisweagent.models.litellm_model import LitellmModel
 from minisweagent.models.utils.actions_toolcall import BASH_TOOL
 from pydantic import Field, model_validator
@@ -129,6 +130,8 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
     reuse_min_tokens: int = Field(default=128, ge=32)
     reuse_manifest_path: Path | None = None
     reuse_client_ledger_path: Path | None = None
+    native_backend_url: str | None = None
+    native_backend_name: str | None = None
 
     @model_validator(mode="after")
     def validate_reuse_paths(self):
@@ -247,14 +250,98 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             self._atomic_sidecar_update(release_orphaned_sources=True)
 
     def _render_prompt_ids(self, messages: list[dict[str, Any]]) -> list[int]:
-        prompt = self._chat_template.render(
+        prompt = self._render_prompt(messages)
+        return self._tokenizer.encode(
+            prompt, add_special_tokens=False
+        ).ids
+
+    def _render_prompt(self, messages: list[dict[str, Any]]) -> str:
+        return self._chat_template.render(
             messages=self._template_messages(messages),
             tools=[BASH_TOOL],
             add_generation_prompt=True,
         )
-        return self._tokenizer.encode(
-            prompt, add_special_tokens=False
-        ).ids
+
+    def _native_backend_segments(
+        self,
+        messages: list[dict[str, Any]],
+        prompt_ids: list[int],
+    ) -> list[dict[str, Any]]:
+        """Locate reusable rolling observations without changing target IDs."""
+
+        candidates: list[dict[str, Any]] = []
+        cursor = 0
+        for message_index, message in enumerate(messages):
+            if message_index < 2 or message.get("role") != "tool":
+                continue
+            literal = self._render_message_literal(message)
+            ids = self._tokenizer.encode(
+                literal, add_special_tokens=False
+            ).ids
+            matches = [start for start in find_sublist(prompt_ids, ids) if start >= cursor]
+            if not matches:
+                continue
+            start = matches[0]
+            end = start + len(ids)
+            cursor = end
+            candidates.append(
+                {
+                    "segment_id": hashlib.sha256(
+                        f"tool:{message_index}:".encode()
+                        + bytes.fromhex(token_ids_hash(ids))
+                    ).hexdigest()[:24],
+                    "message_index": message_index,
+                    "role": "tool",
+                    "start": start,
+                    "end": end,
+                    "length": len(ids),
+                    "token_ids_sha256": token_ids_hash(ids),
+                }
+            )
+        return candidates
+
+    @staticmethod
+    def _attach_embedded_tool_call(message: Any, call_id: str) -> None:
+        if message.tool_calls or not isinstance(message.content, str):
+            return
+        function_match = re.search(
+            r"<tool_call>\s*<function=(?P<name>[^>]+)>\s*"
+            r"<parameter=command>(?P<command>.*?)</parameter>\s*"
+            r"</function>\s*</tool_call>",
+            message.content,
+            flags=re.DOTALL,
+        )
+        json_match = re.search(
+            r"<tool_call>\s*(?P<call>\{.*?\})\s*</tool_call>",
+            message.content,
+            flags=re.DOTALL,
+        )
+        name = None
+        arguments: dict[str, Any] | None = None
+        start = None
+        if function_match is not None:
+            name = function_match.group("name").strip()
+            arguments = {"command": function_match.group("command")}
+            start = function_match.start()
+        elif json_match is not None:
+            try:
+                value = json.loads(json_match.group("call"))
+            except json.JSONDecodeError:
+                return
+            name = value.get("name")
+            arguments = value.get("arguments")
+            start = json_match.start()
+        if not name or not isinstance(arguments, dict) or start is None:
+            return
+        message.tool_calls = [
+            litellm.ChatCompletionMessageToolCall(
+                id=call_id,
+                type="function",
+                function={"name": str(name), "arguments": json.dumps(arguments)},
+            )
+        ]
+        reasoning = message.content[:start].strip()
+        message.content = reasoning or None
 
     @staticmethod
     def _render_message_literal(message: dict[str, Any]) -> str:
@@ -1158,6 +1245,94 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         )
 
     def _query(self, messages: list[dict[str, str]], **kwargs: Any):
+        if self.config.native_backend_url:
+            prompt = self._render_prompt(messages)
+            prompt_ids = self._tokenizer.encode(
+                prompt, add_special_tokens=False
+            ).ids
+            options = self.config.model_kwargs | kwargs
+            max_new_tokens = int(
+                options.get("max_tokens", options.get("max_new_tokens", 2048))
+            )
+            payload = {
+                "schema_version": 1,
+                "backend": self.config.native_backend_name,
+                "session_id": f"{self._instance_nonce}-s{self._session_index}",
+                "request_index": self._request_index,
+                "prompt_text_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
+                "input_ids": prompt_ids,
+                "input_ids_sha256": token_ids_hash(prompt_ids),
+                "segments": self._native_backend_segments(messages, prompt_ids),
+                "max_new_tokens": max_new_tokens,
+                "temperature": float(options.get("temperature", 0.0)),
+            }
+            started = time.perf_counter()
+            response = requests.post(
+                self.config.native_backend_url.rstrip("/") + "/generate",
+                json=payload,
+                timeout=float(options.get("timeout", 900)),
+            )
+            response.raise_for_status()
+            value = response.json()
+            if value.get("input_ids_sha256") != payload["input_ids_sha256"]:
+                raise RuntimeError("native backend changed the target token IDs")
+            text = str(value.get("text") or "")
+            completion_ids = value.get("output_ids") or []
+            model_response = litellm.ModelResponse(
+                model=self.config.native_backend_name or "native-kv-backend",
+                choices=[
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": text},
+                        "finish_reason": value.get("finish_reason", "stop"),
+                    }
+                ],
+                usage={
+                    "prompt_tokens": len(prompt_ids),
+                    "completion_tokens": len(completion_ids),
+                    "total_tokens": len(prompt_ids) + len(completion_ids),
+                },
+            )
+            self._attach_embedded_tool_call(
+                model_response.choices[0].message,
+                (
+                    f"call_{self._instance_nonce}_s{self._session_index}_"
+                    f"q{self._request_index}"
+                ),
+            )
+            self._last_stream_stats = {
+                "ttft_seconds": (
+                    float(value["ttft_ms"]) / 1000
+                    if value.get("ttft_ms") is not None
+                    else None
+                ),
+                "stream_elapsed_seconds": time.perf_counter() - started,
+                "stream_chunks": None,
+                "native_backend": self.config.native_backend_name,
+                "native_backend_metrics": {
+                    key: value.get(key)
+                    for key in (
+                        "cache_build_ms",
+                        "preprocess_ms",
+                        "reused_k_tokens",
+                        "reused_v_tokens",
+                        "recomputed_tokens",
+                        "fallback_reason",
+                        "physical_reuse",
+                    )
+                },
+                "messages_sha256": hashlib.sha256(
+                    json.dumps(
+                        messages,
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    ).encode()
+                ).hexdigest(),
+                "input_ids_sha256": payload["input_ids_sha256"],
+                "reusable_segments": payload["segments"],
+            }
+            return model_response
         started = time.perf_counter()
         options = self.config.model_kwargs | kwargs
         options.pop("stream", None)
@@ -1195,33 +1370,13 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         if response is None:
             raise RuntimeError("empty LiteLLM stream")
         message = response.choices[0].message
-        if not message.tool_calls and isinstance(message.content, str):
-            match = re.search(
-                r"<tool_call>\s*<function=(?P<name>[^>]+)>\s*"
-                r"<parameter=command>(?P<command>.*?)</parameter>\s*"
-                r"</function>\s*</tool_call>",
-                message.content,
-                flags=re.DOTALL,
-            )
-            if match is not None:
-                message.tool_calls = [
-                    litellm.ChatCompletionMessageToolCall(
-                        id=(
-                            f"call_{self._instance_nonce}_"
-                            f"s{self._session_index}_"
-                            f"q{self._request_index}"
-                        ),
-                        type="function",
-                        function={
-                            "name": match.group("name").strip(),
-                            "arguments": json.dumps(
-                                {"command": match.group("command")}
-                            ),
-                        },
-                    )
-                ]
-                reasoning = message.content[: match.start()].strip()
-                message.content = reasoning or None
+        self._attach_embedded_tool_call(
+            message,
+            (
+                f"call_{self._instance_nonce}_s{self._session_index}_"
+                f"q{self._request_index}"
+            ),
+        )
         self._last_stream_stats = {
             "ttft_seconds": ttft_seconds,
             "stream_elapsed_seconds": finished - started,
@@ -1432,6 +1587,14 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         # request counter.
         result = LitellmModel.query(self, compacted_messages, **kwargs)
         elapsed = time.perf_counter() - started
+        if self.config.native_backend_url:
+            executed_hash = self._last_stream_stats.get("input_ids_sha256")
+            planned_hash = token_ids_hash(prompt_ids)
+            if executed_hash != planned_hash:
+                raise RuntimeError(
+                    "common native backend prompt differs from the planned prompt: "
+                    f"{executed_hash} != {planned_hash}"
+                )
         original_tool_calls = result.get("tool_calls") or []
         executed_tool_calls = original_tool_calls[
             : self.config.max_tool_calls_per_response

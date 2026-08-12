@@ -1,0 +1,51 @@
+# Merge after mini-SWE-agent 2.3.0's built-in swebench.yaml. All native
+# backends receive the exact token IDs rendered by this single model wrapper.
+agent:
+  step_limit: 32
+  cost_limit: 0
+  wall_time_limit_seconds: 1200
+  system_template: |
+    You are a software-engineering agent with access to one bash tool. Work
+    carefully and finish the requested repository change within the fixed call
+    budget.
+  instance_template: |
+    <pr_description>
+    {{task}}
+    </pr_description>
+
+    Work in /testbed and modify only regular non-test source files required by
+    the PR description. Do not modify tests, packaging, or configuration.
+
+    Use the bash tool in every response. Inspect narrowly and finish the source
+    edit by model call 5. Run a focused check only after editing. After the edit,
+    inspect `git diff`, create patch.txt from only the modified source files,
+    inspect it, and submit with exactly:
+    `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT && cat patch.txt`
+    Do not issue any command after submission.
+
+environment:
+  timeout: 120
+  container_timeout: "30m"
+  interpreter: ["bash", "-lc"]
+  env:
+    BASH_ENV: "/root/.bashrc"
+
+model:
+  model_name: "common_native/Qwen2.5-Coder-7B-Instruct"
+  model_class: "benchmark.multi_workflow.bridge_reuse_litellm_model.BridgeReuseLitellmModel"
+  cost_tracking: "ignore_errors"
+  tokenizer_json_path: "/home/gfy/models/Qwen2.5-Coder-7B-Instruct/tokenizer.json"
+  chat_template_path: "benchmark/multi_workflow/qwen2_5_coder_tool_chat_template.jinja"
+  prompt_token_limit: 28000
+  max_tool_observation_chars: 6000
+  max_assistant_reasoning_chars: 3000
+  emergency_message_chars: 1500
+  max_tool_calls_per_response: 1
+  rolling_history_groups: 6
+  reuse_arm: "dense"
+  native_backend_url: "http://127.0.0.1:31000"
+  native_backend_name: "cacheblend-dense"
+  model_kwargs:
+    max_tokens: 2048
+    temperature: 0.0
+    timeout: 900
