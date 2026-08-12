@@ -281,6 +281,7 @@ def formal_images_ready(campaign: Path) -> tuple[bool, str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--poll-seconds", type=int, default=30)
+    parser.add_argument("--retry-blocked", action="store_true")
     args = parser.parse_args()
     home = Path.home()
     project = home / "CodeMAS_Project/worktrees/sglang-common-agent"
@@ -292,6 +293,21 @@ def main() -> None:
     status_path = campaign / STATUS_NAME
     if status_path.is_file():
         state = read_json(status_path)
+        if state.get("state") == "blocked" and args.retry_blocked:
+            state.setdefault("invalidated_runs", []).append(
+                {
+                    "invalidated_at_utc": utc_now(),
+                    "jobs": dict(state.get("jobs") or {}),
+                    "error": state.get("error"),
+                }
+            )
+            state["state"] = "waiting_native_canary4"
+            state["jobs"] = {}
+            state.pop("active_jobs", None)
+            state.pop("slurm_states", None)
+            state.pop("error", None)
+            state["updated_at_utc"] = utc_now()
+            atomic_json(status_path, state)
     else:
         state = {
             "schema_version": 1,
