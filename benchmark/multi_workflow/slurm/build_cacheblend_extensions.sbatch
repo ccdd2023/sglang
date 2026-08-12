@@ -16,7 +16,10 @@ repo="$HOME/CodeMAS_Project/worktrees/cacheblend-common-agent"
 python="$HOME/.venvs/cacheblend-native/bin/python"
 
 export PYTHONNOUSERSITE=1
-export CUDA_HOME=/usr/local/cuda-12.1
+# The compute nodes only expose a complete CUDA 12 toolkit at 12.9.  PyTorch
+# 2.2.1 is cu121; the major version matches, and its extension checker permits
+# a newer CUDA 12 minor while warning about the minor-version difference.
+export CUDA_HOME=/usr/local/cuda-12.9
 export PATH="$CUDA_HOME/bin:$PATH"
 export TORCH_CUDA_ARCH_LIST=8.9
 export MAX_JOBS="${MAX_JOBS:-16}"
