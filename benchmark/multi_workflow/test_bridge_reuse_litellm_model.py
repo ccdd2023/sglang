@@ -1027,3 +1027,18 @@ def test_attach_embedded_tool_call_does_not_invent_action_from_prose() -> None:
     )
 
     assert message.tool_calls is None
+
+
+def test_attach_embedded_tool_call_replaces_standalone_testbed_cd() -> None:
+    message = SimpleNamespace(
+        tool_calls=None,
+        content='{"name":"bash","arguments":{"command":"cd /testbed"}}',
+    )
+
+    bridge.BridgeReuseLitellmModel._attach_embedded_tool_call(
+        message, "call_test"
+    )
+
+    arguments = json.loads(message.tool_calls[0].function.arguments)
+    assert arguments["command"].startswith("pwd;")
+    assert "already starts in /testbed" in arguments["command"]

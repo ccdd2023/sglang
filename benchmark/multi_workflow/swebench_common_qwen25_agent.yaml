@@ -20,6 +20,9 @@ agent:
     Work in /testbed and modify only regular non-test source files required by
     the PR description. Do not modify tests, packaging, or configuration.
 
+    The tool already starts every command in /testbed. Never run `cd /testbed`
+    by itself. Start call 1 with a short `rg -n` search for the identifiers in
+    the PR description; do not construct long chains of `grep -v` filters.
     Use the bash tool in every response. Model calls 1 and 2 must be narrow,
     read-only inspection with commands such as `rg`, `sed -n`, and `git diff`.
     Do not edit before call 3. Never run a recursive `find ... -exec` edit or a
@@ -55,4 +58,5 @@ model:
   model_kwargs:
     max_tokens: 2048
     temperature: 0.0
+    repetition_penalty: 1.05
     timeout: 900

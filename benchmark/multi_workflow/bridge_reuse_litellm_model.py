@@ -436,6 +436,21 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 start = shell_match.start()
         if not name or not isinstance(arguments, dict) or start is None:
             return
+        command = arguments.get("command")
+        if name == "bash" and isinstance(command, str):
+            normalized = re.sub(r"\s+", " ", command.strip()).rstrip(";")
+            if normalized in {"cd /testbed", "cd -- /testbed"}:
+                # EnrootEnvironment already prefixes every action with
+                # ``cd /testbed``.  Returning an explicit observation breaks
+                # the observed silent no-op loop without inventing a
+                # task-specific search or mutating the repository.
+                arguments = {
+                    "command": (
+                        "pwd; printf '%s\\n' 'NOTICE: every action already "
+                        "starts in /testbed. Do not issue standalone cd. "
+                        "Next inspect narrowly with rg -n or sed -n.'"
+                    )
+                }
         message.tool_calls = [
             litellm.ChatCompletionMessageToolCall(
                 id=call_id,
@@ -1368,6 +1383,9 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 "segments": self._native_backend_segments(messages, prompt_ids),
                 "max_new_tokens": max_new_tokens,
                 "temperature": float(options.get("temperature", 0.0)),
+                "repetition_penalty": float(
+                    options.get("repetition_penalty", 1.0)
+                ),
             }
             started = time.perf_counter()
             response = requests.post(

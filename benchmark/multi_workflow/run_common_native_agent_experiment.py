@@ -164,6 +164,7 @@ def main() -> None:
             "prompt_token_limit": 28000,
             "context_length": 32768,
             "max_new_tokens": 2048,
+            "repetition_penalty": 1.05,
             "workers": 1,
             "prefetch": False,
         },
