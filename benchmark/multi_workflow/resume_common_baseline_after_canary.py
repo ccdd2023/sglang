@@ -37,7 +37,9 @@ def main() -> None:
     state = base.read_json(status_path)
 
     try:
-        if state.get("state") in {"canary4_submitted", "canary4_recovery_required"}:
+        current_replacement = state.get("jobs", {}).get("canary_kvcomm_reuse_all")
+        if current_replacement != args.replacement_job:
+            state.pop("canary4_gate", None)
             state["jobs"]["canary_kvcomm_reuse_all"] = args.replacement_job
             state["replaced_invalid_job"] = "74238"
             state["replacement_reason"] = (
@@ -54,15 +56,17 @@ def main() -> None:
                 raise RuntimeError(reason)
             state["canary4_gate"] = reason
             name = "formal_images"
-            state["jobs"][name] = base.submit(
-                script=(
-                    project
-                    / "benchmark/multi_workflow/slurm/common_agent_prepare_images.sbatch"
-                ),
-                logs=logs,
-                exports={"IMPACTKV_COMMON_SCOPE": "formal"},
-                dependency=args.replacement_job,
-            )
+            existing_image_job = state.get("jobs", {}).get(name)
+            if not existing_image_job:
+                state["jobs"][name] = base.submit(
+                    script=(
+                        project
+                        / "benchmark/multi_workflow/slurm/common_agent_prepare_images.sbatch"
+                    ),
+                    logs=logs,
+                    exports={"IMPACTKV_COMMON_SCOPE": "formal"},
+                    dependency=args.replacement_job,
+                )
             state["active_jobs"] = [name]
             state["state"] = "formal_images_submitted"
             save(status_path, state)

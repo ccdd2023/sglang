@@ -107,7 +107,6 @@ PYTHONPATH="$backend_pythonpath" \
 HF_HUB_OFFLINE=1 \
 TRANSFORMERS_OFFLINE=1 \
 KVFLOW_REPRO_DTYPE="$model_dtype" \
-KVFLOW_REPRO_ATTN_IMPLEMENTATION="sdpa" \
 "${backend_command[@]}" >"$runtime/backend.log" 2>&1 &
 server_pid=$!
 cleanup() {
