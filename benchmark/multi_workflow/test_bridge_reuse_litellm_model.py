@@ -1042,3 +1042,31 @@ def test_attach_embedded_tool_call_replaces_standalone_testbed_cd() -> None:
     arguments = json.loads(message.tool_calls[0].function.arguments)
     assert arguments["command"].startswith("pwd;")
     assert "already starts in /testbed" in arguments["command"]
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "apt-get update && apt-get install ripgrep",
+        "sudo apt install -y ripgrep",
+        "pip install ripgrep",
+    ],
+)
+def test_attach_embedded_tool_call_replaces_offline_package_install(
+    command: str,
+) -> None:
+    message = SimpleNamespace(
+        tool_calls=None,
+        content=json.dumps(
+            {"name": "bash", "arguments": {"command": command}}
+        ),
+    )
+
+    bridge.BridgeReuseLitellmModel._attach_embedded_tool_call(
+        message, "call_test"
+    )
+
+    arguments = json.loads(message.tool_calls[0].function.arguments)
+    assert arguments["command"].startswith("printf")
+    assert "container is offline" in arguments["command"]
+    assert "Use existing grep/find/sed" in arguments["command"]

@@ -451,6 +451,23 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                         "Next inspect narrowly with rg -n or sed -n.'"
                     )
                 }
+            elif re.search(
+                r"(?:^|(?:&&|\|\||;|\|)\s*)(?:sudo\s+)?"
+                r"(?:apt(?:-get)?|pip(?:3)?\s+install)\b",
+                normalized,
+            ):
+                # SWE-bench containers are deliberately offline.  A failed
+                # package install was observed to consume the entire 32-call
+                # agent budget.  Return a backend-neutral observation without
+                # inventing a task-specific search or repository mutation.
+                arguments = {
+                    "command": (
+                        "printf '%s\\n' 'NOTICE: this container is offline; "
+                        "package installation is unavailable. Do not retry "
+                        "apt, sudo, or pip install. Use existing grep/find/sed "
+                        "tools instead.'"
+                    )
+                }
         message.tool_calls = [
             litellm.ChatCompletionMessageToolCall(
                 id=call_id,
