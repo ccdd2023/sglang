@@ -24,8 +24,21 @@ system_cuda=/usr/local/cuda-12.9
 export CUDA_HOME="$HOME/impactkv-runtime/toolchains/cuda-12.9-legacy-layout"
 mkdir -p "$CUDA_HOME"
 ln -sfn "$system_cuda/bin" "$CUDA_HOME/bin"
-ln -sfn "$system_cuda/targets/x86_64-linux/include" "$CUDA_HOME/include"
-ln -sfn "$system_cuda/targets/x86_64-linux/lib" "$CUDA_HOME/lib64"
+rm -rf "$CUDA_HOME/include" "$CUDA_HOME/lib64"
+mkdir -p "$CUDA_HOME/include" "$CUDA_HOME/lib64"
+for entry in "$system_cuda"/targets/x86_64-linux/include/*; do
+  ln -sfn "$entry" "$CUDA_HOME/include/$(basename "$entry")"
+done
+# CUDA 12.9 keeps this legacy probe header below include/crt.
+ln -sfn "$system_cuda/targets/x86_64-linux/include/crt/device_functions.h" \
+  "$CUDA_HOME/include/device_functions.h"
+for entry in "$system_cuda"/targets/x86_64-linux/lib/*; do
+  ln -sfn "$entry" "$CUDA_HOME/lib64/$(basename "$entry")"
+done
+# Compute nodes omit the development-name symlink although the shared object
+# is present. FindCUDA searches for the unversioned name.
+ln -sfn "$system_cuda/targets/x86_64-linux/lib/libcudart.so.12" \
+  "$CUDA_HOME/lib64/libcudart.so"
 export PATH="$CUDA_HOME/bin:/usr/bin:/bin:$HOME/.venvs/cacheblend-native/bin:$PATH"
 export TORCH_CUDA_ARCH_LIST=8.9
 export MAX_JOBS="${MAX_JOBS:-16}"
