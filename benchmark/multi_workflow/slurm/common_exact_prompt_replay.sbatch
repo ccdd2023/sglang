@@ -2,7 +2,7 @@
 #SBATCH --job-name=impactkv-exact-replay
 #SBATCH --partition=long
 #SBATCH --exclude=gpu[10-13,23-24]
-#SBATCH --nodelist=gpu16
+#SBATCH --nodelist=gpu17
 #SBATCH --gres=gpu:rtx4090:1
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=128G

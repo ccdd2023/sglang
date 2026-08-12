@@ -286,7 +286,7 @@ def main() -> None:
         "updated_at_utc": utc_now(),
         "status_path": str(status_path),
         "jobs": {"canary_images": args.canary_image_job},
-        "node_policy": "all GPU jobs pin gpu16 RTX4090; gpu10-13 and gpu23-24 excluded",
+        "node_policy": "all measured GPU jobs pin gpu17 RTX4090; gpu10-13 and gpu23-24 excluded",
     }
     atomic_json(status_path, state)
     try:
