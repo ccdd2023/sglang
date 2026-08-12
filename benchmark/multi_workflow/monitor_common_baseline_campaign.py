@@ -13,6 +13,7 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -404,6 +405,14 @@ def main() -> None:
             )
             if result.get("status") != "PASS":
                 raise RuntimeError(f"formal exact replay failed for {backend}: {result}")
+        run(
+            [
+                sys.executable,
+                str(project / "benchmark/multi_workflow/summarize_common_baseline_campaign.py"),
+                "--campaign",
+                str(campaign),
+            ]
+        )
         state["state"] = "complete"
         state["finished_at_utc"] = utc_now()
         atomic_json(status_path, state)
