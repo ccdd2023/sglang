@@ -27,6 +27,10 @@ GIT_APPLY_COMMANDS = (
 )
 
 
+class InvalidModelPatch(RuntimeError):
+    """A syntactically diff-like model answer that cannot apply to the task repo."""
+
+
 def load_predictions(path: Path) -> dict[str, dict[str, Any]]:
     text = path.read_text(encoding="utf-8")
     if path.suffix == ".jsonl":
@@ -101,7 +105,7 @@ def evaluate_instance(
             encoding="utf-8",
         )
         if not metadata["patch_applied"]:
-            raise RuntimeError(APPLY_PATCH_FAIL)
+            raise InvalidModelPatch(APPLY_PATCH_FAIL)
 
         before = environment.execute(
             {"command": "git -c core.fileMode=false diff"}, cwd="/testbed"
@@ -139,6 +143,17 @@ def evaluate_instance(
         )
         metadata["completed"] = True
         metadata["resolved"] = bool(report[instance_id]["resolved"])
+    except InvalidModelPatch as exc:
+        # A hallucinated path or malformed hunk is a model-quality failure, not
+        # an evaluator/infrastructure failure.  It remains unresolved in the
+        # official denominator and must not abort the other benchmark arms.
+        metadata.update(
+            completed=True,
+            resolved=False,
+            invalid_patch=True,
+            evaluation_status="invalid_model_patch",
+            failure_reason=str(exc),
+        )
     except Exception as exc:
         metadata["error"] = f"{type(exc).__name__}: {exc}"
     finally:
@@ -213,9 +228,12 @@ def run_enroot_evaluation(
     empty = sorted(
         row["instance_id"] for row in results if row.get("empty_patch")
     )
+    invalid = sorted(
+        row["instance_id"] for row in results if row.get("invalid_patch")
+    )
     unresolved = sorted(set(completed) - set(resolved))
     report = {
-        "schema_version": 2,
+        "schema_version": 3,
         "container_backend": "enroot",
         "run_id": run_id,
         "total_instances": len(dataset),
@@ -224,11 +242,13 @@ def run_enroot_evaluation(
         "resolved_instances": len(resolved),
         "unresolved_instances": len(unresolved),
         "empty_patch_instances": len(empty),
+        "invalid_patch_instances": len(invalid),
         "error_instances": len(errors),
         "completed_ids": completed,
         "resolved_ids": resolved,
         "unresolved_ids": unresolved,
         "empty_patch_ids": empty,
+        "invalid_patch_ids": invalid,
         "error_ids": errors,
         "instances": results,
     }
