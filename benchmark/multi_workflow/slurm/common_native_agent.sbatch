@@ -22,7 +22,14 @@ mode="${IMPACTKV_COMMON_MODE:?set IMPACTKV_COMMON_MODE=dense or reuse}"
 scope="${IMPACTKV_COMMON_SCOPE:-canary}"
 instance="${IMPACTKV_COMMON_INSTANCE:-}"
 model_dtype="${IMPACTKV_COMMON_DTYPE:-bfloat16}"
-port="${IMPACTKV_COMMON_PORT:-$((33000 + SLURM_JOB_ID % 1000))}"
+port="${IMPACTKV_COMMON_PORT:-$(python3 - <<'PY'
+import socket
+
+with socket.socket() as stream:
+    stream.bind(("127.0.0.1", 0))
+    print(stream.getsockname()[1])
+PY
+)}"
 campaign="$IMPACTKV_ARTIFACTS/impactkv_common_agent_baselines_fresh24_20260812"
 
 case "$scope" in
@@ -113,7 +120,8 @@ for _ in $(seq 1 300); do
   if ! kill -0 "$server_pid" 2>/dev/null; then
     break
   fi
-  if curl -fsS "http://127.0.0.1:$port/health" >"$runtime/health.json"; then
+  if curl --connect-timeout 2 --max-time 5 -fsS \
+    "http://127.0.0.1:$port/health" >"$runtime/health.json"; then
     ready=1
     break
   fi

@@ -22,7 +22,14 @@ source_ledger="${IMPACTKV_COMMON_SOURCE_LEDGER:?set exact source BACKEND_LEDGER.
 label="${IMPACTKV_COMMON_REPLAY_LABEL:-canary}"
 limit="${IMPACTKV_COMMON_REPLAY_LIMIT:-}"
 model_dtype="${IMPACTKV_COMMON_DTYPE:-bfloat16}"
-port="${IMPACTKV_COMMON_PORT:-$((35000 + SLURM_JOB_ID % 1000))}"
+port="${IMPACTKV_COMMON_PORT:-$(python3 - <<'PY'
+import socket
+
+with socket.socket() as stream:
+    stream.bind(("127.0.0.1", 0))
+    print(stream.getsockname()[1])
+PY
+)}"
 campaign="$IMPACTKV_ARTIFACTS/impactkv_common_agent_baselines_fresh24_20260812"
 output="$campaign/exact_prompt_replay/${label}/${backend}"
 runtime="$IMPACTKV_RUNTIME_ROOT/logs/common-exact-$SLURM_JOB_ID"
@@ -78,7 +85,8 @@ for _ in $(seq 1 300); do
   if ! kill -0 "$server_pid" 2>/dev/null; then
     break
   fi
-  if curl -fsS "http://127.0.0.1:$port/health" >"$runtime/health.json"; then
+  if curl --connect-timeout 2 --max-time 5 -fsS \
+    "http://127.0.0.1:$port/health" >"$runtime/health.json"; then
     ready=1
     break
   fi
