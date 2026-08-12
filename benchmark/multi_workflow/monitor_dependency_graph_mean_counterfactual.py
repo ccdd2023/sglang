@@ -150,6 +150,45 @@ def validate_exact(campaign: Path, label: str) -> dict[str, Any]:
     }
 
 
+def first_prompt_hash(trajectory: Path) -> str:
+    value = read_json(trajectory)
+    for message in value.get("messages") or ():
+        treatment = (message.get("extra") or {}).get("reuse_treatment") or {}
+        if treatment.get("input_ids_sha256"):
+            return str(treatment["input_ids_sha256"])
+    raise ValueError(f"first executed prompt hash absent: {trajectory}")
+
+
+def validate_first_prompt_identity(
+    campaign: Path, source: Path, scope: str, tasks: int
+) -> dict[str, Any]:
+    snapshot = read_json(
+        campaign / ("CANARY4.json" if scope == "canary" else "FROZEN_FRESH24.json")
+    )
+    current = campaign / "runs" / f"sglang_{scope}" / ARM / f"full_{tasks}"
+    dense = source / "runs/sglang_formal/dense/full_24"
+    rows = []
+    for item in snapshot:
+        instance_id = str(item["instance_id"])
+        current_hash = first_prompt_hash(
+            current / instance_id / f"{instance_id}.traj.json"
+        )
+        dense_hash = first_prompt_hash(
+            dense / instance_id / f"{instance_id}.traj.json"
+        )
+        rows.append(
+            {
+                "instance_id": instance_id,
+                "input_ids_sha256": current_hash,
+                "matches_frozen_dense": current_hash == dense_hash,
+            }
+        )
+    mismatches = [row for row in rows if not row["matches_frozen_dense"]]
+    if mismatches:
+        raise RuntimeError(f"first prompt identity mismatches: {mismatches}")
+    return {"verified_instances": len(rows), "all_match": True, "rows": rows}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--poll-seconds", type=int, default=30)
@@ -219,6 +258,9 @@ def main() -> None:
         if state["state"] == "canary4_exact_submitted":
             wait_job(state, status_path, "graph_mean_canary4_exact", args.poll_seconds)
             state["canary4_exact"] = validate_exact(campaign, "canary4")
+            state["canary4_first_prompt_identity"] = validate_first_prompt_identity(
+                campaign, source, "canary", 4
+            )
             name = "graph_mean_fresh24"
             state["jobs"][name] = submit(
                 agent_script,
@@ -231,6 +273,9 @@ def main() -> None:
         if state["state"] == "fresh24_submitted":
             wait_job(state, status_path, "graph_mean_fresh24", args.poll_seconds)
             state["fresh24"] = validate_online(campaign, "formal", 24)
+            state["fresh24_first_prompt_identity"] = validate_first_prompt_identity(
+                campaign, source, "formal", 24
+            )
             state["model_requests_issued"] += state["fresh24"]["requests"]
             name = "graph_mean_fresh24_exact"
             state["jobs"][name] = submit(
