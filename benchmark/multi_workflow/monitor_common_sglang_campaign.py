@@ -163,6 +163,21 @@ def official_report(result: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
+def coding_copy_gate(runtime: dict[str, Any], *, allow_zero_target: bool) -> str:
+    """Classify physical reuse without confusing no capacity with failure."""
+
+    if int(runtime.get("target_copy_events") or 0) > 0:
+        return "physical_target_copy"
+    if (
+        allow_zero_target
+        and int(runtime.get("target_registered_requests") or 0) == 0
+        and int(runtime.get("source_materialized_device_events") or 0) > 0
+        and int(runtime.get("target_fallback_events") or 0) == 0
+    ):
+        return "zero_target_opportunity"
+    return "failed_physical_copy_gate"
+
+
 def validate_sglang_runs(
     campaign: Path, scope: str, tasks: int
 ) -> tuple[bool, str, dict[str, Any]]:
@@ -199,22 +214,42 @@ def validate_sglang_runs(
             return False, (
                 f"backend transport failures {infrastructure_failures}: {run_dir}"
             ), rows
-        if arm != "dense" and int(runtime.get("target_copy_events") or 0) <= 0:
+        copy_gate = (
+            "not_applicable"
+            if arm == "dense"
+            else coding_copy_gate(runtime, allow_zero_target=scope == "canary")
+        )
+        if copy_gate == "failed_physical_copy_gate":
             return False, f"no physical coding-aware K/V copy: {run_dir}", rows
         rows[arm] = {
             "requests": int(runtime["requests"]),
             "target_copy_events": int(runtime.get("target_copy_events") or 0),
             "copied_tokens": int(runtime.get("copied_tokens") or 0),
             "target_fallback_events": int(runtime.get("target_fallback_events") or 0),
+            "source_materialized_device_events": int(
+                runtime.get("source_materialized_device_events") or 0
+            ),
+            "target_registered_requests": int(
+                runtime.get("target_registered_requests") or 0
+            ),
+            "copy_gate": copy_gate,
             "resolved": int(report.get("resolved_instances") or 0),
             "submitted": int(report.get("submitted_instances") or 0),
             "run_dir": str(run_dir),
         }
     if None in first_hashes or len(set(first_hashes)) != 1:
         return False, f"first-request prompt hashes differ: {first_hashes}", rows
+    coding_gate = rows["coding_dependency_graph_cold_lcb"]["copy_gate"]
     return (
         True,
-        f"{scope} SGLang runs passed identity, official-evaluator, and physical-copy gates",
+        (
+            f"{scope} SGLang runs passed identity and official-evaluator gates; "
+            + (
+                "coding-aware physical target copy confirmed"
+                if coding_gate == "physical_target_copy"
+                else "Canary4 has validated source materialization but zero target opportunity"
+            )
+        ),
         rows,
     )
 
@@ -380,8 +415,19 @@ def main() -> None:
             state["canary4_gate"] = reason
             if not passed:
                 raise RuntimeError(reason)
-            submit_exact(state, project=project, logs=logs, label="canary4")
-            state["state"] = "canary4_exact_submitted"
+            coding = rows["coding_dependency_graph_cold_lcb"]
+            if coding["copy_gate"] == "zero_target_opportunity":
+                state["canary4_exact"] = {
+                    "status": "SKIPPED_ZERO_TARGET_OPPORTUNITY",
+                    "reason": (
+                        "No online coding-aware target was registered; "
+                        "a same-prompt target replay is undefined."
+                    ),
+                }
+                state["state"] = "waiting_formal_images"
+            else:
+                submit_exact(state, project=project, logs=logs, label="canary4")
+                state["state"] = "canary4_exact_submitted"
             atomic_json(status_path, state)
 
         if state["state"] == "canary4_exact_submitted":
