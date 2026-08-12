@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -87,6 +88,22 @@ def request_telemetry(trajectory: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def normalize_model_patch(patch: str) -> tuple[str, str]:
+    """Keep a submitted unified diff, or turn non-patch prose into no patch.
+
+    SWE-bench treats arbitrary text as a patch-application infrastructure
+    error.  An agent saying ``No changes made`` is instead an ordinary empty
+    submission and must count as unresolved, not as evaluator failure.
+    """
+    if not patch.strip():
+        return "", "empty"
+    has_file_header = re.search(r"(?m)^diff --git a/\S+ b/\S+\s*$", patch)
+    has_hunk = re.search(r"(?m)^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@", patch)
+    if has_file_header and has_hunk:
+        return patch, "unified_diff"
+    return "", "invalid_non_diff_dropped"
+
+
 def normalize_predictions(
     batch_output: Path,
     registration: Path,
@@ -117,7 +134,8 @@ def normalize_predictions(
     for instance_id in expected_ids:
         if instance_id not in raw:
             continue
-        model_patch = raw[instance_id].get("model_patch") or ""
+        raw_model_patch = raw[instance_id].get("model_patch") or ""
+        model_patch, patch_status = normalize_model_patch(raw_model_patch)
         rows.append(
             {
                 "instance_id": instance_id,
@@ -133,12 +151,16 @@ def normalize_predictions(
             telemetry["instances"][instance_id] = {
                 "exit_status": trajectory.get("info", {}).get("exit_status"),
                 "patch_characters": len(model_patch),
+                "raw_patch_characters": len(raw_model_patch),
+                "patch_status": patch_status,
                 **request_telemetry(trajectory),
             }
         else:
             telemetry["instances"][instance_id] = {
                 "exit_status": "trajectory_missing",
                 "patch_characters": len(model_patch),
+                "raw_patch_characters": len(raw_model_patch),
+                "patch_status": patch_status,
                 "api_calls": None,
                 "calls": [],
             }
