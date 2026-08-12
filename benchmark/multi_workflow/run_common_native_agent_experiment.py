@@ -159,6 +159,7 @@ def main() -> None:
             "pre-rendered token IDs and must echo the identical token hash"
         ),
         "protocol": {
+            "model_dtype": os.environ.get("KVFLOW_REPRO_DTYPE", "native"),
             "temperature": 0,
             "step_limit": args.step_limit,
             "prompt_token_limit": 28000,

@@ -21,6 +21,7 @@ backend="${IMPACTKV_COMMON_BACKEND:?set IMPACTKV_COMMON_BACKEND}"
 source_ledger="${IMPACTKV_COMMON_SOURCE_LEDGER:?set exact source BACKEND_LEDGER.jsonl}"
 label="${IMPACTKV_COMMON_REPLAY_LABEL:-canary}"
 limit="${IMPACTKV_COMMON_REPLAY_LIMIT:-}"
+model_dtype="${IMPACTKV_COMMON_DTYPE:-bfloat16}"
 port="${IMPACTKV_COMMON_PORT:-$((35000 + SLURM_JOB_ID % 1000))}"
 campaign="$IMPACTKV_ARTIFACTS/impactkv_common_agent_baselines_fresh24_20260812"
 output="$campaign/exact_prompt_replay/${label}/${backend}"
@@ -34,7 +35,7 @@ case "$backend" in
     command=(
       "$python" "$repo/example/common_agent_server.py"
       --model "$IMPACTKV_MODEL" --mode reuse --host 127.0.0.1 --port "$port"
-      --dtype float16 --gpu-memory-utilization 0.90 --max-model-len 32768
+      --dtype "$model_dtype" --gpu-memory-utilization 0.90 --max-model-len 32768
       --recompute-ratio 0.18 --allow-benchmark-mode-override
       --ledger "$runtime/BACKEND_LEDGER.jsonl"
     )
@@ -63,7 +64,7 @@ PYTHONNOUSERSITE=1 \
 PYTHONPATH="$pythonpath" \
 HF_HUB_OFFLINE=1 \
 TRANSFORMERS_OFFLINE=1 \
-KVFLOW_REPRO_DTYPE=float16 \
+KVFLOW_REPRO_DTYPE="$model_dtype" \
 "${command[@]}" >"$runtime/backend.log" 2>&1 &
 server_pid=$!
 cleanup() {

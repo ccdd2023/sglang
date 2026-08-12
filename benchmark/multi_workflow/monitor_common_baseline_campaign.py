@@ -172,8 +172,15 @@ def validate_native_runs(
         run_dir = campaign / "runs" / scope / f"{backend}_{mode}" / key
         summary_path = run_dir / "RUNTIME_SUMMARY.json"
         ledger_path = run_dir / "CLIENT_LEDGER.jsonl"
-        if not summary_path.is_file() or not ledger_path.is_file():
-            return False, f"missing completed artifacts: {run_dir}"
+        missing = [
+            path.name
+            for path in (summary_path, ledger_path)
+            if not path.is_file()
+        ]
+        if missing:
+            return False, (
+                f"missing completed artifacts {missing}: {run_dir}"
+            )
         summary = read_json(summary_path)
         if summary.get("requests", 0) <= 0:
             return False, f"no model requests: {run_dir}"

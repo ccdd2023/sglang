@@ -21,6 +21,7 @@ backend="${IMPACTKV_COMMON_BACKEND:?set IMPACTKV_COMMON_BACKEND=cacheblend or kv
 mode="${IMPACTKV_COMMON_MODE:?set IMPACTKV_COMMON_MODE=dense or reuse}"
 scope="${IMPACTKV_COMMON_SCOPE:-canary}"
 instance="${IMPACTKV_COMMON_INSTANCE:-}"
+model_dtype="${IMPACTKV_COMMON_DTYPE:-bfloat16}"
 port="${IMPACTKV_COMMON_PORT:-$((33000 + SLURM_JOB_ID % 1000))}"
 campaign="$IMPACTKV_ARTIFACTS/impactkv_common_agent_baselines_fresh24_20260812"
 
@@ -60,7 +61,7 @@ case "$backend" in
       --mode "$mode"
       --host 127.0.0.1
       --port "$port"
-      --dtype float16
+      --dtype "$model_dtype"
       --gpu-memory-utilization 0.90
       --max-model-len 32768
       --recompute-ratio 0.18
@@ -98,7 +99,7 @@ PYTHONNOUSERSITE=1 \
 PYTHONPATH="$backend_pythonpath" \
 HF_HUB_OFFLINE=1 \
 TRANSFORMERS_OFFLINE=1 \
-KVFLOW_REPRO_DTYPE=float16 \
+KVFLOW_REPRO_DTYPE="$model_dtype" \
 "${backend_command[@]}" >"$runtime/backend.log" 2>&1 &
 server_pid=$!
 cleanup() {
