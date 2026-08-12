@@ -75,6 +75,11 @@ def environment_ready(home: Path) -> tuple[bool, str]:
         return False, "model shard hashes do not match the frozen snapshot"
     checks = [
         (
+            home / ".venvs/mini-swe-agent-v2.3.0/bin/python",
+            home / "CodeMAS_Project/worktrees/sglang-common-agent",
+            "import swebench; from swebench.harness.constants import APPLY_PATCH_PASS",
+        ),
+        (
             home / ".venvs/cacheblend-native/bin/python",
             home / "CodeMAS_Project/worktrees/cacheblend-common-agent/vllm_blend",
             "import torch, transformers, vllm",
@@ -202,6 +207,21 @@ def wait_jobs(state: dict[str, Any], names: list[str], poll_seconds: int) -> Non
             if value.startswith(("FAILED", "CANCELLED", "TIMEOUT", "OUT_OF_MEMORY", "NODE_FAIL"))
         }
         if failed:
+            # Slurm leaves afterok descendants pending forever as
+            # DependencyNeverSatisfied when the root fails. Cancel every
+            # unfinished job in this stage before surfacing the blocker.
+            unfinished_ids = [
+                state["jobs"][name]
+                for name, value in states.items()
+                if value not in {"COMPLETED", "CANCELLED"}
+            ]
+            if unfinished_ids:
+                subprocess.run(
+                    ["scancel", *unfinished_ids],
+                    check=False,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
             raise RuntimeError(f"Slurm stage failed: {failed}")
         if all(value == "COMPLETED" for value in states.values()):
             return
