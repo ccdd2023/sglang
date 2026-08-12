@@ -90,6 +90,35 @@ def main() -> None:
                 state, status_path, "search_section_canary4_exact", args.poll_seconds
             )
             state["canary4_exact"] = base.validate_exact(campaign, "canary4")
+            dense = base.official_report(
+                base.read_json(
+                    source
+                    / "runs/sglang_formal/dense/full_24/OFFICIAL_RESULT.json"
+                )
+            )
+            canary_ids = {
+                str(row["instance_id"])
+                for row in base.read_json(campaign / "CANARY4.json")
+            }
+            dense_resolved = len(
+                canary_ids & set(dense.get("resolved_ids") or ())
+            )
+            treatment_resolved = int(state["canary4"]["official_resolved"])
+            speed_pass = state["canary4_exact"]["cache_ready_speedup"] > 1
+            accuracy_pass = treatment_resolved >= dense_resolved
+            state["canary4_gate"] = {
+                "dense_official_resolved": dense_resolved,
+                "treatment_official_resolved": treatment_resolved,
+                "accuracy_non_degradation_gate": accuracy_pass,
+                "cache_ready_speed_gate": speed_pass,
+            }
+            if not (speed_pass and accuracy_pass):
+                state["decision"] = "drop"
+                state["state"] = "complete"
+                state["finished_at_utc"] = base.utc_now()
+                state["updated_at_utc"] = base.utc_now()
+                base.atomic_json(status_path, state)
+                return
             name = "search_section_fresh24"
             state["jobs"][name] = base.submit(
                 agent_script,
