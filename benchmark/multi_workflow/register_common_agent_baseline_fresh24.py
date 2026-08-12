@@ -26,8 +26,8 @@ TASKS = 24
 REPO_CAP = 4
 DIFFICULTY_QUOTAS = {
     "<15 min fix": 10,
-    "15 min - 1 hour": 9,
-    "1-4 hours": 5,
+    "15 min - 1 hour": 10,
+    "1-4 hours": 4,
 }
 CANARY_IDS = (
     "django__django-16631",
@@ -179,6 +179,13 @@ def prepare(output: Path) -> dict[str, Any]:
             "exclusion_audit": exclusion_audit,
             "repository_cap": REPO_CAP,
             "difficulty_quotas": DIFFICULTY_QUOTAS,
+            "capacity_amendment_before_registration": (
+                "After excluding all 207 historically exposed tasks, only eight "
+                "unseen 1-4 hour tasks remain and all are from django/django. "
+                "The repository cap of four therefore makes the intended 10/9/5 "
+                "allocation impossible. The closest feasible allocation, chosen "
+                "without model outcomes, is 10/10/4."
+            ),
             "instances": [
                 {
                     "instance_id": str(row["instance_id"]),
