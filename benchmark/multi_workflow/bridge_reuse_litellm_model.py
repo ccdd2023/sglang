@@ -25,6 +25,7 @@ from typing import Any, Literal
 
 import litellm
 import requests
+from jinja2.utils import htmlsafe_json_dumps
 from minisweagent.models.litellm_model import LitellmModel
 from minisweagent.models.utils.actions_toolcall import BASH_TOOL
 from pydantic import Field, model_validator
@@ -522,18 +523,19 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         message = copy.deepcopy(message)
         role = message["role"]
         if role == "assistant" and message.get("tool_calls"):
-            value = "<|im_start|>assistant\n"
+            value = "<|im_start|>assistant"
             if message.get("content"):
-                value += str(message["content"]).strip() + "\n"
+                value += "\n" + str(message["content"])
             for wrapped_call in message["tool_calls"]:
                 call = wrapped_call.get("function", wrapped_call)
-                value += f"<tool_call>\n<function={call['name']}>\n"
                 arguments = call.get("arguments") or {}
-                if isinstance(arguments, str):
-                    arguments = json.loads(arguments)
-                for name, argument in arguments.items():
-                    value += f"<parameter={name}>{argument}</parameter>\n"
-                value += "</function>\n</tool_call>\n"
+                value += (
+                    '\n<tool_call>\n{"name": "'
+                    + str(call["name"])
+                    + '", "arguments": '
+                    + str(htmlsafe_json_dumps(arguments))
+                    + "}\n</tool_call>"
+                )
             return value + "<|im_end|>\n"
         if role == "tool":
             return (

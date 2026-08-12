@@ -2,6 +2,8 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from jinja2 import Template
+from minisweagent.models.utils.actions_toolcall import BASH_TOOL
 
 from benchmark.multi_workflow import bridge_reuse_litellm_model as bridge
 
@@ -62,6 +64,45 @@ def test_native_generate_payload_translates_sampling_for_sglang_only() -> None:
     }
     assert "sampling_params" not in kvcomm
     assert sglang["input_ids_sha256"] == kvcomm["input_ids_sha256"]
+
+
+def test_render_message_literal_matches_frozen_qwen25_tool_template() -> None:
+    group = [
+        {
+            "role": "assistant",
+            "content": "```bash",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": '{"command": "rg -n \'Thing\' pkg/a.py"}',
+                    }
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": "<returncode>0</returncode>\n<output>class Thing: pass</output>",
+        },
+    ]
+    template_path = (
+        bridge.Path(__file__).resolve().parent
+        / "qwen2_5_coder_tool_chat_template.jinja"
+    )
+    rendered = Template(template_path.read_text()).render(
+        messages=[
+            {"role": "system", "content": "system"},
+            {"role": "user", "content": "task"},
+            *group,
+        ],
+        tools=[BASH_TOOL],
+        add_generation_prompt=True,
+    )
+    expected = "".join(
+        bridge.BridgeReuseLitellmModel._render_message_literal(message)
+        for message in group
+    )
+    assert rendered.count(expected) == 1
 
 
 def test_v33b_state_transition_releases_and_vetoes_current_target() -> None:
