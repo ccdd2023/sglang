@@ -23,9 +23,11 @@ export PYTHONNOUSERSITE=1
 system_cuda=/usr/local/cuda-12.9
 header_snapshot="$HOME/impactkv-runtime/toolchains/cuda-12.9-login-headers"
 library_snapshot="$HOME/impactkv-runtime/toolchains/cuda-12.9-login-libs"
+nvtx_root="$HOME/.venvs/cacheblend-native/lib/python3.10/site-packages/nvidia/nvtx"
 export CUDA_HOME="$HOME/impactkv-runtime/toolchains/cuda-12.9-legacy-layout"
 test -f "$header_snapshot/cuda_runtime.h"
 test -f "$library_snapshot/libcudart_static.a"
+test -f "$nvtx_root/include/nvToolsExt.h"
 mkdir -p "$CUDA_HOME"
 rm -rf "$CUDA_HOME/bin" "$CUDA_HOME/include" "$CUDA_HOME/lib64" \
   "$CUDA_HOME/targets" "$CUDA_HOME/nvvm"
@@ -35,6 +37,9 @@ for entry in "$system_cuda"/bin/*; do
 done
 ln -sfn "$system_cuda/nvvm" "$CUDA_HOME/nvvm"
 ln -sfn "$header_snapshot" "$CUDA_HOME/include"
+for entry in "$nvtx_root"/include/nvToolsExt*.h; do
+  ln -sfn "$entry" "$CUDA_HOME/include/$(basename "$entry")"
+done
 mkdir -p "$CUDA_HOME/lib64" "$CUDA_HOME/targets/x86_64-linux"
 for entry in "$system_cuda"/targets/x86_64-linux/lib/*; do
   ln -sfn "$entry" "$CUDA_HOME/lib64/$(basename "$entry")"
@@ -46,6 +51,8 @@ done
 # is present. FindCUDA searches for the unversioned name.
 ln -sfn "$system_cuda/targets/x86_64-linux/lib/libcudart.so.12" \
   "$CUDA_HOME/lib64/libcudart.so"
+ln -sfn "$nvtx_root/lib/libnvToolsExt.so.1" \
+  "$CUDA_HOME/lib64/libnvToolsExt.so"
 ln -sfn "$header_snapshot" "$CUDA_HOME/targets/x86_64-linux/include"
 ln -sfn "$CUDA_HOME/lib64" "$CUDA_HOME/targets/x86_64-linux/lib"
 export PATH="$CUDA_HOME/bin:/usr/bin:/bin:$HOME/.venvs/cacheblend-native/bin:$PATH"
