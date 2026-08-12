@@ -294,10 +294,24 @@ def main() -> None:
         if state["state"] == "fresh24_exact_submitted":
             wait_job(state, status_path, "graph_mean_fresh24_exact", args.poll_seconds)
             state["fresh24_exact"] = validate_exact(campaign, "fresh24")
-            state["state"] = "complete"
-            state["decision"] = (
-                "keep" if state["fresh24_exact"]["cache_ready_speedup"] > 1 else "drop"
+            dense_official = official_report(
+                read_json(
+                    source
+                    / "runs/sglang_formal/dense/full_24/OFFICIAL_RESULT.json"
+                )
             )
+            dense_resolved = int(dense_official.get("resolved_instances") or 0)
+            treatment_resolved = int(state["fresh24"]["official_resolved"])
+            speed_pass = state["fresh24_exact"]["cache_ready_speedup"] > 1
+            accuracy_pass = treatment_resolved >= dense_resolved
+            state["state"] = "complete"
+            state["comparison_to_frozen_dense"] = {
+                "dense_official_resolved": dense_resolved,
+                "treatment_official_resolved": treatment_resolved,
+                "accuracy_non_degradation_gate": accuracy_pass,
+                "cache_ready_speed_gate": speed_pass,
+            }
+            state["decision"] = "keep" if speed_pass and accuracy_pass else "drop"
             state["finished_at_utc"] = utc_now()
             state["updated_at_utc"] = utc_now()
             atomic_json(status_path, state)
