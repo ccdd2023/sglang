@@ -31,6 +31,16 @@ class InvalidModelPatch(RuntimeError):
     """A syntactically diff-like model answer that cannot apply to the task repo."""
 
 
+def write_json(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".partial")
+    temporary.write_text(
+        json.dumps(value, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(path)
+
+
 def load_predictions(path: Path) -> dict[str, dict[str, Any]]:
     text = path.read_text(encoding="utf-8")
     if path.suffix == ".jsonl":
@@ -268,6 +278,11 @@ def main() -> None:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--instances", help="comma-separated instance IDs")
     parser.add_argument("--timeout", type=int, default=3600)
+    parser.add_argument(
+        "--result",
+        type=Path,
+        help="atomically write the machine-readable result instead of relying on stdout",
+    )
     args = parser.parse_args()
     instance_ids = (
         [value for value in (args.instances or "").split(",") if value]
@@ -281,6 +296,8 @@ def main() -> None:
         instance_ids=instance_ids,
         timeout=args.timeout,
     )
+    if args.result:
+        write_json(args.result, value)
     print(json.dumps(value, ensure_ascii=False, indent=2))
     raise SystemExit(value["returncode"])
 

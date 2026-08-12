@@ -7,7 +7,10 @@ pytest.importorskip("swebench")
 
 from swebench.harness.constants import KEY_INSTANCE_ID, KEY_MODEL, KEY_PREDICTION
 
-from benchmark.multi_workflow.enroot_swebench_evaluator import evaluate_instance
+from benchmark.multi_workflow.enroot_swebench_evaluator import (
+    evaluate_instance,
+    write_json,
+)
 
 
 class _RejectingEnvironment:
@@ -28,6 +31,15 @@ class _RejectingEnvironment:
 
     def cleanup(self) -> None:
         type(self).cleaned = True
+
+
+def test_write_json_is_machine_readable_when_stdout_has_other_text(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "OFFICIAL_RESULT.json"
+    write_json(output, {"returncode": 0, "report": {"resolved_instances": 1}})
+    assert output.read_text(encoding="utf-8").startswith("{\n")
+    assert not output.with_suffix(".json.partial").exists()
 
 
 def test_unapplicable_model_patch_is_unresolved_not_infrastructure_error(

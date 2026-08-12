@@ -43,19 +43,21 @@ def main() -> None:
         if (
             state.get("state") == "blocked"
             and args.invalid_patch_regrade_job
-            and state.get("jobs", {}).get(regrade_name)
-            != args.invalid_patch_regrade_job
         ):
-            state.setdefault("invalidated_failures", []).append(
-                {
-                    "job": state["jobs"].get("formal_cacheblend_dense_all"),
-                    "reason": state.get("error"),
-                    "classification": (
-                        "valid inference; invalid model patch was incorrectly "
-                        "escalated to evaluator infrastructure failure"
-                    ),
-                }
-            )
+            if (
+                state.get("jobs", {}).get(regrade_name)
+                != args.invalid_patch_regrade_job
+            ):
+                state.setdefault("invalidated_failures", []).append(
+                    {
+                        "job": state["jobs"].get("formal_cacheblend_dense_all"),
+                        "reason": state.get("error"),
+                        "classification": (
+                            "valid inference; invalid model patch was incorrectly "
+                            "escalated to evaluator infrastructure failure"
+                        ),
+                    }
+                )
             state.pop("error", None)
             state["jobs"][regrade_name] = args.invalid_patch_regrade_job
             state["active_jobs"] = [regrade_name]
