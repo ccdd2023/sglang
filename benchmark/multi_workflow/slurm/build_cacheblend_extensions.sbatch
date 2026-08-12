@@ -22,8 +22,10 @@ export PYTHONNOUSERSITE=1
 # system path is written.
 system_cuda=/usr/local/cuda-12.9
 header_snapshot="$HOME/impactkv-runtime/toolchains/cuda-12.9-login-headers"
+library_snapshot="$HOME/impactkv-runtime/toolchains/cuda-12.9-login-libs"
 export CUDA_HOME="$HOME/impactkv-runtime/toolchains/cuda-12.9-legacy-layout"
 test -f "$header_snapshot/cuda_runtime.h"
+test -f "$library_snapshot/libcudart_static.a"
 mkdir -p "$CUDA_HOME"
 rm -rf "$CUDA_HOME/bin" "$CUDA_HOME/include" "$CUDA_HOME/lib64" \
   "$CUDA_HOME/targets" "$CUDA_HOME/nvvm"
@@ -35,6 +37,9 @@ ln -sfn "$system_cuda/nvvm" "$CUDA_HOME/nvvm"
 ln -sfn "$header_snapshot" "$CUDA_HOME/include"
 mkdir -p "$CUDA_HOME/lib64" "$CUDA_HOME/targets/x86_64-linux"
 for entry in "$system_cuda"/targets/x86_64-linux/lib/*; do
+  ln -sfn "$entry" "$CUDA_HOME/lib64/$(basename "$entry")"
+done
+for entry in "$library_snapshot"/*; do
   ln -sfn "$entry" "$CUDA_HOME/lib64/$(basename "$entry")"
 done
 # Compute nodes omit the development-name symlink although the shared object
