@@ -120,6 +120,14 @@ _REPOSITORY_SCOPE_SEARCH = re.compile(
     r"|\bgrep\b[^\n;&|]*(?:\s-[A-Za-z]*[rR][A-Za-z]*\b|--recursive\b)",
     re.I,
 )
+_SEARCH_RESULT_FILE_LINE = re.compile(
+    r"^(?P<path>(?:/testbed/|\./)?[A-Za-z0-9_.-]+"
+    r"(?:/[A-Za-z0-9_.-]+)*\."
+    r"(?:py|pyi|toml|yaml|yml|json|rst|md|cfg|ini|txt))"
+    r"(?::|-)(?P<line>\d+)(?::|-)"
+)
+_TOOL_LITERAL_PREFIX = "<|im_start|>user\n<tool_response>\n"
+_TOOL_LITERAL_SUFFIX = "\n</tool_response><|im_end|>\n"
 
 # Frozen from the 24-case SGLang natural repository-code stage experiment in
 # ``impactkv_natural_module_attention_20260808/.../stage_overhead_code_only_r2``.
@@ -1295,6 +1303,168 @@ def natural_repository_code_candidates(
         "excluded_repository_searches": excluded_search,
         "excluded_ambiguous_multifile_results": excluded_ambiguous_files,
         "selected_module_type": "repository_code",
+    }
+
+
+def _literal_search_file_sections(
+    tool_messages: Sequence[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Return maximal literal file-line sections and candidate-char offsets."""
+
+    rows: list[dict[str, Any]] = []
+    literal_cursor = 0
+    for message in tool_messages:
+        content = str(message.get("content") or "")
+        content_literal_start = literal_cursor + len(_TOOL_LITERAL_PREFIX)
+        current_path: str | None = None
+        current_start: int | None = None
+        current_end: int | None = None
+
+        def flush() -> None:
+            nonlocal current_path, current_start, current_end
+            if current_path is not None and current_start is not None and current_end is not None:
+                section = content[current_start:current_end]
+                rows.append(
+                    {
+                        "path": current_path,
+                        "text": section,
+                        "candidate_char_start": content_literal_start + current_start,
+                        "candidate_char_end": content_literal_start + current_end,
+                    }
+                )
+            current_path = None
+            current_start = None
+            current_end = None
+
+        cursor = 0
+        for line in content.splitlines(keepends=True):
+            match = _SEARCH_RESULT_FILE_LINE.match(line)
+            path = (
+                _normalize_observed_repository_path(match.group("path"))
+                if match
+                else None
+            )
+            if path != current_path:
+                flush()
+            if path is not None:
+                if current_start is None:
+                    current_start = cursor
+                current_path = path
+                current_end = cursor + len(line)
+            cursor += len(line)
+        flush()
+        literal_cursor += len(_TOOL_LITERAL_PREFIX) + len(content) + len(
+            _TOOL_LITERAL_SUFFIX
+        )
+    return rows
+
+
+def search_file_section_dependency_cold_candidates(
+    retained_groups: Sequence[Sequence[dict[str, Any]]],
+) -> tuple[list[list[dict[str, Any]]], dict[str, Any]]:
+    """Select version-valid dependency-cold literal file sections in searches.
+
+    Boundaries come exclusively from path-prefixed lines already visible in a
+    successful ``grep``/``rg``/``find`` observation.  Each section is bound to
+    one file, so an unrelated repository mutation does not invalidate it.
+    Target-time group identity and observation hashes are still revalidated.
+    """
+
+    candidates: list[list[dict[str, Any]]] = []
+    evidence: list[dict[str, Any]] = []
+    search_groups = 0
+    literal_sections = 0
+    version_invalidated = 0
+    dependency_hot = 0
+    for index, group in enumerate(retained_groups):
+        if not is_successful_readonly_evidence(group):
+            continue
+        commands = "\n".join(
+            value for message in group if (value := _tool_command(message))
+        )
+        if not _SEARCH_COMMAND.search(commands):
+            continue
+        tool_messages = [
+            dict(message) for message in group if message.get("role") == "tool"
+        ]
+        if not tool_messages:
+            continue
+        search_groups += 1
+        sections = _literal_search_file_sections(tool_messages)
+        literal_sections += len(sections)
+        for section in sections:
+            source_paths = {str(section["path"])}
+            synthetic = [{"role": "tool", "content": str(section["text"])}]
+            source_symbols = repository_observation_symbols(synthetic)
+            invalid = False
+            for later in retained_groups[index + 1 :]:
+                if not repository_commit_phase_event(later):
+                    continue
+                effect = _mutation_effect_on_evidence(
+                    source_paths=source_paths,
+                    source_symbols=source_symbols,
+                    mutation=later,
+                )
+                if effect["invalidates"] or effect["reason"] == (
+                    "same_file_symbol_disjoint_mutation"
+                ):
+                    invalid = True
+                    break
+            if invalid:
+                version_invalidated += 1
+                continue
+            graph = visible_python_dependency_graph(
+                path=str(section["path"]), group=synthetic
+            )
+            symbols = source_symbols | set(graph.get("declared_symbols") or ())
+            relations = coding_dependency_graph_relations(
+                source_paths=source_paths,
+                source_symbols=symbols,
+                source_graph=graph,
+                later_groups=retained_groups[index + 1 :],
+            )
+            if relations:
+                dependency_hot += 1
+                continue
+            candidates.append(tool_messages)
+            evidence.append(
+                {
+                    "group_index": index,
+                    "group_sha256": coding_group_sha256(group),
+                    "paths": [str(section["path"])],
+                    "symbols": sorted(symbols),
+                    "observation_sha256": tool_observation_sha256(group),
+                    "path_provenance": {
+                        "paths": [str(section["path"])],
+                        "command_paths": [],
+                        "observation_added_paths": [str(section["path"])],
+                        "repository_scope_dependency": False,
+                    },
+                    "module_type": "repository_search_file_section",
+                    "dependency_graph": graph,
+                    "dependency_hot": False,
+                    "dependency_relations": [],
+                    "candidate_char_start": int(section["candidate_char_start"]),
+                    "candidate_char_end": int(section["candidate_char_end"]),
+                    "section_characters": len(str(section["text"])),
+                }
+            )
+    return candidates, {
+        "mode": "search_file_section_dependency_cold_mean_v1",
+        "retained_groups_after_roll": len(retained_groups),
+        "search_groups": search_groups,
+        "literal_file_sections": literal_sections,
+        "version_invalidated_sections": version_invalidated,
+        "dependency_hot_sections_protected": dependency_hot,
+        "dependency_cold_sections": len(candidates),
+        "eligible_observations": len(candidates),
+        "candidate_group_indices": [item["group_index"] for item in evidence],
+        "candidate_evidence": evidence,
+        "selected_module_type": "repository_search_file_section",
+        "dependency_direction": "graph_hot_recompute_graph_cold_lossy_copy",
+        "natural_boundary": "literal_contiguous_file_prefixed_lines",
+        "assistant_tokens_selected": 0,
+        "hidden_repository_scan": False,
     }
 
 

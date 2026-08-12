@@ -8,6 +8,7 @@ from benchmark.multi_workflow.coding_reuse_policy import (
     dependency_graph_lcb_cost_estimate,
     dependency_graph_mean_cost_estimate,
     natural_repository_code_candidates,
+    search_file_section_dependency_cold_candidates,
     visible_python_dependency_graph,
 )
 
@@ -37,6 +38,29 @@ def _read() -> list[dict]:
     return _group(
         "sed -n '1,240p' /testbed/pkg/module.py",
         "def important_value():\n    return 1\n" + "# code\n" * 80,
+    )
+
+
+def test_search_file_sections_follow_paths_and_stay_dependency_cold() -> None:
+    search = _group(
+        "grep -RIn --include='*.py' 'value' /testbed/pkg",
+        "\n"
+        + "pkg/a.py:10:def a_value(): return 1\n" * 10
+        + "pkg/b.py:20:def b_value(): return 2\n" * 10,
+    )
+    candidates, decision = search_file_section_dependency_cold_candidates(
+        [search]
+    )
+    assert len(candidates) == 2
+    assert decision["literal_file_sections"] == 2
+    assert decision["dependency_cold_sections"] == 2
+    assert [row["paths"] for row in decision["candidate_evidence"]] == [
+        ["pkg/a.py"],
+        ["pkg/b.py"],
+    ]
+    assert all(
+        row["candidate_char_end"] > row["candidate_char_start"]
+        for row in decision["candidate_evidence"]
     )
 
 

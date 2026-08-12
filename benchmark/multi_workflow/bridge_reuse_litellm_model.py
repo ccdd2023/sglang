@@ -51,6 +51,7 @@ from benchmark.multi_workflow.coding_reuse_policy import (
     repository_commit_phase_event,
     select_failure_memory_groups,
     select_reuse_groups,
+    search_file_section_dependency_cold_candidates,
     versioned_evidence_target_guard,
     versioned_grounded_observation_candidates,
     versioned_observed_path_candidates,
@@ -81,10 +82,12 @@ NATURAL_CODE_COST_ARMS = (
     "coding_dependency_cold_cost",
     "coding_dependency_graph_cold_lcb",
     "coding_dependency_graph_cold_mean",
+    "coding_search_file_section_mean",
 )
 DEPENDENCY_GRAPH_ARMS = (
     "coding_dependency_graph_cold_lcb",
     "coding_dependency_graph_cold_mean",
+    "coding_search_file_section_mean",
 )
 
 
@@ -173,6 +176,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_dependency_cold_cost",
         "coding_dependency_graph_cold_lcb",
         "coding_dependency_graph_cold_mean",
+        "coding_search_file_section_mean",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
@@ -904,8 +908,10 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                     island_tokens=len(handle["segment_ids"]),
                     target_prompt_tokens=len(prompt_ids),
                 )
-                if self.config.reuse_arm
-                == "coding_dependency_graph_cold_mean"
+                if self.config.reuse_arm in (
+                    "coding_dependency_graph_cold_mean",
+                    "coding_search_file_section_mean",
+                )
                 else natural_code_reuse_cost_estimate(
                     island_tokens=len(handle["segment_ids"]),
                     target_prompt_tokens=len(prompt_ids),
@@ -1023,7 +1029,11 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             if len(selected_groups) < self.config.rolling_history_groups
             else selected_groups[1:]
         )
-        if self.config.reuse_arm in DEPENDENCY_GRAPH_ARMS:
+        if self.config.reuse_arm == "coding_search_file_section_mean":
+            candidates, decision = search_file_section_dependency_cold_candidates(
+                retained
+            )
+        elif self.config.reuse_arm in DEPENDENCY_GRAPH_ARMS:
             candidates, decision = (
                 dependency_graph_cold_repository_code_candidates(retained)
             )
@@ -1057,25 +1067,55 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 self._render_message_literal(message)
                 for message in candidate
             )
-            segment_ids = self._tokenizer.encode(
-                literal, add_special_tokens=False
-            ).ids
+            encoded = self._tokenizer.encode(literal, add_special_tokens=False)
+            literal_ids = encoded.ids
+            section_start = evidence.get("candidate_char_start")
+            section_end = evidence.get("candidate_char_end")
+            localized_source_start: int | None = None
+            if section_start is not None and section_end is not None:
+                literal_positions = find_sublist(prompt_ids, literal_ids)
+                left, right = group_span
+                literal_inside = [
+                    start
+                    for start in literal_positions
+                    if start >= left and start + len(literal_ids) <= right
+                ]
+                offsets = list(getattr(encoded, "offsets", ()))
+                if len(literal_inside) != 1 or len(offsets) != len(literal_ids):
+                    skip("source_section_parent_not_unique_or_offsets_absent")
+                    continue
+                local_indices = [
+                    index
+                    for index, (start, end) in enumerate(offsets)
+                    if end > int(section_start) and start < int(section_end)
+                ]
+                if not local_indices:
+                    skip("source_section_has_no_tokens")
+                    continue
+                local_left = local_indices[0]
+                local_right = local_indices[-1] + 1
+                segment_ids = literal_ids[local_left:local_right]
+                localized_source_start = literal_inside[0] + local_left
+            else:
+                segment_ids = literal_ids
             if len(segment_ids) < self.config.reuse_min_tokens:
                 skip("source_below_minimum_tokens")
                 continue
-            positions = find_sublist(prompt_ids, segment_ids)
-            left, right = group_span
-            inside = [
-                start
-                for start in positions
-                if start >= left and start + len(segment_ids) <= right
-            ]
-            if len(inside) != 1:
-                skip("source_segment_not_unique_inside_group")
-                continue
+            if localized_source_start is None:
+                positions = find_sublist(prompt_ids, segment_ids)
+                left, right = group_span
+                inside = [
+                    start
+                    for start in positions
+                    if start >= left and start + len(segment_ids) <= right
+                ]
+                if len(inside) != 1:
+                    skip("source_segment_not_unique_inside_group")
+                    continue
+                localized_source_start = inside[0]
             segment_ids, source_start = capped_tail(
                 segment_ids,
-                inside[0],
+                localized_source_start,
                 self.config.reuse_copy_cap,
             )
             if (
@@ -1659,6 +1699,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             "coding_dependency_cold_cost",
             "coding_dependency_graph_cold_lcb",
             "coding_dependency_graph_cold_mean",
+            "coding_search_file_section_mean",
         ):
             targets, releases, target_guards, live_pool = (
                 self._v46_target_cases(

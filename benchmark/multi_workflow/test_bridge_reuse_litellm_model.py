@@ -28,7 +28,10 @@ class _LiteLLMStream:
 class _CharacterTokenizer:
     def encode(self, value, add_special_tokens=False):
         del add_special_tokens
-        return SimpleNamespace(ids=[ord(character) for character in value])
+        return SimpleNamespace(
+            ids=[ord(character) for character in value],
+            offsets=[(index, index + 1) for index in range(len(value))],
+        )
 
 
 def _bare_model() -> bridge.BridgeReuseLitellmModel:
@@ -1030,6 +1033,79 @@ def test_dependency_graph_mean_arm_keeps_graph_guard_and_one_island() -> None:
     assert len(cases) == 1
     assert guards[0]["dependency_graph_guard_applied"] is True
     assert guards[0]["admission_reason"] == "predicted_cache_ready_saving_positive"
+    assert cases[0]["cost_estimate"]["model"] == (
+        "dependency_graph_attention_work_mean_v1"
+    )
+
+
+def test_search_file_section_arm_localizes_exact_natural_section() -> None:
+    group = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {
+                            "command": "grep -RIn --include='*.py' value /testbed/pkg"
+                        },
+                    }
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": (
+                "<returncode>0</returncode><output>\n"
+                + "pkg/a.py:10:def a_value(): return 1\n" * 8
+                + "pkg/b.py:20:def b_value(): return 2\n" * 12
+                + "</output>"
+            ),
+        },
+    ]
+    model = object.__new__(bridge.BridgeReuseLitellmModel)
+    model.config = SimpleNamespace(
+        reuse_arm="coding_search_file_section_mean",
+        rolling_history_groups=6,
+        reuse_min_tokens=32,
+        reuse_copy_cap=4096,
+    )
+    model._tokenizer = _CharacterTokenizer()
+    model._instance_nonce = "search-section"
+    model._session_index = 1
+    model._request_index = 2
+    literal = "".join(model._render_message_literal(message) for message in group)
+    source_prompt = [ord(value) for value in "P" + literal + "S"]
+    sources, pool, releases, decision = model._v46_future_sources(
+        prompt_ids=source_prompt,
+        selected_groups=[group],
+        pool={},
+    )
+    assert releases == []
+    assert len(sources) == len(pool) == 2
+    assert decision["natural_boundary"] == (
+        "literal_contiguous_file_prefixed_lines"
+    )
+    assert {tuple(row["source_paths"]) for row in pool.values()} == {
+        ("pkg/a.py",),
+        ("pkg/b.py",),
+    }
+    assert all(len(row["segment_ids"]) < len(source_prompt) for row in pool.values())
+
+    model._pending_sources = pool
+    target_prompt = [ord("Q")] * 2_000 + [ord(value) for value in literal + "T"]
+    cases, releases, guards, retained = model._v46_target_cases(
+        prompt_ids=target_prompt,
+        selected_groups=[group],
+    )
+    assert releases == []
+    assert retained == pool
+    assert len(cases) == 1
+    assert len(guards) == 2
+    assert cases[0]["length"] == max(
+        len(row["segment_ids"]) for row in pool.values()
+    )
+    assert guards[0]["dependency_graph_guard_applied"] is True
     assert cases[0]["cost_estimate"]["model"] == (
         "dependency_graph_attention_work_mean_v1"
     )

@@ -135,6 +135,7 @@ ARMS = (
     "coding_dependency_cold_cost",
     "coding_dependency_graph_cold_lcb",
     "coding_dependency_graph_cold_mean",
+    "coding_search_file_section_mean",
 )
 DENSE_ARMS = ("dense", "coding_memory_dense_v5")
 HOST_OVERFLOW_ARMS = (
@@ -156,6 +157,7 @@ HOST_OVERFLOW_ARMS = (
     "coding_dependency_cold_cost",
     "coding_dependency_graph_cold_lcb",
     "coding_dependency_graph_cold_mean",
+    "coding_search_file_section_mean",
 )
 DUAL_ISLAND_ARMS = (
     "general_dual_4k",
@@ -308,6 +310,13 @@ def prepare(output: Path) -> dict[str, Any]:
                 "policy, but the frozen graph TTFT model admits positive mean "
                 "predicted saving instead of subtracting the residual-Q10 "
                 "lower bound"
+            ),
+            "coding_search_file_section_mean": (
+                "split successful grep/rg output only at literal contiguous "
+                "file-prefixed line boundaries; retain per-file version and "
+                "dependency-graph-hot protection, admit one dependency-cold "
+                "island on positive frozen mean TTFT saving, and use neither "
+                "ordinary prefix reuse nor prefetch"
             ),
             "coding_post_mutation_v19": (
                 "use General-4K when there is no online file-version boundary; "

@@ -36,6 +36,22 @@ def arm_value(ttft: float, *, reuse: bool, build: float) -> dict:
     }
 
 
+def test_configure_uses_frozen_canary_cardinality(tmp_path, monkeypatch) -> None:
+    campaign = tmp_path / "campaign"
+    dump(
+        campaign / "CANARY4.json",
+        [{"instance_id": f"task-{index}"} for index in range(3)],
+    )
+    monkeypatch.setattr(replay, "CAMPAIGN", campaign)
+
+    policy_run, output = replay.configure("canary4")
+
+    assert policy_run == (
+        campaign / "runs/sglang_canary" / replay.ARM / "full_3"
+    )
+    assert output == campaign / "exact_prompt_replay/canary4/sglang_coding"
+
+
 def test_summarize_reports_cache_ready_and_amortized_speedups(
     tmp_path, monkeypatch
 ) -> None:

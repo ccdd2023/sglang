@@ -49,7 +49,14 @@ def write_json(path: Path, value: Any) -> None:
 
 def configure(label: str) -> tuple[Path, Path]:
     if label == "canary4":
-        policy_run = CAMPAIGN / "runs/sglang_canary" / ARM / "full_4"
+        snapshot = CAMPAIGN / "CANARY4.json"
+        task_count = len(base.read_json(snapshot)) if snapshot.is_file() else 4
+        policy_run = (
+            CAMPAIGN
+            / "runs/sglang_canary"
+            / ARM
+            / f"full_{task_count}"
+        )
     elif label == "fresh24":
         policy_run = CAMPAIGN / "runs/sglang_formal" / ARM / "full_24"
     else:

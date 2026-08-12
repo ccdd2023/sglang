@@ -59,6 +59,10 @@ def main() -> None:
         home
         / "CodeMAS_Project/kvflow-artifacts/impactkv_common_agent_graph_mean_20260812"
     )
+    search_file_section = (
+        home
+        / "CodeMAS_Project/kvflow-artifacts/impactkv_common_agent_search_file_section_20260812"
+    )
     campaign = (
         home
         / "CodeMAS_Project/kvflow-artifacts/impactkv_common_agent_format_guard_20260812"
@@ -112,6 +116,19 @@ def main() -> None:
                 state["wait_reason"] = (
                     "global GPU serialization; graph-mean state="
                     f"{graph_state.get('state')}"
+                )
+                save(status_path, state)
+                time.sleep(args.poll_seconds)
+            search_status_path = (
+                search_file_section / "AUTOMATED_SEARCH_FILE_SECTION_STATUS.json"
+            )
+            while search_status_path.is_file():
+                search_state = read(search_status_path)
+                if search_state.get("state") in {"complete", "blocked"}:
+                    break
+                state["wait_reason"] = (
+                    "global GPU serialization; search-file-section state="
+                    f"{search_state.get('state')}"
                 )
                 save(status_path, state)
                 time.sleep(args.poll_seconds)
