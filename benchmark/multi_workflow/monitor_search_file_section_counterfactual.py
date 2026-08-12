@@ -45,6 +45,34 @@ def main() -> None:
         "IMPACTKV_COMMON_CAMPAIGN": str(campaign),
     }
     try:
+        exact_registration = (
+            campaign
+            / "exact_prompt_replay/canary4/sglang_coding/RUN_REGISTRATION.json"
+        )
+        if (
+            state.get("state") == "blocked"
+            and "search_section_canary4_exact failed"
+            in str(state.get("error") or "")
+            and exact_registration.is_file()
+            and "search_section_canary4_exact_retry" not in state.get("jobs", {})
+        ):
+            state.setdefault("recovery_history", []).append(
+                {
+                    "failed_job": state.get("jobs", {}).get(
+                        "search_section_canary4_exact"
+                    ),
+                    "error": state.get("error"),
+                    "diagnosis": (
+                        "exact replay omitted model requests whose unparseable "
+                        "responses were represented only by FormatError interrupts; "
+                        "no TTFT measurements were issued"
+                    ),
+                }
+            )
+            state["state"] = "canary4_exact_retry_registered"
+            state["updated_at_utc"] = base.utc_now()
+            base.atomic_json(status_path, state)
+
         if state["state"] in {"registered", "waiting_graph_mean_terminal"}:
             state["state"] = "waiting_graph_mean_terminal"
             while True:
@@ -85,9 +113,28 @@ def main() -> None:
             state["state"] = "canary4_exact_submitted"
             base.atomic_json(status_path, state)
 
-        if state["state"] == "canary4_exact_submitted":
+        if state["state"] == "canary4_exact_retry_registered":
+            name = "search_section_canary4_exact_retry"
+            state["jobs"][name] = base.submit(
+                exact_script,
+                logs,
+                {**common, "IMPACTKV_COMMON_REPLAY_LABEL": "canary4"},
+            )
+            state["state"] = "canary4_exact_retry_submitted"
+            state.pop("error", None)
+            base.atomic_json(status_path, state)
+
+        if state["state"] in {
+            "canary4_exact_submitted",
+            "canary4_exact_retry_submitted",
+        }:
+            exact_job = (
+                "search_section_canary4_exact_retry"
+                if state["state"] == "canary4_exact_retry_submitted"
+                else "search_section_canary4_exact"
+            )
             base.wait_job(
-                state, status_path, "search_section_canary4_exact", args.poll_seconds
+                state, status_path, exact_job, args.poll_seconds
             )
             state["canary4_exact"] = base.validate_exact(campaign, "canary4")
             dense = base.official_report(

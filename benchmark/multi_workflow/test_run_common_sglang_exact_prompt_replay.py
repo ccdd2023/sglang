@@ -5,6 +5,7 @@ import json
 import pytest
 
 from benchmark.multi_workflow import run_common_sglang_exact_prompt_replay as replay
+from benchmark.multi_workflow import run_natural_code_cost_exact_prompt_speed as base
 
 
 def dump(path, value) -> None:
@@ -50,6 +51,20 @@ def test_configure_uses_frozen_canary_cardinality(tmp_path, monkeypatch) -> None
         campaign / "runs/sglang_canary" / replay.ARM / "full_3"
     )
     assert output == campaign / "exact_prompt_replay/canary4/sglang_coding"
+
+
+def test_request_prompt_cutoffs_include_failed_format_requests() -> None:
+    messages = [
+        {"role": "system"},
+        {"role": "user"},
+        {"role": "assistant"},
+        {"role": "tool"},
+        {"role": "user", "extra": {"interrupt_type": "FormatError"}},
+        {"role": "user", "extra": {"interrupt_type": "FormatError"}},
+        {"role": "exit"},
+    ]
+
+    assert base.request_prompt_cutoffs(messages) == [2, 4, 5]
 
 
 def test_summarize_reports_cache_ready_and_amortized_speedups(

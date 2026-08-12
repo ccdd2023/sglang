@@ -147,14 +147,34 @@ def _renderer() -> BridgeReuseLitellmModel:
     return model
 
 
+def request_prompt_cutoffs(messages: list[dict[str, Any]]) -> list[int]:
+    """Locate every model request represented by a saved trajectory.
+
+    A successful response is stored as an assistant message, so its request
+    prompt is ``messages[:index]``.  mini-swe-agent stores an unparseable
+    response only as the following user-side FormatError.  Its failed request
+    therefore has the same cutoff, immediately before that interrupt.  The
+    latter matters when a reuse source remains live across a format loop.
+    """
+
+    return [
+        index
+        for index, message in enumerate(messages)
+        if message.get("role") == "assistant"
+        or (
+            message.get("role") == "user"
+            and (message.get("extra") or {}).get("interrupt_type")
+            == "FormatError"
+        )
+    ]
+
+
 def reconstruct_prompt_index() -> dict[str, list[int]]:
     model = _renderer()
     prompts: dict[str, list[int]] = {}
     for trajectory_path in sorted(POLICY_RUN.rglob("*.traj.json")):
         messages = read_json(trajectory_path)["messages"]
-        for index, message in enumerate(messages):
-            if message.get("role") != "assistant":
-                continue
+        for index in request_prompt_cutoffs(messages):
             rolling, _, _ = model._rolling_messages(messages[:index])
             compacted, _ = model.compact_messages(rolling)
             ids = model._render_prompt_ids(compacted)
