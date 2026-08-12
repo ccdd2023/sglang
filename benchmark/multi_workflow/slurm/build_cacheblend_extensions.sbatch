@@ -25,8 +25,13 @@ header_snapshot="$HOME/impactkv-runtime/toolchains/cuda-12.9-login-headers"
 export CUDA_HOME="$HOME/impactkv-runtime/toolchains/cuda-12.9-legacy-layout"
 test -f "$header_snapshot/cuda_runtime.h"
 mkdir -p "$CUDA_HOME"
-ln -sfn "$system_cuda/bin" "$CUDA_HOME/bin"
-rm -rf "$CUDA_HOME/include" "$CUDA_HOME/lib64" "$CUDA_HOME/targets"
+rm -rf "$CUDA_HOME/bin" "$CUDA_HOME/include" "$CUDA_HOME/lib64" \
+  "$CUDA_HOME/targets" "$CUDA_HOME/nvvm"
+mkdir -p "$CUDA_HOME/bin"
+for entry in "$system_cuda"/bin/*; do
+  ln -sfn "$entry" "$CUDA_HOME/bin/$(basename "$entry")"
+done
+ln -sfn "$system_cuda/nvvm" "$CUDA_HOME/nvvm"
 ln -sfn "$header_snapshot" "$CUDA_HOME/include"
 mkdir -p "$CUDA_HOME/lib64" "$CUDA_HOME/targets/x86_64-linux"
 for entry in "$system_cuda"/targets/x86_64-linux/lib/*; do
