@@ -26,6 +26,8 @@ def main() -> None:
     parser.add_argument("--replacement-job", required=True)
     parser.add_argument("--replacement-dense-job")
     parser.add_argument("--invalid-patch-regrade-job")
+    parser.add_argument("--replacement-exact-cacheblend-job")
+    parser.add_argument("--replacement-exact-kvcomm-job")
     parser.add_argument("--poll-seconds", type=int, default=30)
     args = parser.parse_args()
     home = Path.home()
@@ -39,6 +41,37 @@ def main() -> None:
     state = base.read_json(status_path)
 
     try:
+        exact_replacements = (
+            args.replacement_exact_cacheblend_job,
+            args.replacement_exact_kvcomm_job,
+        )
+        if all(exact_replacements) and state.get("state") in {
+            "blocked",
+            "fresh24_exact_submitted",
+        }:
+            state.setdefault("invalidated_failures", []).append(
+                {
+                    "job": state.get("jobs", {}).get("fresh24_exact_cacheblend"),
+                    "reason": state.get("error") or "missing formal source ledger",
+                    "classification": (
+                        "valid formal inference ledger remained in the job runtime "
+                        "after its evaluator-path exit and was materialized before retry"
+                    ),
+                }
+            )
+            state.pop("error", None)
+            state["jobs"]["fresh24_exact_cacheblend"] = exact_replacements[0]
+            state["jobs"]["fresh24_exact_kvcomm"] = exact_replacements[1]
+            state["active_jobs"] = [
+                "fresh24_exact_cacheblend",
+                "fresh24_exact_kvcomm",
+            ]
+            state["state"] = "fresh24_exact_recovery_submitted"
+            state["exact_recovery_amendment"] = (
+                "FORMAL_CACHEBLEND_LEDGER_MATERIALIZATION_AMENDMENT_BEFORE_EXACT_RECOVERY.json"
+            )
+            save(status_path, state)
+
         regrade_name = "formal_cacheblend_dense_regrade"
         if (
             state.get("state") == "blocked"
@@ -226,7 +259,10 @@ def main() -> None:
             state["state"] = "fresh24_exact_submitted"
             save(status_path, state)
 
-        if state["state"] == "fresh24_exact_submitted":
+        if state["state"] in {
+            "fresh24_exact_submitted",
+            "fresh24_exact_recovery_submitted",
+        }:
             base.wait_jobs(state, list(state["active_jobs"]), args.poll_seconds)
             for backend in ("cacheblend", "kvcomm"):
                 result = base.read_json(
