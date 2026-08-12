@@ -59,10 +59,24 @@ REGISTRATION = Path(
         str(PROJECT / "benchmark/multi_workflow/swebench_verified_bridge_v1.json"),
     )
 )
-CONFIG = PROJECT / "benchmark/multi_workflow/swebench_bridge_agent_reuse_v1.yaml"
-CHAT_TEMPLATE = (
-    PROJECT / "benchmark/multi_workflow/qwen3_coder_tool_chat_template.jinja"
-)
+CONFIG = Path(
+    os.environ.get(
+        "IMPACTKV_AGENT_CONFIG",
+        str(
+            PROJECT
+            / "benchmark/multi_workflow/swebench_bridge_agent_reuse_v1.yaml"
+        ),
+    )
+).expanduser().resolve()
+CHAT_TEMPLATE = Path(
+    os.environ.get(
+        "IMPACTKV_CHAT_TEMPLATE",
+        str(
+            PROJECT
+            / "benchmark/multi_workflow/qwen3_coder_tool_chat_template.jinja"
+        ),
+    )
+).expanduser().resolve()
 MODEL = os.environ.get(
     "IMPACTKV_MODEL",
     str(PATHS.model),
