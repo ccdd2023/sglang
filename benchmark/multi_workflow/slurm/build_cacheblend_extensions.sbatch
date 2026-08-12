@@ -20,7 +20,7 @@ export PYTHONNOUSERSITE=1
 # 2.2.1 is cu121; the major version matches, and its extension checker permits
 # a newer CUDA 12 minor while warning about the minor-version difference.
 export CUDA_HOME=/usr/local/cuda-12.9
-export PATH="$HOME/.venvs/cacheblend-native/bin:$CUDA_HOME/bin:/usr/bin:/bin:$PATH"
+export PATH="$CUDA_HOME/bin:/usr/bin:/bin:$HOME/.venvs/cacheblend-native/bin:$PATH"
 export TORCH_CUDA_ARCH_LIST=8.9
 export MAX_JOBS="${MAX_JOBS:-16}"
 export NVCC_THREADS="${NVCC_THREADS:-2}"
