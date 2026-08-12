@@ -151,7 +151,6 @@ def analyze(campaign: Path) -> dict[str, Any]:
         task = nonce_to_task[nonce]
         task_row = task_rows[task]
         policy = row.get("reuse_policy_decision") or {}
-        metrics = row.get("native_backend_metrics") or {}
         task_row["agent_requests"] += 1
         for key in (
             "eligible_observations",
@@ -172,18 +171,10 @@ def analyze(campaign: Path) -> dict[str, Any]:
             selector[key] += int(policy.get(key) or 0)
         source_registered = bool(row.get("source_registered"))
         target_registered = bool(row.get("target_registered"))
-        physical = bool(metrics.get("physical_reuse")) or (
-            int(metrics.get("reused_k_tokens") or 0) > 0
-            and int(metrics.get("reused_v_tokens") or 0) > 0
-        )
         task_row["source_registered_requests"] += int(source_registered)
         task_row["target_registered_requests"] += int(target_registered)
-        task_row["physical_copy_requests"] += int(physical)
-        task_row["copied_k_tokens"] += int(metrics.get("reused_k_tokens") or 0)
-        task_row["copied_v_tokens"] += int(metrics.get("reused_v_tokens") or 0)
         selector["source_registered_requests"] += int(source_registered)
         selector["target_registered_requests"] += int(target_registered)
-        selector["physical_copy_requests"] += int(physical)
         source_skips.update(
             {
                 str(key): int(value)
@@ -197,13 +188,25 @@ def analyze(campaign: Path) -> dict[str, Any]:
                 label = str(guard)
             target_guards[str(label)] += 1
 
+    server_rows = read_jsonl(server_path)
     server_events = Counter(
-        str(row.get("event") or "unknown") for row in read_jsonl(server_path)
+        str(row.get("event") or "unknown") for row in server_rows
     )
+    for row in server_rows:
+        if row.get("event") != "target_copied":
+            continue
+        match = NONCE_PATTERN.search(str(row.get("target_group_id") or ""))
+        if match is None or match.group(1) not in nonce_to_task:
+            raise ValueError(f"physical copy event has unknown target nonce: {row}")
+        task_row = task_rows[nonce_to_task[match.group(1)]]
+        task_row["physical_copy_requests"] += 1
+        task_row["copied_k_tokens"] += int(row.get("copied_k_tokens") or 0)
+        task_row["copied_v_tokens"] += int(row.get("copied_v_tokens") or 0)
+        selector["physical_copy_requests"] += 1
     runtime = read_json(runtime_path)
     if int(runtime.get("target_copy_events") or 0) != selector["physical_copy_requests"]:
         raise ValueError(
-            "client physical-copy count differs from runtime summary: "
+            "server physical-copy count differs from runtime summary: "
             f"{selector['physical_copy_requests']} vs {runtime.get('target_copy_events')}"
         )
 

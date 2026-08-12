@@ -54,11 +54,7 @@ def test_common_attribution_separates_copy_exposed_outcomes(tmp_path: Path) -> N
                     "eligible_observations": 1,
                     "dependency_cold_observations": 1,
                 },
-                "native_backend_metrics": {
-                    "physical_reuse": True,
-                    "reused_k_tokens": 128,
-                    "reused_v_tokens": 128,
-                },
+                "native_backend_metrics": {},
             },
             {
                 "event": "request_complete",
@@ -75,7 +71,15 @@ def test_common_attribution_separates_copy_exposed_outcomes(tmp_path: Path) -> N
     )
     _write(
         coding / "SERVER_LEDGER.jsonl",
-        [{"event": "source_materialized"}, {"event": "target_copied"}],
+        [
+            {"event": "source_materialized"},
+            {
+                "event": "target_copied",
+                "target_group_id": "p10-m1-s1-q1-v46-hash",
+                "copied_k_tokens": 128,
+                "copied_v_tokens": 128,
+            },
+        ],
     )
     _write(
         coding / "RUNTIME_SUMMARY.json",
