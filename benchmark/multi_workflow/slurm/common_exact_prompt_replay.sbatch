@@ -109,6 +109,7 @@ runner=(
 if [[ -n "$limit" ]]; then
   runner+=(--limit "$limit")
 fi
-PYTHONPATH="$IMPACTKV_PROJECT" "${runner[@]}"
+PYTHONPATH="$IMPACTKV_PROJECT" timeout --foreground --signal=TERM \
+  --kill-after=60s 4h "${runner[@]}"
 cp "$runtime/health.json" "$output/BACKEND_HEALTH.json"
 cp "$runtime/backend.log" "$output/BACKEND_SERVER.log"

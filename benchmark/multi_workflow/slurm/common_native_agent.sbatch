@@ -150,7 +150,15 @@ runner=(
 if [[ -n "$instance" ]]; then
   runner+=(--instance "$instance")
 fi
-PYTHONPATH="$IMPACTKV_PROJECT" "${runner[@]}"
+if [[ -n "$instance" ]]; then
+  runner_timeout="45m"
+elif [[ "$scope" == "canary" ]]; then
+  runner_timeout="3h"
+else
+  runner_timeout="11h"
+fi
+PYTHONPATH="$IMPACTKV_PROJECT" timeout --foreground --signal=TERM \
+  --kill-after=60s "$runner_timeout" "${runner[@]}"
 
 cp "$runtime/health.json" "$run_root/BACKEND_HEALTH.json"
 cp "$runtime/BACKEND_COMMAND.txt" "$run_root/BACKEND_COMMAND.txt"
