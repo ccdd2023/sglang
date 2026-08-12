@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=impactkv-sglang-agent
-#SBATCH --partition=short
+#SBATCH --partition=long
 #SBATCH --exclude=gpu[10-13,23-24]
-#SBATCH --nodelist=gpu20
-#SBATCH --gres=gpu:l40s:1
+#SBATCH --nodelist=gpu18
+#SBATCH --gres=gpu:rtx4090:1
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=128G
 #SBATCH --time=12:00:00
@@ -62,4 +62,3 @@ fi
   --agent-container-backend enroot \
   --evaluation-container-backend enroot \
   --official
-
