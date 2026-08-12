@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,27 @@ CAMPAIGN_NAME = "impactkv_common_agent_search_file_section_20260812"
 GRAPH_NAME = "impactkv_common_agent_graph_mean_20260812"
 SOURCE_NAME = "impactkv_common_agent_baselines_fresh24_20260812"
 STATUS_NAME = "AUTOMATED_SEARCH_FILE_SECTION_STATUS.json"
+
+
+def lifecycle_result(project: Path, campaign: Path, label: str) -> dict[str, Any]:
+    subprocess.run(
+        [
+            sys.executable,
+            str(
+                project
+                / "benchmark/multi_workflow/"
+                "analyze_search_file_section_exact_lifecycle.py"
+            ),
+            "--label",
+            label,
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    return base.read_json(
+        campaign
+        / f"exact_prompt_replay/{label}/sglang_coding/LIFECYCLE_RESULT.json"
+    )["summary"]
 
 
 def main() -> None:
@@ -137,6 +159,9 @@ def main() -> None:
                 state, status_path, exact_job, args.poll_seconds
             )
             state["canary4_exact"] = base.validate_exact(campaign, "canary4")
+            state["canary4_lifecycle"] = lifecycle_result(
+                project, campaign, "canary4"
+            )
             dense = base.official_report(
                 base.read_json(
                     source
@@ -196,6 +221,9 @@ def main() -> None:
                 state, status_path, "search_section_fresh24_exact", args.poll_seconds
             )
             state["fresh24_exact"] = base.validate_exact(campaign, "fresh24")
+            state["fresh24_lifecycle"] = lifecycle_result(
+                project, campaign, "fresh24"
+            )
             dense = base.official_report(
                 base.read_json(
                     source
