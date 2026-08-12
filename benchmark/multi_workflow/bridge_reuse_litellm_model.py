@@ -174,6 +174,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
     reuse_client_ledger_path: Path | None = None
     native_backend_url: str | None = None
     native_backend_name: str | None = None
+    recover_unparsed_output_with_notice: bool = False
 
     @model_validator(mode="after")
     def validate_reuse_paths(self):
@@ -343,7 +344,11 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
         return candidates
 
     @staticmethod
-    def _attach_embedded_tool_call(message: Any, call_id: str) -> None:
+    def _attach_embedded_tool_call(
+        message: Any,
+        call_id: str,
+        recover_unparsed_output_with_notice: bool = False,
+    ) -> None:
         if message.tool_calls or not isinstance(message.content, str):
             return
         content = message.content
@@ -474,6 +479,29 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 name = "bash"
                 arguments = {"command": shell_match.group("command").strip()}
                 start = shell_match.start()
+        if (
+            (not name or not isinstance(arguments, dict) or start is None)
+            and recover_unparsed_output_with_notice
+            and content.strip()
+        ):
+            # mini-SWE-agent does not retain an invalid assistant message; it
+            # appends another FormatError user message instead.  Qwen2.5 can
+            # therefore repeat the same prose-only output until the entire
+            # call budget is exhausted.  Preserve the model's own text as
+            # reasoning and execute only a non-mutating, task-independent
+            # notice.  This breaks the transport-format loop without
+            # inventing a repository search, edit, or solution for the model.
+            name = "bash"
+            arguments = {
+                "command": (
+                    "printf '%s\\n' 'NOTICE: the preceding assistant text "
+                    "contained no executable tool call and changed nothing. "
+                    "Your next response must contain exactly one non-empty "
+                    "bash tool call; put the intended shell command inside "
+                    "the command field.'"
+                )
+            }
+            start = len(content)
         if not name or not isinstance(arguments, dict) or start is None:
             return
         command = arguments.get("command")
@@ -1484,6 +1512,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                     f"call_{self._instance_nonce}_s{self._session_index}_"
                     f"q{self._request_index}"
                 ),
+                getattr(self.config, "recover_unparsed_output_with_notice", False),
             )
             self._last_stream_stats = {
                 "ttft_seconds": (
@@ -1561,6 +1590,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 f"call_{self._instance_nonce}_s{self._session_index}_"
                 f"q{self._request_index}"
             ),
+            getattr(self.config, "recover_unparsed_output_with_notice", False),
         )
         self._last_stream_stats = {
             "ttft_seconds": ttft_seconds,

@@ -87,6 +87,13 @@ def mini_command(args: argparse.Namespace, run_dir: Path) -> list[str]:
         "--config",
         f"agent.step_limit={args.step_limit}",
     ]
+    if args.recover_unparsed_output_with_notice:
+        command.extend(
+            [
+                "--config",
+                "model.recover_unparsed_output_with_notice=true",
+            ]
+        )
     if args.instance:
         command.extend(["--filter", f"^{args.instance}$"])
     return command
@@ -133,6 +140,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
     parser.add_argument("--step-limit", type=int, default=32)
+    parser.add_argument("--recover-unparsed-output-with-notice", action="store_true")
     parser.add_argument("--instance")
     parser.add_argument("--official", action="store_true")
     parser.add_argument("--container-backend", choices=("docker", "enroot"), default="enroot")
@@ -168,6 +176,9 @@ def main() -> None:
             "repetition_penalty": 1.05,
             "workers": 1,
             "prefetch": False,
+            "recover_unparsed_output_with_notice": (
+                args.recover_unparsed_output_with_notice
+            ),
         },
         "source_sha256": {
             str(CONFIG.relative_to(PROJECT)): sha256(CONFIG),

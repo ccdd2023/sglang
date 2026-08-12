@@ -1099,6 +1099,25 @@ def test_attach_embedded_tool_call_does_not_invent_action_from_prose() -> None:
     assert message.tool_calls is None
 
 
+def test_attach_embedded_tool_call_can_break_format_loop_with_readonly_notice() -> None:
+    content = "Inspect the relevant section of the code before editing."
+    message = SimpleNamespace(tool_calls=None, content=content)
+
+    bridge.BridgeReuseLitellmModel._attach_embedded_tool_call(
+        message,
+        "call_test",
+        recover_unparsed_output_with_notice=True,
+    )
+
+    assert len(message.tool_calls) == 1
+    call = message.tool_calls[0]
+    assert call.function.name == "bash"
+    arguments = json.loads(call.function.arguments)
+    assert arguments["command"].startswith("printf")
+    assert "changed nothing" in arguments["command"]
+    assert message.content == content
+
+
 def test_attach_embedded_tool_call_replaces_standalone_testbed_cd() -> None:
     message = SimpleNamespace(
         tool_calls=None,

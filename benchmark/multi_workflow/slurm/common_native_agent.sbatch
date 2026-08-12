@@ -158,6 +158,9 @@ runner=(
 if [[ -n "$instance" ]]; then
   runner+=(--instance "$instance")
 fi
+if [[ "${IMPACTKV_RECOVER_UNPARSED_OUTPUT_WITH_NOTICE:-0}" == "1" ]]; then
+  runner+=(--recover-unparsed-output-with-notice)
+fi
 if [[ -n "$instance" ]]; then
   runner_timeout="45m"
 elif [[ "$scope" == "canary" ]]; then
