@@ -566,6 +566,12 @@ def launch_server(
     )
     if arm not in DENSE_ARMS:
         env["SGLANG_KVCOMM_EXACT_CANARY_MANIFEST"] = str(manifest)
+        # The tiled Triton mover JIT-compiles on the first large middle-span
+        # source and can exhaust the small amount of CUDA memory outside the
+        # static KV pool.  SGLang's native layer-wise assignment performs the
+        # same physical K/V copy without that transient compilation footprint.
+        # Keep an explicit environment override for kernel counterfactuals.
+        env.setdefault("SGLANG_NATIVE_MOVE_KV_CACHE", "1")
     command = [
         str(SERVER_PYTHON),
         "-m",
