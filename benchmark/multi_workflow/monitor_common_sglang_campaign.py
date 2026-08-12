@@ -200,6 +200,50 @@ def submit_stage(
     return names
 
 
+def submit_exact(
+    state: dict[str, Any], *, project: Path, logs: Path, label: str
+) -> str:
+    name = f"{label}_sglang_exact"
+    job_id = submit(
+        script=(
+            project
+            / "benchmark/multi_workflow/slurm/common_sglang_exact_prompt_replay.sbatch"
+        ),
+        logs=logs,
+        exports={"IMPACTKV_COMMON_REPLAY_LABEL": label},
+        dependency=None,
+    )
+    state["jobs"][name] = job_id
+    state["active_jobs"] = [name]
+    return name
+
+
+def validate_exact(campaign: Path, label: str) -> dict[str, Any]:
+    path = campaign / f"exact_prompt_replay/{label}/sglang_coding/RESULT.json"
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    result = read_json(path)
+    if result.get("status") != "PASS":
+        raise RuntimeError(f"{label} SGLang exact replay failed: {result}")
+    return {
+        "targets": int((result.get("summary") or {}).get("targets") or 0),
+        "median_cache_ready_speedup": float(
+            result["summary"]["median_target_cache_ready_speedup"]
+        ),
+        "median_n1_including_build_speedup": float(
+            result["summary"]["median_target_n1_including_build_speedup"]
+        ),
+        "median_n4_including_build_speedup": float(
+            result["summary"]["median_target_n4_including_build_speedup"]
+        ),
+        "median_n16_including_build_speedup": float(
+            result["summary"]["median_target_n16_including_build_speedup"]
+        ),
+        "physical_copy_events": int(result["summary"]["physical_copy_events"]),
+        "result": str(path),
+    }
+
+
 def native_ready_for_canary(campaign: Path) -> tuple[bool, str]:
     path = campaign / NATIVE_STATUS
     if not path.is_file():
@@ -276,6 +320,14 @@ def main() -> None:
             state["canary4_gate"] = reason
             if not passed:
                 raise RuntimeError(reason)
+            submit_exact(state, project=project, logs=logs, label="canary4")
+            state["state"] = "canary4_exact_submitted"
+            atomic_json(status_path, state)
+
+        if state["state"] == "canary4_exact_submitted":
+            names = list(state["active_jobs"])
+            wait_jobs(state, status_path, names, args.poll_seconds)
+            state["canary4_exact"] = validate_exact(campaign, "canary4")
             state["state"] = "waiting_formal_images"
             atomic_json(status_path, state)
 
@@ -301,6 +353,14 @@ def main() -> None:
             state["fresh24_gate"] = reason
             if not passed:
                 raise RuntimeError(reason)
+            submit_exact(state, project=project, logs=logs, label="fresh24")
+            state["state"] = "fresh24_exact_submitted"
+            atomic_json(status_path, state)
+
+        if state["state"] == "fresh24_exact_submitted":
+            names = list(state["active_jobs"])
+            wait_jobs(state, status_path, names, args.poll_seconds)
+            state["fresh24_exact"] = validate_exact(campaign, "fresh24")
             state["state"] = "complete"
             state["finished_at_utc"] = utc_now()
             atomic_json(status_path, state)
