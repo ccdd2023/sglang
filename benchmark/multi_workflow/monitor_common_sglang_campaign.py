@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -23,6 +24,32 @@ from typing import Any
 ARMS = ("dense", "coding_dependency_graph_cold_lcb")
 NATIVE_STATUS = "AUTOMATED_CAMPAIGN_STATUS.json"
 STATUS_NAME = "AUTOMATED_SGLANG_STATUS.json"
+
+
+def archive_retry_artifacts(
+    campaign: Path, jobs: dict[str, Any]
+) -> tuple[str | None, list[str]]:
+    """Move stale SGLang outputs aside before a blocked campaign is retried."""
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    job_suffix = "_".join(str(value) for value in jobs.values()) or "no_jobs"
+    archive = campaign / "invalidated_probes" / f"sglang_retry_{stamp}_{job_suffix}"
+    relative_paths = (
+        Path("runs/sglang_canary"),
+        Path("runs/sglang_formal"),
+        Path("exact_prompt_replay/canary4/sglang_coding"),
+        Path("exact_prompt_replay/fresh24/sglang_coding"),
+    )
+    moved: list[str] = []
+    for relative in relative_paths:
+        source = campaign / relative
+        if not source.exists():
+            continue
+        target = archive / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(source), str(target))
+        moved.append(str(relative))
+    return (str(archive) if moved else None), moved
 
 
 def utc_now() -> str:
@@ -295,11 +322,17 @@ def main() -> None:
     if status_path.is_file():
         state = read_json(status_path)
         if state.get("state") == "blocked" and args.retry_blocked:
+            prior_jobs = dict(state.get("jobs") or {})
+            archive, archived_paths = archive_retry_artifacts(
+                campaign, prior_jobs
+            )
             state.setdefault("invalidated_runs", []).append(
                 {
                     "invalidated_at_utc": utc_now(),
-                    "jobs": dict(state.get("jobs") or {}),
+                    "jobs": prior_jobs,
                     "error": state.get("error"),
+                    "archive": archive,
+                    "archived_paths": archived_paths,
                 }
             )
             state["state"] = "waiting_native_canary4"
