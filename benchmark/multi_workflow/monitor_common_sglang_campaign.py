@@ -497,6 +497,18 @@ def main() -> None:
                     sys.executable,
                     str(
                         project
+                        / "benchmark/multi_workflow/analyze_common_coding_attribution.py"
+                    ),
+                    "--campaign",
+                    str(campaign),
+                ],
+                check=True,
+            )
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(
+                        project
                         / "benchmark/multi_workflow/summarize_common_baseline_campaign.py"
                     ),
                     "--campaign",
