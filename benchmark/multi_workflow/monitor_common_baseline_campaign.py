@@ -268,6 +268,15 @@ def submit_native_stage(
             "IMPACTKV_COMMON_MODE": mode,
             "IMPACTKV_COMMON_SCOPE": scope,
         }
+        if backend == "kvcomm":
+            exports.update(
+                {
+                    "IMPACTKV_KVCOMM_PYTHON": str(
+                        Path.home() / ".venvs/kvcomm-native-sdpa/bin/python"
+                    ),
+                    "IMPACTKV_KVCOMM_ATTN_IMPLEMENTATION": "sdpa",
+                }
+            )
         if instance:
             exports["IMPACTKV_COMMON_INSTANCE"] = instance
         job_id = submit(
@@ -359,6 +368,16 @@ def main() -> None:
                     "IMPACTKV_COMMON_SOURCE_LEDGER": str(source_ledger),
                     "IMPACTKV_COMMON_REPLAY_LABEL": "one_task_canary",
                     "IMPACTKV_COMMON_REPLAY_LIMIT": "4",
+                    **(
+                        {
+                            "IMPACTKV_KVCOMM_PYTHON": str(
+                                home / ".venvs/kvcomm-native-sdpa/bin/python"
+                            ),
+                            "IMPACTKV_KVCOMM_ATTN_IMPLEMENTATION": "sdpa",
+                        }
+                        if backend == "kvcomm"
+                        else {}
+                    ),
                 },
                 dependency=dependency,
             )
@@ -433,6 +452,16 @@ def main() -> None:
                     "IMPACTKV_COMMON_SOURCE_LEDGER": str(source_ledger),
                     "IMPACTKV_COMMON_REPLAY_LABEL": "fresh24",
                     "IMPACTKV_COMMON_REPLAY_LIMIT": "16",
+                    **(
+                        {
+                            "IMPACTKV_KVCOMM_PYTHON": str(
+                                home / ".venvs/kvcomm-native-sdpa/bin/python"
+                            ),
+                            "IMPACTKV_KVCOMM_ATTN_IMPLEMENTATION": "sdpa",
+                        }
+                        if backend == "kvcomm"
+                        else {}
+                    ),
                 },
                 dependency=dependency,
             )

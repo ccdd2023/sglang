@@ -24,6 +24,7 @@ def save(path: Path, state: dict) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--replacement-job", required=True)
+    parser.add_argument("--replacement-dense-job")
     parser.add_argument("--poll-seconds", type=int, default=30)
     args = parser.parse_args()
     home = Path.home()
@@ -41,6 +42,8 @@ def main() -> None:
         if current_replacement != args.replacement_job:
             state.pop("canary4_gate", None)
             state["jobs"]["canary_kvcomm_reuse_all"] = args.replacement_job
+            if args.replacement_dense_job:
+                state["jobs"]["canary_kvcomm_dense_all"] = args.replacement_dense_job
             state["replaced_invalid_job"] = "74238"
             state["replacement_reason"] = (
                 "KVCOMM cross-task GPU state retention plus eager-attention OOM"
@@ -108,6 +111,16 @@ def main() -> None:
                         "IMPACTKV_COMMON_SOURCE_LEDGER": str(source_ledger),
                         "IMPACTKV_COMMON_REPLAY_LABEL": "fresh24",
                         "IMPACTKV_COMMON_REPLAY_LIMIT": "16",
+                        **(
+                            {
+                                "IMPACTKV_KVCOMM_PYTHON": str(
+                                    home / ".venvs/kvcomm-native-sdpa/bin/python"
+                                ),
+                                "IMPACTKV_KVCOMM_ATTN_IMPLEMENTATION": "sdpa",
+                            }
+                            if backend == "kvcomm"
+                            else {}
+                        ),
                     },
                     dependency=dependency,
                 )
