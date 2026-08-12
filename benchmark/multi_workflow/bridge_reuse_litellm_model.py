@@ -529,6 +529,16 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             for wrapped_call in message["tool_calls"]:
                 call = wrapped_call.get("function", wrapped_call)
                 arguments = call.get("arguments") or {}
+                # ``_render_prompt`` first normalizes LiteLLM's serialized
+                # argument string into the JSON object consumed by the frozen
+                # Qwen2.5 template.  Span localization must render that same
+                # object; otherwise the group literal contains an extra quoted
+                # JSON string and can never occur in the actual prompt tokens.
+                if isinstance(arguments, str):
+                    try:
+                        arguments = json.loads(arguments)
+                    except json.JSONDecodeError:
+                        arguments = {"raw_arguments": arguments}
                 value += (
                     '\n<tool_call>\n{"name": "'
                     + str(call["name"])

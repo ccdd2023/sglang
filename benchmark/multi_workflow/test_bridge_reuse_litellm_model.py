@@ -89,20 +89,26 @@ def test_render_message_literal_matches_frozen_qwen25_tool_template() -> None:
         bridge.Path(__file__).resolve().parent
         / "qwen2_5_coder_tool_chat_template.jinja"
     )
-    rendered = Template(template_path.read_text()).render(
-        messages=[
-            {"role": "system", "content": "system"},
-            {"role": "user", "content": "task"},
-            *group,
-        ],
-        tools=[BASH_TOOL],
-        add_generation_prompt=True,
-    )
+    model = _bare_model()
+    model._chat_template = Template(template_path.read_text())
+    model._tokenizer = _CharacterTokenizer()
+    messages = [
+        {"role": "system", "content": "system"},
+        {"role": "user", "content": "task"},
+        *group,
+    ]
+    # Exercise the production normalization path: LiteLLM stores arguments as
+    # a JSON string, while the Qwen2.5 template receives the decoded object.
+    rendered = model._render_prompt(messages)
     expected = "".join(
         bridge.BridgeReuseLitellmModel._render_message_literal(message)
         for message in group
     )
     assert rendered.count(expected) == 1
+    prompt_ids = model._tokenizer.encode(
+        rendered, add_special_tokens=False
+    ).ids
+    assert model._group_token_span(prompt_ids, group) is not None
 
 
 def test_v33b_state_transition_releases_and_vetoes_current_target() -> None:
