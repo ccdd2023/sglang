@@ -41,6 +41,7 @@ def main() -> None:
         current_replacement = state.get("jobs", {}).get("canary_kvcomm_reuse_all")
         if current_replacement != args.replacement_job:
             state.pop("canary4_gate", None)
+            state.pop("error", None)
             state["jobs"]["canary_kvcomm_reuse_all"] = args.replacement_job
             if args.replacement_dense_job:
                 state["jobs"]["canary_kvcomm_dense_all"] = args.replacement_dense_job
@@ -53,6 +54,7 @@ def main() -> None:
             save(status_path, state)
 
         if state["state"] == "canary4_recovery_submitted":
+            state.pop("error", None)
             base.wait_jobs(state, list(state["active_jobs"]), args.poll_seconds)
             passed, reason = base.validate_native_runs(campaign, "canary", None)
             if not passed:
