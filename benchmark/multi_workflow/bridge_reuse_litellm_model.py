@@ -9,6 +9,7 @@ synthetic prefetch or replay request.
 
 from __future__ import annotations
 
+import ast
 import copy
 import fcntl
 import hashlib
@@ -18,6 +19,7 @@ import os
 import re
 import time
 import uuid
+import warnings
 from pathlib import Path
 from typing import Any, Literal
 
@@ -345,6 +347,50 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 try:
                     candidate, _ = decoder.raw_decode(content[candidate_start:])
                 except json.JSONDecodeError:
+                    continue
+                if not isinstance(candidate, dict):
+                    continue
+                function = candidate.get("function", candidate)
+                if not isinstance(function, dict):
+                    continue
+                candidate_name = function.get("name")
+                candidate_arguments = function.get("arguments")
+                if (
+                    candidate_name == "bash"
+                    and isinstance(candidate_arguments, dict)
+                    and isinstance(candidate_arguments.get("command"), str)
+                ):
+                    name = candidate_name
+                    arguments = candidate_arguments
+                    start = candidate_start
+                    break
+        if name is None:
+            # Shell commands commonly contain backslashes that are legal in a
+            # shell string but invalid JSON escapes (observed: ``\;`` and
+            # ``\'``). ``ast.literal_eval`` safely accepts the resulting
+            # JSON-like dict without executing code. Limit candidates to a
+            # whole fence/object and still require the exact bash schema.
+            literal_candidates: list[tuple[int, str]] = []
+            for fenced in re.finditer(
+                r"```(?:json|bash|sh|shell)?\s*\n(?P<value>.*?)```",
+                content,
+                flags=re.DOTALL | re.IGNORECASE,
+            ):
+                literal_candidates.append(
+                    (fenced.start(), fenced.group("value").strip())
+                )
+            first_brace = content.find("{")
+            last_brace = content.rfind("}")
+            if first_brace >= 0 and last_brace > first_brace:
+                literal_candidates.append(
+                    (first_brace, content[first_brace : last_brace + 1])
+                )
+            for candidate_start, candidate_text in literal_candidates:
+                try:
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", SyntaxWarning)
+                        candidate = ast.literal_eval(candidate_text)
+                except (SyntaxError, ValueError):
                     continue
                 if not isinstance(candidate, dict):
                     continue

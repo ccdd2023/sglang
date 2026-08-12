@@ -987,6 +987,18 @@ def test_query_closes_underlying_sync_stream_on_iteration_error(
             '{"command":"python -m compileall django"}}\n</tool_call>',
             "python -m compileall django",
         ),
+        (
+            r'''{"name": "bash", "arguments": {"command": "find . '''
+            r'''-exec sed -i 's/x/os.environ.get(\'SECRET_KEY\')/' {} \;"}}''',
+            "find . -exec sed -i 's/x/os.environ.get('SECRET_KEY')/' {} \\;",
+        ),
+        (
+            r'''```bash
+{"name":"bash","arguments":{"command":"find . -exec sed -i '''
+            r''''s/x/os.environ.get('SECRET_KEY')/' {} \;"}}
+```''',
+            "find . -exec sed -i 's/x/os.environ.get('SECRET_KEY')/' {} \\;",
+        ),
     ],
 )
 def test_attach_embedded_tool_call_accepts_observed_qwen_formats(

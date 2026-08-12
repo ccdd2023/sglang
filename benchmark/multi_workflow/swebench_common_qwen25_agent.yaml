@@ -20,10 +20,13 @@ agent:
     Work in /testbed and modify only regular non-test source files required by
     the PR description. Do not modify tests, packaging, or configuration.
 
-    Use the bash tool in every response. Inspect narrowly and finish the source
-    edit by model call 5. Run a focused check only after editing. After the edit,
-    inspect `git diff`, create patch.txt from only the modified source files,
-    inspect it, and submit with exactly:
+    Use the bash tool in every response. Model calls 1 and 2 must be narrow,
+    read-only inspection with commands such as `rg`, `sed -n`, and `git diff`.
+    Do not edit before call 3. Never run a recursive `find ... -exec` edit or a
+    repository-wide in-place replacement; explicitly name each source file you
+    edit. Finish the source edit by model call 5. Run a focused check only after
+    editing. After the edit, inspect `git diff`, create patch.txt from only the
+    modified source files, inspect it, and submit with exactly:
     `echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT && cat patch.txt`
     Do not issue any command after submission.
 
