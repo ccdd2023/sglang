@@ -22,6 +22,7 @@ mode="${IMPACTKV_COMMON_MODE:?set IMPACTKV_COMMON_MODE=dense or reuse}"
 scope="${IMPACTKV_COMMON_SCOPE:-canary}"
 instance="${IMPACTKV_COMMON_INSTANCE:-}"
 model_dtype="${IMPACTKV_COMMON_DTYPE:-bfloat16}"
+step_limit="${IMPACTKV_AGENT_STEP_LIMIT:-32}"
 port="${IMPACTKV_COMMON_PORT:-$(python3 - <<'PY'
 import socket
 
@@ -30,7 +31,7 @@ with socket.socket() as stream:
     print(stream.getsockname()[1])
 PY
 )}"
-campaign="$IMPACTKV_ARTIFACTS/impactkv_common_agent_baselines_fresh24_20260812"
+campaign="${IMPACTKV_COMMON_CAMPAIGN:-$IMPACTKV_ARTIFACTS/impactkv_common_agent_baselines_fresh24_20260812}"
 
 case "$scope" in
   canary)
@@ -43,6 +44,11 @@ case "$scope" in
     snapshot="$campaign/FROZEN_FRESH24.json"
     registration="$campaign/BRIDGE_FRESH24_REGISTRATION.json"
     ;;
+  custom)
+    dataset="${IMPACTKV_COMMON_DATASET:?set IMPACTKV_COMMON_DATASET for custom scope}"
+    snapshot="${IMPACTKV_COMMON_SNAPSHOT:?set IMPACTKV_COMMON_SNAPSHOT for custom scope}"
+    registration="${IMPACTKV_COMMON_REGISTRATION:?set IMPACTKV_COMMON_REGISTRATION for custom scope}"
+    ;;
   *)
     echo "unknown common-agent scope: $scope" >&2
     exit 64
@@ -50,7 +56,8 @@ case "$scope" in
 esac
 
 instance_key="${instance:-all}"
-run_root="$campaign/runs/${scope}/${backend}_${mode}/${instance_key}"
+run_namespace="${IMPACTKV_COMMON_RUN_NAMESPACE:-$scope}"
+run_root="$campaign/runs/${run_namespace}/${backend}_${mode}/${instance_key}"
 if [[ -e "$run_root" ]]; then
   echo "refusing to overwrite existing run: $run_root" >&2
   exit 73
@@ -144,7 +151,7 @@ runner=(
   --registration "$registration"
   --output "$run_root"
   --model "$IMPACTKV_MODEL"
-  --step-limit 32
+  --step-limit "$step_limit"
   --container-backend enroot
   --official
 )
