@@ -161,6 +161,26 @@ def read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def first_request_identity_by_session(
+    rows: list[dict[str, Any]],
+) -> dict[int, tuple[str, str]]:
+    """Return the first completed messages/token identity for every task session."""
+
+    identities: dict[int, tuple[str, str]] = {}
+    for row in rows:
+        if row.get("event") != "request_complete":
+            continue
+        session_index = row.get("session_index")
+        messages_hash = row.get("messages_sha256")
+        input_ids_hash = row.get("input_ids_sha256")
+        if not isinstance(session_index, int):
+            raise ValueError(f"request is missing integer session_index: {row}")
+        if not isinstance(messages_hash, str) or not isinstance(input_ids_hash, str):
+            raise ValueError(f"request is missing input identity: {row}")
+        identities.setdefault(session_index, (messages_hash, input_ids_hash))
+    return identities
+
+
 def validate_native_runs(
     campaign: Path,
     scope: str,
@@ -209,12 +229,30 @@ def validate_native_runs(
             for line in ledger_path.read_text(encoding="utf-8").splitlines()
             if line.strip()
         ]
-    first_hashes = []
-    for rows in ledgers.values():
-        request = next(row for row in rows if row.get("event") == "request_complete")
-        first_hashes.append(request.get("input_ids_sha256"))
-    if len(set(first_hashes)) != 1:
-        return False, f"first-request prompt hashes differ: {first_hashes}"
+    identities = {
+        arm: first_request_identity_by_session(rows)
+        for arm, rows in ledgers.items()
+    }
+    reference_arm = ARMS[0]
+    reference = identities[reference_arm]
+    if not reference:
+        return False, f"no completed task sessions: {reference_arm}"
+    session_sets = {arm: set(values) for arm, values in identities.items()}
+    if any(values != set(reference) for values in session_sets.values()):
+        return False, f"task-session sets differ across arms: {session_sets}"
+    mismatches = {
+        session_index: {
+            f"{backend}_{mode}": values[session_index]
+            for (backend, mode), values in identities.items()
+        }
+        for session_index in sorted(reference)
+        if len(
+            {values[session_index] for values in identities.values()}
+        )
+        != 1
+    }
+    if mismatches:
+        return False, f"first-request identities differ by task session: {mismatches}"
     return True, f"{scope} native runs passed identity and physical-reuse gates"
 
 
