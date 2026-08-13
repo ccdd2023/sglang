@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Describe search-file-section canary behavior against frozen Dense.
+"""Describe search-file-section behavior against frozen Dense.
 
 This post-run audit never selects tasks or changes policy.  It compares every
 successfully parsed model request by request index, records the subset exposed
@@ -88,14 +88,26 @@ def compare_task(dense_path: Path, search_path: Path) -> dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=SEARCH / "SEARCH_FILE_SECTION_CANARY_COUNTERFACTUAL.json",
-    )
+    parser.add_argument("--campaign", type=Path, default=SEARCH)
+    parser.add_argument("--baseline", type=Path, default=BASE)
+    parser.add_argument("--arm", default=ARM)
+    parser.add_argument("--label", choices=("canary4", "fresh24"), default="canary4")
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    dense = BASE / "runs/sglang_formal/dense/full_24"
-    search = SEARCH / f"runs/sglang_canary/{ARM}/full_3"
+    campaign = args.campaign.expanduser().resolve()
+    baseline = args.baseline.expanduser().resolve()
+    dense = baseline / "runs/sglang_formal/dense/full_24"
+    snapshot = campaign / (
+        "CANARY4.json" if args.label == "canary4" else "FROZEN_FRESH24.json"
+    )
+    task_count = len(read_json(snapshot))
+    scope = "sglang_canary" if args.label == "canary4" else "sglang_formal"
+    search = campaign / f"runs/{scope}/{args.arm}/full_{task_count}"
+    output = args.output or campaign / (
+        "SEARCH_FILE_SECTION_CANARY_COUNTERFACTUAL.json"
+        if args.label == "canary4"
+        else "SEARCH_FILE_SECTION_FRESH24_COUNTERFACTUAL.json"
+    )
     tasks = []
     for search_path in sorted(search.glob("*/*.traj.json")):
         instance_id = search_path.parent.name
@@ -108,7 +120,7 @@ def main() -> None:
         }
         tasks.append(row)
     if not tasks:
-        raise RuntimeError("search-file-section canary trajectories absent")
+        raise RuntimeError(f"search-file-section {args.label} trajectories absent")
     runtime = read_json(search / "RUNTIME_SUMMARY.json")
     physical = int(runtime.get("target_copy_events") or 0)
     successful_exposed = sum(
@@ -139,12 +151,13 @@ def main() -> None:
         ),
         "tasks": tasks,
         "interpretation_limit": (
-            "Identical parsed actions and final submissions on three tasks show no "
-            "observed canary behavior damage. FormatError responses contain no "
-            "assistant action to compare, and 0/3 resolved cannot establish quality."
+            f"Identical parsed actions and final submissions on {len(tasks)} tasks "
+            "would show no observed behavior damage in this frozen run. FormatError "
+            "responses contain no assistant action to compare, and official resolved "
+            "accuracy remains the only task-quality outcome."
         ),
     }
-    args.output.write_text(
+    output.write_text(
         json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
