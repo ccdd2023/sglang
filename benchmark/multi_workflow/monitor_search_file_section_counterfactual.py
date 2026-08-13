@@ -42,6 +42,30 @@ def lifecycle_result(project: Path, campaign: Path, label: str) -> dict[str, Any
     )["summary"]
 
 
+def effective_speed_result(
+    project: Path, campaign: Path, label: str
+) -> dict[str, Any]:
+    subprocess.run(
+        [
+            sys.executable,
+            str(
+                project
+                / "benchmark/multi_workflow/"
+                "analyze_search_file_section_effective_speed.py"
+            ),
+            "--label",
+            label,
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    return base.read_json(
+        campaign
+        / f"exact_prompt_replay/{label}/sglang_coding/"
+        "EFFECTIVE_REQUEST_SPEED_AUDIT.json"
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--poll-seconds", type=int, default=30)
@@ -67,6 +91,15 @@ def main() -> None:
         "IMPACTKV_COMMON_CAMPAIGN": str(campaign),
     }
     try:
+        if (
+            "canary4_exact" in state
+            and "canary4_effective_speed" not in state
+        ):
+            state["canary4_effective_speed"] = effective_speed_result(
+                project, campaign, "canary4"
+            )
+            state["updated_at_utc"] = base.utc_now()
+            base.atomic_json(status_path, state)
         exact_registration = (
             campaign
             / "exact_prompt_replay/canary4/sglang_coding/RUN_REGISTRATION.json"
@@ -162,6 +195,9 @@ def main() -> None:
             state["canary4_lifecycle"] = lifecycle_result(
                 project, campaign, "canary4"
             )
+            state["canary4_effective_speed"] = effective_speed_result(
+                project, campaign, "canary4"
+            )
             dense = base.official_report(
                 base.read_json(
                     source
@@ -222,6 +258,9 @@ def main() -> None:
             )
             state["fresh24_exact"] = base.validate_exact(campaign, "fresh24")
             state["fresh24_lifecycle"] = lifecycle_result(
+                project, campaign, "fresh24"
+            )
+            state["fresh24_effective_speed"] = effective_speed_result(
                 project, campaign, "fresh24"
             )
             dense = base.official_report(
