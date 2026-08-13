@@ -1111,6 +1111,75 @@ def test_search_file_section_arm_localizes_exact_natural_section() -> None:
     )
 
 
+def test_search_file_section_multi_arm_admits_three_nonoverlapping_islands() -> None:
+    group = [
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "bash",
+                        "arguments": {
+                            "command": "grep -RIn --include='*.py' value /testbed/pkg"
+                        },
+                    }
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": (
+                "<returncode>0</returncode><output>\n"
+                + "pkg/a.py:10:def a_value(): return 1\n" * 8
+                + "pkg/b.py:20:def b_value(): return 2\n" * 12
+                + "pkg/c.py:30:def c_value(): return 3\n" * 10
+                + "</output>"
+            ),
+        },
+    ]
+    model = object.__new__(bridge.BridgeReuseLitellmModel)
+    model.config = SimpleNamespace(
+        reuse_arm="coding_search_file_section_multi_mean",
+        rolling_history_groups=6,
+        reuse_min_tokens=32,
+        reuse_copy_cap=4096,
+    )
+    model._tokenizer = _CharacterTokenizer()
+    model._instance_nonce = "search-section-multi"
+    model._session_index = 1
+    model._request_index = 2
+    literal = "".join(model._render_message_literal(message) for message in group)
+    source_prompt = [ord(value) for value in "P" + literal + "S"]
+    sources, pool, _, decision = model._v46_future_sources(
+        prompt_ids=source_prompt,
+        selected_groups=[group],
+        pool={},
+    )
+    assert len(sources) == len(pool) == 3
+    assert decision["max_target_islands"] == 3
+
+    model._pending_sources = pool
+    target_prompt = [ord("Q")] * 2_000 + [ord(value) for value in literal + "T"]
+    cases, releases, guards, retained = model._v46_target_cases(
+        prompt_ids=target_prompt,
+        selected_groups=[group],
+    )
+
+    assert releases == []
+    assert retained == pool
+    assert len(cases) == 3
+    assert len(guards) == 3
+    assert all(row["dependency_graph_guard_applied"] for row in guards)
+    intervals = [
+        (int(row["target_start"]), int(row["target_start"]) + int(row["length"]))
+        for row in cases
+    ]
+    assert all(
+        right <= next_left
+        for (_, right), (next_left, _) in zip(intervals, intervals[1:])
+    )
+
+
 def test_query_closes_underlying_sync_stream(monkeypatch) -> None:
     chunk = SimpleNamespace(
         choices=[

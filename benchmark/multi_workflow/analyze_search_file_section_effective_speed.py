@@ -106,12 +106,16 @@ def actual_materialization(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--campaign", type=Path, default=CAMPAIGN)
+    parser.add_argument("--arm", default=ARM)
     parser.add_argument("--label", choices=("canary4", "fresh24"), default="canary4")
     args = parser.parse_args()
+    campaign = args.campaign.expanduser().resolve()
     online_scope = "sglang_canary" if args.label == "canary4" else "sglang_formal"
-    online_count = 3 if args.label == "canary4" else 24
-    online = CAMPAIGN / f"runs/{online_scope}/{ARM}/full_{online_count}"
-    exact = CAMPAIGN / f"exact_prompt_replay/{args.label}/sglang_coding"
+    snapshot = campaign / ("CANARY4.json" if args.label == "canary4" else "FROZEN_FRESH24.json")
+    online_count = len(read(snapshot))
+    online = campaign / f"runs/{online_scope}/{args.arm}/full_{online_count}"
+    exact = campaign / f"exact_prompt_replay/{args.label}/sglang_coding"
     plan = read(exact / "PLAN.json")
     result = read(exact / "RESULT.json")
     targets_by_group = {

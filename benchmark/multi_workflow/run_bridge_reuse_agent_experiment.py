@@ -136,6 +136,7 @@ ARMS = (
     "coding_dependency_graph_cold_lcb",
     "coding_dependency_graph_cold_mean",
     "coding_search_file_section_mean",
+    "coding_search_file_section_multi_mean",
 )
 DENSE_ARMS = ("dense", "coding_memory_dense_v5")
 HOST_OVERFLOW_ARMS = (
@@ -158,6 +159,7 @@ HOST_OVERFLOW_ARMS = (
     "coding_dependency_graph_cold_lcb",
     "coding_dependency_graph_cold_mean",
     "coding_search_file_section_mean",
+    "coding_search_file_section_multi_mean",
 )
 DUAL_ISLAND_ARMS = (
     "general_dual_4k",
@@ -317,6 +319,13 @@ def prepare(output: Path) -> dict[str, Any]:
                 "dependency-graph-hot protection, admit one dependency-cold "
                 "island on positive frozen mean TTFT saving, and use neither "
                 "ordinary prefix reuse nor prefetch"
+            ),
+            "coding_search_file_section_multi_mean": (
+                "the same literal search-file boundaries, per-file version "
+                "validation, dependency-graph-hot protection, and positive "
+                "mean cost gate as coding_search_file_section_mean, changing "
+                "only the target cap from one to three non-overlapping cold "
+                "islands; no ordinary prefix reuse or prefetch"
             ),
             "coding_post_mutation_v19": (
                 "use General-4K when there is no online file-version boundary; "

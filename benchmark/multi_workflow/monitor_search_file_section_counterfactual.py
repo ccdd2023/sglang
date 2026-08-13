@@ -43,7 +43,7 @@ def lifecycle_result(project: Path, campaign: Path, label: str) -> dict[str, Any
 
 
 def effective_speed_result(
-    project: Path, campaign: Path, label: str
+    project: Path, campaign: Path, label: str, arm: str = ARM
 ) -> dict[str, Any]:
     subprocess.run(
         [
@@ -55,6 +55,10 @@ def effective_speed_result(
             ),
             "--label",
             label,
+            "--campaign",
+            str(campaign),
+            "--arm",
+            arm,
         ],
         check=True,
         stdout=subprocess.DEVNULL,

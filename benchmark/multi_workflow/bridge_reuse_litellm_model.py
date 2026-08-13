@@ -83,11 +83,13 @@ NATURAL_CODE_COST_ARMS = (
     "coding_dependency_graph_cold_lcb",
     "coding_dependency_graph_cold_mean",
     "coding_search_file_section_mean",
+    "coding_search_file_section_multi_mean",
 )
 DEPENDENCY_GRAPH_ARMS = (
     "coding_dependency_graph_cold_lcb",
     "coding_dependency_graph_cold_mean",
     "coding_search_file_section_mean",
+    "coding_search_file_section_multi_mean",
 )
 
 
@@ -177,6 +179,7 @@ class BridgeReuseLitellmModelConfig(ContextBoundedLitellmModelConfig):
         "coding_dependency_graph_cold_lcb",
         "coding_dependency_graph_cold_mean",
         "coding_search_file_section_mean",
+        "coding_search_file_section_multi_mean",
     ] = "dense"
     rolling_history_groups: int = Field(default=6, ge=4)
     reuse_copy_cap: int = Field(default=4096, ge=128)
@@ -911,6 +914,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
                 if self.config.reuse_arm in (
                     "coding_dependency_graph_cold_mean",
                     "coding_search_file_section_mean",
+                    "coding_search_file_section_multi_mean",
                 )
                 else natural_code_reuse_cost_estimate(
                     island_tokens=len(handle["segment_ids"]),
@@ -966,7 +970,10 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             selected.append(row)
             intervals.append((start, end))
             max_target_islands = (
-                1
+                3
+                if self.config.reuse_arm
+                == "coding_search_file_section_multi_mean"
+                else 1
                 if self.config.reuse_arm in DEPENDENCY_GRAPH_ARMS
                 else 3
             )
@@ -1029,7 +1036,10 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             if len(selected_groups) < self.config.rolling_history_groups
             else selected_groups[1:]
         )
-        if self.config.reuse_arm == "coding_search_file_section_mean":
+        if self.config.reuse_arm in (
+            "coding_search_file_section_mean",
+            "coding_search_file_section_multi_mean",
+        ):
             candidates, decision = search_file_section_dependency_cold_candidates(
                 retained
             )
@@ -1247,9 +1257,11 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             "source_skip_reasons": skipped,
             "max_live_sources": 3,
             "max_target_islands": (
-                1
+                3
                 if self.config.reuse_arm
-                in DEPENDENCY_GRAPH_ARMS
+                == "coding_search_file_section_multi_mean"
+                else 1
+                if self.config.reuse_arm in DEPENDENCY_GRAPH_ARMS
                 else 3
             ),
         }
@@ -1700,6 +1712,7 @@ class BridgeReuseLitellmModel(ContextBoundedLitellmModel):
             "coding_dependency_graph_cold_lcb",
             "coding_dependency_graph_cold_mean",
             "coding_search_file_section_mean",
+            "coding_search_file_section_multi_mean",
         ):
             targets, releases, target_guards, live_pool = (
                 self._v46_target_cases(
