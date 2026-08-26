@@ -53,6 +53,37 @@ def shifted_source_ids(cases: list[dict[str, Any]]) -> set[str]:
     return hits
 
 
+def replay_finetune(
+    template: OnlineFileTemplate,
+    groups: list[dict[str, Any]],
+) -> OnlineFileTemplate:
+    """Apply bind outcomes from PLAN groups as online fine-tune steps."""
+    from sglang.srt.mem_cache.coding_aware.online_admit import (
+        BindAction,
+        BindResult,
+    )
+
+    from benchmark.multi_workflow.prepare_online_admit_plan import compile_group
+
+    for row in groups:
+        compiled = compile_group(row)
+        if not compiled["sources"]:
+            continue
+        obs = _observation(compiled["sources"][0])
+        rec = compiled["online_recovery"]
+        for _ in range(int(rec.get("online_copy") or 0)):
+            template.observe(
+                BindResult(action=BindAction.COPY, reason="online_bind"),
+                obs,
+            )
+        for _ in range(int(rec.get("not_in_target") or 0)):
+            template.observe(
+                BindResult(action=BindAction.DENSE, reason="not_in_target"),
+                obs,
+            )
+    return template
+
+
 def compile_template(
     sources: list[dict[str, Any]],
     cases: list[dict[str, Any]],

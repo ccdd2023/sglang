@@ -94,6 +94,45 @@ def test_json_roundtrip_keeps_class_bins():
     assert again.bin_for(_obs()).offline_n == 11
 
 
+def test_damped_finetune_does_not_overwrite_offline_class_prior():
+    template = OnlineFileTemplate.from_json(
+        {
+            "bins": {
+                "coding_agent": {"alpha": 116, "beta": 93, "offline_n": 207},
+            }
+        }
+    )
+    obs = _obs(later_roles=3)
+    roles0 = _obs(content="other", later_roles=0)
+    start = template.bin_for(obs).mean
+    hit = _bind(obs, BindAction.COPY, "online_bind")
+    for _ in range(8):
+        template.observe(hit, obs)
+    assert abs(template.bin_for(obs).mean - start) < 0.02
+    assert template.admit(obs) is None
+    assert template.admit(roles0) == "no_protocol_reread"
+
+
+def _coding_agent_fixture():
+    from pathlib import Path
+
+    here = Path(__file__).resolve()
+    for parent in (here.parent, *here.parents):
+        candidate = parent / "benchmark/multi_workflow/templates/coding_agent.json"
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError("coding_agent.json fixture")
+
+
+def test_compiled_coding_agent_fixture_is_a_class_prior():
+    template = OnlineFileTemplate.from_path(_coding_agent_fixture())
+    obs = _obs(later_roles=3)
+    assert template.bin_for(obs).offline_n == 207
+    assert 0.50 < template.bin_for(obs).mean < 0.62
+    assert template.admit(obs) is None
+    assert template.admit(_obs(later_roles=0)) == "no_protocol_reread"
+
+
 def test_prefetch_priority_uses_class_mean():
     template = OnlineFileTemplate()
     obs = _obs()

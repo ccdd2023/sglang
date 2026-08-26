@@ -9,6 +9,7 @@ fine-tunes the class without overwriting it.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
@@ -84,10 +85,17 @@ class OnlineFileTemplate:
             return None
         return "no_protocol_reread"
 
+    def _step(self, post: ClassBin) -> float:
+        """Fine-tune weight. Offline pseudo-counts keep one session from overwriting the class."""
+        if post.offline_n <= 0:
+            return self.online_step
+        scale = math.sqrt(max(self.min_obs, 1) / float(post.offline_n))
+        return self.online_step * min(1.0, scale)
+
     def observe(self, result: BindResult, obs: SourceObservation) -> None:
         post = self.bin_for(obs)
         post.leased += 1
-        step = self.online_step
+        step = self._step(post)
         if result.action is BindAction.COPY:
             post.copied += 1
             post.alpha += step

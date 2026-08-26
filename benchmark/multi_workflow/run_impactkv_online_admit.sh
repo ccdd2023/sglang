@@ -48,6 +48,11 @@ if [[ -n "$max_groups" ]]; then
 fi
 
 export IMPACTKV_ONLINE_ADMIT=1
+template="${SGLANG_KVCOMM_CLASS_TEMPLATE:-$_mw/templates/coding_agent.json}"
+if [[ -f "$template" ]]; then
+  export SGLANG_KVCOMM_CLASS_TEMPLATE="$template"
+  echo "class template $SGLANG_KVCOMM_CLASS_TEMPLATE"
+fi
 PYTHONNOUSERSITE=1 PYTHONPATH="$IMPACTKV_PROJECT/python:$IMPACTKV_PROJECT" \
   "$IMPACTKV_EVAL_PYTHON" \
   benchmark/multi_workflow/run_swebench_prerotated_file_modules.py \

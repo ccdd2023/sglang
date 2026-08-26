@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "kind": "serving_class_template",
+  "not_per_issue_plan": true,
+  "not_content_hash": true,
+  "not_job_137185": true,
+  "task_classes": ["coding_agent"],
+  "admit_floor": 0.6,
+  "skip_ceiling": 0.2,
+  "min_obs": 8,
+  "online_step": 1.0,
+  "source": "expanded24 DYNAMIC_MANIFEST coding_natural_code_cost",
+  "bins": {
+    "coding_agent": {
+      "alpha": 116.0,
+      "beta": 93.0,
+      "offline_n": 207
+    }
+  }
+}
