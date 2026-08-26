@@ -6,7 +6,9 @@ $K$ pre-rotate rather than suffix recompute, and fail-closed copy.
 Figure~\ref{fig:architecture} and Table~\ref{tab:module-io} are that
 stack. Four modules compose the prefill path. The headline 7B campaign
 (job 137185) compiles M1 and M3 off so Table~\ref{tab:eval-summary}
-cannot be credited to radix or prefetch. M0 does not estimate Attention.
+cannot be credited to radix or prefetch. That table measures the copy
+kernel on an offline-oracle PLAN; it is not the served class prior.
+M0 does not estimate Attention.
 The rest of this section is the system model; Sections~\ref{sec:template}
 and~\ref{sec:kv-management} instantiate M0 and M2.
 
@@ -21,10 +23,9 @@ lists module I/O.
 \begin{figure}[ht]
 \centering
 \resizebox{\columnwidth}{!}{\input{figures/architecture.tikz}}
-\caption{System design. M0 compiles a PLAN offline. Online prefill uses
-one \texttt{TokenToKVPool}: request slots for Dense spans, leased slots
-for admitted islands. Headline 7B speed is M0$+$M2; M1 and M3 stay off
-so Table~\ref{tab:eval-summary} cannot be credited to radix or prefetch.}
+\caption{Served M0 is a class prior (no planned $t$); the eval PLAN is
+an offline oracle for the copy kernel. Headline 7B speed is eval-M0$+$M2;
+M1 and M3 stay off.}
 \Description{Offline admit compiler and online SGLang path over one physical KV pool with request and lease owners.}
 \label{fig:architecture}
 \end{figure}
@@ -40,7 +41,7 @@ M3 miss degrades to M2; it does not Dense-recompute a still-owned island.}
 \toprule
 \textbf{Module} & \textbf{Input} & \textbf{Output} \\
 \midrule
-M0 compiler & Frozen trajectories, tokenizer & PLAN: hashes, $(s,t,L)$, $\Delta\neq 0$ \\
+M0 serve / eval & Protocol gates $+$ class prior; frozen traces & Lease (no planned $t$) / oracle PLAN $(s,t,\Delta)$ \\
 M1 prefix & Source/target IDs, cap $t$ & Radix LCP; no island copy \\
 M2 copy & Admitted island, source $K/V$, $\Delta$ & Whole-island copy after $K$ rotate, or Dense \\
 M3 prefetch & Later-roles, residency, next-use & Device hints; miss $\to$ M2 \\
@@ -77,10 +78,11 @@ $\Delta \neq 0$.
           must match the target, and the logical shift is
           nonzero. Zero-shift islands are dropped so the method cannot
           degenerate to a prefix cache.
-    \item \textbf{Fail closed.} The admitted path pre-rotates source $K$
-          so residual $\Delta=0$ at copy. A mechanically invalid island
-          is discarded and Dense-recomputed. Never serve a partial
-          island.
+    \item \textbf{Fail closed.} When $\Delta$ is known, the eval path
+          pre-rotates source $K$ so residual $\Delta=0$ at copy; the
+          served path rotates after unique-span bind. A mechanically
+          invalid island is discarded and Dense-recomputed. Never serve
+          a partial island.
     \item \textbf{Cache-ready TTFT.} Target TTFT is reported after source
           KV already exists, against the same engine's Dense, matching
           CacheBlend and KVCOMM. Prefetch stays off in the headline 7B

@@ -26,9 +26,10 @@ when all three fields match.
 \subsection{\texorpdfstring{Source-side $K$ pre-rotation}{Source-side K pre-rotation}}
 
 After the source request, the controller copies selected $K/V$ into
-controller-owned pool slots and leases them to the declared target uses.
-At materialization, $K$ is rotated by $\Delta$ and $V$ is stored
-unchanged:
+controller-owned pool slots. The served path stores $K$ unrotated
+($\Delta_{\mathrm{source}}{=}0$) because $t$ is not known yet. The eval
+PLAN already knows $\Delta$, so job 137185 rotates $K$ at
+materialization and $V$ is stored unchanged:
 \begin{equation}
 K^{\mathrm{pool}} = R_{\Delta}\, K^{\mathrm{source}}, \qquad
 V^{\mathrm{pool}} = V^{\mathrm{source}}.
@@ -36,11 +37,11 @@ V^{\mathrm{pool}} = V^{\mathrm{source}}.
 \end{equation}
 $R_{\Delta} = R_{t} R_{s}^{-1}$ is the closed-form RoPE correction. The copy applies the leftover
 $\Delta_{\mathrm{res}} = (t-s) - \Delta_{\mathrm{source}}$.
-The admitted campaign sets $\Delta_{\mathrm{source}} = t-s$, so
-$\Delta_{\mathrm{res}} = 0$ at copy and no extra rotate remains.
-Source-side pre-rotation is a speed optimization: it removes a
-per-target rotate from the copy critical path. It is not an Accuracy
-mechanism. $V$ is never rotated, because RoPE does not act on values.
+Job 137185 sets $\Delta_{\mathrm{source}} = t-s$, so
+$\Delta_{\mathrm{res}} = 0$ at copy. The served bind path sets
+$\Delta_{\mathrm{source}} = 0$ and rotates at copy after unique-span
+locate. Source-side pre-rotation is an eval-path speed optimization
+when $\Delta$ is already known. It is not an Accuracy mechanism. $V$ is never rotated, because RoPE does not act on values.
 The activation-level reason not to default to suffix recompute is
 Section~\ref{sec:attn-proxy}: on Qwen2.5-Coder-3B the suffix attention
 TV is an order of magnitude smaller than the island's source-time
@@ -62,7 +63,7 @@ a path becomes a downstream island at a new index.
 \subsection{Fail-closed residual check}
 
 Let $\Delta_{\mathrm{res}} = (t-s) - \Delta_{\mathrm{source}}$ be the
-remaining RoPE shift after the source-side rotate. The admitted path
+remaining RoPE shift after any source-side rotate. Job 137185
 requires $\Delta_{\mathrm{res}} = 0$:
 \begin{equation}
 \Delta_{\mathrm{source}} = t - s
@@ -74,20 +75,19 @@ requires $\Delta_{\mathrm{res}} = 0$:
 A copy that is not mechanically valid---token-hash mismatch, incomplete
 coverage, or allocation failure---is discarded and the span is
 Dense-recomputed. The engine never splices a partial island into the
-target cache. A leftover nonzero $\Delta_{\mathrm{res}}$ is not the
-admitted fast path; the frozen campaign never takes it (421 source
-pre-rotations, 0 fallbacks). Zero observed fallbacks is not a reason
-to remove the check, and it is not a contribution. Prefetch miss on a
-still-owned island degrades to that owned copy; it does not
-Dense-recompute a valid island.
+target cache. A leftover nonzero $\Delta_{\mathrm{res}}$ is not the eval fast path
+(421 source pre-rotations, 0 fallbacks). The served path takes
+$\Delta_{\mathrm{res}}=\Delta$ after bind. Zero observed fallbacks is
+not a contribution. Prefetch miss degrades to the owned copy.
 
 \begin{figure}[ht]
 \centering
 \resizebox{\columnwidth}{!}{\input{figures/algo-copy.tikz}}
-\caption{M2 algorithm. Source materializes a leased island with
-source-side $K$ rotation. Target Dense-computes the prefix, copies the
-whole island or Densifies it, then Dense-computes the remainder.
-Mechanical failure never splices a half page.}
+\caption{M2 algorithm. Eval materializes with source-side $K$
+rotation; the served path stores $K$ unrotated and rotates at bind.
+Target Dense-computes the prefix, copies the whole island or Densifies
+it, then Dense-computes the remainder. Mechanical failure never
+splices a half page.}
 \Description{Two-column flowchart of source materialize and fail-closed target copy.}
 \label{fig:algo-copy}
 \end{figure}

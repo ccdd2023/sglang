@@ -29,8 +29,10 @@ already studies~\cite{tiwari2026cachewise}.
 \method{} is that rule plus a fail-closed translator. Eligible units
 are version-valid, single-file \texttt{repository\_code} modules whose
 token IDs match the target and whose logical shift is nonzero.
-Source-side $K$ is pre-rotated by the known $\Delta$ so the residual at
-copy is zero; $V$ is stored unchanged. A leased island is addressed by
+The eval campaign already knows $\Delta$ from an offline-oracle PLAN,
+so it pre-rotates source $K$ and stores $V$ unchanged. The served path
+does not see $t$ at source time: it leases unrotated $K$ and binds
+unique token spans on the target. A leased island is addressed by
 source-prefix hash, content hash, and $\Delta$. Token-identical bytes
 formed under a different left context are not a legal mapping. A mechanically invalid copy
 (token-hash mismatch, incomplete coverage, or allocation failure)
@@ -65,8 +67,9 @@ system-wide throughput crown.
     \item \textbf{A file-module admit policy for true-lossy reuse.}
           Eligibility is token-ID equality, a valid file version, and
           nonzero shift---not path names, AST labels, or Attention
-          scores. Radix LCP and file islands are disjoint; unconstrained
-          copy then adds $194{,}624$ tokens the gate refused
+          scores. Serving keys that gate by task class; the headline
+          PLAN is an offline oracle. Unconstrained copy then adds
+          $194{,}624$ tokens the gate refused
           (Section~\ref{sec:motivation}).
     \item \textbf{Page identity against mixed-prefix reuse.}
           A leased island is addressed by source-prefix hash, content

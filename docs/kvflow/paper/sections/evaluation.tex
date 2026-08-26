@@ -18,9 +18,9 @@ run (expanded24). That is a convenience sample of Verified, not the full
 tasks. Six repositories appear; 20 of 24 instances have at least one
 eligible $\Delta\neq 0$ group (Table~\ref{tab:dataset}). The speed
 campaign reconstructs exact target prompts and keeps only true-lossy
-file-module groups: 421 islands, 361{,}159 copied tokens per measured
+file-module groups from the offline-oracle PLAN: 421 islands, 361{,}159 copied tokens per measured
 round, 48 zero-shift islands dropped at compile time (this is
-not a radix TTFT). There are 115 unique source prompts and 235 unique
+not a radix TTFT, and it is not the class-template serving path). There are 115 unique source prompts and 235 unique
 target prompts. Table~\ref{tab:eval-summary} reports every group in that
 compiled PLAN ($235$ groups, $705$ pairs). It is not a further
 subsample of the 235, and it is not a 500-task Verified run.
@@ -66,8 +66,10 @@ resolved. We do not bill a source-inclusive $N$-use speedup.
 \subsection{Overall results}
 
 Table~\ref{tab:eval-summary} and Figure~\ref{fig:ttft-cdf}
-report the frozen 7B campaign (job 137185, COMPLETE). The same protocol
-on a larger AWQ checkpoint is a second serving point, not this table.
+report the frozen 7B campaign (job 137185, COMPLETE): copy kernel on
+an offline-oracle PLAN, not the class-template serving path. The same
+protocol on a larger AWQ checkpoint is a second serving point, not this
+table.
 Table~\ref{tab:eval-scales} names both jobs; speedups stay in
 Table~\ref{tab:eval-summary} and Table~\ref{tab:eval-30b}.
 

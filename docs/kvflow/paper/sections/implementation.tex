@@ -32,9 +32,9 @@ Materialization applies \texttt{pre\_rotate\_delta} to $K$ only, then
 records the applied delta in a per-source map. At the target the leftover
 rotate is
 $\Delta_{\mathrm{res}}=(t_{\mathrm{start}}-s_{\mathrm{start}})-\Delta_{\mathrm{source}}$.
-The admitted campaign sets $\Delta_{\mathrm{source}}$ to the logical
-shift, so $\Delta_{\mathrm{res}}=0$ and the copy path does not rotate
-again. Before a copy, the controller checks source token-ID hashes and
+Job 137185 sets $\Delta_{\mathrm{source}}$ to the planned shift, so
+$\Delta_{\mathrm{res}}=0$. The served path stores
+\texttt{pre\_rotate\_delta}${}=0$ and rotates after unique-span bind. Before a copy, the controller checks source token-ID hashes and
 full target coverage. Hash mismatch, an unowned gap, allocation failure,
 or a copy that is not mechanically valid raises a fallback event and the
 span is Dense-recomputed. The server ledger records copy events, fallback events, and the
@@ -50,17 +50,17 @@ still-owned handle (M2) instead of Dense-recomputing the island.
 Prefix hints rank above file-island hints; the class prior only
 scores the lossy pool.
 
-\begin{lstlisting}[language=Python, caption={Reuse manifest (conceptual)}, label={list:policy-config}, breaklines=true, columns=fullflexible, basicstyle=\ttfamily\scriptsize]
-manifest = {
+\begin{lstlisting}[language=Python, caption={Eval PLAN manifest (job 137185). Served leases omit planned $t$ and store $K$ unrotated.}, label={list:policy-config}, breaklines=true, columns=fullflexible, basicstyle=\ttfamily\scriptsize]
+manifest = {  # offline-oracle PLAN; not the class prior
   "prefix_reuse": False,  # M1 off
   "prefetch": False,      # M3 off
   "sources": [{
     "id": "read:mod.py@v3",
     "start": 1842, "length": 1109,
-    "pre_rotate_delta": -1250,
+    "pre_rotate_delta": -1250,  # eval only; served uses 0
   }],
   "cases": [{
-    "target_start": 592, "length": 1109,
+    "target_start": 592, "length": 1109,  # planned t; served binds
     "source_id": "read:mod.py@v3",
   }],
 }

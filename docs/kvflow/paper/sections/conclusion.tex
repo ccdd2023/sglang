@@ -27,9 +27,8 @@ Table~\ref{tab:eval-summary} keeps prefix off; the prefix-on increment
 is Table~\ref{tab:7b-prefix-on}. We do not treat
 Table~\ref{tab:template-prefetch} as the cache-ready $1.492\times$
 method. We do not full-decode the 17 copier-disagreement groups, and we
-do not run a 7B activation probe. The PLAN is an offline oracle over
-frozen trajectories. The class-level serving prior is a separate
-default-off path; it is not Table~\ref{tab:eval-summary}.
+do not run a 7B activation probe. The PLAN is an offline oracle over frozen trajectories, not
+Table~\ref{tab:eval-summary}'s served class prior.
 
 \section{Conclusion}
 \label{sec:conclusion}
@@ -37,19 +36,14 @@ default-off path; it is not Table~\ref{tab:eval-summary}.
 Coding agents re-read repository files at shifted positions. Prefix
 caches miss that reuse; generic lossy copiers ignore which files are
 safe. \method{} copies only version-valid, token-identical file islands
-with a nonzero shift, pre-rotates $K$ on the source, and
-Dense-recomputes a mechanically invalid island. A leftover nonzero
-residual $\Delta$ is not the admitted fast path.
+with a nonzero shift and Dense-recomputes a mechanically invalid island.
+The eval PLAN pre-rotates $K$; the served path binds $\Delta$ at the
+target.
 
-On 235 exact-prompt groups and 421 islands, the kernel copies
-$1684/1684$ planned islands with zero fallback and is $1.492\times$
-cache-ready faster than the same SGLang Dense. Prefetch stays off.
-Sequential already-resident template prefetch matches copy
-(Table~\ref{tab:template-prefetch}) and is not a speedup.
-When source KV is host-resident, prefix-priority prefetch then
-class-template prefetch of the lossy pool is faster than copy-from-host
-(Table~\ref{tab:prefetch-staircase}); that increment is not
-Table~\ref{tab:eval-summary}.
-Prefix$+$copy versus Dense is not a prefetch win.
-One-token agreement is not official resolved. We do not claim a
-system-wide throughput crown.
+On 235 exact-prompt groups the kernel copies $1684/1684$ planned islands
+with zero fallback and is $1.492\times$ cache-ready faster than the same
+SGLang Dense. Prefetch stays off. Sequential already-resident prefetch
+matches copy (Table~\ref{tab:template-prefetch}) and is not a speedup.
+Host-resident prefix-then-template prefetch is
+Table~\ref{tab:prefetch-staircase}, not Table~\ref{tab:eval-summary}.
+One-token agreement is not official resolved.

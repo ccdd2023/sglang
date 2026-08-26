@@ -20,12 +20,12 @@
 % Offline
 \fill[offfill, rounded corners=3pt] (-4.35,2.52) rectangle (4.35,3.88);
 \node[font=\sffamily\scriptsize\bfseries, text=ikvteal, anchor=west]
-  at (-4.20,3.70) {Offline (once)};
+  at (-4.20,3.70) {Eval (once): offline-oracle PLAN};
 \node[box=ikvteal, text width=2.15cm] (traj) at (-2.65,3.05) {Frozen traces};
 \node[box=ikvteal, text width=2.45cm] (m0) at (0.15,3.05)
   {M0 admit\\[-1pt]{\tiny token-ID, version, shift}};
 \node[box=ikvnavy, text width=1.90cm] (plan) at (3.05,3.05)
-  {PLAN\\[-1pt]{\tiny start, len, shift}};
+  {Eval PLAN\\[-1pt]{\tiny known $\Delta$}};
 \draw[->, ikvteal, thick] (traj) -- (m0);
 \draw[->, ikvteal, thick] (m0) -- (plan);
 

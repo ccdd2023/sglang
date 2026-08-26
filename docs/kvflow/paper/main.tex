@@ -93,16 +93,15 @@ do not. Exact prefix caches therefore miss the reuse, while general lossy
 copiers are not told which coding spans are safe to approximate.
 
 This paper presents \textbf{\method{}}, a coding-aware true-lossy KV reuse
-path for that setting. A template compiler admits version-valid single-file
-\texttt{repository\_code} modules whose token IDs match and whose logical
-shift is nonzero; it does not estimate Attention. Source-side $K$ is
-pre-rotated by the known position delta so the residual RoPE $\Delta$ at
-copy is zero; $V$ is copied as-is. A mechanically invalid copy is
-fail-closed: the engine discards the island and Dense-recomputes the span;
-it never serves a partial or misaligned island. Ordinary prefix reuse and
-template-guided prefetch of those same spans exist as separate modules;
-prefetch miss degrades to the owned copy. Prefetch and ordinary prefix
-reuse are off in the headline campaign.
+path for that setting. Admit is version-valid single-file
+\texttt{repository\_code} whose token IDs match and whose shift is
+nonzero; it does not estimate Attention. The served path is a class-level
+prior that never reads a planned target index. The headline campaign
+replays an offline-oracle PLAN with known $\Delta$, pre-rotates $K$, and
+copies $V$ as-is. A mechanically invalid copy is fail-closed. Ordinary
+prefix reuse and template-guided prefetch exist as separate modules;
+prefetch miss degrades to the owned copy. Both stay off in the headline
+campaign.
 
 On a 24-task convenience sample of SWE-bench Verified trajectories
 (not the 500-task split; 235 rolling-6 target groups; 421 true-lossy
