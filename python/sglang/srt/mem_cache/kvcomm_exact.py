@@ -12,6 +12,7 @@ apply the required RoPE delta to K while copying V unchanged.
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 from dataclasses import dataclass, replace
@@ -330,7 +331,11 @@ class ExactMiddleCanaryController:
                 OnlineFileTemplate,
             )
 
-            self._online_template = OnlineFileTemplate()
+            template_path = os.environ.get("SGLANG_KVCOMM_CLASS_TEMPLATE", "").strip()
+            if template_path:
+                self._online_template = OnlineFileTemplate.from_path(template_path)
+            else:
+                self._online_template = OnlineFileTemplate()
         if prefetch_deadline_s is not None and prefetch_deadline_s < 0:
             raise ValueError("prefetch_deadline_s must be non-negative")
         if prefetch_wait_s < 0:
@@ -787,15 +792,10 @@ class ExactMiddleCanaryController:
             return source
         return replace(source, pre_rotate_delta=0)
 
-    def _online_admit_skip(self, source: ExactMiddleSource) -> str | None:
-        if not self.manager.config.online_admit_enabled:
-            return None
-        from sglang.srt.mem_cache.coding_aware.online_admit import (
-            SourceObservation,
-            admit_source_island,
-        )
+    def _source_observation(self, source: ExactMiddleSource):
+        from sglang.srt.mem_cache.coding_aware.online_admit import SourceObservation
 
-        observation = SourceObservation(
+        return SourceObservation(
             source_id=source.source_id,
             source_start=source.source_start,
             token_ids=(1,) * source.length,
@@ -806,6 +806,13 @@ class ExactMiddleCanaryController:
             later_roles_in_protocol=self._later_roles_in_protocol(source),
             policy_label=source.policy_label,
         )
+
+    def _online_admit_skip(self, source: ExactMiddleSource) -> str | None:
+        if not self.manager.config.online_admit_enabled:
+            return None
+        from sglang.srt.mem_cache.coding_aware.online_admit import admit_source_island
+
+        observation = self._source_observation(source)
         if self._online_template is not None:
             return self._online_template.admit(observation)
         return admit_source_island(observation)
@@ -841,7 +848,11 @@ class ExactMiddleCanaryController:
                 )
         binds = bind_leased_islands(prompt, leases)
         if self._online_template is not None:
-            self._online_template.observe_all(binds)
+            for item in binds:
+                source = self._source_by_id(item.source_id or "")
+                if source is None:
+                    continue
+                self._online_template.observe(item, self._source_observation(source))
         bound: list[ExactMiddleCase] = []
         for item in binds:
             if item.action is not BindAction.COPY:

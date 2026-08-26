@@ -125,7 +125,7 @@ cd docs/kvflow/paper && python3 scripts/check_asplos_claims.py
 | 模块 | 作用 | 作业 137185 |
 |---|---|---|
 | **M0** 编译器 | 冻结轨迹 → PLAN：hash、\((s,t,L)\)、\(\Delta\neq 0\) | **开**（headline 仍是离线 oracle） |
-| **线上 admit** | source 只看协议；target 用 token 身份绑定；K 不预旋转。`OnlineFileTemplate` 按 content_hash 做 Beta 后验：拷成功提高下次租约，浪费则停租 | Headline **关**。战役：`run_impactkv_online_admit.sh`（新目录，禁止覆盖 137185） |
+| **线上 admit** | 离线按 **任务类**（coding agent）编 Beta prior；线上用 bind 成败微调同一格。不是每题一份 PLAN，也不是按文件 hash | Headline **关**。`compile_class_template.py` + `run_impactkv_online_admit.sh` |
 | **M1** 前缀复用 | radix LCP，不拷岛 | **关** |
 | **M2** lossy 拷贝 | \(K \leftarrow R_\Delta K\)，\(V\) 原样；失败则 Dense | **开** |
 | **M3** prefetch | later-roles 驻留；miss 必须退化到仍持有的 M2 拷贝 | **关** |

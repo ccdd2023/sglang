@@ -135,6 +135,15 @@ bash benchmark/multi_workflow/run_impactkv_headline.sh
 
 脚本会：解压 claim pack（若尚未解压）→ **拷贝** PLAN 到新目录 → 跑 `run_swebench_prerotated_file_modules.py`。冻结的 `prefixkey_20260824/RESULT.json` 不会被动到。
 
+类模板（offline 一类任务一份 prior，online 微调）不是 137185：
+
+```bash
+python benchmark/multi_workflow/compile_class_template.py \
+  --manifest "$IMPACTKV_ARTIFACTS/.../DYNAMIC_MANIFEST.json" \
+  --output "$IMPACTKV_ARTIFACTS/runs/coding_agent.template.json"
+export SGLANG_KVCOMM_CLASS_TEMPLATE="$IMPACTKV_ARTIFACTS/runs/coding_agent.template.json"
+```
+
 线上 admit（source 不看 target；`SGLANG_KVCOMM_ONLINE_ADMIT` 只在 reuse 臂打开）是另一场战役，**不是** 137185：
 
 ```bash

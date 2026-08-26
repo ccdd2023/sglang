@@ -73,7 +73,7 @@ def admit_source_island(obs: SourceObservation) -> str | None:
     """Protocol-only admit. Return a skip reason, or None to lease.
 
     This function must not take a target start, target hash, or Δ.
-    Later-roles is the cold-start prior; OnlineFileTemplate can override
+    Later-roles is the cold-start prior; the class template can override
     it after observing bind outcomes.
     """
     reason = mechanical_source_gates(obs)

@@ -1694,10 +1694,10 @@ def test_online_admit_skips_source_without_later_roles():
     assert controller.maybe_attach_target(_req(target, pool_index=1)) is None
 
 
-def test_online_template_stops_leasing_after_wasted_binds():
+def test_online_template_transfers_across_files_in_coding_class():
     source = (1, 2, 3, 4, 5, 8, 9)
-    source_b = (9, 8, 3, 4, 5, 2, 1)
-    miss = (1, 7, 2, 9, 8, 6, 0)
+    target = (1, 7, 2, 3, 4, 5, 9)
+    source_b = (9, 8, 6, 6, 6, 2, 1)
     manager = KVCommManager(
         KVCommFeatureConfig(core_enabled=True, online_admit_enabled=True)
     )
@@ -1712,7 +1712,7 @@ def test_online_template_stops_leasing_after_wasted_binds():
         source_prefix_token_hash=token_ids_hash(source[:2]),
         source_start=2,
         length=3,
-        content_hash="shared-segment",
+        content_hash="file-a",
         policy_label="coding_aware",
         later_roles_in_protocol=3,
     )
@@ -1723,11 +1723,11 @@ def test_online_template_stops_leasing_after_wasted_binds():
         source_prefix_token_hash=token_ids_hash(source_b[:2]),
         source_start=2,
         length=3,
-        content_hash="shared-segment",
+        content_hash="file-b",
         policy_label="coding_aware",
-        later_roles_in_protocol=3,
+        later_roles_in_protocol=0,
     )
-    dummy = replace(_case(source, source, target_start=2), source_id="source-a")
+    dummy = replace(_case(source, target), source_id="source-a")
     controller = ExactMiddleCanaryController(
         manager=manager,
         allocator=allocator,
@@ -1738,11 +1738,16 @@ def test_online_template_stops_leasing_after_wasted_binds():
         cases=(dummy,),
         sources=(spec_a, spec_b),
     )
-    controller._online_template.skip_ceiling = 0.30
     controller._online_template.min_obs = 2
-    assert controller.maybe_materialize_source(_req(source)) is not None
-    miss_req = _req(miss, pool_index=1)
-    assert controller.maybe_attach_target(miss_req) is None
-    assert controller.maybe_attach_target(miss_req) is None
-    assert controller._online_template.posterior("shared-segment").wasted >= 2
-    assert controller.maybe_materialize_source(_req(source_b, pool_index=2)) is None
+    controller._online_template.admit_floor = 0.6
+    handle = controller.maybe_materialize_source(_req(source))
+    assert handle is not None
+    target_req = _req(target, pool_index=1, prefix=(11, 12, 13))
+    assert controller.maybe_attach_target(target_req) is not None
+    controller.finish_request(target_req)
+    target_req2 = _req(target, pool_index=1, prefix=(11, 12, 13))
+    assert controller.maybe_attach_target(target_req2) is not None
+    assert controller._online_template.bin_for(
+        controller._source_observation(spec_a)
+    ).copied >= 2
+    assert controller.maybe_materialize_source(_req(source_b, pool_index=2)) is not None

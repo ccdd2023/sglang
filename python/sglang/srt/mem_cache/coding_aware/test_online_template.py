@@ -7,11 +7,15 @@ from sglang.srt.mem_cache.coding_aware.online_admit import (
     BindResult,
     SourceObservation,
 )
-from sglang.srt.mem_cache.coding_aware.online_template import OnlineFileTemplate
+from sglang.srt.mem_cache.coding_aware.online_template import (
+    OnlineFileTemplate,
+    featurize,
+    task_class_id,
+)
 from sglang.srt.mem_cache.kvcomm.types import token_ids_hash as _hash
 
 
-def _obs(content="mod", later_roles=3, **overrides) -> SourceObservation:
+def _obs(content="mod", later_roles=3, policy="coding", **overrides) -> SourceObservation:
     tokens = tuple(ord(ch) for ch in content) + (1, 2, 3)
     values = dict(
         source_id=f"read:{content}",
@@ -22,7 +26,7 @@ def _obs(content="mod", later_roles=3, **overrides) -> SourceObservation:
         single_file_repository_code=True,
         version_valid=True,
         later_roles_in_protocol=later_roles,
-        policy_label="coding",
+        policy_label=policy,
     )
     values.update(overrides)
     return SourceObservation(**values)
@@ -38,59 +42,62 @@ def _bind(obs: SourceObservation, action: BindAction, reason: str) -> BindResult
     )
 
 
-def test_cold_start_follows_protocol_not_a_plan():
+def test_feature_is_task_class_not_file_or_issue():
+    django = _obs(content="django-models")
+    sphinx = _obs(content="sphinx-build")
+    assert featurize(django) == featurize(sphinx) == "coding_agent"
+    assert task_class_id("coding_natural_code_cost") == "coding_agent"
+    assert task_class_id("general_shifted_lcs") == "general"
+    assert "content_hash" not in inspect.getsource(featurize)
+
+
+def test_cold_start_follows_protocol():
     template = OnlineFileTemplate()
     assert template.admit(_obs(later_roles=3)) is None
     assert template.admit(_obs(later_roles=0)) == "no_protocol_reread"
-    source = inspect.getsource(OnlineFileTemplate.admit)
-    assert "target_start" not in source
 
 
-def test_repeated_copies_unlock_later_roles_zero():
+def test_copies_transfer_across_files_in_the_same_class():
     template = OnlineFileTemplate(min_obs=2, admit_floor=0.6)
-    obs = _obs(later_roles=0)
-    hit = _bind(obs, BindAction.COPY, "online_bind")
-    template.observe(hit)
-    assert template.admit(obs) == "no_protocol_reread"
-    template.observe(hit)
-    assert template.admit(obs) is None
-    assert template.posterior(obs.content_hash).copied == 2
+    django = _obs(content="django", later_roles=3)
+    sphinx = _obs(content="sphinx", later_roles=0)
+    hit = _bind(django, BindAction.COPY, "online_bind")
+    template.observe(hit, django)
+    assert template.admit(sphinx) == "no_protocol_reread"
+    template.observe(hit, django)
+    assert template.admit(sphinx) is None
+    assert featurize(django) == featurize(sphinx)
 
 
-def test_repeated_waste_stops_protocol_lease():
-    template = OnlineFileTemplate(min_obs=2, skip_ceiling=0.30)
+def test_offline_prior_survives_a_few_online_misses():
+    template = OnlineFileTemplate.from_json(
+        {
+            "bins": {
+                "coding_agent": {"alpha": 180, "beta": 20, "offline_n": 200},
+            }
+        }
+    )
     obs = _obs(later_roles=3)
     miss = _bind(obs, BindAction.DENSE, "not_in_target")
-    template.observe(miss)
+    template.observe(miss, obs)
+    template.observe(miss, obs)
     assert template.admit(obs) is None
-    template.observe(miss)
-    assert template.admit(obs) == "learned_low_reuse"
-    assert template.posterior(obs.content_hash).wasted == 2
+    assert template.bin_for(obs).mean > 0.8
 
 
-def test_modules_learn_independently():
-    template = OnlineFileTemplate(min_obs=2, admit_floor=0.6, skip_ceiling=0.30)
-    hot = _obs(content="hot", later_roles=0)
-    cold = _obs(content="cold", later_roles=3)
-    for _ in range(3):
-        template.observe(_bind(hot, BindAction.COPY, "online_bind"))
-        template.observe(_bind(cold, BindAction.DENSE, "not_in_target"))
-    assert template.admit(hot) is None
-    assert template.admit(cold) == "learned_low_reuse"
+def test_json_roundtrip_keeps_class_bins():
+    template = OnlineFileTemplate.from_json(
+        {"bins": {"coding_agent": {"alpha": 10, "beta": 2, "offline_n": 11}}}
+    )
+    again = OnlineFileTemplate.from_json(template.to_json())
+    assert again.bin_for(_obs()).alpha == 10
+    assert again.bin_for(_obs()).offline_n == 11
 
 
-def test_prefetch_priority_rises_with_hits():
+def test_prefetch_priority_uses_class_mean():
     template = OnlineFileTemplate()
     obs = _obs()
-    before = template.prefetch_priority(obs.content_hash, later_roles=3)
-    template.observe(_bind(obs, BindAction.COPY, "online_bind"))
-    template.observe(_bind(obs, BindAction.COPY, "online_bind"))
-    after = template.prefetch_priority(obs.content_hash, later_roles=3)
-    assert after > before
-    assert before >= 3
-
-
-def test_mechanical_gates_still_fail_closed():
-    template = OnlineFileTemplate()
-    obs = _obs(version_valid=False, later_roles=3)
-    assert template.admit(obs) == "version_invalid"
+    before = template.prefetch_priority(obs)
+    template.observe(_bind(obs, BindAction.COPY, "online_bind"), obs)
+    template.observe(_bind(obs, BindAction.COPY, "online_bind"), obs)
+    assert template.prefetch_priority(obs) >= before

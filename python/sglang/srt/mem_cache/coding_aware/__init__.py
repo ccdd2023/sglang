@@ -11,8 +11,10 @@ from sglang.srt.mem_cache.coding_aware.online_admit import (
     mechanical_source_gates,
 )
 from sglang.srt.mem_cache.coding_aware.online_template import (
-    ModulePosterior,
+    ClassBin,
     OnlineFileTemplate,
+    featurize,
+    task_class_id,
 )
 from sglang.srt.mem_cache.coding_aware.policy import (
     CodingRisk,
@@ -25,10 +27,12 @@ __all__ = [
     "BindResult",
     "CodingRisk",
     "CodingSegment",
+    "ClassBin",
     "LeasedIsland",
-    "ModulePosterior",
     "OnlineFileTemplate",
     "SourceObservation",
+    "featurize",
+    "task_class_id",
     "admit_source_island",
     "bind_leased_islands",
     "build_coding_reuse_plan",
