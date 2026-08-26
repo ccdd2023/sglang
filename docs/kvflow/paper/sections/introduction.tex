@@ -44,10 +44,12 @@ campaign prefetch and ordinary prefix reuse stay off, so
 Table~\ref{tab:eval-summary} cannot be credited to a radix hit.
 
 We evaluate the copy kernel on frozen SWE-bench Verified
-trajectories~\cite{swebench}: 24 live-agent tasks, reconstructed into
-235 exact-prompt target groups and 421 true-lossy islands, run as
-sequential one-token prefill on Qwen2.5-Coder-7B-Instruct
-in SGLang. The kernel copies $1684/1684$ planned islands with zero
+trajectories~\cite{swebench}: a 24-task live-agent convenience sample
+(not the 500-task split), reconstructed into 235 exact-prompt target
+groups (rolling-6 turns, not 235 tasks) and 421 true-lossy islands, run
+as sequential one-token prefill on Qwen2.5-Coder-7B-Instruct
+in SGLang. The $1.492\times$ headline is that full 235-group PLAN
+($705$ pairs), not a further subsample of those groups. The kernel copies $1684/1684$ planned islands with zero
 fallback and is $1.492\times$ cache-ready faster than the same engine's
 Dense prefill (paired TTFT win rate $99.3\%$). One-token output agreement
 is $93.6\%$ and is \emph{not} official SWE-bench resolved. The 30B AWQ

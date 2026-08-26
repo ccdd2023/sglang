@@ -104,11 +104,12 @@ template-guided prefetch of those same spans exist as separate modules;
 prefetch miss degrades to the owned copy. Prefetch and ordinary prefix
 reuse are off in the headline campaign.
 
-On frozen SWE-bench Verified trajectories (24 live-agent tasks; 235
-exact-prompt target groups; 421 true-lossy islands) with
-Qwen2.5-Coder-7B-Instruct, \method{} copies $1684/1684$
+On a 24-task convenience sample of SWE-bench Verified trajectories
+(not the 500-task split; 235 rolling-6 target groups; 421 true-lossy
+islands) with Qwen2.5-Coder-7B-Instruct, \method{} copies $1684/1684$
 planned islands with zero fallback and is $1.492\times$ cache-ready faster
-than the same SGLang Dense (paired TTFT win rate $99.3\%$). A larger AWQ
+than the same SGLang Dense on that full PLAN (paired TTFT win rate
+$99.3\%$). A larger AWQ
 checkpoint is a different serving point and is not this headline: the
 same protocol on Qwen3-Coder 30B-A3B Instruct (AWQ 4-bit) is
 $1.375\times$ cache-ready in the appendix. The evaluation is

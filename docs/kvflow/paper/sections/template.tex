@@ -52,6 +52,9 @@ Algorithm~\ref{algo:template-synthesis} is this compiler.
             \If{$I$ is not single-file \texttt{repository\_code}}{
                 \textbf{continue}\;
             }
+            \If{path version of $I$ is stale}{
+                \textbf{continue}\;
+            }
             \If{token IDs$(I)$ do not match a source span $S$}{
                 \textbf{continue}\;
             }
@@ -80,14 +83,19 @@ per group are $1{,}537$ against a mean target prompt of $4{,}433$ tokens
 (median $4{,}239$; p90 $6{,}759$; max $8{,}721$). About one third of each
 target prompt is eligible true-lossy file content; the rest stays Dense.
 
-\subsection{What the template is allowed to mean}
+\subsection{What is stored, and how it is used}
 
-The template supplies \emph{which} spans may be copied. It does not
-estimate Attention, it does not recompute KV distance online, and it does
-not authorize reuse from path names or AST labels alone. Path and version
-metadata locate the span; token-ID equality is the only admit rule.
-Prefetch of those same spans uses later-roles in the coding protocol
-(planner read $\to$ implement/test/review), not remaining target uses.
-Section~\ref{sec:attn-proxy} is a 3B activation probe of that splice,
-not a change to this gate.
+M0 is not a KV cache. It writes a PLAN of eligible islands
+$(s,t,L,\Delta)$; it does not allocate $K/V$. At serving time the
+source request Dense-prefills, and the controller stores only admitted
+islands under $(\textit{source-prefix hash}, \textit{content hash},
+\Delta)$ with $K$ already rotated (Section~\ref{sec:kv-management}).
+The target request Dense-computes the prefix, copies each leased island
+into the target slots, Dense-computes the remainder, and decodes one
+token. Ineligible tokens---issue text, tool logs, stale files---never
+enter that store. Path and version metadata only locate the span;
+token-ID equality is the admit rule. The compiler does not estimate
+Attention and does not recompute KV distance online. Prefetch of those
+same spans (M3) uses later-roles in the coding protocol, not remaining
+target uses, and is off in the headline campaign.
 \FloatBarrier

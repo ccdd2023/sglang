@@ -62,11 +62,13 @@ the admit rule: the compiler in Section~\ref{sec:template} still uses
 token-ID equality, not Attention scores.
 
 Figure~\ref{fig:tv-locus} and Figure~\ref{fig:attn-proxy} report that
-probe. On 26 single-island targets (13 tasks) the median attention
-total-variation (TV), Dense versus splice, is $0.00264$ on the recomputed
-suffix and $0.00492$ at the next-action marker, but $0.0462$ on the
-copied island's \emph{source-time formation} (about $4.4\%$ of that
-formation mass has no counterpart in the target prefix). On 20 Dense
+probe. TV here is the total-variation \emph{distance between two
+attention distributions} (Dense versus splice), not a synonym for the
+KV tensors. On 26 single-island targets (13 tasks) that median
+attention TV is $0.00264$ on the recomputed suffix and $0.00492$ at
+the next-action marker, but $0.0462$ on the copied island's
+\emph{source-time formation} (about $4.4\%$ of that formation mass has
+no counterpart in the target prefix). On 20 Dense
 prompts the last 32 query tokens put median $80.1\%$ of attention on the
 top $10\%$ of keys (within-observation top-$20\%$ mass $80.2\%$). An
 eight-prompt same-input diagnostic puts coding-aware module TV at
@@ -77,11 +79,12 @@ comparison is local TV, not matched-coverage Accuracy
 \begin{figure}[ht]
 \centering
 \includegraphics[width=\columnwidth]{figures/fig_tv_locus.pdf}
-\caption{Per-island attention TV after a file-island splice
-(Qwen2.5-Coder-3B, $26$ islands, sorted by formation TV). Suffix
-attention does not collapse; formation TV is an order of magnitude
-larger (frozen medians $0.00264$ / $0.00492$ / $0.0462$). Not 30B native
-and not Table~\ref{tab:eval-summary}.}
+\caption{Per-island attention total-variation (TV) after a file-island
+splice (Qwen2.5-Coder-3B, $26$ islands, sorted by formation TV).
+TV is attention-distribution distance, not a KV-cache quantity.
+Suffix attention does not collapse; formation TV is an order of
+magnitude larger (frozen medians $0.00264$ / $0.00492$ / $0.0462$).
+Not 30B native and not Table~\ref{tab:eval-summary}.}
 \Description{Line chart of suffix, next-action, and formation TV across 26 islands.}
 \label{fig:tv-locus}
 \end{figure}
