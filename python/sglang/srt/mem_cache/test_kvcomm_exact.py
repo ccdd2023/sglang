@@ -1560,6 +1560,38 @@ def test_dual_island_enables_radix_prefix_and_island_prefetch():
     assert state.ordinary_prefix_tokens == 2
 
 
+def test_prefix_prefetch_mode_skips_lossy_pool_tickets():
+    island = _shifted_island_source(
+        later_roles_in_protocol=3, source_id="planner-read"
+    )
+    source = (1, 2, 3, 4, 5, 8, 9)
+    target = (1, 7, 2, 3, 4, 5, 9)
+    manager = KVCommManager(
+        KVCommFeatureConfig(core_enabled=True, prefetch_enabled=True)
+    )
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source)] = torch.arange(len(source))
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=(replace(_case(source, target), source_id="planner-read"),),
+        sources=(island,),
+        prefer_host_sources=True,
+        ordinary_prefix_reuse_enabled=True,
+        prefetch_spill_device=True,
+        prefetch_middle=False,
+    )
+    handle = controller.maybe_materialize_source(_req(source))
+    assert handle is not None
+    assert "planner-read:prefix" in controller._prefetch_tickets
+    assert "planner-read" not in controller._prefetch_tickets
+
+
 def test_dual_island_prefix_prefetch_tickets_release_on_last_target():
     island = _shifted_island_source(
         later_roles_in_protocol=3, source_id="planner-read"

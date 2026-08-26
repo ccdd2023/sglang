@@ -14,6 +14,7 @@ from benchmark.multi_workflow.prepare_swebench_prerotated_file_modules import (
     MODEL_DEFAULT,
 )
 from benchmark.multi_workflow.template_prefetch_modes import (
+    ABLATION_MODES,
     MODES,
     arm_json,
     combined_vs_coding_speedup,
@@ -21,6 +22,7 @@ from benchmark.multi_workflow.template_prefetch_modes import (
     mode_env,
     mode_manifest,
     parse_modes,
+    staircase_increments,
 )
 from benchmark.multi_workflow.run_natural_code_cost_exact_prompt_speed import (
     read_json,
@@ -61,7 +63,9 @@ def _paired_speedup(dense: dict[str, Any], other: dict[str, Any]) -> dict[str, f
     }
 
 
-def run_mode(output: Path, mode: str, port: int, model: str) -> dict[str, Any]:
+def run_mode(
+    output: Path, mode: str, port: int, model: str, max_groups: int = 0
+) -> dict[str, Any]:
     if mode not in MODES:
         raise ValueError(mode)
     for key, value in mode_env(mode).items():
@@ -77,7 +81,9 @@ def run_mode(output: Path, mode: str, port: int, model: str) -> dict[str, Any]:
     if not plan_dst.exists():
         plan_dst.symlink_to((output / "PLAN.json").resolve())
     try:
-        summary = run_prerotated_arm(sidecar, server_arm, port, model)
+        summary = run_prerotated_arm(
+            sidecar, server_arm, port, model, max_groups
+        )
     finally:
         prerot._manifest = original_manifest
     arm_json = sidecar / f"{server_arm}.json"
@@ -87,13 +93,13 @@ def run_mode(output: Path, mode: str, port: int, model: str) -> dict[str, Any]:
     return {"mode": mode, **summary}
 
 
-def summarize(output: Path) -> dict[str, Any]:
+def summarize(output: Path, *, smoke: bool = False) -> dict[str, Any]:
     plan_meta = read_json(output / "PLAN.json")
     plan = plan_meta["groups"]
     dense = read_json(output / "dense.json")
     payload: dict[str, Any] = {
         "schema_version": 1,
-        "status": "COMPLETE",
+        "status": "SMOKE" if smoke or plan_meta.get("smoke_max_groups") else "COMPLETE",
         "classification": "7B dual-island prefix + lossy file-island + template prefetch",
         "official_96092_prefetch": False,
         "prefetch_campaign": True,
@@ -108,17 +114,28 @@ def summarize(output: Path) -> dict[str, Any]:
         "mechanism": {},
         "one_token_output_agreement": {"not_accuracy": True},
     }
-    for mode in ("prefix_only", "lossy_only", "dual", "combined"):
-        path = output / f"{mode}.json"
-        if not path.exists():
-            payload["status"] = "PARTIAL"
-            continue
-        other = read_json(path)
+    measured = [
+        mode
+        for mode in (
+            "prefix_only",
+            "lossy_only",
+            "dual",
+            "combined",
+            "lossy_host",
+            "prefix_prefetch",
+            "template_prefetch",
+        )
+        if (output / f"{mode}.json").exists()
+    ]
+    if not measured:
+        payload["status"] = "PARTIAL"
+    for mode in measured:
+        other = read_json(output / f"{mode}.json")
         payload["latency"][mode] = _paired_speedup(dense, other)
         payload["mechanism"][mode] = ledger_counts(other.get("ledger_rows") or [])
-    if payload["status"] == "COMPLETE":
-        lat = payload["latency"]
-        mech = payload["mechanism"]
+    lat = payload["latency"]
+    mech = payload["mechanism"]
+    if {"prefix_only", "lossy_only", "dual"} <= set(lat):
         payload["algorithm_bars"] = {
             "prefix_vs_dense": lat["prefix_only"]["cache_ready_speedup_ratio_of_means"],
             "lossy_vs_dense": lat["lossy_only"]["cache_ready_speedup_ratio_of_means"],
@@ -127,11 +144,16 @@ def summarize(output: Path) -> dict[str, Any]:
             "lossy_copies": mech["lossy_only"]["copy_events"],
             "significant_threshold": 1.05,
         }
-        if "combined" in lat and "dual" in lat:
+        if "combined" in lat:
             payload["prefetch_increment"] = {
                 "combined_vs_coding": combined_vs_coding_speedup(lat),
                 "significant_threshold": 1.05,
             }
+    if {"lossy_host", "prefix_prefetch", "template_prefetch"} <= set(lat):
+        payload["staircase"] = staircase_increments(lat)
+        payload["staircase"]["significant_threshold"] = 1.05
+        payload["not_job_137185"] = True
+        payload["prefetch"] = True
     write_json(output / "RESULT.json", payload)
     return payload
 
@@ -141,9 +163,20 @@ def main() -> None:
     parser.add_argument("--artifact", type=Path, required=True)
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--model", default=os.environ.get("IMPACTKV_MODEL", MODEL_DEFAULT))
-    parser.add_argument("--modes", default=",".join(MODES))
+    parser.add_argument("--modes", default=",".join(ABLATION_MODES))
+    parser.add_argument(
+        "--max-groups",
+        type=int,
+        default=int(os.environ.get("IMPACTKV_MAX_GROUPS", "0") or 0),
+    )
     args = parser.parse_args()
     artifact = args.artifact.resolve()
+    if args.max_groups and args.max_groups > 0:
+        plan_meta = read_json(artifact / "PLAN.json")
+        plan_meta = dict(plan_meta)
+        plan_meta["groups"] = list(plan_meta["groups"])[: args.max_groups]
+        plan_meta["smoke_max_groups"] = args.max_groups
+        write_json(artifact / "PLAN.json", plan_meta)
     summaries = []
     for mode in parse_modes(args.modes):
         dest = arm_json(artifact, mode)
@@ -152,7 +185,9 @@ def main() -> None:
                 {"mode": mode, "skipped_existing": True, "path": str(dest)}
             )
             continue
-        summaries.append(run_mode(artifact, mode, args.port, args.model))
+        summaries.append(
+            run_mode(artifact, mode, args.port, args.model, args.max_groups)
+        )
     if (artifact / "dense.json").exists():
         result = summarize(artifact)
     else:

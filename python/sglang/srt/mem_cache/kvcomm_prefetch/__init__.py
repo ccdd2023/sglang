@@ -13,6 +13,7 @@ from sglang.srt.mem_cache.kvcomm_prefetch.scheduler import (
     PrefetchTicket,
 )
 from sglang.srt.mem_cache.kvcomm_prefetch.template_hints import (
+    PREFIX_PRIORITY_FLOOR,
     NextIslandObservation,
     TemplatePrefetchIsland,
     TemplatePrefetchPlan,
@@ -34,4 +35,5 @@ __all__ = [
     "compile_next_island_prefetch_hints",
     "compile_template_prefetch_hints",
     "protocol_later_roles",
+    "PREFIX_PRIORITY_FLOOR",
 ]

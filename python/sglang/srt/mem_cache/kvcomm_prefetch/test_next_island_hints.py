@@ -9,6 +9,7 @@ from sglang.srt.mem_cache.kvcomm.types import (
     token_ids_hash,
 )
 from sglang.srt.mem_cache.kvcomm_prefetch.template_hints import (
+    PREFIX_PRIORITY_FLOOR,
     NextIslandObservation,
     TemplatePrefetchIsland,
     compile_next_island_prefetch_hints,
@@ -216,7 +217,26 @@ def test_prefix_and_middle_hints_emit_together_on_host() -> None:
     )
     kinds = {hint.key.kind for hint in plan.hints}
     assert kinds == {SegmentKind.PREFIX, SegmentKind.MIDDLE}
+    assert plan.hints[0].key.kind == SegmentKind.PREFIX
+    assert plan.hints[0].priority >= PREFIX_PRIORITY_FLOOR
+    assert plan.hints[0].priority > plan.hints[1].priority
     assert not any(hasattr(hint, "rope_delta") for hint in plan.hints)
+
+
+def test_middle_priority_override_uses_template_score() -> None:
+    island = _key("repo-file", 2, kind=SegmentKind.MIDDLE)
+    plan = compile_next_island_prefetch_hints(
+        (
+            NextIslandObservation(
+                source_id="planner-read",
+                key=island,
+                later_roles_in_protocol=3,
+                residency=ResidencyTier.HOST,
+                priority_override=5,
+            ),
+        )
+    )
+    assert plan.hints[0].priority == 5
 
 
 def test_prefix_device_sequential_still_skips() -> None:

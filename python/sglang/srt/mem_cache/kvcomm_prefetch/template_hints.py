@@ -63,6 +63,11 @@ class NextIslandObservation:
     residency: ResidencyTier | None = None
     sequential_next_use: bool = False
     span_kind: SegmentKind = SegmentKind.MIDDLE
+    priority_override: int | None = None
+
+
+# PREFIX always ranks above MIDDLE: later-roles (≤3) + class bonus (≤4) < 8.
+PREFIX_PRIORITY_FLOOR = 8
 
 
 def protocol_later_roles(
@@ -209,11 +214,23 @@ def compile_next_island_prefetch_hints(
             skipped.append(obs.source_id)
             reasons.append(f"{obs.source_id}:{reason}")
             continue
+        kind = (
+            SegmentKind.PREFIX
+            if obs.key is not None and obs.key.kind == SegmentKind.PREFIX
+            else obs.span_kind
+        )
+        base_priority = (
+            int(obs.priority_override)
+            if obs.priority_override is not None
+            else int(obs.later_roles_in_protocol)
+        )
+        if kind == SegmentKind.PREFIX:
+            base_priority = PREFIX_PRIORITY_FLOOR + max(0, base_priority)
         hint = KVPrefetchHint(
             key=obs.key,
             target_tier=target_tier,
             deadline_s=default_deadline_s,
-            priority=int(obs.later_roles_in_protocol),
+            priority=base_priority,
         )
         existing = best.get(obs.key)
         if existing is None or hint.priority > existing.priority:

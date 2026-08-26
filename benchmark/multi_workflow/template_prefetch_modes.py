@@ -8,8 +8,20 @@ from typing import Any
 ARM = "coding_natural_code_cost"
 # Isolated speed vs Dense: prefix_only and lossy_only.
 # dual = both reuse algorithms, prefetch off.
-# combined = dual + template prefetch.
-MODES = ("dense", "prefix_only", "lossy_only", "dual", "combined")
+# combined = dual + template prefetch (legacy device-resident dual).
+# Ablation with a fair host-resident copy baseline:
+#   lossy_host → prefix_prefetch → template_prefetch.
+MODES = (
+    "dense",
+    "prefix_only",
+    "lossy_only",
+    "dual",
+    "combined",
+    "lossy_host",
+    "prefix_prefetch",
+    "template_prefetch",
+)
+ABLATION_MODES = ("dense", "lossy_host", "prefix_prefetch", "template_prefetch")
 MODEL_7B = "Qwen2.5-Coder-7B-Instruct"
 ROPE_7B = {"rotary_dim": 128, "base": 1_000_000, "is_neox_style": True}
 ROPE_30B = {"rotary_dim": 128, "base": 10_000_000, "is_neox_style": True}
@@ -87,6 +99,28 @@ def mode_env(mode: str) -> dict[str, str]:
             "SGLANG_KVCOMM_CORE": "1",
             "SGLANG_CODING_AWARE_LOSSY": "1",
             "SGLANG_KV_PREFETCH": "1",
+            "SGLANG_KV_PREFETCH_MIDDLE": "1",
+        }
+    if mode == "lossy_host":
+        return {
+            "SGLANG_KVCOMM_CORE": "1",
+            "SGLANG_CODING_AWARE_LOSSY": "1",
+            "SGLANG_KV_PREFETCH": "0",
+            "SGLANG_KV_PREFETCH_MIDDLE": "0",
+        }
+    if mode == "prefix_prefetch":
+        return {
+            "SGLANG_KVCOMM_CORE": "1",
+            "SGLANG_CODING_AWARE_LOSSY": "1",
+            "SGLANG_KV_PREFETCH": "1",
+            "SGLANG_KV_PREFETCH_MIDDLE": "0",
+        }
+    if mode == "template_prefetch":
+        return {
+            "SGLANG_KVCOMM_CORE": "1",
+            "SGLANG_CODING_AWARE_LOSSY": "1",
+            "SGLANG_KV_PREFETCH": "1",
+            "SGLANG_KV_PREFETCH_MIDDLE": "1",
         }
     raise ValueError(mode)
 
@@ -100,10 +134,22 @@ def mode_manifest(
         cases = [
             {**row, "reuse_enabled": True, "copy_middle": False} for row in cases
         ]
-    prefetch_on = mode == "combined"
-    prefix_reuse = mode in {"prefix_only", "dual", "combined"}
-    # Host overlap only where prefetch increment is measured.
-    host_overlap = mode == "combined"
+    prefetch_on = mode in {"combined", "prefix_prefetch", "template_prefetch"}
+    prefix_reuse = mode in {
+        "prefix_only",
+        "dual",
+        "combined",
+        "prefix_prefetch",
+        "template_prefetch",
+    }
+    # Fair host baseline for the staircase: copy from host unless prefetched.
+    host_overlap = mode in {
+        "combined",
+        "lossy_host",
+        "prefix_prefetch",
+        "template_prefetch",
+    }
+    prefetch_middle = mode in {"combined", "template_prefetch"}
     server_arm = "dense" if mode == "dense" else "reuse"
     rope = ROPE_7B if MODEL_7B in model else {
         "rotary_dim": 128,
@@ -129,6 +175,24 @@ def mode_manifest(
         "prefetch_spill_device": prefetch_on,
         "prefetch_deadline_s": 30.0,
         "prefetch_wait_s": 90.0,
+        "prefetch_middle": prefetch_middle,
+    }
+
+
+def staircase_increments(latency: dict[str, dict[str, float]]) -> dict[str, float]:
+    """Prefetch staircase vs the host-resident lossy copy baseline."""
+    lossy = float(latency["lossy_host"]["cache_ready_speedup_ratio_of_means"])
+    prefix = float(latency["prefix_prefetch"]["cache_ready_speedup_ratio_of_means"])
+    templ = float(latency["template_prefetch"]["cache_ready_speedup_ratio_of_means"])
+    if lossy <= 0 or prefix <= 0:
+        raise ValueError("staircase baselines must be positive")
+    return {
+        "lossy_vs_dense": lossy,
+        "prefix_prefetch_vs_dense": prefix,
+        "template_prefetch_vs_dense": templ,
+        "prefix_prefetch_vs_lossy": prefix / lossy,
+        "template_prefetch_vs_prefix": templ / prefix,
+        "template_prefetch_vs_lossy": templ / lossy,
     }
 
 

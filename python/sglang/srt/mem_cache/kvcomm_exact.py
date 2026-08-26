@@ -246,6 +246,7 @@ class ExactMiddleCanaryController:
         prefetch_deadline_s: float | None = None,
         prefetch_spill_device: bool = False,
         prefetch_wait_s: float = 60.0,
+        prefetch_middle: bool | None = None,
     ) -> None:
         if not manager.config.core_enabled:
             raise ValueError("KVCOMM core must be enabled")
@@ -326,22 +327,29 @@ class ExactMiddleCanaryController:
         self._persistent_source_leases: dict[str, Any] = {}
         self._released_source_ids: set[str] = set()
         self._online_template = None
+        template_path = os.environ.get("SGLANG_KVCOMM_CLASS_TEMPLATE", "").strip()
+        if self.manager.config.online_admit_enabled or (
+            self.manager.config.prefetch_enabled and template_path
+        ):
+            from sglang.srt.mem_cache.coding_aware.online_template import (
+                OnlineFileTemplate,
+            )
+
+            if template_path:
+                self._online_template = OnlineFileTemplate.from_path(template_path)
+            elif self.manager.config.online_admit_enabled:
+                self._online_template = OnlineFileTemplate()
+        if prefetch_middle is None:
+            prefetch_middle = os.environ.get(
+                "SGLANG_KV_PREFETCH_MIDDLE", "1"
+            ).strip().lower() not in {"0", "false", "no", "off"}
+        self._prefetch_middle = bool(prefetch_middle)
         self._online_bind_cache: dict[
             tuple[str, tuple[str, ...]], tuple[ExactMiddleCase, ...]
         ] = {}
         self._online_bind_results: dict[
             tuple[str, tuple[str, ...]], tuple[Any, ...]
         ] = {}
-        if self.manager.config.online_admit_enabled:
-            from sglang.srt.mem_cache.coding_aware.online_template import (
-                OnlineFileTemplate,
-            )
-
-            template_path = os.environ.get("SGLANG_KVCOMM_CLASS_TEMPLATE", "").strip()
-            if template_path:
-                self._online_template = OnlineFileTemplate.from_path(template_path)
-            else:
-                self._online_template = OnlineFileTemplate()
         if prefetch_deadline_s is not None and prefetch_deadline_s < 0:
             raise ValueError("prefetch_deadline_s must be non-negative")
         if prefetch_wait_s < 0:
@@ -487,6 +495,11 @@ class ExactMiddleCanaryController:
                 value.get("prefetch_spill_device", False)
             ),
             prefetch_wait_s=float(value.get("prefetch_wait_s", 60.0)),
+            prefetch_middle=(
+                bool(value["prefetch_middle"])
+                if value.get("prefetch_middle") is not None
+                else None
+            ),
         )
         if version == 3:
             stat = path.stat()
@@ -1254,10 +1267,16 @@ class ExactMiddleCanaryController:
             NextIslandObservation,
         )
 
+        later = self._later_roles_in_protocol(source)
+        priority = later
+        if self._online_template is not None:
+            priority = self._online_template.prefetch_priority(
+                self._source_observation(source)
+            )
         return NextIslandObservation(
             source_id=source.source_id,
             key=source.key(model_id=self.model_id, cache_dtype=self.cache_dtype),
-            later_roles_in_protocol=self._later_roles_in_protocol(source),
+            later_roles_in_protocol=later,
             residency=handle.residency,
             sequential_next_use=handle.residency == ResidencyTier.DEVICE,
             eligible=True,
@@ -1266,6 +1285,7 @@ class ExactMiddleCanaryController:
             delta_nonzero=True,
             single_file_repository_code=True,
             span_kind=SegmentKind.MIDDLE,
+            priority_override=priority,
         )
 
     def _materialize_prefix_host(
@@ -1339,7 +1359,9 @@ class ExactMiddleCanaryController:
     def _prefetch_observations(
         self, source: ExactMiddleSource, handle: KVSegmentHandle
     ):
-        observations = [self._observation_for_source(source, handle)]
+        observations = []
+        if self._prefetch_middle:
+            observations.append(self._observation_for_source(source, handle))
         if self.ordinary_prefix_reuse_enabled and source.source_start > 0:
             observations.insert(0, self._prefix_observation_for_source(source))
         return tuple(observations)
