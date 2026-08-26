@@ -1,0 +1,64 @@
+\begingroup
+\definecolor{ikvblue}{HTML}{2F6DB3}
+\definecolor{ikvnavy}{HTML}{1B4F8A}
+\definecolor{ikvteal}{HTML}{5BB3A7}
+\definecolor{ikvorange}{HTML}{D96B2B}
+\definecolor{ikvgray}{HTML}{6B6B6B}
+\definecolor{reqfill}{HTML}{D6E6F5}
+\definecolor{ownfill}{HTML}{F8E3D2}
+\definecolor{hostfill}{HTML}{EEE8F4}
+\definecolor{band}{HTML}{F4F7FA}
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  >=Stealth,
+]
+\fill[band, rounded corners=3pt] (-4.2,1.55) rectangle (4.2,2.55);
+\node[anchor=west, font=\sffamily\scriptsize\bfseries, text=ikvnavy]
+  at (-4.05,2.38) {One physical $K/V$ tensor \quad mem\_fraction\_static $=0.82$};
+\node[font=\sffamily\tiny, text=ikvgray, anchor=east] at (4.05,2.38)
+  {page\_size $=1$};
+
+% Physical pages
+\node[draw=ikvblue, fill=reqfill, minimum width=1.05cm, minimum height=0.42cm,
+  font=\sffamily\tiny] at (-2.85,1.88) {req};
+\node[draw=ikvblue, fill=reqfill, minimum width=1.05cm, minimum height=0.42cm,
+  font=\sffamily\tiny] at (-1.70,1.88) {req};
+\node[draw=ikvorange, fill=ownfill, minimum width=1.05cm, minimum height=0.42cm,
+  font=\sffamily\tiny] at (-0.55,1.88) {own};
+\node[draw=ikvorange, fill=ownfill, minimum width=1.05cm, minimum height=0.42cm,
+  font=\sffamily\tiny] at (0.60,1.88) {own};
+\node[draw=ikvblue, fill=reqfill, minimum width=1.05cm, minimum height=0.42cm,
+  font=\sffamily\tiny] at (1.75,1.88) {req};
+\node[draw=ikvgray, fill=white, minimum width=1.05cm, minimum height=0.42cm,
+  font=\sffamily\tiny] at (2.90,1.88) {free};
+\draw[ikvgray] (-3.45,1.62) -- (3.45,1.62);
+\node[font=\sffamily\tiny, text=ikvgray] at (0,1.48)
+  {TokenToKVPoolAllocator.alloc($L$) \quad no island/request quota};
+
+% Two owners
+\node[draw=ikvblue, fill=white, rounded corners=3pt, align=left,
+  inner sep=5pt, text width=3.7cm, anchor=north] (req) at (-2.05,1.22) {%
+  \textbf{Request owner}\\[-1pt]
+  {\tiny\texttt{ReqToTokenPool}}\\[-1pt]
+  {\tiny$(req, pos)\mapsto$ page}\\[2pt]
+  {\tiny Dense prefix / suffix}\\[-1pt]
+  {\tiny Radix lock (M1, off)}\\[-1pt]
+  {\tiny Freed when request ends}};
+\node[draw=ikvorange, fill=white, rounded corners=3pt, align=left,
+  inner sep=5pt, text width=3.7cm, anchor=north] (own) at (2.05,1.22) {%
+  \textbf{Lease owner}\\[-1pt]
+  {\tiny\texttt{KVSegmentStore}}\\[-1pt]
+  {\tiny$(h_{\mathrm{pref}}, h_{\mathrm{tok}}, \Delta)$}\\[2pt]
+  {\tiny Source-side $K$ rotate}\\[-1pt]
+  {\tiny Pin / TTL lease}\\[-1pt]
+  {\tiny Host overflow if alloc fails}};
+\node[draw=ikvteal, fill=white, rounded corners=3pt, align=center,
+  inner sep=4pt, text width=1.55cm] (alloc) at (0,-0.55)
+  {shared\\free list};
+\draw[->, ikvblue, thick] (req.south) |- (alloc.west);
+\draw[->, ikvorange, thick] (own.south) |- (alloc.east);
+
+\node[font=\sffamily\tiny, text=ikvgray, anchor=west] at (-4.1,-1.15)
+  {If free $< L$: evict radix (owned stays protected) $\to$ host copy $\to$ fail-closed Dense.};
+\end{tikzpicture}
+\endgroup

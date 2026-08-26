@@ -81,6 +81,17 @@ to remove the check, and it is not a contribution. Prefetch miss on a
 still-owned island degrades to that owned copy; it does not
 Dense-recompute a valid island.
 
+\begin{figure}[ht]
+\centering
+\resizebox{\columnwidth}{!}{\input{figures/algo-copy.tikz}}
+\caption{M2 algorithm. Source materializes a leased island with
+source-side $K$ rotation. Target Dense-computes the prefix, copies the
+whole island or Densifies it, then Dense-computes the remainder.
+Mechanical failure never splices a half page.}
+\Description{Two-column flowchart of source materialize and fail-closed target copy.}
+\label{fig:algo-copy}
+\end{figure}
+
 \subsection{What stays off}
 
 Prefetch stays off in the headline 7B campaign, as does ordinary radix

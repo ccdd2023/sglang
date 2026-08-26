@@ -106,8 +106,9 @@ misses that Dense-recomputed valid islands).
 \begin{figure}[ht]
 \centering
 \resizebox{0.92\columnwidth}{!}{\input{figures/prefetch-pipeline.tikz}}
-\caption{M3 residency hints on the M0 admit set. Miss degrades to the
-owned copy. Off in Table~\ref{tab:eval-summary}.}
+\caption{M3 algorithm. Later-roles hints address already-admitted keys
+only. A miss or timeout copies the owned island. Off in
+Table~\ref{tab:eval-summary}.}
 \Description{M0 PLAN feeds source KV and later-roles hints; scheduler miss still uses M2.}
 \label{fig:prefetch-pipeline}
 \end{figure}

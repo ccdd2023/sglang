@@ -3,12 +3,29 @@
 
 \subsection{SGLang integration}
 
-\method{} is implemented in a SGLang fork as a controller-owned KV pool
-beside the ordinary request cache. The reuse arm publishes a dynamic
-manifest of sources and cases; the Dense arm uses the same generate path
-with copy disabled. Ordinary prefix reuse is compiled off in both arms
-so the contrast is island copy versus Dense prefill, not island copy
-versus radix.
+\method{} is implemented in a SGLang fork. There is one physical paged
+$K/V$ tensor (\texttt{TokenToKVPoolAllocator},
+\texttt{mem\_fraction\_static}$=0.82$ in the headline job). Two
+\emph{owners} share its free list (Figure~\ref{fig:kv-pools}):
+\texttt{ReqToTokenPool} maps the live request, and
+\texttt{KVSegmentStore} leases island pages under
+$(\textit{source-prefix hash}, \textit{content hash}, \Delta)$.
+There is no static island/request split: \texttt{alloc}$(L)$ competes
+for free pages; shortfall first evicts radix (owned tokens stay in
+\texttt{protected\_size}), then host-overflow, then fail-closed Dense.
+The reuse arm publishes a dynamic manifest; the Dense arm uses the same
+generate path with copy disabled. Ordinary prefix reuse is compiled off
+in both arms so the contrast is island copy versus Dense prefill.
+
+\begin{figure}[ht]
+\centering
+\resizebox{\columnwidth}{!}{\input{figures/kv-pools.tikz}}
+\caption{One physical KV pool, two owners. Request slots hold Dense
+prefix/suffix; leased slots hold admitted islands. Allocation is
+dynamic; the engine does not reserve a fixed island fraction.}
+\Description{Shared TokenToKVPool with request map and lease store competing on the same free list.}
+\label{fig:kv-pools}
+\end{figure}
 
 Each source request writes selected $K/V$ into controller-owned slots.
 Materialization applies \texttt{pre\_rotate\_delta} to $K$ only, then

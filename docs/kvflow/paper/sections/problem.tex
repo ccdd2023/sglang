@@ -21,11 +21,11 @@ lists module I/O.
 \begin{figure}[ht]
 \centering
 \resizebox{\columnwidth}{!}{\input{figures/architecture.tikz}}
-\caption{Engine stack for shifted file-module prefill. Online path is
-Dense prefix, then M2 copy, then Dense remainder. Headline 7B
-speed uses M0$+$M2; M1 and M3 stay off so
-Table~\ref{tab:eval-summary} cannot be credited to radix or prefetch.}
-\Description{Offline M0 compiler producing a PLAN; online SGLang prefill with Dense prefix, M2 file-island copy, and Dense remainder.}
+\caption{System design. M0 compiles a PLAN offline. Online prefill uses
+one \texttt{TokenToKVPool}: request slots for Dense spans, leased slots
+for admitted islands. Headline 7B speed is M0$+$M2; M1 and M3 stay off
+so Table~\ref{tab:eval-summary} cannot be credited to radix or prefetch.}
+\Description{Offline admit compiler and online SGLang path over one physical KV pool with request and lease owners.}
 \label{fig:architecture}
 \end{figure}
 

@@ -4,42 +4,96 @@
 \definecolor{ikvteal}{HTML}{5BB3A7}
 \definecolor{ikvorange}{HTML}{D96B2B}
 \definecolor{ikvgray}{HTML}{6B6B6B}
-\definecolor{offfill}{HTML}{EEF7F4}
-\definecolor{onfill}{HTML}{EEF3FA}
-\definecolor{dimfill}{HTML}{F3F3F3}
+\definecolor{offfill}{HTML}{E8F4F0}
+\definecolor{onfill}{HTML}{EAF1F8}
+\definecolor{dimfill}{HTML}{F2F2F2}
+\definecolor{poolfill}{HTML}{F7F4EC}
+\definecolor{reqfill}{HTML}{D6E6F5}
+\definecolor{ownfill}{HTML}{F8E3D2}
 \begin{tikzpicture}[
   font=\sffamily\scriptsize,
   >=Stealth,
-  box/.style={draw=#1, fill=white, rounded corners=2pt, align=center,
-    inner sep=3.2pt, minimum height=0.80cm},
 ]
-\node[fill=offfill, rounded corners=3pt, minimum width=8.3cm, minimum height=1.32cm] (offbg) at (0,0.06) {};
-\node[anchor=north west, font=\sffamily\scriptsize\bfseries, text=ikvnavy]
-  at ($(offbg.north west)+(0.1,-0.04)$) {Offline (once)};
-\node[box=ikvteal, text width=2.25cm] (traj) at (-2.45, -0.04) {Frozen SWE-bench\\trajectories};
-\node[box=ikvteal, text width=2.45cm] (m0) at (0.25, -0.04) {M0 compiler\\token-ID, version, $\Delta\neq 0$};
-\node[box=ikvnavy, text width=1.40cm] (plan) at (3.15, -0.04) {PLAN};
-\draw[->, ikvgray, thick] (traj) -- (m0);
-\draw[->, ikvgray, thick] (m0) -- (plan);
+% --- Offline ---
+\fill[offfill, rounded corners=3pt] (-4.15,1.05) rectangle (4.15,2.28);
+\node[anchor=west, font=\sffamily\scriptsize\bfseries, text=ikvteal]
+  at (-4.02,2.12) {Offline once};
+\node[draw=ikvteal, fill=white, rounded corners=2pt, align=center,
+  inner sep=3pt, text width=2.15cm, minimum height=0.72cm] (traj) at (-2.55,1.48)
+  {Frozen traces};
+\node[draw=ikvteal, fill=white, rounded corners=2pt, align=center,
+  inner sep=3pt, text width=2.55cm, minimum height=0.72cm] (m0) at (0.15,1.48)
+  {\textbf{M0 admit}\\token-ID, version, $\Delta\neq 0$};
+\node[draw=ikvnavy, fill=white, rounded corners=2pt, align=center,
+  inner sep=3pt, text width=1.55cm, minimum height=0.72cm] (plan) at (3.05,1.48)
+  {PLAN $(s,t,L,\Delta)$};
+\draw[->, ikvteal, thick] (traj) -- (m0);
+\draw[->, ikvteal, thick] (m0) -- (plan);
 
-\node[fill=onfill, rounded corners=3pt, minimum width=8.3cm, minimum height=3.05cm] (onbg) at (0,-2.48) {};
-\node[anchor=north west, font=\sffamily\scriptsize\bfseries, text=ikvnavy]
-  at ($(onbg.north west)+(0.1,-0.04)$) {Online prefill (SGLang)};
-\node[box=ikvblue, text width=1.22cm] (tgt) at (-3.22, -1.68) {Target\\token IDs};
-\node[box=ikvblue, text width=1.22cm] (pref) at (-1.70, -1.68) {Dense\\prefix};
-\node[box=ikvblue, text width=1.95cm, line width=0.9pt] (m2) at (0.22, -1.68)
-  {\textbf{M2 island copy}\\$K{\leftarrow}R_{\Delta}K$, $V$ as-is};
-\node[box=ikvorange, text width=1.55cm] (fail) at (3.05, -1.68) {miss $\to$\\Dense island};
-\node[box=ikvgray, fill=dimfill, text width=1.42cm] (m1) at (-3.22, -2.68) {M1 prefix\\{\tiny off in headline}};
-\node[box=ikvgray, fill=dimfill, text width=1.42cm] (m3) at (-1.70, -2.68) {M3 prefetch\\{\tiny off in headline}};
-\node[box=ikvnavy, text width=3.35cm] (dec) at (0.85, -3.62) {Dense remainder $\to$ 1-token decode};
-\draw[->, ikvgray, thick] (plan.south) -- ++(0,-0.18) -| (tgt.north);
-\draw[->, ikvblue, thick] (tgt) -- (pref);
-\draw[->, ikvblue, thick] (pref) -- (m2);
-\draw[->, ikvorange] (m2) -- node[font=\sffamily\tiny, text=ikvorange, above] {miss} (fail);
-\draw[->, ikvblue, thick] (m2.south) -- node[font=\sffamily\tiny, text=ikvblue, right] {hit} (dec.north west);
-\draw[->, ikvorange] (fail.south) -- ++(0,-1.18) -| (dec.east);
-\draw[->, ikvgray, dashed] (m1.north) -- (tgt.south);
-\draw[->, ikvgray, dashed] (m3.east) -- node[font=\sffamily\tiny, text=ikvgray, above] {miss $\to$ M2} (m2.south west);
+% --- Online ---
+\fill[onfill, rounded corners=3pt] (-4.15,-2.72) rectangle (4.15,0.92);
+\node[anchor=west, font=\sffamily\scriptsize\bfseries, text=ikvnavy]
+  at (-4.02,0.76) {Online prefill (one TokenToKVPool)};
+
+\node[draw=ikvblue, fill=white, rounded corners=2pt, align=center,
+  inner sep=2.6pt, text width=1.35cm, minimum height=0.70cm] (src) at (-3.15,0.18)
+  {Source\\Dense};
+\node[draw=ikvblue, fill=white, rounded corners=2pt, align=center,
+  inner sep=2.6pt, text width=1.85cm, minimum height=0.70cm] (mat) at (-1.05,0.18)
+  {Materialize\\$K{\leftarrow}R_{\Delta}K$};
+\node[draw=ikvorange, fill=white, rounded corners=2pt, align=center,
+  inner sep=2.6pt, text width=1.55cm, minimum height=0.70cm] (lease) at (1.15,0.18)
+  {Lease store};
+\node[draw=ikvnavy, fill=white, rounded corners=2pt, align=center,
+  inner sep=2.6pt, text width=1.85cm, minimum height=0.70cm] (tgt) at (3.15,0.18)
+  {Target copy};
+\draw[->, ikvblue, thick] (src) -- (mat);
+\draw[->, ikvblue, thick] (mat) -- (lease);
+\draw[->, ikvblue, thick] (lease) -- (tgt);
+\draw[->, ikvgray, dashed] (plan.south) -- ++(0,-0.22) -| (src.north);
+
+\node[draw=ikvblue, fill=white, rounded corners=2pt, align=center,
+  inner sep=2.4pt, text width=1.45cm] (p) at (-3.15,-0.78) {Dense prefix};
+\node[draw=ikvblue, fill=white, rounded corners=2pt, align=center,
+  inner sep=2.4pt, line width=0.9pt, text width=1.85cm] (c) at (-0.55,-0.78)
+  {\textbf{M2 whole-island}};
+\node[draw=ikvorange, fill=white, rounded corners=2pt, align=center,
+  inner sep=2.4pt, text width=1.45cm] (f) at (1.85,-0.78) {miss $\to$ Dense};
+\node[draw=ikvnavy, fill=white, rounded corners=2pt, align=center,
+  inner sep=2.4pt, text width=1.55cm] (d) at (3.45,-0.78) {Dense rest};
+\draw[->, ikvblue] (p) -- (c);
+\draw[->, ikvorange] (c) -- (f);
+\draw[->, ikvblue] (c) -- (d);
+\draw[->, ikvgray, dashed] (tgt.south) -- (c.north);
+
+\node[draw=ikvgray, fill=dimfill, rounded corners=2pt, align=center,
+  inner sep=2pt, text width=1.55cm, font=\sffamily\tiny] (m1) at (-2.35,-1.52)
+  {M1 radix\\off in headline};
+\node[draw=ikvgray, fill=dimfill, rounded corners=2pt, align=center,
+  inner sep=2pt, text width=1.55cm, font=\sffamily\tiny] (m3) at (0.15,-1.52)
+  {M3 prefetch\\off in headline};
+\node[draw=ikvnavy, fill=white, rounded corners=2pt, align=center,
+  inner sep=2pt, text width=2.35cm] (dec) at (2.55,-1.52) {1-token decode};
+\draw[->, ikvgray, dashed] (m1.north) -- (p.south);
+\draw[->, ikvgray, dashed] (m3.east) -- node[font=\sffamily\tiny, text=ikvgray, above] {miss $\to$ owned} (c.south);
+\draw[->, ikvblue, thick] (d.south) |- (dec.east);
+
+% --- Pool strip ---
+\fill[poolfill, rounded corners=2pt] (-4.05,-2.58) rectangle (4.05,-1.88);
+\node[font=\sffamily\tiny\bfseries, text=ikvgray, anchor=west] at (-3.95,-2.00)
+  {Same TokenToKVPool};
+\node[draw=ikvblue, fill=reqfill, minimum width=0.92cm, minimum height=0.36cm,
+  font=\sffamily\tiny, inner sep=0pt] at (-2.35,-2.32) {req};
+\node[draw=ikvblue, fill=reqfill, minimum width=0.92cm, minimum height=0.36cm,
+  font=\sffamily\tiny, inner sep=0pt] at (-1.35,-2.32) {req};
+\node[draw=ikvorange, fill=ownfill, minimum width=0.92cm, minimum height=0.36cm,
+  font=\sffamily\tiny, inner sep=0pt] at (-0.35,-2.32) {own};
+\node[draw=ikvorange, fill=ownfill, minimum width=0.92cm, minimum height=0.36cm,
+  font=\sffamily\tiny, inner sep=0pt] at (0.65,-2.32) {own};
+\node[draw=ikvblue, fill=reqfill, minimum width=0.92cm, minimum height=0.36cm,
+  font=\sffamily\tiny, inner sep=0pt] at (1.65,-2.32) {req};
+\node[draw=ikvgray, fill=white, minimum width=0.92cm, minimum height=0.36cm,
+  font=\sffamily\tiny, inner sep=0pt] at (2.65,-2.32) {free};
+\node[font=\sffamily\tiny, text=ikvgray, anchor=east] at (3.95,-2.32) {no static split};
 \end{tikzpicture}
 \endgroup

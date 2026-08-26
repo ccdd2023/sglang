@@ -1,0 +1,59 @@
+\begingroup
+\definecolor{ikvblue}{HTML}{2F6DB3}
+\definecolor{ikvnavy}{HTML}{1B4F8A}
+\definecolor{ikvteal}{HTML}{5BB3A7}
+\definecolor{ikvorange}{HTML}{D96B2B}
+\definecolor{ikvgray}{HTML}{6B6B6B}
+\definecolor{okfill}{HTML}{E4F3EE}
+\definecolor{badfill}{HTML}{FBE6DE}
+\definecolor{srcfill}{HTML}{EEF4FA}
+\definecolor{tgtfill}{HTML}{F8F1EA}
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  >=Stealth,
+]
+\fill[srcfill, rounded corners=3pt] (-4.15,0.15) rectangle (-0.12,3.22);
+\node[anchor=west, font=\sffamily\scriptsize\bfseries, text=ikvblue]
+  at (-4.02,3.05) {Source (materialize)};
+\node[draw=ikvblue, fill=white, rounded corners=2pt, inner sep=3pt,
+  text width=3.55cm, align=left] (s1) at (-2.14,2.52)
+  {1.\ Dense-prefill the source prompt};
+\node[draw=ikvblue, fill=white, rounded corners=2pt, inner sep=3pt,
+  text width=3.55cm, align=left] (s2) at (-2.14,1.82)
+  {2.\ Check prefix hash and island token IDs};
+\node[draw=ikvblue, fill=white, rounded corners=2pt, inner sep=3pt,
+  text width=3.55cm, align=left] (s3) at (-2.14,1.12)
+  {3.\ \texttt{alloc}($L$); copy $K/V$; rotate $K$};
+\node[draw=ikvteal, fill=okfill, rounded corners=2pt, inner sep=3pt,
+  text width=3.55cm, align=left] (s4) at (-2.14,0.42)
+  {4.\ Pin lease in the store};
+\draw[->, ikvblue] (s1) -- (s2);
+\draw[->, ikvblue] (s2) -- (s3);
+\draw[->, ikvblue] (s3) -- (s4);
+
+\fill[tgtfill, rounded corners=3pt] (0.12,0.15) rectangle (4.15,3.22);
+\node[anchor=west, font=\sffamily\scriptsize\bfseries, text=ikvorange]
+  at (0.24,3.05) {Target (fail-closed copy)};
+\node[draw=ikvorange, fill=white, rounded corners=2pt, inner sep=3pt,
+  text width=3.55cm, align=left] (t1) at (2.14,2.52)
+  {5.\ Dense prefix up to $t$};
+\node[draw=ikvorange, fill=white, rounded corners=2pt, inner sep=3pt,
+  text width=3.55cm, align=left] (t2) at (2.14,1.82)
+  {6.\ Lookup leased handle (prefetch miss keeps owned)};
+\node[draw=ikvorange, fill=white, rounded corners=2pt, inner sep=3pt,
+  text width=3.55cm, align=left] (t3) at (2.14,1.12)
+  {7.\ \texttt{alloc} dest pages; copy whole island};
+\node[draw=ikvteal, fill=okfill, rounded corners=2pt, inner sep=3pt,
+  text width=3.55cm, align=left] (t4) at (2.14,0.42)
+  {8.\ Write \texttt{req\_to\_token}; Dense remainder};
+\draw[->, ikvorange] (t1) -- (t2);
+\draw[->, ikvorange] (t2) -- (t3);
+\draw[->, ikvorange] (t3) -- (t4);
+\draw[->, ikvgray, thick] (s4.east) -- node[font=\sffamily\tiny, text=ikvgray, above] {lease} (t2.west);
+
+\node[draw=ikvorange, fill=badfill, rounded corners=2pt, inner sep=3pt,
+  text width=7.9cm, align=center] (bad) at (0,-0.28)
+  {Any hash / coverage / alloc failure $\to$ discard the island, Dense the span, never splice a half page};
+\draw[->, ikvorange] (t3.south) -- ++(0,-0.22);
+\end{tikzpicture}
+\endgroup
