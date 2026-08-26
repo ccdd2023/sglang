@@ -197,7 +197,10 @@ work_dirs/
 # ImpactKV ASPLOS paper: collaborators need figures without a second repo
 !docs/kvflow/paper/**/*.pdf
 !docs/kvflow/paper/**/*.png
-!docs/kvflow/PREFETCH_M3_REPORT_CN.pdf
+
+# Local-only prefetch briefing (not for the public branch)
+docs/kvflow/PREFETCH_M3_REPORT_CN.*
+docs/kvflow/compile_prefetch_report.py
 
 # Unpacked ImpactKV claim pack (fetch_impactkv_artifacts.py)
 /impactkv-artifacts/

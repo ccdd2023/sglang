@@ -15,9 +15,6 @@
 
 历史笔记 `KVFLOW.md`、`docs/kvflow/COLLABORATOR_QUICKSTART_20260729.md`、V40–V46 / RepoBench **不是**当前 headline，不要从那里开始。
 
-M3 prefetch 中文汇报稿（算法、与 M0/M2 的接口、作业 119795 数字）：
-[`docs/kvflow/PREFETCH_M3_REPORT_CN.pdf`](docs/kvflow/PREFETCH_M3_REPORT_CN.pdf)。Headline **关掉** M3。
-
 ---
 
 ## 0. 你接手的是什么
