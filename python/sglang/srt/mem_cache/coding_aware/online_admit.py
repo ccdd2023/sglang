@@ -54,23 +54,33 @@ class SourceObservation:
     policy_label: str = "coding"
 
 
-def admit_source_island(obs: SourceObservation) -> str | None:
-    """Return a skip reason, or None to lease the island unrotated.
-
-    This function must not take a target start, target hash, or Δ.
-    """
+def mechanical_source_gates(obs: SourceObservation) -> str | None:
+    """Hard gates that never use a target prompt or learned scores."""
     if not obs.source_id:
         return "missing_source_id"
     if not obs.single_file_repository_code:
         return "not_single_file_repository_code"
     if not obs.version_valid:
         return "version_invalid"
-    if obs.later_roles_in_protocol <= 0:
-        return "no_protocol_reread"
     if obs.source_start <= 0 or not obs.token_ids:
         return "not_strictly_middle"
     if not obs.content_hash or not obs.source_prefix_hash:
         return "incomplete_page_identity"
+    return None
+
+
+def admit_source_island(obs: SourceObservation) -> str | None:
+    """Protocol-only admit. Return a skip reason, or None to lease.
+
+    This function must not take a target start, target hash, or Δ.
+    Later-roles is the cold-start prior; OnlineFileTemplate can override
+    it after observing bind outcomes.
+    """
+    reason = mechanical_source_gates(obs)
+    if reason is not None:
+        return reason
+    if obs.later_roles_in_protocol <= 0:
+        return "no_protocol_reread"
     return None
 
 

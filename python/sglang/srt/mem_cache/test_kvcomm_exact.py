@@ -1692,3 +1692,57 @@ def test_online_admit_skips_source_without_later_roles():
     )
     assert controller.maybe_materialize_source(_req(source)) is None
     assert controller.maybe_attach_target(_req(target, pool_index=1)) is None
+
+
+def test_online_template_stops_leasing_after_wasted_binds():
+    source = (1, 2, 3, 4, 5, 8, 9)
+    source_b = (9, 8, 3, 4, 5, 2, 1)
+    miss = (1, 7, 2, 9, 8, 6, 0)
+    manager = KVCommManager(
+        KVCommFeatureConfig(core_enabled=True, online_admit_enabled=True)
+    )
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source)] = torch.arange(len(source))
+    pool.req_to_token[2, : len(source_b)] = torch.arange(10, 10 + len(source_b))
+    spec_a = ExactMiddleSource(
+        source_id="source-a",
+        source_prompt_hash=token_ids_hash(source),
+        segment_token_hash=token_ids_hash(source[2:5]),
+        source_prefix_token_hash=token_ids_hash(source[:2]),
+        source_start=2,
+        length=3,
+        content_hash="shared-segment",
+        policy_label="coding_aware",
+        later_roles_in_protocol=3,
+    )
+    spec_b = ExactMiddleSource(
+        source_id="source-b",
+        source_prompt_hash=token_ids_hash(source_b),
+        segment_token_hash=token_ids_hash(source_b[2:5]),
+        source_prefix_token_hash=token_ids_hash(source_b[:2]),
+        source_start=2,
+        length=3,
+        content_hash="shared-segment",
+        policy_label="coding_aware",
+        later_roles_in_protocol=3,
+    )
+    dummy = replace(_case(source, source, target_start=2), source_id="source-a")
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=(dummy,),
+        sources=(spec_a, spec_b),
+    )
+    controller._online_template.skip_ceiling = 0.30
+    controller._online_template.min_obs = 2
+    assert controller.maybe_materialize_source(_req(source)) is not None
+    miss_req = _req(miss, pool_index=1)
+    assert controller.maybe_attach_target(miss_req) is None
+    assert controller.maybe_attach_target(miss_req) is None
+    assert controller._online_template.posterior("shared-segment").wasted >= 2
+    assert controller.maybe_materialize_source(_req(source_b, pool_index=2)) is None

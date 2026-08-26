@@ -324,6 +324,13 @@ class ExactMiddleCanaryController:
         self._materialized_source_rope_deltas: dict[str, int] = {}
         self._persistent_source_leases: dict[str, Any] = {}
         self._released_source_ids: set[str] = set()
+        self._online_template = None
+        if self.manager.config.online_admit_enabled:
+            from sglang.srt.mem_cache.coding_aware.online_template import (
+                OnlineFileTemplate,
+            )
+
+            self._online_template = OnlineFileTemplate()
         if prefetch_deadline_s is not None and prefetch_deadline_s < 0:
             raise ValueError("prefetch_deadline_s must be non-negative")
         if prefetch_wait_s < 0:
@@ -788,19 +795,20 @@ class ExactMiddleCanaryController:
             admit_source_island,
         )
 
-        return admit_source_island(
-            SourceObservation(
-                source_id=source.source_id,
-                source_start=source.source_start,
-                token_ids=(1,) * source.length,
-                content_hash=source.content_hash,
-                source_prefix_hash=source.source_prefix_token_hash,
-                single_file_repository_code=True,
-                version_valid=True,
-                later_roles_in_protocol=self._later_roles_in_protocol(source),
-                policy_label=source.policy_label,
-            )
+        observation = SourceObservation(
+            source_id=source.source_id,
+            source_start=source.source_start,
+            token_ids=(1,) * source.length,
+            content_hash=source.content_hash,
+            source_prefix_hash=source.source_prefix_token_hash,
+            single_file_repository_code=True,
+            version_valid=True,
+            later_roles_in_protocol=self._later_roles_in_protocol(source),
+            policy_label=source.policy_label,
         )
+        if self._online_template is not None:
+            return self._online_template.admit(observation)
+        return admit_source_island(observation)
 
     def _bind_online_cases(
         self, tokens: Sequence[int]
@@ -817,8 +825,6 @@ class ExactMiddleCanaryController:
             for index, source in enumerate(sources):
                 if source.source_id in self._released_source_ids:
                     continue
-                if self._online_admit_skip(source) is not None:
-                    continue
                 handle = self._materialized_sources.get(source.source_id)
                 if handle is None:
                     continue
@@ -833,8 +839,11 @@ class ExactMiddleCanaryController:
                         handle=handle,
                     )
                 )
+        binds = bind_leased_islands(prompt, leases)
+        if self._online_template is not None:
+            self._online_template.observe_all(binds)
         bound: list[ExactMiddleCase] = []
-        for item in bind_leased_islands(prompt, leases):
+        for item in binds:
             if item.action is not BindAction.COPY:
                 continue
             if (
