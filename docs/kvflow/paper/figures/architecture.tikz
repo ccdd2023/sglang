@@ -17,7 +17,7 @@
   box/.style={draw=#1, fill=white, rounded corners=2pt, inner sep=3pt,
     minimum height=0.74cm},
 ]
-% Offline
+% Eval harness (not the served class prior)
 \fill[offfill, rounded corners=3pt] (-4.35,2.52) rectangle (4.35,3.88);
 \node[font=\sffamily\scriptsize\bfseries, text=ikvteal, anchor=west]
   at (-4.20,3.70) {Eval (once): offline-oracle PLAN};
@@ -32,7 +32,7 @@
 % Online. Happy path is one row; fail is a stub under M2, not on the row.
 \fill[onfill, rounded corners=3pt] (-4.35,-1.08) rectangle (4.35,2.40);
 \node[font=\sffamily\scriptsize\bfseries, text=ikvnavy, anchor=west]
-  at (-4.20,2.22) {Online prefill};
+  at (-4.20,2.22) {Online prefill (class prior)};
 \node[box=ikvblue, text width=1.55cm] (src) at (-3.25,1.58) {Source Dense};
 \node[box=ikvblue, text width=1.80cm] (mat) at (-1.15,1.58)
   {Materialize\\[-1pt]{\tiny rotate $K$}};
