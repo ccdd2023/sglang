@@ -326,6 +326,12 @@ class ExactMiddleCanaryController:
         self._persistent_source_leases: dict[str, Any] = {}
         self._released_source_ids: set[str] = set()
         self._online_template = None
+        self._online_bind_cache: dict[
+            tuple[str, tuple[str, ...]], tuple[ExactMiddleCase, ...]
+        ] = {}
+        self._online_bind_results: dict[
+            tuple[str, tuple[str, ...]], tuple[Any, ...]
+        ] = {}
         if self.manager.config.online_admit_enabled:
             from sglang.srt.mem_cache.coding_aware.online_template import (
                 OnlineFileTemplate,
@@ -818,7 +824,7 @@ class ExactMiddleCanaryController:
         return admit_source_island(observation)
 
     def _bind_online_cases(
-        self, tokens: Sequence[int]
+        self, tokens: Sequence[int], *, observe: bool = False
     ) -> tuple[ExactMiddleCase, ...]:
         from sglang.srt.mem_cache.coding_aware.online_admit import (
             BindAction,
@@ -827,6 +833,14 @@ class ExactMiddleCanaryController:
         )
 
         prompt = tuple(int(value) for value in tokens)
+        prompt_hash = token_ids_hash(prompt)
+        lease_sig = tuple(sorted(self._materialized_sources))
+        cache_key = (prompt_hash, lease_sig)
+        cached = self._online_bind_cache.get(cache_key)
+        if cached is not None:
+            if observe:
+                self._observe_online_binds(self._online_bind_results[cache_key])
+            return cached
         leases: list[LeasedIsland] = []
         for sources in self._sources.values():
             for index, source in enumerate(sources):
@@ -847,12 +861,8 @@ class ExactMiddleCanaryController:
                     )
                 )
         binds = bind_leased_islands(prompt, leases)
-        if self._online_template is not None:
-            for item in binds:
-                source = self._source_by_id(item.source_id or "")
-                if source is None:
-                    continue
-                self._online_template.observe(item, self._source_observation(source))
+        if observe:
+            self._observe_online_binds(binds)
         bound: list[ExactMiddleCase] = []
         for item in binds:
             if item.action is not BindAction.COPY:
@@ -891,7 +901,20 @@ class ExactMiddleCanaryController:
                 )
             )
         bound.sort(key=lambda case: case.target_start)
-        return tuple(bound)
+        result = tuple(bound)
+        if leases:
+            self._online_bind_cache[cache_key] = result
+            self._online_bind_results[cache_key] = tuple(binds)
+        return result
+
+    def _observe_online_binds(self, binds: Sequence[Any]) -> None:
+        if self._online_template is None:
+            return
+        for item in binds:
+            source = self._source_by_id(getattr(item, "source_id", None) or "")
+            if source is None:
+                continue
+            self._online_template.observe(item, self._source_observation(source))
 
     def _source_by_id(self, source_id: str) -> ExactMiddleSource | None:
         for sources in self._sources.values():
@@ -1537,7 +1560,7 @@ class ExactMiddleCanaryController:
         tokens = self._prompt_tokens(req)
         prompt_hash = token_ids_hash(tokens)
         if self.manager.config.online_admit_enabled:
-            cases = self._bind_online_cases(tokens)
+            cases = self._bind_online_cases(tokens, observe=True)
             if not cases:
                 return None
             cursor = 0

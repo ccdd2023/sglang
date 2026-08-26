@@ -182,3 +182,34 @@ def test_locate_unique_span():
     assert locate_unique_span((1, 2, 3, 4), (2, 3)) == 1
     assert locate_unique_span((1, 2, 3, 2, 3), (2, 3)) is None
     assert locate_unique_span((1, 2, 3), (9,)) is None
+    assert locate_unique_span((1, 1, 1, 1), (1, 1, 1)) is None
+    assert locate_unique_span((7, 8, 9), (7, 8, 9)) == 0
+    assert locate_unique_span((1, 2), ()) is None
+    assert locate_unique_span((), (1,)) is None
+
+
+def _naive_unique_span(haystack, needle):
+    n = len(needle)
+    if n == 0 or n > len(haystack):
+        return None
+    hay = tuple(int(value) for value in haystack)
+    need = tuple(int(value) for value in needle)
+    found = None
+    for index in range(len(hay) - n + 1):
+        if hay[index : index + n] == need:
+            if found is not None:
+                return None
+            found = index
+    return found
+
+
+def test_locate_unique_span_matches_naive_scan():
+    import random
+
+    rng = random.Random(0)
+    for _ in range(40):
+        hay = [rng.randrange(-80, 80) for _ in range(rng.randint(8, 90))]
+        width = rng.randint(1, min(7, len(hay)))
+        start = rng.randint(0, len(hay) - width)
+        need = hay[start : start + width]
+        assert locate_unique_span(hay, need) == _naive_unique_span(hay, need)

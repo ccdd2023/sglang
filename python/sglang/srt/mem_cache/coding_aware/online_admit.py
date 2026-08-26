@@ -15,6 +15,7 @@ K is stored unrotated (pre_rotate_delta = 0); rotation happens at copy.
 
 from __future__ import annotations
 
+import array
 from dataclasses import dataclass
 from enum import Enum
 from typing import Sequence
@@ -121,22 +122,30 @@ class BindResult:
 def locate_unique_span(
     haystack: Sequence[int], needle: Sequence[int]
 ) -> int | None:
-    """Return the unique start of needle in haystack, else None."""
+    """Return the unique start of needle in haystack, else None.
+
+    Packed-int ``bytes.find`` stays on the target TTFT path; a naive
+    Python scan of a 5k-token prompt was ~8 ms per island.
+    """
     n = len(needle)
     if n == 0 or n > len(haystack):
         return None
-    hay = tuple(int(value) for value in haystack)
-    need = tuple(int(value) for value in needle)
+    packed_hay = array.array("q", (int(value) for value in haystack)).tobytes()
+    packed_need = array.array("q", (int(value) for value in needle)).tobytes()
+    width = array.array("q").itemsize
     found: int | None = None
-    last = len(hay) - n
-    index = 0
-    while index <= last:
-        if hay[index : index + n] == need:
+    start = 0
+    while True:
+        idx = packed_hay.find(packed_need, start)
+        if idx < 0:
+            return found
+        if idx % width == 0:
             if found is not None:
                 return None
-            found = index
-        index += 1
-    return found
+            found = idx // width
+            start = idx + width
+        else:
+            start = idx + 1
 
 
 def bind_leased_islands(

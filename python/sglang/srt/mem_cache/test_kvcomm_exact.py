@@ -1660,6 +1660,55 @@ def test_online_admit_binds_without_planned_target_index():
     assert stats.copied_k_tokens == 3
 
 
+def test_online_probe_does_not_observe_class_bin():
+    source = (1, 2, 3, 4, 5, 8, 9)
+    target = (1, 7, 2, 3, 4, 5, 9)
+    manager = KVCommManager(
+        KVCommFeatureConfig(core_enabled=True, online_admit_enabled=True)
+    )
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source)] = torch.arange(len(source))
+    source_spec = ExactMiddleSource(
+        source_id="source",
+        source_prompt_hash=token_ids_hash(source),
+        segment_token_hash=token_ids_hash(source[2:5]),
+        source_prefix_token_hash=token_ids_hash(source[:2]),
+        source_start=2,
+        length=3,
+        content_hash="shared-segment",
+        policy_label="coding_aware",
+        later_roles_in_protocol=3,
+    )
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=(
+            replace(
+                _case(source, target, target_start=4),
+                source_id="source",
+                source_prompt_hash=token_ids_hash(source),
+            ),
+        ),
+        sources=(source_spec,),
+    )
+    assert controller.maybe_materialize_source(_req(source)) is not None
+    obs = controller._source_observation(source_spec)
+    copied_before = controller._online_template.bin_for(obs).copied
+    target_req = _req(target, pool_index=1, prefix=(11, 12, 13))
+    assert controller.is_target_request(target_req)
+    assert controller._online_template.bin_for(obs).copied == copied_before
+    assert controller.maybe_attach_target(target_req) is not None
+    assert controller._online_template.bin_for(obs).copied == copied_before + 1
+    target_req2 = _req(target, pool_index=1, prefix=(11, 12, 13))
+    assert controller.maybe_attach_target(target_req2) is not None
+    assert controller._online_template.bin_for(obs).copied == copied_before + 2
+
+
 def test_online_admit_skips_source_without_later_roles():
     source = (1, 2, 3, 4, 5, 8, 9)
     target = (1, 7, 2, 3, 4, 5, 9)
