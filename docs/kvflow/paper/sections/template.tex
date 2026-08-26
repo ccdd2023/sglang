@@ -11,7 +11,22 @@ Figure~\ref{fig:dag-example} is that role graph. The compiler is an
 offline oracle on frozen trajectories: it reconstructs each target
 prompt, locates \texttt{repository\_code} spans, and keeps only islands
 that pass the eligibility gate (Figure~\ref{fig:template-process}).
-It is not an online serving policy.
+It is not an online serving policy. Job 137185 uses this
+offline oracle so every island has a known $\Delta$ before copy.
+
+\subsection{Serving-class prior}
+
+Users do not share GitHub issues or file bytes. The reusable object at
+serving time is a \emph{task class} (rolling-6 coding agent versus
+general), not a per-issue PLAN. An offline Beta prior over that class
+(coding-agent $\alpha{=}116$, $\beta{=}93$ from 207 expanded24 sources)
+admits a source that already passed the protocol gates when later-roles
+are positive. The source stores $K$ unrotated. The target locates each
+leased span by unique token identity, computes $\Delta$, and rotates $K$
+at copy; a non-unique span is Dense. Bind outcomes fine-tune the same
+class bin with a damped step so one replay cannot overwrite the prior.
+This path is default-off in Table~\ref{tab:eval-summary}: the headline
+copy kernel still consumes the offline-oracle PLAN.
 
 \begin{figure}[ht]
 \centering
@@ -85,10 +100,10 @@ target prompt is eligible true-lossy file content; the rest stays Dense.
 
 \subsection{What is stored, and how it is used}
 
-M0 is not a KV cache. It writes a PLAN of eligible islands
-$(s,t,L,\Delta)$; it does not allocate $K/V$. At serving time the
-source request Dense-prefills, and the controller stores only admitted
-islands under $(\textit{source-prefix hash}, \textit{content hash},
+M0 is not a KV cache. The eval PLAN stores eligible islands
+$(s,t,L,\Delta)$; it does not allocate $K/V$. In the headline campaign
+the source request Dense-prefills, and the controller stores only
+admitted islands under $(\textit{source-prefix hash}, \textit{content hash},
 \Delta)$ with $K$ already rotated (Section~\ref{sec:kv-management}).
 The target request Dense-computes the prefix, copies each leased island
 into the target slots, Dense-computes the remainder, and decodes one

@@ -28,7 +28,8 @@ is Table~\ref{tab:7b-prefix-on}. We do not treat
 Table~\ref{tab:template-prefetch} as the cache-ready $1.492\times$
 method. We do not full-decode the 17 copier-disagreement groups, and we
 do not run a 7B activation probe. The PLAN is an offline oracle over
-frozen trajectories, not an online admit service.
+frozen trajectories. The class-level serving prior is a separate
+default-off path; it is not Table~\ref{tab:eval-summary}.
 
 \section{Conclusion}
 \label{sec:conclusion}
@@ -43,8 +44,12 @@ residual $\Delta$ is not the admitted fast path.
 On 235 exact-prompt groups and 421 islands, the kernel copies
 $1684/1684$ planned islands with zero fallback and is $1.492\times$
 cache-ready faster than the same SGLang Dense. Prefetch stays off.
-Sequential template prefetch matches copy
+Sequential already-resident template prefetch matches copy
 (Table~\ref{tab:template-prefetch}) and is not a speedup.
+When source KV is host-resident, prefix-priority prefetch then
+class-template prefetch of the lossy pool is faster than copy-from-host
+(Table~\ref{tab:prefetch-staircase}); that increment is not
+Table~\ref{tab:eval-summary}.
 Prefix$+$copy versus Dense is not a prefetch win.
 One-token agreement is not official resolved. We do not claim a
 system-wide throughput crown.

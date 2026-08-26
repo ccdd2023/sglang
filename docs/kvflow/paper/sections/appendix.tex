@@ -9,6 +9,12 @@ shifted file-island with prefix reuse off. Dual runs both. Template
 prefetch on this workload is not a speedup (combined vs dual
 $0.528\times$, 7 hints, 4 misses that then Dense-recomputed). That miss
 path is a module bug: M3 must degrade to M2, not disable copy.
+After the miss path was fixed, a \emph{host-resident} staircase on a
+copy of the same seven-group PLAN keeps lossy copy on every reuse arm
+and prefetches prefix pages first, then class-template file islands
+(Table~\ref{tab:prefetch-staircase}). That table is not
+Table~\ref{tab:7b-dual-island} (device-resident dual) and is not
+Table~\ref{tab:eval-summary}.
 
 \begin{table}[t]
 \centering
@@ -28,6 +34,34 @@ dual & $8.490\times$ & $28$ & $28/28$ & $0$ \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Host-resident prefetch staircase on a copy of the seven-group
+PLAN (same-GPU sequential arms). Lossy copy stays on. Prefix hints
+rank above file islands; the class prior scores only the lossy pool.
+Miss degrades to the owned copy ($3$ misses, $0$ fallback). Not
+Table~\ref{tab:eval-summary}, not Table~\ref{tab:7b-dual-island}, and
+not job 119795.}
+\label{tab:prefetch-staircase}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Arm} & \textbf{vs Dense} & \textbf{vs lossy} & \textbf{Copy} & \textbf{Hints} & \textbf{Miss} \\
+\midrule
+lossy-host & $3.517\times$ & $1.000\times$ & $28/28$ & $0$ & $0$ \\
+prefix-prefetch & $5.259\times$ & $1.495\times$ & $28/28$ & $7$ & $0$ \\
+template-prefetch & $6.203\times$ & $1.764\times$ & $28/28$ & $7$ & $3$ \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+A four-node cluster replay of the same PLAN keeps
+template $>$ prefix-prefetch $>$ copy-from-host
+(template $8.288\times$, prefix $7.511\times$ vs that Dense).
+The $1.103\times$ template/prefix ratio is not a same-GPU pairing.
 
 \section{30B AWQ replay}
 \label{app:30b}
@@ -122,7 +156,8 @@ Table~\ref{tab:eval-summary}.}
     \If{$o$ fails the M0 gate}{\textbf{continue}}
     \If{$o$ is DEVICE and the next use is this request}{\textbf{continue}}
     \If{$o$ is MIDDLE and later-roles $\le 0$}{\textbf{continue}}
-    emit hint on $o$.key with priority $=$ later-roles\;
+    $p \leftarrow$ later-roles; PREFIX adds a priority floor\;
+    emit hint on $o$.key with priority $p$\;
 }
 \caption{Compile next-island prefetch hints (M3)}
 \label{algo:prefetch-hints}
