@@ -2,7 +2,7 @@
 #SBATCH --job-name=impactkv-tpl-pf
 #SBATCH --partition=long
 # gpu11-13 are debug login/debug nodes; never schedule compute there.
-#SBATCH --exclude=gpu[10-13,15,23-24]
+#SBATCH --exclude=gpu[10-13,15,17,23-24]
 #SBATCH --gres=gpu:rtx4090:1
 #SBATCH --exclusive
 #SBATCH --cpus-per-task=20
@@ -51,18 +51,24 @@ fi
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset} SLURM_JOB_GPUS=${SLURM_JOB_GPUS:-unset}"
 
-export IMPACTKV_PROJECT="$HOME/CodeMAS_Project/worktrees/sglang-common-agent"
+export IMPACTKV_PROJECT="${IMPACTKV_PROJECT:-$HOME/CodeMAS_Project/worktrees/sglang-common-agent}"
 export IMPACTKV_MODEL="${IMPACTKV_MODEL:-$HOME/models/Qwen2.5-Coder-7B-Instruct}"
-export IMPACTKV_CHAT_TEMPLATE="$IMPACTKV_PROJECT/benchmark/multi_workflow/qwen3_coder_tool_chat_template.jinja"
+export IMPACTKV_CHAT_TEMPLATE="${IMPACTKV_CHAT_TEMPLATE:-$IMPACTKV_PROJECT/benchmark/multi_workflow/qwen2_5_coder_tool_chat_template.jinja}"
 export IMPACTKV_SERVER_READY_TIMEOUT=900
 export IMPACTKV_MEM_FRACTION_STATIC="${IMPACTKV_MEM_FRACTION_STATIC:-0.82}"
 source "$IMPACTKV_PROJECT/benchmark/multi_workflow/slurm/impactkv_home_env.sh"
+# Exact-prompt replay uses the SGLang eval env, not mini-SWE-agent.
+export IMPACTKV_EVAL_PYTHON="${IMPACTKV_EVAL_PYTHON:-$HOME/miniconda3/envs/sglang-kvflow/bin/python}"
+export IMPACTKV_MINI_PYTHON="${IMPACTKV_EVAL_PYTHON}"
 cd "$IMPACTKV_PROJECT"
 
-# Dual-island prefix + island prefetch. Do not write into
-# 96092 / 116157 / 119795 / 121021 artifacts.
-artifact="${IMPACTKV_PREFETCH_ARTIFACT:-$HOME/CodeMAS_Project/kvflow-artifacts/impactkv_swebench_template_prefetch_7b_dualisland_20260822}"
+# Never write frozen 137185 / 96092 / dualisland_20260822 RESULT.
+artifact="${IMPACTKV_PREFETCH_ARTIFACT:-$HOME/CodeMAS_Project/kvflow-artifacts/runs/prefetch_ablation_7b_${SLURM_JOB_ID}}"
 port="$((46000 + SLURM_JOB_ID % 1000))"
+template="$IMPACTKV_PROJECT/benchmark/multi_workflow/templates/coding_agent.json"
+if [[ -f "$template" ]]; then
+  export SGLANG_KVCOMM_CLASS_TEMPLATE="$template"
+fi
 
 # Never put IMPACTKV_PREFETCH_MODES=a,b on sbatch --export (Slurm comma-splits;
 # job 114807 lost combined that way). Prefer a modes file, then env, then all four.
