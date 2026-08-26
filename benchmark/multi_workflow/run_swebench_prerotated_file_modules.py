@@ -268,6 +268,7 @@ def summarize(output: Path, *, smoke: bool = False) -> dict[str, Any]:
         "classification": "SWE-bench exact-prompt true-lossy file-module cache-ready TTFT",
         "prefetch": False,
         "ordinary_prefix_reuse": False,
+        "online_admit": bool(plan_meta.get("online_admit")),
         "coverage": {
             "target_groups": len(plan),
             "islands": sum(row["islands"] for row in plan),
@@ -318,6 +319,13 @@ def summarize(output: Path, *, smoke: bool = False) -> dict[str, Any]:
             result["classification"] = (
                 "7B-native SWE-bench file-module copy vs 7B Dense; not job 96092"
             )
+            if plan_meta.get("online_admit"):
+                result["classification"] = (
+                    "7B online-admit file-module copy vs 7B Dense; "
+                    "not job 137185 and not job 96092"
+                )
+                result["not_job_137185"] = True
+                result["source_pre_rotate"] = False
     elif plan_meta.get("not_96092_coding_plan"):
         result["classification"] = (
             "same-token general shifted LCS copier vs Dense; not job 96092"

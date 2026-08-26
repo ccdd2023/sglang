@@ -608,6 +608,15 @@ def launch_server(
             "SGLANG_KVCOMM_CORE": "0" if arm in DENSE_ARMS else "1",
         }
     )
+    if arm in DENSE_ARMS:
+        env.pop("SGLANG_KVCOMM_ONLINE_ADMIT", None)
+    elif os.environ.get("IMPACTKV_ONLINE_ADMIT", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        env["SGLANG_KVCOMM_ONLINE_ADMIT"] = "1"
     if arm not in DENSE_ARMS:
         env["SGLANG_KVCOMM_EXACT_CANARY_MANIFEST"] = str(manifest)
         # The tiled Triton mover JIT-compiles on the first large middle-span

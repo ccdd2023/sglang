@@ -135,6 +135,15 @@ bash benchmark/multi_workflow/run_impactkv_headline.sh
 
 脚本会：解压 claim pack（若尚未解压）→ **拷贝** PLAN 到新目录 → 跑 `run_swebench_prerotated_file_modules.py`。冻结的 `prefixkey_20260824/RESULT.json` 不会被动到。
 
+线上 admit（source 不看 target；`SGLANG_KVCOMM_ONLINE_ADMIT` 只在 reuse 臂打开）是另一场战役，**不是** 137185：
+
+```bash
+unset IMPACTKV_MAX_GROUPS
+bash benchmark/multi_workflow/run_impactkv_online_admit.sh
+```
+
+写出 `impactkv-artifacts/runs/online_admit_7b_*`。禁止覆盖 `prefixkey_20260824`。
+
 有 Slurm 的机器可以用 `benchmark/multi_workflow/slurm/swebench_7b_file_modules.sbatch`（已改为相对本仓库路径）。没有 Slurm 就用上面的 `run_impactkv_headline.sh`。
 
 Prefix-on / copier / 30B：同样先 `fetch`，再把对应 PLAN 拷到 `impactkv-artifacts/runs/...`，调用
