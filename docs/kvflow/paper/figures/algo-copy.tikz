@@ -11,49 +11,43 @@
 \begin{tikzpicture}[
   font=\sffamily\scriptsize,
   >=Stealth,
+  step/.style={draw=#1, fill=white, rounded corners=2pt,
+    inner sep=3pt, minimum height=0.50cm, minimum width=3.55cm,
+    text height=0.72em, text depth=0.14em, align=left, anchor=center,
+    font=\sffamily\scriptsize},
 ]
-\fill[srcfill, rounded corners=3pt] (-4.15,0.15) rectangle (-0.12,3.22);
-\node[anchor=west, font=\sffamily\scriptsize\bfseries, text=ikvblue]
-  at (-4.02,3.05) {Source (materialize)};
-\node[draw=ikvblue, fill=white, rounded corners=2pt, inner sep=3pt,
-  text width=3.55cm, align=left] (s1) at (-2.14,2.52)
-  {1.\ Dense-prefill the source prompt};
-\node[draw=ikvblue, fill=white, rounded corners=2pt, inner sep=3pt,
-  text width=3.55cm, align=left] (s2) at (-2.14,1.82)
-  {2.\ Check prefix hash and island token IDs};
-\node[draw=ikvblue, fill=white, rounded corners=2pt, inner sep=3pt,
-  text width=3.55cm, align=left] (s3) at (-2.14,1.12)
-  {3.\ \texttt{alloc}($L$); copy $K/V$; rotate $K$};
-\node[draw=ikvteal, fill=okfill, rounded corners=2pt, inner sep=3pt,
-  text width=3.55cm, align=left] (s4) at (-2.14,0.42)
-  {4.\ Pin lease in the store};
-\draw[->, ikvblue] (s1) -- (s2);
-\draw[->, ikvblue] (s2) -- (s3);
-\draw[->, ikvblue] (s3) -- (s4);
+% Column panels. Steps sit inside with a 0.28cm gutter for arrows.
+\fill[srcfill, rounded corners=3pt] (-4.30,-0.02) rectangle (-0.22,3.72);
+\fill[tgtfill, rounded corners=3pt] (0.22,-0.02) rectangle (4.30,3.72);
+\node[font=\sffamily\scriptsize\bfseries, text=ikvblue, anchor=west]
+  at (-4.15,3.52) {Source (materialize)};
+\node[font=\sffamily\scriptsize\bfseries, text=ikvorange, anchor=west]
+  at (0.37,3.52) {Target (fail-closed copy)};
 
-\fill[tgtfill, rounded corners=3pt] (0.12,0.15) rectangle (4.15,3.22);
-\node[anchor=west, font=\sffamily\scriptsize\bfseries, text=ikvorange]
-  at (0.24,3.05) {Target (fail-closed copy)};
-\node[draw=ikvorange, fill=white, rounded corners=2pt, inner sep=3pt,
-  text width=3.55cm, align=left] (t1) at (2.14,2.52)
-  {5.\ Dense prefix up to $t$};
-\node[draw=ikvorange, fill=white, rounded corners=2pt, inner sep=3pt,
-  text width=3.55cm, align=left] (t2) at (2.14,1.82)
-  {6.\ Lookup leased handle (prefetch miss keeps owned)};
-\node[draw=ikvorange, fill=white, rounded corners=2pt, inner sep=3pt,
-  text width=3.55cm, align=left] (t3) at (2.14,1.12)
-  {7.\ \texttt{alloc} dest pages; copy whole island};
-\node[draw=ikvteal, fill=okfill, rounded corners=2pt, inner sep=3pt,
-  text width=3.55cm, align=left] (t4) at (2.14,0.42)
-  {8.\ Write \texttt{req\_to\_token}; Dense remainder};
-\draw[->, ikvorange] (t1) -- (t2);
-\draw[->, ikvorange] (t2) -- (t3);
-\draw[->, ikvorange] (t3) -- (t4);
-\draw[->, ikvgray, thick] (s4.east) -- node[font=\sffamily\tiny, text=ikvgray, above] {lease} (t2.west);
+\node[step=ikvblue] (s1) at (-2.26,2.90) {1. Dense-prefill the source};
+\node[step=ikvblue] (s2) at (-2.26,2.12) {2. Check prefix hash and IDs};
+\node[step=ikvblue] (s3) at (-2.26,1.34) {3. \texttt{alloc}($L$); copy; rotate $K$};
+\node[step=ikvteal, fill=okfill] (s4) at (-2.26,0.56) {4. Pin lease in the store};
 
-\node[draw=ikvorange, fill=badfill, rounded corners=2pt, inner sep=3pt,
-  text width=7.9cm, align=center] (bad) at (0,-0.28)
-  {Any hash / coverage / alloc failure $\to$ discard the island, Dense the span, never splice a half page};
-\draw[->, ikvorange] (t3.south) -- ++(0,-0.22);
+\node[step=ikvorange] (t1) at (2.26,2.90) {5. Dense prefix up to $t$};
+\node[step=ikvorange] (t2) at (2.26,2.12) {6. Lookup leased handle};
+\node[step=ikvorange] (t3) at (2.26,1.34) {7. \texttt{alloc} dest; copy island};
+\node[step=ikvteal, fill=okfill] (t4) at (2.26,0.56) {8. Map tokens; Dense rest};
+
+\draw[->, ikvblue, thick] (s1) -- (s2);
+\draw[->, ikvblue, thick] (s2) -- (s3);
+\draw[->, ikvblue, thick] (s3) -- (s4);
+\draw[->, ikvorange, thick] (t1) -- (t2);
+\draw[->, ikvorange, thick] (t2) -- (t3);
+\draw[->, ikvorange, thick] (t3) -- (t4);
+
+% Horizontal lease arrow in the 0.44cm column gap, not across the steps.
+\draw[->, ikvgray, thick] (s4.east) -- (t4.west);
+\node[font=\sffamily\tiny, text=ikvgray] at (0,0.78) {lease};
+
+\node[draw=ikvorange, fill=badfill, rounded corners=2pt, inner sep=3.2pt,
+  align=center] at (0,-0.48)
+  {Any hash, coverage, or alloc failure $\rightarrow$ Dense the whole island.\\[-1pt]
+   {\sffamily\tiny Never splice a half page.}};
 \end{tikzpicture}
 \endgroup

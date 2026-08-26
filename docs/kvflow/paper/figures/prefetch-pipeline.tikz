@@ -5,42 +5,45 @@
 \definecolor{ikvorange}{HTML}{D96B2B}
 \definecolor{ikvgray}{HTML}{6B6B6B}
 \definecolor{okfill}{HTML}{E4F3EE}
-\definecolor{dimfill}{HTML}{F3F3F3}
 \begin{tikzpicture}[
   font=\sffamily\scriptsize,
   >=Stealth,
+  every node/.style={align=center},
+  box/.style={draw=#1, fill=white, rounded corners=3pt, inner sep=3.2pt,
+    minimum height=0.88cm},
 ]
-\node[draw=ikvteal, fill=white, rounded corners=3pt, align=center,
-  inner sep=4pt, text width=1.85cm, minimum height=1.05cm] (m0) at (-3.35,0.85)
-  {\textbf{M0 PLAN}\\admitted keys only};
-\node[draw=ikvblue, fill=white, rounded corners=3pt, align=center,
-  inner sep=4pt, text width=2.05cm, minimum height=1.05cm] (obs) at (-1.05,0.85)
+% Row 1. 0.40cm gaps between 1.95cm-class boxes.
+\node[box=ikvteal, text width=1.85cm] (m0) at (-3.70,1.25)
+  {\textbf{M0 PLAN}\\{\tiny admitted keys}};
+\node[box=ikvblue, text width=1.95cm] (obs) at (-1.35,1.25)
   {Later-roles /\\next-island};
-\node[draw=ikvorange, fill=white, rounded corners=3pt, align=center,
-  inner sep=4pt, text width=2.15cm, minimum height=1.05cm] (hint) at (1.35,0.85)
-  {Hint: key, DEVICE,\\deadline, priority};
-\node[draw=ikvgray, fill=white, rounded corners=3pt, align=center,
-  inner sep=4pt, text width=1.85cm, minimum height=1.05cm] (heap) at (3.55,0.85)
-  {Deadline heap\\async load};
+\node[box=ikvorange, text width=2.05cm] (hint) at (1.10,1.25)
+  {Hint: key, DEVICE,\\deadline};
+\node[box=ikvgray, text width=1.80cm] (heap) at (3.55,1.25)
+  {Deadline heap};
 \draw[->, ikvteal, thick] (m0) -- (obs);
 \draw[->, ikvblue, thick] (obs) -- (hint);
 \draw[->, ikvorange, thick] (hint) -- (heap);
 
-\node[draw=ikvblue, fill=okfill, rounded corners=3pt, align=center,
-  inner sep=4pt, text width=2.45cm, minimum height=0.85cm] (hit) at (-1.35,-0.55)
-  {Hit: pin resident page};
-\node[draw=ikvnavy, fill=white, rounded corners=3pt, align=center,
-  inner sep=4pt, text width=2.65cm, minimum height=0.85cm] (m2) at (1.85,-0.55)
-  {\textbf{M2 copies owned island}};
-\node[draw=ikvgray, fill=dimfill, rounded corners=3pt, align=center,
-  inner sep=3pt, text width=2.35cm, font=\sffamily\tiny] (skip) at (3.55,-1.55)
-  {Skip if already DEVICE\\and next use is now};
-\draw[->, ikvteal, thick] (m0.south) |- (m2.west);
-\draw[->, ikvblue] (heap.south) |- node[font=\sffamily\tiny, text=ikvblue, pos=0.2] {resident} (hit.east);
-\draw[->, ikvorange] (heap.south) -- ++(0,-0.55) -| node[font=\sffamily\tiny, text=ikvorange, pos=0.25, right] {miss / timeout} (m2.north);
-\draw[->, ikvblue] (hit.east) -- (m2.west);
-\draw[->, ikvgray, dashed] (skip.north) -- (heap.south);
-\node[font=\sffamily\tiny, text=ikvgray] at (0,-1.55)
-  {M3 never grows the admit set and never rotates $K$. Headline keeps it off.};
+% Row 2. Gutter from y=0.81 (row1 south) to y=0.12 (row2 north).
+\node[box=ikvblue, fill=okfill, minimum width=2.55cm, minimum height=0.72cm]
+  (hit) at (-1.55,-0.40) {Hit: pin the page};
+\node[box=ikvnavy, minimum width=2.90cm, minimum height=0.72cm]
+  (m2) at (1.70,-0.40) {\textbf{M2} copies owned island};
+\draw[->, ikvblue, thick] (hit) -- (m2);
+
+% PLAN keys feed M2 along the left then bottom margin, never through Hit.
+\draw[->, ikvteal, thick]
+  (m0.south) -- ++(0,-0.20) -- (-4.45,0.61) -- (-4.45,-1.02) -- (1.70,-1.02) -- (m2.south);
+% Heap hit: down into the gutter, then left to Hit.
+\draw[->, ikvblue, thick]
+  (heap.south) -- ++(0,-0.28) -| (hit.north);
+% Miss: right margin, then down, then into M2. Completely outside the boxes.
+\draw[->, ikvorange, thick]
+  (heap.east) -- ++(0.40,0) -- ++(0,-1.65) -- (m2.east);
+\node[font=\sffamily\tiny, text=ikvorange, anchor=west] at (4.55,0.40) {miss};
+
+\node[font=\sffamily\tiny, text=ikvgray] at (0,-1.38)
+  {Skip if already DEVICE and the next use is now. M3 does not grow the admit set.};
 \end{tikzpicture}
 \endgroup

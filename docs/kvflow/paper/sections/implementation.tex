@@ -4,9 +4,9 @@
 \subsection{SGLang integration}
 
 \method{} is implemented in a SGLang fork. There is one physical paged
-$K/V$ tensor (\texttt{TokenToKVPoolAllocator},
-\texttt{mem\_fraction\_static}$=0.82$ in the headline job). Two
-\emph{owners} share its free list (Figure~\ref{fig:kv-pools}):
+$K/V$ tensor (\texttt{TokenToKVPoolAllocator}).
+The headline job sets \texttt{mem\_fraction\_static} to $0.82$.
+Two \emph{owners} share its free list (Figure~\ref{fig:kv-pools}):
 \texttt{ReqToTokenPool} maps the live request, and
 \texttt{KVSegmentStore} leases island pages under
 $(\textit{source-prefix hash}, \textit{content hash}, \Delta)$.
@@ -47,13 +47,14 @@ Ordinary prefix reuse (M1) and prefetch (M3) are off in job 137185.
 A prefetch miss copies from the still-owned handle (M2) instead of
 Dense-recomputing the island.
 
-\begin{lstlisting}[language=Python, caption={Reuse manifest (conceptual)}, label={list:policy-config}, breaklines=false, columns=fullflexible, basicstyle=\ttfamily\footnotesize]
+\begin{lstlisting}[language=Python, caption={Reuse manifest (conceptual)}, label={list:policy-config}, breaklines=true, columns=fullflexible, basicstyle=\ttfamily\scriptsize]
 manifest = {
   "prefix_reuse": False,  # M1 off
   "prefetch": False,      # M3 off
   "sources": [{
-    "id": "read:mod.py@v3", "start": 1842,
-    "length": 1109, "pre_rotate_delta": -1250,
+    "id": "read:mod.py@v3",
+    "start": 1842, "length": 1109,
+    "pre_rotate_delta": -1250,
   }],
   "cases": [{
     "target_start": 592, "length": 1109,
