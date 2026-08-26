@@ -131,6 +131,12 @@ def test_compiled_coding_agent_fixture_is_a_class_prior():
     assert 0.50 < template.bin_for(obs).mean < 0.62
     assert template.admit(obs) is None
     assert template.admit(_obs(later_roles=0)) == "no_protocol_reread"
+    miss = _bind(obs, BindAction.DENSE, "not_in_target")
+    template.observe(miss, obs)
+    template.observe(miss, obs)
+    template.observe(miss, obs)
+    assert template.admit(obs) is None
+    assert "target_start" not in inspect.getsource(template.admit)
 
 
 def test_prefetch_priority_uses_class_mean():

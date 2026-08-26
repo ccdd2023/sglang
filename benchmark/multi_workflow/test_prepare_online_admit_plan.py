@@ -73,6 +73,36 @@ def test_ambiguous_span_stays_dense():
     assert compiled["online_recovery"]["not_in_target"] == 1
 
 
+def test_compile_plan_refuses_existing_plan_json(tmp_path):
+    import json
+    import sys
+
+    import pytest
+
+    dest = tmp_path / "run"
+    dest.mkdir()
+    (dest / "LAUNCH.txt").write_text("ok\n")
+    official = tmp_path / "official.json"
+    official.write_text(json.dumps({"groups": [_group()]}))
+    argv = sys.argv
+    try:
+        sys.argv = [
+            "prepare_online_admit_plan.py",
+            "--official-plan",
+            str(official),
+            "--output-dir",
+            str(dest),
+        ]
+        from benchmark.multi_workflow import prepare_online_admit_plan as mod
+
+        mod.main()
+        assert (dest / "PLAN.json").is_file()
+        with pytest.raises(FileExistsError):
+            mod.main()
+    finally:
+        sys.argv = argv
+
+
 def test_compile_plan_keeps_every_target_group():
     plan = compile_plan({"groups": [_group(), _group()]})
     assert plan["online_admit"] is True

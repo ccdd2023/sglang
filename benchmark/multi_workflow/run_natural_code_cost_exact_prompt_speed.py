@@ -21,16 +21,12 @@ import statistics
 import time
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from jinja2 import StrictUndefined, Template
 import requests
 from tokenizers import Tokenizer
 
-from benchmark.multi_workflow.bridge_reuse_litellm_model import (
-    BridgeReuseLitellmModel,
-    token_ids_hash,
-)
 from benchmark.multi_workflow.run_bridge_reuse_agent_experiment import (
     CHAT_TEMPLATE,
     MODEL,
@@ -39,6 +35,11 @@ from benchmark.multi_workflow.run_bridge_reuse_agent_experiment import (
     stop_server,
 )
 from benchmark.multi_workflow.runtime_paths import RuntimePaths
+
+if TYPE_CHECKING:
+    from benchmark.multi_workflow.bridge_reuse_litellm_model import (
+        BridgeReuseLitellmModel,
+    )
 
 
 PROJECT = Path(__file__).resolve().parents[2]
@@ -129,7 +130,11 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _renderer() -> BridgeReuseLitellmModel:
+def _renderer() -> "BridgeReuseLitellmModel":
+    from benchmark.multi_workflow.bridge_reuse_litellm_model import (
+        BridgeReuseLitellmModel,
+    )
+
     model = object.__new__(BridgeReuseLitellmModel)
     model.config = SimpleNamespace(
         reuse_arm=ARM,
@@ -170,6 +175,8 @@ def request_prompt_cutoffs(messages: list[dict[str, Any]]) -> list[int]:
 
 
 def reconstruct_prompt_index() -> dict[str, list[int]]:
+    from benchmark.multi_workflow.bridge_reuse_litellm_model import token_ids_hash
+
     model = _renderer()
     prompts: dict[str, list[int]] = {}
     for trajectory_path in sorted(POLICY_RUN.rglob("*.traj.json")):

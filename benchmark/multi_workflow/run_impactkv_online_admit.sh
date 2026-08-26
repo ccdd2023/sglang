@@ -5,6 +5,8 @@ set -euo pipefail
 _mw="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$_mw/impactkv_local_env.sh"
+# 7B Instruct exact-prompt replay. Do not inherit the 30B qwen3 default.
+export IMPACTKV_CHAT_TEMPLATE="${IMPACTKV_CHAT_TEMPLATE:-$_mw/qwen2_5_coder_tool_chat_template.jinja}"
 cd "$IMPACTKV_PROJECT"
 
 frozen="$IMPACTKV_ARTIFACTS/impactkv_swebench_7b_file_modules_prefixkey_20260824/PLAN.json"

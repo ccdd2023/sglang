@@ -199,8 +199,8 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     output = args.output_dir.resolve()
-    if output.exists() and any(output.iterdir()):
-        raise FileExistsError(f"refusing to overwrite {output}")
+    if (output / "PLAN.json").exists():
+        raise FileExistsError(f"refusing to overwrite {output / 'PLAN.json'}")
     official = json.loads(args.official_plan.read_text(encoding="utf-8"))
     frozen_name = str(args.official_plan)
     if "prefixkey_20260824" in frozen_name and output.name == "prefixkey_20260824":
