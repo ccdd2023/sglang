@@ -1,0 +1,27 @@
+\begingroup
+\definecolor{ikvblue}{HTML}{2F6DB3}
+\definecolor{ikvnavy}{HTML}{1B4F8A}
+\definecolor{ikvteal}{HTML}{5BB3A7}
+\definecolor{ikvorange}{HTML}{D96B2B}
+\definecolor{ikvgray}{HTML}{6B6B6B}
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  >=Stealth,
+]
+\node[draw=ikvteal, rounded corners=2pt, align=center, inner sep=3pt,
+  text width=2.0cm] (m0) at (0,1.15) {M0 PLAN};
+\node[draw=ikvblue, rounded corners=2pt, align=center, inner sep=3pt,
+  text width=2.1cm] (src) at (-2.7,0) {Source KV\\in lease pool};
+\node[draw=ikvorange, rounded corners=2pt, align=center, inner sep=3pt,
+  text width=2.2cm] (h) at (0,0) {M3 later-roles\\hint};
+\node[draw=ikvgray, rounded corners=2pt, align=center, inner sep=3pt,
+  text width=2.0cm] (q) at (2.7,0) {deadline heap};
+\node[draw=ikvnavy, rounded corners=2pt, align=center, inner sep=3pt,
+  text width=3.4cm] (t) at (0,-1.25) {M2 copy of owned island};
+\draw[->, ikvgray, thick] (m0) -- (src);
+\draw[->, ikvgray, thick] (m0) -- (h);
+\draw[->, ikvorange, thick] (h) -- (q);
+\draw[->, ikvblue, thick] (src) -- (t);
+\draw[->, ikvorange] (q.south) -- node[font=\sffamily\tiny, right, text=ikvorange] {miss $\to$ owned} (t.east);
+\end{tikzpicture}
+\endgroup

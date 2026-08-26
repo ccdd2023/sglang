@@ -96,6 +96,37 @@ combined & $1.392\times$ & $1684/1684$ & $0$ & $0$ & $0$ \\
 \end{tabular}
 \end{table}
 
+M3 compiles later-roles / next-island hints on already-admitted keys
+(Figure~\ref{fig:prefetch-pipeline}). It does not grow the copy set and
+does not rotate $K$. A sequential already-resident next use is skipped
+(\texttt{no\_overlap\_window}). Prefetch miss must keep the owned M2
+handle (job 124825--124829 combined vs dual $0.528\times$ was four
+misses that Dense-recomputed valid islands).
+
+\begin{figure}[ht]
+\centering
+\resizebox{0.92\columnwidth}{!}{\input{figures/prefetch-pipeline.tikz}}
+\caption{M3 residency hints on the M0 admit set. Miss degrades to the
+owned copy. Off in Table~\ref{tab:eval-summary}.}
+\Description{M0 PLAN feeds source KV and later-roles hints; scheduler miss still uses M2.}
+\label{fig:prefetch-pipeline}
+\end{figure}
+
+\begin{algorithm}[ht]
+\SetAlFnt{\footnotesize}
+\DontPrintSemicolon
+\KwIn{Observed PREFIX/MIDDLE islands with protocol later-roles}
+\KwOut{Prefetch hints; copy set unchanged}
+\For{each observation $o$}{
+    \If{$o$ fails the M0 gate}{\textbf{continue}}
+    \If{$o$ is DEVICE and the next use is this request}{\textbf{continue}}
+    \If{$o$ is MIDDLE and later-roles $\le 0$}{\textbf{continue}}
+    emit hint on $o$.key with priority $=$ later-roles\;
+}
+\caption{Compile next-island prefetch hints (M3)}
+\label{algo:prefetch-hints}
+\end{algorithm}
+
 \section{expanded24 instances}
 \label{app:dataset}
 
