@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, Sequence
@@ -304,6 +304,11 @@ class ExactMiddleCanaryController:
             if (case.source_id or case.case_id) not in explicit_source_ids
         ]
         self._sources = self._group_sources([*derived_sources, *sources])
+        if self.manager.config.online_admit_enabled:
+            self._sources = {
+                digest: [self._unrotated_source(item) for item in group]
+                for digest, group in self._sources.items()
+            }
         self._targets = self._group_targets(cases)
         self._target_case_cursor: dict[str, int] = {}
         self._remaining_target_uses = {
@@ -656,7 +661,7 @@ class ExactMiddleCanaryController:
                 for old in sources
             }
             for row in value.get("sources", ()):
-                source = self._source_from_row(row)
+                source = self._unrotated_source(self._source_from_row(row))
                 previous = self._sources.get(source.source_prompt_hash, [])
                 if source in previous:
                     continue
@@ -747,14 +752,133 @@ class ExactMiddleCanaryController:
         sources = self._sources.get(token_ids_hash(tokens))
         if not sources:
             return None
-        handles = [
-            handle
-            for source in sources
-            if source.source_id not in self._released_source_ids
-            if (handle := self._materialize_source(req, tokens, source))
-            is not None
-        ]
+        handles = []
+        for source in sources:
+            if source.source_id in self._released_source_ids:
+                continue
+            skip = self._online_admit_skip(source)
+            if skip is not None:
+                self._record(
+                    {
+                        "source_id": source.source_id,
+                        "event": "online_admit_skip",
+                        "reason": skip,
+                        "policy_label": source.policy_label,
+                    }
+                )
+                continue
+            handle = self._materialize_source(req, tokens, source)
+            if handle is not None:
+                handles.append(handle)
         return handles[0] if handles else None
+
+    def _unrotated_source(self, source: ExactMiddleSource) -> ExactMiddleSource:
+        if (
+            not self.manager.config.online_admit_enabled
+            or source.pre_rotate_delta == 0
+        ):
+            return source
+        return replace(source, pre_rotate_delta=0)
+
+    def _online_admit_skip(self, source: ExactMiddleSource) -> str | None:
+        if not self.manager.config.online_admit_enabled:
+            return None
+        from sglang.srt.mem_cache.coding_aware.online_admit import (
+            SourceObservation,
+            admit_source_island,
+        )
+
+        return admit_source_island(
+            SourceObservation(
+                source_id=source.source_id,
+                source_start=source.source_start,
+                token_ids=(1,) * source.length,
+                content_hash=source.content_hash,
+                source_prefix_hash=source.source_prefix_token_hash,
+                single_file_repository_code=True,
+                version_valid=True,
+                later_roles_in_protocol=self._later_roles_in_protocol(source),
+                policy_label=source.policy_label,
+            )
+        )
+
+    def _bind_online_cases(
+        self, tokens: Sequence[int]
+    ) -> tuple[ExactMiddleCase, ...]:
+        from sglang.srt.mem_cache.coding_aware.online_admit import (
+            BindAction,
+            LeasedIsland,
+            bind_leased_islands,
+        )
+
+        prompt = tuple(int(value) for value in tokens)
+        leases: list[LeasedIsland] = []
+        for sources in self._sources.values():
+            for index, source in enumerate(sources):
+                if source.source_id in self._released_source_ids:
+                    continue
+                if self._online_admit_skip(source) is not None:
+                    continue
+                handle = self._materialized_sources.get(source.source_id)
+                if handle is None:
+                    continue
+                leases.append(
+                    LeasedIsland(
+                        source_id=source.source_id,
+                        source_start=source.source_start,
+                        token_ids=handle.token_ids,
+                        content_hash=source.content_hash,
+                        source_prefix_hash=source.source_prefix_token_hash,
+                        seq=index,
+                        handle=handle,
+                    )
+                )
+        bound: list[ExactMiddleCase] = []
+        for item in bind_leased_islands(prompt, leases):
+            if item.action is not BindAction.COPY:
+                continue
+            if (
+                item.source_id is None
+                or item.target_start is None
+                or item.source_start is None
+            ):
+                continue
+            source = self._source_by_id(item.source_id)
+            if source is None:
+                continue
+            end = item.target_start + item.length
+            if item.target_start <= 0 or end >= len(prompt):
+                continue
+            bound.append(
+                ExactMiddleCase(
+                    case_id=f"online-{item.source_id}-{item.target_start}",
+                    source_prompt_hash=source.source_prompt_hash,
+                    target_prompt_hash=token_ids_hash(prompt),
+                    segment_token_hash=token_ids_hash(
+                        prompt[item.target_start : end]
+                    ),
+                    source_prefix_token_hash=source.source_prefix_token_hash,
+                    target_prefix_token_hash=token_ids_hash(
+                        prompt[: item.target_start]
+                    ),
+                    source_start=item.source_start,
+                    target_start=item.target_start,
+                    length=item.length,
+                    content_hash=item.content_hash,
+                    allow_shifted_copy=True,
+                    policy_label=source.policy_label,
+                    source_id=item.source_id,
+                )
+            )
+        bound.sort(key=lambda case: case.target_start)
+        return tuple(bound)
+
+    def _source_by_id(self, source_id: str) -> ExactMiddleSource | None:
+        for sources in self._sources.values():
+            for source in sources:
+                if source.source_id == source_id:
+                    return source
+        return None
 
     def _handle_matches_source(
         self, handle: KVSegmentHandle, source: ExactMiddleSource
@@ -1392,10 +1516,16 @@ class ExactMiddleCanaryController:
             return existing
         tokens = self._prompt_tokens(req)
         prompt_hash = token_ids_hash(tokens)
-        selected = self._next_target_bundle(prompt_hash)
-        if selected is None:
-            return None
-        cursor, cases = selected
+        if self.manager.config.online_admit_enabled:
+            cases = self._bind_online_cases(tokens)
+            if not cases:
+                return None
+            cursor = 0
+        else:
+            selected = self._next_target_bundle(prompt_hash)
+            if selected is None:
+                return None
+            cursor, cases = selected
         for case in cases:
             end = case.target_start + case.length
             if end >= len(tokens):
@@ -1408,16 +1538,18 @@ class ExactMiddleCanaryController:
                 case.segment_token_hash
             ):
                 raise ValueError("target segment differs from manifest")
+        online = self.manager.config.online_admit_enabled
         if not all(case.reuse_enabled for case in cases):
             if any(case.reuse_enabled for case in cases):
                 raise ValueError("target bundle mixes reuse and dense cases")
             req.kvcomm_exact_dense_control = True
             req.kvcomm_exact_dispatch_complete = True
-            self._consume_target_without_state(
-                prompt_hash=prompt_hash,
-                cursor=cursor,
-                cases=cases,
-            )
+            if not online:
+                self._consume_target_without_state(
+                    prompt_hash=prompt_hash,
+                    cursor=cursor,
+                    cases=cases,
+                )
             self._record(
                 {
                     "case_id": cases[0].case_id,
@@ -1432,11 +1564,12 @@ class ExactMiddleCanaryController:
         handles = tuple(self._lookup_case_source_handle(case) for case in cases)
         if any(handle is None for handle in handles):
             req.kvcomm_exact_dispatch_complete = True
-            self._consume_target_without_state(
-                prompt_hash=prompt_hash,
-                cursor=cursor,
-                cases=cases,
-            )
+            if not online:
+                self._consume_target_without_state(
+                    prompt_hash=prompt_hash,
+                    cursor=cursor,
+                    cases=cases,
+                )
             self._record(
                 {
                     "case_id": cases[0].case_id,
@@ -1460,21 +1593,31 @@ class ExactMiddleCanaryController:
             leases=leases,
         )
         req.kvcomm_exact_state = state
-        prompt_cases = self._targets[prompt_hash]
-        if cursor + len(cases) < len(prompt_cases):
-            self._target_case_cursor[prompt_hash] = cursor + len(cases)
+        if online:
+            self._record(
+                {
+                    "case_id": cases[0].case_id,
+                    "target_group_id": cases[0].target_group_id,
+                    "target_islands": len(cases),
+                    "event": "online_bind",
+                    "policy_label": cases[0].policy_label,
+                    **self._lifecycle_counts(),
+                }
+            )
+        else:
+            prompt_cases = self._targets[prompt_hash]
+            if cursor + len(cases) < len(prompt_cases):
+                self._target_case_cursor[prompt_hash] = cursor + len(cases)
         return state
 
     def is_target_request(self, req: Any) -> bool:
         self._refresh_manifest()
         if getattr(req, "kvcomm_exact_dispatch_complete", False):
             return False
-        return (
-            self._next_target_bundle(
-                token_ids_hash(self._prompt_tokens(req))
-            )
-            is not None
-        )
+        tokens = self._prompt_tokens(req)
+        if self.manager.config.online_admit_enabled:
+            return bool(self._bind_online_cases(tokens))
+        return self._next_target_bundle(token_ids_hash(tokens)) is not None
 
     def ordinary_prefix_match_limit(self, req: Any) -> int | None:
         """Return the safe Radix prefix boundary for a registered target.
@@ -1493,11 +1636,16 @@ class ExactMiddleCanaryController:
         state = getattr(req, "kvcomm_exact_state", None)
         prompt_hash = token_ids_hash(self._prompt_tokens(req))
         cases = self._targets.get(prompt_hash)
-        if not cases:
-            return 0 if self.ordinary_prefix_target_only else None
         if state is not None:
             case = state.case
+        elif self.manager.config.online_admit_enabled:
+            bound = self._bind_online_cases(self._prompt_tokens(req))
+            if not bound:
+                return 0 if self.ordinary_prefix_target_only else None
+            case = bound[0]
         else:
+            if not cases:
+                return 0 if self.ordinary_prefix_target_only else None
             selected = self._next_target_bundle(prompt_hash)
             if selected is None:
                 return 0 if self.ordinary_prefix_target_only else None

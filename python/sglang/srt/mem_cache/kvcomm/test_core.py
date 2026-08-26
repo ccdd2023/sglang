@@ -76,11 +76,28 @@ def test_feature_gates_default_off_and_independent():
     assert config.core_enabled
     assert config.coding_aware_lossy_enabled
     assert not config.prefetch_enabled
+    assert not config.online_admit_enabled
 
 
 def test_dependent_feature_requires_core():
     with pytest.raises(ValueError, match="SGLANG_KVCOMM_CORE"):
         KVCommFeatureConfig.from_env({"SGLANG_KV_PREFETCH": "1"})
+    with pytest.raises(ValueError, match="SGLANG_KVCOMM_CORE"):
+        KVCommFeatureConfig.from_env({"SGLANG_KVCOMM_ONLINE_ADMIT": "1"})
+
+
+def test_online_admit_gate_defaults_off():
+    config = KVCommFeatureConfig.from_env(
+        {
+            "SGLANG_KVCOMM_CORE": "1",
+            "SGLANG_KVCOMM_ONLINE_ADMIT": "1",
+        }
+    )
+    assert config.core_enabled
+    assert config.online_admit_enabled
+    assert not KVCommFeatureConfig.from_env(
+        {"SGLANG_KVCOMM_CORE": "1"}
+    ).online_admit_enabled
 
 
 def test_legacy_flag_requires_explicit_compatibility_mode():

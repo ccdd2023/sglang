@@ -27,6 +27,7 @@ class KVCommFeatureConfig:
     core_enabled: bool = False
     coding_aware_lossy_enabled: bool = False
     prefetch_enabled: bool = False
+    online_admit_enabled: bool = False
     legacy_flags_used: bool = False
 
     @classmethod
@@ -41,6 +42,7 @@ class KVCommFeatureConfig:
                 "SGLANG_KVCOMM_CORE",
                 "SGLANG_CODING_AWARE_LOSSY",
                 "SGLANG_KV_PREFETCH",
+                "SGLANG_KVCOMM_ONLINE_ADMIT",
             )
         )
 
@@ -61,13 +63,15 @@ class KVCommFeatureConfig:
         core = _read_bool(env, "SGLANG_KVCOMM_CORE", False)
         coding = _read_bool(env, "SGLANG_CODING_AWARE_LOSSY", False)
         prefetch = _read_bool(env, "SGLANG_KV_PREFETCH", False)
-        if (coding or prefetch) and not core:
+        online = _read_bool(env, "SGLANG_KVCOMM_ONLINE_ADMIT", False)
+        if (coding or prefetch or online) and not core:
             raise ValueError(
                 "SGLANG_KVCOMM_CORE=1 is required when coding-aware lossy "
-                "reuse or KV prefetch is enabled"
+                "reuse, KV prefetch, or online admit is enabled"
             )
         return cls(
             core_enabled=core,
             coding_aware_lossy_enabled=coding,
             prefetch_enabled=prefetch,
+            online_admit_enabled=online,
         )

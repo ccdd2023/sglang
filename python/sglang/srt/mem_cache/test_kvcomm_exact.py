@@ -1608,3 +1608,87 @@ def test_dual_island_prefix_prefetch_tickets_release_on_last_target():
     assert leftover_prefix == []
     assert "planner-read:prefix" not in controller._prefetch_tickets
     assert controller.owned_device_tokens == 0
+
+
+def test_online_admit_binds_without_planned_target_index():
+    source = (1, 2, 3, 4, 5, 8, 9)
+    target = (1, 7, 2, 3, 4, 5, 9)
+    manager = KVCommManager(
+        KVCommFeatureConfig(core_enabled=True, online_admit_enabled=True)
+    )
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source)] = torch.arange(len(source))
+    source_spec = ExactMiddleSource(
+        source_id="source",
+        source_prompt_hash=token_ids_hash(source),
+        segment_token_hash=token_ids_hash(source[2:5]),
+        source_prefix_token_hash=token_ids_hash(source[:2]),
+        source_start=2,
+        length=3,
+        content_hash="shared-segment",
+        policy_label="coding_aware",
+        pre_rotate_delta=99,
+        later_roles_in_protocol=3,
+    )
+    wrong_t = replace(
+        _case(source, target, target_start=4),
+        source_id="source",
+        source_prompt_hash=token_ids_hash(source),
+    )
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=(wrong_t,),
+        sources=(source_spec,),
+    )
+    stored = next(iter(controller._sources.values()))[0]
+    assert stored.pre_rotate_delta == 0
+    assert controller.maybe_materialize_source(_req(source)) is not None
+    assert controller._materialized_source_rope_deltas["source"] == 0
+    target_req = _req(target, pool_index=1, prefix=(11, 12, 13))
+    state = controller.maybe_attach_target(target_req)
+    assert state is not None
+    assert state.case.target_start == 3
+    assert state.case.case_id.startswith("online-")
+    stats = controller.copy_into_request(target_req)
+    assert stats is not None and stats.mechanically_valid
+    assert stats.copied_k_tokens == 3
+
+
+def test_online_admit_skips_source_without_later_roles():
+    source = (1, 2, 3, 4, 5, 8, 9)
+    target = (1, 7, 2, 3, 4, 5, 9)
+    manager = KVCommManager(
+        KVCommFeatureConfig(core_enabled=True, online_admit_enabled=True)
+    )
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source)] = torch.arange(len(source))
+    source_spec = ExactMiddleSource(
+        source_id="source",
+        source_prompt_hash=token_ids_hash(source),
+        segment_token_hash=token_ids_hash(source[2:5]),
+        source_prefix_token_hash=token_ids_hash(source[:2]),
+        source_start=2,
+        length=3,
+        content_hash="shared-segment",
+        policy_label="general",
+        later_roles_in_protocol=0,
+    )
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=(replace(_case(source, target), source_id="source"),),
+        sources=(source_spec,),
+    )
+    assert controller.maybe_materialize_source(_req(source)) is None
+    assert controller.maybe_attach_target(_req(target, pool_index=1)) is None
