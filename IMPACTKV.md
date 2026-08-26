@@ -1,8 +1,11 @@
-# ImpactKV — 合作者入口（本仓库即可，在你自己的机器上跑）
+# ImpactKV — 命令速查
+
+**接手请先读 [`HANDOFF.md`](HANDOFF.md)**（冻结数字、红线、第一天、论文/代码改哪里）。  
+本页只放 clone / 单测 / 解压 / GPU 命令。
 
 当前工作：在 **本 SGLang fork** 上做 coding-aware true-lossy **文件岛 KV 拷贝**，投稿 ASPLOS 2027。
 
-**只 clone 这一个仓库。** 没有 CodeMAS，也没有原集群。论文源、checker、冻结 PLAN、战役脚本都在本 branch。
+**只 clone 这一个仓库。** 没有第二份 repo，也没有原集群。论文源、checker、冻结 PLAN、战役脚本都在本 branch。
 
 | | |
 |---|---|

@@ -1,7 +1,7 @@
 > **This branch (`integration/template-prefetch-swebench`) is ImpactKV (ASPLOS 2027).**
-> Collaborators: start at [`IMPACTKV.md`](IMPACTKV.md). Paper sources and the
-> claim checker are in [`docs/kvflow/paper/`](docs/kvflow/paper/). You only
-> need this repository. The upstream SGLang README follows below.
+> Takeover: [`HANDOFF.md`](HANDOFF.md). Commands: [`IMPACTKV.md`](IMPACTKV.md).
+> Paper: [`docs/kvflow/paper/`](docs/kvflow/paper/). You only need this repository.
+> The upstream SGLang README follows below.
 
 <div align="center" id="sglangtop">
 <img src="https://raw.githubusercontent.com/sgl-project/sglang/main/assets/logo.png" alt="logo" width="400" margin="10px"></img>

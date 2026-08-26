@@ -5,8 +5,9 @@ Sources for *ImpactKV: Coding-Aware Lossy KV Reuse for Shifted File-Island Prefi
 This tree lives inside the SGLang fork. Collaborators only need this repo
 (`ccdd2023/sglang`, branch `integration/template-prefetch-swebench`).
 
-Landing page (method, frozen numbers, reproduce):
-[`../../../IMPACTKV.md`](../../../IMPACTKV.md)
+Takeover (frozen contract, first day, what to edit):
+[`../../../HANDOFF.md`](../../../HANDOFF.md).  
+Commands: [`../../../IMPACTKV.md`](../../../IMPACTKV.md).
 
 Chinese walkthrough of the argument and figures: [`PAPER_LOGIC_CN.md`](PAPER_LOGIC_CN.md).
 
