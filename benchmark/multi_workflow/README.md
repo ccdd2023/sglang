@@ -1,6 +1,18 @@
 # Coding-aware experiment surface
 
-This directory intentionally retains frozen experiment drivers: artifact
+**Current ASPLOS headline** (7B SWE-bench file-module replay, job 137185)
+is **not** the V46 RepoBench drivers below. Start at
+`docs/kvflow/IMPACTKV.md` and `CodeMAS_Project/IMPACTKV.md`.
+
+SWE-bench exact-prompt runners on this branch:
+
+- `prepare_7b_swebench_file_modules_plan.py` / `run_swebench_prerotated_file_modules.py`
+- `run_swebench_7b_prefix_on.py` (job 139839)
+- `run_swebench_7b_sota_copiers.py` (job 137400, same-engine clones)
+- `run_swebench_template_prefetch.py` (appendix; not the 1.492× method)
+- `slurm/swebench_*.sbatch`
+
+This directory also retains frozen older experiment drivers: artifact
 registrations and manifests reference their exact code, so deleting an old
 runner would reduce reproducibility rather than clean the repository.
 

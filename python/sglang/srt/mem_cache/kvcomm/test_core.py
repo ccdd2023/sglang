@@ -141,15 +141,123 @@ def test_leased_generation_cannot_be_replaced():
         backend_ref="old",
     )
     store.pin(handle, ttl_s=10)
-    with pytest.raises(RuntimeError, match="leased"):
-        store.register(
-            key=key,
-            token_ids=tokens,
-            source_start=0,
-            residency=ResidencyTier.DEVICE,
-            backend_ref="new",
-        )
+    reused = store.register(
+        key=key,
+        token_ids=tokens,
+        source_start=0,
+        residency=ResidencyTier.DEVICE,
+        backend_ref="new",
+    )
+    assert reused.backend_ref == "old"
+    assert reused.generation == handle.generation
     assert store.lookup(key).backend_ref == "old"
+
+
+def test_same_content_different_delta_is_a_different_key():
+    tokens = (9, 8, 7, 6)
+    left = KVSegmentKey(
+        content_hash="island",
+        token_hash=token_ids_hash(tokens),
+        token_count=len(tokens),
+        model_id="test-model",
+        cache_dtype="bf16",
+        source_prefix_hash="prefix-a",
+        pre_rotate_delta=-279,
+    )
+    right = KVSegmentKey(
+        content_hash="island",
+        token_hash=token_ids_hash(tokens),
+        token_count=len(tokens),
+        model_id="test-model",
+        cache_dtype="bf16",
+        source_prefix_hash="prefix-a",
+        pre_rotate_delta=-487,
+    )
+    assert left != right
+    store = KVSegmentStore()
+    first = store.register(
+        key=left,
+        token_ids=tokens,
+        source_start=2637,
+        residency=ResidencyTier.DEVICE,
+        backend_ref="g045",
+    )
+    store.pin(first, ttl_s=30)
+    second = store.register(
+        key=right,
+        token_ids=tokens,
+        source_start=3800,
+        residency=ResidencyTier.DEVICE,
+        backend_ref="g048",
+    )
+    assert second.backend_ref == "g048"
+    assert store.lookup(left).backend_ref == "g045"
+    assert store.lookup(right).backend_ref == "g048"
+
+
+def test_same_content_different_prefix_is_a_different_key():
+    tokens = (9, 8, 7, 6)
+    left = KVSegmentKey(
+        content_hash="island",
+        token_hash=token_ids_hash(tokens),
+        token_count=len(tokens),
+        model_id="test-model",
+        cache_dtype="bf16",
+        source_prefix_hash="prefix-a",
+        pre_rotate_delta=-279,
+    )
+    right = KVSegmentKey(
+        content_hash="island",
+        token_hash=token_ids_hash(tokens),
+        token_count=len(tokens),
+        model_id="test-model",
+        cache_dtype="bf16",
+        source_prefix_hash="prefix-b",
+        pre_rotate_delta=-279,
+    )
+    assert left != right
+    store = KVSegmentStore()
+    first = store.register(
+        key=left,
+        token_ids=tokens,
+        source_start=100,
+        residency=ResidencyTier.DEVICE,
+        backend_ref="prefix-a",
+    )
+    store.pin(first, ttl_s=30)
+    second = store.register(
+        key=right,
+        token_ids=tokens,
+        source_start=100,
+        residency=ResidencyTier.DEVICE,
+        backend_ref="prefix-b",
+    )
+    assert second.backend_ref == "prefix-b"
+    assert store.lookup(left).backend_ref == "prefix-a"
+    assert store.lookup(right).backend_ref == "prefix-b"
+
+
+def test_leased_same_content_is_idempotent_across_source_starts():
+    store = KVSegmentStore()
+    tokens = (9, 8, 7, 6)
+    key = _key(tokens)
+    first = store.register(
+        key=key,
+        token_ids=tokens,
+        source_start=3525,
+        residency=ResidencyTier.DEVICE,
+        backend_ref="g045",
+    )
+    store.pin(first, ttl_s=30)
+    second = store.register(
+        key=key,
+        token_ids=tokens,
+        source_start=3525,
+        residency=ResidencyTier.DEVICE,
+        backend_ref="g046",
+    )
+    assert second.backend_ref == "g045"
+    assert store.is_current(first)
 
 
 def test_release_eviction_and_reset_dispose_backend_resources():

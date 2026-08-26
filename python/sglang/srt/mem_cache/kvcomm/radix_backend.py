@@ -58,8 +58,13 @@ class KVPoolAllocator(Protocol):
 class AllocatorResidencyLoader:
     """Loads a host KV payload into newly allocated device slots."""
 
-    def __init__(self, allocator: KVPoolAllocator) -> None:
+    def __init__(
+        self,
+        allocator: KVPoolAllocator,
+        hold: Any = None,
+    ) -> None:
         self._allocator = allocator
+        self._hold = hold
 
     def load(
         self,
@@ -72,15 +77,22 @@ class AllocatorResidencyLoader:
             )
         if not isinstance(handle.backend_ref, HostKVRef):
             raise TypeError("host-resident handle must carry HostKVRef")
-        indices = self._allocator.alloc(len(handle.token_ids))
-        if indices is None or len(indices) != len(handle.token_ids):
+        n_tokens = len(handle.token_ids)
+        indices = self._allocator.alloc(n_tokens)
+        if indices is None or len(indices) != n_tokens:
             if indices is not None:
                 self._allocator.free(indices)
             raise MemoryError("unable to allocate device slots for prefetched KV")
+        noted = False
         try:
+            if self._hold is not None:
+                self._hold.note_device_hold(n_tokens)
+                noted = True
             self._allocator.load_cpu_copy(handle.backend_ref.payload, indices)
         except Exception:
             self._allocator.free(indices)
+            if noted and self._hold is not None:
+                self._hold.release_device_hold(n_tokens)
             raise
         return ResidencyLoadResult(
             backend_ref=DeviceKVRef(indices=indices),
@@ -94,7 +106,32 @@ class AllocatorResidencyLoader:
             backend_ref, DeviceKVRef
         ):
             raise TypeError("allocator releaser received a non-device KV ref")
+        n_tokens = len(backend_ref.indices)
         self._allocator.free(backend_ref.indices)
+        if self._hold is not None:
+            self._hold.release_device_hold(n_tokens)
+
+
+class DeviceToHostSpillLoader:
+    """Copy already-rotated device KV to host; the store then frees device slots."""
+
+    def __init__(self, allocator: KVPoolAllocator) -> None:
+        self._allocator = allocator
+
+    def load(
+        self,
+        handle: KVSegmentHandle,
+        target_tier: ResidencyTier,
+    ) -> ResidencyLoadResult:
+        if target_tier != ResidencyTier.HOST:
+            raise NotImplementedError("spill loader only writes host residency")
+        if not isinstance(handle.backend_ref, DeviceKVRef):
+            raise TypeError("spill requires a device-resident handle")
+        payload = self._allocator.get_cpu_copy(handle.backend_ref.indices)
+        return ResidencyLoadResult(
+            backend_ref=HostKVRef(payload=payload),
+            release_backend=None,
+        )
 
 
 class TargetSlotTransaction:
@@ -167,6 +204,20 @@ class DeviceSegmentMaterializer:
         with self._accounting_lock:
             return self._owned_device_tokens
 
+    def note_device_hold(self, token_count: int) -> None:
+        if token_count <= 0:
+            raise ValueError("token_count must be positive")
+        with self._accounting_lock:
+            self._owned_device_tokens += token_count
+
+    def release_device_hold(self, token_count: int) -> None:
+        if token_count <= 0:
+            raise ValueError("token_count must be positive")
+        with self._accounting_lock:
+            if token_count > self._owned_device_tokens:
+                raise ValueError("release exceeds owned device tokens")
+            self._owned_device_tokens -= token_count
+
     def materialize(
         self,
         *,
@@ -174,6 +225,9 @@ class DeviceSegmentMaterializer:
         source_indices: torch.Tensor,
         source_start: int,
         content_hash: str | None = None,
+        rope: RoPEConfig | None = None,
+        rope_delta: int = 0,
+        source_prefix_hash: str = "",
     ) -> KVSegmentHandle:
         tokens = tuple(int(token) for token in token_ids)
         if not tokens:
@@ -184,6 +238,21 @@ class DeviceSegmentMaterializer:
             raise ValueError(
                 "source_indices must be 1-D and match the segment token count"
             )
+        identity = token_ids_hash(tokens)
+        existing = self._manager.store.lookup(
+            KVSegmentKey(
+                content_hash=content_hash or identity,
+                token_hash=identity,
+                token_count=len(tokens),
+                model_id=self._model_id,
+                cache_dtype=self._cache_dtype,
+                kind=SegmentKind.MIDDLE,
+                source_prefix_hash=source_prefix_hash or "",
+                pre_rotate_delta=int(rope_delta),
+            )
+        )
+        if existing is not None:
+            return existing
 
         destination = self._allocator.alloc(len(tokens))
         if destination is None or len(destination) != len(tokens):
@@ -211,7 +280,17 @@ class DeviceSegmentMaterializer:
             self._allocator.get_kvcache().move_kv_cache(
                 destination, source_indices
             )
-            identity = token_ids_hash(tokens)
+            if rope_delta:
+                if rope is None:
+                    raise ValueError(
+                        "RoPE config is required for source pre-rotation"
+                    )
+                rotate_keys_in_place(
+                    kvcache=self._allocator.get_kvcache(),
+                    target_indices=destination,
+                    rope=rope,
+                    rope_delta=rope_delta,
+                )
             with self._accounting_lock:
                 self._owned_device_tokens += len(tokens)
             accounted = True
@@ -223,6 +302,8 @@ class DeviceSegmentMaterializer:
                     model_id=self._model_id,
                     cache_dtype=self._cache_dtype,
                     kind=SegmentKind.MIDDLE,
+                    source_prefix_hash=source_prefix_hash or "",
+                    pre_rotate_delta=int(rope_delta),
                 ),
                 token_ids=tokens,
                 source_start=source_start,
@@ -244,6 +325,9 @@ class DeviceSegmentMaterializer:
         source_indices: torch.Tensor,
         source_start: int,
         content_hash: str | None = None,
+        kind: SegmentKind = SegmentKind.MIDDLE,
+        source_prefix_hash: str = "",
+        pre_rotate_delta: int = 0,
     ) -> KVSegmentHandle:
         """Store a synchronous host copy when no owned device slots fit."""
 
@@ -256,8 +340,24 @@ class DeviceSegmentMaterializer:
             raise ValueError(
                 "source_indices must be 1-D and match the segment token count"
             )
-        payload = self._allocator.get_cpu_copy(source_indices)
         identity = token_ids_hash(tokens)
+        prefix = source_prefix_hash or "" if kind == SegmentKind.MIDDLE else ""
+        delta = int(pre_rotate_delta) if kind == SegmentKind.MIDDLE else 0
+        existing = self._manager.store.lookup(
+            KVSegmentKey(
+                content_hash=content_hash or identity,
+                token_hash=identity,
+                token_count=len(tokens),
+                model_id=self._model_id,
+                cache_dtype=self._cache_dtype,
+                kind=kind,
+                source_prefix_hash=prefix,
+                pre_rotate_delta=delta,
+            )
+        )
+        if existing is not None:
+            return existing
+        payload = self._allocator.get_cpu_copy(source_indices)
         handle = self._manager.register_segment(
             key=KVSegmentKey(
                 content_hash=content_hash or identity,
@@ -265,7 +365,9 @@ class DeviceSegmentMaterializer:
                 token_count=len(tokens),
                 model_id=self._model_id,
                 cache_dtype=self._cache_dtype,
-                kind=SegmentKind.MIDDLE,
+                kind=kind,
+                source_prefix_hash=prefix,
+                pre_rotate_delta=delta,
             ),
             token_ids=tokens,
             source_start=source_start,
@@ -275,6 +377,61 @@ class DeviceSegmentMaterializer:
         if handle is None:
             raise RuntimeError("KVCOMM core rejected host materialization")
         return handle
+
+
+def rotate_keys_in_place(
+    *,
+    kvcache: Any,
+    target_indices: torch.Tensor,
+    rope: RoPEConfig,
+    rope_delta: int,
+) -> None:
+    """Apply a relative RoPE shift to every layer's selected K entries."""
+
+    rotary_dim = rope.rotary_dim
+    if rotary_dim == 0 or rope_delta == 0 or len(target_indices) == 0:
+        return
+    device = target_indices.device
+    inverse_frequency = 1.0 / (
+        rope.base
+        ** (
+            torch.arange(
+                0,
+                rotary_dim,
+                2,
+                dtype=torch.float32,
+                device=device,
+            )
+            / rotary_dim
+        )
+    )
+    delta = torch.full(
+        (len(target_indices),),
+        int(rope_delta),
+        dtype=torch.float32,
+        device=device,
+    )
+    frequencies = torch.einsum("i,j->ij", delta, inverse_frequency)
+    cosine = frequencies.cos()
+    sine = frequencies.sin()
+    flat_indices = target_indices.reshape(-1).long()
+
+    for layer_id in range(kvcache.layer_num):
+        key_buffer = kvcache.get_key_buffer(layer_id)
+        selected = key_buffer[flat_indices]
+        if selected.shape[-1] < rotary_dim:
+            raise ValueError("KV head dimension is smaller than rotary_dim")
+        rotary = selected[..., :rotary_dim]
+        rotated = apply_rotary_emb(
+            rotary,
+            cosine,
+            sine,
+            rope.is_neox_style,
+        )
+        if rotary_dim == selected.shape[-1]:
+            key_buffer[flat_indices] = rotated
+        else:
+            key_buffer[flat_indices, ..., :rotary_dim] = rotated
 
 
 class RadixKVTransferBackend:
@@ -339,47 +496,9 @@ class RadixKVTransferBackend:
         target_indices: torch.Tensor,
         rope_delta: int,
     ) -> None:
-        rotary_dim = self._rope.rotary_dim
-        if rotary_dim == 0 or rope_delta == 0 or len(target_indices) == 0:
-            return
-        device = target_indices.device
-        inverse_frequency = 1.0 / (
-            self._rope.base
-            ** (
-                torch.arange(
-                    0,
-                    rotary_dim,
-                    2,
-                    dtype=torch.float32,
-                    device=device,
-                )
-                / rotary_dim
-            )
+        rotate_keys_in_place(
+            kvcache=kvcache,
+            target_indices=target_indices,
+            rope=self._rope,
+            rope_delta=rope_delta,
         )
-        delta = torch.full(
-            (len(target_indices),),
-            int(rope_delta),
-            dtype=torch.float32,
-            device=device,
-        )
-        frequencies = torch.einsum("i,j->ij", delta, inverse_frequency)
-        cosine = frequencies.cos()
-        sine = frequencies.sin()
-        flat_indices = target_indices.reshape(-1).long()
-
-        for layer_id in range(kvcache.layer_num):
-            key_buffer = kvcache.get_key_buffer(layer_id)
-            selected = key_buffer[flat_indices]
-            if selected.shape[-1] < rotary_dim:
-                raise ValueError("KV head dimension is smaller than rotary_dim")
-            rotary = selected[..., :rotary_dim]
-            rotated = apply_rotary_emb(
-                rotary,
-                cosine,
-                sine,
-                self._rope.is_neox_style,
-            )
-            if rotary_dim == selected.shape[-1]:
-                key_buffer[flat_indices] = rotated
-            else:
-                key_buffer[flat_indices, ..., :rotary_dim] = rotated

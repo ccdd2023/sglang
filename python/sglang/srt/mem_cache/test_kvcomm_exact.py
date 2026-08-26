@@ -9,12 +9,31 @@ import torch
 
 from sglang.srt.mem_cache.kvcomm.config import KVCommFeatureConfig
 from sglang.srt.mem_cache.kvcomm.manager import KVCommManager
-from sglang.srt.mem_cache.kvcomm.radix_backend import RoPEConfig
-from sglang.srt.mem_cache.kvcomm.types import ResidencyTier, token_ids_hash
+from sglang.srt.mem_cache.kvcomm.radix_backend import (
+    AllocatorResidencyLoader,
+    DeviceSegmentMaterializer,
+    HostKVRef,
+    RoPEConfig,
+)
+from sglang.srt.mem_cache.kvcomm.types import (
+    KVSegmentHandle,
+    KVSegmentKey,
+    ResidencyTier,
+    SegmentKind,
+    token_ids_hash,
+)
+from sglang.srt.mem_cache.radix_cache import RadixCache
 from sglang.srt.mem_cache.kvcomm_exact import (
     ExactMiddleCanaryController,
     ExactMiddleCase,
     ExactMiddlePhase,
+    ExactMiddleSource,
+    resolve_copy_source_after_prefetch,
+)
+from sglang.srt.mem_cache.kvcomm_prefetch.template_hints import (
+    TemplatePrefetchIsland,
+    compile_next_island_prefetch_hints,
+    compile_template_prefetch_hints,
 )
 from sglang.srt.model_executor.model_runner_kv_cache_mixin import (
     kv_cache_copy_required,
@@ -36,18 +55,27 @@ class Cache:
 
 
 class Allocator:
-    def __init__(self):
+    def __init__(self, max_tokens: int | None = None):
         self.cache = Cache()
         self.next_slot = 20
         self.freed = []
+        self.max_tokens = 64 if max_tokens is None else max_tokens
+        self._held = 0
 
     def alloc(self, length):
+        if self._held + length > self.max_tokens:
+            return None
         value = torch.arange(self.next_slot, self.next_slot + length)
         self.next_slot += length
+        self._held += length
         return value
 
     def free(self, indices):
         self.freed.extend(indices.tolist())
+        self._held -= len(indices)
+
+    def available_size(self):
+        return self.max_tokens - self._held
 
     def get_kvcache(self):
         return self.cache
@@ -111,11 +139,21 @@ def _controller(
     ordinary_prefix_reuse_enabled=False,
     ordinary_prefix_repair_tokens=0,
     ordinary_prefix_target_only=False,
+    prefetch_enabled=False,
+    prefetch_spill_device=False,
+    sources=(),
+    allocator=None,
+    target_uses=None,
 ):
     source = (1, 2, 3, 4, 5, 8, 9)
     target = (1, 7, 2, 3, 4, 5, 9)
-    manager = KVCommManager(KVCommFeatureConfig(core_enabled=True))
-    allocator = Allocator()
+    manager = KVCommManager(
+        KVCommFeatureConfig(
+            core_enabled=True,
+            prefetch_enabled=prefetch_enabled,
+        )
+    )
+    allocator = Allocator() if allocator is None else allocator
     pool = ReqPool()
     pool.req_to_token[0, : len(source)] = torch.arange(len(source))
     controller = ExactMiddleCanaryController(
@@ -125,12 +163,14 @@ def _controller(
         model_id="test",
         cache_dtype="fp32",
         rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
-        cases=(_case(source, target),),
+        cases=(_case(source, target, target_uses=target_uses),),
+        sources=sources,
         host_overflow_enabled=host_overflow_enabled,
         prefer_host_sources=prefer_host_sources,
         ordinary_prefix_reuse_enabled=ordinary_prefix_reuse_enabled,
         ordinary_prefix_repair_tokens=ordinary_prefix_repair_tokens,
         ordinary_prefix_target_only=ordinary_prefix_target_only,
+        prefetch_spill_device=prefetch_spill_device,
     )
     return controller, source, target, allocator, pool
 
@@ -157,6 +197,37 @@ def test_manifest_flag_enables_all_layer_kv_copy(monkeypatch):
     assert kv_cache_copy_required(args)
 
 
+def test_prefix_only_skips_shifted_copy_but_keeps_prefix_attach():
+    source = (1, 2, 3, 4, 5, 8, 9)
+    target = (1, 7, 2, 3, 4, 5, 9)
+    case = replace(_case(source, target, target_uses=1), copy_middle=False)
+    manager = KVCommManager(KVCommFeatureConfig(core_enabled=True))
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source)] = torch.arange(len(source))
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=(case,),
+        ordinary_prefix_reuse_enabled=True,
+    )
+    assert controller.maybe_materialize_source(_req(source)) is not None
+    target_req = _req(target, pool_index=1, prefix=(11, 12, 13))
+    state = controller.maybe_attach_target(target_req)
+    assert state is not None
+    assert controller.stage_prefix_length(target_req) == 0
+    assert state.ordinary_prefix_tokens == 3
+    assert controller.copy_into_request(target_req) is None
+    assert state.phase == ExactMiddlePhase.DENSE_SUFFIX
+    controller.finish_request(target_req)
+    repeated = _req(target, pool_index=2, prefix=(11, 12, 13))
+    assert controller.maybe_attach_target(repeated) is None
+
+
 def test_shifted_controller_materializes_and_commits_middle_span():
     controller, source, target, allocator, pool = _controller()
     handle = controller.maybe_materialize_source(_req(source))
@@ -178,6 +249,121 @@ def test_shifted_controller_materializes_and_commits_middle_span():
         allocator.cache.values[0][owned_source],
     )
     controller.finish_request(target_req)
+
+
+def test_source_pre_rotation_matches_target_time_rotation():
+    source = (1, 2, 3, 4, 5, 8, 9)
+    target = (1, 7, 2, 3, 4, 5, 9)
+
+    def run(pre_rotate_delta):
+        manager = KVCommManager(KVCommFeatureConfig(core_enabled=True))
+        allocator = Allocator()
+        pool = ReqPool()
+        pool.req_to_token[0, : len(source)] = torch.arange(len(source))
+        case = replace(_case(source, target), source_id="source")
+        source_spec = ExactMiddleSource(
+            source_id="source",
+            source_prompt_hash=token_ids_hash(source),
+            segment_token_hash=token_ids_hash(source[2:5]),
+            source_prefix_token_hash=token_ids_hash(source[:2]),
+            source_start=2,
+            length=3,
+            content_hash="shared-segment",
+            policy_label="coding_aware",
+            pre_rotate_delta=pre_rotate_delta,
+        )
+        controller = ExactMiddleCanaryController(
+            manager=manager,
+            allocator=allocator,
+            req_to_token_pool=pool,
+            model_id="test",
+            cache_dtype="fp32",
+            rope=RoPEConfig(
+                rotary_dim=4,
+                base=10_000,
+                is_neox_style=True,
+            ),
+            cases=(case,),
+            sources=(source_spec,),
+        )
+        assert controller.maybe_materialize_source(_req(source)) is not None
+        target_req = _req(target, pool_index=1, prefix=(11, 12, 13))
+        assert controller.maybe_attach_target(target_req) is not None
+        assert controller.copy_into_request(target_req) is not None
+        target_slots = pool.req_to_token[1, 3:6].long()
+        return (
+            allocator.cache.keys[0][target_slots].clone(),
+            allocator.cache.values[0][target_slots].clone(),
+            controller._materialized_source_rope_deltas["source"],
+        )
+
+    online_keys, online_values, online_delta = run(0)
+    cached_keys, cached_values, cached_delta = run(1)
+    assert online_delta == 0 and cached_delta == 1
+    assert torch.allclose(online_keys, cached_keys)
+    assert torch.equal(online_values, cached_values)
+
+
+def test_same_content_different_prefix_does_not_attach_wrong_source():
+    segment = (3, 4, 5)
+    source_a = (1, 2, *segment, 8, 9)
+    source_b = (9, 8, *segment, 2, 1)
+    target_b = (1, 7, 2, *segment, 9)
+    case_b = replace(
+        _case(source_b, target_b, source_start=2, target_start=3, length=3),
+        case_id="target-b",
+        source_id="source-b",
+        source_prompt_hash=token_ids_hash(source_b),
+        content_hash="shared-segment",
+    )
+    spec_a = ExactMiddleSource(
+        source_id="source-a",
+        source_prompt_hash=token_ids_hash(source_a),
+        segment_token_hash=token_ids_hash(segment),
+        source_prefix_token_hash=token_ids_hash(source_a[:2]),
+        source_start=2,
+        length=3,
+        content_hash="shared-segment",
+        policy_label="coding_aware",
+        pre_rotate_delta=1,
+    )
+    spec_b = ExactMiddleSource(
+        source_id="source-b",
+        source_prompt_hash=token_ids_hash(source_b),
+        segment_token_hash=token_ids_hash(segment),
+        source_prefix_token_hash=token_ids_hash(source_b[:2]),
+        source_start=2,
+        length=3,
+        content_hash="shared-segment",
+        policy_label="coding_aware",
+        pre_rotate_delta=1,
+    )
+    manager = KVCommManager(KVCommFeatureConfig(core_enabled=True))
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source_a)] = torch.arange(len(source_a))
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=(case_b,),
+        sources=(spec_a, spec_b),
+    )
+    handle_a = controller.maybe_materialize_source(_req(source_a))
+    assert handle_a is not None
+    pool.req_to_token[2, : len(source_b)] = torch.arange(8, 8 + len(source_b))
+    handle_b = controller.maybe_materialize_source(_req(source_b, pool_index=2))
+    assert handle_b is not None
+    assert handle_b.key.source_prefix_hash != handle_a.key.source_prefix_hash
+    assert handle_b.backend_ref is not handle_a.backend_ref
+    target_req = _req(target_b, pool_index=1, prefix=(11, 12, 13))
+    state = controller.maybe_attach_target(target_req)
+    assert state is not None
+    assert state.source.key.source_prefix_hash == spec_b.source_prefix_token_hash
+    assert state.source.backend_ref is handle_b.backend_ref
 
 
 def test_target_bundle_copies_three_dense_regions_in_order():
@@ -852,3 +1038,573 @@ def test_dynamic_v3_sidecar_adds_source_target_and_releases(tmp_path):
     assert manager.store.record_count == 0
     assert controller.owned_device_tokens == 0
     assert reclaimed == [case.length, case.length]
+
+
+def test_dynamic_manifest_allows_same_island_id_on_a_new_source_prompt(tmp_path):
+    source_a = (1, 2, 3, 4, 5, 8, 9)
+    source_b = (9, 2, 3, 4, 5, 8, 1)
+    target = (1, 7, 2, 3, 4, 5, 9)
+    case = _case(source_a, target, target_uses=1)
+    source_id = "shared-island"
+    manifest = tmp_path / "dynamic.json"
+    base = {
+        "version": 3,
+        "model_id": "test",
+        "cache_dtype": "fp32",
+        "lease_ttl_s": 30,
+        "ledger_path": str(tmp_path / "ledger.jsonl"),
+        "rope": {"rotary_dim": 0, "base": 10_000, "is_neox_style": True},
+        "sources": [],
+        "cases": [],
+        "release_source_ids": [],
+    }
+    manifest.write_text(json.dumps(base), encoding="utf-8")
+    manager = KVCommManager(KVCommFeatureConfig(core_enabled=True))
+    allocator = Allocator()
+    pool = ReqPool()
+    controller = ExactMiddleCanaryController.from_manifest(
+        manifest,
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+    )
+
+    def _write(source_tokens):
+        payload = {
+            **base,
+            "sources": [
+                {
+                    "source_id": source_id,
+                    "source_prompt_hash": token_ids_hash(source_tokens),
+                    "segment_token_hash": case.segment_token_hash,
+                    "source_prefix_token_hash": token_ids_hash(
+                        source_tokens[: case.source_start]
+                    ),
+                    "source_start": case.source_start,
+                    "length": case.length,
+                    "content_hash": case.content_hash,
+                    "policy_label": case.policy_label,
+                }
+            ],
+        }
+        replacement = manifest.with_suffix(".new")
+        replacement.write_text(json.dumps(payload), encoding="utf-8")
+        replacement.replace(manifest)
+
+    _write(source_a)
+    assert controller.is_source_request(_req(source_a))
+    _write(source_b)
+    assert controller.is_source_request(_req(source_b))
+
+
+def test_template_prefetch_stays_off_without_kvcomm_prefetch_gate():
+    controller, _, _, _, _ = _controller()
+    assert controller.manager.config.prefetch_enabled is False
+    assert controller._prefetch_scheduler is None
+    assert controller._prefetch_tickets == {}
+
+
+def test_spill_then_prefetch_copy_keeps_token_set_and_zero_leftover():
+    island = _shifted_island_source(length=3)
+    controller, source, target, _, pool = _controller(
+        prefetch_enabled=True,
+        prefetch_spill_device=True,
+        sources=(island,),
+        target_uses=1,
+    )
+    handle = controller.maybe_materialize_source(_req(source))
+    assert handle is not None
+    assert handle.residency == ResidencyTier.DEVICE
+    assert controller._prefetch_tickets == {}
+    target_req = _req(target, pool_index=1, prefix=(11, 12, 13))
+    assert controller.maybe_attach_target(target_req) is not None
+    stats = controller.copy_into_request(target_req)
+    assert stats is not None and stats.mechanically_valid
+    assert stats.copied_k_tokens == island.length
+    copied = pool.req_to_token[1, 3:6].long()
+    assert len(copied) == island.length
+    controller.finish_request(target_req)
+    assert controller.owned_device_tokens == 0
+    assert controller.manager.store.record_count == 0
+    assert controller.manager.store.lease_count == 0
+
+
+def _shifted_island_source(
+    *,
+    length: int = 3,
+    later_roles_in_protocol: int | None = None,
+    source_id: str = "shifted",
+) -> ExactMiddleSource:
+    source = (1, 2, 3, 4, 5, 8, 9)
+    return ExactMiddleSource(
+        source_id=source_id,
+        source_prompt_hash=token_ids_hash(source),
+        segment_token_hash=token_ids_hash(source[2 : 2 + length]),
+        source_prefix_token_hash=token_ids_hash(source[:2]),
+        source_start=2,
+        length=length,
+        content_hash="shared-segment",
+        policy_label="coding_aware",
+        pre_rotate_delta=1,
+        later_roles_in_protocol=later_roles_in_protocol,
+    )
+
+
+def test_spill_prefetch_idle_identity_uses_island_length():
+    island = _shifted_island_source(length=3)
+    pool = Allocator(max_tokens=16)
+    controller, source, _, allocator, _ = _controller(
+        prefetch_enabled=True,
+        prefetch_spill_device=True,
+        sources=(island,),
+        allocator=pool,
+    )
+    handle = controller.maybe_materialize_source(_req(source))
+    assert handle is not None
+    assert handle.residency == ResidencyTier.DEVICE
+    assert controller._prefetch_tickets == {}
+    evictable = 0
+    session_held = 0
+    tree = object.__new__(RadixCache)
+    tree.protected_size_ = 0
+    tree.kvcomm_exact_controller = controller
+    protected = tree.protected_size()
+    assert protected == island.length
+    assert allocator.available_size() + evictable == (
+        allocator.max_tokens - protected - session_held
+    )
+
+
+def test_prefetch_off_copy_does_not_ensure_resident():
+    controller, source, target, _, pool = _controller()
+    calls: list[object] = []
+    original = controller.manager.ensure_resident
+
+    def _wrapped(*args, **kwargs):
+        calls.append((args, kwargs))
+        return original(*args, **kwargs)
+
+    controller.manager.ensure_resident = _wrapped
+    assert controller.maybe_materialize_source(_req(source)) is not None
+    target_req = _req(target, pool_index=1, prefix=(11, 12, 13))
+    assert controller.maybe_attach_target(target_req) is not None
+    stats = controller.copy_into_request(target_req)
+    assert stats is not None and stats.mechanically_valid
+    assert calls == []
+    controller.finish_request(target_req)
+
+
+def _handle(content: str, residency: ResidencyTier) -> KVSegmentHandle:
+    tokens = (1, 2, 3)
+    return KVSegmentHandle(
+        key=KVSegmentKey(
+            content_hash=content,
+            token_hash=token_ids_hash(tokens),
+            token_count=len(tokens),
+            model_id="test",
+            cache_dtype="fp32",
+            kind=SegmentKind.MIDDLE,
+        ),
+        generation=1,
+        residency=residency,
+        source_start=0,
+        token_ids=tokens,
+        backend_ref=None,
+    )
+
+
+def test_resolve_copy_source_after_prefetch_keeps_owned_on_miss():
+    owned = _handle("owned-island", ResidencyTier.HOST)
+    assert resolve_copy_source_after_prefetch(owned_handle=owned) is owned
+    assert (
+        resolve_copy_source_after_prefetch(
+            owned_handle=owned, prefetched_handle=None
+        )
+        is owned
+    )
+    device = _handle("owned-island", ResidencyTier.DEVICE)
+    assert (
+        resolve_copy_source_after_prefetch(
+            owned_handle=owned, prefetched_handle=device
+        )
+        is device
+    )
+    assert (
+        resolve_copy_source_after_prefetch(
+            owned_handle=None, prefetched_handle=None
+        )
+        is None
+    )
+
+
+def test_prefetch_miss_degrades_to_owned_copy_not_dense():
+    island = _shifted_island_source(later_roles_in_protocol=3)
+    controller, source, target, _, pool = _controller(
+        prefetch_enabled=True,
+        prefetch_spill_device=True,
+        prefer_host_sources=True,
+        sources=(island,),
+    )
+    handle = controller.maybe_materialize_source(_req(source))
+    assert handle is not None
+    assert handle.residency == ResidencyTier.HOST
+    source_id = next(
+        key for key in controller._prefetch_tickets if not key.endswith(":prefix")
+    )
+    ticket = controller._prefetch_tickets[source_id]
+
+    def _fail_wait(timeout_s=None):
+        from sglang.srt.mem_cache.kvcomm_prefetch.scheduler import (
+            MiddleKVPrefetchError,
+        )
+
+        raise MiddleKVPrefetchError("forced miss")
+
+    ticket.wait = _fail_wait
+    target_req = _req(target, pool_index=1, prefix=(11, 12, 13))
+    state = controller.maybe_attach_target(target_req)
+    assert state is not None
+    stats = controller.copy_into_request(target_req)
+    assert stats is not None and stats.mechanically_valid
+    assert state.phase == ExactMiddlePhase.DENSE_SUFFIX
+    assert state.fallback_reason is None
+    assert source_id not in controller._prefetch_tickets
+
+
+def test_prefetch_hold_counted_during_payload_copy():
+    tokens = (7, 8, 9, 10, 11)
+    island_len = len(tokens)
+    manager = KVCommManager(
+        KVCommFeatureConfig(core_enabled=True, prefetch_enabled=True)
+    )
+    seen: dict[str, int | None] = {"owned": None}
+
+    class DuringCopyAllocator(Allocator):
+        def load_cpu_copy(self, payload, indices):
+            seen["owned"] = materializer.owned_device_tokens
+            super().load_cpu_copy(payload, indices)
+
+    allocator = DuringCopyAllocator(max_tokens=32)
+    materializer = DeviceSegmentMaterializer(
+        manager=manager,
+        allocator=allocator,
+        model_id="test",
+        cache_dtype="fp32",
+    )
+    payload = [
+        (
+            torch.zeros(island_len, 2, 4),
+            torch.zeros(island_len, 2, 4) + 1,
+        )
+    ]
+    handle = manager.register_segment(
+        key=KVSegmentKey(
+            content_hash="during-copy-island",
+            token_hash=token_ids_hash(tokens),
+            token_count=island_len,
+            model_id="test",
+            cache_dtype="fp32",
+            kind=SegmentKind.MIDDLE,
+        ),
+        token_ids=tokens,
+        source_start=1,
+        residency=ResidencyTier.HOST,
+        backend_ref=HostKVRef(payload=payload),
+    )
+    assert handle is not None
+    loader = AllocatorResidencyLoader(allocator, hold=materializer)
+    resident = manager.ensure_resident(
+        handle, ResidencyTier.DEVICE, loader
+    )
+    assert resident.residency == ResidencyTier.DEVICE
+    assert seen["owned"] == island_len
+    assert materializer.owned_device_tokens == island_len
+
+
+def test_prefetch_hold_unwound_when_payload_copy_fails():
+    tokens = (3, 4, 5)
+    island_len = len(tokens)
+    manager = KVCommManager(
+        KVCommFeatureConfig(core_enabled=True, prefetch_enabled=True)
+    )
+
+    class BoomAllocator(Allocator):
+        def load_cpu_copy(self, payload, indices):
+            raise RuntimeError("copy boom")
+
+    allocator = BoomAllocator(max_tokens=16)
+    materializer = DeviceSegmentMaterializer(
+        manager=manager,
+        allocator=allocator,
+        model_id="test",
+        cache_dtype="fp32",
+    )
+    handle = manager.register_segment(
+        key=KVSegmentKey(
+            content_hash="copy-fail-island",
+            token_hash=token_ids_hash(tokens),
+            token_count=island_len,
+            model_id="test",
+            cache_dtype="fp32",
+            kind=SegmentKind.MIDDLE,
+        ),
+        token_ids=tokens,
+        source_start=1,
+        residency=ResidencyTier.HOST,
+        backend_ref=HostKVRef(payload=None),
+    )
+    assert handle is not None
+    loader = AllocatorResidencyLoader(allocator, hold=materializer)
+    with pytest.raises(RuntimeError, match="copy boom"):
+        loader.load(handle, ResidencyTier.DEVICE)
+    assert materializer.owned_device_tokens == 0
+    assert allocator.available_size() == allocator.max_tokens
+
+
+def test_served_prefetch_skips_spill_on_already_resident_sequential_next_use():
+    island = _shifted_island_source(later_roles_in_protocol=3)
+    controller, source, _, _, _ = _controller(
+        prefetch_enabled=True,
+        prefetch_spill_device=True,
+        sources=(island,),
+        target_uses=4,
+    )
+    handle = controller.maybe_materialize_source(_req(source))
+    assert handle is not None
+    assert handle.residency == ResidencyTier.DEVICE
+    assert controller._prefetch_tickets == {}
+    remaining = controller._remaining_uses_for_source(island.source_id)
+    assert remaining > 0
+    oracle = compile_template_prefetch_hints(
+        (
+            TemplatePrefetchIsland(
+                source_id=island.source_id,
+                key=island.key(model_id="test", cache_dtype="fp32"),
+                remaining_uses=remaining,
+            ),
+        )
+    )
+    assert oracle.hints  # remaining-uses oracle would still hint
+
+
+def test_served_prefetch_uses_next_island_not_remaining_uses_oracle(
+    tmp_path,
+):
+    island = _shifted_island_source(
+        later_roles_in_protocol=3, source_id="planner-read"
+    )
+    source_tokens = (1, 2, 3, 4, 5, 8, 9)
+    manager = KVCommManager(
+        KVCommFeatureConfig(core_enabled=True, prefetch_enabled=True)
+    )
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source_tokens)] = torch.arange(len(source_tokens))
+    ledger = tmp_path / "ledger.jsonl"
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=(),
+        sources=(island,),
+        ledger_path=ledger,
+        prefer_host_sources=True,
+        prefetch_spill_device=True,
+    )
+    assert controller._remaining_uses_for_source(island.source_id) == 0
+    oracle = compile_template_prefetch_hints(
+        (
+            TemplatePrefetchIsland(
+                source_id=island.source_id,
+                key=island.key(model_id="test", cache_dtype="fp32"),
+                remaining_uses=0,
+            ),
+        )
+    )
+    assert oracle.hints == ()
+    handle = controller.maybe_materialize_source(_req(source_tokens))
+    assert handle is not None
+    assert handle.residency == ResidencyTier.HOST
+    assert island.source_id in controller._prefetch_tickets
+    rows = [
+        json.loads(line)
+        for line in ledger.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    submitted = [row for row in rows if row.get("event") == "template_prefetch_submitted"]
+    assert submitted
+    assert submitted[0]["later_roles_in_protocol"] == 3
+    assert "remaining_uses" not in submitted[0]
+    from sglang.srt.mem_cache.kvcomm_prefetch.template_hints import (
+        NextIslandObservation,
+    )
+
+    hint_key = island.key(model_id="test", cache_dtype="fp32")
+    served = compile_next_island_prefetch_hints(
+        (
+            NextIslandObservation(
+                source_id=island.source_id,
+                key=hint_key,
+                later_roles_in_protocol=3,
+                residency=ResidencyTier.HOST,
+            ),
+        )
+    )
+    assert served.hints[0].key == hint_key
+    assert served.hints[0].priority == 3
+
+
+def test_served_prefetch_later_roles_zero_skips_even_if_remaining_uses():
+    island = _shifted_island_source(later_roles_in_protocol=0)
+    controller, source, _, _, _ = _controller(
+        prefetch_enabled=True,
+        prefetch_spill_device=True,
+        prefer_host_sources=True,
+        sources=(island,),
+        target_uses=4,
+    )
+    remaining = controller._remaining_uses_for_source(island.source_id)
+    assert remaining > 0
+    handle = controller.maybe_materialize_source(_req(source))
+    assert handle is not None
+    assert controller._prefetch_tickets == {}
+
+
+def test_served_prefetch_hint_does_not_rotate_k():
+    island = _shifted_island_source(
+        later_roles_in_protocol=3, source_id="planner-read"
+    )
+    source_tokens = (1, 2, 3, 4, 5, 8, 9)
+    manager = KVCommManager(
+        KVCommFeatureConfig(core_enabled=True, prefetch_enabled=True)
+    )
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source_tokens)] = torch.arange(len(source_tokens))
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=(),
+        sources=(island,),
+        prefer_host_sources=True,
+        prefetch_spill_device=True,
+    )
+    handle = controller.maybe_materialize_source(_req(source_tokens))
+    assert handle is not None
+    ticket = controller._prefetch_tickets[island.source_id]
+    hint = getattr(ticket, "hint", None) or getattr(ticket, "_hint", None)
+    if hint is not None:
+        assert not hasattr(hint, "rope_delta")
+        assert not hasattr(hint, "rope")
+
+
+def test_dual_island_enables_radix_prefix_and_island_prefetch():
+    island = _shifted_island_source(
+        later_roles_in_protocol=3, source_id="planner-read"
+    )
+    source = (1, 2, 3, 4, 5, 8, 9)
+    target = (1, 7, 2, 3, 4, 5, 9)
+    off, _, off_target, _, _ = _controller()
+    assert off.ordinary_prefix_match_limit(_req(off_target)) == 0
+
+    manager = KVCommManager(
+        KVCommFeatureConfig(core_enabled=True, prefetch_enabled=True)
+    )
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source)] = torch.arange(len(source))
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=(replace(_case(source, target), source_id="planner-read"),),
+        sources=(island,),
+        prefer_host_sources=True,
+        ordinary_prefix_reuse_enabled=True,
+        prefetch_spill_device=True,
+    )
+    assert controller.ordinary_prefix_match_limit(_req(target)) == 3
+    assert island.prefix_key(model_id="test", cache_dtype="fp32").kind == (
+        SegmentKind.PREFIX
+    )
+    handle = controller.maybe_materialize_source(_req(source))
+    assert handle is not None
+    assert handle.residency == ResidencyTier.HOST
+    assert handle.key.kind == SegmentKind.MIDDLE
+    assert "planner-read" in controller._prefetch_tickets
+    assert "planner-read:prefix" in controller._prefetch_tickets
+    prefix_ticket = controller._prefetch_tickets["planner-read:prefix"]
+    prefix_hint = getattr(prefix_ticket, "hint", None) or getattr(
+        prefix_ticket, "_hint", None
+    )
+    if prefix_hint is not None:
+        assert prefix_hint.key.kind == SegmentKind.PREFIX
+        assert not hasattr(prefix_hint, "rope_delta")
+
+    target_req = _req(target, pool_index=1, prefix=(11, 12))
+    state = controller.maybe_attach_target(target_req)
+    assert state is not None
+    controller.stage_prefix_length(target_req)
+    assert state.ordinary_prefix_tokens == 2
+
+
+def test_dual_island_prefix_prefetch_tickets_release_on_last_target():
+    island = _shifted_island_source(
+        later_roles_in_protocol=3, source_id="planner-read"
+    )
+    source = (1, 2, 3, 4, 5, 8, 9)
+    target = (1, 7, 2, 3, 4, 5, 9)
+    case = replace(
+        _case(source, target, target_uses=1),
+        source_id="planner-read",
+    )
+    manager = KVCommManager(
+        KVCommFeatureConfig(core_enabled=True, prefetch_enabled=True)
+    )
+    allocator = Allocator()
+    pool = ReqPool()
+    pool.req_to_token[0, : len(source)] = torch.arange(len(source))
+    controller = ExactMiddleCanaryController(
+        manager=manager,
+        allocator=allocator,
+        req_to_token_pool=pool,
+        model_id="test",
+        cache_dtype="fp32",
+        rope=RoPEConfig(rotary_dim=0, base=10_000, is_neox_style=True),
+        cases=(case,),
+        sources=(island,),
+        prefer_host_sources=True,
+        ordinary_prefix_reuse_enabled=True,
+        prefetch_spill_device=True,
+    )
+    handle = controller.maybe_materialize_source(_req(source))
+    assert handle is not None
+    assert "planner-read" in controller._prefetch_tickets
+    assert "planner-read:prefix" in controller._prefetch_tickets
+    for ticket in tuple(controller._prefetch_tickets.values()):
+        ticket.wait(timeout_s=5.0)
+    target_req = _req(target, pool_index=1, prefix=(11, 12, 13))
+    assert controller.maybe_attach_target(target_req) is not None
+    stats = controller.copy_into_request(target_req)
+    assert stats is not None and stats.mechanically_valid
+    controller.finish_request(target_req)
+    leftover_prefix = [
+        key
+        for key in controller._prefetch_tickets
+        if key.endswith(":prefix")
+    ]
+    assert leftover_prefix == []
+    assert "planner-read:prefix" not in controller._prefetch_tickets
+    assert controller.owned_device_tokens == 0

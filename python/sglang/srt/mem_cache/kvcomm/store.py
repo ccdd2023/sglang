@@ -97,6 +97,10 @@ class KVSegmentStore:
             if previous is not None and self._is_leased(
                 key, previous.generation
             ):
+                if previous.token_ids == tokens:
+                    previous.last_access_s = time.monotonic()
+                    self._records.move_to_end(key)
+                    return self._handle(previous)
                 raise RuntimeError("cannot replace a leased KV segment")
             generation = self._generation.get(key, 0) + 1
             self._generation[key] = generation

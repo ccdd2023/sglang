@@ -33,6 +33,11 @@ class KVSegmentKey:
     model_id: str
     cache_dtype: str
     kind: SegmentKind = SegmentKind.MIDDLE
+    # Left-context identity. Same file bytes under a different prefix are
+    # a different physical page and must not share a leased handle.
+    source_prefix_hash: str = ""
+    # K phase applied at materialization. Mixed Δ is a different page.
+    pre_rotate_delta: int = 0
 
     def __post_init__(self) -> None:
         if not self.content_hash:

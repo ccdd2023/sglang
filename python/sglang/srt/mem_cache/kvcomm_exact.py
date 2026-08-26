@@ -34,10 +34,27 @@ from sglang.srt.mem_cache.kvcomm.types import (
     KVSegmentHandle,
     KVSegmentKey,
     KVTransferStats,
+    ResidencyTier,
     SegmentKind,
     TransferSpan,
     token_ids_hash,
 )
+
+
+def resolve_copy_source_after_prefetch(
+    *,
+    owned_handle: KVSegmentHandle | None,
+    prefetched_handle: KVSegmentHandle | None = None,
+) -> KVSegmentHandle | None:
+    """Pick the copy handle after an optional prefetch wait.
+
+    Prefetch is residency, not admit. A miss must keep a still-owned
+    admitted island (M2). Returning None means the copy module does not
+    own the island and the caller may Dense-recompute it.
+    """
+    if prefetched_handle is not None:
+        return prefetched_handle
+    return owned_handle
 
 
 class RequestTokenPool(Protocol):
@@ -73,6 +90,7 @@ class ExactMiddleCase:
     source_id: str | None = None
     ordinary_prefix_reuse: bool | None = None
     reuse_enabled: bool = True
+    copy_middle: bool = True
     target_group_id: str | None = None
 
     def __post_init__(self) -> None:
@@ -113,6 +131,8 @@ class ExactMiddleCase:
             model_id=model_id,
             cache_dtype=cache_dtype,
             kind=SegmentKind.MIDDLE,
+            source_prefix_hash=self.source_prefix_token_hash,
+            pre_rotate_delta=self.target_start - self.source_start,
         )
 
 
@@ -127,6 +147,8 @@ class ExactMiddleSource:
     content_hash: str
     policy_label: str = "general"
     persistent: bool = False
+    pre_rotate_delta: int = 0
+    later_roles_in_protocol: int | None = None
 
     def __post_init__(self) -> None:
         hashes = (
@@ -141,6 +163,11 @@ class ExactMiddleSource:
             raise ValueError("source span must have a non-empty dense prefix")
         if not self.policy_label:
             raise ValueError("policy_label must be non-empty")
+        if (
+            self.later_roles_in_protocol is not None
+            and self.later_roles_in_protocol < 0
+        ):
+            raise ValueError("later_roles_in_protocol must be non-negative")
 
     def key(self, *, model_id: str, cache_dtype: str) -> KVSegmentKey:
         return KVSegmentKey(
@@ -150,6 +177,18 @@ class ExactMiddleSource:
             model_id=model_id,
             cache_dtype=cache_dtype,
             kind=SegmentKind.MIDDLE,
+            source_prefix_hash=self.source_prefix_token_hash,
+            pre_rotate_delta=self.pre_rotate_delta,
+        )
+
+    def prefix_key(self, *, model_id: str, cache_dtype: str) -> KVSegmentKey:
+        return KVSegmentKey(
+            content_hash=self.source_prefix_token_hash,
+            token_hash=self.source_prefix_token_hash,
+            token_count=self.source_start,
+            model_id=model_id,
+            cache_dtype=cache_dtype,
+            kind=SegmentKind.PREFIX,
         )
 
 
@@ -181,7 +220,7 @@ class ExactMiddleRequestState:
 
 
 class ExactMiddleCanaryController:
-    """Execute one pre-registered middle island without prefetch."""
+    """Execute pre-registered middle islands. Prefetch is opt-in via KVCOMM config."""
 
     def __init__(
         self,
@@ -203,6 +242,9 @@ class ExactMiddleCanaryController:
         ordinary_prefix_reuse_enabled: bool = False,
         ordinary_prefix_repair_tokens: int = 0,
         ordinary_prefix_target_only: bool = False,
+        prefetch_deadline_s: float | None = None,
+        prefetch_spill_device: bool = False,
+        prefetch_wait_s: float = 60.0,
     ) -> None:
         if not manager.config.core_enabled:
             raise ValueError("KVCOMM core must be enabled")
@@ -244,6 +286,7 @@ class ExactMiddleCanaryController:
             model_id=model_id,
             cache_dtype=cache_dtype,
         )
+        explicit_source_ids = {source.source_id for source in sources}
         derived_sources = [
             ExactMiddleSource(
                 source_id=case.source_id or case.case_id,
@@ -254,9 +297,11 @@ class ExactMiddleCanaryController:
                 length=case.length,
                 content_hash=case.content_hash,
                 policy_label=case.policy_label,
+                pre_rotate_delta=case.target_start - case.source_start,
             )
             for case in cases
             if case.reuse_enabled
+            if (case.source_id or case.case_id) not in explicit_source_ids
         ]
         self._sources = self._group_sources([*derived_sources, *sources])
         self._targets = self._group_targets(cases)
@@ -271,8 +316,20 @@ class ExactMiddleCanaryController:
         self._manifest_path = manifest_path
         self._manifest_signature: tuple[int, int, int] | None = None
         self._materialized_sources: dict[str, KVSegmentHandle] = {}
+        self._materialized_source_rope_deltas: dict[str, int] = {}
         self._persistent_source_leases: dict[str, Any] = {}
         self._released_source_ids: set[str] = set()
+        if prefetch_deadline_s is not None and prefetch_deadline_s < 0:
+            raise ValueError("prefetch_deadline_s must be non-negative")
+        if prefetch_wait_s < 0:
+            raise ValueError("prefetch_wait_s must be non-negative")
+        self._prefetch_deadline_s = prefetch_deadline_s
+        self._prefetch_spill_device = bool(prefetch_spill_device)
+        self._prefetch_wait_s = float(prefetch_wait_s)
+        self._prefetch_scheduler = None
+        self._prefetch_tickets: dict[str, Any] = {}
+        if self.manager.config.prefetch_enabled:
+            self._ensure_prefetch_scheduler()
 
     @property
     def owned_device_tokens(self) -> int:
@@ -336,6 +393,7 @@ class ExactMiddleCanaryController:
                         else None
                     ),
                     reuse_enabled=bool(row.get("reuse_enabled", True)),
+                    copy_middle=bool(row.get("copy_middle", True)),
                     target_group_id=(
                         str(row["target_group_id"])
                         if row.get("target_group_id") is not None
@@ -354,6 +412,12 @@ class ExactMiddleCanaryController:
                 content_hash=str(row["content_hash"]),
                 policy_label=str(row.get("policy_label") or "general"),
                 persistent=bool(row.get("persistent", False)),
+                pre_rotate_delta=int(row.get("pre_rotate_delta", 0)),
+                later_roles_in_protocol=(
+                    int(row["later_roles_in_protocol"])
+                    if row.get("later_roles_in_protocol") is not None
+                    else None
+                ),
             )
             for row in value.get("sources", ())
         ]
@@ -391,6 +455,15 @@ class ExactMiddleCanaryController:
             ordinary_prefix_target_only=bool(
                 value.get("ordinary_prefix_target_only", False)
             ),
+            prefetch_deadline_s=(
+                float(value["prefetch_deadline_s"])
+                if value.get("prefetch_deadline_s") is not None
+                else None
+            ),
+            prefetch_spill_device=bool(
+                value.get("prefetch_spill_device", False)
+            ),
+            prefetch_wait_s=float(value.get("prefetch_wait_s", 60.0)),
         )
         if version == 3:
             stat = path.stat()
@@ -462,6 +535,12 @@ class ExactMiddleCanaryController:
             content_hash=str(row["content_hash"]),
             policy_label=str(row.get("policy_label") or "general"),
             persistent=bool(row.get("persistent", False)),
+            pre_rotate_delta=int(row.get("pre_rotate_delta", 0)),
+            later_roles_in_protocol=(
+                int(row["later_roles_in_protocol"])
+                if row.get("later_roles_in_protocol") is not None
+                else None
+            ),
         )
 
     @staticmethod
@@ -505,6 +584,7 @@ class ExactMiddleCanaryController:
                 else None
             ),
             reuse_enabled=bool(row.get("reuse_enabled", True)),
+            copy_middle=bool(row.get("copy_middle", True)),
             target_group_id=(
                 str(row["target_group_id"])
                 if row.get("target_group_id") is not None
@@ -570,20 +650,36 @@ class ExactMiddleCanaryController:
                 )
 
             added_sources = 0
+            existing_by_id = {
+                old.source_id: old
+                for sources in self._sources.values()
+                for old in sources
+            }
             for row in value.get("sources", ()):
                 source = self._source_from_row(row)
                 previous = self._sources.get(source.source_prompt_hash, [])
                 if source in previous:
                     continue
-                if any(
-                    old.source_id == source.source_id
-                    for sources in self._sources.values()
-                    for old in sources
-                ):
+                old = existing_by_id.get(source.source_id)
+                if old is not None:
+                    # PLAN reuses island source_id across groups. Same
+                    # file-module identity with a different wrapper prompt
+                    # is not a collision; a different span under the same
+                    # id still fail-closes.
+                    if (
+                        old.content_hash == source.content_hash
+                        and old.length == source.length
+                        and old.segment_token_hash == source.segment_token_hash
+                    ):
+                        self._sources.setdefault(
+                            source.source_prompt_hash, []
+                        ).append(source)
+                        continue
                     raise ValueError("dynamic source_id was reused")
                 self._sources.setdefault(
                     source.source_prompt_hash, []
                 ).append(source)
+                existing_by_id[source.source_id] = source
                 added_sources += 1
 
             added_targets = 0
@@ -626,6 +722,9 @@ class ExactMiddleCanaryController:
                 if persistent_lease is not None:
                     self.manager.store.unpin(persistent_lease)
                 handle = self._materialized_sources.pop(str(source_id), None)
+                self._materialized_source_rope_deltas.pop(
+                    str(source_id), None
+                )
                 if handle is not None and self.manager.store.release(handle):
                     released_sources += 1
             self._manifest_signature = signature
@@ -657,6 +756,72 @@ class ExactMiddleCanaryController:
         ]
         return handles[0] if handles else None
 
+    def _handle_matches_source(
+        self, handle: KVSegmentHandle, source: ExactMiddleSource
+    ) -> bool:
+        key = handle.key
+        return (
+            key.content_hash == source.content_hash
+            and key.token_hash == source.segment_token_hash
+            and key.token_count == source.length
+            and key.source_prefix_hash == source.source_prefix_token_hash
+            and key.pre_rotate_delta == source.pre_rotate_delta
+        )
+
+    def _handle_usable_for_case(
+        self, handle: KVSegmentHandle, case: ExactMiddleCase
+    ) -> bool:
+        """Same file bytes and source prefix. Leftover rotation may change delta."""
+        key = handle.key
+        if (
+            key.content_hash != case.content_hash
+            or key.token_count != case.length
+        ):
+            return False
+        if (
+            key.source_prefix_hash
+            and key.source_prefix_hash != case.source_prefix_token_hash
+        ):
+            return False
+        return True
+
+    def _lookup_case_source_handle(
+        self, case: ExactMiddleCase
+    ) -> KVSegmentHandle | None:
+        source_id = case.source_id or case.case_id
+        seen: set[KVSegmentKey] = set()
+        ordered: list[KVSegmentHandle] = []
+
+        def consider(handle: KVSegmentHandle | None) -> None:
+            if handle is None or handle.key in seen:
+                return
+            seen.add(handle.key)
+            ordered.append(handle)
+
+        consider(self._materialized_sources.get(source_id))
+        consider(
+            self.manager.store.lookup(
+                case.key(model_id=self.model_id, cache_dtype=self.cache_dtype)
+            )
+        )
+        for sources in self._sources.values():
+            for source in sources:
+                if source.source_id != source_id:
+                    continue
+                consider(
+                    self.manager.store.lookup(
+                        source.key(
+                            model_id=self.model_id, cache_dtype=self.cache_dtype
+                        )
+                    )
+                )
+        for handle in ordered:
+            if not self._handle_usable_for_case(handle, case):
+                continue
+            looked = self.manager.store.lookup(handle.key)
+            return looked if looked is not None else handle
+        return None
+
     def _materialize_source(
         self,
         req: Any,
@@ -664,7 +829,7 @@ class ExactMiddleCanaryController:
         source: ExactMiddleSource,
     ) -> KVSegmentHandle | None:
         existing = self._materialized_sources.get(source.source_id)
-        if existing is not None:
+        if existing is not None and self._handle_matches_source(existing, source):
             return existing
         end = source.source_start + source.length
         if end >= len(tokens):
@@ -689,6 +854,8 @@ class ExactMiddleCanaryController:
                     source_indices=source_indices,
                     source_start=source.source_start,
                     content_hash=source.content_hash,
+                    source_prefix_hash=source.source_prefix_token_hash,
+                    pre_rotate_delta=source.pre_rotate_delta,
                 )
             except (MemoryError, RuntimeError) as error:
                 self._record(
@@ -704,7 +871,10 @@ class ExactMiddleCanaryController:
                 )
                 return None
             self._materialized_sources[source.source_id] = handle
+            self._materialized_source_rope_deltas[source.source_id] = 0
             self._pin_for_repeated_targets(source, handle)
+            self._materialize_prefix_host(req, tokens, source)
+            handle = self._spill_and_prefetch_prerotated(source, handle)
             self._record(
                 {
                     "source_id": source.source_id,
@@ -716,6 +886,8 @@ class ExactMiddleCanaryController:
                     "policy_label": source.policy_label,
                     "reason": "preferred_host_residency",
                     "tokens": source.length,
+                    "requested_pre_rotate_delta": source.pre_rotate_delta,
+                    "applied_pre_rotate_delta": 0,
                     **self._lifecycle_counts(),
                 }
             )
@@ -733,6 +905,9 @@ class ExactMiddleCanaryController:
                 source_indices=source_indices,
                 source_start=source.source_start,
                 content_hash=source.content_hash,
+                rope=self.rope,
+                rope_delta=source.pre_rotate_delta,
+                source_prefix_hash=source.source_prefix_token_hash,
             )
         except MemoryError:
             available = getattr(self.allocator, "available_size", None)
@@ -756,6 +931,8 @@ class ExactMiddleCanaryController:
                         source_indices=source_indices,
                         source_start=source.source_start,
                         content_hash=source.content_hash,
+                        source_prefix_hash=source.source_prefix_token_hash,
+                        pre_rotate_delta=source.pre_rotate_delta,
                     )
                 except (MemoryError, RuntimeError) as error:
                     self._record(
@@ -772,7 +949,10 @@ class ExactMiddleCanaryController:
                     )
                     return None
                 self._materialized_sources[source.source_id] = handle
+                self._materialized_source_rope_deltas[source.source_id] = 0
                 self._pin_for_repeated_targets(source, handle)
+                self._materialize_prefix_host(req, tokens, source)
+                handle = self._spill_and_prefetch_prerotated(source, handle)
                 self._record(
                     {
                         "source_id": source.source_id,
@@ -783,6 +963,10 @@ class ExactMiddleCanaryController:
                         * 1000,
                         "policy_label": source.policy_label,
                         "tokens": source.length,
+                        "requested_pre_rotate_delta": (
+                            source.pre_rotate_delta
+                        ),
+                        "applied_pre_rotate_delta": 0,
                         **self._lifecycle_counts(),
                     }
                 )
@@ -800,7 +984,12 @@ class ExactMiddleCanaryController:
             )
             return None
         self._materialized_sources[source.source_id] = handle
+        self._materialized_source_rope_deltas[source.source_id] = (
+            source.pre_rotate_delta
+        )
         self._pin_for_repeated_targets(source, handle)
+        self._materialize_prefix_host(req, tokens, source)
+        handle = self._spill_and_prefetch_prerotated(source, handle)
         self._record(
             {
                 "source_id": source.source_id,
@@ -808,10 +997,306 @@ class ExactMiddleCanaryController:
                 "materialize_ms": (time.perf_counter() - started) * 1000,
                 "policy_label": source.policy_label,
                 "tokens": source.length,
+                "requested_pre_rotate_delta": source.pre_rotate_delta,
+                "applied_pre_rotate_delta": source.pre_rotate_delta,
                 **self._lifecycle_counts(),
             }
         )
         return handle
+
+    def _ensure_prefetch_scheduler(self) -> None:
+        if self._prefetch_scheduler is not None:
+            return
+        from sglang.srt.mem_cache.kvcomm.radix_backend import (
+            AllocatorResidencyLoader,
+        )
+        from sglang.srt.mem_cache.kvcomm_prefetch.coordinator import (
+            KVPrefetchCoordinator,
+        )
+        from sglang.srt.mem_cache.kvcomm_prefetch.scheduler import (
+            AsyncKVPrefetchScheduler,
+        )
+
+        coordinator = KVPrefetchCoordinator(
+            manager=self.manager,
+            loader=AllocatorResidencyLoader(
+                self.allocator, hold=self.materializer
+            ),
+            lease_ttl_s=self.lease_ttl_s,
+        )
+        self._prefetch_scheduler = AsyncKVPrefetchScheduler(
+            manager=self.manager,
+            coordinator=coordinator,
+            worker_count=1,
+        )
+
+    def _remaining_uses_for_source(self, source_id: str) -> int:
+        total = 0
+        matched = False
+        for cases in self._targets.values():
+            for case in cases:
+                if (case.source_id or case.case_id) != source_id:
+                    continue
+                matched = True
+                remaining = self._remaining_target_uses.get(case.case_id)
+                total += int(remaining) if remaining is not None else 1
+        return total if matched else 0
+
+    def _spill_prerotated_to_host(
+        self, source: ExactMiddleSource, handle: KVSegmentHandle
+    ) -> KVSegmentHandle:
+        from sglang.srt.mem_cache.kvcomm.radix_backend import (
+            DeviceToHostSpillLoader,
+        )
+
+        spilled = self.manager.ensure_resident(
+            handle,
+            ResidencyTier.HOST,
+            DeviceToHostSpillLoader(self.allocator),
+        )
+        self._materialized_sources[source.source_id] = spilled
+        persistent = self._persistent_source_leases.get(source.source_id)
+        if persistent is not None:
+            self.manager.store.unpin(persistent)
+            self._persistent_source_leases[source.source_id] = (
+                self.manager.store.pin(spilled, ttl_s=self.lease_ttl_s)
+            )
+        self._record(
+            {
+                "source_id": source.source_id,
+                "event": "source_spilled_host",
+                "tokens": source.length,
+                "applied_pre_rotate_delta": source.pre_rotate_delta,
+            }
+        )
+        return spilled
+
+    def _later_roles_in_protocol(self, source: ExactMiddleSource) -> int:
+        from sglang.srt.mem_cache.kvcomm_prefetch.template_hints import (
+            protocol_later_roles,
+        )
+
+        return protocol_later_roles(
+            source.policy_label, explicit=source.later_roles_in_protocol
+        )
+
+    def _observation_for_source(
+        self, source: ExactMiddleSource, handle: KVSegmentHandle
+    ):
+        from sglang.srt.mem_cache.kvcomm_prefetch.template_hints import (
+            NextIslandObservation,
+        )
+
+        return NextIslandObservation(
+            source_id=source.source_id,
+            key=source.key(model_id=self.model_id, cache_dtype=self.cache_dtype),
+            later_roles_in_protocol=self._later_roles_in_protocol(source),
+            residency=handle.residency,
+            sequential_next_use=handle.residency == ResidencyTier.DEVICE,
+            eligible=True,
+            token_ids_match=True,
+            version_valid=True,
+            delta_nonzero=True,
+            single_file_repository_code=True,
+            span_kind=SegmentKind.MIDDLE,
+        )
+
+    def _materialize_prefix_host(
+        self,
+        req: Any,
+        tokens: tuple[int, ...],
+        source: ExactMiddleSource,
+    ) -> None:
+        if not (
+            self.ordinary_prefix_reuse_enabled
+            and self.manager.config.prefetch_enabled
+            and self.prefer_host_sources
+            and source.source_start > 0
+        ):
+            return
+        key = source.prefix_key(
+            model_id=self.model_id, cache_dtype=self.cache_dtype
+        )
+        if self.manager.store.lookup(key) is not None:
+            return
+        prefix_tokens = tokens[: source.source_start]
+        prefix_indices = self.req_to_token_pool.req_to_token[
+            req.req_pool_idx, : source.source_start
+        ].to(dtype=torch.int64, copy=True)
+        try:
+            self.materializer.materialize_host(
+                token_ids=prefix_tokens,
+                source_indices=prefix_indices,
+                source_start=0,
+                content_hash=source.source_prefix_token_hash,
+                kind=SegmentKind.PREFIX,
+            )
+        except (MemoryError, RuntimeError) as error:
+            self._record(
+                {
+                    "source_id": source.source_id,
+                    "event": "source_prefix_materialization_skipped",
+                    "error_type": type(error).__name__,
+                }
+            )
+
+    def _prefix_observation_for_source(self, source: ExactMiddleSource):
+        from sglang.srt.mem_cache.kvcomm_prefetch.template_hints import (
+            NextIslandObservation,
+        )
+
+        key = source.prefix_key(
+            model_id=self.model_id, cache_dtype=self.cache_dtype
+        )
+        looked = self.manager.store.lookup(key)
+        if looked is None:
+            residency = ResidencyTier.DEVICE
+            sequential_next_use = True
+        else:
+            residency = looked.residency
+            sequential_next_use = residency == ResidencyTier.DEVICE
+        return NextIslandObservation(
+            source_id=f"{source.source_id}:prefix",
+            key=key,
+            later_roles_in_protocol=self._later_roles_in_protocol(source),
+            residency=residency,
+            sequential_next_use=sequential_next_use,
+            eligible=True,
+            token_ids_match=True,
+            version_valid=True,
+            delta_nonzero=False,
+            single_file_repository_code=False,
+            span_kind=SegmentKind.PREFIX,
+        )
+
+    def _prefetch_observations(
+        self, source: ExactMiddleSource, handle: KVSegmentHandle
+    ):
+        observations = [self._observation_for_source(source, handle)]
+        if self.ordinary_prefix_reuse_enabled and source.source_start > 0:
+            observations.insert(0, self._prefix_observation_for_source(source))
+        return tuple(observations)
+
+    def _submit_template_prefetch(
+        self, source: ExactMiddleSource, handle: KVSegmentHandle
+    ) -> None:
+        if not self.manager.config.prefetch_enabled:
+            return
+        if self._prefetch_scheduler is None:
+            return
+        from sglang.srt.mem_cache.kvcomm_prefetch.template_hints import (
+            compile_next_island_prefetch_hints,
+        )
+
+        later_roles = self._later_roles_in_protocol(source)
+        plan = compile_next_island_prefetch_hints(
+            self._prefetch_observations(source, handle),
+            default_deadline_s=self._prefetch_deadline_s,
+        )
+        for hint in plan.hints:
+            if hint.key.kind == SegmentKind.PREFIX:
+                # Lossless prefix stays on the radix path. Submit a host
+                # PREFIX hint only when that segment is already in the store.
+                if self.manager.store.lookup(hint.key) is None:
+                    continue
+                ticket_id = f"{source.source_id}:prefix"
+            else:
+                ticket_id = source.source_id
+            self._prefetch_tickets[ticket_id] = (
+                self._prefetch_scheduler.submit(hint)
+            )
+        if plan.hints:
+            self._record(
+                {
+                    "source_id": source.source_id,
+                    "event": "template_prefetch_submitted",
+                    "priority": plan.hints[0].priority,
+                    "deadline_s": plan.hints[0].deadline_s,
+                    "later_roles_in_protocol": later_roles,
+                }
+            )
+        elif plan.skip_reasons:
+            self._record(
+                {
+                    "source_id": source.source_id,
+                    "event": "template_prefetch_skipped",
+                    "skip_reasons": list(plan.skip_reasons),
+                    "later_roles_in_protocol": later_roles,
+                }
+            )
+
+    def _spill_and_prefetch_prerotated(
+        self, source: ExactMiddleSource, handle: KVSegmentHandle
+    ) -> KVSegmentHandle:
+        if not self.manager.config.prefetch_enabled:
+            return handle
+        from sglang.srt.mem_cache.kvcomm_prefetch.template_hints import (
+            compile_next_island_prefetch_hints,
+        )
+
+        plan = compile_next_island_prefetch_hints(
+            self._prefetch_observations(source, handle),
+            default_deadline_s=self._prefetch_deadline_s,
+        )
+        current = handle
+        middle_hints = tuple(
+            hint for hint in plan.hints if hint.key.kind == SegmentKind.MIDDLE
+        )
+        if (
+            middle_hints
+            and self._prefetch_spill_device
+            and handle.residency == ResidencyTier.DEVICE
+        ):
+            try:
+                current = self._spill_prerotated_to_host(source, handle)
+            except Exception as error:
+                self._record(
+                    {
+                        "source_id": source.source_id,
+                        "event": "source_spill_failed",
+                        "error_type": type(error).__name__,
+                    }
+                )
+                current = handle
+        self._submit_template_prefetch(source, current)
+        return current
+
+    def _await_prefetched_source(
+        self, source_id: str, handle: KVSegmentHandle
+    ) -> KVSegmentHandle | None:
+        ticket = self._prefetch_tickets.get(source_id)
+        if ticket is None:
+            looked = self.manager.store.lookup(handle.key) if handle is not None else None
+            return resolve_copy_source_after_prefetch(
+                owned_handle=handle,
+                prefetched_handle=looked,
+            )
+        from sglang.srt.mem_cache.kvcomm_prefetch.scheduler import (
+            MiddleKVPrefetchError,
+        )
+
+        try:
+            resident = ticket.wait(timeout_s=self._prefetch_wait_s)
+        except MiddleKVPrefetchError:
+            # Prefetch is residency, not admit. A miss must not Dense-recompute
+            # an island the copy module still owns (7B combined 4/28 fallbacks
+            # made combined 0.528× vs dual).
+            self._prefetch_tickets.pop(source_id, None)
+            self._record(
+                {
+                    "source_id": source_id,
+                    "event": "template_prefetch_miss",
+                }
+            )
+            looked = (
+                self.manager.store.lookup(handle.key) if handle is not None else None
+            )
+            return resolve_copy_source_after_prefetch(
+                owned_handle=handle,
+                prefetched_handle=looked,
+            )
+        self._materialized_sources[source_id] = resident
+        return resident
 
     def _pin_for_repeated_targets(
         self,
@@ -944,12 +1429,7 @@ class ExactMiddleCanaryController:
                 }
             )
             return None
-        handles = tuple(
-            self.manager.store.lookup(
-                case.key(model_id=self.model_id, cache_dtype=self.cache_dtype)
-            )
-            for case in cases
-        )
+        handles = tuple(self._lookup_case_source_handle(case) for case in cases)
         if any(handle is None for handle in handles):
             req.kvcomm_exact_dispatch_complete = True
             self._consume_target_without_state(
@@ -1050,16 +1530,17 @@ class ExactMiddleCanaryController:
             # This is the prefix present on the first scheduler staging pass,
             # before exact-middle dense chunks are advanced.  It is the
             # auditable ordinary Radix hit, not the eventual dense-prefix
-            # length at COPY_READY.
+            # length at COPY_READY.  A 0-length hit is not a prefix match.
             state.ordinary_prefix_tokens = prefix_len
-            self._record(
-                {
-                    "case_id": state.case.case_id,
-                    "event": "target_ordinary_prefix_matched",
-                    "ordinary_prefix_tokens": prefix_len,
-                    "policy_label": state.case.policy_label,
-                }
-            )
+            if prefix_len > 0:
+                self._record(
+                    {
+                        "case_id": state.case.case_id,
+                        "event": "target_ordinary_prefix_matched",
+                        "ordinary_prefix_tokens": prefix_len,
+                        "policy_label": state.case.policy_label,
+                    }
+                )
         case = state.case
         copy_end = case.target_start + case.length
         if case.allow_target_prefix_bypass and prefix_len >= copy_end:
@@ -1110,7 +1591,33 @@ class ExactMiddleCanaryController:
             self._fallback(req, "missing_request_pool_slot")
             return None
         case = state.case
-        source_handle = state.source
+        if not case.copy_middle:
+            if any(item.copy_middle for item in state.cases):
+                self._fallback(req, "mixed_copy_middle")
+                return None
+            if state.island_index + 1 < len(state.cases):
+                state.island_index += 1
+                state.phase = ExactMiddlePhase.DENSE_PREFIX
+            else:
+                state.phase = ExactMiddlePhase.DENSE_SUFFIX
+            self._record(
+                {
+                    "case_id": case.case_id,
+                    "target_group_id": case.target_group_id,
+                    "event": "target_middle_left_dense",
+                    "ordinary_prefix_tokens": state.ordinary_prefix_tokens or 0,
+                    "policy_label": case.policy_label,
+                }
+            )
+            return None
+        source_id = case.source_id or case.case_id
+        source_handle = resolve_copy_source_after_prefetch(
+            owned_handle=state.source,
+            prefetched_handle=self._await_prefetched_source(source_id, state.source),
+        )
+        if source_handle is None:
+            self._fallback(req, "missing_owned_source")
+            return None
         suffix_start = case.target_start + case.length
         copy_start = (
             len(req.prefix_indices)
@@ -1122,6 +1629,13 @@ class ExactMiddleCanaryController:
         if copy_length <= 0:
             self._fallback(req, "empty_dynamic_copy")
             return None
+        logical_rope_delta = case.target_start - case.source_start
+        source_pre_rotate_delta = (
+            self._materialized_source_rope_deltas.get(
+                case.source_id or case.case_id, 0
+            )
+        )
+        copy_rope_delta = logical_rope_delta - source_pre_rotate_delta
         dense = []
         if copy_start:
             dense.append(DenseRange(0, copy_start, "dense_prefix"))
@@ -1141,7 +1655,7 @@ class ExactMiddleCanaryController:
                     source_offset=source_offset,
                     target_start=copy_start,
                     length=copy_length,
-                    rope_delta=case.target_start - case.source_start,
+                    rope_delta=copy_rope_delta,
                     chunk_start=copy_start,
                     chunk_length=copy_length,
                 ),
@@ -1225,14 +1739,43 @@ class ExactMiddleCanaryController:
                     stats.recomputed_tokens
                     - (state.ordinary_prefix_tokens or 0),
                 ),
-                "rope_delta": case.target_start - case.source_start,
+                "rope_delta": copy_rope_delta,
+                "logical_rope_delta": logical_rope_delta,
+                "source_pre_rotate_delta": source_pre_rotate_delta,
                 "rotated_k_tokens": stats.rotated_k_tokens,
                 "source_offset": source_offset,
                 "source_residency": source_handle.residency.value,
                 "target_copy_start": copy_start,
+                "kv_copy_chunk_upper": (
+                    getattr(
+                        self.allocator.get_kvcache(),
+                        "_kv_copy_config",
+                        {},
+                    )
+                    or {}
+                ).get("num_locs_upper"),
             }
         )
         return stats
+
+    def _release_source_prefetch(self, source_id: str) -> None:
+        for ticket_id in (source_id, f"{source_id}:prefix"):
+            ticket = self._prefetch_tickets.pop(ticket_id, None)
+            if ticket is not None:
+                ticket.release()
+        for sources in self._sources.values():
+            for source in sources:
+                if source.source_id != source_id or source.source_start <= 0:
+                    continue
+                prefix_handle = self.manager.store.lookup(
+                    source.prefix_key(
+                        model_id=self.model_id,
+                        cache_dtype=self.cache_dtype,
+                    )
+                )
+                if prefix_handle is not None:
+                    self.manager.store.release(prefix_handle)
+                return
 
     def finish_request(self, req: Any) -> None:
         state = getattr(req, "kvcomm_exact_state", None)
@@ -1252,13 +1795,18 @@ class ExactMiddleCanaryController:
                 self._remaining_target_uses[case.case_id] = remaining
             source_id = case.source_id or case.case_id
             if remaining == 0 and not self._source_is_persistent(source_id):
+                self._release_source_prefetch(source_id)
                 persistent_lease = self._persistent_source_leases.pop(
                     source_id, None
                 )
                 if persistent_lease is not None:
                     self.manager.store.unpin(persistent_lease)
-                if self.manager.store.release(handle):
+                current = self._materialized_sources.get(source_id, handle)
+                if self.manager.store.release(current):
                     self._materialized_sources.pop(source_id, None)
+                    self._materialized_source_rope_deltas.pop(
+                        source_id, None
+                    )
                     released_sources.append(source_id)
         self._record(
             {

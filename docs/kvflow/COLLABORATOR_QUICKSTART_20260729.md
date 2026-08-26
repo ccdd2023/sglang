@@ -1,5 +1,10 @@
 # Coding-aware × Prefetch collaborator quickstart
 
+> **ASPLOS 2027 / SWE-bench file-island headline is not this page.**
+> Current entry: [`IMPACTKV.md`](IMPACTKV.md) in this folder, and
+> `CodeMAS_Project/IMPACTKV.md`. Numbers below (V46 / RepoBench 1.326×)
+> are historical.
+
 This page is the shortest current description of what the two owners are
 trying to compose. It supplements, rather than replaces, `KVFLOW.md`,
 `docs/kvflow/ARCHITECTURE.md`, and
