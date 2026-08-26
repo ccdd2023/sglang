@@ -12,23 +12,14 @@ Chinese walkthrough of the argument and figures: [`PAPER_LOGIC_CN.md`](PAPER_LOG
 
 ## Check claims
 
-Needs frozen artifacts (see `IMPACTKV.md` §4). On this cluster the default
-`IMPACTKV_ARTIFACTS` path works. The checker walks up from this directory to
-find `kvcomm_exact.py` in the same clone.
+Frozen JSON is **not** a cluster mount. From the repo root:
 
 ```bash
+python benchmark/multi_workflow/fetch_impactkv_artifacts.py
+export IMPACTKV_ARTIFACTS="$PWD/impactkv-artifacts"
 cd docs/kvflow/paper
 python3 scripts/check_asplos_claims.py
 python3 -m pytest -q scripts/
-```
-
-Off-cluster:
-
-```bash
-export IMPACTKV_ARTIFACTS=/path/to/kvflow-artifacts
-# optional; auto-detected from this clone
-export IMPACTKV_ENGINE_ROOT=/path/to/sglang-kvflow
-python3 scripts/check_asplos_claims.py
 ```
 
 ## Compile

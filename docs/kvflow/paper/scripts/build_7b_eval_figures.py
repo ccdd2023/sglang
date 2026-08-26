@@ -13,14 +13,11 @@ from derive_7b_137185_slices import DEFAULT_ART
 from derive_96092_slices import pair_rows, read_json
 
 FIG = Path(__file__).resolve().parents[1] / "figures"
-PREFIX_ON = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_swebench_7b_prefix_on_20260825"
-)
-COPIERS = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_swebench_7b_sota_copiers_20260824"
-)
+from impactkv_paths import artifact_root
+
+_ART = artifact_root()
+PREFIX_ON = _ART / "impactkv_swebench_7b_prefix_on_20260825"
+COPIERS = _ART / "impactkv_swebench_7b_sota_copiers_20260824"
 GRAY = "#8a8a8a"
 BLUE = "#2f6db3"
 ORANGE = "#d96b2b"

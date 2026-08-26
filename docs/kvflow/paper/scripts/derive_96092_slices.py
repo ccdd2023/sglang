@@ -18,14 +18,14 @@ GROUP_ID = re.compile(
     r"p(?P<pid>\d+)-m(?P<m>\d+)-s(?P<s>\d+)-q(?P<q>\d+)-v\d+-(?P<h>[0-9a-f]+)$"
 )
 
-DEFAULT_ART = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_swebench_prerotated_file_modules_20260818"
-)
-DEFAULT_TRAJ = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_natural_code_cost_agent_expanded24_20260808/online/"
-    "coding_natural_code_cost/full_24"
+from impactkv_paths import artifact_root
+
+_ART = artifact_root()
+DEFAULT_ART = _ART / "impactkv_swebench_prerotated_file_modules_20260818"
+DEFAULT_TRAJ = (
+    _ART
+    / "impactkv_natural_code_cost_agent_expanded24_20260808/online/"
+    / "coding_natural_code_cost/full_24"
 )
 
 

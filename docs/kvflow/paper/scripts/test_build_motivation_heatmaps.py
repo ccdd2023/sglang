@@ -8,22 +8,22 @@ from pathlib import Path
 from build_motivation_heatmaps import extra_token_series, module_tv_by_case
 from derive_7b_motivation import DEFAULT_PLAN, group_coverage_series
 
-ATTN = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_global_block_attention_20260806/frozen26_r2/RESULT.json"
+from impactkv_paths import artifact_root
+
+_ART = artifact_root()
+ATTN = (
+    _ART / "impactkv_global_block_attention_20260806/frozen26_r2/RESULT.json"
 )
-FOUR = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_common_prompt_attention_kv_mechanism_20260813/"
-    "FOUR_ARM_RESULT.json"
+FOUR = (
+    _ART
+    / "impactkv_common_prompt_attention_kv_mechanism_20260813/"
+    / "FOUR_ARM_RESULT.json"
 )
-MOTIVATION = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_swebench_7b_file_modules_prefixkey_20260824/MOTIVATION.json"
+MOTIVATION = (
+    _ART / "impactkv_swebench_7b_file_modules_prefixkey_20260824/MOTIVATION.json"
 )
-COPIER = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_swebench_7b_sota_copiers_20260824/COPIER_MOTIVATION.json"
+COPIER = (
+    _ART / "impactkv_swebench_7b_sota_copiers_20260824/COPIER_MOTIVATION.json"
 )
 FIG = Path(__file__).resolve().parents[1] / "figures"
 

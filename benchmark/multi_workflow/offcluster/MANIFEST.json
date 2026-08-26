@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "pack": "impactkv-claim-pack.tar.gz",
+  "do_not_overwrite_frozen_result": true,
+  "headline_job": "137185",
+  "files": [
+    {
+      "path": "impactkv_swebench_7b_file_modules_prefixkey_20260824/RESULT.json",
+      "sha256": "aaf5f85388733ea8d0ed3d2f313015f5ca5a04ac80fdc5c9239816f343a60b37",
+      "bytes": 1090
+    },
+    {
+      "path": "impactkv_swebench_7b_file_modules_prefixkey_20260824/MOTIVATION.json",
+      "sha256": "0fe8f5b635f5222d6b7c6ee9fce6f331814148e75b417370fbdae4e2cc0f6ec7",
+      "bytes": 657
+    },
+    {
+      "path": "impactkv_swebench_7b_file_modules_prefixkey_20260824/SLICES.json",
+      "sha256": "35ed145de1b35b3c94ca8be25c75ff9c1ca9c8c7d3467b47f03e77b38aa8597a",
+      "bytes": 16550
+    },
+    {
+      "path": "impactkv_swebench_7b_file_modules_prefixkey_20260824/PLAN.json",
+      "sha256": "2cf6f1fd7324d18bd859ec9e312f4b240bd8e05a754c18d4236dc51f9d9f1dce",
+      "bytes": 43064326
+    },
+    {
+      "path": "impactkv_swebench_7b_file_modules_prefixkey_20260824/dense.json",
+      "sha256": "60349b9347fed358799aff1780dcc8b0db8e6a0ab2cb2fc74ee52545f367362b",
+      "bytes": 394152
+    },
+    {
+      "path": "impactkv_swebench_7b_file_modules_prefixkey_20260824/reuse.json",
+      "sha256": "cd601df8ea174d4d117f47da43e41f1ede338421f0ba47027b93325a910578a1",
+      "bytes": 2753298
+    },
+    {
+      "path": "impactkv_swebench_prerotated_file_modules_20260818/RESULT.json",
+      "sha256": "30445b5c1f29e57b7ed8be17aabf43916b91a8e3ce1b7f7d292300e0b43e59ef",
+      "bytes": 894
+    },
+    {
+      "path": "impactkv_swebench_prerotated_file_modules_20260818/SLICES.json",
+      "sha256": "361b786c614163578a452bf4b53c4244df7c2103aa800b495725087c482d0cb6",
+      "bytes": 5998
+    },
+    {
+      "path": "impactkv_swebench_prerotated_file_modules_20260818/PLAN.json",
+      "sha256": "e40699e32860fe6a8d6aa41e4a284f3de3726c2e6ab7485efc5033806e12773e",
+      "bytes": 42980285
+    },
+    {
+      "path": "impactkv_swebench_prerotated_file_modules_20260818/dense.json",
+      "sha256": "da42e30aa28a24b5228be21708a6c787471c77203c8881aee2e02e83d8a8ba47",
+      "bytes": 395015
+    },
+    {
+      "path": "impactkv_swebench_prerotated_file_modules_20260818/reuse.json",
+      "sha256": "d040abede22e71ec287e4a9d7333e177856ac49456d6ac893994a7996c6e4fd7",
+      "bytes": 3150718
+    },
+    {
+      "path": "impactkv_swebench_prerotated_file_modules_20260818/REGISTRATION.json",
+      "sha256": "e6dac582aa87cf0e7c178999ee75856401f6ec9dd8a4f094282426b3121b1f0e",
+      "bytes": 2302
+    },
+    {
+      "path": "impactkv_swebench_prerotated_file_modules_20260818/ANALYSIS.json",
+      "sha256": "eb738e175455c8c727d00b10d23acccd4477c9c9de27cbcedb221f942bb3dad8",
+      "bytes": 1268
+    },
+    {
+      "path": "impactkv_swebench_7b_sota_copiers_20260824/RESULT.json",
+      "sha256": "babd749f4754dd935ced09d7cc4dabe2f7eeb0798e64973f858b3cddbfc61620",
+      "bytes": 4032
+    },
+    {
+      "path": "impactkv_swebench_7b_sota_copiers_20260824/RESULT.coding.json",
+      "sha256": "aaf5f85388733ea8d0ed3d2f313015f5ca5a04ac80fdc5c9239816f343a60b37",
+      "bytes": 1090
+    },
+    {
+      "path": "impactkv_swebench_7b_sota_copiers_20260824/RESULT.kvcomm.json",
+      "sha256": "ddb12ce4194da7eebaaf5f8df42621ddbcd1d72389b078c3ca3b9fc0c7143841",
+      "bytes": 1120
+    },
+    {
+      "path": "impactkv_swebench_7b_sota_copiers_20260824/RESULT.cacheblend.json",
+      "sha256": "e9ba8b28cf154b6d23b376a74e983d77f7cf6de5c80efc0eb864700018c78d2a",
+      "bytes": 1072
+    },
+    {
+      "path": "impactkv_swebench_7b_sota_copiers_20260824/COPIER_MOTIVATION.json",
+      "sha256": "3c4c4199d414a8d6e6a7c84d478699a4416ffa47aa83b3c8441f9096c36da606",
+      "bytes": 1723
+    },
+    {
+      "path": "impactkv_swebench_7b_sota_copiers_20260824/PLAN.coding.json",
+      "sha256": "2cf6f1fd7324d18bd859ec9e312f4b240bd8e05a754c18d4236dc51f9d9f1dce",
+      "bytes": 43064326
+    },
+    {
+      "path": "impactkv_swebench_7b_sota_copiers_20260824/PLAN.kvcomm.json",
+      "sha256": "6929c187cbd1dc1b28e828ef2081f2df37966d285d16dd028a1610c8f39a9bf6",
+      "bytes": 11862412
+    },
+    {
+      "path": "impactkv_swebench_7b_sota_copiers_20260824/PLAN.cacheblend.json",
+      "sha256": "0a8935cdd76163451a13a2275efd5c3575c49925bb179f2034cb619cced16e81",
+      "bytes": 11878766
+    },
+    {
+      "path": "impactkv_swebench_7b_sota_copiers_20260824/dense.json",
+      "sha256": "60349b9347fed358799aff1780dcc8b0db8e6a0ab2cb2fc74ee52545f367362b",
+      "bytes": 394152
+    },
+    {
+      "path": "impactkv_swebench_7b_sota_copiers_20260824/kvcomm.json",
+      "sha256": "03d07b7908b44165af60677f460d17c1bfd027508f107e49e7e355cf4b2571c3",
+      "bytes": 1978221
+    },
+    {
+      "path": "impactkv_swebench_7b_sota_copiers_20260824/cacheblend.json",
+      "sha256": "bd66f99857a069084930e56817b47459fc1b2a8af2b1e3fcd9fbcecf292b5a2f",
+      "bytes": 1979122
+    },
+    {
+      "path": "impactkv_swebench_7b_prefix_on_20260825/RESULT.json",
+      "sha256": "db53f6e51f93b1d20fff7c04a1fc8553ed41645a0c5b980796dffee24d7a8cc3",
+      "bytes": 2336
+    },
+    {
+      "path": "impactkv_swebench_template_prefetch_nextisland_20260821/RESULT.json",
+      "sha256": "90de2bf6b9e202eeb410902c961ed1c97e3d2a6d10b544ccc336883da86fbeb7",
+      "bytes": 1678
+    },
+    {
+      "path": "impactkv_global_block_attention_20260806/frozen26_r2/RESULT.json",
+      "sha256": "4bc55bf8c5d9c2af497254d771df73f97e9af45f34284531c5f45d3b9abed619",
+      "bytes": 31841
+    },
+    {
+      "path": "impactkv_attention_sparsity_20260806/frozen20/RESULT.json",
+      "sha256": "bed259c7116ab6705933f62fe7b74caa0e4bb2f141899b15193d7d644cdb5d4d",
+      "bytes": 38306
+    },
+    {
+      "path": "impactkv_common_prompt_attention_kv_mechanism_20260813/FOUR_ARM_RESULT.json",
+      "sha256": "37ddef496b7098983ecb173a411c513ddbb32d704b4d1a0c19763758b238b35f",
+      "bytes": 2324
+    },
+    {
+      "path": "impactkv_natural_code_cost_agent_expanded24_20260808/online/coding_natural_code_cost/full_24/CLIENT_LEDGER.jsonl",
+      "sha256": "381fed56093b6bef8a72bbe0496d6f556406be6e2ddc180c34f83aba7df392cd",
+      "bytes": 2383336
+    },
+    {
+      "path": "impactkv_natural_code_cost_agent_expanded24_20260808/online/coding_natural_code_cost/full_24/TELEMETRY.json",
+      "sha256": "d49bc6d94e767033be51ba7d7e0af2df8edace79064c930a810adf5e4625d1fa",
+      "bytes": 683866
+    },
+    {
+      "path": "impactkv_natural_code_cost_agent_expanded24_20260808/online/coding_natural_code_cost/full_24/DYNAMIC_MANIFEST.json",
+      "sha256": "1c3821b6173504b2c6560e28e111ed68929fbba152a8d324c33262da38fe62cc",
+      "bytes": 779099
+    },
+    {
+      "path": "impactkv_common_prompt_attention_kv_mechanism_20260813/OBSERVATIONS_SGLANG.jsonl",
+      "sha256": "914d6cff3c322ea280c60e63a87d65edb9cd9fd6006261b50f1a79b251b108ee",
+      "bytes": 54397
+    },
+    {
+      "path": "impactkv_common_prompt_attention_kv_mechanism_20260813/OBSERVATIONS_CACHEBLEND.jsonl",
+      "sha256": "49e39a6fc95a6faab5fe53017ca28add0bb0ce6ca567e40704ecfda6bfbb558f",
+      "bytes": 90705
+    },
+    {
+      "path": "impactkv_common_prompt_attention_kv_mechanism_20260813/OBSERVATIONS_KVCOMM.jsonl",
+      "sha256": "6b114741f4edb873b237c0f84c2db0ab9facf9bc59989fc9f0d2c79f771a998a",
+      "bytes": 91126
+    }
+  ],
+  "pack_sha256": "95738347359cd6235689e28cd868f151f2a0c3ab724fee68761f446c22e35cb4",
+  "pack_bytes": 15084506
+}

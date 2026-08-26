@@ -13,27 +13,11 @@ import re
 import sys
 from pathlib import Path
 
+from impactkv_paths import artifact_root, engine_root
+
 PAPER = Path(__file__).resolve().parents[1]
-
-
-def _default_engine_root() -> Path:
-    env = os.environ.get("IMPACTKV_ENGINE_ROOT")
-    if env:
-        return Path(env)
-    marker = Path("python/sglang/srt/mem_cache/kvcomm_exact.py")
-    for parent in Path(__file__).resolve().parents:
-        if (parent / marker).exists():
-            return parent
-    return Path("/home/gfy/CodeMAS_Project/sglang-kvflow-worktrees/template-prefetch")
-
-
-ARTIFACTS = Path(
-    os.environ.get(
-        "IMPACTKV_ARTIFACTS",
-        "/home/gfy/CodeMAS_Project/kvflow-artifacts",
-    )
-)
-ENGINE_ROOT = _default_engine_root()
+ARTIFACTS = artifact_root()
+ENGINE_ROOT = engine_root()
 RESULT = (
     ARTIFACTS
     / "impactkv_swebench_7b_file_modules_prefixkey_20260824/RESULT.json"

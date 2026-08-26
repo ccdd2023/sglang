@@ -9,9 +9,11 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-DEFAULT_PLAN = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_swebench_7b_file_modules_prefixkey_20260824/PLAN.json"
+from impactkv_paths import artifact_root
+
+DEFAULT_PLAN = (
+    artifact_root()
+    / "impactkv_swebench_7b_file_modules_prefixkey_20260824/PLAN.json"
 )
 
 

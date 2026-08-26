@@ -198,6 +198,9 @@ work_dirs/
 !docs/kvflow/paper/**/*.pdf
 !docs/kvflow/paper/**/*.png
 
+# Unpacked ImpactKV claim pack (fetch_impactkv_artifacts.py)
+/impactkv-artifacts/
+
 # Prerequisites
 *.d
 

@@ -2,7 +2,8 @@
 
 **Current ASPLOS headline** (7B SWE-bench file-module replay, job 137185)
 is **not** the V46 RepoBench drivers below. Start at
-[`../../IMPACTKV.md`](../../IMPACTKV.md) (this repo only; no CodeMAS clone).
+[`../../IMPACTKV.md`](../../IMPACTKV.md). Run on your own GPU: unpack
+`offcluster/impactkv-claim-pack.tar.gz` then `run_impactkv_headline.sh`.
 
 SWE-bench exact-prompt runners on this branch:
 

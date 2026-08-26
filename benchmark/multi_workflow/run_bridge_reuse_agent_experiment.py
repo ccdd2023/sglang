@@ -598,10 +598,11 @@ def launch_server(
         )
     log = (run_dir / "sglang_server.log").open("w", encoding="utf-8")
     env = os.environ.copy()
+    offline = os.environ.get("IMPACTKV_HF_OFFLINE", "1")
     env.update(
         {
-            "HF_HUB_OFFLINE": "1",
-            "TRANSFORMERS_OFFLINE": "1",
+            "HF_HUB_OFFLINE": offline,
+            "TRANSFORMERS_OFFLINE": offline,
             "PYTHONUNBUFFERED": "1",
             "PYTHONPATH": f"{PROJECT / 'python'}:{PROJECT}",
             "SGLANG_KVCOMM_CORE": "0" if arm in DENSE_ARMS else "1",

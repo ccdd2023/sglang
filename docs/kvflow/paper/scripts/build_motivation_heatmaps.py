@@ -13,24 +13,20 @@ sys.path.insert(0, str(SCRIPTS))
 from derive_7b_copier_motivation import group_extra_series
 from derive_7b_motivation import DEFAULT_PLAN, group_coverage_series
 
-ATTN = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_global_block_attention_20260806/frozen26_r2/RESULT.json"
+from impactkv_paths import artifact_root
+
+_ART = artifact_root()
+ATTN = (
+    _ART / "impactkv_global_block_attention_20260806/frozen26_r2/RESULT.json"
 )
-SPARSE = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_attention_sparsity_20260806/frozen20/RESULT.json"
-)
-FOUR = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_common_prompt_attention_kv_mechanism_20260813/"
-    "FOUR_ARM_RESULT.json"
+SPARSE = _ART / "impactkv_attention_sparsity_20260806/frozen20/RESULT.json"
+FOUR = (
+    _ART
+    / "impactkv_common_prompt_attention_kv_mechanism_20260813/"
+    / "FOUR_ARM_RESULT.json"
 )
 FOUR_DIR = FOUR.parent
-COPIER = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_swebench_7b_sota_copiers_20260824"
-)
+COPIER = _ART / "impactkv_swebench_7b_sota_copiers_20260824"
 MOTIVATION = DEFAULT_PLAN.with_name("MOTIVATION.json")
 FIG = Path(__file__).resolve().parents[1] / "figures"
 

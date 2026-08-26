@@ -109,12 +109,20 @@ def _start_server(output: Path, arm: str, port: int, model: str):
     return process, stream, manifest_path, f"http://127.0.0.1:{port}"
 
 
-def run_arm(output: Path, arm: str, port: int, model: str) -> dict[str, Any]:
+def run_arm(
+    output: Path,
+    arm: str,
+    port: int,
+    model: str,
+    max_groups: int = 0,
+) -> dict[str, Any]:
     if arm not in {"dense", "reuse"}:
         raise ValueError(arm)
     result_path = output / f"{arm}.json"
     checkpoint = output / f"{arm}.partial.json"
-    plan = read_json(output / "PLAN.json")["groups"]
+    plan = list(read_json(output / "PLAN.json")["groups"])
+    if max_groups and max_groups > 0:
+        plan = plan[:max_groups]
     sources: list[dict[str, Any]] = []
     targets: list[dict[str, Any]] = []
     done: set[int] = set()
@@ -209,7 +217,7 @@ def run_arm(output: Path, arm: str, port: int, model: str) -> dict[str, Any]:
     }
 
 
-def summarize(output: Path) -> dict[str, Any]:
+def summarize(output: Path, *, smoke: bool = False) -> dict[str, Any]:
     plan_meta = read_json(output / "PLAN.json")
     plan = plan_meta["groups"]
     dense = read_json(output / "dense.json")
@@ -256,7 +264,7 @@ def summarize(output: Path) -> dict[str, Any]:
     prerotated = sum(int(row.get("applied_pre_rotate_delta") or 0) != 0 for row in ledger)
     result = {
         "schema_version": 1,
-        "status": "COMPLETE",
+        "status": "SMOKE" if smoke else "COMPLETE",
         "classification": "SWE-bench exact-prompt true-lossy file-module cache-ready TTFT",
         "prefetch": False,
         "ordinary_prefix_reuse": False,
@@ -326,11 +334,23 @@ def main() -> None:
     parser.add_argument("--artifact", type=Path, required=True)
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--model", default=os.environ.get("IMPACTKV_MODEL", MODEL_DEFAULT))
+    parser.add_argument(
+        "--max-groups",
+        type=int,
+        default=int(os.environ.get("IMPACTKV_MAX_GROUPS", "0") or 0),
+        help="Smoke subset. Writes status=SMOKE, not a paper RESULT.",
+    )
     args = parser.parse_args()
     artifact = args.artifact.resolve()
-    dense = run_arm(artifact, "dense", args.port, args.model)
-    reuse = run_arm(artifact, "reuse", args.port, args.model)
-    result = summarize(artifact)
+    if args.max_groups and args.max_groups > 0:
+        plan_meta = read_json(artifact / "PLAN.json")
+        plan_meta = dict(plan_meta)
+        plan_meta["groups"] = list(plan_meta["groups"])[: args.max_groups]
+        plan_meta["smoke_max_groups"] = args.max_groups
+        write_json(artifact / "PLAN.json", plan_meta)
+    dense = run_arm(artifact, "dense", args.port, args.model, args.max_groups)
+    reuse = run_arm(artifact, "reuse", args.port, args.model, args.max_groups)
+    result = summarize(artifact, smoke=bool(args.max_groups))
     print(json.dumps({"dense": dense, "reuse": reuse, "result": {
         "cache_ready_speedup": result["latency"]["cache_ready_speedup_ratio_of_means"],
         "copy_events": result["mechanism"]["copy_events"],

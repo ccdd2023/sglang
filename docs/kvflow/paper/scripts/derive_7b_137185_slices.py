@@ -21,9 +21,10 @@ from derive_96092_slices import (
     write_json,
 )
 
-DEFAULT_ART = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_swebench_7b_file_modules_prefixkey_20260824"
+from impactkv_paths import artifact_root
+
+DEFAULT_ART = (
+    artifact_root() / "impactkv_swebench_7b_file_modules_prefixkey_20260824"
 )
 
 

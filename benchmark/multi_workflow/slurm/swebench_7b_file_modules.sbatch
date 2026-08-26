@@ -43,19 +43,24 @@ elif [ -n "${SLURM_STEP_GPUS:-}" ]; then
 fi
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 
-export IMPACTKV_PROJECT="$HOME/CodeMAS_Project/worktrees/sglang-common-agent"
-export IMPACTKV_MODEL="${IMPACTKV_MODEL:-$HOME/models/Qwen2.5-Coder-7B-Instruct}"
-export IMPACTKV_CHAT_TEMPLATE="$IMPACTKV_PROJECT/benchmark/multi_workflow/qwen3_coder_tool_chat_template.jinja"
-export IMPACTKV_SERVER_READY_TIMEOUT=900
-export IMPACTKV_MEM_FRACTION_STATIC="${IMPACTKV_MEM_FRACTION_STATIC:-0.82}"
-source "$IMPACTKV_PROJECT/benchmark/multi_workflow/slurm/impactkv_home_env.sh"
+_this="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export IMPACTKV_PROJECT="${IMPACTKV_PROJECT:-$(cd "$_this/../../.." && pwd)}"
+# shellcheck disable=SC1091
+source "$IMPACTKV_PROJECT/benchmark/multi_workflow/impactkv_local_env.sh"
 cd "$IMPACTKV_PROJECT"
 
 # 7B-native file-module copy with RoPE base 1e6. Not 96092. Not LCS bake-off.
-artifact="${IMPACTKV_7B_FM_ARTIFACT:-$HOME/CodeMAS_Project/kvflow-artifacts/impactkv_swebench_7b_file_modules_rope1e6_20260824}"
-port="$((48100 + SLURM_JOB_ID % 1000))"
+# Frozen paper RESULT lives in prefixkey_20260824; this job must use a new dir.
+artifact="${IMPACTKV_7B_FM_ARTIFACT:-$IMPACTKV_ARTIFACTS/runs/headline_7b_${SLURM_JOB_ID:-manual}}"
+mkdir -p "$artifact"
+if [[ ! -f "$artifact/PLAN.json" ]]; then
+  cp -a "$IMPACTKV_ARTIFACTS/impactkv_swebench_7b_file_modules_prefixkey_20260824/PLAN.json" \
+    "$artifact/PLAN.json"
+fi
+port="$((48100 + ${SLURM_JOB_ID:-0} % 1000))"
+if [[ "$port" -lt 30000 ]]; then port=30000; fi
 
 PYTHONNOUSERSITE=1 PYTHONPATH="$IMPACTKV_PROJECT/python:$IMPACTKV_PROJECT" \
-  "$IMPACTKV_MINI_PYTHON" \
+  "$IMPACTKV_EVAL_PYTHON" \
   benchmark/multi_workflow/run_swebench_prerotated_file_modules.py \
   --artifact "$artifact" --port "$port" --model "$IMPACTKV_MODEL"

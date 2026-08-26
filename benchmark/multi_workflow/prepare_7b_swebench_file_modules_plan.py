@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -22,14 +23,33 @@ from benchmark.multi_workflow.prepare_swebench_general_lcs_plan import (
     build_groups as build_lcs_groups,
 )
 
-PLAN_30B = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_swebench_prerotated_file_modules_20260818/PLAN.json"
+def _artifacts() -> Path:
+    return Path(
+        os.environ.get(
+            "IMPACTKV_ARTIFACTS",
+            str(Path.home() / "impactkv-artifacts"),
+        )
+    ).expanduser()
+
+
+PLAN_30B = (
+    _artifacts() / "impactkv_swebench_prerotated_file_modules_20260818/PLAN.json"
 )
 TOK_30B = Path(
-    "/home/gfy/models/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit/tokenizer.json"
-)
-TOK_7B = Path("/home/gfy/models/Qwen2.5-Coder-7B-Instruct/tokenizer.json")
+    os.environ.get(
+        "IMPACTKV_TOK_30B",
+        str(
+            Path.home()
+            / "models/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit/tokenizer.json"
+        ),
+    )
+).expanduser()
+TOK_7B = Path(
+    os.environ.get(
+        "IMPACTKV_TOK_7B",
+        str(Path.home() / "models/Qwen2.5-Coder-7B-Instruct/tokenizer.json"),
+    )
+).expanduser()
 MODEL_7B = "Qwen2.5-Coder-7B-Instruct"
 POLICY = "coding_natural_code_cost"
 TARGET_USES = 4

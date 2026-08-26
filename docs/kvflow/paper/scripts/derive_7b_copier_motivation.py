@@ -13,16 +13,15 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-ART = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_swebench_7b_sota_copiers_20260824"
-)
-CODING_REUSE = Path(
-    "/home/gfy/CodeMAS_Project/kvflow-artifacts/"
-    "impactkv_swebench_7b_file_modules_prefixkey_20260824/reuse.json"
+from impactkv_paths import artifact_root
+
+_ART = artifact_root()
+ART = _ART / "impactkv_swebench_7b_sota_copiers_20260824"
+CODING_REUSE = (
+    _ART / "impactkv_swebench_7b_file_modules_prefixkey_20260824/reuse.json"
 )
 TOKENIZER_CANDIDATES = (
-    Path("/home/gfy/models/Qwen2.5-Coder-7B-Instruct/tokenizer.json"),
+    Path.home() / "models/Qwen2.5-Coder-7B-Instruct/tokenizer.json",
     Path(
         "/home/gfy/.cache/huggingface/hub/"
         "models--Qwen--Qwen2.5-Coder-7B-Instruct/snapshots/"

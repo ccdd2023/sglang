@@ -3,7 +3,8 @@
 This branch (`integration/template-prefetch-swebench`) is the **ASPLOS 2027**
 ImpactKV engine: coding-aware true-lossy **file-island** KV copy.
 
-**Start here:** [`../../IMPACTKV.md`](../../IMPACTKV.md) at the repo root.
+**Start here:** [`../../IMPACTKV.md`](../../IMPACTKV.md) at the repo root
+(run on your own GPU; unpack `benchmark/multi_workflow/offcluster/`).
 
 That file is the only collaborator landing page. Paper sources and the claim
 checker live in [`paper/`](paper/). You do **not** need a CodeMAS clone.
