@@ -1,0 +1,40 @@
+\documentclass{article}
+\usepackage[margin=2pt]{geometry}
+\pagestyle{empty}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage[T1]{fontenc}
+\definecolor{ikvblue}{HTML}{2F6DB3}
+\definecolor{ikvnavy}{HTML}{1B4F8A}
+\definecolor{ikvteal}{HTML}{5BB3A7}
+\definecolor{ikvorange}{HTML}{D96B2B}
+\definecolor{ikvgray}{HTML}{6B6B6B}
+\definecolor{drop}{HTML}{F4D4C4}
+\definecolor{keep}{HTML}{D8F0EA}
+\begin{document}
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  >=Stealth,
+  step/.style={draw=ikvblue, fill=white, rounded corners=2pt, align=center,
+    minimum width=3.35cm, minimum height=0.72cm, inner sep=3pt},
+  decision/.style={draw=ikvorange, fill=white, diamond, aspect=2.4, align=center,
+    inner sep=1pt, font=\sffamily\tiny},
+]
+\node[step] (a) {Frozen trajectory turns};
+\node[step, below=0.32cm of a] (b) {Reconstruct exact target token IDs};
+\node[step, below=0.32cm of b] (c) {Locate \texttt{repository\_code} spans};
+\node[decision, below=0.55cm of c] (d) {single-file, version-valid,\\token-ID match, $\Delta\neq 0$?};
+\node[step, fill=keep, draw=ikvteal, below left=0.55cm and -0.2cm of d] (e) {Attach island to PLAN};
+\node[step, fill=drop, draw=ikvorange, below right=0.55cm and -0.2cm of d] (f) {Drop span (stay Dense)};
+\node[step, fill=keep, draw=ikvnavy, below=1.55cm of d] (g) {PLAN: 235 groups, 421 islands};
+\draw[->, ikvgray] (a) -- (b);
+\draw[->, ikvgray] (b) -- (c);
+\draw[->, ikvgray] (c) -- (d);
+\draw[->, ikvteal] (d) -- node[above, font=\sffamily\tiny] {yes} (e);
+\draw[->, ikvorange] (d) -- node[above, font=\sffamily\tiny] {no} (f);
+\draw[->, ikvgray] (e.south) |- (g);
+\node[font=\sffamily\tiny, text=ikvgray, below=0.12cm of g] {Offline oracle on frozen traces; not an LLM-synthesized DAG.};
+\end{tikzpicture}
+\end{document}

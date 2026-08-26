@@ -1,0 +1,52 @@
+\documentclass{article}
+\usepackage[margin=2pt]{geometry}
+\pagestyle{empty}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage[T1]{fontenc}
+\definecolor{ikvblue}{HTML}{2F6DB3}
+\definecolor{ikvnavy}{HTML}{1B4F8A}
+\definecolor{ikvteal}{HTML}{5BB3A7}
+\definecolor{ikvorange}{HTML}{D96B2B}
+\definecolor{ikvgray}{HTML}{6B6B6B}
+\definecolor{offfill}{HTML}{EEF7F4}
+\definecolor{onfill}{HTML}{EEF3FA}
+\definecolor{dimfill}{HTML}{F3F3F3}
+\begin{document}
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  >=Stealth,
+  box/.style={draw=#1, fill=white, rounded corners=2pt, align=center,
+    inner sep=4pt, minimum height=0.92cm},
+]
+\node[fill=offfill, rounded corners=3pt, minimum width=8.4cm, minimum height=1.7cm] (offbg) at (0,0) {};
+\node[anchor=north west, font=\sffamily\scriptsize\bfseries, text=ikvnavy]
+  at ($(offbg.north west)+(0.12,-0.06)$) {Offline (once)};
+\node[box=ikvteal, text width=2.4cm] (traj) at (-2.35, -0.12) {Frozen SWE-bench\\trajectories};
+\node[box=ikvteal, text width=2.6cm] (m0) at (0.55, -0.12) {M0 compiler\\token-ID, version, $\Delta\neq 0$};
+\node[box=ikvnavy, text width=1.55cm] (plan) at (3.15, -0.12) {PLAN};
+\draw[->, ikvgray, thick] (traj) -- (m0);
+\draw[->, ikvgray, thick] (m0) -- (plan);
+
+\node[fill=onfill, rounded corners=3pt, minimum width=8.4cm, minimum height=2.55cm]
+  (onbg) at (0, -2.35) {};
+\node[anchor=north west, font=\sffamily\scriptsize\bfseries, text=ikvnavy]
+  at ($(onbg.north west)+(0.12,-0.06)$) {Online prefill (SGLang)};
+\node[box=ikvblue, text width=1.55cm] (tgt) at (-3.15, -2.05) {Target\\token IDs};
+\node[box=ikvgray, fill=dimfill, text width=1.7cm] (m1) at (-1.15, -2.05) {M1 prefix\\{\tiny off in headline}};
+\node[box=ikvblue, text width=2.15cm, line width=0.95pt] (m2) at (1.15, -2.05)
+  {\textbf{M2 island copy}\\$K{\leftarrow}R_{\Delta}K$, $V$ as-is};
+\node[box=ikvgray, fill=dimfill, text width=1.7cm] (m3) at (3.25, -2.05) {M3 prefetch\\{\tiny off in headline}};
+\node[box=ikvorange, text width=3.4cm] (fail) at (0.0, -3.15) {mechanical miss $\to$ Dense that island};
+\draw[->, ikvgray, thick] (plan.south) -- ++(0,-0.28) -| (tgt.north);
+\draw[->, ikvgray] (tgt) -- (m1);
+\draw[->, ikvblue, thick] (m1) -- (m2);
+\draw[->, ikvgray] (m2) -- (m3);
+\draw[->, ikvorange] (m2.south) -- (fail.north);
+
+\node[box=ikvnavy, text width=3.6cm] (dec) at (0.0, -4.15) {Dense remainder $\to$ 1-token decode};
+\draw[->, ikvgray] (fail) -- (dec);
+\end{tikzpicture}
+\end{document}

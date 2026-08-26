@@ -1,0 +1,50 @@
+\section{Discussion and Limitations}
+\label{sec:discussion}
+
+The speed campaign is an exact-prompt, one-token replay of frozen
+trajectories. That is the right experiment for a copy kernel. It is the
+wrong experiment for claiming that coding-aware reuse resolves more
+GitHub issues. Official resolved on the 24-task live-agent producer is
+underpowered (McNemar $p = 0.625$) and is not this paper's headline.
+
+Cache-ready $1.492\times$ is real on 705 paired 7B target prefills. That
+number is target generate time after source KV already exists, not a
+cold-start wall-clock. The 30B analogue is reported only in the
+appendix: cache-ready $1.375\times$.
+
+We do not mix this 30B long-prompt TTFT table with a different model
+family's official-Accuracy table. Doing so would manufacture a single
+official system that was never run. We likewise do not bind
+Figure~\ref{fig:attn-proxy} to the 30B cache-ready $1.375\times$.
+
+\paragraph{Threats.}
+Replay uses one token of decode, so TTFT is prefill-dominated. The
+24-task producer is a convenience sample, not a powered Accuracy
+cohort. We do not run, and do not owe, a 500-task Verified replay, a
+concurrent P99 study, or a same-token 30B bake-off against
+CacheBlend/KVCOMM. We do not replay all of SWE-bench Verified.
+Table~\ref{tab:eval-summary} keeps prefix off; the prefix-on increment
+is Table~\ref{tab:7b-prefix-on}. We do not treat
+Table~\ref{tab:template-prefetch} as the cache-ready $1.492\times$
+method. We do not full-decode the 17 copier-disagreement groups, and we
+do not run a 7B activation probe. The PLAN is an offline oracle over
+frozen trajectories, not an online admit service.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+Coding agents re-read repository files at shifted positions. Prefix
+caches miss that reuse; generic lossy copiers ignore which files are
+safe. \method{} copies only version-valid, token-identical file islands
+with a nonzero shift, pre-rotates $K$ on the source, and
+Dense-recomputes a mechanically invalid island. A leftover nonzero
+residual $\Delta$ is not the admitted fast path.
+
+On 235 exact-prompt groups and 421 islands, the kernel copies
+$1684/1684$ planned islands with zero fallback and is $1.492\times$
+cache-ready faster than the same SGLang Dense. Prefetch stays off.
+Sequential template prefetch matches copy
+(Table~\ref{tab:template-prefetch}) and is not a speedup.
+Prefix$+$copy versus Dense is not a prefetch win.
+One-token agreement is not official resolved. We do not claim a
+system-wide throughput crown.

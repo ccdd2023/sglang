@@ -1,0 +1,98 @@
+\section{Design}
+\label{sec:problem}
+
+Section~\ref{sec:opportunities} asked for a file-module admit rule, a
+$K$ pre-rotate rather than suffix recompute, and fail-closed copy.
+Figure~\ref{fig:architecture} and Table~\ref{tab:module-io} are that
+stack. Four modules compose the prefill path. The headline 7B campaign
+(job 137185) compiles M1 and M3 off so Table~\ref{tab:eval-summary}
+cannot be credited to radix or prefetch. M0 does not estimate Attention.
+The rest of this section is the system model; Sections~\ref{sec:template}
+and~\ref{sec:kv-management} instantiate M0 and M2.
+
+\subsection{High-level architecture}
+
+The online path is Dense prefix, then M2 copy of each admitted island,
+then Dense remainder. M1 and M3 stay off in the headline campaign so a
+radix hit or a prefetch cannot take Table~\ref{tab:eval-summary}.
+Figure~\ref{fig:architecture} is that stack; Table~\ref{tab:module-io}
+lists module I/O.
+
+\begin{figure}[ht]
+\centering
+\resizebox{\columnwidth}{!}{\input{figures/architecture.tikz}}
+\caption{Engine stack for shifted file-module prefill. Online path is
+Dense prefix, then M2 copy, then Dense remainder. Headline 7B
+speed uses M0$+$M2; M1 and M3 stay off so
+Table~\ref{tab:eval-summary} cannot be credited to radix or prefetch.}
+\Description{Offline M0 compiler producing a PLAN; online SGLang prefill with Dense prefix, M2 file-island copy, and Dense remainder.}
+\label{fig:architecture}
+\end{figure}
+
+\begin{table}[ht]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2.5pt}
+\caption{Algorithm modules. Headline 7B speed uses only M0$+$M2.
+M3 miss degrades to M2; it does not Dense-recompute a still-owned island.}
+\label{tab:module-io}
+\begin{tabular}{@{}p{0.20\columnwidth}p{0.38\columnwidth}p{0.36\columnwidth}@{}}
+\toprule
+\textbf{Module} & \textbf{Input} & \textbf{Output} \\
+\midrule
+M0 compiler & Frozen trajectories, tokenizer & PLAN: hashes, $(s,t,L)$, $\Delta\neq 0$ \\
+M1 prefix & Source/target IDs, cap $t$ & Radix LCP; no island copy \\
+M2 copy & Admitted island, source $K/V$, $\Delta$ & Whole-island copy after $K$ rotate, or Dense \\
+M3 prefetch & Later-roles, residency, next-use & Device hints; miss $\to$ M2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{System model}
+
+\method{} targets multi-agent coding prefill in which:
+
+\begin{itemize}[leftmargin=1.2em,itemsep=0.2em]
+    \item Each \textbf{task} is a repository-level issue: a natural-language
+          specification, a codebase snapshot, and hidden tests that never
+          enter the prompt.
+    \item Each \textbf{turn} is one role request under a rolling-6 history
+          (the last six complete role groups, compacted).
+    \item A \textbf{file module} is a contiguous \texttt{repository\_code}
+          span for one path at one content version.
+    \item The serving engine hosts Dense prefill and optional island copy
+          on shared GPU memory.
+\end{itemize}
+
+A source request encodes a file at start index $s$. A later target request
+needs the same token IDs at start index $t$. Write
+$\Delta = t - s$. Ordinary prefix reuse applies only if $\Delta = 0$ and
+the bytes to the left also match. We study the complementary case
+$\Delta \neq 0$.
+
+\subsection{Design goals}
+
+\begin{enumerate}[leftmargin=1.2em,itemsep=0.25em]
+    \item \textbf{True lossy, not prefix in disguise.} Copied token IDs
+          must match the target, and the logical shift is
+          nonzero. Zero-shift islands are dropped so the method cannot
+          degenerate to a prefix cache.
+    \item \textbf{Fail closed.} The admitted path pre-rotates source $K$
+          so residual $\Delta=0$ at copy. A mechanically invalid island
+          is discarded and Dense-recomputed. Never serve a partial
+          island.
+    \item \textbf{Cache-ready TTFT.} Target TTFT is reported after source
+          KV already exists, against the same engine's Dense, matching
+          CacheBlend and KVCOMM. Prefetch stays off in the headline 7B
+          campaign. One-token agreement is not official resolved.
+\end{enumerate}
+
+\subsection{What would invalidate a claim}
+
+Mixing a 7B official-Accuracy table with the 7B or 30B TTFT numbers as
+if they were one method. Calling cache-ready $1.492\times$ a one-use
+wall-clock serving win. Calling $93.6\%$ one-token agreement
+Accuracy. Enabling prefetch or radix prefix reuse and attributing
+the gain to coding-aware copy. Editing the residual-$\Delta$
+gate after seeing outcomes. Mixing the appendix 30B campaign's
+$1.375\times$ into Table~\ref{tab:eval-summary}.

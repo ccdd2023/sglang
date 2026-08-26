@@ -1,0 +1,100 @@
+\section{Introduction}
+\label{sec:introduction}
+
+LLM serving engines treat the key--value (KV) cache as a first-class
+memory object: it is paged, shared, and evicted much like a
+process working set~\cite{kwon2023efficient,sglang2024}. That analogy
+breaks for multi-agent coding workloads. A later role re-reads a
+repository file that an earlier role already encoded, but the file no
+longer sits at the same prompt index. Token IDs match; the virtual
+addresses do not. Rotary position embeddings attach a phase $R_p$ to
+every key~\cite{su2021roformer}, so a radix or prefix cache---which
+requires $\Delta = 0$ and a shared left context---cannot map the
+bytes. Copying $K/V$ across a nonzero shift $\Delta = t - s$ is
+therefore \emph{true lossy reuse}: exact on tokens, approximate on
+activations.
+
+This is a memory-system problem, not a prompting trick. The engine
+must decide (i)~which spans are eligible physical pages, (ii)~how to
+translate their addresses, and (iii)~what to do when translation
+fails. Section~\ref{sec:background} reviews today's KV managers:
+exact prefix caches miss the shift, and generic lossy copiers are not
+told which coding spans are safe. Section~\ref{sec:motivation} shows
+that the coding protocol already names those spans, and that the
+activation residual lives in source-time $K/V$ formation rather than
+suffix-attention collapse. We drop 48 zero-shift islands at plan time
+so the headline cannot be credited to the prefix problem CacheWise
+already studies~\cite{tiwari2026cachewise}.
+
+\method{} is that rule plus a fail-closed translator. Eligible units
+are version-valid, single-file \texttt{repository\_code} modules whose
+token IDs match the target and whose logical shift is nonzero.
+Source-side $K$ is pre-rotated by the known $\Delta$ so the residual at
+copy is zero; $V$ is stored unchanged. A leased island is addressed by
+source-prefix hash, content hash, and $\Delta$. Token-identical bytes
+formed under a different left context are not a legal mapping. A mechanically invalid copy
+(token-hash mismatch, incomplete coverage, or allocation failure)
+discards the island and Dense-recomputes it---the analogue of refusing
+to map a page that did not pass translation. Two further modules compose
+on the same admit set: lossless radix prefix reuse (capped before the
+shifted island) and template-guided prefetch from later-roles in the
+coding protocol, not remaining uses. Prefetch miss degrades to the
+owned copy; it does not Dense-recompute a valid island. In the headline
+campaign prefetch and ordinary prefix reuse stay off, so
+Table~\ref{tab:eval-summary} cannot be credited to a radix hit.
+
+We evaluate the copy kernel on frozen SWE-bench Verified
+trajectories~\cite{swebench}: 24 live-agent tasks, reconstructed into
+235 exact-prompt target groups and 421 true-lossy islands, run as
+sequential one-token prefill on Qwen2.5-Coder-7B-Instruct
+in SGLang. The kernel copies $1684/1684$ planned islands with zero
+fallback and is $1.492\times$ cache-ready faster than the same engine's
+Dense prefill (paired TTFT win rate $99.3\%$). One-token output agreement
+is $93.6\%$ and is \emph{not} official SWE-bench resolved. The 30B AWQ
+replay of the same protocol lives in the appendix and is not mixed
+into Table~\ref{tab:eval-summary}; that appendix campaign is
+$1.375\times$ cache-ready.
+We do not claim concurrent load, P99 SLO, session completion, or a
+system-wide throughput crown.
+
+\method{} makes three contributions.
+
+\begin{itemize}[leftmargin=1.2em,itemsep=0.25em]
+    \item \textbf{A file-module admit policy for true-lossy reuse.}
+          Eligibility is token-ID equality, a valid file version, and
+          nonzero shift---not path names, AST labels, or Attention
+          scores. Radix LCP and file islands are disjoint; unconstrained
+          copy then adds $194{,}624$ tokens the gate refused
+          (Section~\ref{sec:motivation}).
+    \item \textbf{Page identity against mixed-prefix reuse.}
+          A leased island is addressed by source-prefix hash, content
+          hash, and $\Delta$. Token-identical bytes formed under a
+          different left context are different physical pages
+          (Section~\ref{sec:kv-management}).
+    \item \textbf{Isolation from prefix cache.}
+          The headline campaign turns ordinary prefix reuse off so a
+          radix hit cannot take Table~\ref{tab:eval-summary}. On the
+          same 235-group PLAN, prefix-only is $1.526\times$ and dual is
+          $2.120\times$; the file-module increment given prefix is
+          $1.390\times$ and is not mixed into that table
+          (Section~\ref{sec:evaluation}).
+\end{itemize}
+
+Source-side $K$ pre-rotation is the copy implementation, not a third
+idea: CacheSlide, RedKnot, KVLink, and Notes-at-Prefill already
+reposition cached $K$ under a known
+$\Delta$~\cite{liu2026cacheslide,liu2026redknot,yang2025kvlink,li2026notes}.
+Mechanical fail-closed copy discards a hash, coverage, or allocation
+miss; zero observed fallbacks do not justify treating that check as a
+contribution. Prefetch (M3) is off in the headline campaign.
+
+A separate 3B activation probe (Section~\ref{sec:attn-proxy}) locates
+the residual on source-time $K/V$ formation, not suffix-attention
+collapse. It is not 30B native attention, not the admit rule, and not
+a 7B or 30B TTFT number.
+
+All speedups below are cache-ready target TTFT versus the same SGLang
+Dense unless we say otherwise: the source KV already exists, matching
+the cache-ready protocol used by CacheBlend and KVCOMM. Prefetch is
+disabled in the headline campaign. One-token replay is not official
+resolved.

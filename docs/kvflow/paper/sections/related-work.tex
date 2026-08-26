@@ -1,0 +1,66 @@
+\section{Related Work}
+\label{sec:related-work}
+
+\subsection{Multi-agent systems for software engineering}
+
+Surveys of LLM agents for software engineering document planner--coder--tester
+decompositions, tool loops, and SWE-bench as the standard repository-level
+benchmark~\cite{llmagents2024,multiagent2025,swebench}. Most of that
+literature treats the serving engine as a black box. \method{} takes the
+opposite cut: freeze the agent protocol and ask which file modules the
+engine may copy.
+
+\subsection{Exact KV management}
+
+Section~\ref{sec:background} reviews PagedAttention, SGLang radix,
+LMCache, KVFlow, and CacheWise (ForeCache). ContiguousKV aligns layout
+for prefill offload~\cite{contiguouskv}. Those systems are the right
+answer when $\Delta = 0$. They do not copy a file module whose token IDs
+match at a nonzero shift. CacheWise's headline is agent
+\emph{session completion} under prefix thrashing; ours is sequential
+one-token prefill of $\Delta\neq 0$ file islands.
+
+\subsection{Lossy and cross-agent reuse}
+
+CacheBlend recomputes a fraction of tokens when cached context is fused
+into a new prefix~\cite{yao2024cacheblend}. KVCOMM communicates KV across
+agents for unmatched context~\cite{ye2024kvcomm}. RelayCaching reuses
+decode-phase KV as later prefill~\cite{relaycaching}. These methods copy
+more and are typically faster. They are not a coding-file whitelist, and
+this paper does not claim a system-wide throughput crown against the
+native CacheBlend or KVCOMM serving stacks. On the 7B SWE-bench prompts
+we instead compare \emph{same-engine policy clones}: unconstrained
+shifted-span copy (KVCOMM-style admit, no file gate) and a $15\%$
+boundary recompute on those spans (CacheBlend-style repair). Those
+clones share the SGLang executor and the job 137185 prompts; they are
+not the authors' CUDA kernels (Table~\ref{tab:admit-ablation}). An eight-prompt same-input 3B diagnostic
+(Section~\ref{sec:attn-proxy}) reports coding-aware module TV $0.00214$
+against $0.0454$ (CacheBlend) and $0.0745$ (KVCOMM); that is local TV,
+not a ranking and not matched-coverage Accuracy.
+
+\subsection{Agent scheduling and TTL}
+
+Continuum pins KV across tool calls with a latency-aware
+TTL~\cite{continuum}. Tokencake schedules multi-agent jobs around the
+cache~\cite{tokencake2025}. Parrot exposes semantic variables to the
+serving runtime~\cite{parrot2024}. Plan caching stores agent
+plans~\cite{plancaching2026}. \method{} is orthogonal: it decides which shifted file modules may
+enter a lossy copy after source-side $K$ pre-rotation, and fail-closes
+on a mechanically invalid island. Prefetch is a residency side campaign
+(Table~\ref{tab:template-prefetch}), not the headline copy kernel. TTL
+is out of scope.
+
+\subsection{Position-transformed KV reuse}
+
+RoPE supplies an explicit $K$ phase correction~\cite{su2021roformer}.
+CacheSlide reuses relative-position-dependent chunks under a known
+shift~\cite{liu2026cacheslide}. RedKnot applies that closed-form
+rotate inside a serving stack~\cite{liu2026redknot}. KVLink adjusts
+positional embeddings when concatenating independently precomputed
+document KV~\cite{yang2025kvlink}. Notes-at-Prefill RoPE-repositions a
+precompiled skill and splices it~\cite{li2026notes}.
+\method{} does not claim that correction as novelty. It uses the same
+closed-form rotate as the copy implementation, and differs in
+\emph{which} spans may enter the lossy path: version-valid single-file
+islands from an offline compiler, with page identity that forbids mixed
+prefixes. Prefetch stays off in the headline campaign.

@@ -1,0 +1,45 @@
+\documentclass{article}
+\usepackage[margin=2pt]{geometry}
+\pagestyle{empty}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage[T1]{fontenc}
+\definecolor{ikvblue}{HTML}{2F6DB3}
+\definecolor{ikvnavy}{HTML}{1B4F8A}
+\definecolor{ikvteal}{HTML}{5BB3A7}
+\definecolor{ikvorange}{HTML}{D96B2B}
+\definecolor{ikvgray}{HTML}{6B6B6B}
+\definecolor{rolep}{HTML}{D6E6F5}
+\definecolor{rolec}{HTML}{D8F0EA}
+\definecolor{rolet}{HTML}{FBE3D5}
+\definecolor{roler}{HTML}{E8DEF4}
+\begin{document}
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  >=Stealth,
+  role/.style={draw=#1, fill=#2, rounded corners=2pt, align=center,
+    minimum width=2.05cm, minimum height=0.72cm, inner sep=3pt},
+]
+\node[role={ikvblue}{rolep}] (p) {Planner};
+\node[role={ikvteal}{rolec}, right=0.85cm of p] (c) {Implementer};
+\node[role={ikvorange}{rolet}, right=0.85cm of c] (t) {Tester};
+\node[role={ikvnavy}{roler}, right=0.85cm of t] (r) {Reviewer};
+\draw[->, ikvgray] (p) -- (c);
+\draw[->, ikvgray] (c) -- (t);
+\draw[->, ikvgray] (t) -- (r);
+
+\node[draw=ikvblue, fill=white, rounded corners=2pt, inner sep=3pt,
+  text width=8.6cm, align=left, below=0.55cm of c] (file) {%
+  Same \texttt{repository\_code} file, e.g.\ \texttt{mod.py}\\
+  source index $s$ $\rightarrow$ later role at $t$, with $\Delta=t-s\neq 0$};
+
+\draw[->, ikvblue] (p.south) -- ++(0,-0.18) -| ($(file.north)+(-2.6,0)$);
+\draw[->, ikvteal] (c.south) -- ++(0,-0.18) -| ($(file.north)+(-0.7,0)$);
+\draw[->, ikvorange] (t.south) -- ++(0,-0.18) -| ($(file.north)+(0.7,0)$);
+\draw[->, ikvnavy] (r.south) -- ++(0,-0.18) -| ($(file.north)+(2.6,0)$);
+
+\node[font=\sffamily\scriptsize, text=ikvgray, above=0.12cm of c] {rolling-6 coding protocol};
+\end{tikzpicture}
+\end{document}

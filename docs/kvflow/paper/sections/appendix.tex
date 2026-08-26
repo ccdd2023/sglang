@@ -1,0 +1,260 @@
+\section{Seven-group dual-island isolation}
+\label{app:dual}
+
+Qwen2.5-Coder-7B-Instruct on seven retokenized dual-island groups
+(jobs 124825--124829, COMPLETE) is not the 30B SWE-bench PLAN and is
+not mixed into Table~\ref{tab:eval-summary}. Prefix-only keeps radix
+$\Delta{=}0$ and leaves the shifted island dense. Lossy-only copies the
+shifted file-island with prefix reuse off. Dual runs both. Template
+prefetch on this workload is not a speedup (combined vs dual
+$0.528\times$, 7 hints, 4 misses that then Dense-recomputed). That miss
+path is a module bug: M3 must degrade to M2, not disable copy.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Qwen2.5-Coder-7B-Instruct dual-island isolation. Speedups are
+versus this 7B Dense (21 pairs). Not the 30B PLAN and not
+Table~\ref{tab:eval-summary}.}
+\label{tab:7b-dual-island}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Arm} & \textbf{vs Dense} & \textbf{Prefix hits} & \textbf{Copies} & \textbf{Fallback} \\
+\midrule
+Dense & $1.000\times$ & --- & --- & --- \\
+prefix-only & $1.155\times$ & $28$ & $0$ & $0$ \\
+lossy-only & $4.526\times$ & $0$ & $28/28$ & $0$ \\
+dual & $8.490\times$ & $28$ & $28/28$ & $0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{30B AWQ replay}
+\label{app:30b}
+
+The headline uses Qwen2.5-Coder-7B-Instruct (job 137185). The same
+file-module protocol on Qwen3-Coder 30B-A3B Instruct (AWQ 4-bit,
+job 96092, COMPLETE) copies $1684/1684$ islands with zero fallback and
+is $1.375\times$ cache-ready (one-token
+$94.8\%$). Table~\ref{tab:eval-30b} is that campaign. It is not mixed
+into Table~\ref{tab:eval-summary}. Prefetch (job 119795) is also 30B
+and is a residency check, not a 30B speed claim
+(Table~\ref{tab:template-prefetch}).
+
+\begin{table}[t]
+\centering
+\small
+\caption{30B AWQ exact-prompt file-module replay (job 96092). Appendix
+only. Cache-ready TTFT excludes source/build. Not
+Table~\ref{tab:eval-summary}.}
+\label{tab:eval-30b}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Metric} & \textbf{Dense} & \textbf{\method{}} \\
+\midrule
+Target groups & 235 & 235 \\
+Copy events / planned & --- & $1684/1684$ \\
+Fallback events & --- & $0$ \\
+Cache-ready TTFT speedup & $1.000\times$ & $1.375\times$ \\
+One-token output agreement & --- & $94.8\%$ \\
+Prefetch / prefix reuse & off & off \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Job 119795 is a four-mode campaign on the same 235 groups ($705$ pairs).
+It is not job 96092. The served path compiles next-island /
+later-roles hints, not remaining uses. Sequential already-resident next
+use has no overlap window, so spill and hint are skipped: DEVICE plus
+the immediate next target is not a prefetch win against copy that already
+holds the island on device. Combined cache-ready TTFT matches coding
+($1.392\times$ vs $1.390\times$ versus this campaign's own Dense): that
+is overhead, not a prefetch speedup. Prefetch-only is $0.996\times$ and
+is not a copy win. A prefetch miss degrades to the owned copy; it must
+not Dense-recompute a valid island. Table~\ref{tab:template-prefetch} is
+not mixed into Table~\ref{tab:eval-summary}. Dual prefix$+$copy versus
+Dense is not a prefetch number.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Template-guided prefetch on sequential one-token replay.
+Combined is copy plus residency; prefetch-only is not a copy win.
+Speedups are versus this campaign's Dense, not
+Table~\ref{tab:eval-summary}. Hints are next-island / later-roles,
+not remaining uses. 30B appendix, not the 7B headline.}
+\label{tab:template-prefetch}
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Arm} & \textbf{Speedup} & \textbf{Copy} & \textbf{Spill} & \textbf{Hints} & \textbf{Miss} \\
+\midrule
+Dense & $1.000\times$ & --- & --- & --- & --- \\
+coding (copy) & $1.390\times$ & $1684/1684$ & $0$ & $0$ & $0$ \\
+prefetch-only & $0.996\times$ & $0$ & $0$ & $0$ & $0$ \\
+combined & $1.392\times$ & $1684/1684$ & $0$ & $0$ & $0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{expanded24 instances}
+\label{app:dataset}
+
+Job 96092 reconstructs prompts from 24 SWE-bench Verified tasks. Groups
+are rolling-6 turns. Twenty instances have at least one eligible
+$\Delta\neq 0$ group: astropy-7166, 7606, 13236, 14539; django-13128,
+13449, 15629; pydata xarray-4687, 7233; scikit-learn-11578, 14053,
+14983, 26323; sphinx-8459, 9258, 9320, 9591; sympy-16597, 17139, 18199.
+Four producer tasks have no eligible group after the $\Delta\neq 0$
+gate: django-13837, pytest-5631, sympy-14711, xarray-4629. Repo group
+counts (astropy 23, django 58, pydata 33, scikit-learn 33, sphinx-doc
+51, sympy 37) sum to 235. This list is a convenience sample, not a
+Verified leaderboard.
+
+Table~\ref{tab:repo-slice} reports cache-ready speedup by repository
+from the same 705 pairs. Group counts are small; we do not rank
+repositories. pydata is the weakest slice ($1.119\times$, 33 groups);
+django is the strongest ($1.551\times$, 58 groups). Derived from job
+96092, not a new GPU arm.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Cache-ready TTFT by repository, derived from job 96092. Not a
+ranking and not Table~\ref{tab:eval-summary}. Appendix 30B slice.}
+\label{tab:repo-slice}
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Repo} & \textbf{Groups} & \textbf{Pairs} & \textbf{vs Dense} \\
+\midrule
+astropy & 23 & 69 & $1.233\times$ \\
+django & 58 & 174 & $1.551\times$ \\
+pydata & 33 & 99 & $1.119\times$ \\
+scikit-learn & 33 & 99 & $1.328\times$ \\
+sphinx-doc & 51 & 153 & $1.435\times$ \\
+sympy & 37 & 111 & $1.422\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{7B sensitivity tables}
+\label{app:slices}
+
+Numeric companions of Figure~\ref{fig:eval-slices}, derived from job
+137185. Not a new GPU arm and not Table~\ref{tab:eval-summary}.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Target-prompt shape after the eligibility gate. Copied tokens
+are the true-lossy file-module payload, not a prefix.}
+\label{tab:prompt-shape}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Length} & \textbf{Groups} & \textbf{Mean tok.} & \textbf{Copied} & \textbf{Frac.} \\
+\midrule
+$<3$K & 42 & 2656 & 766 & $29\%$ \\
+$3$--$5$K & 129 & 4086 & 1316 & $32\%$ \\
+$5$--$7$K & 46 & 5757 & 1950 & $34\%$ \\
+$\ge 7$K & 18 & 7677 & 3859 & $50\%$ \\
+\midrule
+All & 235 & 4433 & 1537 & $33\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Cache-ready TTFT by islands per target group, derived from job
+137185 paired measurements. Not a new GPU arm and not
+Table~\ref{tab:eval-summary}.}
+\label{tab:ablate-islands}
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Islands} & \textbf{Groups} & \textbf{Pairs} & \textbf{vs Dense} \\
+\midrule
+1 & 89 & 267 & $1.315\times$ \\
+2 & 106 & 318 & $1.492\times$ \\
+3 & 40 & 120 & $1.833\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Cache-ready TTFT by absolute island shift, derived from job
+137185. Not a new GPU arm.}
+\label{tab:ablate-delta}
+\begin{tabular}{lrrr}
+\toprule
+$|\Delta|$ & \textbf{Groups} & \textbf{Pairs} & \textbf{vs Dense} \\
+\midrule
+$<500$ & 41 & 123 & $1.455\times$ \\
+$500$--$1500$ & 97 & 291 & $1.489\times$ \\
+$1500$--$3000$ & 69 & 207 & $1.462\times$ \\
+$\ge 3000$ & 28 & 84 & $1.609\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\small
+\caption{Cache-ready TTFT by copied-token fraction quartile, derived
+from job 137185. Not a new GPU arm.}
+\label{tab:ablate-frac}
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Quartile} & \textbf{Groups} & \textbf{Pairs} & \textbf{vs Dense} \\
+\midrule
+Q1 (least copied) & 59 & 177 & $1.196\times$ \\
+Q2 & 59 & 177 & $1.323\times$ \\
+Q3 & 59 & 177 & $1.508\times$ \\
+Q4 (most copied) & 58 & 174 & $2.116\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Additional Figures}
+\label{app:figures}
+
+These figures expand the compile path and object lifecycle. The 11-page
+body is self-contained without them.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_mechanism.pdf}
+\caption{Fail-closed copy mechanics (job 137185). $1684/1684$ planned
+copies, $0$ fallbacks, $421$ source $K$ pre-rotations. Not mixed into
+Table~\ref{tab:eval-summary}.}
+\Description{Bar chart of planned copies, observed copies, fallbacks, and source pre-rotations.}
+\label{fig:mechanism}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/fig_coverage.pdf}
+\caption{True-lossy islands per target group on the 7B PLAN ($n{=}235$).
+Not a new GPU arm and not Table~\ref{tab:eval-summary}.}
+\Description{Bar chart of groups with one, two, or three admitted file islands.}
+\label{fig:coverage}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\resizebox{\columnwidth}{!}{\input{figures/kv-lifecycle.tikz}}
+\caption{KV object lifecycle. A leased island is either copied in full
+or discarded; there is no partial serve.}
+\Description{Admit, pre-rotate, lease, copy, or Dense-recompute.}
+\label{fig:kv-lifecycle}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\resizebox{\columnwidth}{!}{\input{figures/policy-runtime.tikz}}
+\caption{Compile path from a frozen target group to a leased island.
+Prefetch is not on this path.}
+\Description{PLAN island to page-key lookup, copy kernel, and residual check.}
+\label{fig:policy-runtime}
+\end{figure}

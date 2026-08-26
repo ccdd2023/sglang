@@ -1,0 +1,30 @@
+\begingroup
+\definecolor{ikvblue}{HTML}{2F6DB3}
+\definecolor{ikvnavy}{HTML}{1B4F8A}
+\definecolor{ikvteal}{HTML}{5BB3A7}
+\definecolor{ikvorange}{HTML}{D96B2B}
+\definecolor{ikvgray}{HTML}{6B6B6B}
+\definecolor{fail}{HTML}{F4D4C4}
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  >=Stealth,
+  st/.style={draw=#1, fill=white, rounded corners=2pt, align=center,
+    minimum width=2.15cm, minimum height=0.78cm, inner sep=3pt},
+]
+\node[st=ikvblue] (a) {PLAN admit};
+\node[st=ikvteal, right=0.55cm of a] (b) {Source prefill};
+\node[st=ikvnavy, right=0.55cm of b] (c) {Pre-rotate $K$\\store $V$ as-is};
+\node[st=ikvblue, below=0.7cm of c] (d) {Lease page\\$(\mathrm{pfx}, h, \Delta)$};
+\node[st=ikvteal, left=0.55cm of d] (e) {Target copy\\$\Delta_{\mathrm{res}}=0$};
+\node[st=ikvnavy, left=0.55cm of e] (f) {Release};
+\node[st=ikvorange, fill=fail, below=0.7cm of e] (g) {Mechanical invalid\\$\to$ Dense whole island};
+
+\draw[->, ikvgray] (a) -- (b);
+\draw[->, ikvgray] (b) -- (c);
+\draw[->, ikvgray] (c) -- (d);
+\draw[->, ikvgray] (d) -- (e);
+\draw[->, ikvgray] (e) -- (f);
+\draw[->, ikvorange] (e) -- (g);
+\node[font=\sffamily\tiny, text=ikvgray, below=0.12cm of g] {No partial island. TTL / pin / evict is not this path.};
+\end{tikzpicture}
+\endgroup

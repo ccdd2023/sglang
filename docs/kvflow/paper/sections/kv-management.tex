@@ -1,0 +1,110 @@
+\section{M2: True-Lossy File-Island Copy}
+\label{sec:kv-management}
+
+\subsection{Islands as first-class KV objects}
+
+Each eligible file module is one physical island: a contiguous $K/V$
+range with a source start, a length, a target start, and a single
+$\Delta$. Adjacent modules may share a source request but are not merged
+across different deltas. Ineligible tokens---system prompt, issue text,
+tool logs, debugger notes, and any file that failed the gate---stay on the
+Dense path.
+
+The target compute path is therefore Dense prefix, then copy each
+admitted island, then Dense remainder, then decode. A leased island is
+either copied in full or discarded; there is no partial serve.
+
+A leased island is a page, not a content hash. Its store identity is
+$(\textit{source-prefix hash}, \textit{content hash}, \Delta)$.
+Token-identical modules formed under a different left context, or
+pre-rotated by a different $\Delta$, are different physical pages and
+must not share a handle. CacheWise maps $\Delta{=}0$ prefixes; this key
+is what makes $\Delta\neq 0$ fail-closed rather than a silent mix of
+source-time $K/V$. Lookup-before-alloc may reuse a leased handle only
+when all three fields match.
+
+\subsection{\texorpdfstring{Source-side $K$ pre-rotation}{Source-side K pre-rotation}}
+
+After the source request, the controller copies selected $K/V$ into
+controller-owned pool slots and leases them to the declared target uses.
+At materialization, $K$ is rotated by $\Delta$ and $V$ is stored
+unchanged:
+\begin{equation}
+K^{\mathrm{pool}} = R_{\Delta}\, K^{\mathrm{source}}, \qquad
+V^{\mathrm{pool}} = V^{\mathrm{source}}.
+\label{eq:prerotate}
+\end{equation}
+$R_{\Delta} = R_{t} R_{s}^{-1}$ is the closed-form RoPE correction. The copy applies the leftover
+$\Delta_{\mathrm{res}} = (t-s) - \Delta_{\mathrm{source}}$.
+The admitted campaign sets $\Delta_{\mathrm{source}} = t-s$, so
+$\Delta_{\mathrm{res}} = 0$ at copy and no extra rotate remains.
+Source-side pre-rotation is a speed optimization: it removes a
+per-target rotate from the copy critical path. It is not an Accuracy
+mechanism. $V$ is never rotated, because RoPE does not act on values.
+The activation-level reason not to default to suffix recompute is
+Section~\ref{sec:attn-proxy}: on Qwen2.5-Coder-3B the suffix attention
+TV is an order of magnitude smaller than the island's source-time
+formation TV. Pre-rotation corrects $K$ phase under a known $\Delta$;
+it does not estimate Attention and does not change the admit rule.
+
+Figure~\ref{fig:kv-reuse} is the cross-turn mapping: an upstream read of
+a path becomes a downstream island at a new index.
+
+\begin{figure}[ht]
+\centering
+\resizebox{\columnwidth}{!}{\input{figures/kv-reuse.tikz}}
+\caption{Cross-turn file-module reuse. Token IDs match; positions do not
+($\Delta=t-s\neq 0$). Only $K$ is phase-corrected; $V$ is copied as-is.}
+\Description{Source file island copied onto a shifted target index after RoPE correction of K.}
+\label{fig:kv-reuse}
+\end{figure}
+
+\subsection{Fail-closed residual check}
+
+Let $\Delta_{\mathrm{res}} = (t-s) - \Delta_{\mathrm{source}}$ be the
+remaining RoPE shift after the source-side rotate. The admitted path
+requires $\Delta_{\mathrm{res}} = 0$:
+\begin{equation}
+\Delta_{\mathrm{source}} = t - s
+\;\Rightarrow\;
+\Delta_{\mathrm{res}} = 0
+\quad\text{at copy.}
+\label{eq:fail-closed}
+\end{equation}
+A copy that is not mechanically valid---token-hash mismatch, incomplete
+coverage, or allocation failure---is discarded and the span is
+Dense-recomputed. The engine never splices a partial island into the
+target cache. A leftover nonzero $\Delta_{\mathrm{res}}$ is not the
+admitted fast path; the frozen campaign never takes it (421 source
+pre-rotations, 0 fallbacks). Zero observed fallbacks is not a reason
+to remove the check, and it is not a contribution. Prefetch miss on a
+still-owned island degrades to that owned copy; it does not
+Dense-recompute a valid island.
+
+\subsection{What stays off}
+
+Prefetch stays off in the headline 7B campaign, as does ordinary radix
+prefix reuse (M1 and M3 in Table~\ref{tab:module-io}). Host-overflow may
+hold source slots but is not a novelty claim. Copy tiling stays at the
+engine default (256 tokens). Those knobs are not Table~\ref{tab:eval-summary}.
+
+Table~\ref{tab:reuse-policy} states the only policy the runtime consults.
+
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{Admit policy for file modules. Anything else is Dense.}
+\label{tab:reuse-policy}
+\begin{tabular}{@{}p{0.30\columnwidth}p{0.36\columnwidth}p{0.26\columnwidth}@{}}
+\toprule
+\textbf{Object} & \textbf{Condition} & \textbf{Action} \\
+\midrule
+\texttt{repository\_code} & IDs match, $\Delta\neq 0$, version OK & copy after $K$ rotate \\
+\texttt{repository\_code} & $\Delta = 0$ & drop (prefix) \\
+\texttt{repository\_code} & hash / coverage / alloc miss & discard, Dense \\
+Issue / tool / role text & --- & Dense \\
+Stale or multi-file span & --- & Dense \\
+\bottomrule
+\end{tabular}
+\end{table}

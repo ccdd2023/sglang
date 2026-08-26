@@ -3,11 +3,10 @@
 This branch (`integration/template-prefetch-swebench`) is the **ASPLOS 2027**
 ImpactKV engine: coding-aware true-lossy **file-island** KV copy.
 
-Full collaborator notes (frozen numbers, paper, artifacts, GPU reproduce):
+**Start here:** [`../../IMPACTKV.md`](../../IMPACTKV.md) at the repo root.
 
-https://github.com/flaminyu/CodeMAS_Project/blob/master/IMPACTKV.md
-
-(or `CodeMAS_Project/IMPACTKV.md` on the cluster).
+That file is the only collaborator landing page. Paper sources and the claim
+checker live in [`paper/`](paper/). You do **not** need a CodeMAS clone.
 
 ## What landed here
 
@@ -18,6 +17,7 @@ https://github.com/flaminyu/CodeMAS_Project/blob/master/IMPACTKV.md
 | `python/sglang/srt/mem_cache/kvcomm_prefetch/` | M3; **off** in the 7B headline job 137185 |
 | `benchmark/multi_workflow/run_swebench_*.py` | Exact-prompt SWE-bench replay campaigns |
 | `benchmark/multi_workflow/slurm/swebench_*.sbatch` | Slurm; exclude `gpu[10-13,15,17,23-24]` |
+| `docs/kvflow/paper/` | ASPLOS TeX + `scripts/check_asplos_claims.py` |
 
 Headline campaign (do not overwrite frozen RESULT): Qwen2.5-Coder-7B-Instruct,
 job 137185, cache-ready **1.492×**, copies **1684/1684**, prefetch off, prefix off.
@@ -31,8 +31,11 @@ python -m pytest -q \
   python/sglang/srt/mem_cache/kvcomm/test_core.py \
   python/sglang/srt/mem_cache/kvcomm/test_radix_backend.py \
   python/sglang/srt/mem_cache/kvcomm_prefetch/test_*.py
+
+cd docs/kvflow/paper
+python3 scripts/check_asplos_claims.py   # needs IMPACTKV_ARTIFACTS
 ```
 
 Historical V40–V46 / RepoBench notes in this folder are **not** the ASPLOS
-headline. Start from the CodeMAS `IMPACTKV.md` instead of
-`COLLABORATOR_QUICKSTART_20260729.md`.
+headline. Ignore `COLLABORATOR_QUICKSTART_20260729.md` unless you are reading
+that older campaign.

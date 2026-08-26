@@ -1,0 +1,75 @@
+\section{Implementation}
+\label{sec:implementation}
+
+\subsection{SGLang integration}
+
+\method{} is implemented in a SGLang fork as a controller-owned KV pool
+beside the ordinary request cache. The reuse arm publishes a dynamic
+manifest of sources and cases; the Dense arm uses the same generate path
+with copy disabled. Ordinary prefix reuse is compiled off in both arms
+so the contrast is island copy versus Dense prefill, not island copy
+versus radix.
+
+Each source request writes selected $K/V$ into controller-owned slots.
+Materialization applies \texttt{pre\_rotate\_delta} to $K$ only, then
+records the applied delta in a per-source map. At the target the leftover
+rotate is
+$\Delta_{\mathrm{res}}=(t_{\mathrm{start}}-s_{\mathrm{start}})-\Delta_{\mathrm{source}}$.
+The admitted campaign sets $\Delta_{\mathrm{source}}$ to the logical
+shift, so $\Delta_{\mathrm{res}}=0$ and the copy path does not rotate
+again. Before a copy, the controller checks source token-ID hashes and
+full target coverage. Hash mismatch, an unowned gap, allocation failure,
+or a copy that is not mechanically valid raises a fallback event and the
+span is Dense-recomputed. The server ledger records copy events, fallback events, and the
+applied pre-rotate delta. Mechanical success is read from that ledger,
+not inferred from latency. Copy tiles stay at the engine default of
+256 tokens.
+
+Listing~\ref{list:policy-config} is the conceptual manifest shape.
+Ordinary prefix reuse (M1) and prefetch (M3) are off in job 137185.
+A prefetch miss copies from the still-owned handle (M2) instead of
+Dense-recomputing the island.
+
+\begin{lstlisting}[language=Python, caption={Reuse manifest (conceptual)}, label={list:policy-config}, breaklines=false, columns=fullflexible, basicstyle=\ttfamily\footnotesize]
+manifest = {
+  "prefix_reuse": False,  # M1 off
+  "prefetch": False,      # M3 off
+  "sources": [{
+    "id": "read:mod.py@v3", "start": 1842,
+    "length": 1109, "pre_rotate_delta": -1250,
+  }],
+  "cases": [{
+    "target_start": 592, "length": 1109,
+    "source_id": "read:mod.py@v3",
+  }],
+}
+\end{lstlisting}
+
+\subsection{Exact-prompt replay}
+
+The speed campaign does not re-sample the live agent. It reconstructs
+the exact target token IDs from the frozen trajectories with the same
+chat template and rolling-6 compaction, then replays those IDs. Decode
+is one token. Each group has one warmup and three measured rounds. The
+reuse arm materializes sources once per group; the Dense arm does not.
+Cache-ready TTFT is the target generate time after sources already
+exist, matching the protocol used by CacheBlend and KVCOMM.
+
+Server processes restart every 20 groups to bound long-run memory drift.
+A group that fails mid-flight is retried after a fresh server. Those
+guards are operational; they are not part of the reuse policy.
+
+\subsection{Model and hardware}
+
+The headline model is Qwen2.5-Coder-7B-Instruct. The campaign ran as
+Slurm job 137185 on a compute GPU (not a debug or login node).
+Temperature is 0. The same protocol on Qwen3-Coder 30B-A3B Instruct
+(AWQ 4-bit, job 96092) is Appendix~\ref{app:30b}; we do not mix that
+table with the 7B headline or with another model family's
+official-Accuracy table.
+
+A PLAN group is hashes, $(s,t,L)$, and $\Delta\neq 0$. Length, $N$-use,
+island-count, and repo slices are derived from the frozen
+\texttt{dense.json}/\texttt{reuse.json} pair; they are not a second GPU
+campaign. Porting to another tokenizer means decoding the island text and
+re-finding the span. Replaying 30B token ids on a 7B vocabulary is invalid.

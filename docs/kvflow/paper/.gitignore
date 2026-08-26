@@ -1,0 +1,17 @@
+.pytest_cache/
+__pycache__/
+*.pyc
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.toc
+*.fdb_latexmk
+*.fls
+PAPER_LOGIC_CN.aux
+PAPER_LOGIC_CN.log
+PAPER_LOGIC_CN.out
+PAPER_LOGIC_CN.tex
+figures/*.aux
+figures/*.log

@@ -1,0 +1,32 @@
+\begingroup
+\definecolor{ikvblue}{HTML}{2F6DB3}
+\definecolor{ikvnavy}{HTML}{1B4F8A}
+\definecolor{ikvgray}{HTML}{6B6B6B}
+\definecolor{csys}{HTML}{E6E6E6}
+\definecolor{ciss}{HTML}{F3E6C8}
+\definecolor{cfile}{HTML}{C5DCF0}
+\definecolor{ctool}{HTML}{F4D4C4}
+\definecolor{casst}{HTML}{DDE8D8}
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  >=Stealth,
+  tok/.style={minimum height=0.62cm, inner sep=2pt, align=center, font=\sffamily\tiny},
+]
+\node[font=\sffamily\scriptsize\bfseries, text=ikvnavy, anchor=west] at (0,2.15) {Source prompt (index $s$)};
+\node[tok, draw=ikvgray, fill=csys, minimum width=1.15cm] (s1) at (0.9,1.55) {system};
+\node[tok, draw=ikvgray, fill=ciss, minimum width=1.35cm, right=0.08cm of s1] (s2) {issue};
+\node[tok, draw=ikvblue, fill=cfile, minimum width=2.55cm, right=0.08cm of s2] (s3) {\texttt{mod.py} @ $s$};
+\node[tok, draw=ikvgray, fill=casst, minimum width=1.35cm, right=0.08cm of s3] (s4) {assistant};
+
+\node[font=\sffamily\scriptsize\bfseries, text=ikvnavy, anchor=west] at (0,0.55) {Target prompt (index $t$)};
+\node[tok, draw=ikvgray, fill=csys, minimum width=1.15cm] (t1) at (0.9,-0.05) {system};
+\node[tok, draw=ikvgray, fill=ciss, minimum width=1.35cm, right=0.08cm of t1] (t2) {issue};
+\node[tok, draw=ikvgray, fill=ctool, minimum width=1.45cm, right=0.08cm of t2] (t3) {tool log};
+\node[tok, draw=ikvblue, fill=cfile, minimum width=2.55cm, right=0.08cm of t3] (t4) {\texttt{mod.py} @ $t$};
+\node[tok, draw=ikvgray, fill=casst, minimum width=1.15cm, right=0.08cm of t4] (t5) {asst.};
+
+\draw[->, ikvblue, thick] (s3.south) -- node[right, font=\sffamily\tiny, xshift=2pt, align=left] {copy: $K\leftarrow R_{\Delta}K$, $V$ as-is\\$\Delta=t-s\neq 0$} (t4.north);
+
+\node[font=\sffamily\tiny, text=ikvgray, anchor=west] at (0,-0.85) {Token IDs match; positions do not. Fail-closed if the copy is mechanically invalid.};
+\end{tikzpicture}
+\endgroup

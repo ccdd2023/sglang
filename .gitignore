@@ -194,6 +194,10 @@ work_dirs/
 
 !logo.png
 
+# ImpactKV ASPLOS paper: collaborators need figures without a second repo
+!docs/kvflow/paper/**/*.pdf
+!docs/kvflow/paper/**/*.png
+
 # Prerequisites
 *.d
 

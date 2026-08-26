@@ -2,7 +2,7 @@
 
 **Current ASPLOS headline** (7B SWE-bench file-module replay, job 137185)
 is **not** the V46 RepoBench drivers below. Start at
-`docs/kvflow/IMPACTKV.md` and `CodeMAS_Project/IMPACTKV.md`.
+[`../../IMPACTKV.md`](../../IMPACTKV.md) (this repo only; no CodeMAS clone).
 
 SWE-bench exact-prompt runners on this branch:
 

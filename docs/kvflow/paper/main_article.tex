@@ -1,0 +1,137 @@
+% ASPLOS 2027 submission template (official CFP):
+%   \documentclass[sigplan,anonymous,review,nonacm]{acmart}
+% Body limit: 11 pages (references, GenAI acknowledgments, and
+% appendices do not count). Do not squeeze vertical space.
+\documentclass[sigplan,anonymous,review,nonacm]{acmart}
+
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage[ruled,vlined]{algorithm2e}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{placeins}
+\usepackage{flafter}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,shapes.geometric,arrows,positioning,fit,calc,backgrounds}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.17}
+
+\graphicspath{{figures/}}
+\makeatletter
+\def\input@path{{./}{sections/}}
+\makeatother
+\providecommand{\Description}[1]{}
+
+\newcommand{\method}{ImpactKV}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstset{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\scriptsize\ttfamily,
+    breaklines=true,
+    numbers=none,
+    frame=single,
+    captionpos=b,
+    xleftmargin=0.5em,
+    xrightmargin=0.5em
+}
+
+% ASPLOS CFP asks for numbered, clickable citations.
+\citestyle{acmnumeric}
+\settopmatter{printacmref=false}
+
+\title{ImpactKV: Coding-Aware Lossy KV Reuse for Shifted File-Island Prefill}
+
+\author{Anonymous Author(s)}
+\affiliation{%
+  \institution{Anonymous Institution}
+  \country{}
+}
+
+\renewcommand{\shortauthors}{Anonymous Author(s)}
+
+\begin{CCSXML}
+<ccs2012>
+ <concept>
+  <concept_id>10010520.10010553.10010562</concept_id>
+  <concept_desc>Computer systems organization~Cloud computing</concept_desc>
+  <concept_significance>500</concept_significance>
+ </concept>
+ <concept>
+  <concept_id>10011007.10011006.10011041.10011047</concept_id>
+  <concept_desc>Software and its engineering~Main memory</concept_desc>
+  <concept_significance>500</concept_significance>
+ </concept>
+ <concept>
+  <concept_id>10010147.10010178.10010224</concept_id>
+  <concept_desc>Computing methodologies~Artificial intelligence</concept_desc>
+  <concept_significance>300</concept_significance>
+ </concept>
+</ccs2012>
+\end{CCSXML}
+
+\ccsdesc[500]{Computer systems organization~Cloud computing}
+\ccsdesc[500]{Software and its engineering~Main memory}
+\ccsdesc[300]{Computing methodologies~Artificial intelligence}
+
+\keywords{KV cache, RoPE, prefill, multi-agent systems, code generation}
+
+\begin{document}
+
+\begin{abstract}
+Coding agents repeatedly ingest the same repository files across planner,
+implementer, tester, and reviewer turns, but those files rarely sit at a
+shared prompt prefix. Token IDs match; RoPE phases and surrounding context
+do not. Exact prefix caches therefore miss the reuse, while general lossy
+copiers are not told which coding spans are safe to approximate.
+
+This paper presents \textbf{\method{}}, a coding-aware true-lossy KV reuse
+path for that setting. A template compiler admits version-valid single-file
+\texttt{repository\_code} modules whose token IDs match and whose logical
+shift is nonzero; it does not estimate Attention. Source-side $K$ is
+pre-rotated by the known position delta so the residual RoPE $\Delta$ at
+copy is zero; $V$ is copied as-is. A mechanically invalid copy is
+fail-closed: the engine discards the island and Dense-recomputes the span;
+it never serves a partial or misaligned island. Prefetch and ordinary prefix
+reuse are off in the headline campaign.
+
+On frozen SWE-bench Verified trajectories (24 live-agent tasks; 235
+exact-prompt target groups; 421 true-lossy islands) with
+Qwen2.5-Coder-7B-Instruct, \method{} copies $1684/1684$ planned
+islands with zero fallback and is $1.492\times$ cache-ready faster than the
+same SGLang Dense (paired TTFT win rate $99.3\%$). One-token output
+agreement is $93.6\%$ and is \emph{not} official SWE-bench resolved. We
+do not claim a system-wide throughput crown.
+\end{abstract}
+
+\maketitle
+
+\input{sections/introduction}
+\input{sections/background}
+\input{sections/motivation}
+\input{sections/problem}
+\input{sections/template}
+\input{sections/kv-management}
+\input{sections/implementation}
+\input{sections/evaluation}
+\input{sections/related-work}
+\input{sections/conclusion}
+
+\appendix
+\input{sections/appendix}
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{references}
+
+\end{document}

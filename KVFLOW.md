@@ -1,9 +1,13 @@
 # KVFlow research fork
 
+> **ASPLOS 2027 ImpactKV (SWE-bench file-island) is not this page.**
+> Collaborator entry: [`IMPACTKV.md`](IMPACTKV.md). Paper + checker:
+> [`docs/kvflow/paper/`](docs/kvflow/paper/). This file is the older
+> V40–V46 / prefetch composition note (2026-07-28).
+
 This file is the authoritative repository entry point as of **2026-07-28**.
-Historical weekly reports live outside this repository under
-`/home/gfy/CodeMAS_Project/kvflow-reports/`; frozen experiment outputs live
-under `/home/gfy/CodeMAS_Project/kvflow-artifacts/`.
+Frozen experiment outputs for the current headline live under
+`IMPACTKV_ARTIFACTS` (cluster default `/home/gfy/CodeMAS_Project/kvflow-artifacts/`).
 
 KVFlow studies two independent ways to reduce time-to-first-token for coding
 workloads:

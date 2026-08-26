@@ -1,0 +1,58 @@
+\section{Background: KV Management Today}
+\label{sec:background}
+
+Serving engines treat the KV cache as a first-class memory object: it is
+paged, shared, and evicted much like a process working
+set~\cite{kwon2023efficient,sglang2024}. Prefill time and GPU memory both
+grow with prompt length, so every reuse that avoids a Dense prefill is a
+systems win---if the mapping is legal.
+
+\subsection{Exact prefix reuse}
+
+When two requests share a byte-identical prefix at the same positions, a
+radix or paged prefix cache is exact and cheap.
+PagedAttention stores KV in pages and shares exact
+prefixes~\cite{kwon2023efficient}. SGLang's radix tree does the same for
+structured programs~\cite{sglang2024}. LMCache makes that prefix portable
+across GPU, host, and remote backends~\cite{liu2025lmcache}. KVFlow
+schedules and prefetches those prefixes for agent
+graphs~\cite{pan2025kvflow}. CacheWise (ForeCache) is the closest
+coding-agent serving system: it cuts session completion by prefix-aware
+scheduling and eviction when $\Delta{=}0$~\cite{tiwari2026cachewise}.
+
+All of these systems require $\Delta = 0$ and a shared left context.
+They are the right answer for that case. They are silent when a later
+role re-reads the same file at a new index.
+
+\subsection{Lossy copiers and lifetime managers}
+
+CacheBlend fuses cached knowledge into a new prefix by recomputing a
+fraction of tokens~\cite{yao2024cacheblend}. KVCOMM communicates almost
+the entire prompt across agents~\cite{ye2024kvcomm}. RelayCaching reuses
+decode-phase KV as later prefill~\cite{relaycaching}. These methods copy
+a lot and are typically fast. They are not told which coding spans are
+safe to approximate: a debugger note that names the candidate patch is
+the same kind of ``context'' as a version-valid repository file.
+
+Continuum pins KV across tool calls with a TTL~\cite{continuum}.
+Tokencake schedules multi-agent jobs around the
+cache~\cite{tokencake2025}. Retention and job scheduling are not a
+file-level admit rule.
+
+RoPE attaches a phase $R_p$ to every key~\cite{su2021roformer}. Reusing a
+key computed at $s$ in a target that needs $t$ requires
+$R_{t} R_{s}^{-1} = R_{\Delta}$ on $K$; $V$ and the surrounding attention
+context remain those of the source. CacheSlide, RedKnot, KVLink, and
+Notes-at-Prefill already apply that closed-form rotate under a known
+$\Delta$~\cite{liu2026cacheslide,liu2026redknot,yang2025kvlink,li2026notes}.
+The rotate is the copy implementation, not a coding-file whitelist.
+
+\subsection{Limitation}
+
+Exact prefix caches miss shifted files. Generic lossy copiers ignore
+which files may be approximated. Lifetime managers pin or evict without
+asking whether the bytes are a version-valid \texttt{repository\_code}
+module. Copying $K/V$ across $\Delta = t-s \neq 0$ is therefore
+\emph{true-lossy reuse}: exact on token IDs, approximate on activations,
+and currently unguided by the coding protocol. Section~\ref{sec:motivation}
+asks whether that protocol supplies the missing admit rule.
